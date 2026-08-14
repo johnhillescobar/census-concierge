@@ -14,6 +14,11 @@ Execution order. `DESIGN.md` holds the what and why.
    done.
 4. If a slice needs a budget raised, stop and ask. That is a separate human
    commit with a reason logged in `budgets.toml`.
+5. **A spike is not a slice.** It is timeboxed, runs on a throwaway branch, and
+   ships a written decision rather than code — so rules 1 and 3 do not apply to
+   it. Overrunning the timebox is not a reason to extend it; it is the answer,
+   and the answer is the simpler option. Spikes exist to stop a framework
+   decision from being made halfway through the slice that depends on it.
 
 ---
 
@@ -168,7 +173,7 @@ a core question.
 - [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
 - [ ] **FastAPI serves the Vite build output** as static files. One container,
       one domain, no CORS (DESIGN §5). The build output path is a deployment
-      detail, not a local convenience — set it now, not at slice 7.
+      detail, not a local convenience — set it now, not at slice 8.
 
 **Done when:** you type in a browser and get an answer with a usable URL.
 
@@ -269,33 +274,81 @@ and download the CSV.
 
 ---
 
-## Slice 5 — Memory and follow-ups
+## Spike — does LangGraph earn its place?
 
-This is the first slice where LangGraph may earn its place.
+**Half a day, timeboxed. A throwaway branch and a written decision — not merged
+code.** Run it before slice 5 starts, because the answer changes what slice 5
+builds and it is the wrong thing to be deciding halfway through.
+
+The question: does LangGraph's Postgres checkpointer justify two dependencies,
+against ~30 lines that append messages to a table keyed by `thread_id` and load
+them on the next turn?
+
+Evaluate on:
+
+- [ ] Lines of code each way, and the delta to `direct_dependencies`.
+- [ ] What LangGraph gives *beyond* persistence — interrupts, time-travel,
+      streaming state. Does anything in slices 5–8 need them? If nothing does,
+      the checkpointer is the only thing being bought.
+- [ ] How well the checkpointer sits under a **hand-rolled loop** rather than a
+      graph. This is the crux: it was designed for `StateGraph`, and if using it
+      means reintroducing a graph to hold the loop, the cost is much larger than
+      two dependencies.
+- [ ] Cost of switching later, in each direction.
+
+**Done when:** a dated decision with its reason is in DESIGN §9, the branch is
+deleted, and `budgets.toml` is untouched.
+
+**Do not** let this become slice 5. If the spike overruns the timebox, that is
+itself the answer: pick the 30 lines and move on.
+
+---
+
+## Slice 5 — Conversation persistence
+
+Storage only. A conversation survives a restart; it does not yet understand
+"what about Texas?".
 
 - [ ] Postgres. **Never SQLite.**
 - [ ] `thread_id` per conversation, **owned by a `user_id`** — take it from day
-      one even though there is only one user until slice 7, where it arrives as
+      one even though there is only one user until slice 8, where it arrives as
       a JWT claim. Retrofitting ownership onto existing rows is the expensive
       version of this.
-- [ ] Re-ask whether LangGraph is needed at all. Since we own the loop,
-      persistence is: append messages to a table keyed by `thread_id`, load them
-      on the next turn — roughly 30 lines, and it drops two dependencies. Decide
-      on the merits here rather than inheriting the assumption.
 - [ ] Message arrays as JSONB. Postgres gives the document flexibility without
       giving up transactions for the report job's state machine.
-- [ ] Follow-up reference resolution: *"what about Texas?"*, *"add median
-      income"*, *"go back to the second one"*.
-- [ ] Add multi-turn cases to the golden set.
+- [ ] `POST /conversations`, `POST /conversations/{id}/messages`,
+      `GET /conversations/{id}`. That last one is not optional: without it a
+      page refresh loses the canvas.
+- [ ] Implement whichever way the spike decided.
+
+**Done when:** you hold a conversation, restart the server, reload the page, and
+the canvas is still there.
+
+**Not in this slice:** reference resolution, auth, PDF.
+
+---
+
+## Slice 6 — Follow-ups and reference resolution
+
+The conversational half, on top of storage that already works. Split from slice
+5 because these fail differently: persistence either survives a restart or does
+not, while reference resolution is a nondeterministic quality problem measured
+across repeats.
+
+- [ ] Resolve *"what about Texas?"*, *"add median income"*, *"go back to the
+      second one"* against prior turns.
+- [ ] Multi-turn cases in the golden set, scored across `--repeat`.
+- [ ] A reference the agent cannot resolve becomes a **warning with the
+      candidates shown**, never a blocking question.
 
 **Done when:** a three-turn refinement conversation produces the right final
-dataset, and it survives a server restart.
+dataset, at a pass rate you measured rather than saw once.
 
 **Not in this slice:** auth, PDF.
 
 ---
 
-## Slice 6 — PDF export
+## Slice 7 — PDF export
 
 - [ ] `POST /reports` → job id. Background worker. **Never a request handler.**
 - [ ] **The container filesystem is ephemeral.** The worker writes the PDF to
@@ -313,7 +366,7 @@ to a grant report.
 
 ---
 
-## Slice 7 — Auth and hosting
+## Slice 8 — Auth and hosting
 
 The shape was settled in DESIGN §5 so that slices 0–6 do not build against
 assumptions this slice has to undo. Do not build any of it before here.
@@ -338,7 +391,7 @@ assumptions this slice has to undo. Do not build any of it before here.
 
 ---
 
-## After slice 7
+## After slice 8
 
 Do not plan this yet. Revisit with real usage data. Candidates in rough order:
 clarification *only where the demo suite proves it is needed*, saved sessions,

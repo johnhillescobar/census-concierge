@@ -40,9 +40,11 @@ futures.
 | 2 | `web/`, the generated client, the CI staleness check |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |
+| *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |
-| 6 | the report worker and job storage |
-| 7 | auth, deployment topology, the container and what is baked into it |
+| 6 | follow-up reference resolution |
+| 7 | the report worker and object storage |
+| 8 | auth, deployment topology, the container and what is baked into it |
 
 ## Diagram
 

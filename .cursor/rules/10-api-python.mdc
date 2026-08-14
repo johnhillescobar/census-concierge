@@ -12,7 +12,8 @@ Python 3.12. Ruff + mypy. Keep any file under 400 lines (enforced).
 **One tool-calling loop. Four to six tools.** Not a graph.
 
 LangGraph appears only where durable checkpointing and multi-user resumption
-genuinely require it (slice 5, conversation memory). Never for routing —
+genuinely require it — and whether it does at all is decided by a timeboxed
+spike before slice 5, not assumed. Never for routing —
 routing branches are how the predecessor reached 14 nodes and 10 conditional
 edge blocks.
 
@@ -57,7 +58,7 @@ dispatcher share a module, and a middleware layer will not fit beside the thing
 it wraps.
 
 **Revisit only when** there are two loops, or a concern that applies
-conditionally per user or per tool. Neither exists through slice 7.
+conditionally per user or per tool. Neither exists through slice 8.
 
 ## Guards are pure functions, not hooks
 
@@ -156,7 +157,7 @@ request. They must never become `POST /search_tables` and `POST /build_url`.
 One route per tool looks like helpful API design and ends with the frontend
 orchestrating the agent's reasoning over HTTP — routing moved to the one place
 nobody can evaluate it. The route budget is **10**; the planned surface through
-slice 7 is 9. See `.claude/PLAN.md` for which slice owns which route.
+slice 8 is 9. See `.claude/PLAN.md` for which slice owns which route.
 
 ## Output is not a tool either
 
@@ -220,7 +221,8 @@ token count catches that.
   unanswerable without it.
 - **Latest available ACS5 / ACS1 vintages**, read from the index. A hardcoded
   "2023" is wrong every autumn and nobody notices.
-- Conversation summary, at slice 5.
+- Conversation summary, at slice 6 — when follow-ups land, not when storage
+  does.
 
 ### Changing it
 
