@@ -81,6 +81,12 @@ loaded at startup. Revisit only if decennial or PUMS are added.
       and being able to read what the LLM wrote for `B28002` is how you catch
       garbage. (`.cursorignore` excludes `data/` from the coding agent's reach;
       that is not `.gitignore`.)
+- [ ] **Score the generated questions mechanically.** For each table, do its own
+      synthetic questions retrieve that table at rank 1? Write
+      `synthetic_self_retrieval` into `evidence/latest.json`; the floor is 0.95.
+      Below that the generation is garbage for some slice of the corpus, and
+      nothing else would catch it — "read what the LLM wrote" does not survive
+      1,300 tables under time pressure.
 - [ ] **Split the two indexes by strength, do not feed both everything:**
       BM25 gets title + universe + concept + *all* variable labels — length
       normalization handles long documents, and this carries jargon and exact

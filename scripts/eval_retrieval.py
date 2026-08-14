@@ -50,6 +50,10 @@ class Result:
         return self.rank == 1
 
     @property
+    def hit_at_3(self) -> bool:
+        return self.rank is not None and self.rank <= 3
+
+    @property
     def hit_at_k(self) -> bool:
         return self.rank is not None
 
@@ -107,6 +111,12 @@ def summarize(results: list[Result]) -> dict:
         return {
             "n": n,
             "retrieval_at_1": round(sum(r.hit_at_1 for r in subset) / n, 3),
+            # @3 is recorded but not gated. `@1` is a PROXY for answered_rate,
+            # which is the number that matters and cannot be measured until an
+            # agent exists. If the agent turns out to weigh several candidates
+            # on universe and vintage rather than taking the top hit, @3 is the
+            # honest gate — revisit on this data, not on argument.
+            "retrieval_at_3": round(sum(r.hit_at_3 for r in subset) / n, 3),
             f"retrieval_at_{TOP_K}": round(sum(r.hit_at_k for r in subset) / n, 3),
             "mrr": round(sum(r.reciprocal_rank for r in subset) / n, 3),
         }
@@ -147,6 +157,7 @@ def main() -> int:
             continue
         print(
             f"  {tier:<10} n={stats['n']:<3}  @1={stats['retrieval_at_1']:.0%}"
+            f"   @3={stats['retrieval_at_3']:.0%}"
             f"   @{TOP_K}={stats[f'retrieval_at_{TOP_K}']:.0%}   mrr={stats['mrr']:.2f}"
         )
     overall = summary["overall"]

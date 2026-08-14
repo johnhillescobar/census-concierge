@@ -13,6 +13,16 @@ api_src_loc          = 4000   # non-blank, non-comment lines under api/src
 api_src_files        = 40
 max_file_loc         = 400    # any single file
 web_src_loc          = 3000
+doc_lines            = 1600   # PRESCRIPTIVE docs only: CLAUDE.md, DESIGN,
+                              # PLAN, .cursor/rules, .cursor/commands,
+                              # .claude/skills, docs/playbooks. These are
+                              # instructions an agent must hold in context, and
+                              # more of them means less of them gets followed.
+                              # Currently ~1531 — near the cap on purpose: a new
+                              # rule should cost an old one.
+                              # NOT counted: docs/ARCHITECTURE.md, which
+                              # describes what exists and must grow with the
+                              # system, and the frozen ideation transcript.
 system_prompt_tokens = 1200   # string-literal chars / 4 under api/src/prompts.
                               # A token budget, not a line budget: this is paid
                               # on every turn of every loop, and it competes for
@@ -54,8 +64,21 @@ p95_latency_seconds  = 20.0   # golden suite, measured by `make demo`
 
 [quality]
 # Floors, not ceilings: these may only be RAISED, and only by evidence.
-retrieval_at_1_min   = 0.70   # correct table ranked first, long-tail question set
+retrieval_at_1_min   = 0.70   # correct table ranked first, long-tail question set.
+                              # A PROXY for answered_rate, which is what actually
+                              # matters and cannot be measured until slice 1.
+                              # retrieval_at_3 is recorded alongside but not
+                              # gated; if the agent turns out to weigh several
+                              # candidates rather than taking the top hit, @3 is
+                              # the honest gate. Revisit on that data.
 answered_rate_min    = 0.70   # correct URL + data returned
+synthetic_self_retrieval_min = 0.95
+                              # Do a table's own generated questions retrieve
+                              # that table at rank 1? Near-perfect or the
+                              # generation is garbage. This is the mechanical
+                              # check on index build quality — otherwise nothing
+                              # catches bad synthetic questions the way the
+                              # structural budgets catch code growth.
 
 # --- budget change log -------------------------------------------------------
 # Append one line per change: date, field, old -> new, reason.

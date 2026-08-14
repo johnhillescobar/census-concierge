@@ -120,6 +120,38 @@ def _count_tools(files: list[Path]) -> int:
     )
 
 
+def _doc_lines() -> int:
+    """Lines of PRESCRIPTIVE documentation.
+
+    Rules an agent must hold in context. More of them means less of them gets
+    followed, and this is the one surface that grew unbudgeted while everything
+    else was capped.
+
+    Excluded deliberately: `docs/ARCHITECTURE.md`, which describes what exists
+    and must grow with the system, and the frozen ideation transcript.
+    """
+    patterns = (
+        "CLAUDE.md",
+        ".claude/DESIGN.md",
+        ".claude/PLAN.md",
+        ".cursor/rules/*.mdc",
+        ".cursor/commands/*.md",
+        ".claude/skills/*/SKILL.md",
+        "docs/playbooks/*.md",
+    )
+    seen: set[Path] = set()
+    for pattern in patterns:
+        seen.update(p for p in ROOT.glob(pattern) if p.is_file())
+
+    total = 0
+    for path in sorted(seen):
+        try:
+            total += len(path.read_text(encoding="utf-8").splitlines())
+        except (OSError, UnicodeDecodeError):
+            continue
+    return total
+
+
 def _prompt_tokens() -> int:
     """Approximate tokens in the system prompt: string-literal chars / 4.
 
@@ -185,6 +217,7 @@ def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
         ),
         Check("web src LOC", sum(_loc(p) for p in web_files), size["web_src_loc"]),
         Check("system prompt tokens", _prompt_tokens(), size["system_prompt_tokens"]),
+        Check("doc lines", _doc_lines(), size["doc_lines"]),
         Check(
             "graph nodes",
             _count_pattern(api_files, re.compile(r"\.add_node\s*\(")),
@@ -230,6 +263,7 @@ def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
     for key, limit_key in (
         ("retrieval_at_1", "retrieval_at_1_min"),
         ("answered_rate", "answered_rate_min"),
+        ("synthetic_self_retrieval", "synthetic_self_retrieval_min"),
     ):
         value = _latest_evidence(key)
         if value is not None:

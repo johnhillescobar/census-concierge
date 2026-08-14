@@ -251,6 +251,15 @@ scoreboard describe something that is no longer running.
 **first**. The agent acts on the top hit; a right answer at rank 4 is a wrong
 answer to the user.
 
+**`@1` is a proxy, and should be treated as one.** The number that matters is
+`answered_rate`, which cannot be measured until an agent exists in slice 1. `@1`
+is the best stand-in available before then — but it assumes the agent takes the
+top hit rather than weighing two or three candidates on universe and vintage. If
+it turns out to do the latter, `@3` is the honest gate and `@1` is needlessly
+punishing. So `@3` is recorded from the first eval run onward, ungated, and the
+choice gets revisited on that data rather than on argument. Do not over-optimize
+a proxy without knowing it is one.
+
 `@5` and MRR are diagnostics, and the gap between them is informative:
 
 - **@5 low** → the index is broken; the table is not findable at all.
