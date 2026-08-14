@@ -1,0 +1,52 @@
+# Virtual workspace root. The application lives in api/; this file exists so
+# `uv run` works from the repo root and so lint/type config is shared by the
+# app and the root scripts.
+#
+# The dependency budget deliberately counts api/pyproject.toml, not this file:
+# tooling is not application complexity.
+
+[tool.uv.workspace]
+members = ["api"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pre-commit>=4.0",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["packages/client"]
+
+[tool.ruff.lint]
+select = [
+    "ASYNC", # blocking calls in async code — this app is IO-bound throughout
+    "B",     # bugbear
+    "E",     # pycodestyle
+    "F",     # pyflakes
+    "I",     # import sorting
+    "SIM",   # simplify
+    "UP",    # pyupgrade
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+# Third-party packages without stubs are not worth a fight.
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["api/tests"]
+asyncio_mode = "auto"
+markers = [
+    "integration: needs live OpenAI and Census keys; excluded from CI",
+]

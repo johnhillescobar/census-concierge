@@ -89,8 +89,25 @@ change the shape, update it in the same commit.
 
 ## Environment
 
+**uv** manages the environment; **ruff** lints and formats. Python is pinned to
+**3.12** and CI runs the same version — on this machine, Windows Smart App
+Control blocks unsigned native extensions in the uv-managed 3.13 build, which
+breaks `_sqlite3` and `uuid_utils`. That cost real time once already.
+
 ```
-make check     # budgets + lint + types + tests, under 60s
+make check     # lint + types + tests + invariants + budgets, under 60s
 make eval      # retrieval scoreboard, no API keys needed
 make demo      # end-to-end against live APIs; needs OPENAI_API_KEY, CENSUS_API_KEY
+make hooks     # one-time: install pre-commit
 ```
+
+Every target is `uv run …` on one line, so they work on Windows without `make`.
+
+Two gates, and neither is advisory:
+
+- `scripts/check_budgets.py` counts things against `budgets.toml`.
+- `scripts/check_invariants.py` checks that specific mistakes were not made.
+  With `--base origin/main` it also fails when a budget was **weakened** —
+  a raised ceiling or a lowered floor. That is the check this repo exists for.
+
+Reviewing a change: `docs/playbooks/review-pr.md`, or the `review-pr` skill.

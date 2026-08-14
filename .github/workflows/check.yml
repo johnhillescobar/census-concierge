@@ -1,0 +1,57 @@
+name: check
+
+# The gate. No API keys, no network beyond dependency install, under a minute.
+# Integration tests need live OpenAI and Census keys and are excluded here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # check_invariants --base needs the merge base, not a shallow clone.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - name: lint
+        run: uv run ruff check .
+
+      - name: format
+        run: uv run ruff format --check .
+
+      - name: types
+        run: uv run mypy api/src
+
+      - name: tests
+        # Exit 5 is "no tests collected", the correct state until slice 1. Any
+        # other non-zero is a real failure. The `||` keeps `bash -e` from
+        # aborting before the code is inspected.
+        run: uv run pytest -q -m "not integration" || [ $? -eq 5 ]
+
+      - name: budgets
+        run: uv run python scripts/check_budgets.py
+
+      - name: invariants
+        # A PR is diffed against its target branch; a push to main against its
+        # own parent, so a direct commit cannot weaken a budget either.
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            uv run python scripts/check_invariants.py
+          else
+            uv run python scripts/check_invariants.py --base "$base"
+          fi

@@ -1,0 +1,62 @@
+name: build-index
+
+# Manual only. Runs roughly once a year, when the ACS release lands.
+#
+# The index is a BUILD ARTIFACT, not runtime state (DESIGN §5). It is built
+# here, published as a versioned release asset, and the Dockerfile downloads a
+# pinned version. It is never built during `docker build`: that would need an
+# API key at build time and make images nondeterministic.
+#
+# Requires the OPENAI_API_KEY and CENSUS_API_KEY repository secrets.
+# This workflow will fail until scripts/build_index.py exists (slice 0).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag for the artifact, e.g. index-2026.1"
+        required: true
+      vintages:
+        description: "Vintages to index, comma-separated"
+        required: true
+        default: "2016,2017,2018,2019,2020,2021,2022,2023"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen
+
+      - name: build
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+        run: uv run python scripts/build_index.py --vintages "${{ inputs.vintages }}" --out dist/index
+
+      - name: report the hash
+        # This is the value that goes into evidence/latest.json as index_hash.
+        # A score whose index you cannot identify is not evidence.
+        run: |
+          sha256sum dist/index/* | tee dist/index/SHA256SUMS
+          echo "### index_hash" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat dist/index/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.tag }}" dist/index/* \
+            --title "Index ${{ inputs.tag }}" \
+            --notes "Vintages: ${{ inputs.vintages }}. Pin this tag in the Dockerfile."

@@ -1,0 +1,43 @@
+# Fast local feedback. The authoritative gate is CI — these same checks run
+# there, so a hook that is skipped locally does not let anything through.
+#
+#   uv run pre-commit install
+#
+# Deliberately no mypy here: it is slow enough to make people use --no-verify,
+# and a hook people bypass is worse than no hook. It runs in CI.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: local
+    hooks:
+      - id: budgets
+        name: complexity budgets
+        entry: python scripts/check_budgets.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: invariants
+        name: project invariants
+        entry: python scripts/check_invariants.py
+        language: system
+        pass_filenames: false
+        always_run: true

@@ -1,0 +1,11 @@
+# CI runs on ubuntu-latest and development happens on Windows. Without this,
+# `ruff format --check` and every diff disagree about line endings depending on
+# where the checkout happened. LF everywhere, in the repo and in the working
+# tree — Python, uv and git-bash all handle LF on Windows.
+* text=auto eol=lf
+
+# Never touch these.
+*.png binary
+*.npz binary
+*.parquet binary
+*.pdf binary

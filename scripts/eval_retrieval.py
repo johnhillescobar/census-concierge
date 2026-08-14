@@ -15,11 +15,12 @@ Writes evidence/latest.json, which check_budgets.py reads.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import tomllib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -112,7 +113,7 @@ def summarize(results: list[Result]) -> dict:
 
     overall = rates(results)
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "retrieval_at_1": overall.get("retrieval_at_1", 0.0),
         "overall": overall,
         "by_tier": {
@@ -161,10 +162,10 @@ def main() -> int:
     EVIDENCE.parent.mkdir(parents=True, exist_ok=True)
     existing = {}
     if EVIDENCE.exists():
-        try:
+        # A corrupt evidence file must not block a run that is about to
+        # overwrite it anyway.
+        with contextlib.suppress(ValueError):
             existing = json.loads(EVIDENCE.read_text(encoding="utf-8"))
-        except ValueError:
-            pass
     existing.update(summary)
     EVIDENCE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
     print(f"\nWrote {EVIDENCE.relative_to(ROOT)}\n")

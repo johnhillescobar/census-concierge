@@ -15,14 +15,23 @@ data crosses one of those boundaries. Renaming a function is not a shape change.
 ## What exists today
 
 ```
-budgets.toml              enforced complexity limits
-scripts/check_budgets.py  the gate — exits 1 on violation
-scripts/eval_retrieval.py the scoreboard — runs against a stub, scores 0
+budgets.toml                 enforced complexity limits
+scripts/check_budgets.py     counts things — exits 1 on violation
+scripts/check_invariants.py  checks mistakes were not made; --base catches a
+                             weakened budget
+scripts/eval_retrieval.py    the scoreboard — runs against a stub, scores 0
 evals/golden_questions.toml  42 questions; expect_table values UNVERIFIED
-evidence/latest.json      last measured run
+evidence/latest.json         last measured run
+docs/playbooks/review-pr.md  canonical review procedure
+pyproject.toml               uv workspace root; ruff + mypy + pytest config
+api/pyproject.toml           the app's dependencies (3 so far)
+.github/workflows/check.yml  the gate, on every PR
+.github/workflows/build-index.yml  manual; publishes the index release asset
 ```
 
-No `api/`, no `web/`, no index, no agent, no server, no database.
+`api/src/` exists but is empty. No `web/`, no index, no agent, no server, no
+database. `build-index.yml` will fail until `scripts/build_index.py` exists —
+it is manual-dispatch only, so nothing runs it by accident.
 
 `check_budgets.py` currently exits 1 on `retrieval_at_1: 0 (limit 0.7)`. That is
 the intended state: the build is red on day zero for the right reason, and it

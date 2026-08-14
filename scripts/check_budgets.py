@@ -239,7 +239,8 @@ def main() -> int:
     for check in checks:
         status = "ok  " if check.ok else "FAIL"
         comparator = "<=" if check.direction == "max" else ">="
-        print(f"  {status}  {check.name:<{width}}  {check.actual:>8.6g} {comparator} {check.limit:g}")
+        actual = f"{check.actual:>8.6g}"
+        print(f"  {status}  {check.name:<{width}}  {actual} {comparator} {check.limit:g}")
 
     failed = [c for c in checks if not c.ok]
     if not failed:
