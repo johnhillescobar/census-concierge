@@ -1,0 +1,75 @@
+# Slice 0 — the measured steps
+
+PLAN.md: *"A number before each next step, or you will never know which parts
+you can delete."* This is that record. Every number is `@1 / @3 / @5 / MRR` on
+the **40-question long-tail tuning set**, `text-embedding-3-large` unless noted.
+
+Not counted against `doc_lines`: this is evidence, not instruction.
+
+## The prescribed ladder
+
+| Step | @1 | @3 | @5 | MRR |
+|---|---|---|---|---|
+| BM25 only, raw | 12% | 28% | 35% | 0.20 |
+| BM25 + corpus stopwords | 18% | 35% | 45% | 0.30 |
+| + embeddings, `3-small` | 20% | 52% | 60% | 0.35 |
+| + embeddings, `3-large` | 28% | 57% | 68% | 0.43 |
+| + synthetic questions | 32% | 50% | 62% | 0.43 |
+| **final: families + subject-only, semantic** | **45%** | **65%** | **78%** | **0.56** |
+| final + LLM rerank of top 10 | **68%** | 72% | 82% | 0.72 |
+
+Holdout (n=8, run once): `@1` 62%, `@5` 100%. No sign of tuning to the set —
+it scores *above* the tuning number, though at n=8 that interval is ±17 points.
+
+## What the plan expected and the data denied
+
+**Embedding models.** `3-large` beat `3-small` by 8 points `@1` and 0.08 MRR.
+The plan called `3-small` "the documented default, not a finding"; it was right
+to. Cost difference at 770 documents is under a cent.
+
+**BM25 fusion hurts.** Equal-weight RRF scored *below* embeddings alone on every
+metric (`@1` 40%→28%, `@5` 80%→68%). BM25 at `@1` 18% is not close enough in
+strength to earn an equal vote, and the plan forbids weighting for good reason —
+any weight is fitted to 40 questions. BM25 stays built and unused by `search()`:
+it is what answers a query naming a table ID verbatim, which this set never does.
+
+**Synthetic questions hurt.** The plan said *"expect the largest jump"* here. It
+was the largest *drop*: `@1` 40%→25%, MRR 0.55→0.47. One vector per question
+with max-pooling was no better (30%), nor was a 50/50 blend (32%). They add
+recall (`@10` 88%→90%) and cost precision. The questions are accurate and
+generic — six ways of asking about a table describe its topic while blurring
+what separates it from its neighbours, and neighbours are the entire problem.
+Generation is kept and committed; the embedding no longer reads it.
+
+## What actually moved the number
+
+Both are corpus structure, not ranking:
+
+- **Table families.** 574 race iterations and Puerto Rico variants folded into
+  their base table. `B19013A` is `B19013` filtered to Black householders and
+  carries a near-identical title, so it crowded out its own parent — "crowded
+  housing" ranked `B25014G` first. The members become slice 1's `alternatives[]`.
+- **Survey-quality tables.** 114 `B00`/`B98`/`B99` tables dropped. They describe
+  how the survey performed, not what it measured. Left in, "how long have
+  naturalized citizens held citizenship" answers `B99053`, *Allocation of Year
+  of Naturalization*.
+
+1,458 documents → 770. Worth more than every ranking change combined.
+
+## Where it stands
+
+`retrieval_at_1` = **0.45** against a floor of **0.70**. Slice 0 is not done.
+
+The shape of the gap is unambiguous and consistent across every configuration:
+`@10` is 88–90% while `@1` is 45%. The index finds the right table and cannot
+put it first, because what separates `B25091` from `B25095` is a universe
+string, which is reading, not vector distance. PLAN authorizes a reranker under
+exactly this condition, and one takes `@1` to 68% — a point short of the gate,
+which at n=40 is one question.
+
+`synthetic_self_retrieval` = **0.405** against a floor of **0.95**. That floor
+assumed the questions would be *in* the index, where a table's own question
+retrieves it trivially. With them out, the metric measures the same ranking
+problem on a 600-question sample instead of 40 — and lands at 40%, next to the
+golden set's 45%. It is the less noisy of the two numbers, and it is not
+measuring what the floor was written to catch.

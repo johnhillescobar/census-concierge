@@ -4,15 +4,25 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo lint types test fmt invariants hooks
+.PHONY: check eval demo lint types test fmt invariants hooks metadata index
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
 check: lint types test invariants
 	uv run python scripts/check_budgets.py
 
-## Retrieval scoreboard. No API keys, no agent, no server.
+## Retrieval scoreboard. No agent, no server, no Census key. Needs
+## OPENAI_API_KEY: the query is embedded with the model the index was built on.
 eval:
 	uv run python scripts/eval_retrieval.py --verbose
+
+## Cache ACS metadata, then check every golden fixture against it. No keys.
+metadata:
+	uv run python scripts/fetch_metadata.py
+	uv run python scripts/verify_golden.py
+
+## Rebuild index_store/ from cached metadata. Needs OPENAI_API_KEY.
+index:
+	uv run python scripts/build_index.py
 
 ## End-to-end against live APIs. Needs OPENAI_API_KEY and CENSUS_API_KEY.
 demo:

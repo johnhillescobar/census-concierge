@@ -9,6 +9,10 @@ rather than month four.
     python scripts/eval_retrieval.py --tier long_tail
     python scripts/eval_retrieval.py --verbose
 
+Needs OPENAI_API_KEY once the index has a semantic layer — the question has to
+be embedded with the same model the documents were. A BM25-only index scores
+without any key.
+
 Writes evidence/latest.json, which check_budgets.py reads.
 """
 
@@ -23,10 +27,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS = ROOT / "evals" / "golden_questions.toml"
 EVIDENCE = ROOT / "evidence" / "latest.json"
 TOP_K = 5
+
+load_dotenv(ROOT / ".env")
 
 
 @dataclass
@@ -62,32 +70,55 @@ class Result:
         return 1.0 / self.rank if self.rank else 0.0
 
 
-def load_retriever():
+def load_retriever(rerank: bool = False):
     """Return search(question, k) -> [table_id, ...], best first.
 
     Falls back to a stub that always misses, so the harness is runnable on an
     empty repository. A stub scoring above zero would be a bug in the harness.
+
+    With `rerank`, an LLM picks one table out of the top ten and it is promoted
+    to first. That measures what slice 1's agent will do with the same list —
+    `search()` itself never selects.
     """
     try:
-        from src.retrieval.index import search  # type: ignore[import-not-found]
-
-        return search
+        from src.retrieval.index import load, search  # type: ignore[import-not-found]
     except ImportError:
         print("! no retriever found at api/src/retrieval/index.py - scoring the stub\n")
         return lambda question, k: []
+    if not rerank:
+        return search
+
+    from src.retrieval.rerank import Candidate, choose  # type: ignore[import-not-found]
+
+    index = load()
+    position = {table: i for i, table in enumerate(index.tables)}
+
+    def search_and_rerank(question: str, k: int) -> list[str]:
+        ranked = search(question, max(k, 10))
+        picked = choose(
+            question,
+            [Candidate(t, index.titles[position[t]], index.universes[position[t]]) for t in ranked],
+        )
+        return [picked, *(t for t in ranked if t != picked)][:k]
+
+    return search_and_rerank
 
 
-def evaluate(tier_filter: str | None) -> list[Result]:
+def evaluate(tier_filter: str | None, holdout: bool = False, rerank: bool = False) -> list[Result]:
     with QUESTIONS.open("rb") as handle:
         questions = tomllib.load(handle)["question"]
 
-    search = load_retriever()
+    search = load_retriever(rerank)
     results: list[Result] = []
 
     for entry in questions:
         expected = entry.get("expect_table")
         if not expected:
             continue  # warning-only traps are scored by the demo suite, not here
+        # The holdout is scored at slice boundaries only and never mixed into
+        # the tuning number, or it stops being a holdout after the first run.
+        if bool(entry.get("holdout")) is not holdout:
+            continue
         if tier_filter and entry.get("tier") != tier_filter:
             continue
         ranked = list(search(entry["text"], TOP_K))[:TOP_K]
@@ -122,14 +153,18 @@ def summarize(results: list[Result]) -> dict:
         }
 
     overall = rates(results)
+    by_tier = {
+        tier: rates([r for r in results if r.tier == tier])
+        for tier in sorted({r.tier for r in results})
+    }
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "retrieval_at_1": overall.get("retrieval_at_1", 0.0),
+        # The gated number is LONG-TAIL, not the all-tier average, because
+        # `core` and `trap` would move it without the product getting better.
+        # budgets.toml says long-tail; this is the key it reads.
+        "retrieval_at_1": by_tier.get("long_tail", overall).get("retrieval_at_1", 0.0),
         "overall": overall,
-        "by_tier": {
-            tier: rates([r for r in results if r.tier == tier])
-            for tier in sorted({r.tier for r in results})
-        },
+        "by_tier": by_tier,
         "misses": [
             {"id": r.id, "question": r.text, "expected": r.expected, "got": r.ranked[:3]}
             for r in results
@@ -142,16 +177,26 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--tier", choices=["core", "long_tail", "trap"])
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--holdout",
+        action="store_true",
+        help="score the held-out questions instead. Slice boundaries only.",
+    )
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="let an LLM pick one of the top ten, as slice 1's agent will",
+    )
     args = parser.parse_args()
 
-    results = evaluate(args.tier)
+    results = evaluate(args.tier, holdout=args.holdout, rerank=args.rerank)
     if not results:
         print("No scorable questions found.")
         return 1
 
     summary = summarize(results)
 
-    print("RETRIEVAL\n")
+    print("RETRIEVAL (holdout)\n" if args.holdout else "RETRIEVAL\n")
     for tier, stats in summary["by_tier"].items():
         if not stats["n"]:
             continue
@@ -177,7 +222,20 @@ def main() -> int:
         # overwrite it anyway.
         with contextlib.suppress(ValueError):
             existing = json.loads(EVIDENCE.read_text(encoding="utf-8"))
-    existing.update(summary)
+    if args.rerank:
+        # Never over `retrieval_at_1`. That key gates the budget and must mean
+        # what `search()` actually returns; reranking is a second component
+        # that slice 1's agent, not the index, will perform.
+        existing["retrieval_at_1_reranked"] = summary["retrieval_at_1"]
+        existing["reranked"] = summary
+    elif args.holdout:
+        # Recorded beside the tuning number, never over it. Divergence between
+        # the two is the signal; one number that quietly replaced the other is
+        # no signal at all.
+        existing["retrieval_at_1_holdout"] = summary["retrieval_at_1"]
+        existing["holdout"] = summary
+    else:
+        existing.update(summary)
     EVIDENCE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
     print(f"\nWrote {EVIDENCE.relative_to(ROOT)}\n")
     return 0

@@ -245,6 +245,19 @@ decisive argument is that `evidence/latest.json` records a score for a *specific
 index, so an index that can change under a running deployment makes the
 scoreboard describe something that is no longer running.
 
+### Corrections, measured 2026-08-14 (slice 0)
+
+Full ladder in `evidence/retrieval_steps.md`. Three claims above did not survive
+contact with the corpus:
+
+- **~~Fuse BM25 and embeddings with RRF~~.** Equal-weight RRF scored below
+  embeddings alone on every metric. `search()` ranks on embeddings; BM25 is
+  built and unused, kept for verbatim table-ID queries.
+- **~~Synthetic questions are the largest jump~~.** They were the largest drop
+  (`@1` 40%→25%). Generated and committed; not fed to the embedding.
+- **What worked was corpus structure, not ranking.** One document per table
+  family and no survey-quality tables: 1,458 documents → 770.
+
 ### The metric
 
 `retrieval@1` — the fraction of eval questions where the correct table is ranked

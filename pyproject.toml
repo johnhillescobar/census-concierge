@@ -12,6 +12,10 @@ members = ["api"]
 dev = [
     "mypy>=1.13",
     "pre-commit>=4.0",
+    # Loads .env for the build and eval SCRIPTS only. Deliberately not an app
+    # dependency: in production the platform supplies real environment
+    # variables and there is no file to read.
+    "python-dotenv>=1.0",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "ruff>=0.8",

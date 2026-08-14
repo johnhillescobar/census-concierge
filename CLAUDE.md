@@ -96,7 +96,7 @@ breaks `_sqlite3` and `uuid_utils`. That cost real time once already.
 
 ```
 make check     # lint + types + tests + invariants + budgets, under 60s
-make eval      # retrieval scoreboard, no API keys needed
+make eval      # retrieval scoreboard; needs OPENAI_API_KEY to embed the query
 make demo      # end-to-end against live APIs; needs OPENAI_API_KEY, CENSUS_API_KEY
 make hooks     # one-time: install pre-commit
 ```
