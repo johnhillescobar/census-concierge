@@ -9,6 +9,7 @@ Exits non-zero on any violation.
 
 from __future__ import annotations
 
+import argparse
 import ast
 import re
 import sys
@@ -169,7 +170,7 @@ def _latest_evidence(key: str) -> float | None:
     return float(value) if isinstance(value, (int, float)) else None
 
 
-def collect(budgets: dict) -> list[Check]:
+def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
     api_files = _py_files(API_SRC)
     web_files = _source_files(WEB_SRC, (".ts", ".tsx", ".js", ".jsx"))
     size, shape = budgets["size"], budgets["shape"]
@@ -213,6 +214,15 @@ def collect(budgets: dict) -> list[Check]:
 
     # Evidence-backed checks are skipped silently until a run has produced them,
     # so the gate is usable on day one.
+    #
+    # --structural-only drops them entirely. That exists for ONE reason: the
+    # scoreboard is legitimately red until slice 0 ships, and a CI job that is
+    # always red teaches everyone to ignore CI. So the structural checks run as
+    # their own always-green job, and the quality floors run as a separate job
+    # that is honestly red. Never use this flag to make a real failure go away.
+    if structural_only:
+        return checks
+
     p95 = _latest_evidence("p95_latency_seconds")
     if p95 is not None:
         checks.append(Check("p95 latency (s)", p95, budgets["performance"]["p95_latency_seconds"]))
@@ -229,10 +239,18 @@ def collect(budgets: dict) -> list[Check]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--structural-only",
+        action="store_true",
+        help="skip the evidence-backed quality floors; see the note in collect()",
+    )
+    args = parser.parse_args()
+
     with (ROOT / "budgets.toml").open("rb") as handle:
         budgets = tomllib.load(handle)
 
-    checks = collect(budgets)
+    checks = collect(budgets, structural_only=args.structural_only)
     width = max(len(c.name) for c in checks)
 
     print("\nBUDGETS\n")

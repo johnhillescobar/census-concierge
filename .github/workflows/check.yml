@@ -42,8 +42,10 @@ jobs:
         # aborting before the code is inspected.
         run: uv run pytest -q -m "not integration" || [ $? -eq 5 ]
 
-      - name: budgets
-        run: uv run python scripts/check_budgets.py
+      - name: budgets (structural)
+        # The quality floors live in the `scoreboard` job below. This one must
+        # be green at all times, so that a regression in it means something.
+        run: uv run python scripts/check_budgets.py --structural-only
 
       - name: invariants
         # A PR is diffed against its target branch; a push to main against its
@@ -55,3 +57,22 @@ jobs:
           else
             uv run python scripts/check_invariants.py --base "$base"
           fi
+
+  scoreboard:
+    # The quality floors: retrieval@1, answered rate, p95 latency.
+    #
+    # THIS JOB IS EXPECTED TO BE RED UNTIL SLICE 0 SHIPS. That is the design —
+    # the scaffold cannot be turned green by writing code, only by making
+    # retrieval work. It is a separate job so that `check` staying green means
+    # something day to day, and so this one turning green is an event.
+    #
+    # Do not add continue-on-error. Do not lower a floor to make it pass.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: quality floors
+        run: uv run python scripts/check_budgets.py
