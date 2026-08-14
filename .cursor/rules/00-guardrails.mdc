@@ -1,0 +1,54 @@
+---
+description: Core guardrails for census-concierge. Always in effect.
+alwaysApply: true
+---
+
+# census-concierge — guardrails
+
+Conversational discovery for the Census table ecosystem. Users are GIS
+professionals and non-profit researchers who are **expert in a handful of tables
+and lost in the other thousand**. The product is *discovery*.
+
+Canonical documents — read before any non-trivial change:
+`CLAUDE.md` · `.claude/DESIGN.md` (what and why) · `.claude/PLAN.md` (order of work)
+
+## Budgets — the one rule that matters
+
+`budgets.toml` caps lines, files, graph nodes, tools, models, dependencies and
+latency, and sets floors on retrieval and answered rate. `python
+scripts/check_budgets.py` enforces them.
+
+**You may never raise a budget.** If a change does not fit, stop and tell the
+user which limit blocks it and why. Raising a limit is a human commit with a
+written reason. This is the only mechanism protecting this project from the
+failure it was built to avoid: a predecessor reached 38,000 lines across 116
+files and could not answer "population of New York City" in under 75 seconds.
+
+## Definition of done
+
+`make demo` — real questions, real APIs, pass rate and p95 latency. Paste the
+output. A passing pytest run is not done. A new test file is not done. A closed
+ticket is not done.
+
+## Every response ships
+
+Full API URL (variables, geography, vintage — **even when the fetch fails**),
+margins of error, GEOID, universe, and related tables. See `.claude/DESIGN.md` §4.
+
+## Never
+
+- Ask a blocking clarification question. Users who do not know the ecosystem
+  **cannot answer one.** Show candidates as results plus an editable plan strip.
+- Add a graph node for branching. Nodes are durable checkpoints only.
+- Create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
+  `*_strategy`, or `*_service`.
+- Add a validator that validates another validator's output.
+- Introduce an abstraction before a second caller exists. Inline it.
+- Work ahead of the current slice in `.claude/PLAN.md`. If something belongs to a
+  later slice, say which one and stop.
+
+## When unsure
+
+Stop and ask. Do not invent a subsystem to cover an ambiguity — that is exactly
+how the predecessor grew a 43-file clarification layer around a retriever that
+did not work.

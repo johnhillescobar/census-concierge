@@ -1,0 +1,415 @@
+# Golden question set — this file is the product specification.
+#
+# Write it BEFORE the agent exists. Everything downstream is judged against it.
+#
+# !! VERIFY EVERY expect_table BEFORE TRUSTING THIS FILE. !!
+# These IDs were written from memory as a starting point. A wrong fixture is
+# worse than no fixture: it will train you to "fix" correct behaviour. Check
+# each one at https://api.census.gov/data/2023/acs/acs5/groups.html and delete
+# this warning when you have.
+#
+# tier:
+#   core      — the common tables most users already know. Cheap to pass.
+#               These prove nothing on their own; the previous project passed
+#               questions like these while retrieval was a stub.
+#   long_tail — outside any one person's specialty. THIS IS THE REAL METRIC.
+#   trap      — the answer is "no" or "not like that". Silent wrong answers here
+#               are the ones that destroy trust with researchers.
+
+# --- core --------------------------------------------------------------------
+
+[[question]]
+id = "q01"
+text = "What's the population of Harris County, Texas?"
+expect_table = "B01003"
+expect_geo_level = "county"
+topic = "population"
+tier = "core"
+
+[[question]]
+id = "q02"
+text = "Median household income for all counties in Oregon"
+expect_table = "B19013"
+expect_geo_level = "county"
+topic = "income"
+tier = "core"
+
+[[question]]
+id = "q03"
+text = "Educational attainment in Cook County"
+expect_table = "B15003"
+expect_geo_level = "county"
+topic = "education"
+tier = "core"
+
+[[question]]
+id = "q04"
+text = "Poverty rate by census tract in Detroit"
+expect_table = "B17001"
+expect_geo_level = "tract"
+topic = "poverty"
+tier = "core"
+note = "Tract-level MOEs are large. Answer must show M values."
+
+# --- long tail — the number that matters -------------------------------------
+
+[[question]]
+id = "q05"
+text = "How many people bike to work in Portland?"
+expect_table = "B08301"
+expect_geo_level = "place"
+topic = "commuting"
+tier = "long_tail"
+
+[[question]]
+id = "q06"
+text = "Which counties in Mississippi have the worst broadband access?"
+expect_table = "B28002"
+expect_geo_level = "county"
+topic = "internet"
+tier = "long_tail"
+
+[[question]]
+id = "q07"
+text = "Renters spending more than 30% of income on rent, by county in Arizona"
+expect_table = "B25070"
+expect_geo_level = "county"
+topic = "housing_burden"
+tier = "long_tail"
+note = "Cost burden is a bracketed distribution, not a single number."
+
+[[question]]
+id = "q08"
+text = "Disability rates among adults in rural Vermont counties"
+expect_table = "B18101"
+expect_geo_level = "county"
+topic = "disability"
+tier = "long_tail"
+
+[[question]]
+id = "q09"
+text = "Veteran population by county in North Carolina"
+expect_table = "B21001"
+expect_geo_level = "county"
+topic = "veterans"
+tier = "long_tail"
+
+[[question]]
+id = "q10"
+text = "What languages are spoken at home in Queens?"
+expect_table = "C16001"
+expect_geo_level = "county"
+topic = "language"
+tier = "long_tail"
+
+[[question]]
+id = "q11"
+text = "How long is the average commute in the Atlanta metro?"
+expect_table = "B08303"
+expect_geo_level = "metropolitan statistical area/micropolitan statistical area"
+topic = "commuting"
+tier = "long_tail"
+note = "Also tests whether CBSA geography is reachable at all."
+
+[[question]]
+id = "q12"
+text = "Health insurance coverage for children in New Mexico"
+expect_table = "B27001"
+expect_geo_level = "state"
+topic = "health"
+tier = "long_tail"
+
+[[question]]
+id = "q13"
+text = "When were the homes in Providence built?"
+expect_table = "B25034"
+expect_geo_level = "place"
+topic = "housing_stock"
+tier = "long_tail"
+
+[[question]]
+id = "q14"
+text = "Households without a vehicle in Baltimore City"
+expect_table = "B08201"
+expect_geo_level = "county"
+topic = "vehicles"
+tier = "long_tail"
+
+[[question]]
+id = "q15"
+text = "Foreign-born population by county in Minnesota"
+expect_table = "B05002"
+expect_geo_level = "county"
+topic = "nativity"
+tier = "long_tail"
+
+[[question]]
+id = "q16"
+text = "How many people live in group quarters in Ithaca?"
+expect_table = "B26001"
+expect_geo_level = "place"
+topic = "group_quarters"
+tier = "long_tail"
+
+[[question]]
+id = "q17"
+text = "Occupation breakdown for workers in Silicon Valley counties"
+expect_table = "B24010"
+expect_geo_level = "county"
+topic = "occupation"
+tier = "long_tail"
+
+[[question]]
+id = "q18"
+text = "Renter versus owner households in Milwaukee"
+expect_table = "B25003"
+expect_geo_level = "place"
+topic = "tenure"
+tier = "long_tail"
+
+[[question]]
+id = "q19"
+text = "School enrollment by level in Fairfax County"
+expect_table = "B14001"
+expect_geo_level = "county"
+topic = "education"
+tier = "long_tail"
+
+[[question]]
+id = "q20"
+text = "People who moved into Boise from another state last year"
+expect_table = "B07001"
+expect_geo_level = "place"
+topic = "mobility"
+tier = "long_tail"
+
+[[question]]
+id = "q21"
+text = "Households receiving SNAP benefits in the Rio Grande Valley"
+expect_table = "B19058"
+expect_geo_level = "county"
+topic = "public_assistance"
+tier = "long_tail"
+
+[[question]]
+id = "q22"
+text = "Housing units by number of units in the structure, Somerville MA"
+expect_table = "B25024"
+expect_geo_level = "place"
+topic = "housing_stock"
+tier = "long_tail"
+
+# --- traps — silent wrong answers here lose the user permanently -------------
+
+[[question]]
+id = "t01"
+text = "Compare median household income between 2015-2019 and 2018-2022"
+expect_table = "B19013"
+tier = "trap"
+expect_warning = "overlapping_vintage"
+note = "Overlapping ACS 5-year periods are not comparable. Must warn, not silently chart."
+
+[[question]]
+id = "t02"
+text = "Median family income by county in Iowa"
+expect_table = "B19113"
+tier = "trap"
+note = "FAMILY income, not household. Returning B19013 is the canonical universe error."
+
+[[question]]
+id = "t03"
+text = "Is the poverty rate in tract 1201 higher than tract 1305?"
+tier = "trap"
+expect_warning = "moe_not_significant"
+note = "Tract MOEs usually swamp the difference. Must say so rather than rank them."
+
+[[question]]
+id = "t04"
+text = "Median household income for every block group in Wyoming"
+tier = "trap"
+expect_warning = "geography_unsupported"
+note = "Detailed tables at block-group level are limited and MOEs are extreme."
+
+[[question]]
+id = "t05"
+text = "Population of Springfield"
+tier = "trap"
+expect_warning = "ambiguous_place"
+note = "Show the candidate Springfields as results. Do NOT block with a question."
+
+[[question]]
+id = "t06"
+text = "What share of households are Black families earning over $75k?"
+tier = "trap"
+expect_warning = "universe_mismatch"
+note = "Crosses two universes (households x families). Must surface the conflict."
+
+[[question]]
+id = "t07"
+text = "Population of Phoenix in 2024 from the 1-year ACS"
+expect_table = "B01003"
+tier = "trap"
+note = "Vintage availability. Should not silently substitute a different year."
+
+[[question]]
+id = "t08"
+text = "Give me the income distribution, not just the median, for Travis County"
+expect_table = "B19001"
+tier = "trap"
+note = "Tests distribution-vs-summary discrimination within one topic."
+
+# --- traps — multi-year series (slice 3) -------------------------------------
+#
+# Every failure below is SILENT: the agent returns a series, it charts cleanly,
+# and it is wrong. These are the hardest questions in the file.
+
+[[question]]
+id = "t09"
+text = "Number of cell phones in Denver since 2017"
+expect_table = "B28001"
+expect_geo_level = "place"
+topic = "devices"
+tier = "trap"
+expect_warning = "measure_unavailable"
+note = """The Census counts no devices anywhere in ACS. B28001 counts HOUSEHOLDS \
+in which someone has a smartphone. The universe correction must come before any \
+series is fetched. Denver clears 65k, so ACS1 is available for 2017-2019 and \
+2021-2023; 2020 is not."""
+
+[[question]]
+id = "t10"
+text = "Plot median household income for Cuyahoga County every year from 2017 to 2023"
+expect_table = "B19013"
+expect_geo_level = "county"
+topic = "income"
+tier = "trap"
+expect_warning = "overlapping_vintage"
+note = """Seven consecutive ACS5 vintages share four of five sample years each. \
+Valid answers: ACS1 annual (Cuyahoga qualifies), or non-overlapping ACS5 at 2017 \
+and 2022. A seven-point ACS5 line is the canonical silent failure."""
+
+[[question]]
+id = "t11"
+text = "Unemployment in Middlebury, Vermont each year since 2017"
+expect_table = "B23025"
+expect_geo_level = "place"
+topic = "employment"
+tier = "trap"
+expect_warning = "acs1_geography_ineligible"
+note = """Middlebury is far under 65,000, so annual ACS1 does not exist for it. \
+Must say so plainly rather than returning an overlapping ACS5 series as if it \
+were annual. Non-overlapping ACS5 gives two usable points."""
+
+[[question]]
+id = "t12"
+text = "1-year ACS poverty for Fresno County, 2018 through 2022"
+expect_table = "B17001"
+expect_geo_level = "county"
+topic = "poverty"
+tier = "trap"
+expect_warning = "vintage_gap_2020"
+note = """The standard 2020 ACS1 release was never issued. Return four years with \
+2020 stated as absent and shown as a gap. Never interpolate, never bridge the \
+line, never quietly return four points as if five were requested."""
+
+[[question]]
+id = "t13"
+text = "Broadband subscription trend by census tract in Wayne County, 2018 to 2022"
+expect_table = "B28002"
+expect_geo_level = "tract"
+topic = "internet"
+tier = "trap"
+expect_warning = "boundary_change_2020"
+note = """Tract geometry was redrawn for the 2020 census, so a series crossing it \
+compares different polygons. Compounded by tract MOEs that swamp most annual \
+change - the significance test should suppress most of this 'trend'."""
+
+[[question]]
+id = "t14"
+text = "How has the share of households with a computer changed since 2013?"
+expect_table = "B28001"
+topic = "devices"
+tier = "trap"
+expect_warning = "variable_not_in_vintage"
+note = """The computer and internet tables were introduced and then reworked \
+mid-decade; the requested range starts before the variables exist in their \
+current form. Check each vintage's variables.json - a variable that exists but \
+means something different is worse than one that errors."""
+
+# --- traps — cross-geography comparison (slice 3) ----------------------------
+
+[[question]]
+id = "t15"
+text = "Median household income for ZIP code 10001 every year since 2018"
+expect_table = "B19013"
+expect_geo_level = "zip code tabulation area"
+topic = "income"
+tier = "trap"
+expect_warning = "zcta_not_zip"
+note = """Two failures stacked. ZIP codes are USPS delivery routes, not areas; \
+the Census publishes ZCTAs, which approximate them from blocks and do not cover \
+every ZIP. And ZCTA is 5-year only - there is no annual ZCTA series to plot. \
+2020 ZCTA definitions also differ from 2010."""
+
+[[question]]
+id = "t16"
+text = "Compare poverty by census tract within the city of Denver"
+expect_table = "B17001"
+topic = "poverty"
+tier = "trap"
+expect_warning = "geography_not_nested"
+note = """Tracts nest in counties; Denver is a place. Places cross county lines, \
+so 'tracts in Denver' is not expressible in the for/in grammar. Denver County is \
+coextensive with the city, which makes this answerable HERE and not in most \
+cities - the agent must say which it used."""
+
+[[question]]
+id = "t17"
+text = "What is the median household income across these five tracts combined?"
+expect_table = "B19013"
+expect_geo_level = "tract"
+topic = "income"
+tier = "trap"
+expect_warning = "median_not_aggregatable"
+note = """Medians cannot be combined by any weighting of published medians. The \
+plausible wrong answer - averaging them, or weighting by population - is the \
+failure. B19001 brackets summed across tracts would support an approximation; \
+offer that instead of refusing flatly."""
+
+[[question]]
+id = "t18"
+text = "Total population without health insurance across every tract in Wayne County"
+expect_table = "B27001"
+expect_geo_level = "tract"
+topic = "health"
+tier = "trap"
+expect_warning = "moe_aggregation_degraded"
+note = """Estimates sum. MOEs do not: MOE_total = sqrt(sum of MOE_i^2), and that \
+approximation degrades badly across hundreds of tracts. Summing MOEs linearly - \
+the intuitive move - overstates the interval enormously."""
+
+# --- long tail — comparisons that must SUCCEED -------------------------------
+#
+# A guard-only eval measures refusals, not capability. These two must return
+# data, not warnings.
+
+[[question]]
+id = "q23"
+text = "Compare median gross rent in Austin to the Texas average"
+expect_table = "B25064"
+expect_geo_level = "place"
+topic = "rent"
+tier = "long_tail"
+note = """Cross-level comparison, both legal, two calls. Austin sits inside Texas \
+so the estimates are not independent and the standard difference-of-MOE formula \
+overstates variance. Must report whether the difference is significant."""
+
+[[question]]
+id = "q24"
+text = "Median household income for ZCTA 90210"
+expect_table = "B19013"
+expect_geo_level = "zip code tabulation area"
+topic = "income"
+tier = "long_tail"
+note = """The ZCTA path must actually work for a single 5-year vintage. Pairs \
+with t15: knowing when ZCTA is wrong is useless if ZCTA is never reachable."""

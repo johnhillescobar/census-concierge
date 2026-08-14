@@ -1,0 +1,45 @@
+# NOTE: this is not .cursorignore. That file controls what the coding agent may
+# read; this one controls what git tracks. Several entries differ deliberately —
+# see the comments below.
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Index artifacts: large, regenerable, and rebuilt from committed inputs.
+*.npz
+index_store/
+data/raw/
+*.sqlite
+*.duckdb
+*.parquet
+
+# Generated reports
+*.pdf
+
+# --- deliberately NOT ignored -----------------------------------------------
+#
+# data/synthetic_questions.json  ~600 KB of LLM-generated questions. Committed
+#   so the index is reproducible and so a human can read what was generated for
+#   a table and spot garbage. (.cursorignore hides data/ from the agent; that is
+#   a separate concern.)
+#
+# evidence/latest.json  the scoreboard. check_budgets.py reads it, including in
+#   CI, so it must be in the repo.
+#
+# packages/client/  generated from the OpenAPI schema, but CI regenerates it and
+#   fails if the committed copy is stale. That check requires it to be tracked.

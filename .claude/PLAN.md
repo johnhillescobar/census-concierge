@@ -1,0 +1,322 @@
+# PLAN — census-concierge
+
+Execution order. `DESIGN.md` holds the what and why.
+
+## Rules for using this document
+
+1. **Slices ship in order. Nothing in slice N+1 starts until N is demoed.**
+   Every slice ends in something a person can watch you use.
+2. Each slice has a **Not in this slice** list. That list is the point. When a
+   coding agent proposes something on it, the answer is "not yet" — say which
+   slice it belongs to.
+3. **Done means a user got an answer.** Paste `make demo` output. A passing
+   pytest run is not done. A new test file is not done. A closed ticket is not
+   done.
+4. If a slice needs a budget raised, stop and ask. That is a separate human
+   commit with a reason logged in `budgets.toml`.
+
+---
+
+## Slice 0 — Table index + retrieval evaluation
+
+**No agent. No FastAPI. No frontend. No database.** If long-tail retrieval
+cannot clear the floor, nothing downstream rescues it, and you learn that in
+week one instead of month four.
+
+### Metadata first
+
+- [ ] Pull `groups.json`, `variables.json` and `geography.json` for **every
+      vintage in scope — ACS5 and ACS1, 2016 through latest.** Cache to disk.
+      No LLM, no cost, and everything below is a join over it.
+- [ ] **Verify `evals/golden_questions.toml` programmatically** against the
+      metadata you just pulled — ten lines, not an hour in a browser. Delete the
+      warning at the top of the file. *A wrong fixture is worse than none.*
+- [ ] Build the **availability matrix**: `(dataset, vintage, table_id,
+      variable_id) -> exists`, plus the universe string per vintage. A lookup,
+      not a search; a few MB as parquet. Nothing consumes it until slice 1, but
+      the index needs the union of table IDs anyway — and it is what lets the
+      slice 3 guards join on facts instead of guessing.
+- [ ] `geography.json` is the authority on which `for`/`in` combinations are
+      legal. The agent looks it up, never reasons about nesting from memory: an
+      invented `for=zcta:*&in=county:X` returns a 400 that the model will then
+      "fix" by inventing a different wrong call.
+
+### The question set
+
+- [ ] Grow to **~40 `long_tail` questions**. That tier alone is the target —
+      `core` and `trap` sit on top of it and **do not count toward it.** The
+      scoreboard is `retrieval@1` on long-tail, so a file that grows by adding
+      traps looks fuller while the metric stays half-built. *Currently 20.*
+- [ ] Source them without leaning on memory — hand-picking biases toward tables
+      you already know, which is the bias the product exists to fix. Ask real
+      census nerds for the last ten questions they struggled with; sample
+      programmatically across topic prefixes.
+- [ ] Hold ~8 **long-tail** questions back. **Protocol:** iterate against the
+      tuning set; that is what lands in `evidence/latest.json` and gates the
+      budget. Run the holdout at slice boundaries only, recorded separately as
+      `retrieval_at_1_holdout`. A sharp divergence means you tuned to the set
+      rather than to the problem — a live risk at this n, not a theoretical one.
+
+### The index
+
+**No vector database.** ~1,300 table groups is ~8 MB of embeddings; brute-force
+cosine over 30k vectors is single-digit milliseconds. numpy `.npz` + BM25,
+loaded at startup. Revisit only if decennial or PUMS are added.
+
+- [ ] **Semantic layer: vintage-agnostic, built once**, over the *union* of
+      table IDs across all vintages — discontinued tables must stay findable —
+      using metadata from the most recent vintage each appears in.
+- [ ] **Normalize vintage tokens out of indexed text.** `(IN 2023
+      INFLATION-ADJUSTED DOLLARS)` is noise: it pollutes the embedding and gives
+      BM25 a year to match on.
+- [ ] Generate 5–10 synthetic questions per table with an LLM. **From table
+      metadata only — never from the golden set**; that is leakage, and it would
+      make the scoreboard lie convincingly. Cache on `(table_id, vintage,
+      metadata_hash, model, prompt_hash)`. **Commit the output to git** — ~600 KB,
+      and being able to read what the LLM wrote for `B28002` is how you catch
+      garbage. (`.cursorignore` excludes `data/` from the coding agent's reach;
+      that is not `.gitignore`.)
+- [ ] **Split the two indexes by strength, do not feed both everything:**
+      BM25 gets title + universe + concept + *all* variable labels — length
+      normalization handles long documents, and this carries jargon and exact
+      IDs. Embeddings get title + universe + concept + synthetic questions —
+      short and dense; a 500-label blob makes everything weakly similar to
+      everything.
+- [ ] Fuse with **reciprocal rank fusion**, not weighted scores. The two score
+      scales are incompatible and any weight you pick is tuned against 40
+      questions.
+- [ ] Expose `search(question, k) -> [table_id, ...]` at
+      `api/src/retrieval/index.py`. `scripts/eval_retrieval.py` picks it up
+      automatically.
+
+### Build in measured steps
+
+A number before each next step, or you will never know which parts you can
+delete:
+
+```
+BM25 only  ->  + embeddings  ->  + synthetic questions  ->  RRF  ->  reranker?
+```
+
+Expect the largest jump at synthetic questions. Add a reranker **only if `@5` is
+high and `@1` is low** — the diagnostic already tells you.
+
+- [ ] At the embeddings step, **compare at least two embedding models** before
+      settling. `text-embedding-3-small` is the documented default, not a
+      finding: swapping the model and re-running the eval is an afternoon, and
+      Census jargon is unusual enough that the ranking may not match the general
+      benchmarks. Record which models were compared and their `@1` — otherwise
+      the next person re-litigates it from scratch.
+
+**Done when:** `python scripts/eval_retrieval.py --tier long_tail` reports
+`@1 >= 0.70`, and `python scripts/check_budgets.py` exits 0.
+
+**Read the number honestly.** At n=40, `@1` near 0.70 carries a standard error
+of ~7 points — a 95% interval of roughly ±14. A move from 0.70 to 0.76 is noise,
+and clearing the gate is consistent with a true rate near 0.60. Chase
+step-changes, not deltas. Growing the long-tail tier toward 100 tightens the
+interval to about ±9 and is the best harness investment after this slice ships.
+
+**Not in this slice:** the agent, tool calling, any HTTP endpoint, geography
+resolution, MOE handling, the UI.
+
+---
+
+## Slice 1 — `POST /ask`
+
+- [ ] FastAPI app with Swagger. One endpoint.
+- [ ] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
+      `build_url`, `fetch_data`. **Not a graph.**
+- [ ] `build_url` returns the complete URL — variables, geography, vintage — and
+      its output is returned to the caller **even when `fetch_data` fails.**
+- [ ] Response contract includes: `answer`, `url`, `rows`, `moe`, `geoid`,
+      `universe`, `table_id`, `alternatives[]`, `warnings[]`.
+- [ ] `&key=` redacted at the boundary, everywhere.
+- [ ] The five slice-1 guards from DESIGN §4: `overlapping_vintage`,
+      `moe_not_significant`, `geography_unsupported`, `ambiguous_place`,
+      `universe_mismatch`. **None of them blocks** — warn and ship the answer.
+- [ ] `scripts/run_demo.py --repeat 3` → writes `answered_rate` and
+      `p95_latency_seconds` into `evidence/latest.json`, plus a breakdown:
+      `t_llm`, `t_census_api`, `t_ours`. **Gate on the total only** — the split
+      is diagnosis, the same way `@5` diagnoses `@1`. Without it, a slowdown in
+      our code is indistinguishable from a slow model day.
+- [ ] Same run records `prompt_hash` and `index_hash`. Without them a prompt
+      change and an index change look identical in the evidence, and
+      `answered_rate` is the noisier of the two numbers. Every score in the
+      record should be attributable to a specific prompt and a specific index.
+
+**Done when:** you `curl` it, paste a working Census URL into a browser, and get
+the data back. `make demo` clears both floors.
+
+**Not in this slice:** conversation memory, auth, database, frontend, charts,
+PDF, clarification, series and cross-geography comparison (slice 3 — keep `url`
+singular for now, but do not hard-code a shape that fights `urls[]`).
+Within-level wildcards (`all counties in Oregon`) **are** in this slice: q02 is
+a core question.
+
+---
+
+## Slice 2 — Chat UI, one pane
+
+- [ ] React + TypeScript, minimal.
+- [ ] TS client generated from the OpenAPI schema; CI fails if the committed
+      copy is stale.
+- [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
+
+**Done when:** you type in a browser and get an answer with a usable URL.
+
+**Not in this slice:** the canvas, charts, series and comparisons, memory, auth.
+
+---
+
+## Slice 3 — Series and comparisons
+
+*"…since 2017"* and *"…compared to…"* are **standard** questions for this
+audience, not advanced ones. Both are one mechanism — fan `fetch_data` over a
+list, then guard the comparison — so they are one slice. **Every failure mode
+here is silent:** a wrong series or a wrong cross-geography comparison looks
+exactly like a right one.
+
+Backend only. It lands before the canvas so the chart pane is built once,
+against the final shape.
+
+### Years
+
+- [ ] `fetch_data` accepts `years: list[int]` and fans out concurrently, bounded.
+      **A parameter, not a fifth tool.** The Census API takes one vintage per
+      request; N years is N calls, and sequential calls blow the p95 budget.
+- [ ] `build_url` returns one URL per year. Contract `url` → `urls[]` — breaking,
+      so regenerate the TS client in the same commit. That is slice 2 earning its
+      keep.
+- [ ] Vintage policy, stated in every series response: ACS1 where the geography
+      qualifies, otherwise **non-overlapping** ACS5 end years. Never consecutive
+      ACS5 — 2017 means 2013–2017 and 2018 means 2014–2018, four of five sample
+      years shared.
+- [ ] **Say what is not available, and why.** ACS1 is published only for places
+      of 65,000+, and the standard 2020 release was never issued. A missing year
+      is a sentence in the answer and a gap in the data — never interpolated,
+      never bridged, never silently dropped. A silently short series is the same
+      failure as a wrong one.
+- [ ] Per-year variable existence check against that vintage's `variables.json`.
+      A variable absent or redefined mid-range is a warning, not a silent join.
+- [ ] Year-over-year significance: `MOE_diff = sqrt(m₁² + m₂²)`. Differences that
+      do not clear it are reported as **not distinguishable**, not as change.
+- [ ] Tract and block-group series crossing 2020 carry a boundary-change warning:
+      the geometry was redrawn, so the polygons differ.
+- [ ] Plan strip carries vintage and year list. Overriding to a consecutive ACS5
+      series is **allowed** — some users have a reason and know the caveat. The
+      warning stays attached.
+
+### Geographies
+
+- [ ] `resolve_geography` returns a **list of specs** — level, codes, and the
+      legal `for`/`in` form for that dataset and vintage. Legality comes from
+      the indexed `geography.json`, never from the model.
+- [ ] `fetch_data` takes the list and fans out. A wildcard
+      (`for=tract:*&in=state:26 county:163`) stays **one** call — within-level
+      comparison is not N calls.
+- [ ] **ZCTAs.** Not ZIP codes: ZIPs are USPS delivery routes, ZCTAs are
+      block-built approximations. Roughly a tenth of ZIPs have no ZCTA. They
+      nest in nothing. **No ACS1**, so no annual ZCTA series exists. 2020
+      definitions differ from 2010.
+- [ ] **Aggregation.** Estimates sum; MOEs do not. `MOE_total = sqrt(Σ MOEᵢ²)`,
+      and the approximation degrades past a handful of areas — warn when it
+      does. **Medians cannot be aggregated at all**; decline the computation and
+      say why rather than producing a plausible wrong number.
+- [ ] Non-nesting containment — *"the part of ZIP 80202 inside Denver"* — is not
+      computable from published ACS. It needs block-level areal allocation. Say
+      so; do not approximate.
+- [ ] Place-vs-parent comparisons (Denver against Colorado) share samples, so
+      the independent difference-of-MOE formula overstates variance. Note it.
+- [ ] Trap questions `t09`–`t18`, and long-tail `q23`–`q24` for the comparisons
+      that must **succeed** — a guard-only eval measures refusals, not capability.
+
+**Done when:** *"number of cell phones in Denver since 2017"* returns the
+universe correction (households with a smartphone — the Census counts no
+devices), a defensible series, every URL, and a plain statement of which years
+are unavailable and why. The overlapping-ACS5 override returns the data with the
+warning intact. And *"median gross rent in Austin vs the Texas average"* returns
+both levels with a significance test on the difference.
+
+**Not in this slice:** charts, memory, PDF, auth. No new tool, no new route, no
+graph node.
+
+---
+
+## Slice 4 — Canvas
+
+Decide the canvas model first (DESIGN §9): card stack or living workspace.
+
+- [ ] Second pane: data table with GEOID, estimate, and MOE columns.
+- [ ] `ChartSpec` from the agent (type, x, y, series, title); frontend renders.
+      **The LLM never emits chart code or SVG.**
+- [ ] Editable plan strip — `ACS5 2019–2023 · B01003 · county · Texas [edit]` —
+      with re-run on override.
+- [ ] Alternatives panel: related tables and why they differ.
+- [ ] CSV export.
+
+**Done when:** you ask a question, get a wrong-ish table, fix it in one click,
+and download the CSV.
+
+**Not in this slice:** memory, auth, PDF.
+
+---
+
+## Slice 5 — Memory and follow-ups
+
+This is the first slice where LangGraph may earn its place.
+
+- [ ] Postgres. **Never SQLite.**
+- [ ] `thread_id` per conversation; LangGraph Postgres checkpointer.
+- [ ] Follow-up reference resolution: *"what about Texas?"*, *"add median
+      income"*, *"go back to the second one"*.
+- [ ] Add multi-turn cases to the golden set.
+
+**Done when:** a three-turn refinement conversation produces the right final
+dataset, and it survives a server restart.
+
+**Not in this slice:** auth, PDF.
+
+---
+
+## Slice 6 — PDF export
+
+- [ ] `POST /reports` → job id. Background worker. **Never a request handler.**
+- [ ] Poll or SSE for status; download when ready.
+- [ ] Contents: table of contents, summary section, every question, every
+      answer, summary tables where applicable, visualizations where applicable,
+      and **the API URL for every call made.**
+
+**Done when:** you run a real session and download a document you would attach
+to a grant report.
+
+---
+
+## Slice 7 — Auth and hosting
+
+- [ ] Bought auth (Clerk / Auth0 / Supabase). Email allowlist is fine at 10 users.
+- [ ] Stateless workers; no module-level mutable state.
+- [ ] Per-user spend cap and a cost dashboard.
+- [ ] Deploy: one container + managed Postgres. No k8s, no queues.
+
+**Done when:** someone who is not you logs in and answers a real question.
+
+---
+
+## After slice 7
+
+Do not plan this yet. Revisit with real usage data. Candidates in rough order:
+clarification *only where the demo suite proves it is needed*, saved sessions,
+more datasets (decennial, PUMS, CBP), shapefile/GeoJSON export, scheduled
+refreshes.
+
+## Standing checklist for every PR
+
+- One sentence on what a user can now do that they could not before.
+- `make check` green, **no budget raised**.
+- Long-tail retrieval and answered rate did not regress.
+- p95 latency did not regress.
+- URL, MOE, GEOID and universe still present in every response path.
+- No new blocking clarification prompt.
+- `docs/ARCHITECTURE.md` updated if the shape changed.
+- Under ~15 files touched, or an explanation why not.

@@ -1,0 +1,32 @@
+# Keep the index focused on source. Everything here is generated, vendored,
+# or large enough to drown out the code that matters.
+
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated from the OpenAPI schema — never hand-edited.
+packages/client/
+
+# Index artifacts and cached Census metadata: large, regenerable, and not source.
+data/
+index_store/
+*.sqlite
+*.duckdb
+*.parquet
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# NOTE: evidence/latest.json is deliberately NOT ignored. It is the scoreboard,
+# and the coding agent should always be able to read it.
+
+*.pdf

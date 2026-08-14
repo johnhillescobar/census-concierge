@@ -1,0 +1,302 @@
+---
+description: Python, FastAPI and agent conventions for api/.
+globs: api/**/*.py
+---
+
+# api/ — Python
+
+Python 3.12. Ruff + mypy. Keep any file under 400 lines (enforced).
+
+## Agent shape
+
+**One tool-calling loop. Four to six tools.** Not a graph.
+
+LangGraph appears only where durable checkpointing and multi-user resumption
+genuinely require it (slice 5, conversation memory). Never for routing —
+routing branches are how the predecessor reached 14 nodes and 10 conditional
+edge blocks.
+
+Slice 1 tools: `search_tables`, `resolve_geography`, `build_url`, `fetch_data`,
+plus `finish`. Five of the six-tool budget.
+
+## The loop is ours
+
+`langchain_core.tools` is allowed. **`langchain.agents`, `create_agent` and
+`AgentExecutor` are not.** At five tools the loop is ~120 lines you can read in
+one screen, and the predecessor's central problem was that nobody could see what
+the agent did.
+
+`convert_to_openai_tool(tool)` gives the provider schema; `await
+tool.ainvoke(args)` validates against `args_schema` and runs `_arun`. Schema
+generation and validation from the library, control flow from us.
+
+The loop owns: turn cap, tool-call cap, token/cost cap, and contained tool
+failure — a raising tool returns an error *to the model*, but two consecutive
+failures of the same tool aborts rather than spins.
+
+## Two choke points, no middleware framework
+
+Every cross-cutting concern belongs in one of two functions:
+
+| | wraps every | does |
+|---|---|---|
+| `call_model()` | LLM call | budget check **before** the call, token/cost accounting after, span, retry config |
+| `dispatch(tool_call)` | tool call | arg validation, span, timing, contained failure, artifact capture |
+
+That is the middleware. Do not build a hook registry, a pipeline, or an
+`AgentMiddleware` layer — with one loop and five tools it adds a registration
+step, an ordering problem, and a debugging problem around 120 lines of code.
+
+Explicit ordering is the point, because the order is load-bearing: the budget
+check must precede the model call or you pay for the request that breaks the
+cap; redaction must precede telemetry; the span must close on the exception
+path. A pipeline hides all three.
+
+The 400-line file cap already forbids a framework here — the loop and the
+dispatcher share a module, and a middleware layer will not fit beside the thing
+it wraps.
+
+**Revisit only when** there are two loops, or a concern that applies
+conditionally per user or per tool. Neither exists through slice 7.
+
+## Guards are pure functions, not hooks
+
+The fourteen guards in `.claude/DESIGN.md` §4 are **not** `after_tool`
+middleware. Tools record what they did — table chosen, vintages fetched,
+geography levels, MOEs returned — into an execution record, and the response
+assembler evaluates every guard against that record **once, at the end**.
+
+Two reasons this matters more than it looks:
+
+- **A guard cannot be skipped.** `overlapping_vintage` is a fact about the plan,
+  not an event in the loop. Nothing depends on the model calling a hook or on a
+  middleware being registered.
+- **Guards test with no LLM at all.** Build an execution record, assert which
+  warnings fire. Fourteen guards, fourteen fast unit tests, zero fakes — and
+  given what fakes did to the predecessor, that is worth a great deal.
+
+The one exception: a guard that should prevent a doomed call, like
+`geography_unsupported` before a fetch that will 400. That is not middleware
+either — it is the tool validating its own arguments and returning a typed
+error.
+
+## Canonical tool
+
+A `BaseTool` subclass with `_arun`. Not the decorator: the class carries its
+dependencies as fields, which is how this app avoids module state.
+
+Tool I/O subclasses the markers `ToolInput` / `ToolResult` (both plain
+`BaseModel`). That is not decoration — it is how the budget tells plumbing from
+domain vocabulary, and it keeps tool schemas out of the 15-model domain budget.
+
+```python
+class SearchTablesInput(ToolInput):
+    question: str = Field(description="The user's question, verbatim.")
+    k: int = Field(default=5, ge=1, le=20)
+
+class SearchTablesTool(BaseTool):
+    name: str = "search_tables"
+    description: str = "Find candidate ACS tables for a question."
+    args_schema: type[BaseModel] = SearchTablesInput
+    response_format: str = "content_and_artifact"
+
+    index: TableIndex                    # injected, never a global
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    async def _arun(self, question: str, k: int = 5) -> tuple[str, SearchResult]:
+        hits = await self.index.search(question, k)
+        return f"{len(hits)} candidates: {...}", SearchResult(hits=hits)
+
+    def _run(self, *args, **kwargs):
+        raise NotImplementedError("search_tables is async-only")
+```
+
+- **`args_schema` is required.** Without it `_run` receives a JSON string, the
+  model gets no schema, and the description ends up restating the schema in
+  English. Field descriptions *are* the documentation — keep `description` to
+  one line.
+- **`_arun` is the implementation; `_run` raises.** Every tool does network IO
+  and slice 3 fans out concurrently. A sync `_run` blocks the event loop, and an
+  `asyncio.run` wrapper deadlocks the first time it is called from inside one.
+- **Dependencies are fields**, injected at construction. Never module globals,
+  never contextvars — that pattern is one refactor from cross-user leakage.
+- **Return `(summary, typed_result)`.** The summary is all the model sees. Rows
+  and margins stay in the artifact, so the model cannot retype a number.
+- **No telemetry inside the tool.** The dispatcher emits the span; the tool
+  stays pure and testable with a fake dependency.
+- **No silent repair.** A corrected geography or substituted vintage is a
+  warning on the answer, never an invisible fix. The harness validates and
+  traces; it does not select.
+
+`check_budgets.py` counts `BaseTool` subclasses *and* `@tool` decorators, so the
+limit holds whichever style appears.
+
+## No two tools may answer the same question
+
+The six-tool budget is a scope alarm, not a model limit — agents handle far more
+than six well-separated tools. What actually breaks is **overlap**. The
+predecessor imported 14 tools into one agent and several were plausible answers
+to "find me a table"; nobody could say which should win, and no amount of prompt
+work fixed it.
+
+Before adding a tool, write the question it answers. If an existing tool is also
+a plausible answer to that question, you have **one tool with a parameter**, not
+two tools.
+
+Add a tool when a question in `evals/golden_questions.toml` fails *because no
+tool can do X*. Never because it would be tidier, never because the model would
+"probably use it." Raising `agent_tools` is a standalone human commit with a
+reason in the budget log — propose it, do not perform it.
+
+## Tools are not endpoints
+
+`search_tables` and `build_url` are internal functions the model calls inside one
+request. They must never become `POST /search_tables` and `POST /build_url`.
+
+One route per tool looks like helpful API design and ends with the frontend
+orchestrating the agent's reasoning over HTTP — routing moved to the one place
+nobody can evaluate it. The route budget is **10**; the planned surface through
+slice 7 is 9. See `.claude/PLAN.md` for which slice owns which route.
+
+## Output is not a tool either
+
+A tool **acquires information the model does not have.** Narrative, tables, and
+charts are things the model *produces* from information it already has. They are
+fields on the response contract, not tool calls.
+
+- **Narrative** is the model's native output. A `write_narrative` tool is the
+  model calling the model — a round trip for nothing.
+- **Tables** are the data. `fetch_data` returns rows; the response carries them
+  and the frontend renders them. **Numbers must never pass back through the
+  model.** Any value the model retypes into a tool argument is a value it can
+  silently corrupt, and this audience is doing published research.
+- **Charts** are a `ChartSpec` field, validated by Pydantic — `{type, x, y,
+  series, title}` referencing columns **by name**. That is exactly why it is
+  safe: the model names `B01003_001E`, it never handles the value.
+
+The data path is `fetch_data -> response`. Never `fetch_data -> model ->
+response`.
+
+`build_url` returns the **complete** URL and its output reaches the caller even
+when `fetch_data` fails. A user handed a wrong URL fixes it in ten seconds; a
+user handed prose cannot.
+
+## Prompts
+
+**One loop, one system prompt**, in `api/src/prompts.py`. In git, reviewed in
+PRs. Not a hosted prompt service — live editing in Langfuse or LangSmith is an
+unversioned second source of truth that drifts from the code rendering it.
+
+The predecessor had 8 prompt files, ~4,000 tokens, because it had 7 LLM call
+sites. Prompt sprawl was a symptom of the graph.
+
+### Most domain knowledge does not belong in the prompt
+
+| knowledge | lives in |
+|---|---|
+| which table answers a question | the retrieval index |
+| which `for`/`in` combinations are legal | indexed `geography.json` |
+| MOE significance, vintage overlap, aggregation | guard functions |
+| what a tool takes | `args_schema` field descriptions |
+
+A fact in the prompt cannot be tested, cannot be versioned against evidence, and
+degrades silently when the model changes. What is left is small: the role, loop
+policy (when to search, fetch, `finish`), the ambiguity rule (candidates as
+results, never a blocking question), and the `finish` payload shape.
+
+### The test for a line
+
+**If you deleted this line, which question in `golden_questions.toml` would
+fail?** If you cannot name one, it is decoration — delete it.
+
+That is the operative form of "keep it short." Length is not the real cost;
+**instructions competing with each other is.** A 3,000-token prompt whose
+seventeenth rule undercuts its fourth is worse than a 400-token prompt, and no
+token count catches that.
+
+### Injected from data, never written in prose
+
+- **Today's date.** Non-negotiable here — "since 2017" and "the latest data" are
+  unanswerable without it.
+- **Latest available ACS5 / ACS1 vintages**, read from the index. A hardcoded
+  "2023" is wrong every autumn and nobody notices.
+- Conversation summary, at slice 5.
+
+### Changing it
+
+`run_demo.py` records the rendered prompt's hash in `evidence/latest.json`
+beside `answered_rate`. Without that, a prompt change and an index change are
+indistinguishable in the record.
+
+Prompt editing is the most seductive form of fake progress in this project:
+change three words, run once, it passes, commit. A prompt change has exactly one
+form of evidence — **a pass rate at fixed `--repeat`**, with the hash recorded.
+Never assert on prompt wording in a test.
+
+**No few-shot examples.** They bias the model toward the tables in the examples,
+which is the exact bias this product exists to correct. If examples help, they
+are *retrieved* per question, not frozen into the prompt.
+
+Budget: `system_prompt_tokens` 1200, measured as string-literal chars / 4.
+
+## Concurrency — this app is multi-user
+
+- Postgres. **Never SQLite.** The predecessor used a local `checkpoints.db`.
+- **No module-level mutable state.** Pass context as function arguments. Avoid
+  the contextvar set/reset-token pattern — one refactor from cross-user leakage.
+- Async endpoints. Workers must be horizontally scalable.
+- PDF generation is a background job, never a request handler.
+
+**The retrieval index is the sanctioned exception** to the no-module-state rule:
+it is loaded once at startup and is **read-only**, which is exactly why it is
+safe. It is a build artifact baked into the image, not runtime state. Anything
+that mutates it at request time is a bug, not an optimization.
+
+Run the cosine search in `asyncio.to_thread` — it is a few milliseconds of real
+CPU work, and everything else in a request is IO-bound and should not stall
+behind it.
+
+## Pydantic and DTOs
+
+**One model per boundary, never one per layer.** There are exactly three
+boundaries worth a model:
+
+1. **LLM output → code.** Untrusted; validate.
+2. **Census API JSON → code.** External shape; validate once, at the edge.
+3. **Our API → frontend.** The OpenAPI contract the TS client is generated from.
+
+Internal hand-offs between functions in the same module get a plain object or a
+tuple. A census row that becomes `CensusApiRow → FetchResult → TableRow →
+ResponseRow → ApiRow` is five models and four mapping functions carrying one
+piece of data — that is the drag, and it is unrecoverable by the time anyone
+notices.
+
+**Do not model individual rows.** Validate the *envelope* — url, columns,
+row_count, warnings — and carry rows as raw tabular data. Slice 3 fans out over
+years and geographies; a per-row model at 2,000+ rows buys nothing and allocates
+constantly.
+
+Budgets: `tool_schemas` 12 for `ToolInput`/`ToolResult`, `domain_models` 15 for
+everything else.
+
+Keep "the HTTP call succeeded" and "the question was answered" in **separate
+fields**. Conflating them hid failures in the predecessor for months.
+
+## Security
+
+**Redaction is a type, not a step.** Census URLs carry `&key=`, and they reach
+logs, spans, the response contract, the PDF, and git. "Remember to call
+`redact()`" holds for eight months and then does not.
+
+```python
+class CensusURL:
+    """__str__, __repr__ and serialization all yield the redacted form.
+    The key is reattached only at the httpx call site, via .with_key()."""
+```
+
+Every path gets the safe form by default; the unsafe form requires an explicit,
+greppable call. The predecessor redacted "at the boundary", which is correct
+only for as long as every path goes through that boundary — and paths get added.
+
+- The LLM emits a `ChartSpec`. It never emits chart code, SVG, or SQL.
+- Per-user spend cap on model calls, enforced in `call_model()`.

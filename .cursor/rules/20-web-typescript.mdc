@@ -1,0 +1,34 @@
+---
+description: Frontend conventions for web/.
+globs: web/**/*.ts,web/**/*.tsx
+---
+
+# web/ — React + TypeScript
+
+Budget: 3,000 lines. Two panes, chat and canvas. Nothing more until it exists
+and works.
+
+## The API client is generated, never hand-written
+
+`packages/client/` is generated from FastAPI's OpenAPI schema. CI regenerates it
+and **fails if the committed copy is stale**, so a breaking API change cannot
+merge without its frontend change in the same commit.
+
+Do not hand-edit generated files. Do not add a parallel fetch wrapper.
+
+## Rendering rules
+
+- Charts render from a `ChartSpec` returned by the API (type, x, y, series,
+  title). The backend never sends chart code or SVG, and the frontend never asks
+  for any.
+- Tables always show **GEOID, estimate, and margin of error** columns. MOE is not
+  optional metadata — researchers cannot use an estimate without it.
+- The **API URL is visible and copyable on every answer**, including failed ones.
+- The editable plan strip (`ACS5 2019–2023 · B01003 · county · Texas [edit]`) is
+  how users correct a wrong table. There is no clarification dialog.
+
+## Not yet
+
+No component library, no state-management library, no design system, no routing
+abstraction — until the second real use appears. Check `.claude/PLAN.md` for
+which slice a feature belongs to before building it.

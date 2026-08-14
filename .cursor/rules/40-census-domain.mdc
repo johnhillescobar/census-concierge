@@ -1,0 +1,71 @@
+---
+description: Census Bureau domain rules — margins of error, universes, vintages, geography, table families. Read whenever touching retrieval, URL construction, response contracts, or anything that interprets Census data.
+---
+
+# Census domain
+
+Getting these wrong produces answers that look right and are not. This audience
+notices, and trust does not come back.
+
+## Margins of error are mandatory
+
+Every ACS estimate variable `B01003_001E` has a companion `B01003_001M` — a 90%
+margin of error. **Fetch and display both, always.**
+
+An ACS estimate without its MOE is professionally useless to a researcher. At
+tract and block-group level the MOE routinely swamps the difference someone is
+trying to measure. When two values are not distinguishable at 90%, **say so
+instead of ranking them.**
+
+## Universe is the most common silent wrong answer
+
+"Households" ≠ "families" ≠ "population" ≠ "housing units" ≠ "civilian employed
+population 16 years and over".
+
+- `B19013` median **household** income
+- `B19113` median **family** income
+
+Returning one for the other is the canonical error, and it trips experts the
+moment they step outside their specialty. Index the universe, display the
+universe, and flag when a question crosses two of them.
+
+## Vintages
+
+- **ACS 5-year**: all geographies, including tracts and block groups.
+- **ACS 1-year**: places of 65,000+ only.
+- **Overlapping 5-year periods are not comparable.** 2015–2019 vs 2018–2022
+  share three years of samples. Census says so explicitly, and researchers make
+  this mistake constantly. **Warn — never silently chart it.**
+- Never silently substitute a different year when the requested one is
+  unavailable. Say what is available.
+
+## Geography
+
+- **Always return GEOID.** Users join to TIGER shapefiles; place names do not
+  join.
+- Not every table is published at every level. Detailed tables at block-group
+  level are limited. Say so rather than substituting.
+- Ambiguous place names ("Springfield") return **candidates as results**, never a
+  blocking question.
+
+## Table families — the concierge value
+
+Structure that is invisible to someone outside their specialty and is exactly
+what they need pointed out:
+
+| | |
+|---|---|
+| `B` | detailed tables |
+| `C` | collapsed versions of `B` |
+| `S` | subject tables — pre-computed percentages |
+| `DP` / `CP` | data and comparison profiles |
+| `A`–`I` suffix | race/ethnicity iterations (`B19013B` = Black householder) |
+
+Every answer shows related tables **with the reason they differ** — different
+universe, distribution rather than median, race iteration, pre-computed profile.
+This is the product, not a nicety.
+
+## Security
+
+Census API URLs carry `&key=`. Redact at the boundary. These URLs reach logs,
+telemetry, PDFs and git.

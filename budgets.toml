@@ -1,0 +1,62 @@
+# Complexity budgets for census-concierge.
+#
+# THE RULE: a coding agent may NEVER raise a number in this file.
+# If a change does not fit, the agent stops and asks. Raising a budget is a
+# standalone human commit with a one-line reason appended to the log below.
+#
+# These numbers are deliberately tight. The previous attempt at this product
+# reached 38,184 lines across 116 source files and could not answer
+# "what's the population of New York City?" in under 75 seconds.
+
+[size]
+api_src_loc          = 4000   # non-blank, non-comment lines under api/src
+api_src_files        = 40
+max_file_loc         = 400    # any single file
+web_src_loc          = 3000
+system_prompt_tokens = 1200   # string-literal chars / 4 under api/src/prompts.
+                              # A token budget, not a line budget: this is paid
+                              # on every turn of every loop, and it competes for
+                              # context with tool results. The predecessor spent
+                              # ~4000 across 7 prompts because it had 7 LLM call
+                              # sites. One loop has one prompt.
+
+[shape]
+graph_nodes          = 8      # add_node() calls; a node is a durable checkpoint, not a branch
+agent_tools          = 6      # @tool definitions. This is a scope alarm, not a
+                              # model-capability limit — agents handle far more
+                              # than six well-separated tools. What breaks is
+                              # OVERLAP: no two tools may plausibly answer the
+                              # same question. If the model must choose between
+                              # search_tables and find_variables, that is one
+                              # tool with a parameter.
+                              # Raise only when a question in golden_questions.toml
+                              # fails because no tool can do X — never for tidiness,
+                              # never because the model would "probably use it".
+api_routes           = 10     # FastAPI route decorators. The planned surface
+                              # through slice 7 is 9, so the alarm fires on the
+                              # second unplanned route. Agent tools are NOT
+                              # endpoints — one route per tool is drift, not API
+                              # design.
+tool_schemas         = 12     # ToolInput / ToolResult subclasses — 2 per tool at
+                              # the 6-tool cap. Plumbing, not vocabulary, which
+                              # is why they are counted apart from domain models.
+                              # A tool needing a third is worth a second look.
+domain_models        = 15     # BaseModel subclasses that are NOT tool I/O.
+                              # The domain vocabulary: response contract,
+                              # ChartSpec, GeoSpec, warnings, series points.
+                              # One model per BOUNDARY, never one per layer —
+                              # a row becoming five models through five layers
+                              # is how the predecessor reached 38k LOC.
+direct_dependencies  = 25     # [project.dependencies] in api/pyproject.toml
+
+[performance]
+p95_latency_seconds  = 20.0   # golden suite, measured by `make demo`
+
+[quality]
+# Floors, not ceilings: these may only be RAISED, and only by evidence.
+retrieval_at_1_min   = 0.70   # correct table ranked first, long-tail question set
+answered_rate_min    = 0.70   # correct URL + data returned
+
+# --- budget change log -------------------------------------------------------
+# Append one line per change: date, field, old -> new, reason.
+# (empty)
