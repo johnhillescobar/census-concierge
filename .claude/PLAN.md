@@ -88,6 +88,10 @@ loaded at startup. Revisit only if decennial or PUMS are added.
 - [ ] Expose `search(question, k) -> [table_id, ...]` at
       `api/src/retrieval/index.py`. `scripts/eval_retrieval.py` picks it up
       automatically.
+- [ ] **The build script writes a file; nothing builds the index at import or at
+      request time.** In production it is a pinned artifact downloaded into the
+      image (DESIGN §5). Keep build and load in separate modules so the loader
+      never pulls in the OpenAI client.
 
 ### Build in measured steps
 
@@ -162,6 +166,9 @@ a core question.
 - [ ] TS client generated from the OpenAPI schema; CI fails if the committed
       copy is stale.
 - [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
+- [ ] **FastAPI serves the Vite build output** as static files. One container,
+      one domain, no CORS (DESIGN §5). The build output path is a deployment
+      detail, not a local convenience — set it now, not at slice 7.
 
 **Done when:** you type in a browser and get an answer with a usable URL.
 
@@ -267,7 +274,16 @@ and download the CSV.
 This is the first slice where LangGraph may earn its place.
 
 - [ ] Postgres. **Never SQLite.**
-- [ ] `thread_id` per conversation; LangGraph Postgres checkpointer.
+- [ ] `thread_id` per conversation, **owned by a `user_id`** — take it from day
+      one even though there is only one user until slice 7, where it arrives as
+      a JWT claim. Retrofitting ownership onto existing rows is the expensive
+      version of this.
+- [ ] Re-ask whether LangGraph is needed at all. Since we own the loop,
+      persistence is: append messages to a table keyed by `thread_id`, load them
+      on the next turn — roughly 30 lines, and it drops two dependencies. Decide
+      on the merits here rather than inheriting the assumption.
+- [ ] Message arrays as JSONB. Postgres gives the document flexibility without
+      giving up transactions for the report job's state machine.
 - [ ] Follow-up reference resolution: *"what about Texas?"*, *"add median
       income"*, *"go back to the second one"*.
 - [ ] Add multi-turn cases to the golden set.
@@ -282,6 +298,11 @@ dataset, and it survives a server restart.
 ## Slice 6 — PDF export
 
 - [ ] `POST /reports` → job id. Background worker. **Never a request handler.**
+- [ ] **The container filesystem is ephemeral.** The worker writes the PDF to
+      object storage and `GET /reports/{id}` returns a signed URL. Writing to
+      local disk and serving it later works on your laptop and fails in
+      production — this is the constraint that quietly breaks a naive
+      implementation.
 - [ ] Poll or SSE for status; download when ready.
 - [ ] Contents: table of contents, summary section, every question, every
       answer, summary tables where applicable, visualizations where applicable,
@@ -294,10 +315,24 @@ to a grant report.
 
 ## Slice 7 — Auth and hosting
 
-- [ ] Bought auth (Clerk / Auth0 / Supabase). Email allowlist is fine at 10 users.
-- [ ] Stateless workers; no module-level mutable state.
-- [ ] Per-user spend cap and a cost dashboard.
-- [ ] Deploy: one container + managed Postgres. No k8s, no queues.
+The shape was settled in DESIGN §5 so that slices 0–6 do not build against
+assumptions this slice has to undo. Do not build any of it before here.
+
+- [ ] **Clerk.** Email allowlist is fine at 10 users. Chosen over an edge
+      allowlist because it survives the move to public signup.
+- [ ] The JWT's user id keys thread ownership and the spend cap — both already
+      wired since slice 5.
+- [ ] **One container on Render** (Fly.io equal substitute): FastAPI serving the
+      API and the static frontend, plus that provider's managed Postgres. No
+      k8s, no queues, no second host.
+- [ ] Dockerfile downloads the **pinned index release asset**. Never builds the
+      index — that would need an API key at build time.
+- [ ] `build-index` GitHub Actions workflow: manual trigger, publishes a
+      versioned Release asset. Runs about once a year, on the ACS release.
+- [ ] Stateless workers; no module-level mutable state. The read-only index is
+      the sanctioned exception.
+- [ ] Per-user spend cap enforced in `call_model()`, plus a cost dashboard.
+- [ ] Langfuse tracing live in production.
 
 **Done when:** someone who is not you logs in and answers a real question.
 

@@ -256,6 +256,14 @@ Run the cosine search in `asyncio.to_thread` — it is a few milliseconds of rea
 CPU work, and everything else in a request is IO-bound and should not stall
 behind it.
 
+**The container filesystem is ephemeral.** Nothing durable is written to disk at
+runtime. Generated PDFs go to object storage and come back as signed URLs.
+Writing to local disk works on your laptop and fails in production.
+
+Tracing is **Langfuse**, instrumented by hand in `call_model()` and `dispatch()`
+— not LangSmith, whose only advantage was auto-instrumentation we gave up when
+we took the loop.
+
 ## Pydantic and DTOs
 
 **One model per boundary, never one per layer.** There are exactly three

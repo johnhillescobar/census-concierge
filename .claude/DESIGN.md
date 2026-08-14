@@ -151,8 +151,40 @@ code, never SVG — unreviewable, unverifiable, and a security problem once host
 **Auth is bought, not built.** Clerk / Auth0 / Supabase. At ~10 users this is an
 afternoon.
 
-**Observability: LangSmith.** One tool, not two. It is an env var away with
-LangChain/LangGraph. Revisit Langfuse only if cost or self-hosting demands it.
+**Observability: Langfuse.** *(Changed 2026-08-13 — this said LangSmith, whose
+only stated advantage was being "an env var away with LangChain/LangGraph." That
+argument died when we chose to own the loop.)* With manual instrumentation as
+the baseline either way, Langfuse's SDK is the nicer one to write by hand, and
+it links traces to prompt versions — which pairs directly with `prompt_hash`.
+About twenty lines, inside `call_model()` and `dispatch()`, which are already
+the choke points.
+
+**Deployment: one container.** FastAPI serves the API *and* the built frontend
+as static files, on Render (Fly.io is an equal substitute), with that provider's
+managed Postgres. One deployable, one domain, no CORS, no second host — at ten
+users a separate CDN for the frontend buys nothing and costs a pipeline. Auth is
+Clerk: unlike an edge allowlist it survives the move to public signup. Running
+cost ~$25–40/month plus model usage.
+
+```
+                     ┌── Clerk (JWT) ──┐
+  browser ── TLS ──▶ one container ─────▶ managed Postgres
+                     FastAPI
+                     + static frontend
+                     + baked index
+                          ├──▶ object storage (PDFs)
+                          └──▶ api.census.gov · OpenAI
+```
+
+**The index ships as a pinned artifact.** A manually-triggered GitHub Actions
+workflow builds it and publishes a versioned Release asset; the Dockerfile
+downloads that exact version. It is never built during `docker build` — that
+would need an API key at build time and make images nondeterministic. This is
+what makes `index_hash` operationally real: the hash in `evidence/latest.json`
+corresponds to a release tag you can point at.
+
+**The container filesystem is ephemeral.** Nothing durable is written to disk at
+runtime. Generated PDFs go to object storage and come back as signed URLs.
 
 ## 6. Retrieval design — the core
 
