@@ -178,19 +178,35 @@ class VoyageEncoder:
     def __post_init__(self) -> None:
         self.name = self.name or f"voyage/{self.model}"
 
+    # Free tier without a payment method: 3 requests/min and 10K tokens/min.
+    # 48 documents is roughly 2K tokens, so pacing at just under 3 RPM keeps
+    # both limits satisfied. ~30 requests for the full corpus, ~11 minutes.
+    batch: int = 48
+    seconds_between_calls: float = 21.0
+
     def encode(self, texts: list[str], kind: str) -> np.ndarray:
         import voyageai
 
         client = voyageai.Client(api_key=os.environ["VOYAGE_API_KEY"])
         input_type = "query" if kind == "query" else "document"
         out: list[list[float]] = []
-        for start in range(0, len(texts), 96):
-            chunk = texts[start : start + 96]
-            result = client.embed(chunk, model=self.model, input_type=input_type)
-            got = len(result.embeddings)
-            if got != len(chunk):
-                raise RuntimeError(f"{self.model} returned {got} of {len(chunk)}")
-            out.extend(result.embeddings)
+
+        for start in range(0, len(texts), self.batch):
+            chunk = texts[start : start + self.batch]
+            if start:
+                time.sleep(self.seconds_between_calls)
+            for attempt in range(6):
+                try:
+                    result = client.embed(chunk, model=self.model, input_type=input_type)
+                    got = len(result.embeddings)
+                    if got != len(chunk):
+                        raise RuntimeError(f"{self.model} returned {got} of {len(chunk)}")
+                    out.extend(result.embeddings)
+                    break
+                except Exception as error:  # noqa: BLE001 - rate limit is expected here
+                    if "rate limit" not in str(error).lower() or attempt == 5:
+                        raise
+                    time.sleep(self.seconds_between_calls * (attempt + 1))
         return _unit(np.asarray(out))
 
 
