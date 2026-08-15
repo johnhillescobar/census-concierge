@@ -124,5 +124,14 @@ difference measured here.
   +0.73 when Voyage joined; Voyage is where they disagree most.
 - **Forty human questions** cannot resolve anything smaller than ~5 questions.
   Growing that set is the cheapest remaining harness investment.
-- **The 8B class** is screening on CPU as of writing. The top of both MTEB and
-  RTEB is 7B+ and out of reach on this hardware.
+- **The 8B class was measured infeasible, not scored.** `Nemotron-3-Embed-8B`
+  downloads and loads correctly, then embeds at **18.7 s/text** on 12 CPU cores
+  — about 4x worse than scaling linearly from the 335M models, because CPU bf16
+  kernels upcast. That is 5 hours to screen one arm and 7.3 hours to run it in
+  full.
+
+  The cost is not the reason to stop. **18.7 s/text is also the query embedding
+  cost**, against a 20-second p95 budget for a whole answer. An 8B local encoder
+  cannot ship in this product on CPU whatever it scores, so measuring it would
+  inform nothing. The top of both MTEB and RTEB is 7B+ and stays out of reach
+  until there is a GPU or a hosted endpoint for that class.
