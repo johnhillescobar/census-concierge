@@ -37,8 +37,11 @@ def tokenize(text: str) -> list[str]:
 
     The trailing-`s` strip is not linguistics — it maps `households` and
     `household` onto one term, which is most of what a stemmer would buy here.
-    It is applied identically to documents and queries, so `business` becoming
-    `busines` costs nothing as long as both sides agree.
+    A double `s` is exempt so `business` survives intact, and words of three
+    letters or fewer are left alone so `gas` (a heating fuel in `B25040`) does
+    not stop matching itself. What the rule does mangle it mangles on both
+    sides — `status` becomes `statu` in documents and queries alike — which is
+    all it has to do.
     """
     tokens = []
     for word in _WORD.findall(text.lower()):
