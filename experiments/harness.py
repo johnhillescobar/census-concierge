@@ -41,6 +41,7 @@ class Corpus:
     lean_listings: list[str]  # statistic type only where it discriminates
     rich_documents: list[str]  # embedded-text variant carrying the same facts
     lean_documents: list[str]  # embedded text + discriminating statistic type only
+    twin_documents: list[str]  # plain, plus detail level only where texts collide
 
     @property
     def position(self) -> dict[str, int]:
@@ -113,6 +114,9 @@ def corpus() -> Corpus:
         )
         for i in range(len(loaded.tables))
     ]
+    twin_documents = describe.twin_aware_documents(
+        list(loaded.tables), list(loaded.titles), list(loaded.universes), labels
+    )
     return Corpus(
         tables=list(loaded.tables),
         documents=documents,
@@ -121,6 +125,7 @@ def corpus() -> Corpus:
         lean_listings=lean_listings,
         rich_documents=rich_documents,
         lean_documents=lean_documents,
+        twin_documents=twin_documents,
     )
 
 
@@ -188,7 +193,9 @@ def ranks_from_scores(
     scores: np.ndarray, answers: list[str], position: dict[str, int]
 ) -> list[int]:
     """1-indexed rank of the correct table for each query row."""
-    order = np.argsort(-scores, axis=1)
+    # Stable sort: 32% of documents have an exact twin, so ties are common and
+    # an unstable sort made rank-1 disagree with argmax on one golden question.
+    order = np.argsort(-scores, axis=1, kind="stable")
     out: list[int] = []
     for row, table in enumerate(answers):
         out.append(int(np.where(order[row] == position[table])[0][0]) + 1)

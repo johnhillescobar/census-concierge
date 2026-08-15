@@ -91,9 +91,65 @@ largest regression, why `rich` lost four questions, and why keywords like
 "income, salary, wealth" would apply equally to B19013, B19113, B19001 and
 B19025.
 
+**A fourth variant, targeted rather than blanket, also failed.** 32% of the
+corpus (242 of 756 tables) embeds to byte-IDENTICAL text: a `C` collapsed table
+carries the same title and universe as the `B` detailed table it came from, and
+the embedded document is title + universe. Identical text means identical
+vectors, so which twin ranks first is decided by array order — an exact tie on
+7 of 40 golden questions. Cell count separates them perfectly (`B02003` 71
+categories, `C02003` 21). Adding it *only* where a twin exists:
+
+| encoder | plain @10 | twin-aware @10 | paired |
+|---|---|---|---|
+| gemini-embedding-001 | 92.3% | 88.8% | −0.035 [−0.055,−0.015] * |
+| voyage-4-large | 92.0% | 91.3% | −0.007 [−0.022,+0.008] |
+
+Worse, significantly so on the better encoder. Four enrichments tested — generated
+questions, all derived facts, only-discriminating facts, and a targeted
+tie-break — and every one is neutral or harmful. **The embedded document should
+be as short and as purely topical as possible.** Words that discriminate for a
+human still dilute the topical signal a vector is carrying.
+
+The tie is real and should be fixed where it belongs: in presentation. Two
+tables that are genuinely indistinguishable to the index are two tables the user
+should see, which is what the margin signal below is for.
+
 **Not tested:** a genuine natural-language statement of what a table is *for*,
 as opposed to a restatement of its title. That cannot be derived, and generation
 is what failed before.
+
+---
+
+## Axis D — is low confidence detectable?
+
+If the gap between the top two candidates predicts whether the top one is right,
+the product gets a confidence signal for free, from vectors it already has,
+before spending an LLM call. `python experiments/run_margin.py`.
+
+| signal | AUC, n=600 | AUC, n=40 |
+|---|---|---|
+| top1 − mean(top10) | **0.748** | 0.680 |
+| top1 − top5 | 0.730 | 0.682 |
+| top1 − top2 | 0.707 | **0.758** |
+| top1 score alone | 0.660 | 0.570 |
+
+AUC 0.5 is a coin flip. **The gap works** — around 0.71–0.76, which is a usable
+signal rather than a strong one. What a threshold buys, on the golden set:
+
+| cut at | covers | top-1 right above | top-1 right below |
+|---|---|---|---|
+| 50th pct | 50% | 80% | 40% |
+| 70th pct | 30% | 92% | 46% |
+
+So the top 30% of questions by margin are answered correctly 92% of the time,
+and the bottom half barely better than chance. That is exactly the split the
+product needs: answer confidently when the gap is wide, and when it is narrow,
+show the neighbours with the reason they differ — never a blocking question.
+
+Two caveats. The absolute margins are tiny (a 50th-percentile cut sits at 0.0036
+cosine), so the threshold must be calibrated per encoder and re-calibrated when
+the encoder changes. And 32% of documents are exact twins, which puts a floor
+under how often the margin can be wide.
 
 ---
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 
 from src.retrieval import text
+from src.retrieval.text import strip_vintage
 
 _MONEY_BRACKET = re.compile(r"\$[\d,]+ (?:to|or more)|less than \$[\d,]+", re.IGNORECASE)
 # Order matters below: "20.0 to 24.9 percent" also matches a naive age pattern,
@@ -151,3 +152,40 @@ def lean_document(title: str, universe: str, labels: list[str]) -> str:
     if reports in DISCRIMINATING or "bracket" in reports or "band" in reports:
         line += f". Reports {reports}"
     return line + "."
+
+
+def twin_aware_documents(
+    tables: list[str], titles: list[str], universes: list[str], labels: dict[str, list[str]]
+) -> list[str]:
+    """Disambiguate ONLY the tables that collide, and leave the rest alone.
+
+    32% of the corpus (242 of 756) embeds to byte-identical text, because a `C`
+    collapsed table carries the same title and universe as the `B` detailed one
+    it was collapsed from. Identical text means identical vectors, so which of
+    the pair ranks first is decided by array order -- a coin flip on 7 of 40
+    golden questions.
+
+    The fix is narrow on purpose. Cell count is noise for the 514 tables with no
+    twin, and it is the ONLY thing separating the 242 that have one. Adding it
+    everywhere is the `rich` variant that lost four questions; adding it nowhere
+    leaves a third of the corpus unrankable. So it goes exactly where it
+    discriminates, which is the rule this whole axis has been testing.
+    """
+    base = [
+        f"{strip_vintage(titles[i])}. Universe: {universes[i] or 'not published'}"
+        for i in range(len(tables))
+    ]
+    seen: dict[str, list[int]] = {}
+    for i, text_value in enumerate(base):
+        seen.setdefault(text_value, []).append(i)
+
+    out = list(base)
+    for rows in seen.values():
+        if len(rows) < 2:
+            continue
+        sized = sorted(rows, key=lambda i: -len(labels.get(tables[i], [])))
+        for rank, i in enumerate(sized):
+            cells = len(labels.get(tables[i], []))
+            detail = "most detailed" if rank == 0 else "collapsed, fewer categories"
+            out[i] = f"{base[i]}. {detail}: {cells} categories"
+    return [t + "." for t in out]

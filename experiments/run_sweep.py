@@ -47,9 +47,11 @@ def run_encoders(
     # run, and it must never be ranked beside one: the paired test compares
     # per-question outcomes and 150 questions cannot be paired against 600.
     suffix = (f"-{rich}" if rich else "") + (f"-sampled{sample}" if sample else "")
-    corpus_text = {"rich": body.rich_documents, "lean": body.lean_documents}.get(
-        rich or "", body.documents
-    )
+    corpus_text = {
+        "rich": body.rich_documents,
+        "lean": body.lean_documents,
+        "twin": body.twin_documents,
+    }.get(rich or "", body.documents)
 
     print(
         f"\nAXIS A - bi-encoders   corpus={len(body.tables)}  "
@@ -277,7 +279,7 @@ def main() -> int:
     parser.add_argument("--only", help="comma-separated arm names")
     parser.add_argument(
         "--rich",
-        choices=["rich", "lean"],
+        choices=["rich", "lean", "twin"],
         help="use derived facts (statistic type, breakdown) in the document or "
         "candidate text. An A/B on metadata design, not on models.",
     )
