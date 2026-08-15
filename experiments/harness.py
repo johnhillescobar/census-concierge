@@ -106,8 +106,19 @@ def cached_encode(encoder, texts: list[str], kind: str) -> tuple[np.ndarray, flo
     digest = hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
     path = CACHE / f"{_slug(encoder.name)}-{kind}-{digest}.npy"
     if path.exists():
-        return np.load(path), 0.0
+        cached = np.load(path)
+        if cached.shape[0] == len(texts):
+            return cached, 0.0
+        # A truncated matrix was cached by an earlier broken run. The key covers
+        # the inputs, which cannot detect an encoder that returned too few rows,
+        # so the row count is checked on the way in AND on the way out.
+        path.unlink()
+
     matrix, seconds = timed(encoder.encode, texts, kind)
+    if matrix.shape[0] != len(texts):
+        raise RuntimeError(
+            f"{encoder.name} returned {matrix.shape[0]} vectors for {len(texts)} {kind} texts"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     np.save(path, matrix)
     return matrix, seconds
