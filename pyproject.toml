@@ -21,6 +21,17 @@ dev = [
     "ruff>=0.8",
 ]
 
+# Throwaway. `experiments/` compares retrieval models and is not the product:
+# torch alone is ~2 GB and would never ship in the container. Kept in its own
+# group so `uv sync` for the app never pulls it, and deliberately NOT in
+# api/pyproject.toml, which is the file the dependency budget counts.
+#   uv sync --group experiments
+experiments = [
+    "cohere>=5.13",
+    "google-genai>=1.0",
+    "sentence-transformers>=3.3",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
