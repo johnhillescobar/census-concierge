@@ -82,17 +82,23 @@ def build(
 
         questions = load_questions()
 
-    # One document per FAMILY. The representative is the base table when it
-    # exists; a family of iterations whose parent was never published falls
-    # back to its first member so the ID we return is always a real table.
+    # One document per FAMILY, represented by its base table.
+    #
+    # A family with no base table is dropped from the ranking entirely. Those
+    # exist — B28009 is published only as B28009A-I — and representing one by
+    # its first member put "Population in households who are White alone" at
+    # rank 1 for "which counties have the worst broadband access". A race
+    # iteration returned as though it were the general table is precisely the
+    # silent wrong answer this product exists to avoid. Slice 1 still reaches
+    # them: they are members of a family, and a question about race resolves
+    # through the member list.
     families: dict[str, list[str]] = defaultdict(list)
     for table_id in tables:
         if not metadata.is_subject_table(table_id):
             continue
         families[metadata.family_id(table_id)].append(table_id)
-    representatives = {
-        base: (base if base in tables else sorted(members)[0]) for base, members in families.items()
-    }
+    families = {base: members for base, members in families.items() if base in tables}
+    representatives = {base: base for base in families}
 
     table_ids = [representatives[base] for base in sorted(families)]
     members = {

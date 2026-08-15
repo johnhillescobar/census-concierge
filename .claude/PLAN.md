@@ -127,12 +127,13 @@ high and `@1` is low** — the diagnostic already tells you.
 `@1 >= 0.70`, and `python scripts/check_budgets.py` exits 0.
 
 > **STATUS 2026-08-14 — every task above is built; the gate is NOT met.**
-> `@1` 0.45, `@3` 0.65, `@5` 0.78. Holdout `@1` 0.62 (n=8), so this is not
-> overfitting. `synthetic_self_retrieval` 0.405 against a 0.95 floor, on a
+> `@1` 0.45, `@3` 0.68, `@5` 0.80; 0.70 with an LLM rerank of the top 10.
+> Holdout `@1` 0.62 (n=8), so this is not overfitting.
+> `synthetic_self_retrieval` 0.34 against a 0.95 floor, on a
 > metric that no longer measures what the floor was written for.
 > Two of this slice's prescriptions were measured wrong and reversed — RRF
 > fusion and synthetic questions both *lowered* `@1`. What worked was corpus
-> structure: 1,458 documents to 770. Ladder and diagnosis in
+> structure: 1,458 documents to 756. Ladder and diagnosis in
 > `evidence/retrieval_steps.md`. **Do not start slice 1 on this number.**
 
 **Read the number honestly.** At n=40, `@1` near 0.70 carries a standard error

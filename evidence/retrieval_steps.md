@@ -15,8 +15,8 @@ Not counted against `doc_lines`: this is evidence, not instruction.
 | + embeddings, `3-small` | 20% | 52% | 60% | 0.35 |
 | + embeddings, `3-large` | 28% | 57% | 68% | 0.43 |
 | + synthetic questions | 32% | 50% | 62% | 0.43 |
-| **final: families + subject-only, semantic** | **45%** | **65%** | **78%** | **0.56** |
-| final + LLM rerank of top 10 | **68%** | 72% | 82% | 0.72 |
+| **final: families + subject-only, semantic** | **45%** | **68%** | **80%** | **0.56** |
+| final + LLM rerank of top 10 | **70%** | 75% | 82% | 0.73 |
 
 Holdout (n=8, run once): `@1` 62%, `@5` 100%. No sign of tuning to the set —
 it scores *above* the tuning number, though at n=8 that interval is ±17 points.
@@ -25,7 +25,8 @@ it scores *above* the tuning number, though at n=8 that interval is ±17 points.
 
 **Embedding models.** `3-large` beat `3-small` by 8 points `@1` and 0.08 MRR.
 The plan called `3-small` "the documented default, not a finding"; it was right
-to. Cost difference at 770 documents is under a cent.
+to. Cost difference at 756 documents is under a cent. It is now the
+default in `embedding.py`, so `make index` reproduces these numbers.
 
 **BM25 fusion hurts.** Equal-weight RRF scored *below* embeddings alone on every
 metric (`@1` 40%→28%, `@5` 80%→68%). BM25 at `@1` 18% is not close enough in
@@ -54,7 +55,13 @@ Both are corpus structure, not ranking:
   naturalized citizens held citizenship" answers `B99053`, *Allocation of Year
   of Naturalization*.
 
-1,458 documents → 770. Worth more than every ranking change combined.
+- **Iteration-only families.** 14 more dropped. `B28009` is published only
+  as `B28009A-I`, and representing that family by its first member put
+  "Population in households who are White alone" at rank 1 for a broadband
+  question. A race iteration returned as the general table is the exact
+  silent wrong answer this product exists to prevent.
+
+1,458 documents → 756. Worth more than every ranking change combined.
 
 ## Where it stands
 
@@ -64,12 +71,12 @@ The shape of the gap is unambiguous and consistent across every configuration:
 `@10` is 88–90% while `@1` is 45%. The index finds the right table and cannot
 put it first, because what separates `B25091` from `B25095` is a universe
 string, which is reading, not vector distance. PLAN authorizes a reranker under
-exactly this condition, and one takes `@1` to 68% — a point short of the gate,
-which at n=40 is one question.
+exactly this condition, and one takes `@1` to 70% — the floor exactly, which
+at n=40 means 28 of 40 and one question either way.
 
-`synthetic_self_retrieval` = **0.405** against a floor of **0.95**. That floor
+`synthetic_self_retrieval` = **0.34** against a floor of **0.95**. That floor
 assumed the questions would be *in* the index, where a table's own question
 retrieves it trivially. With them out, the metric measures the same ranking
-problem on a 600-question sample instead of 40 — and lands at 40%, next to the
-golden set's 45%. It is the less noisy of the two numbers, and it is not
+problem on a 600-question sample instead of 40 — and lands at 34%, next to
+the golden set's 45%. It is the less noisy of the two numbers, and it is not
 measuring what the floor was written to catch.

@@ -66,17 +66,17 @@ data/raw/                     14 MB cached ACS metadata. Gitignored.
                               ACS5 2016-2024, ACS1 2016-2024 (no 2020).
 data/synthetic_questions.json 8,748 questions, 1 MB, COMMITTED and readable.
                               Currently not fed to the index — see below.
-index_store/lexical.json.gz   770 table families: ids, titles, universes,
+index_store/lexical.json.gz   756 table families: ids, titles, universes,
                               members, BM25 postings. Gitignored.
-index_store/semantic.npz       770 x 3072 float32 embeddings.
+index_store/semantic.npz       756 x 3072 float32 embeddings.
 index_store/availability.json.gz  the vintage matrix.
 ```
 
 ### What the index contains, and what it dropped
 
-1,458 tables in the union across all vintages → **770 documents**:
+1,458 tables in the union across all vintages → **756 documents**:
 
-- **574** race iterations (`B19013A`) and Puerto Rico variants folded into their
+- **588** race iterations (`B19013A`) and Puerto Rico variants folded into their
   base table. They are the same table filtered, they carry near-identical
   titles, and they crowded out their own parents. Members are retained in the
   artifact and become slice 1's `alternatives[]`.
@@ -88,7 +88,7 @@ measured *worse* than embeddings alone on every metric. It is kept for the query
 that names a table ID verbatim, which the eval set does not test.
 
 `check_budgets.py` exits 1 on `retrieval_at_1: 0.45 (limit 0.7)` and
-`synthetic_self_retrieval: 0.405 (limit 0.95)`. Both are honest failures;
+`synthetic_self_retrieval: 0.34 (limit 0.95)`. Both are honest failures;
 `evidence/retrieval_steps.md` has the full ladder and the diagnosis.
 
 ## What each slice adds here

@@ -14,7 +14,11 @@ from __future__ import annotations
 
 import numpy as np
 
-DEFAULT_MODEL = "text-embedding-3-small"
+# Measured 2026-08-14, not assumed: `3-large` beat `3-small` by 8 points @1 and
+# 0.08 MRR on the tuning set. At 770 documents the cost difference is under a
+# cent to build, and this must stay the default or `make index` silently
+# produces an index that scores lower than the recorded evidence.
+DEFAULT_MODEL = "text-embedding-3-large"
 BATCH = 256
 
 
