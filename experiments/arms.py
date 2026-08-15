@@ -168,6 +168,32 @@ class CohereEncoder:
         return _unit(np.asarray(out))
 
 
+@dataclass
+class VoyageEncoder:
+    model: str = "voyage-4-large"
+    name: str = ""
+    note: str = "input_type document / query"
+    params: str = "undisclosed"
+
+    def __post_init__(self) -> None:
+        self.name = self.name or f"voyage/{self.model}"
+
+    def encode(self, texts: list[str], kind: str) -> np.ndarray:
+        import voyageai
+
+        client = voyageai.Client(api_key=os.environ["VOYAGE_API_KEY"])
+        input_type = "query" if kind == "query" else "document"
+        out: list[list[float]] = []
+        for start in range(0, len(texts), 96):
+            chunk = texts[start : start + 96]
+            result = client.embed(chunk, model=self.model, input_type=input_type)
+            got = len(result.embeddings)
+            if got != len(chunk):
+                raise RuntimeError(f"{self.model} returned {got} of {len(chunk)}")
+            out.extend(result.embeddings)
+        return _unit(np.asarray(out))
+
+
 # --- bi-encoders, local ------------------------------------------------------
 
 
@@ -184,6 +210,10 @@ class LocalEncoder:
     doc_prefix: str = ""
     prompt_name: str | None = None
     trust_remote_code: bool = False
+    # bfloat16 halves resident memory, which is what makes an 8B model fit at
+    # all on a 34 GB box. CPU bf16 matmul is slower than fp32 per op but the
+    # model no longer competes with the page file, which dominates.
+    dtype: str = ""
     params: str = ""
     name: str = ""
     note: str = ""
@@ -199,8 +229,12 @@ class LocalEncoder:
         if self._loaded is None:
             from sentence_transformers import SentenceTransformer
 
+            kwargs: dict[str, Any] = {"torch_dtype": self.dtype} if self.dtype else {}
             self._loaded = SentenceTransformer(
-                self.model, trust_remote_code=self.trust_remote_code, device="cpu"
+                self.model,
+                trust_remote_code=self.trust_remote_code,
+                device="cpu",
+                model_kwargs=kwargs,
             )
         return self._loaded
 
@@ -370,6 +404,7 @@ def encoders() -> dict[str, Encoder]:
         "gemini-001": GeminiEncoder("gemini-embedding-001"),
         "gemini-2": GeminiEncoder("gemini-embedding-2"),
         "cohere-v4": CohereEncoder(),
+        "voyage-4-large": VoyageEncoder(),
         "embeddinggemma": LocalEncoder(
             "google/embeddinggemma-300m", prompt_name="query", params="300M"
         ),
@@ -388,6 +423,22 @@ def encoders() -> dict[str, Encoder]:
             doc_prefix="search_document: ",
             trust_remote_code=True,
             params="137M",
+        ),
+        # 8B class. ~16 GB resident each, so they run alone and after everything
+        # else. Qwen3-Embedding wants the "Instruct:/Query:" query format and no
+        # document prefix; Nemotron ships its own prompts in the model config.
+        "nemotron-8b": LocalEncoder(
+            "nvidia/Nemotron-3-Embed-8B-BF16", dtype="bfloat16", params="7.95B"
+        ),
+        "ingot-8b": LocalEncoder(
+            "JCorners/Ingot-8B-R3",
+            query_prefix=(
+                "Instruct: Given a question about US Census data, retrieve the "
+                "table that answers it\nQuery: "
+            ),
+            dtype="bfloat16",
+            params="8B",
+            note="Qwen3-Embedding-8B base; proprietary licence",
         ),
         "mxbai": LocalEncoder(
             "mixedbread-ai/mxbai-embed-large-v1",

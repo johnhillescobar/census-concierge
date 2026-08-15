@@ -13,6 +13,7 @@ Results land in `experiments/results/`. Nothing here writes to
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -27,12 +28,23 @@ BASELINE_ENCODER = "openai-3-large"
 CANDIDATE_DEPTH = 10
 
 
-def run_encoders(only: list[str] | None) -> None:
+def run_encoders(only: list[str] | None, sample: int | None = None) -> None:
     body = harness.corpus()
     golden = harness.golden_set()
     self_set = harness.self_retrieval_set(set(body.tables))
+    if sample:
+        # A screening run. Deliberately the FIRST n of an already-shuffled list,
+        # so every sampled arm sees the same questions and stays comparable to
+        # the others -- just with a wider interval.
+        self_set = harness.QuerySet(
+            self_set.name, self_set.questions[:sample], self_set.answers[:sample]
+        )
     registry = arms.encoders()
     chosen = only or list(registry)
+    # A screening run writes to its own file. It must never overwrite a full
+    # run, and it must never be ranked beside one: the paired test compares
+    # per-question outcomes and 150 questions cannot be paired against 600.
+    suffix = f"-sampled{sample}" if sample else ""
 
     print(
         f"\nAXIS A - bi-encoders   corpus={len(body.tables)}  "
@@ -55,6 +67,7 @@ def run_encoders(only: list[str] | None) -> None:
                 "index_mb": round(documents.nbytes / 1_000_000, 2),
                 "corpus_embed_seconds": round(doc_seconds, 1),
                 "trust_remote_code": bool(getattr(encoder, "trust_remote_code", False)),
+                "sampled": sample or 0,
             }
             for query_set in (self_set, golden):
                 vectors, seconds = harness.cached_encode(encoder, query_set.questions, "query")
@@ -68,11 +81,12 @@ def run_encoders(only: list[str] | None) -> None:
         except Exception as error:  # noqa: BLE001 - one dead arm must not end the sweep
             print(f"  FAIL {key}: {type(error).__name__}: {error}")
             harness.write(
-                f"encoder-{key}", {"arm": key, "error": f"{type(error).__name__}: {error}"}
+                f"encoder-{key}{suffix}",
+                {"arm": key, "error": f"{type(error).__name__}: {error}"},
             )
             continue
 
-        harness.write(f"encoder-{key}", record)
+        harness.write(f"encoder-{key}{suffix}", record)
         print(
             f"  {key:<16} self @10={record['self_retrieval']['at_10']:.0%} "
             f"@1={record['self_retrieval']['at_1']:.0%}   "
@@ -206,16 +220,40 @@ def table() -> None:
     print()
 
 
+def _normalize_hf_token() -> None:
+    """huggingface_hub reads HF_TOKEN; .env may spell it something else.
+
+    Gated repos (Ingot-8B-R3, embeddinggemma) fail with a 401 that reads like a
+    missing model rather than a missing token, so this is worth doing explicitly
+    instead of hoping the name matches.
+    """
+    if os.environ.get("HF_TOKEN"):
+        return
+    for name in ("HUGGINGFACE_API_KEY", "HUGGINFACE_API_KEY", "HUGGING_FACE_HUB_TOKEN"):
+        token = os.environ.get(name)
+        if token:
+            os.environ["HF_TOKEN"] = token
+            return
+
+
 def main() -> int:
     load_dotenv(harness.ROOT / ".env")
+    _normalize_hf_token()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("stage", choices=["encoders", "rerankers", "table"])
     parser.add_argument("--only", help="comma-separated arm names")
+    parser.add_argument(
+        "--sample",
+        type=int,
+        help="screen on N self-retrieval questions instead of 600. For arms too "
+        "expensive to run in full: a 12-point gap resolves at n=150, and only a "
+        "competitive arm earns the full run. Results are marked `sampled`.",
+    )
     args = parser.parse_args()
     only = args.only.split(",") if args.only else None
 
     if args.stage == "encoders":
-        run_encoders(only)
+        run_encoders(only, sample=args.sample)
     elif args.stage == "rerankers":
         run_rerankers(only)
     else:

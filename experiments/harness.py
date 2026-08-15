@@ -156,6 +156,14 @@ def paired_delta(
     information and throwing it away by comparing two independent rates costs
     most of the sensitivity this sweep needs.
     """
+    if len(arm) != len(baseline):
+        # Pairing is the whole point. Two arms scored on different question
+        # counts cannot be paired, and silently truncating would invent a
+        # comparison that was never run.
+        raise ValueError(
+            f"cannot pair {len(arm)} questions against {len(baseline)}: "
+            "a sampled arm is only comparable to another arm at the same n"
+        )
     a = np.array([1.0 if r <= at else 0.0 for r in arm])
     b = np.array([1.0 if r <= at else 0.0 for r in baseline])
     observed = float(a.mean() - b.mean())
