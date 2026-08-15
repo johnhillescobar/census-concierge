@@ -110,9 +110,12 @@ tie-break — and every one is neutral or harmful. **The embedded document shoul
 be as short and as purely topical as possible.** Words that discriminate for a
 human still dilute the topical signal a vector is carrying.
 
-The tie is real and should be fixed where it belongs: in presentation. Two
-tables that are genuinely indistinguishable to the index are two tables the user
-should see, which is what the margin signal below is for.
+The tie is real, and Axis E below found where it should be fixed: not in the
+document and not in the ranking, but by not having two documents. `C02003` is
+`B02003` with fewer categories, so one of them should never have been a
+retrieval target. Where two tables genuinely *are* different and still
+indistinguishable — `B05013` and `B05014` publish the same title and universe —
+the user should see both, which is what the margin signal is for.
 
 **Not tested:** a genuine natural-language statement of what a table is *for*,
 as opposed to a restatement of its title. That cannot be derived, and generation
@@ -150,6 +153,70 @@ Two caveats. The absolute margins are tiny (a 50th-percentile cut sits at 0.0036
 cosine), so the threshold must be calibrated per encoder and re-calibrated when
 the encoder changes. And 32% of documents are exact twins, which puts a floor
 under how often the margin can be wide.
+
+---
+
+## Axis E — the table ID itself
+
+The ID is already this corpus's best feature: `family_id` strips the `A`–`I`
+race iteration and `PR` suffix, `is_subject_table` reads the 2-digit subject as
+`00`/`98`/`99`. What is left is the type prefix and the subject code.
+`python experiments/run_codes.py`. None of it goes into the embedded document.
+
+**The `B`/`C` prefix, as a reason to drop a document.** A `C` table is its `B`
+counterpart with categories collapsed, and the two publish the same title,
+universe and concept — so 120 of 756 documents are byte-identical to another
+document. `B` carries strictly more cells in all 120.
+
+| arm | @10 | @5 | @1 | Δ@1 vs plain |
+|---|---|---|---|---|
+| plain (756 documents) | 92.3% | 85.3% | 43.0% | — |
+| tie-break `B` over `C` | 92.3% | 85.3% | 43.0% | +0.000 |
+| drop the 120 `C` twins | 94.2% | 89.2% | 50.8% | +0.078 [+0.057,+0.100] * |
+
+Split by whether the question's answer was one of the dropped twins, because
+only the untouched questions measure "120 fewer distractors" on its own:
+
+| | n | @1 before | @1 after |
+|---|---|---|---|
+| answer was a twin | 97 | **0.0%** | 47.4% |
+| answer untouched | 503 | 51.3% | 51.5% |
+
+**That is not a retrieval gain, it is a benchmark correction.** Those 97
+questions asked for a table whose vector is identical to another table's. No
+ranker could ever put it first; they were scored as failures and were
+unanswerable. `@1` on this set was never 43% — it was 51% on the questions that
+could be answered, dragged down by 16% that could not. Voyage agrees (5.1% →
+33.0%), so this is a property of the corpus, not of a model.
+
+Two consequences beyond the score:
+
+- **The winner was not stable.** `text-embedding-3-large` returns *different*
+  vectors for identical text depending on batch position — measured max
+  component difference 1.3e-3, enough to move a cosine by 6e-4, which is the
+  size of a real margin here. So the twin that won was decided by float noise
+  and could flip on any rebuild. The shipped index had `C15003` above `B15003`
+  for "Educational attainment in Cook County"; the experiment's stable sort
+  had it the other way.
+- **The tie-break is worth nothing** once the fold is in, and was worth nothing
+  before it: `B` already sorts ahead of `C`, so it changed zero questions.
+  Dropping the document is the fix; reordering it is not.
+
+**The 2-digit subject code, as a confidence signal.** 29 subject codes, and
+grouping the corpus by them produces coherent topics without any authored
+mapping (`25` housing n=150, `19` income n=54, `08` commuting n=88). The
+hypothesis was that a top-5 spanning several subjects means the index has not
+found the topic. It does not hold:
+
+| signal | AUC n=600 | AUC n=40 |
+|---|---|---|
+| subject agreement in top-5 | 0.411 | 0.125 |
+| margin (top1 − top2) | 0.707 | 0.758 |
+
+Below 0.5, so the relationship runs the *other* way — when all five candidates
+share a subject they are siblings and harder to order, not easier. And 70% of
+questions sit at the maximum value, so there is almost no range to threshold on.
+Margin remains the only confidence signal measured here.
 
 ---
 

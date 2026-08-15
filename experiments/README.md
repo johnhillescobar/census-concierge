@@ -49,6 +49,21 @@ uv run --group experiments python experiments/run_sweep.py rerankers --rich rich
 uv run --group experiments python experiments/run_sweep.py table
 ```
 
+Two standalone questions have their own scripts. Both read cached embeddings,
+so they cost nothing once an encoder has been run:
+
+```powershell
+# Does the top1-top2 gap predict whether top-1 is right? (Axis D)
+uv run --group experiments python experiments/run_margin.py --encoder gemini-001
+
+# What is left in the table ID: B/C prefix and subject code. (Axis E)
+uv run --group experiments python experiments/run_codes.py --encoder gemini-001
+```
+
+`run_codes.py` rebuilds the pre-fold 756-table corpus from metadata rather than
+reading the built index, because the fold it measures has since shipped. Reading
+the index would leave nothing to compare and it would report a clean zero.
+
 `--sample N` screens on N self-retrieval questions instead of 600, for arms too
 expensive to run in full:
 
