@@ -28,7 +28,9 @@ BASELINE_ENCODER = "openai-3-large"
 CANDIDATE_DEPTH = 10
 
 
-def run_encoders(only: list[str] | None, sample: int | None = None) -> None:
+def run_encoders(
+    only: list[str] | None, sample: int | None = None, rich: str | None = None
+) -> None:
     body = harness.corpus()
     golden = harness.golden_set()
     self_set = harness.self_retrieval_set(set(body.tables))
@@ -44,7 +46,10 @@ def run_encoders(only: list[str] | None, sample: int | None = None) -> None:
     # A screening run writes to its own file. It must never overwrite a full
     # run, and it must never be ranked beside one: the paired test compares
     # per-question outcomes and 150 questions cannot be paired against 600.
-    suffix = f"-sampled{sample}" if sample else ""
+    suffix = (f"-{rich}" if rich else "") + (f"-sampled{sample}" if sample else "")
+    corpus_text = {"rich": body.rich_documents, "lean": body.lean_documents}.get(
+        rich or "", body.documents
+    )
 
     print(
         f"\nAXIS A - bi-encoders   corpus={len(body.tables)}  "
@@ -57,7 +62,7 @@ def run_encoders(only: list[str] | None, sample: int | None = None) -> None:
             print(f"  ?? unknown arm {key}")
             continue
         try:
-            documents, doc_seconds = harness.cached_encode(encoder, body.documents, "document")
+            documents, doc_seconds = harness.cached_encode(encoder, corpus_text, "document")
             record: dict = {
                 "arm": key,
                 "model": encoder.name,
@@ -95,7 +100,7 @@ def run_encoders(only: list[str] | None, sample: int | None = None) -> None:
         )
 
 
-def run_rerankers(only: list[str] | None) -> None:
+def run_rerankers(only: list[str] | None, rich: str | None = None) -> None:
     """Every reranker sees the SAME candidate list, from the baseline encoder."""
     body = harness.corpus()
     golden = harness.golden_set()
@@ -111,6 +116,13 @@ def run_rerankers(only: list[str] | None) -> None:
 
     registry = arms.rerankers()
     chosen = only or list(registry)
+    # The candidate SET is identical either way -- only how each candidate is
+    # described changes. That keeps the ceiling fixed and isolates the effect of
+    # the derived facts.
+    candidate_text = {"rich": body.rich_listings, "lean": body.lean_listings}.get(
+        rich or "", body.listings
+    )
+    suffix = f"-{rich}" if rich else ""
     ceiling = sum(
         1 for row, table in enumerate(golden.answers) if body.position[table] in order[row].tolist()
     )
@@ -129,7 +141,7 @@ def run_rerankers(only: list[str] | None) -> None:
         try:
             for row, question in enumerate(golden.questions):
                 docs = [int(d) for d in order[row]]
-                listings = [body.listings[d] for d in docs]
+                listings = [candidate_text[d] for d in docs]
                 ordered = reranker.rank(question, listings)
                 reordered = [docs[i] for i in ordered]
                 want = body.position[golden.answers[row]]
@@ -137,7 +149,8 @@ def run_rerankers(only: list[str] | None) -> None:
         except Exception as error:  # noqa: BLE001
             print(f"  FAIL {key}: {type(error).__name__}: {error}")
             harness.write(
-                f"reranker-{key}", {"arm": key, "error": f"{type(error).__name__}: {error}"}
+                f"reranker-{key}{suffix}",
+                {"arm": key, "error": f"{type(error).__name__}: {error}"},
             )
             continue
 
@@ -153,7 +166,7 @@ def run_rerankers(only: list[str] | None) -> None:
             "failures": failures,
             "last_error": getattr(reranker, "last_error", ""),
         }
-        harness.write(f"reranker-{key}", record)
+        harness.write(f"reranker-{key}{suffix}", record)
         if failures:
             # An arm that fell back scores like one with no opinion. Say so
             # loudly rather than letting a 404 read as a mediocre model.
@@ -263,6 +276,12 @@ def main() -> int:
     parser.add_argument("stage", choices=["encoders", "rerankers", "table"])
     parser.add_argument("--only", help="comma-separated arm names")
     parser.add_argument(
+        "--rich",
+        choices=["rich", "lean"],
+        help="use derived facts (statistic type, breakdown) in the document or "
+        "candidate text. An A/B on metadata design, not on models.",
+    )
+    parser.add_argument(
         "--sample",
         type=int,
         help="screen on N self-retrieval questions instead of 600. For arms too "
@@ -273,9 +292,9 @@ def main() -> int:
     only = args.only.split(",") if args.only else None
 
     if args.stage == "encoders":
-        run_encoders(only, sample=args.sample)
+        run_encoders(only, sample=args.sample, rich=args.rich)
     elif args.stage == "rerankers":
-        run_rerankers(only)
+        run_rerankers(only, rich=args.rich)
     else:
         table()
     return 0

@@ -37,6 +37,10 @@ class Corpus:
     tables: list[str]
     documents: list[str]
     listings: list[str]  # "B19013: Title | universe: Households" — for rerankers
+    rich_listings: list[str]  # the same, plus derived statistic type and breakdown
+    lean_listings: list[str]  # statistic type only where it discriminates
+    rich_documents: list[str]  # embedded-text variant carrying the same facts
+    lean_documents: list[str]  # embedded text + discriminating statistic type only
 
     @property
     def position(self) -> dict[str, int]:
@@ -50,8 +54,28 @@ class QuerySet:
     answers: list[str]  # expected table id, parallel to questions
 
 
+def _labels_by_table() -> dict[str, list[str]]:
+    """Variable labels from the newest vintage each table appears in."""
+    from collections import defaultdict
+
+    from src.retrieval import metadata
+
+    out: dict[str, list[str]] = {}
+    pairs = [(d, y) for d in metadata.DATASETS for y in metadata.cached_vintages(d)]
+    for dataset, year in sorted(pairs, key=lambda p: -p[1]):
+        grouped: dict[str, list[str]] = defaultdict(list)
+        for variable in metadata.variables(dataset, year).values():
+            if variable.table_id not in out:
+                grouped[variable.table_id].append(variable.label)
+        out.update(grouped)
+    return out
+
+
 def corpus() -> Corpus:
+    from experiments import describe
+
     loaded = index.load()
+    labels = _labels_by_table()
     documents = [
         text.semantic_document(loaded.titles[i], loaded.universes[i], "", [])
         for i in range(len(loaded.tables))
@@ -61,7 +85,43 @@ def corpus() -> Corpus:
         f"{loaded.universes[i] or 'not published'}"
         for i in range(len(loaded.tables))
     ]
-    return Corpus(tables=list(loaded.tables), documents=documents, listings=listings)
+    rich_listings = [
+        describe.listing(
+            loaded.tables[i],
+            loaded.titles[i],
+            loaded.universes[i],
+            labels.get(loaded.tables[i], []),
+        )
+        for i in range(len(loaded.tables))
+    ]
+    lean_listings = [
+        describe.lean_listing(
+            loaded.tables[i],
+            loaded.titles[i],
+            loaded.universes[i],
+            labels.get(loaded.tables[i], []),
+        )
+        for i in range(len(loaded.tables))
+    ]
+    rich_documents = [
+        describe.document(loaded.titles[i], loaded.universes[i], labels.get(loaded.tables[i], []))
+        for i in range(len(loaded.tables))
+    ]
+    lean_documents = [
+        describe.lean_document(
+            loaded.titles[i], loaded.universes[i], labels.get(loaded.tables[i], [])
+        )
+        for i in range(len(loaded.tables))
+    ]
+    return Corpus(
+        tables=list(loaded.tables),
+        documents=documents,
+        listings=listings,
+        rich_listings=rich_listings,
+        lean_listings=lean_listings,
+        rich_documents=rich_documents,
+        lean_documents=lean_documents,
+    )
 
 
 def golden_set() -> QuerySet:
