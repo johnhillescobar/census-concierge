@@ -66,15 +66,15 @@ data/raw/                     14 MB cached ACS metadata. Gitignored.
                               ACS5 2016-2024, ACS1 2016-2024 (no 2020).
 data/synthetic_questions.json 8,748 questions, 1 MB, COMMITTED and readable.
                               Currently not fed to the index — see below.
-index_store/lexical.json.gz   756 table families: ids, titles, universes,
+index_store/lexical.json.gz   636 table families: ids, titles, universes,
                               members, BM25 postings. Gitignored.
-index_store/semantic.npz       756 x 3072 float32 embeddings.
+index_store/semantic.npz       636 x 3072 float32 embeddings.
 index_store/availability.json.gz  the vintage matrix.
 ```
 
 ### What the index contains, and what it dropped
 
-1,458 tables in the union across all vintages → **756 documents**:
+1,458 tables in the union across all vintages → **636 documents**:
 
 - **588** race iterations (`B19013A`) and Puerto Rico variants folded into their
   base table. They are the same table filtered, they carry near-identical
@@ -82,13 +82,18 @@ index_store/availability.json.gz  the vintage matrix.
   artifact and become slice 1's `alternatives[]`.
 - **114** `B00`/`B98`/`B99` survey-quality tables dropped — allocation rates and
   sample counts, never the subject of a question.
+- **120** collapsed `C` tables folded into the `B` they are identical to.
+  `C15003` publishes the same title, universe and concept as `B15003` with
+  fewer categories, so the two documents were byte-identical and their vectors
+  equal — the winner decided by float noise, and reversible on any rebuild.
+  Members like the race iterations.
 
 `search()` ranks on embeddings alone. BM25 is built and unused: equal-weight RRF
 measured *worse* than embeddings alone on every metric. It is kept for the query
 that names a table ID verbatim, which the eval set does not test.
 
-`check_budgets.py` exits 1 on `retrieval_at_1: 0.45 (limit 0.7)` and
-`synthetic_self_retrieval: 0.34 (limit 0.95)`. Both are honest failures;
+`check_budgets.py` exits 1 on `retrieval_at_1: 0.475 (limit 0.7)` and
+`synthetic_self_retrieval: 0.45 (limit 0.95)`. Both are honest failures;
 `evidence/retrieval_steps.md` has the full ladder and the diagnosis.
 
 ## What each slice adds here

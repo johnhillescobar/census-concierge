@@ -15,10 +15,17 @@ from __future__ import annotations
 import numpy as np
 
 # Measured 2026-08-14, not assumed: `3-large` beat `3-small` by 8 points @1 and
-# 0.08 MRR on the tuning set. At 770 documents the cost difference is under a
+# 0.08 MRR on the tuning set. At 636 documents the cost difference is under a
 # cent to build, and this must stay the default or `make index` silently
 # produces an index that scores lower than the recorded evidence.
 DEFAULT_MODEL = "text-embedding-3-large"
+
+# The API is not bit-deterministic across batch positions: the same string
+# embedded at index 0 and index 3 of one call came back differing by 1.3e-3 in
+# its largest component (measured 2026-08-15), enough to move a cosine by 6e-4.
+# Two documents with identical text therefore do NOT tie exactly, and whichever
+# wins can flip between builds. `build.py` folds the identical `B`/`C` twins for
+# that reason; do not assume rebuilding produces byte-identical vectors.
 BATCH = 256
 
 

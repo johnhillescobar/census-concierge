@@ -256,7 +256,9 @@ contact with the corpus:
 - **~~Synthetic questions are the largest jump~~.** They were the largest drop
   (`@1` 40%→25%). Generated and committed; not fed to the embedding.
 - **What worked was corpus structure, not ranking.** One document per table
-  family and no survey-quality tables: 1,458 documents → 770.
+  family, no survey-quality tables, and no `C` table identical to its `B`:
+  1,458 documents → 636. Every step reads the table ID, which is the most
+  informative field in this corpus.
 
 ### The metric
 

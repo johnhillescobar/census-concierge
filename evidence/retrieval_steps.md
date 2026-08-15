@@ -61,11 +61,23 @@ Both are corpus structure, not ranking:
   question. A race iteration returned as the general table is the exact
   silent wrong answer this product exists to prevent.
 
-1,458 documents → 756. Worth more than every ranking change combined.
+- **Identical `B`/`C` twins.** 120 more dropped, 2026-08-15. A `C` table is its
+  `B` counterpart with categories collapsed, and the two publish the same title,
+  universe and concept — so 120 documents were byte-identical to another
+  document and their vectors were equal. Of 600 generated questions, the 97
+  asking for such a `C` scored **0%** at rank 1: not hard to rank, impossible.
+  Which twin won was decided by float noise, because `text-embedding-3-large`
+  returns different vectors for identical text at different batch positions
+  (max component difference 1.3e-3), so it could flip on any rebuild — the
+  index had `C15003` beating `B15003` for "educational attainment in Cook
+  County". `B` has strictly more cells in all 120, so it loses the user nothing,
+  and the `C` stays reachable through `members` like a race iteration.
+
+1,458 documents → 636. Worth more than every ranking change combined.
 
 ## Where it stands
 
-`retrieval_at_1` = **0.45** against a floor of **0.70**. Slice 0 is not done.
+`retrieval_at_1` = **0.475** against a floor of **0.70**. Slice 0 is not done.
 
 The shape of the gap is unambiguous and consistent across every configuration:
 `@10` is 88–90% while `@1` is 45%. The index finds the right table and cannot
@@ -74,9 +86,14 @@ string, which is reading, not vector distance. PLAN authorizes a reranker under
 exactly this condition, and one takes `@1` to 70% — the floor exactly, which
 at n=40 means 28 of 40 and one question either way.
 
-`synthetic_self_retrieval` = **0.34** against a floor of **0.95**. That floor
+`synthetic_self_retrieval` = **0.45** against a floor of **0.95**. That floor
 assumed the questions would be *in* the index, where a table's own question
 retrieves it trivially. With them out, the metric measures the same ranking
-problem on a 600-question sample instead of 40 — and lands at 34%, next to
-the golden set's 45%. It is the less noisy of the two numbers, and it is not
-measuring what the floor was written to catch.
+problem on a 600-question sample instead of 40 — and lands next to the golden
+set. It is the less noisy of the two numbers, and it is not measuring what the
+floor was written to catch.
+
+Dropping the twins moved it from 0.34, and most of that is the benchmark being
+wrong rather than retrieval improving: 16% of the sample asked for a table that
+no ranker could have returned. On the questions that were always answerable the
+change is +0.002.

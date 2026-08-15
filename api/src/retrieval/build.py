@@ -9,9 +9,10 @@ BM25 gets every variable label; embeddings get a short dense summary. Feeding
 both everything makes each worse at what it is for.
 
 The corpus is also narrowed before either index sees it — one document per table
-FAMILY, and no survey-quality tables. Both are Census structure, not tuning:
-`B19013A` is `B19013` filtered to Black householders, and `B99053` is an
-allocation rate. Together they take 1,458 documents down to 770 and were worth
+FAMILY, no survey-quality tables, and no collapsed `C` twin of a `B` table it
+is textually identical to. All three are Census structure, not tuning:
+`B19013A` is `B19013` filtered to Black householders, `B99053` is an allocation
+rate, and `C02003` is `B02003` with fewer categories. Together they were worth
 more than any ranking change measured here.
 """
 
@@ -52,6 +53,49 @@ def _labels_by_table() -> tuple[dict[str, list[str]], dict[str, str]]:
                 concepts.setdefault(variable.table_id, variable.concept)
         labels.update(grouped)
     return labels, concepts
+
+
+def _fold_identical_twins(
+    table_ids: list[str],
+    members: dict[str, list[str]],
+    documents: dict[str, str],
+    cells: dict[str, int],
+) -> set[str]:
+    """Fold each `C` table into the `B` it embeds identically to. Mutates `members`.
+
+    A `C` table is the same subject as its `B` counterpart with categories
+    collapsed, and the two publish the same title, universe and concept — so
+    the embedded document is byte-identical and the two vectors are equal. Which
+    one ranks first is then decided by array order, and the `C` loses every
+    time. Measured 2026-08-15 across two encoders: of 600 self-retrieval
+    questions, the 97 that asked for such a `C` scored 0% and 5% at rank 1. Not
+    hard to rank — impossible, and 120 documents of pure noise for every other
+    query.
+
+    The fold requires identical text, exactly one `B` and one `C`, and strictly
+    more cells in the `B` — which is what "collapsed" means, and is what makes
+    the `B` a superset that loses the user nothing. The `C` stays reachable
+    through the member list the way a race iteration does.
+
+    Cell count rather than the five-digit stem, because Census does not keep the
+    numbers aligned: `C25045` is the collapsed `B25044` and no `C25044` is
+    published. Requiring a matching stem silently left that one unreachable.
+    """
+    by_document: dict[str, list[str]] = defaultdict(list)
+    for table_id in table_ids:
+        by_document[documents[table_id]].append(table_id)
+
+    collapsed: set[str] = set()
+    for group in by_document.values():
+        if len(group) != 2:
+            continue
+        base = [t for t in group if t.startswith("B")]
+        twin = [t for t in group if t.startswith("C")]
+        if len(base) != 1 or len(twin) != 1 or cells[base[0]] <= cells[twin[0]]:
+            continue
+        members[base[0]] = sorted({*members[base[0]], twin[0], *members.pop(twin[0], [])})
+        collapsed.add(twin[0])
+    return collapsed
 
 
 def build(
@@ -106,6 +150,17 @@ def build(
         for base in sorted(families)
     }
 
+    collapsed = _fold_identical_twins(
+        table_ids,
+        members,
+        {
+            t: text.semantic_document(tables[t].title, tables[t].universe, concepts.get(t, ""), [])
+            for t in table_ids
+        },
+        {t: len(labels.get(t, [])) for t in table_ids},
+    )
+    table_ids = [t for t in table_ids if t not in collapsed]
+
     lexical = [
         text.tokenize(
             text.lexical_document(
@@ -133,7 +188,8 @@ def build(
     meta = {
         "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "tables": len(table_ids),
-        "collapsed_members": sum(len(m) for m in members.values()),
+        "collapsed_members": sum(len(members[t]) for t in table_ids),
+        "collapsed_twins": len(collapsed),
         "embedding_model": model if with_embeddings else None,
         "synthetic_questions": sum(len(v) for v in questions.values()) if with_synthetic else 0,
         "vintages": {
