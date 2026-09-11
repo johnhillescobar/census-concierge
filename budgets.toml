@@ -13,12 +13,12 @@ api_src_loc          = 4000   # non-blank, non-comment lines under api/src
 api_src_files        = 40
 max_file_loc         = 400    # any single file
 web_src_loc          = 3000
-doc_lines            = 1600   # PRESCRIPTIVE docs only: CLAUDE.md, DESIGN,
+doc_lines            = 1800   # PRESCRIPTIVE docs only: CLAUDE.md, DESIGN,
                               # PLAN, .cursor/rules, .cursor/commands,
                               # .claude/skills, docs/playbooks. These are
                               # instructions an agent must hold in context, and
                               # more of them means less of them gets followed.
-                              # Currently ~1531 — near the cap on purpose: a new
+                              # Currently ~1770 — near the cap on purpose: a new
                               # rule should cost an old one.
                               # NOT counted: docs/ARCHITECTURE.md, which
                               # describes what exists and must grow with the
@@ -82,4 +82,7 @@ synthetic_self_retrieval_min = 0.95
 
 # --- budget change log -------------------------------------------------------
 # Append one line per change: date, field, old -> new, reason.
-# (empty)
+# 2026-09-10  [size] doc_lines  1600 -> 1800  slice workflow: run-slice playbook +
+#             .claude/skills/run-slice + .cursor/commands/run-slice + the mutation
+#             rule, ported from job_serach_agent. Adds one pipeline all slice work
+#             follows; the not-counted evidence lives in docs/process-evidence.md.
