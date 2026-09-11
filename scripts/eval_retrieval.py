@@ -85,6 +85,16 @@ def load_retriever(rerank: bool = False):
     except ImportError:
         print("! no retriever found at api/src/retrieval/index.py - scoring the stub\n")
         return lambda question, k: []
+    try:
+        # `index.py` exists once slice 0 ships, so the ImportError above is
+        # never taken again - but index_store/ is gitignored, so a clean
+        # checkout with no build still has no artifact to load. Probe before
+        # either return path, not just the rerank one: load() crashes on
+        # FileNotFoundError, and without this the plain-search path would too.
+        load()
+    except FileNotFoundError:
+        print("! index_store/ not found - scoring the stub. Run `make index` first.\n")
+        return lambda question, k: []
     if not rerank:
         return search
 
@@ -95,6 +105,11 @@ def load_retriever(rerank: bool = False):
 
     def search_and_rerank(question: str, k: int) -> list[str]:
         ranked = search(question, max(k, 10))
+        if not ranked:
+            # choose() reads candidates[0] unconditionally; search() returning
+            # [] for a no-match question is a documented, tested case, not an
+            # error, and must not crash --rerank.
+            return []
         picked = choose(
             question,
             [Candidate(t, index.titles[position[t]], index.universes[position[t]]) for t in ranked],

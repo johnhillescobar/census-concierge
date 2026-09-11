@@ -1,7 +1,7 @@
 # ARCHITECTURE — the system as it IS
 
 **Status: slice 0 is built and does not yet clear its gate.**
-Retrieval runs end to end. `retrieval_at_1` is 0.45 against a floor of 0.70.
+Retrieval runs end to end. `retrieval_at_1` is 0.475 against a floor of 0.70.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what

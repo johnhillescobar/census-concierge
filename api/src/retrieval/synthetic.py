@@ -130,6 +130,12 @@ def generate(
             for done, (table_id, entry) in enumerate(pool.map(one, stale), start=1):
                 if entry is not None:
                     cached[table_id] = entry
+                else:
+                    # A failed refresh must not leave the old, now-mismatched
+                    # entry in place - it would be written back and served as
+                    # current. One bad table still must not kill the run, so
+                    # drop it rather than abort generate() entirely.
+                    cached.pop(table_id, None)
                 if done % 100 == 0:
                     print(f"  {done}/{len(stale)}")
 

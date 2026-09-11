@@ -38,6 +38,15 @@ def embed_texts(texts: list[str], model: str = DEFAULT_MODEL) -> np.ndarray:
     for start in range(0, len(texts), BATCH):
         chunk = texts[start : start + BATCH]
         response = client.embeddings.create(model=model, input=chunk)
+        if len(response.data) != len(chunk):
+            # A short batch would silently shift every row after it against
+            # the table IDs `build.py` assigns by position, embedding one
+            # table's text under another's ID - a silent wrong answer.
+            raise RuntimeError(
+                f"embeddings API returned {len(response.data)} vectors for a "
+                f"{len(chunk)}-item batch; aborting rather than writing a "
+                "shifted index."
+            )
         vectors.extend(item.embedding for item in response.data)
 
     matrix = np.asarray(vectors, dtype=np.float32)
