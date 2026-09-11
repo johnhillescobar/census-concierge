@@ -37,6 +37,10 @@ not the file length.
 ## Test rules
 
 - **Behavior only**: question in, table and URL out.
+- **Mutation-check every new test.** Revert the behaviour it covers, run only that
+  test, confirm it fails, restore. A test that passes against the broken
+  implementation is not a check - delete it or rewrite it. Revert one behaviour at
+  a time; name the mutation for what it reverts. (`docs/playbooks/run-slice.md` §3.)
 - **Never** assert on prompt wording or LLM prose. Those tests break on edits and
   survive regressions.
 - **Never** name a test after a ticket. `test_census_43_turn1_table_selection.py`

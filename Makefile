@@ -4,7 +4,7 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo lint types test fmt invariants hooks metadata index
+.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
 check: lint types test invariants
@@ -27,6 +27,11 @@ index:
 ## End-to-end against live APIs. Needs OPENAI_API_KEY and CENSUS_API_KEY.
 demo:
 	uv run python scripts/run_demo.py --repeat 3
+
+## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
+## Usage: make gate PHASE=gate2 SLICE=0 [ENGINE=cursor]. See docs/playbooks/run-slice.md.
+gate:
+	bash scripts/gate.sh $(PHASE) $(SLICE) $(or $(ENGINE),cursor)
 
 ## Mechanically checkable project rules. --base adds the budget-diff check.
 invariants:

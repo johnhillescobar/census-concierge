@@ -65,6 +65,17 @@ Also non-negotiable in every response:
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
 
+## Slice workflow
+
+One pipeline per slice: **pre-flight** (run every technical claim before coding) ->
+implement -> **Gate 1** (matrix tests, every new test mutation-checked) -> **Gate
+2** (cold review: `/code-review` then `docs/playbooks/review-pr.md`) -> fix ->
+**E2E** (`make eval` / `make demo`, transcript in the PR) -> merge -> **E2E again**
+against merged `main`. Every phase persists to git / the PR / `evidence/slice-<N>/`
+before the next; a fresh context rebuilds from those, never from chat history. Full
+procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill; matrix and
+worked examples: `docs/process-evidence.md`.
+
 ## Traps
 
 - A retrieval fake that returns the same table for any input tests nothing.
