@@ -1,0 +1,97 @@
+# Gate 2 — `workflow/run-slice-pipeline`
+
+Two passes as requested. Diff surface reconstructed from the branch files (git/shell blocked in Ask mode, so no `git diff` or machine output).
+
+---
+
+## Pass 1: Code-only bug review (no intent)
+
+**Reviewed:** `scripts/gate.ps1`, `scripts/gate.sh`, `Makefile`, `docs/playbooks/run-slice.md`, `docs/playbooks/review-pr.md`, `docs/process-evidence.md`, `api/tests/test_process.py`, `api/tests/docs_helpers.py`, `.github/workflows/check.yml`, `.github/pull_request_template.md`, `.gitattributes`, skill/command pointers, `budgets.toml`, `pyproject.toml`.
+
+**Findings: nothing definitive.**
+
+| Area | Result |
+|---|---|
+| `gate.ps1` exit code / `$ErrorActionPreference` / `Tee-Object` pipeline | Correct for PS 5.1: EAP relaxed only for the `agent` call; `$LASTEXITCODE` checked after native `agent`, not after `Tee-Object`; stderr message avoids masking agent's exit code |
+| `gate.sh` `pipefail` + empty `mode` array | Agent failure propagates through `tee`; `"${mode[@]}"` with empty array is safe under `set -u` |
+| `gate.ps1` `@mode` splat + long `$task` string | Expands to separate args; task is one string argument, not word-split |
+| `test_process.py` transcript re-runner | Commit refs split on `:` before `cat-file`; shallow clone fails loud; unrecognised command shapes raise; vacuity guards on transcript count and matrix rows |
+| `docs_helpers.py` parsers | Line-state fence scanner and escaped-pipe `cells()` look correct for current docs |
+| `section()` / `table_rows()` anchoring | Substring heading match is theoretically fragile (heading text elsewhere in file would bind wrong section); not triggered by current markdown |
+| `api/src` response paths | **Not touched** — no silent-wrong-answer surface to review |
+
+**Nothing** in the Python or shell code that would clearly misbehave on the paths it implements.
+
+**Note:** Initial git status showed unstaged edits to `gate.ps1` / `gate.sh` (likely the PS exit-code fix now in the working tree). Could not diff committed vs unstaged without git.
+
+---
+
+## Pass 2: `docs/playbooks/review-pr.md`
+
+### Machines (step 0)
+
+**Not run.** Ask mode blocked shell execution. Per the playbook, a review with unverified machine output is incomplete:
+
+```
+uv run python scripts/check_budgets.py
+uv run python scripts/check_invariants.py --base origin/main
+uv run ruff check . && uv run ruff format --check .
+uv run mypy api/src
+uv run pytest -q -m "not integration"
+```
+
+Cannot confirm green/red. **`check_invariants --base` is the load-bearing check** — unverified.
+
+---
+
+### The claim
+
+**No user-facing claim.** This branch is process harness: playbooks, gate wrappers, doc-integrity tests, PR template, CI `fetch-depth: 0`, `.gitattributes`. A user cannot do anything new with Census data because of this diff. Say plainly: **scaffolding, not a feature.** The PR template's opening field cannot be filled honestly.
+
+### Evidence
+
+**Nothing pasted.** No `make eval` / `make demo --repeat 3` transcripts in the diff. Expected for harness-only work, but the playbook still wants real output when product behaviour changes — **N/A here**.
+
+### Scope
+
+- **Slice fit:** Process infrastructure for the slice workflow — appropriate; not a "Not in this slice" product violation.
+- **File count:** ~17–18 files touched — above the ~15 alarm; PR body should say this is a harness port, not feature creep.
+- **"While we were in there":** **Nothing** unrelated in the committed process work. Untracked `.vscode/settings.json` should **not** ship in the PR.
+
+### Silent-wrong-answer review
+
+**Nothing.** No response paths, URL construction, MOE, GEOID, universe, or `&key=` handling changed.
+
+### Shape
+
+**Nothing.** No new tools, routes, graph nodes, or domain Pydantic models. `docs/ARCHITECTURE.md` unchanged — correct for this diff.
+
+### Tests
+
+- `test_process.py` + `docs_helpers.py`: behaviour checks on pinned git output and doc structure — not a fake retriever; not prompt-wording tests. Good pattern.
+- Helper unit tests cover parser edge cases the doc-level tests would not catch alone.
+- Mutation-check transcript for the new tests: **not evidenced** in the diff.
+- `make demo` as evidence: **absent** (expected for harness-only work).
+
+### Budget note
+
+`doc_lines` 1600 → 1800 is logged in `budgets.toml` with a dated reason. Whether that is a **new** delta vs `origin/main` requires `check_invariants --base` — unverified. PR template checklist ("no budget was raised") may conflict if the raise is novel on this branch; clarify in the PR body if so.
+
+---
+
+## Verdict
+
+**Not yet** — most important reason: **machine gates were not run**, so `check_invariants --base` is unverified.
+
+Secondary (process, not code bugs):
+
+1. No honest one-sentence **user** claim — document that this is harness/scaffolding.
+2. Mutation-check transcript for `test_process.py` not evidenced.
+3. File-count alarm deserves one sentence in the PR body.
+4. Keep `.vscode/settings.json` out of the PR.
+
+If machines pass locally: **Ship it with follow-ups** (scaffolding nature documented, mutation transcript captured, vscode settings excluded). **No silent-wrong-answer findings** and **no code bugs found** in Pass 1.
+
+---
+
+To complete Gate 2 properly, switch to Agent mode (or run the five commands locally) and paste their verbatim output into `evidence/slice-0/gate2.txt`.
