@@ -1,0 +1,139 @@
+GATE 2 - slice 1 - feat/cc-19-post-ask
+Date: 2026-09-12
+Branch: feat/cc-19-post-ask
+Diff: origin/main...HEAD
+Commits: d88fb46 feat(api): add FastAPI POST /ask with a typed contract (CC-19)
+         023bcbc test(api): mutation-check POST /ask OpenAPI minLength (CC-19)
+Files: 13 (501 insertions, 11 deletions)
+
+==============================================================================
+MACHINE CHECKS (review-pr.md: run first; non-zero ends the review)
+==============================================================================
+
+-------- check_budgets.py --structural-only --------
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC                917 <= 4000
+  ok    api src files               14 <= 40
+  ok    largest file LOC           165 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens         0 <= 1200
+  ok    doc lines                 1797 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  0 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 0 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          6 <= 25
+
+All budgets met.
+
+exit_code=0 elapsed_ms=3903
+
+-------- check_invariants.py --base origin/main --------
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+exit_code=0 elapsed_ms=877
+
+-------- ruff check . --------
+$ uv run ruff check .
+All checks passed!
+exit_code=0 elapsed_ms=3646
+
+-------- ruff format --check . --------
+$ uv run ruff format --check .
+64 files already formatted
+exit_code=0 elapsed_ms=316
+
+-------- mypy api/src --------
+$ uv run mypy api/src
+Success: no issues found in 14 source files
+exit_code=0 elapsed_ms=1726
+
+-------- pytest -q -m "not integration" --------
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 98%]
+.                                                                        [100%]
+73 passed in 2.80s
+exit_code=0 elapsed_ms=6993
+
+All machine checks exited 0. Review continues.
+
+==============================================================================
+PASS 1 - GENERIC BUGS (code only; no intent)
+==============================================================================
+
+Read git diff origin/main...HEAD and the files it touches:
+  api/src/ask.py
+  api/src/contract.py
+  api/src/main.py
+  api/tests/test_ask_route.py
+  api/pyproject.toml
+  Makefile
+  README.md
+  docs/ARCHITECTURE.md
+  .claude/PLAN.md
+  uv.lock
+  evidence/slice-1/cc-19-preflight-claims.md
+  evidence/slice-1/cc-19-preflight.txt
+  evidence/slice-1/gate1.txt
+
+Looked for: crashes, missing error paths, incorrect types, tests that cannot fail.
+
+Findings: nothing
+
+==============================================================================
+PASS 2 - PROJECT INVARIANTS (docs/playbooks/review-pr.md)
+==============================================================================
+
+The claim
+  A client can POST /ask with a question and get the published AskResponse
+  schema; Swagger is at /docs. Fields are empty until the four-tool loop
+  (CC-23). This is the first Slice 1 checkbox (FastAPI app with Swagger, one
+  endpoint), not the slice Done-when.
+
+  Evidence: this PR does not claim a retrieval or answered-rate move. make eval
+  / make demo are E2E, not this phase.
+
+Scope
+  Belongs to Slice 1. Does not add conversation memory, auth, database,
+  frontend, charts, PDF, clarification, series/cross-geography, or a graph.
+  13 files, under ~15. No drive-by work: serve command, ARCHITECTURE, and the
+  PLAN checkbox are the HTTP surface.
+
+Silent-wrong-answer
+  Contract fields answer, url, rows, moe, geoid, universe, table_id,
+  alternatives[], warnings[] are required on the 200 path. The stub returns
+  them empty; it does not format a Census URL, so it does not leak &key=.
+  No numbers pass through a model. No guard became a blocking question. No
+  silent vintage/geography repair.
+
+Shape
+  One new route: POST /ask (the planned question route, not a tool costume).
+  Four domain models on the HTTP boundary (AskRequest, AskResponse,
+  Alternative, AskWarning); rows stay dicts. No new tool, no add_node().
+  docs/ARCHITECTURE.md updated in the same change. fastapi + uvicorn added;
+  direct_dependencies 6 <= 25. Budgets.toml not weakened.
+
+Tests
+  Behaviour: 422 on empty/blank/missing question; valid body reaches run_ask
+  with stripped text; OpenAPI has one POST /ask and the contract field list.
+  No prompt/LLM-prose assertions. The monkeypatch does not return a fixed
+  table id. A new test file is not evidence the product answers questions.
+
+Findings: nothing
+
+==============================================================================
+VERDICT
+==============================================================================
+
+Ship it
+
+A client can POST /ask and receive the published AskResponse contract
+(empty until the four-tool loop); Swagger is at /docs.
