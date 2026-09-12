@@ -1,0 +1,30 @@
+Gate 1 — mutation: ordinal argsort ranks vs mid-ranks
+
+GOOD — mid-ranks (current)
+.                                                                        [100%]
+1 passed in 0.13s
+exit 0
+
+BAD — ordinal argsort ranks (pre-7624deb auc)
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_auc_with_a_cross_group_tie_does_not_depend_on_input_order ________
+
+    def test_auc_with_a_cross_group_tie_does_not_depend_on_input_order() -> None:
+        forward = auc(POSITIVE, NEGATIVE)
+        reversed_inputs = auc(POSITIVE[::-1], NEGATIVE[::-1])
+    
+>       assert forward == reversed_inputs
+E       assert 0.8333333333333334 == 0.6666666666666666
+
+api\tests\test_auc_order.py:30: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_auc_order.py::test_auc_with_a_cross_group_tie_does_not_depend_on_input_order
+1 failed in 0.18s
+exit 1
+
+GOOD — restored mid-ranks
+.                                                                        [100%]
+1 passed in 0.17s
+exit 0
+

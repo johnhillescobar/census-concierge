@@ -131,12 +131,16 @@ before spending an LLM call. `python experiments/run_margin.py`.
 
 | signal | AUC, n=600 | AUC, n=40 |
 |---|---|---|
-| top1 − mean(top10) | **0.748** | 0.680 |
-| top1 − top5 | 0.730 | 0.682 |
-| top1 − top2 | 0.707 | **0.758** |
-| top1 score alone | 0.660 | 0.570 |
+| top1 − mean(top10) | 0.748 → 0.730 | 0.680 → 0.654 |
+| top1 − top5 | 0.730 → 0.719 | 0.682 → 0.656 |
+| top1 − top2 | 0.707 → **0.734** | 0.758 → **0.768** |
+| top1 score alone | 0.660 → 0.600 | 0.570 → 0.570 |
 
-AUC 0.5 is a coin flip. **The gap works** — around 0.71–0.76, which is a usable
+Re-run 2026-09-11 against cached embeddings with mid-rank `auc()` (CC-51). Figures
+before the arrow are the published ordinal-rank rows. `top1 − top2` is now the
+best signal on both sets; the qualitative range is unchanged.
+
+AUC 0.5 is a coin flip. **The gap works** — around 0.73–0.77, which is a usable
 signal rather than a strong one. What a threshold buys, on the golden set:
 
 | cut at | covers | top-1 right above | top-1 right below |
@@ -149,10 +153,11 @@ and the bottom half barely better than chance. That is exactly the split the
 product needs: answer confidently when the gap is wide, and when it is narrow,
 show the neighbours with the reason they differ — never a blocking question.
 
-Two caveats. The absolute margins are tiny (a 50th-percentile cut sits at 0.0036
-cosine), so the threshold must be calibrated per encoder and re-calibrated when
-the encoder changes. And 32% of documents are exact twins, which puts a floor
-under how often the margin can be wide.
+Two caveats. The absolute margins are tiny (a 50th-percentile cut sits at 0.0057
+cosine, was 0.0036 when first published — the cut is a quantile of the margins,
+not of `auc()`), so the threshold must be calibrated per encoder and
+re-calibrated when the encoder changes. And 32% of documents are exact twins,
+which puts a floor under how often the margin can be wide.
 
 ---
 
@@ -210,13 +215,15 @@ found the topic. It does not hold:
 
 | signal | AUC n=600 | AUC n=40 |
 |---|---|---|
-| subject agreement in top-5 | 0.411 | 0.125 |
-| margin (top1 − top2) | 0.707 | 0.758 |
+| subject agreement in top-5 | 0.411 → 0.494 | 0.125 → 0.422 |
+| margin (top1 − top2) | 0.707 → 0.703 | 0.758 → 0.760 |
 
-Below 0.5, so the relationship runs the *other* way — when all five candidates
-share a subject they are siblings and harder to order, not easier. And 70% of
-questions sit at the maximum value, so there is almost no range to threshold on.
-Margin remains the only confidence signal measured here.
+Re-run 2026-09-11, same as Axis D. Subject agreement stays at or below 0.5 — the
+n=40 figure moved a lot and is still not a usable signal. The relationship still
+runs the *other* way: when all five candidates share a subject they are siblings
+and harder to order, not easier. And 70% of questions sit at the maximum value,
+so there is almost no range to threshold on. Margin remains the only confidence
+signal measured here.
 
 ---
 
