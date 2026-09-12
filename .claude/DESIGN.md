@@ -348,4 +348,10 @@ making retrieval work.
   Embedding model **provisionally** `text-embedding-3-small`; at least two
   models get compared at slice 0's embedding step, since Census jargon is
   unusual enough that general benchmarks may not carry over.
+- ~~**StateGraph for the agent loop**~~ — **decided 2026-09-12.** The agent is
+  a hand-rolled loop (`call_model()` then `dispatch(tool_call)`), not
+  `create_agent` and not a `StateGraph`. Graph nodes for routing stay banned
+  (§5, §7). Still open, spiked before slice 5 (PLAN): whether LangGraph's
+  Postgres checkpointer can sit under that loop without reintroducing a graph.
+  If it cannot, persist with ~30 lines.
 - **Which ACS vintages and datasets** ship first (acs5 only? acs1 too?).
