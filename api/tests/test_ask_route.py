@@ -40,6 +40,7 @@ def test_openapi_documents_post_ask() -> None:
     }
     request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
     assert list(request_props) == ["question"]
+    assert request_props["question"]["minLength"] == 1
     response = schema["components"]["schemas"]["AskResponse"]
     assert response["required"] == list(CONTRACT_FIELDS)
     assert "items" in response["properties"]["alternatives"]
