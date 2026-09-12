@@ -154,9 +154,10 @@ product needs: answer confidently when the gap is wide, and when it is narrow,
 show the neighbours with the reason they differ — never a blocking question.
 
 Two caveats. The absolute margins are tiny (a 50th-percentile cut sits at 0.0057
-cosine, was 0.0036 on the ordinal-rank run), so the threshold must be calibrated
-per encoder and re-calibrated when the encoder changes. And 32% of documents are
-exact twins, which puts a floor under how often the margin can be wide.
+cosine, was 0.0036 when first published — the cut is a quantile of the margins,
+not of `auc()`), so the threshold must be calibrated per encoder and
+re-calibrated when the encoder changes. And 32% of documents are exact twins,
+which puts a floor under how often the margin can be wide.
 
 ---
 

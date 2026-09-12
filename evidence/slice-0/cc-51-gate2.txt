@@ -1,0 +1,163 @@
+# Gate 2 — CC-51 — branch `fix/auc-order-independent-ties`
+
+Reviewer: fresh subagent (no parent-session context).
+Date: 2026-09-11.
+Diff: `git diff origin/main...HEAD` (5 files, +148 / −16).
+HEAD: 736a030 test(experiments): keep AUC order-independent when scores tie
+Base: origin/main (4e8fea7)
+
+Do not confuse with `evidence/slice-0/gate2.txt` (slice-0 pipeline review already on main).
+
+---
+
+## Pass 1 — code-only bug review (no author intent)
+
+**Method:** Read the five-file three-dot diff. Followed the new test into `experiments/run_margin.py` `auc()` / `_average_ranks()` because the test imports them. Compared FINDINGS.md after-arrow figures to the new evidence transcripts.
+
+`experiments/run_margin.py` itself is **not** in this diff (mid-rank `auc()` already on origin/main via 7624deb). This branch adds the lock-in test, Gate 1 transcript, re-run transcripts, and FINDINGS updates.
+
+### Findings
+
+| # | Severity | Location | Finding |
+|---|----------|----------|---------|
+| 1 | Low (docs) | `experiments/FINDINGS.md` Axis D caveats | The 50th-percentile cut is written as 0.0057 (was 0.0036 on the ordinal-rank run). `report()` takes `np.quantile(values, q)` of the margin vector; that path does not call `auc()`. A mid-rank vs ordinal-rank change cannot move the cut. The new 0.0057 matches `evidence/slice-0/run_margin.txt` (golden 50th pct). The old 0.0036 matches origin/main FINDINGS. A reader can take the parenthetical as causality. The accuracy-at-cut table (50%/80%/40%, 30%/92%/46%) is unchanged and matches the new transcript. |
+| — | — | All other reviewed paths | **Nothing.** |
+
+### Areas reviewed with no bugs found
+
+- **`api/tests/test_auc_order.py`:** Cross-group tie at 0.2. Pairwise Mann-Whitney U = 4.5 over 3x2 pairs -> 0.75. Reversing both arrays is a real order probe (ordinal argsort ranks flip 0.833 <-> 0.667; Gate 1 transcript shows that failure). `auc()` concatenates before ranking, so it does not mutate the input views from `[::-1]`. Exact `== 0.75` is exact in IEEE for 4.5/6.
+- **`_average_ranks`:** 1-based mid-ranks; two-way tie at sorted indices 2-3 gets (2+3+2)/2 = 3.5. Rank-sum formula then matches pairwise U.
+- **`run_codes.py`:** Imports the same `auc`; not duplicated.
+- **Evidence vs FINDINGS after-arrows:** Axis D n=600 0.730 / 0.719 / 0.734 / 0.600 and n=40 0.654 / 0.656 / 0.768 / 0.570 match `run_margin.txt`. Axis E subject-agreement 0.494 / 0.422 and margin 0.703 / 0.760 match `run_codes.txt`. Before-arrows match origin/main FINDINGS.
+
+### Pass 1 summary
+
+**No blocking code bugs.** One low-severity FINDINGS attribution: the quantile cut is independent of `auc()`.
+
+---
+
+## Pass 2 — `docs/playbooks/review-pr.md`
+
+### Machines (run first — all must pass)
+
+#### `uv run python scripts/check_budgets.py`
+
+```
+BUDGETS
+
+  ok    api src LOC                849 <= 4000
+  ok    api src files               11 <= 40
+  ok    largest file LOC           165 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens         0 <= 1200
+  ok    doc lines                 1788 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  0 <= 6
+  ok    api routes                   0 <= 10
+  ok    tool schemas                 0 <= 12
+  ok    domain models                0 <= 15
+  ok    direct dependencies          4 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+Exit code: 0
+
+#### `uv run python scripts/check_invariants.py --base origin/main`
+
+```
+INVARIANTS
+
+  ok    no violations
+```
+
+Exit code: 0
+
+#### `uv run ruff check . && uv run ruff format --check .`
+
+```
+All checks passed!
+57 files already formatted
+```
+
+Exit code: 0
+
+#### `uv run mypy api/src`
+
+```
+Success: no issues found in 11 source files
+```
+
+Exit code: 0
+
+#### `uv run pytest -q -m "not integration"`
+
+```
+............................................................             [100%]
+60 passed in 1.74s
+```
+
+Exit code: 0
+
+**Machine gate: PASS** (all five commands exited 0). pytest 60 passed (59 on origin/main + the new AUC test).
+
+---
+
+### The claim
+
+**What can a user do now that they could not before?**
+
+Nothing user-facing. This is scaffolding around an experiment statistic: a regression test that `experiments.run_margin.auc` stays order-independent under a cross-group tie, plus FINDINGS.md / evidence transcripts updated to a mid-rank re-run. `auc()` itself is already on origin/main (7624deb); this PR locks it and republishes Axis D/E numbers.
+
+Say that plainly rather than dressing it as a retrieval improvement. Deltas such as golden `top1 - top2` AUC 0.758 -> 0.768 are estimator corrections, not product gains, and sit inside noise at n=40.
+
+**Is the evidence real?** `run_margin.txt` and `run_codes.txt` are command transcripts; FINDINGS after-arrows match them. No `make eval` / `make demo` — this diff does not touch `search()` or the scoreboard. That is appropriate.
+
+### Scope
+
+- **Slice fit:** Slice 0. No agent, HTTP, geography, MOE, or UI. Experiments remain throwaway measurement, not a new subsystem. Addresses the earlier slice-0 Gate 2 follow-up on Mann-Whitney tie handling.
+- **File count:** 5 (test, FINDINGS, three evidence files). Under ~15.
+- **"While we were in there":** nothing.
+
+### Silent-wrong-answer review
+
+**Nothing.** No response path, no URL / MOE / GEOID / universe, no `&key=`, no numbers through a model, no guard, no silent repair of user input.
+
+FINDINGS still treats margin as a usable-not-strong confidence signal and subject agreement as unusable. Qualitative product implication unchanged.
+
+### Shape
+
+**Nothing.** No new tool, route, Pydantic model, graph node, or `api/src` module. `docs/ARCHITECTURE.md` correctly untouched.
+
+### Tests
+
+- Behaviour: order-independence plus the mid-rank value 0.75. Not prompt wording. Not named after a ticket.
+- No retrieval fake.
+- Mutation-checked: `evidence/slice-0/gate1.txt` shows ordinal argsort ranks fail `assert forward == reversed_inputs` (0.833 vs 0.667), restored mid-ranks pass.
+- Importing `experiments.run_margin` via `sys.path` also imports `arms` and `harness`; collection succeeded in this pytest run.
+
+### Verdict
+
+**Ship it**
+
+A developer can no longer reintroduce ordinal ranks in `auc()` without a red test, and Axis D/E published figures now match a mid-rank re-run of the same scripts. Not a user-facing change.
+
+Follow-ups: nothing required to merge. Optional: reword the Axis D 0.0036 -> 0.0057 cut so it is not read as caused by mid-ranks (Pass 1 item 1).
+
+---
+
+## PR body bullets (Gate 2 findings)
+
+- Pass 1 bugs: nothing blocking. Low: FINDINGS 50th-percentile cut 0.0036 -> 0.0057 is independent of `auc()`; new cut matches `run_margin.txt`.
+- Pass 2 machines: all five exited 0 (budgets, invariants vs origin/main, ruff, mypy, 60 pytest).
+- Pass 2 claim: scaffolding / experiment lock, not a user-facing capability. Estimator correction, not a retrieval gain.
+- Pass 2 scope: slice 0; 5 files; nothing extra.
+- Pass 2 silent-wrong-answer: nothing.
+- Pass 2 shape: nothing.
+- Pass 2 tests: behaviour + mutation transcript in `evidence/slice-0/gate1.txt`.
+- Verdict: Ship it. Optional FINDINGS cut-attribution wording only.
+
+**One-line verdict: Ship it**
