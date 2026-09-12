@@ -157,13 +157,14 @@ resolution, MOE handling, the UI.
 - [x] FastAPI app with Swagger. One endpoint.
 
 > **STATUS 2026-09-12 (CC-19, `main` @ ae9ff2e).** Live `/docs` 200, `/ask` 422/200 (stub). Retriever `@10` 0.90, selector `@1` 0.875. Transcript: `evidence/slice-1/e2e-post.txt`. `make demo` is CC-26.
-- [ ] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
+> **STATUS 2026-09-12 (CC-23, `main` @ 7d14c79).** Live `POST /ask` ACS5 2024 B01003 Harris County (GEOID 0500000US48201), key redacted. Retriever `@10` 0.90, selector `@1` 0.85, alignment 0.544. Transcript: `evidence/slice-1/cc-23-e2e-post.txt`.
+- [x] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
-- [ ] `build_url` returns the complete URL — variables, geography, vintage — and
+- [x] `build_url` returns the complete URL — variables, geography, vintage — and
       its output is returned to the caller **even when `fetch_data` fails.**
-- [ ] Response contract includes: `answer`, `url`, `rows`, `moe`, `geoid`,
+- [x] Response contract includes: `answer`, `url`, `rows`, `moe`, `geoid`,
       `universe`, `table_id`, `alternatives[]`, `warnings[]`.
-- [ ] `&key=` redacted at the boundary, everywhere.
+- [x] `&key=` redacted at the boundary, everywhere.
 - [ ] The five slice-1 guards from DESIGN §4: `overlapping_vintage`,
       `moe_not_significant`, `geography_unsupported`, `ambiguous_place`,
       `universe_mismatch`. **None of them blocks** — warn and ship the answer.
