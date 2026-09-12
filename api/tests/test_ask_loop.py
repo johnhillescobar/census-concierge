@@ -419,6 +419,23 @@ def test_collapsed_reason_is_relative_to_the_selection() -> None:
     assert by_id["B19013A"] == "related table"
 
 
+def test_a_collapsed_member_is_not_a_race_iteration_of_the_pick() -> None:
+    record = ExecutionRecord()
+    record.table_id = "B15003A"
+    record.universe = "Population 25 years and over"
+    record.pool = [
+        {
+            "table_id": "B15003",
+            "title": "Educational Attainment",
+            "universe": "Population 25 years and over",
+            "members": ["C15003", "B15003A"],
+        }
+    ]
+    by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
+    assert by_id["C15003"] == "collapsed table"
+    assert by_id["B15003"] == "race iteration"
+
+
 async def test_universe_comes_from_the_requested_vintage() -> None:
     record = ExecutionRecord()
     record.pool = [

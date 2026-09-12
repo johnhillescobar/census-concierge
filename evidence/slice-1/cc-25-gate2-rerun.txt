@@ -1,0 +1,185 @@
+﻿# CC-25 Gate 2 re-run (run-slice.md §5, after non-trivial fix)
+# branch: feat/cc-25-response-contract
+# HEAD: 01f4e8361afd5e04763e8699505bf288dd5a0d40
+# origin/main: 7d14c79fe7808fd924a244c21b83982811720fe3
+# prior Gate 2: evidence/slice-1/cc-25-gate2.txt (HEAD then 953f23f) — not overwritten
+# fix commit: 01f4e83 fix(api): classify alternative reasons against the selected table (CC-25)
+# captured: 2026-09-12T18:48:32-05:00
+# uncommitted: this transcript only
+# machine stdout: cmd /c redirect; Add-Content -Encoding utf8 (UTF-8 BOM, not UTF-16)
+
+=== git log origin/main...HEAD --oneline ===
+01f4e83 fix(api): classify alternative reasons against the selected table (CC-25) 3e4cb36 evidence(slice-1): Gate 2 cold review transcript for CC-25 953f23f evidence(slice-1): Gate 1 mutation transcript for CC-25 de9e34c feat(api): return a complete ask contract with paired MOE and classified alternatives (CC-25)
+
+=== git show 01f4e83 --stat ===
+commit 01f4e8361afd5e04763e8699505bf288dd5a0d40 Author: John Hill Escobar <johnhillescobar@users.noreply.github.com> Date:   Sat Sep 12 18:47:38 2026 -0500      fix(api): classify alternative reasons against the selected table (CC-25)          A C-table hanging off another family's hit is a related table, not a collapsed form of the answer. OpenAPI now documents that reason.          Co-authored-by: Cursor <cursoragent@cursor.com>   api/src/ask.py                           | 19 +++++++++++++------  api/src/contract.py                      |  2 +-  api/tests/test_ask_loop.py               | 28 ++++++++++++++++++++++++++--  evidence/slice-1/cc-25-ac-eval.md        |  2 +-  evidence/slice-1/cc-25-fix-mutations.txt | 20 ++++++++++++++++++++  5 files changed, 61 insertions(+), 10 deletions(-)
+
+=== git diff --stat origin/main...HEAD ===
+ api/src/ask.py                             | 135 ++++-  api/src/contract.py                        |  39 +-  api/tests/test_ask_loop.py                 | 279 +++++++++-  api/tests/test_ask_route.py                |  14 +-  docs/ARCHITECTURE.md                       |  14 +-  evidence/slice-1/cc-25-ac-eval.md          |  18 +  evidence/slice-1/cc-25-fix-mutations.txt   |  20 +  evidence/slice-1/cc-25-gate1.txt           | 827 +++++++++++++++++++++++++++++  evidence/slice-1/cc-25-gate2.txt           | 187 +++++++  evidence/slice-1/cc-25-preflight-claims.md |  27 +  evidence/slice-1/cc-25-preflight.txt       | Bin 0 -> 21304 bytes  11 files changed, 1520 insertions(+), 40 deletions(-)
+
+=== git status --short ===
+(empty)
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+
+BUDGETS
+
+  ok    api src LOC               2011 <= 4000
+  ok    api src files               18 <= 40
+  ok    largest file LOC           378 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1799 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+
+[exit 0]
+
+
+=== uv run ruff check . && uv run ruff format --check . ===
+$ uv run ruff check . && uv run ruff format --check .
+
+All checks passed!
+73 files already formatted
+
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+
+Success: no issues found in 18 source files
+
+
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 55%]
+.........................................................                [100%]
+129 passed in 3.05s
+
+
+[exit 0]
+
+
+================================================================================
+PASS 1 — generic bugs (cold read of git diff origin/main...HEAD; no intent)
+================================================================================
+Diff: 01f4e83 + 3e4cb36 + 953f23f + de9e34c vs origin/main (7d14c79).
+11 files, +1520 / -40. Production: ask.py, contract.py, ARCHITECTURE.md; rest is tests/evidence.
+Fix commit 01f4e83: _how_differs same_family/anchor; test_collapsed_reason_is_relative_to_the_selection.
+
+Findings:
+- nothing that ships a wrong URL, drops a margin, or loses GEOID on the paths this diff adds.
+  `_moe_rows` still keys each M to its E and keeps a missing margin as None.
+  `_rows_with_geoid` copies before stamping AFFGEOID. `_response_geoid` is empty for
+  many rows when geography.geoid is "". `str(record.url)` still goes through CensusURL.
+- 01f4e83 does what the new test says: with selected B15003, C15003 (member of that
+  hit) is "collapsed table"; C15003/C25045 hanging off other families are "related
+  table"; B19013A hanging off B19013 when the pick is B15003 is "related table".
+  family_id does not equate B and C stems (C15003 stays C15003), so collapsed only
+  fires when member_of is the selected B (or the B/C prefix pair under same_family).
+- residual, not a crash: when selected_id is itself a race iteration, same_family is
+  true for members of the parent B because family_id(B15003)==family_id(B15003A), and
+  `_RACE.match(anchor)` then labels a C-member (C15003) "race iteration". The collapsed
+  check never runs. test_collapsed_reason_is_relative_to_the_selection selects B15003,
+  not a race table, so it does not catch this. Same class as the pre-fix parent-relative
+  label: wrong reason string, not a wrong number.
+- empty selected_id: `anchor = selected_id or member_of` makes member_of==anchor for
+  every member, so abort-after-search classifies members against the pool parent again.
+
+================================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check . && uv run ruff format --check .             [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  129 passed
+
+Machines are green. Review continues.
+
+--- the claim ---
+A user who POSTs /ask now gets the full contract filled from tool artifacts:
+Census URL (variables, geography, vintage, no key), each estimate paired with
+its M, AFFGEOID on rows, universe of the selected table, and alternatives[]
+with a reason classified against the selection. That sentence can be written.
+make demo / make eval are E2E (next phase); this Gate 2 re-run does not treat a
+missing demo as a machine failure. No retrieval@1 delta is claimed.
+
+--- scope ---
+Belongs to slice 1 / CC-25. Not added: DESIGN §4 guards (CC-22), run_demo.py
+(CC-26), conversation, auth, frontend, charts, clarification, urls[].
+ARCHITECTURE.md updated in the implementation commit. 11 files, under ~15.
+warnings[] stays empty, as documented. Prior Gate 2 follow-ups on OpenAPI
+"related table" and other-family C-as-collapsed are addressed in 01f4e83.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: AskResponse.url is str(CensusURL); aborted loop and fetch-with-no-rows
+  still return the field. OpenAPI keeps url a string, not an array.
+- MOE: assemble pairs M to each E; missing M is null, not omitted.
+- GEOID: every returned row gets GEO_ID from Census or the single resolved
+  geography; top-level geoid is empty when many areas are returned.
+- Universe: record.universe from build_url, else the selected search hit.
+- Alternatives still ship. 01f4e83 classifies other-family C-members as related
+  table. Residual race-iteration pick + C-member reason is label quality, not a
+  missing URL/MOE/GEOID/universe. No blocking question. No silent vintage or
+  geography substitution. Redaction stays on the CensusURL type.
+
+--- shape ---
+No new tool, route, Pydantic boundary-model, or .add_node(). Alternative /
+AskWarning / AskResponse were already the HTTP contract. Rows stay untyped dicts.
+
+--- tests ---
+Behavior, not prompt wording. Search fake still varies by question. New test
+test_collapsed_reason_is_relative_to_the_selection asserts C15003/B19013/B19013A
+reasons against selected B15003, not LLM prose. No new test file named after a
+ticket. Fix mutation transcript: evidence/slice-1/cc-25-fix-mutations.txt.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: POST /ask returns a complete ask
+contract — redacted Census URL, per-estimate MOE, AFFGEOID, universe, and
+alternatives classified against the selected table — including on empty fetch
+and aborted loop.
+
+Follow-ups (none are silent-wrong-answer):
+1. When the pick is a race iteration, do not label a C-member of the parent B
+   as "race iteration" (`_RACE.match(anchor)` inside same_family).
+2. Budget headroom: doc_lines 1799/1800, largest file 378/400.
+
+================================================================================
+GATE 2 RE-RUN VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
+

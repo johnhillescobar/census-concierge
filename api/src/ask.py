@@ -164,7 +164,7 @@ def _how_differs(
             or family_id(other_id) == family_id(anchor)
         )
         if same_family:
-            if _RACE.match(other_id) or _RACE.match(anchor):
+            if _RACE.match(other_id):
                 return "race iteration"
             if (other_id.startswith("C") and member_of.startswith("B")) or (
                 other_id.startswith("B") and member_of.startswith("C")
