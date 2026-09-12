@@ -155,6 +155,8 @@ resolution, MOE handling, the UI.
 ## Slice 1 — `POST /ask`
 
 - [x] FastAPI app with Swagger. One endpoint.
+
+> **STATUS 2026-09-12 (CC-19, `main` @ ae9ff2e).** Live `/docs` 200, `/ask` 422/200 (stub). Retriever `@10` 0.90, selector `@1` 0.875. Transcript: `evidence/slice-1/e2e-post.txt`. `make demo` is CC-26.
 - [ ] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [ ] `build_url` returns the complete URL — variables, geography, vintage — and
