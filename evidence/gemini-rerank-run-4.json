@@ -1,13 +1,12 @@
 {
-  "generated_at": "2026-09-12T00:19:38+00:00",
+  "generated_at": "2026-09-11T02:15:30+00:00",
   "retrieval_at_1": 0.475,
   "overall": {
     "n": 58,
     "retrieval_at_1": 0.431,
     "retrieval_at_3": 0.621,
     "retrieval_at_5": 0.707,
-    "retrieval_at_10": 0.828,
-    "mrr": 0.55
+    "mrr": 0.534
   },
   "by_tier": {
     "core": {
@@ -15,24 +14,21 @@
       "retrieval_at_1": 0.75,
       "retrieval_at_3": 0.75,
       "retrieval_at_5": 0.75,
-      "retrieval_at_10": 1.0,
-      "mrr": 0.778
+      "mrr": 0.75
     },
     "long_tail": {
       "n": 40,
       "retrieval_at_1": 0.475,
       "retrieval_at_3": 0.7,
       "retrieval_at_5": 0.825,
-      "retrieval_at_10": 0.9,
-      "mrr": 0.61
+      "mrr": 0.6
     },
     "trap": {
       "n": 14,
       "retrieval_at_1": 0.214,
       "retrieval_at_3": 0.357,
       "retrieval_at_5": 0.357,
-      "retrieval_at_10": 0.571,
-      "mrr": 0.315
+      "mrr": 0.286
     }
   },
   "misses": [
@@ -420,28 +416,25 @@
       }
     ]
   },
-  "synthetic_self_retrieval": 0.452,
-  "retrieval_at_1_reranked": 0.85,
+  "synthetic_self_retrieval": 0.45,
+  "retrieval_at_1_reranked": 0.8,
   "reranked": {
-    "generated_at": "2026-09-12T00:21:07+00:00",
-    "retrieval_at_1": 0.85,
-    "retrieval_at_10": 0.9,
+    "generated_at": "2026-09-11T22:20:48+00:00",
+    "retrieval_at_1": 0.8,
     "overall": {
       "n": 40,
-      "retrieval_at_1": 0.85,
-      "retrieval_at_3": 0.9,
-      "retrieval_at_5": 0.9,
-      "retrieval_at_10": 0.9,
-      "mrr": 0.871
+      "retrieval_at_1": 0.8,
+      "retrieval_at_3": 0.85,
+      "retrieval_at_5": 0.875,
+      "mrr": 0.827
     },
     "by_tier": {
       "long_tail": {
         "n": 40,
-        "retrieval_at_1": 0.85,
-        "retrieval_at_3": 0.9,
-        "retrieval_at_5": 0.9,
-        "retrieval_at_10": 0.9,
-        "mrr": 0.871
+        "retrieval_at_1": 0.8,
+        "retrieval_at_3": 0.85,
+        "retrieval_at_5": 0.875,
+        "mrr": 0.827
       }
     },
     "misses": [
@@ -453,6 +446,16 @@
           "B16001",
           "C16001",
           "B26213"
+        ]
+      },
+      {
+        "id": "q11",
+        "question": "How long is the average commute in the Atlanta metro?",
+        "expected": "B08303",
+        "got": [
+          "B08013",
+          "B08536",
+          "B08136"
         ]
       },
       {
@@ -470,9 +473,9 @@
         "question": "Renter versus owner households in Milwaukee",
         "expected": "B25003",
         "got": [
+          "B25070",
           "B25072",
-          "B25095",
-          "C25055"
+          "B25095"
         ]
       },
       {
@@ -483,6 +486,16 @@
           "B07201",
           "B07101",
           "B25039"
+        ]
+      },
+      {
+        "id": "q21",
+        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
+        "expected": "B19058",
+        "got": [
+          "C22001",
+          "B22001",
+          "B22003"
         ]
       },
       {
@@ -506,9 +519,5 @@
         ]
       }
     ]
-  },
-  "retrieval_at_10": 0.9,
-  "selector_at_1": 0.85,
-  "synthetic_alignment": 0.544,
-  "synthetic_self_retrieval_at_5": 0.82
+  }
 }

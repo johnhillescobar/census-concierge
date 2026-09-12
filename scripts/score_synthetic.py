@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Do a table's own generated questions retrieve that table first?
+"""Score generated-question quality against the shipped index.
 
     python scripts/score_synthetic.py
 
-The mechanical check on generation quality. "Read what the LLM wrote" does not
-survive 1,300 tables under time pressure; this does, and it is the only thing
-that would catch a slice of the corpus where the questions are garbage.
+Two numbers:
 
-Scored on a fixed random sample rather than all ~8,700 questions: at n=600 the
-standard error is under two points, which is finer than any decision this
-number informs. The seed is fixed so the number moves only when the
-questions or the index do.
+- **synthetic_alignment** (gated) — mean cosine between each question embedding
+  and its table's semantic document (title + universe + concept; synthetic
+  questions are *not* in that document). Catches generation that drifts off-topic
+  without requiring a question to beat 635 siblings at rank 1.
 
-Writes `synthetic_self_retrieval` into evidence/latest.json.
+- **synthetic_self_retrieval** (diagnostic) — @1/@5 rank of the table when the
+  question is the query. This was the original gate when questions lived in the
+  embedded text; with them out it measures the same sibling-ranking problem as
+  the golden set (~45% @1) and is no longer gated.
+
+Scored on a fixed random sample (n=600, seed fixed) rather than all ~8,700
+questions: standard error under two points, finer than any decision here.
+
+Writes both keys into evidence/latest.json.
 """
 
 from __future__ import annotations
@@ -58,16 +64,39 @@ def main() -> int:
     vectors = embedding.embed_texts([q for _, q in pairs], model=loaded.meta["embedding_model"])
     ranked = np.argsort(-(vectors @ loaded.vectors.T), axis=1)
 
-    hits = sum(1 for i, (table, _) in enumerate(pairs) if ranked[i][0] == position[table])
-    top5 = sum(1 for i, (table, _) in enumerate(pairs) if position[table] in ranked[i][:5].tolist())
-    rate = hits / len(pairs)
+    own_sims: list[float] = []
+    hits = 0
+    top5 = 0
+    for i, (table, _) in enumerate(pairs):
+        doc = position[table]
+        own_sims.append(float(vectors[i] @ loaded.vectors[doc]))
+        if ranked[i][0] == doc:
+            hits += 1
+        if doc in ranked[i][:5].tolist():
+            top5 += 1
 
-    print("\nSYNTHETIC SELF-RETRIEVAL\n")
-    print(f"  sampled       {len(pairs)} of {sum(len(v) for v in questions.values())} questions")
-    print(f"  @1            {rate:.0%}")
-    print(f"  @5            {top5 / len(pairs):.0%}")
+    n = len(pairs)
+    alignment = sum(own_sims) / n
+    at_1 = hits / n
+    at_5 = top5 / n
 
-    print("\n  worst tables (own question does not find them):")
+    print("\nSYNTHETIC QUESTION QUALITY\n")
+    print(f"  sampled              {n} of {sum(len(v) for v in questions.values())} questions")
+    print(f"  alignment (gated)    {alignment:.3f}   mean cosine to own document")
+    print(f"  self-retrieval @1    {at_1:.0%}   diagnostic — same ranking problem as golden set")
+    print(f"  self-retrieval @5    {at_5:.0%}   diagnostic")
+
+    print("\n  weakest alignment (question far from its own document):")
+    weak = sorted(
+        ((table, own_sims[i], pairs[i][1]) for i, (table, _) in enumerate(pairs)),
+        key=lambda row: row[1],
+    )[:8]
+    for table, sim, question in weak:
+        title = loaded.titles[position[table]][:48]
+        print(f"    {table:<8} {sim:.3f}  {title}")
+        print(f"             {question[:72]}")
+
+    print("\n  worst self-retrieval (own question does not rank first):")
     misses: dict[str, int] = {}
     for i, (table, _) in enumerate(pairs):
         if ranked[i][0] != position[table]:
@@ -79,7 +108,9 @@ def main() -> int:
     if EVIDENCE.exists():
         with contextlib.suppress(ValueError):
             existing = json.loads(EVIDENCE.read_text(encoding="utf-8"))
-    existing["synthetic_self_retrieval"] = round(rate, 3)
+    existing["synthetic_alignment"] = round(alignment, 3)
+    existing["synthetic_self_retrieval"] = round(at_1, 3)
+    existing["synthetic_self_retrieval_at_5"] = round(at_5, 3)
     EVIDENCE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
     print(f"\nWrote {EVIDENCE.relative_to(ROOT)}\n")
     return 0

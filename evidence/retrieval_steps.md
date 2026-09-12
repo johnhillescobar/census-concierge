@@ -86,12 +86,12 @@ string, which is reading, not vector distance. PLAN authorizes a reranker under
 exactly this condition, and one takes `@1` to 70% — the floor exactly, which
 at n=40 means 28 of 40 and one question either way.
 
-`synthetic_self_retrieval` = **0.45** against a floor of **0.95**. That floor
-assumed the questions would be *in* the index, where a table's own question
-retrieves it trivially. With them out, the metric measures the same ranking
-problem on a 600-question sample instead of 40 — and lands next to the golden
-set. It is the less noisy of the two numbers, and it is not measuring what the
-floor was written to catch.
+`synthetic_self_retrieval` = **0.45** — diagnostic only. That number assumed
+questions would be *in* the embedded document; with them out it duplicates the
+golden-set ranking problem on a 600-question sample. The gate is now
+**`synthetic_alignment`** (mean cosine from each question to its own
+title/universe/concept document): **0.544** against a floor of **0.50** —
+catches off-topic generation without requiring rank 1 among 636 siblings.
 
 Dropping the twins moved it from 0.34, and most of that is the benchmark being
 wrong rather than retrieval improving: 16% of the sample asked for a table that

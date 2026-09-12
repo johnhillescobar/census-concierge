@@ -1,0 +1,127 @@
+{
+  "model": "gemini-3.7-flash",
+  "n": 40,
+  "retrieval_at_1": 0.8,
+  "hits": 32,
+  "misses": [
+    {
+      "id": "q10",
+      "question": "What languages are spoken at home in Queens?",
+      "expected": "C16001",
+      "picked": "B16001",
+      "raw_rank": 1,
+      "category": "selector_overrode_correct_top1:sibling_same_subject",
+      "raw_top3": [
+        "C16001",
+        "B26213",
+        "B16005"
+      ],
+      "note": "raw rank 1, picked B16001"
+    },
+    {
+      "id": "q11",
+      "question": "How long is the average commute in the Atlanta metro?",
+      "expected": "B08303",
+      "picked": "B08013",
+      "raw_rank": 7,
+      "category": "selector_miss_deep_in_pool:sibling_same_subject",
+      "raw_top3": [
+        "B08536",
+        "B08136",
+        "B08135"
+      ],
+      "note": "raw rank 7, picked B08013"
+    },
+    {
+      "id": "q17",
+      "question": "Occupation breakdown for workers in Silicon Valley counties",
+      "expected": "B24010",
+      "picked": "B24060",
+      "raw_rank": null,
+      "category": "out_of_pool",
+      "raw_top3": [
+        "B08007",
+        "B08604",
+        "B24060"
+      ],
+      "note": "expected table not in raw top-10"
+    },
+    {
+      "id": "q18",
+      "question": "Renter versus owner households in Milwaukee",
+      "expected": "B25003",
+      "picked": "B25072",
+      "raw_rank": null,
+      "category": "out_of_pool",
+      "raw_top3": [
+        "B25072",
+        "B25095",
+        "C25055"
+      ],
+      "note": "expected table not in raw top-10"
+    },
+    {
+      "id": "q20",
+      "question": "People who moved into Boise from another state last year",
+      "expected": "B07001",
+      "picked": "B07201",
+      "raw_rank": null,
+      "category": "out_of_pool",
+      "raw_top3": [
+        "B07101",
+        "B25039",
+        "B07413"
+      ],
+      "note": "expected table not in raw top-10"
+    },
+    {
+      "id": "q21",
+      "question": "Households receiving SNAP benefits in the Rio Grande Valley",
+      "expected": "B19058",
+      "picked": "C22001",
+      "raw_rank": 4,
+      "category": "selector_miss_deep_in_pool:cross_topic",
+      "raw_top3": [
+        "C22001",
+        "B22001",
+        "B22003"
+      ],
+      "note": "raw rank 4, picked C22001"
+    },
+    {
+      "id": "q34",
+      "question": "Workers in Bozeman who run their own business instead of working for someone else",
+      "expected": "B24080",
+      "picked": "B19053",
+      "raw_rank": null,
+      "category": "out_of_pool",
+      "raw_top3": [
+        "B08018",
+        "B08604",
+        "B08017"
+      ],
+      "note": "expected table not in raw top-10"
+    },
+    {
+      "id": "q41",
+      "question": "What did people in Ann Arbor study in college?",
+      "expected": "B15012",
+      "picked": "B15010",
+      "raw_rank": 3,
+      "category": "selector_miss_near_top:sibling_same_subject",
+      "raw_top3": [
+        "C15010",
+        "B15010",
+        "B15012"
+      ],
+      "note": "raw rank 3, picked B15010"
+    }
+  ],
+  "by_category": {
+    "selector_overrode_correct_top1:sibling_same_subject": 1,
+    "selector_miss_deep_in_pool:sibling_same_subject": 1,
+    "out_of_pool": 4,
+    "selector_miss_deep_in_pool:cross_topic": 1,
+    "selector_miss_near_top:sibling_same_subject": 1
+  }
+}

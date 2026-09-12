@@ -89,10 +89,15 @@ block in `.claude/PLAN.md` - the merge itself is an unverified change.
 ## The handoff rule
 
 Every phase **persists its output before the next begins** - to git, the PR body,
-`evidence/slice-<N>/`, `.claude/PLAN.md`, or `docs/process-evidence.md`. A phase
-that has not persisted has not finished. A fresh context - Claude Code `/clear` or
-a subagent, Cursor New Chat or an `agent` invocation - **reconstructs state from
-those files, never from conversation history**.
+`evidence/slice-<N>/`, `.claude/PLAN.md`, **Jira** (project `CC`), or
+`docs/process-evidence.md`. A phase that has not persisted has not finished. A
+fresh context - Claude Code `/clear` or a subagent, Cursor New Chat or an
+`agent` invocation - **reconstructs state from those artifacts, never from conversation history**.
+
+**Jira (project `CC`) is the status source of truth.** Close with
+`uv run python scripts/jira_transition.py CC-N --done --comment "…"` (evidence in
+the comment). PLAN.md STATUS records what shipped; keep them aligned. Name `CC-N` in
+commits and PRs.
 
 ## Delegating the token-heavy phases
 

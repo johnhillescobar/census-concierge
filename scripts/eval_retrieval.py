@@ -33,6 +33,8 @@ ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS = ROOT / "evals" / "golden_questions.toml"
 EVIDENCE = ROOT / "evidence" / "latest.json"
 TOP_K = 5
+# Retriever gate: containment in the pool the selector sees (rerank uses top 10).
+RETRIEVER_DEPTH = 10
 
 load_dotenv(ROOT / ".env")
 
@@ -64,6 +66,10 @@ class Result:
     @property
     def hit_at_k(self) -> bool:
         return self.rank is not None
+
+    @property
+    def hit_at_10(self) -> bool:
+        return self.rank is not None and self.rank <= RETRIEVER_DEPTH
 
     @property
     def reciprocal_rank(self) -> float:
@@ -136,7 +142,8 @@ def evaluate(tier_filter: str | None, holdout: bool = False, rerank: bool = Fals
             continue
         if tier_filter and entry.get("tier") != tier_filter:
             continue
-        ranked = list(search(entry["text"], TOP_K))[:TOP_K]
+        depth = TOP_K if rerank else RETRIEVER_DEPTH
+        ranked = list(search(entry["text"], depth))[:depth]
         results.append(
             Result(
                 id=entry["id"],
@@ -157,13 +164,13 @@ def summarize(results: list[Result]) -> dict:
         return {
             "n": n,
             "retrieval_at_1": round(sum(r.hit_at_1 for r in subset) / n, 3),
-            # @3 is recorded but not gated. `@1` is a PROXY for answered_rate,
-            # which is the number that matters and cannot be measured until an
-            # agent exists. If the agent turns out to weigh several candidates
-            # on universe and vintage rather than taking the top hit, @3 is the
-            # honest gate — revisit on this data, not on argument.
+            # @3 and raw @1 are diagnostics. budgets.toml gates retriever @10 and
+            # selector @1 — see the two-stage note in [quality].
             "retrieval_at_3": round(sum(r.hit_at_3 for r in subset) / n, 3),
-            f"retrieval_at_{TOP_K}": round(sum(r.hit_at_k for r in subset) / n, 3),
+            f"retrieval_at_{TOP_K}": round(
+                sum(1 for r in subset if r.rank is not None and r.rank <= TOP_K) / n, 3
+            ),
+            f"retrieval_at_{RETRIEVER_DEPTH}": round(sum(r.hit_at_10 for r in subset) / n, 3),
             "mrr": round(sum(r.reciprocal_rank for r in subset) / n, 3),
         }
 
@@ -176,8 +183,11 @@ def summarize(results: list[Result]) -> dict:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         # The gated number is LONG-TAIL, not the all-tier average, because
         # `core` and `trap` would move it without the product getting better.
-        # budgets.toml says long-tail; this is the key it reads.
+        # budgets.toml gates long-tail retriever @10 and selector @1 separately.
         "retrieval_at_1": by_tier.get("long_tail", overall).get("retrieval_at_1", 0.0),
+        "retrieval_at_10": by_tier.get("long_tail", overall).get(
+            f"retrieval_at_{RETRIEVER_DEPTH}", 0.0
+        ),
         "overall": overall,
         "by_tier": by_tier,
         "misses": [
@@ -215,10 +225,12 @@ def main() -> int:
     for tier, stats in summary["by_tier"].items():
         if not stats["n"]:
             continue
+        at10 = stats.get(f"retrieval_at_{RETRIEVER_DEPTH}")
+        at10_s = f"   @10={at10:.0%}" if at10 is not None else ""
         print(
             f"  {tier:<10} n={stats['n']:<3}  @1={stats['retrieval_at_1']:.0%}"
             f"   @3={stats['retrieval_at_3']:.0%}"
-            f"   @{TOP_K}={stats[f'retrieval_at_{TOP_K}']:.0%}   mrr={stats['mrr']:.2f}"
+            f"   @{TOP_K}={stats[f'retrieval_at_{TOP_K}']:.0%}{at10_s}   mrr={stats['mrr']:.2f}"
         )
     overall = summary["overall"]
     print(f"\n  {'OVERALL':<10} n={overall['n']:<3}  @1={overall['retrieval_at_1']:.0%}")
@@ -238,10 +250,11 @@ def main() -> int:
         with contextlib.suppress(ValueError):
             existing = json.loads(EVIDENCE.read_text(encoding="utf-8"))
     if args.rerank:
-        # Never over `retrieval_at_1`. That key gates the budget and must mean
-        # what `search()` actually returns; reranking is a second component
-        # that slice 1's agent, not the index, will perform.
-        existing["retrieval_at_1_reranked"] = summary["retrieval_at_1"]
+        # Selector metrics only — retriever numbers come from the plain run.
+        long_tail = summary["by_tier"].get("long_tail", summary["overall"])
+        selector_at_1 = long_tail.get("retrieval_at_1", summary["retrieval_at_1"])
+        existing["selector_at_1"] = selector_at_1
+        existing["retrieval_at_1_reranked"] = selector_at_1  # legacy key
         existing["reranked"] = summary
     elif args.holdout:
         # Recorded beside the tuning number, never over it. Divergence between

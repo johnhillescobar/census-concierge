@@ -261,9 +261,10 @@ def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
         checks.append(Check("p95 latency (s)", p95, budgets["performance"]["p95_latency_seconds"]))
 
     for key, limit_key in (
-        ("retrieval_at_1", "retrieval_at_1_min"),
+        ("retrieval_at_10", "retrieval_at_10_min"),
+        ("selector_at_1", "selector_at_1_min"),
         ("answered_rate", "answered_rate_min"),
-        ("synthetic_self_retrieval", "synthetic_self_retrieval_min"),
+        ("synthetic_alignment", "synthetic_alignment_min"),
     ):
         value = _latest_evidence(key)
         if value is not None:

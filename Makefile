@@ -11,9 +11,12 @@ check: lint types test invariants
 	uv run python scripts/check_budgets.py
 
 ## Retrieval scoreboard. No agent, no server, no Census key. Needs
-## OPENAI_API_KEY: the query is embedded with the model the index was built on.
+## OPENAI_API_KEY and GEMINI_API_KEY: embed the query, then score retriever
+## (@10) and selector (@1 with rerank.py).
 eval:
 	uv run python scripts/eval_retrieval.py --verbose
+	uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+	uv run python scripts/score_synthetic.py
 
 ## Cache ACS metadata, then check every golden fixture against it. No keys.
 metadata:
