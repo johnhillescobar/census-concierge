@@ -1,0 +1,713 @@
+# Gate 1 — CC-23 — branch feat/cc-23-ask-loop
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_ask_tools.py api/tests/test_ask_loop.py api/tests/test_ask_route.py::test_a_valid_question_returns_the_declared_contract
+......................                                                   [100%]
+22 passed in 2.58s
+(exit 0)
+
+=== BAD: search passes the question through (mutation: SearchTablesTool always searches 'population') ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_different_questions_reach_different_tables
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_different_questions_reach_different_tables _______________
+
+search_tool = SearchTablesTool(search=<function _search at 0x000002976E38F4C0>, describe=<function _describe at 0x000002976E3C94E0>)
+
+    async def test_different_questions_reach_different_tables(search_tool: SearchTablesTool) -> None:
+        bike = await search_tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "bike to work"},
+                "id": "c1",
+            }
+        )
+        net = await search_tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "worst broadband access"},
+                "id": "c2",
+            }
+        )
+>       assert bike.artifact.hits[0]["table_id"] == "B08301"
+E       AssertionError: assert 'B01003' == 'B08301'
+E         
+E         - B08301
+E         + B01003
+
+api\tests\test_ask_tools.py:150: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_different_questions_reach_different_tables
+1 failed in 0.54s
+(exit 1)
+
+=== BAD: search hits carry universe and family members (mutation: SearchTablesTool drops universe and members) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_search_carries_universe_and_family_members
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_search_carries_universe_and_family_members _______________
+
+search_tool = SearchTablesTool(search=<function _search at 0x000002662B4FF4C0>, describe=<function _describe at 0x000002662B5394E0>)
+
+    async def test_search_carries_universe_and_family_members(search_tool: SearchTablesTool) -> None:
+        message = await search_tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "median household income", "k": 10},
+                "id": "c1",
+            }
+        )
+        hit = message.artifact.hits[0]
+        assert hit["table_id"] == "B19013"
+>       assert hit["universe"] == "Households"
+E       AssertionError: assert '' == 'Households'
+E         
+E         - Households
+
+api\tests\test_ask_tools.py:166: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_search_carries_universe_and_family_members
+1 failed in 0.24s
+(exit 1)
+
+=== BAD: unknown vocabulary does not invent a table (mutation: SearchTablesTool substitutes B01003 on empty hits) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_unknown_vocabulary_does_not_invent_a_table
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_unknown_vocabulary_does_not_invent_a_table _______________
+
+search_tool = SearchTablesTool(search=<function _search at 0x00000287827BF4C0>, describe=<function _describe at 0x00000287827F94E0>)
+
+    async def test_unknown_vocabulary_does_not_invent_a_table(search_tool: SearchTablesTool) -> None:
+        message = await search_tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "zzzz nonexistent vocabulary"},
+                "id": "c1",
+            }
+        )
+>       assert message.artifact.hits == []
+E       AssertionError: assert [{'table_id':...members': []}] == []
+E         
+E         Left contains one more item: {'table_id': 'B01003', 'title': 'Total Population', 'universe': 'Total population', 'members': []}
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:180: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_unknown_vocabulary_does_not_invent_a_table
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: county-in-state uses summary level 050 not last-wins (mutation: legal_predicate returns last row for the name) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_county_in_state_uses_summary_level_050_not_last_wins
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_county_in_state_uses_summary_level_050_not_last_wins __________
+
+    def test_county_in_state_uses_summary_level_050_not_last_wins() -> None:
+        chosen = legal_predicate("county", frozenset({"state"}), wildcard=True, entries=ENTRIES)
+        assert chosen is not None
+>       assert chosen.code == "050"
+E       AssertionError: assert '324' == '050'
+E         
+E         - 050
+E         + 324
+
+api\tests\test_ask_tools.py:186: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_county_in_state_uses_summary_level_050_not_last_wins
+1 failed in 0.22s
+(exit 1)
+
+=== BAD: zcta nested in county is not legal (mutation: legal_predicate ignores requires and returns first name match) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_zcta_nested_in_county_is_not_legal
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_zcta_nested_in_county_is_not_legal ___________________
+
+    def test_zcta_nested_in_county_is_not_legal() -> None:
+>       assert (
+            legal_predicate(
+                "zip code tabulation area",
+                frozenset({"county"}),
+                wildcard=True,
+                entries=ENTRIES,
+            )
+            is None
+        )
+E       AssertionError: assert GeoLevel(name='zip code tabulation area', code='860', requires=(), wildcard=(), wildcard_for='') is None
+E        +  where GeoLevel(name='zip code tabulation area', code='860', requires=(), wildcard=(), wildcard_for='') = legal_predicate('zip code tabulation area', frozenset({'county'}), wildcard=True, entries=[GeoLevel(name='state', code='040', requires=(), wildcard=(), wildcard_for=''), GeoLevel(name='county', code='050', re...ildcard_for='state'), GeoLevel(name='zip code tabulation area', code='860', requires=(), wildcard=(), wildcard_for='')])
+E        +    where frozenset({'county'}) = frozenset({'county'})
+
+api\tests\test_ask_tools.py:193: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_zcta_nested_in_county_is_not_legal
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: illegal zcta-in-county wildcard is rejected not rewritten (mutation: ResolveGeographyTool emits national zcta:* when illegal) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_all_zctas_in_a_county_is_rejected_not_rewritten
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_all_zctas_in_a_county_is_rejected_not_rewritten _____________
+
+    async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
+        # Without the county parent in the legality check this becomes a national
+        # zcta:* wildcard — a silent substitution the Census API would 400.
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "all zctas in Harris County"},
+                "id": "c1",
+            }
+        )
+>       assert message.artifact.legal is False
+E       AssertionError: assert True is False
+E        +  where True = ResolveGeographyResult(matches=[{'name': 'all zctas in Harris County', 'level': 'zip code tabulation area', 'for': 'zip code tabulation area:*', 'in': '', 'geoid': ''}], wildcard=True, legal=True, detail='').legal
+E        +    where ResolveGeographyResult(matches=[{'name': 'all zctas in Harris County', 'level': 'zip code tabulation area', 'for': 'zip code tabulation area:*', 'in': '', 'geoid': ''}], wildcard=True, legal=True, detail='') = ToolMessage(content='wildcard zip code tabulation area:*', name='resolve_geography', tool_call_id='c1', artifact=Resol... tabulation area', 'for': 'zip code tabulation area:*', 'in': '', 'geoid': ''}], wildcard=True, legal=True, detail='')).artifact
+
+api\tests\test_ask_tools.py:216: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_all_zctas_in_a_county_is_rejected_not_rewritten
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: harris does not match harrison (mutation: filter_rows uses substring containment) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_harris_does_not_match_harrison
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_harris_does_not_match_harrison _____________________
+
+    def test_harris_does_not_match_harrison() -> None:
+        rows = _list_geographies("county", {"state": "48"})
+        hits = filter_rows("harris", rows)
+>       assert [row["for"] for row in hits] == ["county:201"]
+E       AssertionError: assert ['county:201', 'county:203'] == ['county:201']
+E         
+E         Left contains one more item: 'county:203'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:224: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_harris_does_not_match_harrison - Ass...
+1 failed in 0.21s
+(exit 1)
+
+=== BAD: all counties in Oregon is one wildcard request (mutation: ResolveGeographyTool never treats a query as wildcard) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_all_counties_in_oregon_is_one_wildcard_request
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_all_counties_in_oregon_is_one_wildcard_request _____________
+
+    async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "all counties in Oregon"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.wildcard is True
+E       assert False is True
+E        +  where False = ResolveGeographyResult(matches=[], wildcard=False, legal=False, detail="no county matched 'all counties in Oregon'").wildcard
+
+api\tests\test_ask_tools.py:238: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_all_counties_in_oregon_is_one_wildcard_request
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: Cook County returns candidates instead of picking (mutation: ResolveGeographyTool keeps only the first match) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_cook_county_returns_candidates_instead_of_picking
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_cook_county_returns_candidates_instead_of_picking ____________
+
+    async def test_cook_county_returns_candidates_instead_of_picking() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Cook County"},
+                "id": "c1",
+            }
+        )
+        codes = sorted(row["in"] for row in message.artifact.matches)
+>       assert codes == ["state:13", "state:17", "state:27"]
+E       AssertionError: assert ['state:13'] == ['state:13', ...', 'state:27']
+E         
+E         Right contains 2 more items, first extra item: 'state:17'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:262: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_cook_county_returns_candidates_instead_of_picking
+1 failed in 0.22s
+(exit 1)
+
+=== BAD: Harris County Texas resolves to codes (mutation: ResolveGeographyTool skips name filtering) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_harris_county_texas_resolves_to_codes
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_harris_county_texas_resolves_to_codes __________________
+
+    async def test_harris_county_texas_resolves_to_codes() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Harris County, Texas"},
+                "id": "c1",
+            }
+        )
+>       assert [row["for"] for row in message.artifact.matches] == ["county:201"]
+E       AssertionError: assert ['county:201', 'county:203'] == ['county:201']
+E         
+E         Left contains one more item: 'county:203'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:276: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_harris_county_texas_resolves_to_codes
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: pair_margins adds M beside every E (mutation: pair_margins returns estimates unchanged) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_pair_margins_adds_m_beside_every_e
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_pair_margins_adds_m_beside_every_e ___________________
+
+    def test_pair_margins_adds_m_beside_every_e() -> None:
+>       assert pair_margins(["B01003_001E"]) == ["B01003_001E", "B01003_001M"]
+E       AssertionError: assert ['B01003_001E'] == ['B01003_001E', 'B01003_001M']
+E         
+E         Right contains one more item: 'B01003_001M'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:281: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_pair_margins_adds_m_beside_every_e
+1 failed in 0.22s
+(exit 1)
+
+=== BAD: build_url pairs margins (mutation: BuildUrlTool skips pair_margins) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_build_url_pairs_margins_and_redacts_the_key
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_build_url_pairs_margins_and_redacts_the_key _______________
+
+    async def test_build_url_pairs_margins_and_redacts_the_key() -> None:
+        message = await _url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B01003", "variables": ["B01003_001E"]},
+                "id": "c1",
+            }
+        )
+        url = message.artifact.url
+        assert "B01003_001E" in url
+>       assert "B01003_001M" in url
+E       AssertionError: assert 'B01003_001M' in 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E&for=county:201&in=state:48'
+
+api\tests\test_ask_tools.py:316: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_build_url_pairs_margins_and_redacts_the_key
+1 failed in 0.27s
+(exit 1)
+
+=== BAD: build_url redacts the key (mutation: BuildUrlTool returns a URL that still carries &key=) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_build_url_pairs_margins_and_redacts_the_key
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_build_url_pairs_margins_and_redacts_the_key _______________
+
+    async def test_build_url_pairs_margins_and_redacts_the_key() -> None:
+        message = await _url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B01003", "variables": ["B01003_001E"]},
+                "id": "c1",
+            }
+        )
+        url = message.artifact.url
+        assert "B01003_001E" in url
+        assert "B01003_001M" in url
+        assert "for=county:201" in url or "for=county%3A201" in url
+        assert "in=state:48" in url or "in=state%3A48" in url
+>       assert "key=" not in url
+E       AssertionError: assert 'key=' not in 'https://api...8&key=secret'
+E         
+E         'key=' is contained here:
+E           =state:48&key=secret
+E         ?           ++++
+
+api\tests\test_ask_tools.py:319: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_build_url_pairs_margins_and_redacts_the_key
+1 failed in 0.24s
+(exit 1)
+
+=== BAD: build_url rejects a table outside the pool (mutation: BuildUrlTool skips the allowed_tables check) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_build_url_rejects_a_table_outside_the_pool
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_build_url_rejects_a_table_outside_the_pool _______________
+
+    async def test_build_url_rejects_a_table_outside_the_pool() -> None:
+        message = await _url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999"},
+                "id": "c1",
+            }
+        )
+        assert message.artifact.ok is False
+        assert message.artifact.url == ""
+>       assert "not in the search pool" in message.artifact.detail
+E       AssertionError: assert 'not in the search pool' in 'B99999 is not in acs5 2024'
+E        +  where 'B99999 is not in acs5 2024' = BuildUrlResult(ok=False, url='', table_id='B99999', variables=[], dataset='acs5', vintage=2024, detail='B99999 is not in acs5 2024').detail
+E        +    where BuildUrlResult(ok=False, url='', table_id='B99999', variables=[], dataset='acs5', vintage=2024, detail='B99999 is not in acs5 2024') = ToolMessage(content='B99999 is not in acs5 2024', name='build_url', tool_call_id='c1', artifact=BuildUrlResult(ok=False, url='', table_id='B99999', variables=[], dataset='acs5', vintage=2024, detail='B99999 is not in acs5 2024')).artifact
+
+api\tests\test_ask_tools.py:334: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_build_url_rejects_a_table_outside_the_pool
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: build_url accepts a recorded family member (mutation: BuildUrlTool rejects table IDs ending in a letter) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_build_url_accepts_a_recorded_family_member
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_build_url_accepts_a_recorded_family_member _______________
+
+    async def test_build_url_accepts_a_recorded_family_member() -> None:
+        message = await _url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B19013A"},
+                "id": "c1",
+            }
+        )
+>       assert message.artifact.ok is True
+E       AssertionError: assert False is True
+E        +  where False = BuildUrlResult(ok=False, url='', table_id='B19013A', variables=[], dataset='acs5', vintage=2024, detail='B19013A is not in the search pool or its family members').ok
+E        +    where BuildUrlResult(ok=False, url='', table_id='B19013A', variables=[], dataset='acs5', vintage=2024, detail='B19013A is not in the search pool or its family members') = ToolMessage(content='B19013A is not in the search pool or its family members', name='build_url', tool_call_id='c1', ar...19013A', variables=[], dataset='acs5', vintage=2024, detail='B19013A is not in the search pool or its family members')).artifact
+
+api\tests\test_ask_tools.py:346: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_build_url_accepts_a_recorded_family_member
+1 failed in 0.25s
+(exit 1)
+
+=== BAD: fetch keeps the URL when Census returns 400 (mutation: FetchDataTool clears url on non-200) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_fetch_keeps_the_url_when_census_returns_400
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_fetch_keeps_the_url_when_census_returns_400 _______________
+
+    async def test_fetch_keeps_the_url_when_census_returns_400() -> None:
+        built = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:41")
+    
+        def http_get(url: str) -> tuple[int, str]:
+            assert "key=secret" in url
+            return 400, "error: unknown/unsupported geography hierarchy"
+    
+        tool = FetchDataTool(last_url=lambda: built, census_key=lambda: "secret", http_get=http_get)
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+        )
+        assert message.artifact.ok is False
+        assert message.artifact.status_code == 400
+        assert "key=" not in message.artifact.url
+>       assert "2024/acs/acs5" in message.artifact.url
+E       AssertionError: assert '2024/acs/acs5' in ''
+E        +  where '' = FetchDataResult(ok=False, url='', rows=[], status_code=400, detail='error: unknown/unsupported geography hierarchy').url
+E        +    where FetchDataResult(ok=False, url='', rows=[], status_code=400, detail='error: unknown/unsupported geography hierarchy') = ToolMessage(content='fetch failed (400); URL https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:%2A&in=stat...t=FetchDataResult(ok=False, url='', rows=[], status_code=400, detail='error: unknown/unsupported geography hierarchy')).artifact
+
+api\tests\test_ask_tools.py:364: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_fetch_keeps_the_url_when_census_returns_400
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: fetch without a built URL does not invent one (mutation: FetchDataTool invents a URL when last_url is None) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_fetch_without_a_built_url_does_not_invent_one
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_fetch_without_a_built_url_does_not_invent_one ______________
+
+    async def test_fetch_without_a_built_url_does_not_invent_one() -> None:
+        tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+        )
+        assert message.artifact.ok is False
+>       assert message.artifact.url == ""
+E       AssertionError: assert 'https://api....E&for=state:*' == ''
+E         
+E         + https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:*
+
+api\tests\test_ask_tools.py:374: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_fetch_without_a_built_url_does_not_invent_one
+1 failed in 0.22s
+(exit 1)
+
+=== BAD: CensusURL reattaches the key only at with_key (mutation: _strip_key leaves &key= in the default form) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_census_url_reattaches_the_key_only_at_with_key
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_census_url_reattaches_the_key_only_at_with_key _____________
+
+    def test_census_url_reattaches_the_key_only_at_with_key() -> None:
+        url = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:41&key=secret")
+>       assert "key=" not in str(url)
+E       AssertionError: assert 'key=' not in 'https://api...1&key=secret'
+E         
+E         'key=' is contained here:
+E           =state:41&key=secret
+E         ?           ++++
+
+api\tests\test_ask_tools.py:380: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_census_url_reattaches_the_key_only_at_with_key
+1 failed in 0.24s
+(exit 1)
+
+=== BAD: geo_entries keeps every county row (mutation: geo_entries last-wins by name like geo_levels) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_geo_entries_keeps_every_county_row
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_geo_entries_keeps_every_county_row ___________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-794/test_geo_entries_keeps_every_c0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023152363170>
+
+    def test_geo_entries_keeps_every_county_row(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.retrieval import metadata
+    
+        monkeypatch.setattr(metadata, "CACHE", tmp_path)
+        path = tmp_path / "acs5" / "2023" / "geography.json.gz"
+        path.parent.mkdir(parents=True)
+        payload = {
+            "fips": [
+                {
+                    "name": "county",
+                    "geoLevelDisplay": "050",
+                    "requires": ["state"],
+                    "wildcard": ["state"],
+                    "optionalWithWCFor": "state",
+                },
+                {
+                    "name": "county",
+                    "geoLevelDisplay": "324",
+                    "requires": ["state", "msa"],
+                    "wildcard": [],
+                },
+            ]
+        }
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+        entries = geo_entries("acs5", 2023)
+>       assert [entry.code for entry in entries] == ["050", "324"]
+E       AssertionError: assert ['324'] == ['050', '324']
+E         
+E         At index 0 diff: '324' != '050'
+E         Right contains one more item: '324'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:414: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_geo_entries_keeps_every_county_row
+1 failed in 0.26s
+(exit 1)
+
+=== BAD: scripted loop fills url rows geoid and universe (mutation: assemble drops url/moe/geoid/universe) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_scripted_loop_fills_url_rows_geoid_and_universe _____________
+
+    async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
+        record = ExecutionRecord()
+        tools = _tools(record)
+        queue: list[dict[str, Any]] = [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "1",
+                        "name": "search_tables",
+                        "args": {"question": "population of Harris County, Texas"},
+                    }
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+            },
+            {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+            {"content": "Harris County has data.", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            names = {tool["function"]["name"] for tool in openai_tools}
+            assert names == {"search_tables", "resolve_geography", "build_url", "fetch_data"}
+            _ = messages
+            return queue.pop(0)
+    
+        response = await run_ask(
+            "population of Harris County, Texas", complete=complete, tools=tools, record=record
+        )
+        assert isinstance(response, AskResponse)
+        assert response.table_id == "B01003"
+>       assert response.universe == "Total population"
+E       AssertionError: assert '' == 'Total population'
+E         
+E         - Total population
+
+api\tests\test_ask_loop.py:88: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+1 failed in 0.33s
+(exit 1)
+
+=== BAD: two consecutive failures of the same tool abort (mutation: dispatch never raises on repeated failure) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_two_consecutive_failures_of_the_same_tool_abort
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_two_consecutive_failures_of_the_same_tool_abort _____________
+
+    async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
+        record = ExecutionRecord()
+        tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "")
+>       with pytest.raises(RuntimeError, match="fetch_data failed twice"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE RuntimeError
+
+api\tests\test_ask_loop.py:107: Failed
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_two_consecutive_failures_of_the_same_tool_abort
+1 failed in 0.31s
+(exit 1)
+
+=== BAD: failed fetch still returns the built URL (mutation: _absorb clears record.url when fetch_data is not ok) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_failed_fetch_still_returns_the_built_url
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_failed_fetch_still_returns_the_built_url ________________
+
+    async def test_failed_fetch_still_returns_the_built_url() -> None:
+        record = ExecutionRecord()
+        record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+        record.geography = {"for": "county:201", "in": "state:48"}
+        facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
+        tools = {
+            "search_tables": SearchTablesTool(search=_search, describe=_describe),
+            "resolve_geography": ResolveGeographyTool(
+                list_geographies=_list_geographies, entries=ENTRIES
+            ),
+            "build_url": BuildUrlTool(
+                allowed_tables=lambda: {"B01003"},
+                latest_vintage=lambda dataset: 2024,
+                table_facts=lambda dataset, year, table_id: facts["acs5"][year][table_id],
+                last_geography=lambda: record.geography,
+            ),
+            "fetch_data": FetchDataTool(
+                last_url=lambda: record.url,
+                census_key=lambda: "secret",
+                http_get=lambda url: (400, "error: unknown/unsupported geography hierarchy"),
+            ),
+        }
+        queue = [
+            {
+                "content": "",
+                "tool_calls": [{"id": "1", "name": "build_url", "args": {"table_id": "B01003"}}],
+            },
+            {"content": "", "tool_calls": [{"id": "2", "name": "fetch_data", "args": {}}]},
+            {"content": "The fetch failed.", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            _ = messages, openai_tools
+            return queue.pop(0)
+    
+        response = await run_ask("population", complete=complete, tools=tools, record=record)
+>       assert response.url
+E       AssertionError: assert ''
+E        +  where '' = AskResponse(answer='The fetch failed.', url='', rows=[], moe=[], geoid='', universe='Total population', table_id='B01003', alternatives=[], warnings=[]).url
+
+api\tests\test_ask_loop.py:150: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_failed_fetch_still_returns_the_built_url
+1 failed in 0.29s
+(exit 1)
+
+=== BAD: route contract requires url/moe/geoid/universe (mutation: AskResponse drops those fields) ===
+$ uv run pytest -q api/tests/test_ask_route.py::test_a_valid_question_returns_the_declared_contract
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_a_valid_question_returns_the_declared_contract _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000206A1AF5310>
+
+    def test_a_valid_question_returns_the_declared_contract(monkeypatch: Any) -> None:
+        # CI has no index and no keys. The assembler is tested in test_ask_loop;
+        # this only proves the route still returns every contract field.
+        async def fake_loop(question: str) -> AskResponse:
+            _ = question
+            return AskResponse(**EMPTY_CONTRACT)
+    
+        monkeypatch.setattr("src.main.run_ask", fake_loop)
+        response = client.post("/ask", json={"question": "population of Harris County"})
+        assert response.status_code == 200
+>       assert response.json() == EMPTY_CONTRACT
+E       AssertionError: assert {'answer': ''...ves': [], ...} == {'answer': ''...moe': [], ...}
+E         
+E         Omitting 5 identical items, use -vv to show
+E         Right contains 4 more items:
+E         {'geoid': '', 'moe': [], 'universe': '', 'url': ''}
+E         Use -v to get more diff
+
+api\tests\test_ask_route.py:90: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_a_valid_question_returns_the_declared_contract
+1 failed in 0.38s
+(exit 1)
+
+=== restore: git status --porcelain ===
+?? evidence/slice-1/cc-23-gate1.txt
+$ git status --porcelain
+
+=== summary ===
+mutations_run=23
+verdict=FAIL (dirty tree after restore)
