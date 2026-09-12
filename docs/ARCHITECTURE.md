@@ -4,8 +4,9 @@
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `budgets.toml` gates retriever `@10` and
 selector `@1` on the long-tail tier separately — raw cosine `@1` is diagnostic
-only. The ask loop fills `AskResponse` from tool artifacts; slice-1 guards and
-`make demo` are later tickets.
+only. The ask loop fills `AskResponse` from tool artifacts — URL, paired MOE, GEOID,
+universe, structured alternatives. Slice-1 guards and `make demo` are later
+tickets.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what
@@ -82,9 +83,12 @@ per-row model. Start with `uv run uvicorn src.main:app --reload`.
 not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index),
 `resolve_geography` (every `geography.json` fips row — `geo_levels()` last-wins
 is 324 and is the wrong county predicate), `build_url` (availability matrix, E
-paired with M), `fetch_data` (live Census; keeps the URL on failure). `CensusURL`
-redacts `&key=` in `__str__` / the response; `with_key()` is the httpx site.
-`langchain_core` supplies schema and `ainvoke`; control flow is ours. Guards
+paired with M), `fetch_data` (live Census; keeps the URL on failure). `assemble()`
+pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
+distribution versus median, collapsed table, race iteration), and puts AFFGEOID
+`GEO_ID` on every row. Top-level `geoid` names one geography or is empty.
+`CensusURL` redacts `&key=` in `__str__` / the response; `with_key()` is the httpx
+site. `langchain_core` supplies schema and `ainvoke`; control flow is ours. Guards
 (CC-22) and `run_demo.py` (CC-26) are not shipped yet.
 
 ### Data and artifacts

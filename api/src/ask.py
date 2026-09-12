@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse
 from src.geo import ResolveGeographyTool, list_census_names
 from src.prompts import system_prompt
+from src.retrieval.metadata import family_id
 from src.tools import (
     BuildUrlResult,
     BuildUrlTool,
@@ -98,35 +100,127 @@ def _allowed(record: ExecutionRecord) -> set[str]:
     return allowed
 
 
+# A-I race/ethnicity iteration, optional Puerto Rico suffix. Not a PR-only table.
+_RACE = re.compile(r"^[BC]\d{5}[A-I](?:PR)?$")
+
+
 def _moe_rows(rows: list[dict[str, str | None]]) -> list[dict[str, str | None]]:
-    keep = ("GEO_ID", "NAME")
-    return [
-        {key: value for key, value in row.items() if key.endswith("M") or key in keep}
-        for row in rows
-    ]
+    """One dict per row: GEOID/NAME plus the M that belongs to each E."""
+    out: list[dict[str, str | None]] = []
+    for row in rows:
+        moe: dict[str, str | None] = {}
+        for key in ("GEO_ID", "NAME"):
+            if key in row:
+                moe[key] = row[key]
+        for key in row:
+            if key.endswith("E") and "_" in key:
+                margin = f"{key[:-1]}M"
+                moe[margin] = row.get(margin)
+        out.append(moe)
+    return out
+
+
+def _rows_with_geoid(
+    rows: list[dict[str, str | None]], fallback: str
+) -> list[dict[str, str | None]]:
+    copied = [dict(row) for row in rows]
+    if not fallback:
+        return copied
+    for row in copied:
+        if not row.get("GEO_ID"):
+            row["GEO_ID"] = fallback
+    return copied
+
+
+def _response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
+    if fallback:
+        return fallback
+    if len(rows) == 1:
+        return rows[0].get("GEO_ID") or ""
+    return ""
+
+
+def _how_differs(
+    other_id: str,
+    selected_id: str,
+    *,
+    member_of: str = "",
+    other_universe: str = "",
+    selected_universe: str = "",
+    other_title: str = "",
+    selected_title: str = "",
+) -> str:
+    if (
+        selected_id
+        and family_id(other_id) == family_id(selected_id)
+        and (_RACE.match(other_id) or _RACE.match(selected_id))
+    ):
+        return "race iteration"
+    if member_of:
+        if _RACE.match(other_id):
+            return "race iteration"
+        if (other_id.startswith("C") and member_of.startswith("B")) or (
+            other_id.startswith("B") and member_of.startswith("C")
+        ):
+            return "collapsed table"
+    if selected_universe and other_universe and selected_universe != other_universe:
+        return "universe"
+    if other_title and selected_title and other_id[1:3] == selected_id[1:3]:
+        other_median = "median" in other_title.casefold()
+        selected_median = "median" in selected_title.casefold()
+        if other_median != selected_median:
+            return "distribution versus median"
+    return "related table"
 
 
 def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
+    selected_hit = next(
+        (hit for hit in record.pool if str(hit["table_id"]) == record.table_id),
+        {},
+    )
+    selected_universe = record.universe or str(selected_hit.get("universe") or "")
+    selected_title = str(selected_hit.get("title") or "")
     alternatives: list[Alternative] = []
     for hit in record.pool:
         table_id = str(hit["table_id"])
         if table_id != record.table_id:
-            alternatives.append(Alternative(table_id=table_id, reason="also retrieved"))
+            alternatives.append(
+                Alternative(
+                    table_id=table_id,
+                    reason=_how_differs(
+                        table_id,
+                        record.table_id,
+                        other_universe=str(hit.get("universe") or ""),
+                        selected_universe=selected_universe,
+                        other_title=str(hit.get("title") or ""),
+                        selected_title=selected_title,
+                    ),
+                )
+            )
         for member in hit.get("members") or []:
-            if member != record.table_id:
-                alternatives.append(Alternative(table_id=str(member), reason="family member"))
-    geoid = ""
-    if record.rows:
-        geoid = record.rows[0].get("GEO_ID") or ""
-    if not geoid and record.geography:
-        geoid = record.geography.get("geoid") or ""
+            member_id = str(member)
+            if member_id != record.table_id:
+                alternatives.append(
+                    Alternative(
+                        table_id=member_id,
+                        reason=_how_differs(
+                            member_id,
+                            record.table_id,
+                            member_of=table_id,
+                            selected_universe=selected_universe,
+                            selected_title=selected_title,
+                        ),
+                    )
+                )
+    fallback = (record.geography or {}).get("geoid") or ""
+    rows = _rows_with_geoid(record.rows, fallback)
     return AskResponse(
         answer=answer,
         url=str(record.url) if record.url else "",
-        rows=record.rows,
-        moe=_moe_rows(record.rows),
-        geoid=geoid,
-        universe=record.universe,
+        rows=rows,
+        moe=_moe_rows(rows),
+        geoid=_response_geoid(rows, fallback),
+        universe=selected_universe,
         table_id=record.table_id,
         alternatives=alternatives,
         warnings=[],

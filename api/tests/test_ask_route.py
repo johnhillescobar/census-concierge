@@ -44,9 +44,19 @@ def test_openapi_documents_post_ask() -> None:
     assert request_props["question"]["minLength"] == 1
     response = schema["components"]["schemas"]["AskResponse"]
     assert response["required"] == list(CONTRACT_FIELDS)
-    assert "items" in response["properties"]["alternatives"]
-    assert "items" in response["properties"]["warnings"]
+    assert response["properties"]["alternatives"]["items"] == {
+        "$ref": "#/components/schemas/Alternative"
+    }
+    assert response["properties"]["warnings"]["items"] == {
+        "$ref": "#/components/schemas/AskWarning"
+    }
     assert response["properties"]["url"]["type"] == "string"
+    assert "items" not in response["properties"]["url"]
+    assert "description" in response["properties"]["url"]
+    alternative = schema["components"]["schemas"]["Alternative"]
+    assert alternative["required"] == ["table_id", "reason"]
+    warning = schema["components"]["schemas"]["AskWarning"]
+    assert warning["required"] == ["code", "detail"]
 
 
 def test_empty_question_is_a_validation_error() -> None:

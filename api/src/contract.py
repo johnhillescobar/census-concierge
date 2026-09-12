@@ -28,22 +28,35 @@ class AskRequest(BaseModel):
 
 
 class Alternative(BaseModel):
-    table_id: str
-    reason: str
+    table_id: str = Field(description="ACS table ID.")
+    reason: str = Field(
+        description="How this table differs: universe, distribution versus median, "
+        "collapsed table, or race iteration."
+    )
 
 
 class AskWarning(BaseModel):
-    code: str
-    detail: str
+    code: str = Field(description="Machine-readable warning code.")
+    detail: str = Field(description="What was raised, in one sentence.")
 
 
 class AskResponse(BaseModel):
-    answer: str
-    url: str
-    rows: list[dict[str, str | None]]
-    moe: list[dict[str, str | None]]
-    geoid: str
-    universe: str
-    table_id: str
-    alternatives: list[Alternative]
-    warnings: list[AskWarning]
+    answer: str = Field(description="Natural-language answer.")
+    url: str = Field(description="Census API URL for this answer. Singular; slice 3 grows urls[].")
+    rows: list[dict[str, str | None]] = Field(
+        description="Census rows as returned. Each row carries GEO_ID (AFFGEOID)."
+    )
+    moe: list[dict[str, str | None]] = Field(
+        description="Per-row 90% margins, keyed to each estimate's matching M variable."
+    )
+    geoid: str = Field(
+        description="AFFGEOID of the selected geography; empty when many areas are returned."
+    )
+    universe: str = Field(description="Published universe of the selected table.")
+    table_id: str = Field(description="Selected ACS table ID.")
+    alternatives: list[Alternative] = Field(
+        description="Related tables with the reason they differ from the selection."
+    )
+    warnings: list[AskWarning] = Field(
+        description="Typed warnings. Empty until slice-1 guards land."
+    )
