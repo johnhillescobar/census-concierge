@@ -1,11 +1,11 @@
 # ARCHITECTURE — the system as it IS
 
-**Status: slice 0 is built; slice 1 has the HTTP entrypoint.** Retrieval runs
+**Status: slice 0 is built; slice 1 has `POST /ask` and the four-tool loop.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `budgets.toml` gates retriever `@10` and
 selector `@1` on the long-tail tier separately — raw cosine `@1` is diagnostic
-only. `POST /ask` exists; the four-tool loop that fills the response is not
-shipped yet.
+only. The ask loop fills `AskResponse` from tool artifacts; slice-1 guards and
+`make demo` are later tickets.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what
@@ -38,6 +38,11 @@ docs/playbooks/review-pr.md  canonical review procedure
 pyproject.toml               uv workspace root; ruff + mypy + pytest config
 api/pyproject.toml           the app's dependencies
 api/src/main.py              FastAPI app; `POST /ask` → `run_ask`
+api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
+api/src/tools.py             search_tables, build_url, fetch_data
+api/src/geo.py               resolve_geography; legality over all fips rows
+api/src/census_url.py        CensusURL — default form never carries `&key=`
+api/src/prompts.py           one system prompt; date and vintages injected
 .github/workflows/check.yml  the gate, on every PR
 .github/workflows/build-index.yml  manual; publishes the index release asset
 ```
@@ -73,8 +78,14 @@ returns `AskResponse` — `answer`, `url` (singular), `rows`, `moe`, `geoid`,
 `universe`, `table_id`, `alternatives[]`, `warnings[]`. Rows are dicts, not a
 per-row model. Start with `uv run uvicorn src.main:app --reload`.
 
-`run_ask` is a stub until the four-tool loop (CC-23) fills it. The schema is
-declared now so slice 2's client generator has something explicit to read.
+`run_ask` is a hand-rolled loop (`complete` then `dispatch`), not a graph and
+not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index),
+`resolve_geography` (every `geography.json` fips row — `geo_levels()` last-wins
+is 324 and is the wrong county predicate), `build_url` (availability matrix, E
+paired with M), `fetch_data` (live Census; keeps the URL on failure). `CensusURL`
+redacts `&key=` in `__str__` / the response; `with_key()` is the httpx site.
+`langchain_core` supplies schema and `ainvoke`; control flow is ours. Guards
+(CC-22) and `run_demo.py` (CC-26) are not shipped yet.
 
 ### Data and artifacts
 
@@ -122,7 +133,7 @@ futures.
 | slice | adds to this file |
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
-| 1 | `POST /ask` (this file). Agent loop, tools, populated contract: not yet. |
+| 1 | `POST /ask`, four-tool loop, `CensusURL`. Guards and demo harness: not yet. |
 | 2 | `web/`, the generated client, the CI staleness check |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |

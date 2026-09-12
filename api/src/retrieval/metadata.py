@@ -54,12 +54,19 @@ class Variable:
 
 @dataclass(frozen=True)
 class GeoLevel:
-    """One row of `geography.json` — a level and what it must nest inside."""
+    """One row of `geography.json` — a level and what it must nest inside.
+
+    The file repeats a name at several summary levels (`county` is 050, 313,
+    316, 322, 324). Callers that need a legal `for`/`in` form must scan every
+    row, not a name-keyed dict: last-wins on `county` is 324 and rejects
+    `for=county:*&in=state:41`.
+    """
 
     name: str
     code: str
     requires: tuple[str, ...]
     wildcard: tuple[str, ...]
+    wildcard_for: str = ""
 
 
 # `B19013A` (Black householder), `B06007PR` (Puerto Rico). Exactly five digits
@@ -201,17 +208,28 @@ def variables(dataset: str, year: int) -> dict[str, Variable]:
     return result
 
 
-def geo_levels(dataset: str, year: int) -> dict[str, GeoLevel]:
+def _geo_level(entry: dict[str, Any]) -> GeoLevel | None:
+    name = str(entry.get("name", "")).strip()
+    if not name:
+        return None
+    return GeoLevel(
+        name=name,
+        code=str(entry.get("geoLevelDisplay", "")),
+        requires=tuple(entry.get("requires") or ()),
+        wildcard=tuple(entry.get("wildcard") or ()),
+        wildcard_for=str(entry.get("optionalWithWCFor") or ""),
+    )
+
+
+def geo_entries(dataset: str, year: int) -> list[GeoLevel]:
+    """Every `fips` row. Names repeat; this is the legality table."""
     payload = _read(cache_path(dataset, year, "geography"))
+    return [level for entry in payload.get("fips", []) if (level := _geo_level(entry))]
+
+
+def geo_levels(dataset: str, year: int) -> dict[str, GeoLevel]:
+    """Name -> last row with that name. Existence checks only — not legality."""
     result: dict[str, GeoLevel] = {}
-    for entry in payload.get("fips", []):
-        name = str(entry.get("name", "")).strip()
-        if not name:
-            continue
-        result[name] = GeoLevel(
-            name=name,
-            code=str(entry.get("geoLevelDisplay", "")),
-            requires=tuple(entry.get("requires", []) or ()),
-            wildcard=tuple(entry.get("wildcard", []) or ()),
-        )
+    for level in geo_entries(dataset, year):
+        result[level.name] = level
     return result

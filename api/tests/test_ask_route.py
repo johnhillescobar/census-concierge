@@ -1,7 +1,8 @@
 """The POST /ask HTTP surface.
 
 No Census calls and no model: this file proves the route, the validation, and
-that a valid body reaches `run_ask`. The loop's tools are a later story.
+that a valid body reaches `run_ask`. Tool behaviour is in test_ask_tools and
+test_ask_loop.
 """
 
 from __future__ import annotations
@@ -76,9 +77,14 @@ EMPTY_CONTRACT = {
 }
 
 
-def test_a_valid_question_returns_the_declared_contract() -> None:
-    # No mock: a stub that drops url/moe/geoid/universe would still pass the
-    # monkeypatched loop test below, which only checks answer.
+def test_a_valid_question_returns_the_declared_contract(monkeypatch: Any) -> None:
+    # CI has no index and no keys. The assembler is tested in test_ask_loop;
+    # this only proves the route still returns every contract field.
+    async def fake_loop(question: str) -> AskResponse:
+        _ = question
+        return AskResponse(**EMPTY_CONTRACT)
+
+    monkeypatch.setattr("src.main.run_ask", fake_loop)
     response = client.post("/ask", json={"question": "population of Harris County"})
     assert response.status_code == 200
     assert response.json() == EMPTY_CONTRACT
