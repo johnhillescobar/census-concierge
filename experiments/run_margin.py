@@ -31,18 +31,33 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from experiments import arms, harness  # noqa: E402
 
 
+def _average_ranks(values: np.ndarray) -> np.ndarray:
+    """1-based ranks; tied values share the average rank (Mann-Whitney requirement)."""
+    order = values.argsort()
+    sorted_vals = values[order]
+    ranks = np.empty(len(values), dtype=float)
+    start = 0
+    while start < len(sorted_vals):
+        end = start
+        while end + 1 < len(sorted_vals) and sorted_vals[end + 1] == sorted_vals[start]:
+            end += 1
+        avg = (start + end + 2) / 2.0
+        ranks[order[start : end + 1]] = avg
+        start = end + 1
+    return ranks
+
+
 def auc(positive: np.ndarray, negative: np.ndarray) -> float:
     """P(a correct case has a wider margin than an incorrect one).
 
     0.5 is a coin flip and means the signal is worthless; 1.0 is perfect
-    separation. Mann-Whitney U, so no dependency and no threshold to pick.
+    separation. Mann-Whitney U with average ranks for ties — exact cosine ties
+    are common in this corpus.
     """
     if not len(positive) or not len(negative):
         return float("nan")
     combined = np.concatenate([positive, negative])
-    order = combined.argsort()
-    ranks = np.empty(len(combined), dtype=float)
-    ranks[order] = np.arange(1, len(combined) + 1)
+    ranks = _average_ranks(combined)
     rank_sum = ranks[: len(positive)].sum()
     return float(
         (rank_sum - len(positive) * (len(positive) + 1) / 2) / (len(positive) * len(negative))

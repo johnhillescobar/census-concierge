@@ -20,7 +20,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "api"))
 
-from src.retrieval import index, text  # noqa: E402
+from src.retrieval import text  # noqa: E402
 from src.retrieval.synthetic import load_questions  # noqa: E402
 
 CACHE = Path(__file__).resolve().parent / "cache"
@@ -72,53 +72,80 @@ def _labels_by_table() -> dict[str, list[str]]:
     return out
 
 
+def _ranking_corpus_tables() -> tuple[list[str], list[str], list[str]]:
+    """Post-fold ranking corpus from cached metadata — not from index_store/."""
+    from collections import defaultdict
+
+    from src.retrieval import availability, metadata
+    from src.retrieval.build import _fold_identical_twins
+
+    matrix_path = availability.ARTIFACT
+    if not matrix_path.exists():
+        raise FileNotFoundError(
+            f"{matrix_path} not found — run `make metadata` to build the availability matrix"
+        )
+    published = availability.union_tables(availability.load(matrix_path))
+    labels = _labels_by_table()
+
+    families: dict[str, list[str]] = defaultdict(list)
+    for table_id in published:
+        if metadata.is_subject_table(table_id):
+            families[metadata.family_id(table_id)].append(table_id)
+    families = {base: members for base, members in families.items() if base in published}
+    representatives = {base: base for base in families}
+
+    table_ids = [representatives[base] for base in sorted(families)]
+    members = {
+        representatives[base]: sorted(m for m in families[base] if m != representatives[base])
+        for base in sorted(families)
+    }
+    documents = {
+        t: text.semantic_document(published[t].title, published[t].universe, "", [])
+        for t in table_ids
+    }
+    collapsed = _fold_identical_twins(
+        table_ids,
+        members,
+        documents,
+        {t: len(labels.get(t, [])) for t in table_ids},
+    )
+    table_ids = [t for t in table_ids if t not in collapsed]
+    return (
+        table_ids,
+        [published[t].title for t in table_ids],
+        [published[t].universe for t in table_ids],
+    )
+
+
 def corpus() -> Corpus:
     from experiments import describe
 
-    loaded = index.load()
+    table_ids, titles, universes = _ranking_corpus_tables()
     labels = _labels_by_table()
-    documents = [
-        text.semantic_document(loaded.titles[i], loaded.universes[i], "", [])
-        for i in range(len(loaded.tables))
-    ]
+    n = len(table_ids)
+    documents = [text.semantic_document(titles[i], universes[i], "", []) for i in range(n)]
     listings = [
-        f"{loaded.tables[i]}: {loaded.titles[i]} | universe: "
-        f"{loaded.universes[i] or 'not published'}"
-        for i in range(len(loaded.tables))
+        f"{table_ids[i]}: {titles[i]} | universe: {universes[i] or 'not published'}"
+        for i in range(n)
     ]
     rich_listings = [
-        describe.listing(
-            loaded.tables[i],
-            loaded.titles[i],
-            loaded.universes[i],
-            labels.get(loaded.tables[i], []),
-        )
-        for i in range(len(loaded.tables))
+        describe.listing(table_ids[i], titles[i], universes[i], labels.get(table_ids[i], []))
+        for i in range(n)
     ]
     lean_listings = [
-        describe.lean_listing(
-            loaded.tables[i],
-            loaded.titles[i],
-            loaded.universes[i],
-            labels.get(loaded.tables[i], []),
-        )
-        for i in range(len(loaded.tables))
+        describe.lean_listing(table_ids[i], titles[i], universes[i], labels.get(table_ids[i], []))
+        for i in range(n)
     ]
     rich_documents = [
-        describe.document(loaded.titles[i], loaded.universes[i], labels.get(loaded.tables[i], []))
-        for i in range(len(loaded.tables))
+        describe.document(titles[i], universes[i], labels.get(table_ids[i], [])) for i in range(n)
     ]
     lean_documents = [
-        describe.lean_document(
-            loaded.titles[i], loaded.universes[i], labels.get(loaded.tables[i], [])
-        )
-        for i in range(len(loaded.tables))
+        describe.lean_document(titles[i], universes[i], labels.get(table_ids[i], []))
+        for i in range(n)
     ]
-    twin_documents = describe.twin_aware_documents(
-        list(loaded.tables), list(loaded.titles), list(loaded.universes), labels
-    )
+    twin_documents = describe.twin_aware_documents(table_ids, titles, universes, labels)
     return Corpus(
-        tables=list(loaded.tables),
+        tables=table_ids,
         documents=documents,
         listings=listings,
         rich_listings=rich_listings,
