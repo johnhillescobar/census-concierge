@@ -1,0 +1,39 @@
+
+MARGIN AS A CONFIDENCE SIGNAL  —  google/gemini-embedding-001
+
+==== self_retrieval  (top-1 accuracy 50.2%)
+
+  top1 - top2          AUC 0.734   n=600  correct=301 wrong=299
+        cut   covered   top-1 right above   top-1 right below
+     0.0034      70%                60%                28%
+     0.0048      60%                64%                30%
+     0.0068      50%                66%                34%
+     0.0092      40%                71%                36%
+     0.0136      30%                79%                38%
+
+  top1 - top5          AUC 0.719   n=600  correct=301 wrong=299
+
+  top1 - mean(top10)   AUC 0.730   n=600  correct=301 wrong=299
+
+  top1 alone           AUC 0.600   n=600  correct=301 wrong=299
+
+==== golden  (top-1 accuracy 60.0%)
+
+  top1 - top2          AUC 0.768   n=40  correct=24 wrong=16
+        cut   covered   top-1 right above   top-1 right below
+     0.0025      70%                68%                42%
+     0.0032      60%                75%                38%
+     0.0057      50%                80%                40%
+     0.0080      40%                88%                42%
+     0.0111      30%                92%                46%
+
+  top1 - top5          AUC 0.656   n=40  correct=24 wrong=16
+
+  top1 - mean(top10)   AUC 0.654   n=40  correct=24 wrong=16
+
+  top1 alone           AUC 0.570   n=40  correct=24 wrong=16
+
+  AUC 0.5 means the gap tells you nothing. Anything near 0.5 means a
+  narrow margin is NOT evidence of ambiguity, and the product cannot use
+  it to decide when to surface alternatives.
+
