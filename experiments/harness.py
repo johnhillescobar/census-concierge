@@ -227,6 +227,25 @@ def result_corpus_status(
     return fatal, warnings
 
 
+def comparable_result_rows(results: Path | None = None) -> list[dict]:
+    """Non-screening result files that recorded a corpus hash.
+
+    Screening runs (``sampled`` in the stem) are a different n and must not
+    sit in the same comparable set. Axis C lean/rich/twin files and Axis B
+    rerankers belong with the unsuffixed arms: they were scored on the same
+    table list.
+    """
+    rows: list[dict] = []
+    for path in sorted((results or RESULTS).glob("*.json")):
+        if "sampled" in path.stem:
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if "error" in payload or not payload.get("corpus_hash"):
+            continue
+        rows.append(payload)
+    return rows
+
+
 def _slug(name: str) -> str:
     return name.replace("/", "__").replace(":", "_")
 

@@ -14,11 +14,18 @@ from pathlib import Path
 
 # experiments/ is throwaway and not an installed package; pytest's path is api/.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from experiments.harness import RESULTS, result_corpus_status  # noqa: E402
+from experiments.harness import (  # noqa: E402
+    RESULTS,
+    comparable_result_rows,
+    result_corpus_status,
+)
 
 PRE_FOLD = {"corpus_n": 756, "corpus_hash": "abc111"}
 POST_FOLD = {"corpus_n": 636, "corpus_hash": "def222"}
 LIVE_POST_FOLD = {"corpus_n": 636, "corpus_hash": "def222"}
+# Stamped into the committed artifacts; FINDINGS.md Axes A–C.
+PUBLISHED_PRE_FOLD = (756, "c81155be334e7cfc")
+PUBLISHED_POST_FOLD = (636, "fa38e94bcd758cb6")
 
 
 def test_a_result_without_a_corpus_hash_is_fatal() -> None:
@@ -72,17 +79,25 @@ def test_every_committed_result_records_the_corpus_it_was_scored_on() -> None:
     files = _load_results()
     assert files, "experiments/results/ has no committed JSON"
     for path, payload in files:
-        assert payload.get("corpus_n") in (636, 756), path.name
-        assert payload.get("corpus_hash"), path.name
+        expected = PUBLISHED_POST_FOLD if "sampled" in path.name else PUBLISHED_PRE_FOLD
+        assert (payload.get("corpus_n"), payload.get("corpus_hash")) == expected, path.name
 
 
 def test_full_arms_share_the_pre_fold_corpus_and_the_screening_run_does_not() -> None:
     files = _load_results()
     full = [p for path, p in files if "sampled" not in path.name]
     sampled = [p for path, p in files if "sampled" in path.name]
-    hashes = {p["corpus_hash"] for p in full}
-    assert len(hashes) == 1
-    assert full[0]["corpus_n"] == 756
+    assert {p["corpus_n"] for p in full} == {PUBLISHED_PRE_FOLD[0]}
+    assert {p["corpus_hash"] for p in full} == {PUBLISHED_PRE_FOLD[1]}
     assert sampled
-    assert {p["corpus_n"] for p in sampled} == {636}
-    assert sampled[0]["corpus_hash"] not in hashes
+    assert {(p["corpus_n"], p["corpus_hash"]) for p in sampled} == {PUBLISHED_POST_FOLD}
+
+
+def test_comparable_result_rows_include_variants_and_exclude_screening_runs() -> None:
+    files = _load_results()
+    full = [p for path, p in files if "sampled" not in path.name]
+    rows = comparable_result_rows()
+    assert len(rows) == len(full)
+    fatal, _warnings = result_corpus_status(rows)
+    assert not fatal
+    assert {r["corpus_n"] for r in rows} == {PUBLISHED_PRE_FOLD[0]}

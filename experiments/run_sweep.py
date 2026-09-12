@@ -205,17 +205,11 @@ def table() -> int:
     for row in recorded:
         issues, _ = harness.result_corpus_status([row])
         fatal.extend(issues)
-    hashed_rows = [r for r in rows if r.get("corpus_hash")]
-    rank_issues, rank_warnings = harness.result_corpus_status(hashed_rows, live=current)
+    rank_issues, rank_warnings = harness.result_corpus_status(
+        harness.comparable_result_rows(), live=current
+    )
     fatal.extend(rank_issues)
     warnings.extend(rank_warnings)
-    rerank_comparable = [
-        r
-        for r in (harness.read(f"reranker-{k}") for k in arms.rerankers())
-        if r and "error" not in r and r.get("corpus_hash")
-    ]
-    rr_issues, _ = harness.result_corpus_status(rerank_comparable)
-    fatal.extend(rr_issues)
     for line in warnings:
         print(f"\n  NOTE: {line}\n")
     for line in fatal:
