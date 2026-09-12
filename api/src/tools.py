@@ -142,7 +142,8 @@ class SearchTablesTool(BaseTool):
             )
         artifact = SearchTablesResult(hits=hits)
         listing = ", ".join(
-            f"{hit['table_id']} ({hit['universe'] or 'universe unpublished'})" for hit in hits
+            f"{hit['table_id']} {hit['title']} ({hit['universe'] or 'universe unpublished'})"
+            for hit in hits
         )
         summary = f"{len(hits)} candidates" + (f": {listing}" if listing else "")
         return summary, artifact
@@ -222,9 +223,18 @@ class BuildUrlTool(BaseTool):
                 else f"{table_id}_{variable_id}"
             )
             suffix = full.removeprefix(f"{table_id}_")
-            if suffix not in suffixes and not suffix.endswith("M"):
+            if suffix.endswith("M"):
+                estimate = f"{suffix[:-1]}E"
+                if estimate not in suffixes:
+                    missing.append(full)
+                else:
+                    estimate_id = f"{table_id}_{estimate}"
+                    if estimate_id not in normalized:
+                        normalized.append(estimate_id)
+            elif suffix not in suffixes:
                 missing.append(full)
-            normalized.append(full)
+            if full not in normalized:
+                normalized.append(full)
         variables = normalized
         if missing:
             result = BuildUrlResult(
@@ -308,7 +318,11 @@ class FetchDataTool(BaseTool):
         if status != 200 or not isinstance(payload, list) or not payload:
             detail = payload if isinstance(payload, str) else f"HTTP {status}"
             result = FetchDataResult(
-                ok=False, url=redacted, rows=[], status_code=status, detail=str(detail)[:300]
+                ok=False,
+                url=redacted,
+                rows=[],
+                status_code=status,
+                detail=redact_text(str(detail)[:300]),
             )
             return f"fetch failed ({status}); URL {redacted}", result
         header, *body = payload

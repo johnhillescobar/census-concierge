@@ -135,10 +135,13 @@ def legal_predicate(
         required = frozenset(entry.requires)
         if wildcard:
             parent = entry.wildcard_for
-            if parent and parent in in_names and required <= in_names | {parent}:
-                if in_names <= required or required <= in_names:
-                    hits.append(entry)
-            elif not required and not in_names:
+            allowed = required | ({parent} if parent else frozenset())
+            if (
+                parent
+                and parent in in_names
+                and in_names <= allowed
+                and required <= in_names | {parent}
+            ) or (not required and not in_names):
                 hits.append(entry)
         elif required == in_names:
             hits.append(entry)
@@ -150,14 +153,21 @@ def legal_predicate(
 def find_state(text: str) -> tuple[str, str] | None:
     if _DC.search(text):
         return "district of columbia", "11"
-    folded = text.casefold()
-    for name, _usps, fips in sorted(STATES, key=lambda row: -len(row[0])):
-        if re.search(rf"\b{re.escape(name)}\b", folded):
-            return name, fips
     for name, usps, fips in STATES:
         if re.search(rf",\s*{usps}\b", text, re.IGNORECASE):
             return name, fips
-    return None
+    folded = text.casefold()
+    last: tuple[int, int, str, str] | None = None
+    for name, _usps, fips in STATES:
+        for match in re.finditer(rf"\b{re.escape(name)}\b", folded):
+            candidate = (match.end(), len(name), name, fips)
+            if (
+                last is None
+                or candidate[0] > last[0]
+                or (candidate[0] == last[0] and candidate[1] > last[1])
+            ):
+                last = candidate
+    return None if last is None else (last[2], last[3])
 
 
 def _token_is_dc(token: str) -> bool:
@@ -265,7 +275,21 @@ class ResolveGeographyTool(BaseTool):
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query
         state = find_state(parent_text)
-        for_level = level or (detect_level(wildcard_match.group(1) if wildcard_match else query))
+        known = {entry.name for entry in self.entries}
+        if level:
+            for_level = _LEVELS.get(level.casefold())
+            if for_level is None:
+                for_level = level if level in known else None
+            if for_level is None:
+                result = ResolveGeographyResult(
+                    matches=[],
+                    wildcard=False,
+                    legal=False,
+                    detail=f"unknown geography level {level!r}",
+                )
+                return result.detail, result
+        else:
+            for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
         if for_level is None:
             token = place_token(query, state[0] if state else None)
             dc_as_state = _token_is_dc(token) if state is not None and state[1] == "11" else False
@@ -296,6 +320,14 @@ class ResolveGeographyTool(BaseTool):
             if parent_level and parent_level != for_level and parent_level not in in_parts
             else set()
         )
+        if extra:
+            result = ResolveGeographyResult(
+                matches=[],
+                wildcard=wildcard,
+                legal=False,
+                detail=f"{for_level} nested in unresolved {', '.join(sorted(extra))}",
+            )
+            return result.detail, result
         in_names = frozenset(in_parts) | extra
         predicate = legal_predicate(
             for_level, in_names, wildcard=wildcard or not in_parts, entries=self.entries
@@ -323,7 +355,7 @@ class ResolveGeographyTool(BaseTool):
                     detail=f"{for_level} with in={dict(in_parts)} is not a legal combination",
                 )
                 return result.detail, result
-            parent = " ".join(f"{k}:{v}" for k, v in in_parts.items())
+            parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
             match = {
                 "name": query.strip(),
                 "level": for_level,
@@ -350,11 +382,13 @@ class ResolveGeographyTool(BaseTool):
         result = ResolveGeographyResult(
             matches=matched, wildcard=False, legal=legal and bool(matched), detail=detail
         )
-        summary = (
-            f"{len(matched)} {for_level} candidates"
-            if len(matched) != 1
-            else f"1 geography: {matched[0]['for']} {matched[0].get('in', '')}".strip()
-        )
+        if len(matched) != 1:
+            listing = "; ".join(
+                f"{row['name']} {row['for']} {row.get('in', '')}".strip() for row in matched
+            )
+            summary = f"{len(matched)} {for_level} candidates: {listing}"
+        else:
+            summary = f"1 geography: {matched[0]['for']} {matched[0].get('in', '')}".strip()
         if detail:
             summary = detail
         return summary, result

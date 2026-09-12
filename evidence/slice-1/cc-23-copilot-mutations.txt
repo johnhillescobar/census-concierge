@@ -1,0 +1,159 @@
+# Copilot-fix mutations — CC-23
+# Revert one behaviour, confirm the covering test fails, restore.
+
+=== BAD: CensusURL strips KEY= regardless of case ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_census_url_strips_key_regardless_of_case --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'secret' not in 'https://api...1&KEY=secret'
+      
+      'secret' is contained here:
+        ate:41&KEY=secret
+      ?            ++++++
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:468: AssertionError: assert 'secret' not in 'https://api...1&KEY=secret'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_census_url_strips_key_regardless_of_case
+1 failed in 0.14s
+
+=== BAD: failed rebuild clears previous url/rows ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_failed_rebuild_clears_the_previous_url_and_rows --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:201&in=state:48') is None
+     +  where CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:201&in=state:48') = ExecutionRecord(pool=[{'table_id': 'B01003', 'universe': 'Total population', 'members': []}], geography={'for': 'count..., 'B01003_001E': '1'}], timings=[{'tool': 'build_url', 'ms': 9.3, 'ok': False}], consecutive_failures={'build_url': 1}).url
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:219: AssertionError: assert CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:201&in=state:48') is None
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_failed_rebuild_clears_the_previous_url_and_rows
+1 failed in 0.20s
+
+=== BAD: successful rebuild drops previous rows ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_successful_rebuild_drops_previous_rows --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [{'GEO_ID': '...3_001E': '1'}] == []
+      
+      Left contains one more item: {'GEO_ID': '0500000US48201', 'B01003_001E': '1'}
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:233: AssertionError: assert [{'GEO_ID': '...3_001E': '1'}] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_successful_rebuild_drops_previous_rows
+1 failed in 0.14s
+
+=== BAD: find_state prefers suffix / last state name ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_washington_dc_is_not_washington_state --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('washington', '53') == ('oregon', '41')
+      
+      At index 0 diff: 'washington' != 'oregon'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:578: AssertionError: assert ('washington', '53') == ('oregon', '41')
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_washington_dc_is_not_washington_state
+1 failed in 0.15s
+
+=== BAD: national county wildcard keeps in=state:* ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_all_counties_in_the_us_keeps_the_state_wildcard --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '' == 'state:*'
+      
+      - state:*
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:516: AssertionError: assert '' == 'state:*'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_all_counties_in_the_us_keeps_the_state_wildcard
+1 failed in 0.15s
+
+=== BAD: ambiguous counties list for/in in the model summary ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_cook_county_returns_candidates_instead_of_picking --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'Cook County, Illinois' in '3 county candidates'
+     +  where '3 county candidates' = ToolMessage(content='3 county candidates', name='resolve_geography', tool_call_id='c1', artifact=ResolveGeographyResul...: 'county', 'for': 'county:031', 'in': 'state:27', 'geoid': '0500000US27031'}], wildcard=False, legal=True, detail='')).content
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:303: AssertionError: assert 'Cook County, Illinois' in '3 county candidates'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_cook_county_returns_candidates_instead_of_picking
+1 failed in 0.19s
+
+=== BAD: search summary includes table titles ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_search_carries_universe_and_family_members --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'Median Household Income' in '1 candidates: B19013 (Households)'
+     +  where '1 candidates: B19013 (Households)' = ToolMessage(content='1 candidates: B19013 (Households)', name='search_tables', tool_call_id='c1', artifact=SearchTable...able_id': 'B19013', 'title': 'Median Household Income', 'universe': 'Households', 'members': ['B19013A', 'B19013B']}])).content
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:200: AssertionError: assert 'Median Household Income' in '1 candidates: B19013 (Households)'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_search_carries_universe_and_family_members
+1 failed in 0.18s
+
+=== BAD: supplied M is validated against the matching E ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_build_url_rejects_a_margin_with_no_estimate --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert True is False
+     +  where True = BuildUrlResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_999M&for=county:201&in=s...8', table_id='B01003', variables=['B01003_999M'], dataset='acs5', vintage=2024, detail='', universe='Total population').ok
+     +    where BuildUrlResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_999M&for=county:201&in=s...8', table_id='B01003', variables=['B01003_999M'], dataset='acs5', vintage=2024, detail='', universe='Total population') = ToolMessage(content='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_999M&for=county:201&in=state:48'...', table_id='B01003', variables=['B01003_999M'], dataset='acs5', vintage=2024, detail='', universe='Total population')).artifact
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:482: AssertionError: assert True is False
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_build_url_rejects_a_margin_with_no_estimate
+1 failed in 0.22s
+
+=== BAD: non-200 fetch body is redacted ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_fetch_error_body_does_not_carry_the_census_key --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'secret' not in 'unknown geo...1&key=secret'
+      
+      'secret' is contained here:
+        ate:11&key=secret
+      ?            ++++++
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:498: AssertionError: assert 'secret' not in 'unknown geo...1&key=secret'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_fetch_error_body_does_not_carry_the_census_key
+1 failed in 0.17s
+
+=== BAD: unresolved nested parent is not rewritten to state:* ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_all_places_in_a_county_is_rejected_not_broadened --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert True is False
+     +  where True = ResolveGeographyResult(matches=[{'name': 'all places in Harris County', 'level': 'place', 'for': 'place:*', 'in': 'state:*', 'geoid': ''}], wildcard=True, legal=True, detail='').legal
+     +    where ResolveGeographyResult(matches=[{'name': 'all places in Harris County', 'level': 'place', 'for': 'place:*', 'in': 'state:*', 'geoid': ''}], wildcard=True, legal=True, detail='') = ToolMessage(content='wildcard place:* state:*', name='resolve_geography', tool_call_id='c1', artifact=ResolveGeography...ris County', 'level': 'place', 'for': 'place:*', 'in': 'state:*', 'geoid': ''}], wildcard=True, legal=True, detail='')).artifact
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:529: AssertionError: assert True is False
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_all_places_in_a_county_is_rejected_not_broadened
+1 failed in 0.24s
+
+=== BAD: unknown level is rejected before listing ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_unknown_level_does_not_list_census_names --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [('county:*&g...tate': '48'})] == []
+      
+      Left contains one more item: ('county:*&get=NAME', {'state': '48'})
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:550: AssertionError: assert [('county:*&g...tate': '48'})] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_unknown_level_does_not_list_census_names
+1 failed in 0.17s
+
+=== BAD: ambiguous matches cannot be built as one URL ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_ambiguous_geography_cannot_be_built_as_one_url --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17') is None
+     +  where CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17') = ExecutionRecord(pool=[{'table_id': 'B01003', 'title': 'Total Population', 'universe': 'Total population', 'members': [...build_url', 'ms': 0.9, 'ok': True}], consecutive_failures={'search_tables': 0, 'resolve_geography': 0, 'build_url': 0}).url
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:250: AssertionError: assert CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17') is None
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_ambiguous_geography_cannot_be_built_as_one_url
+1 failed in 0.21s
+
+=== BAD: place wildcard does not accept an extra county parent ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_place_wildcard_does_not_accept_an_extra_county_parent --tb=line
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert GeoLevel(name='place', code='160', requires=('state',), wildcard=('state',), wildcard_for='state') is None
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:228: AssertionError: assert GeoLevel(name='place', code='160', requires=('state',), wildcard=('state',), wildcard_for='state') is None
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_place_wildcard_does_not_accept_an_extra_county_parent
+1 failed in 0.17s

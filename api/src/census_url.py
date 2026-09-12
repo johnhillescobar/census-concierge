@@ -25,7 +25,7 @@ def _strip_key(url: str) -> str:
     kept = [
         (key, value)
         for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if key != "key"
+        if key.casefold() != "key"
     ]
     return urlunsplit(
         (parts.scheme, parts.netloc, parts.path, urlencode(kept, safe=":,"), parts.fragment)
@@ -49,7 +49,7 @@ class CensusURL:
             return self._redacted
         parts = urlsplit(self._redacted)
         query = parse_qsl(parts.query, keep_blank_values=True)
-        query = [(name, value) for name, value in query if name != "key"]
+        query = [(name, value) for name, value in query if name.casefold() != "key"]
         query.append(("key", key))
         return urlunsplit(
             (parts.scheme, parts.netloc, parts.path, urlencode(query, safe=":,"), parts.fragment)

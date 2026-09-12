@@ -74,10 +74,16 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
             record.geography = dict(matches[0])
         else:
             record.geography = None
-    elif name == "build_url" and isinstance(artifact, BuildUrlResult) and artifact.ok:
-        record.url = CensusURL(artifact.url)
-        record.table_id = artifact.table_id
-        record.universe = artifact.universe
+    elif name == "build_url" and isinstance(artifact, BuildUrlResult):
+        record.rows = []
+        if artifact.ok:
+            record.url = CensusURL(artifact.url)
+            record.table_id = artifact.table_id
+            record.universe = artifact.universe
+        else:
+            record.url = None
+            record.table_id = ""
+            record.universe = ""
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
         record.rows = artifact.rows
         if artifact.url:
@@ -237,9 +243,14 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         ),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: _allowed(record),
-            allowed_geographies=lambda: {
-                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
-            },
+            allowed_geographies=lambda: (
+                {
+                    (str(geo.get("for") or ""), str(geo.get("in") or ""))
+                    for geo in record.geographies
+                }
+                if len(record.geographies) == 1
+                else set()
+            ),
             latest_vintage=latest,
             table_facts=facts,
             last_geography=lambda: record.geography,

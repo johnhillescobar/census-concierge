@@ -197,6 +197,7 @@ async def test_search_carries_universe_and_family_members(search_tool: SearchTab
     assert hit["universe"] == "Households"
     assert hit["members"] == ["B19013A", "B19013B"]
     assert [h["table_id"] for h in message.artifact.hits] == ["B19013"]
+    assert "Median Household Income" in message.content
 
 
 async def test_unknown_vocabulary_does_not_invent_a_table(search_tool: SearchTablesTool) -> None:
@@ -218,6 +219,13 @@ def test_county_in_state_uses_summary_level_050_not_last_wins() -> None:
     last_wins = next(entry for entry in ENTRIES if entry.code == "324")
     assert last_wins.name == "county"
     assert chosen != last_wins
+
+
+def test_place_wildcard_does_not_accept_an_extra_county_parent() -> None:
+    chosen = legal_predicate(
+        "place", frozenset({"state", "county"}), wildcard=True, entries=ENTRIES
+    )
+    assert chosen is None
 
 
 def test_zcta_nested_in_county_is_not_legal() -> None:
@@ -292,6 +300,9 @@ async def test_cook_county_returns_candidates_instead_of_picking() -> None:
     codes = sorted(row["in"] for row in message.artifact.matches)
     assert codes == ["state:13", "state:17", "state:27"]
     assert len(message.artifact.matches) == 3
+    assert "Cook County, Illinois" in message.content
+    assert "county:031" in message.content
+    assert "state:13" in message.content
 
 
 async def test_harris_county_texas_resolves_to_codes() -> None:
@@ -460,6 +471,96 @@ def test_census_url_reattaches_the_key_only_at_with_key() -> None:
     assert live.endswith("key=secret") or "key=secret" in live
 
 
+def test_census_url_strips_key_regardless_of_case() -> None:
+    url = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:41&KEY=secret")
+    assert "secret" not in str(url)
+    assert "secret" not in repr(url)
+    assert "key=" not in str(url).casefold()
+
+
+async def test_build_url_rejects_a_margin_with_no_estimate() -> None:
+    message = await _url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B01003", "variables": ["B01003_999M"]},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.url == ""
+    assert "B01003_999M" in message.artifact.detail
+
+
+async def test_fetch_error_body_does_not_carry_the_census_key() -> None:
+    built = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:11")
+
+    def http_get(url: str) -> tuple[int, str]:
+        return 400, f"unknown geography for {url}"
+
+    tool = FetchDataTool(last_url=lambda: built, census_key=lambda: "secret", http_get=http_get)
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+    )
+    assert message.artifact.ok is False
+    assert "secret" not in message.artifact.detail
+    assert "key=secret" not in message.content
+
+
+async def test_all_counties_in_the_us_keeps_the_state_wildcard() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all counties in the US"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.wildcard is True
+    assert artifact.legal is True
+    assert artifact.matches[0]["for"] == "county:*"
+    assert artifact.matches[0]["in"] == "state:*"
+
+
+async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all places in Harris County"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.matches == []
+    assert "unresolved" in message.artifact.detail
+
+
+async def test_unknown_level_does_not_list_census_names() -> None:
+    called: list[tuple[str, dict[str, str]]] = []
+
+    def listing(level: str, parts: dict[str, str]) -> list[dict[str, str]]:
+        called.append((level, parts))
+        return []
+
+    tool = ResolveGeographyTool(list_geographies=listing, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Harris County, Texas", "level": "county:*&get=NAME"},
+            "id": "c1",
+        }
+    )
+    assert called == []
+    assert message.artifact.matches == []
+    assert message.artifact.legal is False
+    assert "unknown geography level" in message.artifact.detail
+
+
 def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyPatch) -> None:
     import httpx
     from src.census_url import redact_text
@@ -482,6 +583,11 @@ def test_washington_dc_is_not_washington_state() -> None:
     assert find_state("Washington, D.C.") == ("district of columbia", "11")
     assert find_state("Washington") == ("washington", "53")
     assert find_state("all counties in Washington") == ("washington", "53")
+    assert find_state("Washington County, Oregon") == ("oregon", "41")
+    assert find_state("Washington County, OR") == ("oregon", "41")
+    assert find_state("Kansas City, Missouri") == ("missouri", "29")
+    assert find_state("West Virginia") == ("west virginia", "54")
+    assert find_state("Virginia") == ("virginia", "51")
 
 
 def test_new_york_city_token_keeps_new_york() -> None:
