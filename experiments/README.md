@@ -98,11 +98,11 @@ agent has to *show both*. That only works if it can tell a confident hit from a
 coin flip.
 
 **Result: the gap between the top two scores predicts correctness at AUC
-0.71–0.76.** Usable, not strong. A cut at the 70th percentile covers 30% of
+0.73–0.77.** Usable, not strong. A cut at the 70th percentile covers 30% of
 questions where the top hit is right 92% of the time; below the median it is
 right 46% of the time. That is exactly the split the product needs.
 
-Caveat: the absolute margins are tiny — a 50th-percentile cut sits at 0.0036
+Caveat: the absolute margins are tiny — a 50th-percentile cut sits at 0.0057
 cosine — so the threshold is per-encoder and must be recalibrated if the encoder
 changes.
 
