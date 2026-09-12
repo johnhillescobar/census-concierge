@@ -7,9 +7,17 @@ without `&key=`. The key is reattached only at the httpx call site, via
 
 from __future__ import annotations
 
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 CENSUS_API = "https://api.census.gov/data"
+
+_KEY_IN_TEXT = re.compile(r"(?i)([?&]key=)[^&\s]+")
+
+
+def redact_text(text: str) -> str:
+    """Strip `&key=` values out of exception text and other prose."""
+    return _KEY_IN_TEXT.sub(r"\1REDACTED", text)
 
 
 def _strip_key(url: str) -> str:

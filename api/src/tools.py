@@ -64,6 +64,7 @@ class BuildUrlResult(ToolResult):
     dataset: str
     vintage: int
     detail: str
+    universe: str = ""
 
 
 class FetchDataInput(ToolInput):
@@ -81,6 +82,7 @@ class FetchDataResult(ToolResult):
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
 AllowedTables = Callable[[], set[str]]
+AllowedGeographies = Callable[[], set[tuple[str, str]]]
 LatestVintage = Callable[[str], int]
 TableFacts = Callable[[str, int, str], dict[str, Any] | None]
 LastUrl = Callable[[], CensusURL | None]
@@ -154,6 +156,7 @@ class BuildUrlTool(BaseTool):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     allowed_tables: AllowedTables
+    allowed_geographies: AllowedGeographies
     latest_vintage: LatestVintage
     table_facts: TableFacts
     last_geography: LastGeography
@@ -236,9 +239,10 @@ class BuildUrlTool(BaseTool):
             return result.detail, result
         paired = pair_margins(variables)
         geography = self.last_geography() or {}
-        for_clause = for_spec or geography.get("for") or ""
-        in_clause = in_spec if in_spec is not None else geography.get("in") or ""
-        if not for_clause:
+        for_clause = (for_spec or "").strip() or geography.get("for") or ""
+        in_clause = (in_spec or "").strip() or geography.get("in") or ""
+        allowed_geo = self.allowed_geographies()
+        if not for_clause or (for_clause, in_clause) not in allowed_geo:
             result = BuildUrlResult(
                 ok=False,
                 url="",
@@ -246,7 +250,8 @@ class BuildUrlTool(BaseTool):
                 variables=paired,
                 dataset=dataset,
                 vintage=year,
-                detail="resolve_geography before build_url, or pass for_spec",
+                detail="resolve_geography before build_url, or pass a for_spec from its matches",
+                universe=str(facts.get("universe") or ""),
             )
             return result.detail, result
         get_cols = ["NAME", "GEO_ID", *paired]
@@ -262,6 +267,7 @@ class BuildUrlTool(BaseTool):
             dataset=dataset,
             vintage=year,
             detail="",
+            universe=str(facts.get("universe") or ""),
         )
         return str(url), result
 

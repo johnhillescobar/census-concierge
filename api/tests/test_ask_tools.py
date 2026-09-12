@@ -15,7 +15,10 @@ from src.census_url import CensusURL
 from src.geo import (
     ResolveGeographyTool,
     filter_rows,
+    find_state,
     legal_predicate,
+    list_census_names,
+    place_token,
 )
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
@@ -117,6 +120,34 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
             "geoid": "0500000US27031",
         },
     ]
+    if level == "place":
+        places = [
+            {
+                "name": "New York city, New York",
+                "level": "place",
+                "for": "place:3651000",
+                "in": "state:36",
+                "geoid": "1600000US3651000",
+            },
+            {
+                "name": "Albany city, New York",
+                "level": "place",
+                "for": "place:3601000",
+                "in": "state:36",
+                "geoid": "1600000US3601000",
+            },
+            {
+                "name": "Austin city, Texas",
+                "level": "place",
+                "for": "place:4805000",
+                "in": "state:48",
+                "geoid": "1600000US4805000",
+            },
+        ]
+        state = in_parts.get("state")
+        if state and state != "*":
+            return [row for row in places if row["in"] == f"state:{state}"]
+        return places
     if level != "county":
         return []
     state = in_parts.get("state")
@@ -294,6 +325,7 @@ def _url_tool() -> BuildUrlTool:
     allowed = {"B01003", "B19013", "B19013A"}
     return BuildUrlTool(
         allowed_tables=lambda: allowed,
+        allowed_geographies=lambda: {("county:201", "state:48")},
         latest_vintage=lambda dataset: 2024,
         table_facts=lambda dataset, year, table_id: (
             facts.get(dataset, {}).get(year, {}).get(table_id)
@@ -345,6 +377,33 @@ async def test_build_url_accepts_a_recorded_family_member() -> None:
     )
     assert message.artifact.ok is True
     assert message.artifact.table_id == "B19013A"
+    assert message.artifact.universe == "Households"
+
+
+async def test_build_url_rejects_a_geography_that_was_not_resolved() -> None:
+    message = await _url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B01003", "for_spec": "county:999", "in_spec": "state:48"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.url == ""
+
+
+async def test_empty_in_spec_does_not_drop_the_resolved_parent() -> None:
+    message = await _url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B01003", "in_spec": ""},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is True
+    assert "in=state:48" in message.artifact.url
 
 
 async def test_fetch_keeps_the_url_when_census_returns_400() -> None:
@@ -381,6 +440,79 @@ def test_census_url_reattaches_the_key_only_at_with_key() -> None:
     assert "key=" not in repr(url)
     live = url.with_key("secret")
     assert live.endswith("key=secret") or "key=secret" in live
+
+
+def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    import httpx
+    from src.census_url import redact_text
+
+    def boom(url: str, timeout: float = 0) -> object:
+        _ = timeout
+        raise httpx.HTTPError(f"boom {url}")
+
+    monkeypatch.setattr("src.geo.httpx.get", boom)
+    with pytest.raises(RuntimeError, match="geography listing failed") as caught:
+        list_census_names("county", {"state": "48"}, key="secret")
+    assert "secret" not in str(caught.value)
+    assert "key=" not in str(caught.value)
+    assert "key=secret" not in redact_text("https://api.census.gov/data?key=secret")
+
+
+def test_washington_dc_is_not_washington_state() -> None:
+    assert find_state("Washington, DC") == ("district of columbia", "11")
+    assert find_state("Washington") == ("washington", "53")
+    assert find_state("all counties in Washington") == ("washington", "53")
+
+
+def test_new_york_city_token_keeps_new_york() -> None:
+    assert place_token("New York City", "new york") == "new york"
+    assert place_token("Austin, Texas", "texas") == "austin"
+
+
+def test_empty_place_token_matches_nothing() -> None:
+    rows = [{"name": "Albany city, New York", "for": "place:1"}]
+    assert filter_rows("", rows) == []
+    assert filter_rows("new york", rows) == []
+
+
+async def test_washington_dc_resolves_as_district_of_columbia() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Washington, DC"},
+            "id": "c1",
+        }
+    )
+    assert [row["for"] for row in message.artifact.matches] == ["state:11"]
+    assert message.artifact.matches[0]["geoid"] == "0400000US11"
+
+
+async def test_new_york_city_does_not_return_every_new_york_place() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "New York City"},
+            "id": "c1",
+        }
+    )
+    assert [row["for"] for row in message.artifact.matches] == ["place:3651000"]
+
+
+async def test_bare_state_query_resolves_as_the_state() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "population of Texas"},
+            "id": "c1",
+        }
+    )
+    assert [row["for"] for row in message.artifact.matches] == ["state:48"]
 
 
 def test_geo_entries_keeps_every_county_row(

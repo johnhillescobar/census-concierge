@@ -15,7 +15,7 @@ import httpx
 from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
-from src.census_url import CENSUS_API
+from src.census_url import CENSUS_API, CensusURL
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput, ToolResult
 
@@ -100,6 +100,14 @@ _COUNTY = re.compile(
     r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
     re.IGNORECASE,
 )
+# "Washington, DC" must win over the state named Washington.
+_DC = re.compile(
+    r"district of columbia|\bwashington,\s*d\.?c\.?\b|\bwashington\s+d\.?c\.?\b",
+    re.IGNORECASE,
+)
+_NOISE = frozenset(
+    {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
+)
 
 
 class ResolveGeographyResult(ToolResult):
@@ -140,6 +148,8 @@ def legal_predicate(
 
 
 def find_state(text: str) -> tuple[str, str] | None:
+    if _DC.search(text):
+        return "district of columbia", "11"
     folded = text.casefold()
     for name, _usps, fips in sorted(STATES, key=lambda row: -len(row[0])):
         if re.search(rf"\b{re.escape(name)}\b", folded):
@@ -162,26 +172,31 @@ def place_token(query: str, state_name: str | None) -> str:
     match = _COUNTY.search(query)
     if match and match.group(1).casefold() not in {"all", "every", "each"}:
         return match.group(1).casefold()
-    text = query
-    if state_name:
-        text = re.sub(rf"\b{re.escape(state_name)}\b", " ", text, flags=re.IGNORECASE)
-    text = re.sub(r",\s*[A-Z]{2}\b", " ", text)
+    text = re.sub(r",\s*[A-Z]{2}\b", " ", query)
     for word in ("county", "counties", "city", "cities", "place", "places", "cdp", "town"):
         text = re.sub(rf"\b{word}\b", " ", text, flags=re.IGNORECASE)
-    return re.sub(r"[,\s]+", " ", text).strip().casefold()
+    leftover = re.sub(r"[,\s]+", " ", text).strip().casefold()
+    if not state_name:
+        return leftover
+    without_state = re.sub(rf"\b{re.escape(state_name)}\b", " ", leftover).strip()
+    without_state = re.sub(r"[,\s]+", " ", without_state).strip()
+    significant = " ".join(word for word in without_state.split() if word not in _NOISE)
+    if significant:
+        return significant
+    return state_name if state_name in leftover else leftover
 
 
 def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Match the place/county head (before the comma), never the state suffix."""
     if not token:
-        return rows
+        return []
     hits: list[dict[str, str]] = []
     for row in rows:
-        name = row["name"].casefold()
+        head = row["name"].casefold().split(",", 1)[0]
         if (
-            name == token
-            or name.startswith(f"{token} ")
-            or name.startswith(f"{token},")
-            or re.search(rf"\b{re.escape(token)}\b", name)
+            head == token
+            or head.startswith(f"{token} ")
+            or re.search(rf"\b{re.escape(token)}\b", head)
         ):
             hits.append(row)
     return hits
@@ -196,14 +211,17 @@ def list_census_names(
     key: str = "",
 ) -> list[dict[str, str]]:
     """NAME listing from the Census API. One request; `in=state:*` is legal."""
-    params: dict[str, str] = {"get": "NAME,GEO_ID", "for": f"{for_level}:*"}
+    query = f"get=NAME,GEO_ID&for={for_level}:*"
     if in_parts:
-        params["in"] = " ".join(f"{k}:{v}" for k, v in in_parts.items())
-    if key:
-        params["key"] = key
-    response = httpx.get(f"{CENSUS_API}/{vintage}/acs/{dataset}", params=params, timeout=60.0)
-    response.raise_for_status()
-    header, *body = response.json()
+        query += "&in=" + " ".join(f"{k}:{v}" for k, v in in_parts.items())
+    built = CensusURL(f"{CENSUS_API}/{vintage}/acs/{dataset}?{query}")
+    try:
+        response = httpx.get(built.with_key(key), timeout=60.0)
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        raise RuntimeError(f"geography listing failed; URL {built}") from exc
+    header, *body = payload
     rows: list[dict[str, str]] = []
     for raw in body:
         rec = {str(k): str(v) for k, v in zip(header, raw, strict=False)}
@@ -239,11 +257,16 @@ class ResolveGeographyTool(BaseTool):
     ) -> tuple[str, ResolveGeographyResult]:
         wildcard_match = _WILDCARD.search(query)
         wildcard = wildcard_match is not None
-        for_level = level or (detect_level(wildcard_match.group(1) if wildcard_match else query))
-        if for_level is None:
-            for_level = "place"
         parent_text = wildcard_match.group(2) if wildcard_match else query
         state = find_state(parent_text)
+        for_level = level or (detect_level(wildcard_match.group(1) if wildcard_match else query))
+        if for_level is None:
+            token = place_token(query, state[0] if state else None)
+            dc_as_state = state is not None and state[1] == "11" and token == "washington"
+            if state is not None and (token in {"", state[0]} or dc_as_state):
+                for_level = "state"
+            else:
+                for_level = "place"
         in_parts: dict[str, str] = {}
         if for_level != "state" and state is not None:
             in_parts["state"] = state[1]
@@ -254,7 +277,7 @@ class ResolveGeographyTool(BaseTool):
                 "level": "state",
                 "for": f"state:{state[1]}",
                 "in": "",
-                "geoid": "",
+                "geoid": f"0400000US{state[1]}",
             }
             result = ResolveGeographyResult(
                 matches=[match], wildcard=False, legal=predicate is not None, detail=""

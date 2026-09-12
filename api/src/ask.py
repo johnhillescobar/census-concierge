@@ -17,7 +17,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
-from src.census_url import CensusURL
+from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse
 from src.geo import ResolveGeographyTool, list_census_names
 from src.prompts import system_prompt
@@ -41,6 +41,7 @@ CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[di
 class ExecutionRecord:
     pool: list[dict[str, Any]] = field(default_factory=list)
     geography: dict[str, str] | None = None
+    geographies: list[dict[str, str]] = field(default_factory=list)
     url: CensusURL | None = None
     table_id: str = ""
     universe: str = ""
@@ -66,11 +67,9 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
             artifact.hits if isinstance(artifact, SearchTablesResult) else artifact.get("hits", [])
         )
         record.pool = list(hits)
-        if hits:
-            record.table_id = str(hits[0]["table_id"])
-            record.universe = str(hits[0].get("universe") or "")
     elif name == "resolve_geography":
         matches = artifact.matches if hasattr(artifact, "matches") else artifact.get("matches", [])
+        record.geographies = [dict(match) for match in matches]
         if len(matches) == 1:
             record.geography = dict(matches[0])
         else:
@@ -78,10 +77,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
     elif name == "build_url" and isinstance(artifact, BuildUrlResult) and artifact.ok:
         record.url = CensusURL(artifact.url)
         record.table_id = artifact.table_id
-        for hit in record.pool:
-            if hit["table_id"] == artifact.table_id:
-                record.universe = str(hit.get("universe") or "")
-                break
+        record.universe = artifact.universe
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
         record.rows = artifact.rows
         if artifact.url:
@@ -116,6 +112,8 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
     geoid = ""
     if record.rows:
         geoid = record.rows[0].get("GEO_ID") or ""
+    if not geoid and record.geography:
+        geoid = record.geography.get("geoid") or ""
     return AskResponse(
         answer=answer,
         url=str(record.url) if record.url else "",
@@ -148,7 +146,7 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
         ok = _artifact_ok(artifact)
         _absorb(record, name, artifact)
     except Exception as exc:  # noqa: BLE001 - contained tool failure goes back to the model
-        content = f"{name} failed: {exc}"
+        content = f"{name} failed: {redact_text(str(exc))}"
         ok = False
     record.timings.append(
         {"tool": name, "ms": round((time.perf_counter() - started) * 1000, 1), "ok": ok}
@@ -239,6 +237,9 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         ),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: _allowed(record),
+            allowed_geographies=lambda: {
+                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+            },
             latest_vintage=latest,
             table_facts=facts,
             last_geography=lambda: record.geography,

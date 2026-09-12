@@ -29,6 +29,9 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 facts.get(dataset, {}).get(year, {}).get(table_id)
             ),
             last_geography=lambda: record.geography,
+            allowed_geographies=lambda: {
+                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+            },
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
@@ -112,7 +115,8 @@ async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
 async def test_failed_fetch_still_returns_the_built_url() -> None:
     record = ExecutionRecord()
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48"}
+    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
+    record.geographies = [dict(record.geography)]
     facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
     tools = {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
@@ -124,6 +128,9 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
             latest_vintage=lambda dataset: 2024,
             table_facts=lambda dataset, year, table_id: facts["acs5"][year][table_id],
             last_geography=lambda: record.geography,
+            allowed_geographies=lambda: {
+                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+            },
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
@@ -151,3 +158,35 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
     assert "key=" not in response.url
     assert response.rows == []
     assert str(record.url) == response.url
+    assert response.geoid == "0500000US48201"
+
+
+async def test_search_does_not_select_the_table() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "1",
+                    "name": "search_tables",
+                    "args": {"question": "population of Harris County, Texas"},
+                }
+            ],
+        },
+        {"content": "candidates listed", "tool_calls": []},
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(
+        "population of Harris County, Texas", complete=complete, tools=tools, record=record
+    )
+    assert record.pool[0]["table_id"] == "B01003"
+    assert response.table_id == ""
+    assert response.universe == ""
