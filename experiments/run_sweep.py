@@ -75,6 +75,7 @@ def run_encoders(
                 "corpus_embed_seconds": round(doc_seconds, 1),
                 "trust_remote_code": bool(getattr(encoder, "trust_remote_code", False)),
                 "sampled": sample or 0,
+                **harness.corpus_identity(body.tables),
             }
             for query_set in (self_set, golden):
                 vectors, seconds = harness.cached_encode(encoder, query_set.questions, "query")
@@ -167,6 +168,7 @@ def run_rerankers(only: list[str] | None, rich: str | None = None) -> None:
             "golden_ranks": ranks,
             "failures": failures,
             "last_error": getattr(reranker, "last_error", ""),
+            **harness.corpus_identity(body.tables),
         }
         harness.write(f"reranker-{key}{suffix}", record)
         if failures:
@@ -184,9 +186,23 @@ def run_rerankers(only: list[str] | None, rich: str | None = None) -> None:
 
 def table() -> None:
     """The report table, with paired CIs against the pre-registered baseline."""
+    current = harness.corpus_identity(harness.corpus().tables)
     base = harness.read(f"encoder-{BASELINE_ENCODER}")
     rows = [harness.read(f"encoder-{k}") for k in arms.encoders()]
     rows = [r for r in rows if r and "error" not in r]
+    stale = [
+        r["arm"]
+        for r in rows
+        if r.get("corpus_hash") and r["corpus_hash"] != current["corpus_hash"]
+    ]
+    if stale:
+        print(
+            f"\n  NOTE: {len(stale)} arm(s) were scored on a different corpus "
+            f"(committed results pre-date corpus_hash pinning or the post-fold index). "
+            f"Current corpus_n={current['corpus_n']} hash={current['corpus_hash']}. "
+            f"Re-run encoders to refresh: {', '.join(stale[:5])}"
+            f"{'…' if len(stale) > 5 else ''}\n"
+        )
     rows.sort(key=lambda r: -r["self_retrieval"]["at_10"])
 
     print("\nAXIS A - ranked by self-retrieval @10 (the pre-registered rule)\n")

@@ -180,6 +180,14 @@ def self_retrieval_set(known: set[str]) -> QuerySet:
     return QuerySet("self_retrieval", [q for _, q in pairs], [t for t, _ in pairs])
 
 
+def corpus_identity(table_ids: list[str]) -> dict[str, int | str]:
+    """Fingerprint pinned into result JSON so reruns can validate the corpus."""
+    return {
+        "corpus_n": len(table_ids),
+        "corpus_hash": hashlib.sha256(",".join(table_ids).encode()).hexdigest()[:16],
+    }
+
+
 def _slug(name: str) -> str:
     return name.replace("/", "__").replace(":", "_")
 

@@ -67,8 +67,9 @@ smaller index > lower per-query latency > lower cost.
 
 ## Recorded per arm, whether or not it wins
 
-Parameters, embedding dimensions, index size in MB, corpus embed time, per-query
-latency, cost per million queries, and whether it needs `trust_remote_code`.
+Parameters, embedding dimensions, index size in MB, `corpus_n` and `corpus_hash`
+(table-id fingerprint), corpus embed time, per-query latency, cost per million
+queries, and whether it needs `trust_remote_code`.
 The report is quality *per unit of weight*; a two-point gain that costs a 2 GB
 container is a different answer from a two-point gain that costs nothing.
 
