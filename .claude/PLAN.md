@@ -137,6 +137,9 @@ selector `@1 >= 0.70`, `synthetic_alignment >= 0.50` — and
 > reversed — RRF fusion and synthetic questions both *lowered* `@1`. What worked
 > was corpus structure (1,458 documents to 756) plus a generative selector.
 > Ladder and diagnosis in `evidence/retrieval_steps.md`.
+> Post-merge E2E 2026-09-12 (CC-52, `main` @ 72ebd75): retriever `@10` 0.90,
+> selector `@1` 0.875, `synthetic_alignment` 0.544; `check_budgets.py` exit 0.
+> Transcript: `evidence/slice-0/e2e-post.txt`.
 
 **Read the number honestly.** At n=40, `@1` near 0.70 carries a standard error
 of ~7 points — a 95% interval of roughly ±14. A move from 0.70 to 0.76 is noise,
