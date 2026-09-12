@@ -157,12 +157,19 @@ def _how_differs(
     ):
         return "race iteration"
     if member_of:
-        if _RACE.match(other_id):
-            return "race iteration"
-        if (other_id.startswith("C") and member_of.startswith("B")) or (
-            other_id.startswith("B") and member_of.startswith("C")
-        ):
-            return "collapsed table"
+        anchor = selected_id or member_of
+        same_family = (
+            member_of == anchor
+            or family_id(member_of) == family_id(anchor)
+            or family_id(other_id) == family_id(anchor)
+        )
+        if same_family:
+            if _RACE.match(other_id) or _RACE.match(anchor):
+                return "race iteration"
+            if (other_id.startswith("C") and member_of.startswith("B")) or (
+                other_id.startswith("B") and member_of.startswith("C")
+            ):
+                return "collapsed table"
     if selected_universe and other_universe and selected_universe != other_universe:
         return "universe"
     if other_title and selected_title and other_id[1:3] == selected_id[1:3]:

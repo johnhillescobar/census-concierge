@@ -31,7 +31,7 @@ class Alternative(BaseModel):
     table_id: str = Field(description="ACS table ID.")
     reason: str = Field(
         description="How this table differs: universe, distribution versus median, "
-        "collapsed table, or race iteration."
+        "collapsed table, race iteration, or related table."
     )
 
 

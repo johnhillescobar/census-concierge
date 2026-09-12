@@ -1,0 +1,20 @@
+# Gate 1 (fix) — CC-25 member-reason classification
+# Mutation: classify members against the pool parent (pre-fix behaviour).
+
+=== BAD: members classified against the pool parent ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ api/tests/test_ask_loop.py::test_collapsed_reason_is_relative_to_the_selection
+FF                                                                       [100%]
+FAILED test_alternatives_say_how_they_differ - assert 'collapsed table' == 'related table'
+FAILED test_collapsed_reason_is_relative_to_the_selection - assert 'race iteration' == 'related table'
+2 failed in 0.47s
+(exit 1)
+
+=== GOOD: restored ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ api/tests/test_ask_loop.py::test_collapsed_reason_is_relative_to_the_selection
+..                                                                       [100%]
+2 passed in 0.27s
+(exit 0)
+
+$ uv run pytest -q -m "not integration"
+129 passed in 2.96s
+(exit 0)

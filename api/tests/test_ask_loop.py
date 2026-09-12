@@ -389,10 +389,34 @@ def test_alternatives_say_how_they_differ() -> None:
     assert by_id["B19013A"] == "race iteration"
     assert by_id["B19113"] == "universe"
     assert by_id["B19001"] == "distribution versus median"
-    assert by_id["C15003"] == "collapsed table"
-    assert by_id["C25045"] == "collapsed table"
+    assert by_id["C15003"] == "related table"
+    assert by_id["C25045"] == "related table"
     assert by_id["B11001"] == "related table"
     assert "B19013" not in by_id
+
+
+def test_collapsed_reason_is_relative_to_the_selection() -> None:
+    record = ExecutionRecord()
+    record.table_id = "B15003"
+    record.universe = "Population 25 years and over"
+    record.pool = [
+        {
+            "table_id": "B15003",
+            "title": "Educational Attainment",
+            "universe": "Population 25 years and over",
+            "members": ["C15003"],
+        },
+        {
+            "table_id": "B19013",
+            "title": "Median Household Income",
+            "universe": "Households",
+            "members": ["B19013A"],
+        },
+    ]
+    by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
+    assert by_id["C15003"] == "collapsed table"
+    assert by_id["B19013"] == "universe"
+    assert by_id["B19013A"] == "related table"
 
 
 async def test_universe_comes_from_the_requested_vintage() -> None:
