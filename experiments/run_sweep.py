@@ -184,25 +184,42 @@ def run_rerankers(only: list[str] | None, rich: str | None = None) -> None:
             )
 
 
-def table() -> None:
-    """The report table, with paired CIs against the pre-registered baseline."""
+def table() -> int:
+    """The report table, with paired CIs against the pre-registered baseline.
+
+    Returns 1 when a committed result is missing a corpus hash or comparable
+    arms were scored on mixed corpora. A live-vs-recorded mismatch is a
+    warning — the published Axes A–C numbers describe the pre-fold corpus.
+    """
     current = harness.corpus_identity(harness.corpus().tables)
     base = harness.read(f"encoder-{BASELINE_ENCODER}")
     rows = [harness.read(f"encoder-{k}") for k in arms.encoders()]
     rows = [r for r in rows if r and "error" not in r]
-    stale = [
-        r["arm"]
-        for r in rows
-        if r.get("corpus_hash") and r["corpus_hash"] != current["corpus_hash"]
+    recorded = [
+        row
+        for path in sorted(harness.RESULTS.glob("*.json"))
+        if (row := harness.read(path.stem)) and "error" not in row
     ]
-    if stale:
-        print(
-            f"\n  NOTE: {len(stale)} arm(s) were scored on a different corpus "
-            f"(committed results pre-date corpus_hash pinning or the post-fold index). "
-            f"Current corpus_n={current['corpus_n']} hash={current['corpus_hash']}. "
-            f"Re-run encoders to refresh: {', '.join(stale[:5])}"
-            f"{'…' if len(stale) > 5 else ''}\n"
-        )
+    fatal: list[str] = []
+    warnings: list[str] = []
+    for row in recorded:
+        issues, _ = harness.result_corpus_status([row])
+        fatal.extend(issues)
+    hashed_rows = [r for r in rows if r.get("corpus_hash")]
+    rank_issues, rank_warnings = harness.result_corpus_status(hashed_rows, live=current)
+    fatal.extend(rank_issues)
+    warnings.extend(rank_warnings)
+    rerank_comparable = [
+        r
+        for r in (harness.read(f"reranker-{k}") for k in arms.rerankers())
+        if r and "error" not in r and r.get("corpus_hash")
+    ]
+    rr_issues, _ = harness.result_corpus_status(rerank_comparable)
+    fatal.extend(rr_issues)
+    for line in warnings:
+        print(f"\n  NOTE: {line}\n")
+    for line in fatal:
+        print(f"\n  ERROR: {line}\n")
     rows.sort(key=lambda r: -r["self_retrieval"]["at_10"])
 
     print("\nAXIS A - ranked by self-retrieval @10 (the pre-registered rule)\n")
@@ -269,6 +286,7 @@ def table() -> None:
     for row in dead:
         print(f"  {row['arm']:<16} EXCLUDED - {row['failures']} failed calls, not a score")
     print()
+    return 1 if fatal else 0
 
 
 def _normalize_hf_token() -> None:
@@ -311,11 +329,11 @@ def main() -> int:
 
     if args.stage == "encoders":
         run_encoders(only, sample=args.sample, rich=args.rich)
-    elif args.stage == "rerankers":
+        return 0
+    if args.stage == "rerankers":
         run_rerankers(only, rich=args.rich)
-    else:
-        table()
-    return 0
+        return 0
+    return table()
 
 
 if __name__ == "__main__":

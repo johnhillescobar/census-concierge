@@ -162,8 +162,10 @@ Larger than every model difference measured here, combined.
 - **`harness.py`** — the shared spine. Builds the corpus (identically for every
   arm, regenerated from metadata rather than read out of a built index, so no arm
   can inherit a corpus another arm did not see), loads the two query sets, caches
-  embeddings, and computes `metrics()` and `paired_delta()`. If you only read one
-  file, read this one: everything else depends on its guarantees.
+  embeddings, and computes `metrics()` and `paired_delta()`. New writes pin
+  `corpus_n` / `corpus_hash`; `result_corpus_status()` is what `table` uses to
+  surface a missing, mixed, or live-mismatched hash. If you only read one file,
+  read this one: everything else depends on its guarantees.
 
 - **`arms.py`** — one class per model, behind two tiny `Encoder` / `Reranker`
   protocols. This is where each provider's quirks are absorbed: instruction
@@ -195,7 +197,11 @@ Larger than every model difference measured here, combined.
   variant*: `encoder-gemini-001.json`, `encoder-gemini-001-lean.json`,
   `encoder-gemini-001-sampled40.json`. Separate filenames are the mechanism that
   stops a screening run or an A/B being ranked beside a full one. Committed, so
-  the numbers in FINDINGS are auditable without re-running anything.
+  the numbers in FINDINGS are auditable without re-running anything. Every file
+  records `corpus_n` and `corpus_hash`. Full arms are the pre-fold 756-document
+  corpus; the `sampled40` screening run is already post-fold 636. `table`
+  fails on a missing or mixed hash and warns when the live corpus differs —
+  do not overwrite the published files to silence that warning.
 - **`cache/*.npy`** — embedding matrices keyed on `(model, hash of the exact text
   list)`. Gitignored, large, regenerable. This is why a re-run is free — and why
   a breakpoint inside an encoder often never fires.
