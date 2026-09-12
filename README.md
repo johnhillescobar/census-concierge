@@ -53,6 +53,7 @@ budgets.toml  complexity limits, enforced in CI
 make check   # budgets, lint, types, tests — under 60s
 make eval    # retrieval scoreboard
 make demo    # end-to-end, needs live keys
+uv run uvicorn src.main:app --reload   # POST /ask; Swagger at /docs
 ```
 
 Read `CLAUDE.md` first. It is short, and most of it is prohibitions earned the

@@ -1,9 +1,9 @@
 # The application. `check_budgets.py` counts [project.dependencies] here against
 # the direct_dependencies budget of 25.
 #
-# Dependencies arrive with the slice that needs them, never in advance. What is
-# listed below is what slice 0 requires: pull ACS metadata, embed, and search.
-# FastAPI, the database driver, and Langfuse land in slices 1, 5 and 8.
+# Dependencies arrive with the slice that needs them, never in advance. Slice 0
+# needed metadata, embeddings, and search. FastAPI is slice 1. The database
+# driver and Langfuse land in slices 5 and 8.
 
 [project]
 name = "census-concierge-api"
@@ -11,10 +11,12 @@ version = "0.1.0"
 description = "Conversational Census data concierge — retrieval-first."
 requires-python = "==3.12.*"
 dependencies = [
+    "fastapi>=0.115",
     "google-genai>=1.0",
     "httpx>=0.28",
     "numpy>=2.1",
     "openai>=1.60",
+    "uvicorn>=0.32",
 ]
 
 [build-system]

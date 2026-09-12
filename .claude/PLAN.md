@@ -154,7 +154,7 @@ resolution, MOE handling, the UI.
 
 ## Slice 1 — `POST /ask`
 
-- [ ] FastAPI app with Swagger. One endpoint.
+- [x] FastAPI app with Swagger. One endpoint.
 - [ ] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [ ] `build_url` returns the complete URL — variables, geography, vintage — and
