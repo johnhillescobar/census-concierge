@@ -1,0 +1,9 @@
+# Gate 2 residual mutations — CC-23 (after re-run; no second Gate 2)
+
+=== BAD: DC variants without comma-USPS bind as state 11 ===
+(mutation: _token_is_dc always False)
+3 failed: Washington, DC / Washington DC / Washington, D.C.
+
+=== BAD: fetch error detail does not carry the census key ===
+(mutation: FetchDataResult.detail = str(exc) without redact_text)
+1 failed: secret present in artifact.detail

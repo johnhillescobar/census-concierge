@@ -424,6 +424,24 @@ async def test_fetch_keeps_the_url_when_census_returns_400() -> None:
     assert str(built) == message.artifact.url
 
 
+async def test_fetch_error_detail_does_not_carry_the_census_key() -> None:
+    import httpx
+
+    built = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:11")
+
+    def http_get(url: str) -> tuple[int, str]:
+        raise httpx.HTTPError(f"connect failed for {url}")
+
+    tool = FetchDataTool(last_url=lambda: built, census_key=lambda: "secret", http_get=http_get)
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+    )
+    assert message.artifact.ok is False
+    assert "secret" not in message.artifact.detail
+    assert "key=secret" not in message.content
+    assert "key=" not in message.artifact.url
+
+
 async def test_fetch_without_a_built_url_does_not_invent_one() -> None:
     tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "secret")
     message = await tool.ainvoke(
@@ -460,6 +478,8 @@ def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyP
 
 def test_washington_dc_is_not_washington_state() -> None:
     assert find_state("Washington, DC") == ("district of columbia", "11")
+    assert find_state("Washington DC") == ("district of columbia", "11")
+    assert find_state("Washington, D.C.") == ("district of columbia", "11")
     assert find_state("Washington") == ("washington", "53")
     assert find_state("all counties in Washington") == ("washington", "53")
 
@@ -475,13 +495,14 @@ def test_empty_place_token_matches_nothing() -> None:
     assert filter_rows("new york", rows) == []
 
 
-async def test_washington_dc_resolves_as_district_of_columbia() -> None:
+@pytest.mark.parametrize("query", ["Washington, DC", "Washington DC", "Washington, D.C."])
+async def test_washington_dc_resolves_as_district_of_columbia(query: str) -> None:
     tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Washington, DC"},
+            "args": {"query": query},
             "id": "c1",
         }
     )

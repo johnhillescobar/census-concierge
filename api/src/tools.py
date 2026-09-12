@@ -14,7 +14,7 @@ import httpx
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.census_url import CENSUS_API, CensusURL
+from src.census_url import CENSUS_API, CensusURL, redact_text
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -302,7 +302,7 @@ class FetchDataTool(BaseTool):
                 status, payload = await asyncio.to_thread(_census_get, live)
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError) as exc:
             result = FetchDataResult(
-                ok=False, url=redacted, rows=[], status_code=0, detail=str(exc)
+                ok=False, url=redacted, rows=[], status_code=0, detail=redact_text(str(exc))
             )
             return f"fetch failed; URL {redacted}", result
         if status != 200 or not isinstance(payload, list) or not payload:

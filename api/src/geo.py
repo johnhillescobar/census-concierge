@@ -160,6 +160,12 @@ def find_state(text: str) -> tuple[str, str] | None:
     return None
 
 
+def _token_is_dc(token: str) -> bool:
+    """Washington / DC leftovers after place_token, including D.C. and 'Washington DC'."""
+    words = token.replace(".", "").replace(",", " ").split()
+    return bool(words) and all(word in {"washington", "dc", "d", "c"} for word in words)
+
+
 def detect_level(text: str) -> str | None:
     folded = text.casefold()
     for alias, level in sorted(_LEVELS.items(), key=lambda item: -len(item[0])):
@@ -219,8 +225,8 @@ def list_census_names(
         response = httpx.get(built.with_key(key), timeout=60.0)
         response.raise_for_status()
         payload = response.json()
-    except (httpx.HTTPError, ValueError, TypeError) as exc:
-        raise RuntimeError(f"geography listing failed; URL {built}") from exc
+    except (httpx.HTTPError, ValueError, TypeError):
+        raise RuntimeError(f"geography listing failed; URL {built}") from None
     header, *body = payload
     rows: list[dict[str, str]] = []
     for raw in body:
@@ -262,7 +268,7 @@ class ResolveGeographyTool(BaseTool):
         for_level = level or (detect_level(wildcard_match.group(1) if wildcard_match else query))
         if for_level is None:
             token = place_token(query, state[0] if state else None)
-            dc_as_state = state is not None and state[1] == "11" and token == "washington"
+            dc_as_state = _token_is_dc(token) if state is not None and state[1] == "11" else False
             if state is not None and (token in {"", state[0]} or dc_as_state):
                 for_level = "state"
             else:

@@ -1,0 +1,261 @@
+# CC-23 Gate 2 re-run (run-slice.md §5, after non-trivial fix)
+# branch: feat/cc-23-ask-loop
+# HEAD: a36eb4b4ea6a9fe50b93fb386d5eeecc6bf23e0a
+# origin/main: ae9ff2e2aca7982e7b1c122c9798786b9d48e46f
+# prior Gate 2: evidence/slice-1/cc-23-gate2.txt (HEAD then 6d48075) — not overwritten
+# fix commit: a36eb4b fix(api): stop silent geography binds and key leakage (CC-23)
+# captured: 2026-09-12T16:48:52-05:00
+# uncommitted: this transcript only
+# machine stdout: Tee-Object with Out-File:Encoding=utf8 (UTF-8 BOM, not UTF-16)
+
+=== git log origin/main...HEAD --oneline ===
+a36eb4b fix(api): stop silent geography binds and key leakage (CC-23)
+e27153b evidence(slice-1): Gate 2 cold review transcript for CC-23
+6d48075 evidence(slice-1): Gate 1 mutation transcript for CC-23
+62db7d4 feat(api): wire the four-tool ask loop behind POST /ask (CC-23)
+
+=== git show a36eb4b --stat ===
+ api/src/ask.py                           |  19 +--
+ api/src/census_url.py                    |   8 +
+ api/src/geo.py                           |  69 ++++++---
+ api/src/tools.py                         |  14 +-
+ api/tests/test_ask_loop.py               |  41 ++++-
+ api/tests/test_ask_tools.py              | 132 ++++++++++++++++
+ evidence/slice-1/cc-23-fix-mutations.txt | 255 +++++++++++++++++++++++++++++++
+ 7 files changed, 501 insertions(+), 37 deletions(-)
+
+=== git diff --stat origin/main...HEAD ===
+ api/pyproject.toml                         |   1 +
+ api/src/ask.py                             | 317 ++++++++++++-
+ api/src/census_url.py                      |  56 +++
+ api/src/geo.py                             | 354 ++++++++++++++
+ api/src/main.py                            |   4 +-
+ api/src/prompts.py                         |  25 +
+ api/src/retrieval/metadata.py              |  42 +-
+ api/src/tools.py                           | 323 +++++++++++++
+ api/tests/test_ask_loop.py                 | 192 ++++++++
+ api/tests/test_ask_route.py                |  14 +-
+ api/tests/test_ask_tools.py                | 547 ++++++++++++++++++++++
+ docs/ARCHITECTURE.md                       |  23 +-
+ evidence/slice-1/cc-23-fix-mutations.txt   | 255 +++++++++++
+ evidence/slice-1/cc-23-gate1.txt           | 713 +++++++++++++++++++++++++++++
+ evidence/slice-1/cc-23-gate2.txt           | 215 +++++++++
+ evidence/slice-1/cc-23-preflight-claims.md |  26 ++
+ evidence/slice-1/cc-23-preflight.txt       |  66 +++
+ uv.lock                                    |   2 +
+ 18 files changed, 3136 insertions(+), 39 deletions(-)
+
+=== git status --short ===
+?? evidence/slice-1/cc-23-gate2-rerun.txt
+
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               1843 <= 4000
+  ok    api src files               18 <= 40
+  ok    largest file LOC           318 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1797 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+[exit 0]
+
+
+=== uv run ruff check . ===
+$ uv run ruff check .
+
+All checks passed!
+
+[exit 0]
+
+
+=== uv run ruff format --check . ===
+$ uv run ruff format --check .
+
+71 files already formatted
+
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+
+Success: no issues found in 18 source files
+
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 68%]
+.................................                                        [100%]
+105 passed in 2.33s
+
+[exit 0]
+
+
+================================================================================
+PASS 1 — generic bugs (cold read of HEAD a36eb4b / git diff origin/main...HEAD)
+================================================================================
+Diff: 62db7d4 + 6d48075 + e27153b + a36eb4b vs origin/main (ae9ff2e).
+18 files, +3136 / -39. Fix commit a36eb4b read in full.
+
+Verdict: original blocking findings are gone. Residuals below are not the
+silent FIPS-53 / dump-all-places class.
+
+Original findings re-checked in code:
+
+- CLOSED: find_state() matching washington before DC.
+  _DC runs first. "Washington, DC" returns ("district of columbia", "11").
+  Bare "Washington" is still FIPS 53. ResolveGeographyTool then treats
+  token == "washington" with FIPS 11 as the state fast-path (state:11,
+  GEOID 0400000US11). Test: test_washington_dc_resolves_as_district_of_columbia.
+
+- CLOSED: place_token emptying New York City / dumping all NY places.
+  "city" is stripped but leftover "new york" is kept when it is the state
+  name. filter_rows("") returns [] (no longer the full listing). filter_rows
+  matches the name head before the comma, so the NY state suffix cannot
+  dump Albany. "New York City" hits detect_level("city") -> place, token
+  "new york", fixture returns only place:3651000.
+
+- CLOSED: bare state queries defaulting to place.
+  When detect_level is None and the leftover token is empty or the state
+  name (noise words stripped), for_level is "state". "population of Texas"
+  -> state:48.
+
+- CLOSED: list_census_names putting key= on httpx params; exceptions leaking
+  the key to the model.
+  Listing URL is a CensusURL; with_key() is the httpx argument. Failures
+  raise RuntimeError(f"geography listing failed; URL {built}") so str(exc)
+  is the redacted form. dispatch() also runs redact_text on exception text.
+
+- CLOSED: build_url interpolating invented for_spec; empty in_spec dropping
+  parent.
+  (for_clause, in_clause) must be in allowed_geographies from
+  record.geographies. (in_spec or "").strip() falls through to the resolved
+  in= parent when the model sends "".
+
+- CLOSED: _absorb(search_tables) setting table_id from hits[0].
+  search_tables only fills record.pool. table_id and universe come from
+  build_url (universe from table_facts, so family members are not stuck on
+  the parent string).
+
+- CLOSED: geoid only from rows[0].
+  assemble() falls back to record.geography["geoid"] when rows are empty.
+  The state fast-path now stores 0400000US{fips}. Failed fetch after a
+  successful resolve still returns that GEOID.
+
+New / residual (fix did not introduce a silent wrong-state bind):
+
+- "Washington DC" and "Washington, D.C." / "Washington D.C." still skip the
+  state fast-path. find_state is correct (FIPS 11). dc_as_state requires
+  token == "washington", which only the comma-USPS strip produces.
+  for_level becomes place; listing under state:11 is likely zero matches,
+  not Washington state. Incomplete coverage of the DC regex, not FIPS 53.
+
+- FetchDataResult.detail still interpolates str(exc) without redact_text.
+  Model content and AskResponse.url use the CensusURL. list_census_names
+  uses raise ... from exc, so __cause__ can still hold the keyed URL in a
+  traceback. Neither path is the original dispatch-to-the-model leak.
+
+================================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check .                                             [exit 0]
+uv run ruff format --check .                                    [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  105 passed
+
+Machines are green. Review continues.
+
+--- the claim ---
+A user can POST /ask a Census question and the four-tool loop fills
+AskResponse from tool artifacts (URL with E+M, rows, GEOID, universe,
+alternatives), including when fetch_data fails. That sentence can be
+written. make demo / make eval are E2E (next phase); this Gate 2 does not
+treat a missing demo as a machine failure.
+
+--- scope ---
+Belongs to slice 1 / CC-23: search_tables, resolve_geography, build_url,
+fetch_data, hand-rolled loop behind existing POST /ask. Not added: finish
+tool, create_agent, graphs, DESIGN §4 guards (CC-22), run_demo.py (CC-26),
+response-contract polish (CC-25). ARCHITECTURE.md updated in the
+implementation commit; a36eb4b did not change the external shape.
+18 files vs ~15: five evidence files + uv.lock explain the extra; the fix
+commit is tests + the geography/URL holes, not opportunistic scope.
+
+--- silent-wrong-answer ---
+Original blocks are closed (Pass 1). Remaining, not blocking:
+
+- Geography candidates still do not appear on AskResponse (alternatives are
+  tables only). Ambiguous matches clear record.geography; the model may pass
+  a for_spec, but only a pair from resolve matches is accepted.
+- warnings[] is always empty — CC-22, out of this ticket.
+- Wildcard matches still store geoid="" — no single FIPS for county:*.
+- FetchDataResult.detail / exception __cause__ can still mention a keyed URL
+  internally; AskResponse.url and tool content strings do not.
+
+Does not block, confirmed still true:
+
+- fetch_data keeps the redacted URL on HTTP 400 (tested). pair_margins adds
+  M beside every E (tested). Rows do not appear in fetch content, so
+  estimates do not pass back through the model on that path.
+- No new blocking clarification prompt. Prompt still says several places
+  matching are the result.
+
+--- shape ---
+Four BaseTools, one route, no add_node, no create_agent. langchain-core is
+the 7th direct dependency (budget 7 <= 25). Tool I/O subclasses
+ToolInput/ToolResult. CensusURL is the listing type; redact_text covers
+exception prose. No new HTTP surface for tools. ExecutionRecord.geographies
+is per-request state, not a new route or tool.
+
+--- tests ---
+Behavior, not prompt wording. Search fake varies by question
+(bike/broadband/income/population/empty) — not a constant B01003 stub.
+Loop test is a scripted complete() with injected tools; route test still
+monkeypatches run_ask. New tests in a36eb4b pin the seven original holes;
+mutation transcript is evidence/slice-1/cc-23-fix-mutations.txt. This
+review does not re-run mutations. New test files are not demo evidence.
+
+--- verdict ---
+Ship it with follow-ups. Single most important reason the original FAIL
+does not hold: resolve_geography no longer binds "Washington, DC" to
+Washington state, and empty place tokens no longer dump a whole listing.
+Follow-ups: DC queries without a comma-USPS form; keyed URL on
+FetchDataResult.detail / exception __cause__; geography candidates not on
+AskResponse (slice 4 plan strip). None of those is a silent wrong
+geography on the path the first Gate 2 blocked.
+
+================================================================================
+GATE 2 RE-RUN VERDICT: PASS with findings
+================================================================================
