@@ -63,6 +63,27 @@ def test_missing_question_is_a_validation_error() -> None:
     assert response.status_code == 422
 
 
+EMPTY_CONTRACT = {
+    "answer": "",
+    "url": "",
+    "rows": [],
+    "moe": [],
+    "geoid": "",
+    "universe": "",
+    "table_id": "",
+    "alternatives": [],
+    "warnings": [],
+}
+
+
+def test_a_valid_question_returns_the_declared_contract() -> None:
+    # No mock: a stub that drops url/moe/geoid/universe would still pass the
+    # monkeypatched loop test below, which only checks answer.
+    response = client.post("/ask", json={"question": "population of Harris County"})
+    assert response.status_code == 200
+    assert response.json() == EMPTY_CONTRACT
+
+
 def test_valid_question_reaches_the_ask_loop(monkeypatch: Any) -> None:
     seen: list[str] = []
 

@@ -13,7 +13,10 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class AskRequest(BaseModel):
-    question: str = Field(min_length=1, description="The user's question, verbatim.")
+    question: str = Field(
+        min_length=1,
+        description="The user's question. Leading and trailing whitespace is stripped.",
+    )
 
     @field_validator("question")
     @classmethod
