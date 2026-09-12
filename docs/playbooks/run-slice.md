@@ -61,8 +61,8 @@ labels above the real failure counts.
 Read the code with no knowledge of intent. Not a duplicate of Gate 1: a test from
 the same mental model as the implementation cannot falsify that model. Two passes:
 
-- **generic bugs**: `/code-review` (Claude Code) or `agent -p --mode ask "review
-  this diff for bugs, code only, no intent"` (Cursor).
+- **generic bugs**: `/code-review` (Claude Code) or the same cold read in a fresh
+  subagent (Cursor Task / New Chat) — code only, no intent.
 - **project invariants**: `docs/playbooks/review-pr.md`. Run the machines first; a
   non-zero exit ends the review.
 
@@ -106,9 +106,10 @@ stay resident for the rest of the slice.
 
 | | Claude Code | Cursor |
 | --- | --- | --- |
-| gate phase | fresh `general-purpose` subagent, **not** `fork` | `agent -p [--mode ask] "..." > evidence/slice-<N>/<phase>.txt` |
-| isolated checkout | subagent `isolation: worktree` | `agent -w gate-<N> --worktree-base <branch>` |
+| gate phase | fresh `general-purpose` subagent, **not** `fork` | fresh Task subagent or New Chat — same prompt, no caller context |
+| isolated checkout | subagent `isolation: worktree` | worktree when the phase needs a clean checkout |
 
-`scripts/gate.sh` / `scripts/gate.ps1` wrap both: `gate <phase> <slice> [engine]`
-resolves the path, runs the phase, tees the transcript. No model edits that file;
+`scripts/gate.sh` / `scripts/gate.ps1` print the subagent prompt for either host;
+neither shell can spawn the subagent. The subagent writes
+`evidence/slice-<N>/<phase>.txt`; the caller does not edit it afterward.
 `.gitattributes` forces LF so it stays byte-stable.

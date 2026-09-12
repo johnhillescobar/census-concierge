@@ -34,7 +34,7 @@ demo:
 ## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
 ## Usage: make gate PHASE=gate2 SLICE=0 [ENGINE=cursor]. See docs/playbooks/run-slice.md.
 gate:
-	bash scripts/gate.sh $(PHASE) $(SLICE) $(or $(ENGINE),cursor)
+	bash scripts/gate.sh $(PHASE) $(SLICE)
 
 ## Mechanically checkable project rules. --base adds the budget-diff check.
 invariants:
