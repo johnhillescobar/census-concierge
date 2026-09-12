@@ -1,0 +1,166 @@
+# Gate 2 — CC-52 — branch `fix/experiment-corpus-identity`
+
+Reviewer: fresh subagent (no parent-session context).
+Date: 2026-09-11.
+Diff: `git diff origin/main...HEAD` (33 files, +332 / -58).
+HEAD: ceb83ff fix(experiments): pin sweep results to the corpus they were scored on
+Base: origin/main (017d229)
+
+Do not confuse with `evidence/slice-0/gate2.txt` (slice-0 pipeline review already on main).
+
+---
+
+## Pass 1 — code-only bug review (no author intent)
+
+**Method:** Read the three-dot diff for `experiments/harness.py`, `experiments/run_sweep.py`, `api/tests/test_experiment_corpus.py`, `experiments/FINDINGS.md`, `experiments/README.md`, and sample result JSON. Followed `result_corpus_status` into `table()` and `main()`. Grepped every `experiments/results/*.json` for `corpus_n` / `corpus_hash`. Compared FINDINGS hash literals to those files. Did not treat commit messages or ticket notes as specifications.
+
+### Findings
+
+| # | Severity | Location | Finding |
+|---|----------|----------|---------|
+| 1 | Low | `experiments/run_sweep.py` `table()` | Mixed-hash checks run on two comparable sets: unsuffixed `encoder-{k}` rows and unsuffixed `reranker-{k}` rows. Every other committed JSON (lean / rich / twin, and the sampled screening file) is only inspected one-at-a-time for a missing hash. A later `encoders --rich lean --only gemini-001` that writes a different `corpus_hash` than `encoder-voyage-4-large-lean.json` would not make `table()` fatal, even though Axis C ranks those files against each other. The new pytest lock (`test_full_arms_share_the_pre_fold_corpus_and_the_screening_run_does_not`) covers the *committed* tree (all non-sampled files share one hash); it does not cover that future write path. |
+| 2 | Low | `api/tests/test_experiment_corpus.py` `test_full_arms_...` | `corpus_n == 756` is asserted on `full[0]` only. `test_every_committed_result` allows 636 or 756 on any file. A non-sampled file that kept the pre-fold hash and lied with `corpus_n=636` would still pass. Not reachable from `corpus_identity()` output; forging both fields together is required. |
+| — | — | All other reviewed paths | **Nothing.** |
+
+### Areas reviewed with no bugs found
+
+- **`result_corpus_status`:** Missing hash is fatal; two hashes in one set is fatal; live hash absent from the set is a warning; live hash present is silent. Empty `grouped` skips the live warning so a missing-hash set does not also warn. `next(...)` for the warning sample is guarded by `grouped` being non-empty.
+- **`table()` exit code:** `main()` now returns `table()`; encoders/rerankers still return 0. Fatal lines print as `ERROR:` before the ranking table; warnings as `NOTE:`.
+- **Committed JSON:** 25 files. 24 have `corpus_n=756` `corpus_hash=c81155be334e7cfc`. `encoder-gemini-001-sampled40.json` has `corpus_n=636` `corpus_hash=fa38e94bcd758cb6` and `index_mb=7.82` (636 * 3072 * 4 / 1e6 = 7.82). FINDINGS literals match those hashes.
+- **FINDINGS Axis E cite:** new prose `@1 43.0% -> 50.8%` matches the Axis E table (plain 43.0%, drop C-twins 50.8%), not Axis A's 42.2%.
+- **Writes:** `run_encoders` / `run_rerankers` already splat `corpus_identity(body.tables)` into new records (not introduced here). Error payloads omit the pin and are skipped by `"error" not in row`.
+- **Tests:** four synthetic states (missing, mixed, live mismatch, live match) plus two scans of `experiments/results/*.json`. No prompt-wording asserts. Name is not a ticket id.
+
+### Pass 1 summary
+
+**No blocking code bugs.** Two low items: runtime mixed-hash coverage omits Axis C variant files; one lock-in test checks `corpus_n` on the first full file only.
+
+---
+
+## Pass 2 — `docs/playbooks/review-pr.md`
+
+### Machines (run first — all must pass)
+
+#### `uv run python scripts/check_budgets.py`
+
+```
+BUDGETS
+
+  ok    api src LOC                849 <= 4000
+  ok    api src files               11 <= 40
+  ok    largest file LOC           165 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens         0 <= 1200
+  ok    doc lines                 1788 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  0 <= 6
+  ok    api routes                   0 <= 10
+  ok    tool schemas                 0 <= 12
+  ok    domain models                0 <= 15
+  ok    direct dependencies          4 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+Exit code: 0
+
+#### `uv run python scripts/check_invariants.py --base origin/main`
+
+```
+INVARIANTS
+
+  ok    no violations
+```
+
+Exit code: 0
+
+#### `uv run ruff check . && uv run ruff format --check .`
+
+```
+All checks passed!
+59 files already formatted
+```
+
+Exit code: 0 (ruff check 0, ruff format 0)
+
+#### `uv run mypy api/src`
+
+```
+Success: no issues found in 11 source files
+```
+
+Exit code: 0
+
+#### `uv run pytest -q -m "not integration"`
+
+```
+..................................................................       [100%]
+66 passed in 3.02s
+```
+
+Exit code: 0
+
+**Machine gate: PASS** (all five commands exited 0). pytest 66 passed (6 new tests in `api/tests/test_experiment_corpus.py`).
+
+---
+
+### The claim
+
+**What can a user do now that they could not before?**
+
+Nothing user-facing. Scaffolding around experiment artifacts: every committed sweep JSON now carries `corpus_n` / `corpus_hash`; `table()` fails on a missing or mixed hash among ranked encoder/reranker arms and warns when the live harness corpus differs. FINDINGS/README state that Axes A-C describe the pre-fold 756-document corpus and must not be regenerated onto today's 636-document fold.
+
+Say that plainly rather than dressing it as a retrieval improvement. No `@1` / `@10` movement is claimed.
+
+**Is the evidence real?** No `make eval` / `make demo` — this diff does not touch `search()`, `rerank.py`, or `evidence/latest.json`. That is appropriate. Hashes in FINDINGS match the JSON files. `doc_lines` 1788 <= 1800 (12 lines of slack).
+
+At n=40, a move under ~10 points is noise — N/A; this PR does not report a retrieval delta.
+
+### Scope
+
+- **Slice fit:** Slice 0. Experiments remain throwaway measurement. No agent, HTTP, geography, MOE, or UI (PLAN.md "Not in this slice").
+- **File count:** 33. Over ~15 because 25 `experiments/results/*.json` each gained two identity fields, plus harness/`table()`/tests/FINDINGS/README and slice evidence. Not drive-by files in `api/src/`.
+- **"While we were in there":** nothing beyond the pin, the `table()` guard, the lock-in tests, and the caveat those require.
+
+### Silent-wrong-answer review
+
+**Nothing.** No response path, no URL / MOE / GEOID / universe, no `&key=`, no numbers through a model, no guard, no silent repair of user input. Production `search()` unchanged.
+
+### Shape
+
+**Nothing.** No new tool, route, Pydantic model, graph node, or `api/src` module. `docs/ARCHITECTURE.md` correctly untouched. `result_corpus_status` is called from `table()` and the new tests (second caller exists). No banned `*_manager` / `*_orchestrator` / `*_factory` / `*_policy` / `*_strategy` / `*_service` name.
+
+### Tests
+
+- Behaviour: missing hash fatal, mixed hash fatal, live mismatch warning, live match silent, committed files carry n+hash, full arms share 756 / sampled is 636 with a different hash. Not prompt wording. Not named after a ticket.
+- No retrieval fake.
+- New test file is a lock on experiment JSON, not claimed as product evidence.
+- Mutation transcript is Gate 1 (`evidence/slice-0/cc-52-gate1.txt`); not re-run here.
+
+### Verdict
+
+**Ship it with follow-ups**
+
+Sweep results now name the corpus they were scored on, committed files are internally consistent, and `table()` will not silently rank unhashed or mixed *ranked* encoder/reranker arms. Not a user-facing change. No budget raised (`check_invariants --base origin/main` exited 0).
+
+Follow-ups (none are silent-wrong-answer; none block merge):
+1. If `table()` is meant to catch mixed corpora on every comparable FINDINGS comparison, include lean/rich/twin (and reranker suffix) groups in `result_corpus_status` sets, not only unsuffixed ranking arms.
+2. Optional: assert `corpus_n == 756` on every non-sampled file, not only `full[0]`.
+
+---
+
+## PR body bullets (Gate 2 findings)
+
+- Pass 1 bugs: nothing blocking. Low: `table()` mixed-hash sets omit lean/rich/twin variant files (committed tree still locked by pytest). Low: `corpus_n == 756` asserted on `full[0]` only.
+- Pass 2 machines: all five exited 0 (budgets, invariants vs origin/main, ruff, mypy, 66 pytest).
+- Pass 2 claim: scaffolding / experiment identity pin, not a user-facing capability. No retrieval-rate claim.
+- Pass 2 scope: slice 0; 33 files (25 result JSON pins); nothing extra in `api/src`.
+- Pass 2 silent-wrong-answer: nothing.
+- Pass 2 shape: nothing. ARCHITECTURE correctly untouched. No budget raised.
+- Pass 2 tests: behaviour on missing/mixed/live hashes plus committed-file scan. Not prompt wording. Not named after a ticket.
+- Verdict: Ship it with follow-ups (variant mixed-hash coverage in `table()`; optional `corpus_n` assert on every full file).
+
+**One-line verdict: Ship it with follow-ups**
