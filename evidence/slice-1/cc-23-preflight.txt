@@ -1,0 +1,66 @@
+# CC-23 pre-flight - raw command output
+# Captured before implementation. Not edited.
+
+$ uv run python scripts/jira_transition.py CC-23 --status
+CC-23  To Do  Story
+Implement the four-tool ask loop
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC                920 <= 4000
+  ok    api src files               14 <= 40
+  ok    largest file LOC           165 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens         0 <= 1200
+  ok    doc lines                 1799 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  0 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 0 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          6 <= 25
+
+All budgets met.
+
+$ rg -n search_tables|resolve_geography|build_url|fetch_data|class BaseTool|add_node api/src
+api/src/ask.py:3:POST /ask calls run_ask. The four tools (search_tables, resolve_geography,
+api/src/ask.py:4:build_url, fetch_data) land in CC-23; this module is the seam they hang on.
+
+$ python: geography.json fips rows named county
+050 requires=[state] wildcard=[state] optionalWithWCFor=state
+313/316/322/324 require MSA and/or metro division; wildcard empty
+last row is 324
+
+$ python: metadata.geo_levels()[county] (last-wins)
+code=324 requires=(state, msa (or part), metro division (or part)) wildcard=()
+
+$ python: geoLevelDisplay 050 (canonical county)
+requires=[state] wildcard=[state] optionalWithWCFor=state
+
+$ python: availability acs5/2024/B01003
+universe=Total population variables=[001E] vintages=[2022, 2023, 2024]
+
+$ python: index B19013 members
+n_tables=636 members=[B19013A ... B19013I]
+
+$ httpx: all counties in Oregon ACS5 2024
+status=200 n_rows=36 header=[NAME, B19013_001E, B19013_001M, GEO_ID, state, county]
+first=[Baker County, Oregon, 60936, 5432, 0500000US41001, 41, 001]
+url=https://api.census.gov/data/2024/acs/acs5?get=NAME,B19013_001E,B19013_001M,GEO_ID&for=county:*&in=state:41
+
+$ httpx: illegal zcta-in-county
+status=400 body=error: unknown/unsupported geography hierarchy
+
+$ httpx: county:* in state:* Cook County
+status=200 n=3222 cook=[[Cook County, Georgia, 13, 075], [Cook County, Illinois, 17, 031], [Cook County, Minnesota, 27, 031]]
+
+$ uv run --with langchain-core: convert_to_openai_tool + ainvoke
+convert_to_openai_tool search_tables [question]
+ainvoke without tool_call_id str 2 candidates: B01003
+ainvoke ToolCall ToolMessage content=2 candidates: B01003 artifact={hits:[B01003]}
+BaseTool langchain_core.tools.base
+
+$ google.genai.types.FunctionDeclaration from OpenAI-like JSON schema
+decl ok search_tables parameters.type=OBJECT required=[question]

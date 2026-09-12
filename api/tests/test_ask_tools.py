@@ -1,0 +1,415 @@
+"""Four ask tools: search, geography legality, URL construction, fetch.
+
+No live Census or model. Fakes vary by input — a stub that always returns
+B01003 would hide a broken search, which is the predecessor's failure.
+"""
+
+from __future__ import annotations
+
+import gzip
+import json
+from pathlib import Path
+
+import pytest
+from src.census_url import CensusURL
+from src.geo import (
+    ResolveGeographyTool,
+    filter_rows,
+    legal_predicate,
+)
+from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
+from src.tools import (
+    BuildUrlTool,
+    FetchDataTool,
+    SearchTablesTool,
+    pair_margins,
+)
+
+ENTRIES = [
+    GeoLevel("state", "040", (), (), ""),
+    GeoLevel("county", "050", ("state",), ("state",), "state"),
+    GeoLevel(
+        "county",
+        "324",
+        (
+            "state",
+            "metropolitan statistical area/micropolitan statistical area (or part)",
+            "metropolitan division (or part)",
+        ),
+        (),
+        "",
+    ),
+    GeoLevel("place", "160", ("state",), ("state",), "state"),
+    GeoLevel("zip code tabulation area", "860", (), (), ""),
+]
+
+
+def _search(question: str, k: int = 10) -> list[str]:
+    q = question.casefold()
+    if "bike" in q or "bicycle" in q:
+        return ["B08301"][:k]
+    if "broadband" in q:
+        return ["B28002"][:k]
+    if "income" in q:
+        return ["B19013"][:k]
+    if "population" in q:
+        return ["B01003"][:k]
+    return []
+
+
+def _describe(table_id: str) -> dict[str, object] | None:
+    catalog = {
+        "B01003": {"title": "Total Population", "universe": "Total population", "members": []},
+        "B08301": {
+            "title": "Means of Transportation to Work",
+            "universe": "Workers 16 years and over",
+            "members": [],
+        },
+        "B19013": {
+            "title": "Median Household Income",
+            "universe": "Households",
+            "members": ["B19013A", "B19013B"],
+        },
+        "B28002": {
+            "title": "Internet Subscriptions",
+            "universe": "Households",
+            "members": [],
+        },
+    }
+    return catalog.get(table_id)
+
+
+def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, str]]:
+    counties = [
+        {
+            "name": "Harris County, Texas",
+            "level": "county",
+            "for": "county:201",
+            "in": "state:48",
+            "geoid": "0500000US48201",
+        },
+        {
+            "name": "Harrison County, Texas",
+            "level": "county",
+            "for": "county:203",
+            "in": "state:48",
+            "geoid": "0500000US48203",
+        },
+        {
+            "name": "Cook County, Georgia",
+            "level": "county",
+            "for": "county:075",
+            "in": "state:13",
+            "geoid": "0500000US13075",
+        },
+        {
+            "name": "Cook County, Illinois",
+            "level": "county",
+            "for": "county:031",
+            "in": "state:17",
+            "geoid": "0500000US17031",
+        },
+        {
+            "name": "Cook County, Minnesota",
+            "level": "county",
+            "for": "county:031",
+            "in": "state:27",
+            "geoid": "0500000US27031",
+        },
+    ]
+    if level != "county":
+        return []
+    state = in_parts.get("state")
+    if state and state != "*":
+        return [row for row in counties if row["in"] == f"state:{state}"]
+    return counties
+
+
+@pytest.fixture
+def search_tool() -> SearchTablesTool:
+    return SearchTablesTool(search=_search, describe=_describe)
+
+
+async def test_different_questions_reach_different_tables(search_tool: SearchTablesTool) -> None:
+    bike = await search_tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "bike to work"},
+            "id": "c1",
+        }
+    )
+    net = await search_tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "worst broadband access"},
+            "id": "c2",
+        }
+    )
+    assert bike.artifact.hits[0]["table_id"] == "B08301"
+    assert net.artifact.hits[0]["table_id"] == "B28002"
+    assert bike.artifact.hits[0]["table_id"] != net.artifact.hits[0]["table_id"]
+
+
+async def test_search_carries_universe_and_family_members(search_tool: SearchTablesTool) -> None:
+    message = await search_tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "median household income", "k": 10},
+            "id": "c1",
+        }
+    )
+    hit = message.artifact.hits[0]
+    assert hit["table_id"] == "B19013"
+    assert hit["universe"] == "Households"
+    assert hit["members"] == ["B19013A", "B19013B"]
+    assert [h["table_id"] for h in message.artifact.hits] == ["B19013"]
+
+
+async def test_unknown_vocabulary_does_not_invent_a_table(search_tool: SearchTablesTool) -> None:
+    message = await search_tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "zzzz nonexistent vocabulary"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.hits == []
+
+
+def test_county_in_state_uses_summary_level_050_not_last_wins() -> None:
+    chosen = legal_predicate("county", frozenset({"state"}), wildcard=True, entries=ENTRIES)
+    assert chosen is not None
+    assert chosen.code == "050"
+    last_wins = next(entry for entry in ENTRIES if entry.code == "324")
+    assert last_wins.name == "county"
+    assert chosen != last_wins
+
+
+def test_zcta_nested_in_county_is_not_legal() -> None:
+    assert (
+        legal_predicate(
+            "zip code tabulation area",
+            frozenset({"county"}),
+            wildcard=True,
+            entries=ENTRIES,
+        )
+        is None
+    )
+
+
+async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
+    # Without the county parent in the legality check this becomes a national
+    # zcta:* wildcard — a silent substitution the Census API would 400.
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all zctas in Harris County"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.wildcard is True
+    assert message.artifact.matches == []
+
+
+def test_harris_does_not_match_harrison() -> None:
+    rows = _list_geographies("county", {"state": "48"})
+    hits = filter_rows("harris", rows)
+    assert [row["for"] for row in hits] == ["county:201"]
+
+
+async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all counties in Oregon"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.wildcard is True
+    assert artifact.legal is True
+    assert artifact.matches == [
+        {
+            "name": "all counties in Oregon",
+            "level": "county",
+            "for": "county:*",
+            "in": "state:41",
+            "geoid": "",
+        }
+    ]
+
+
+async def test_cook_county_returns_candidates_instead_of_picking() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Cook County"},
+            "id": "c1",
+        }
+    )
+    codes = sorted(row["in"] for row in message.artifact.matches)
+    assert codes == ["state:13", "state:17", "state:27"]
+    assert len(message.artifact.matches) == 3
+
+
+async def test_harris_county_texas_resolves_to_codes() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Harris County, Texas"},
+            "id": "c1",
+        }
+    )
+    assert [row["for"] for row in message.artifact.matches] == ["county:201"]
+    assert message.artifact.matches[0]["in"] == "state:48"
+
+
+def test_pair_margins_adds_m_beside_every_e() -> None:
+    assert pair_margins(["B01003_001E"]) == ["B01003_001E", "B01003_001M"]
+    assert pair_margins(["B01003_001E", "B01003_001M"]) == ["B01003_001E", "B01003_001M"]
+
+
+def _url_tool() -> BuildUrlTool:
+    facts = {
+        "acs5": {
+            2024: {
+                "B01003": {"universe": "Total population", "variables": ["001E"]},
+                "B19013A": {"universe": "Households", "variables": ["001E"]},
+            }
+        }
+    }
+    allowed = {"B01003", "B19013", "B19013A"}
+    return BuildUrlTool(
+        allowed_tables=lambda: allowed,
+        latest_vintage=lambda dataset: 2024,
+        table_facts=lambda dataset, year, table_id: (
+            facts.get(dataset, {}).get(year, {}).get(table_id)
+        ),
+        last_geography=lambda: {"for": "county:201", "in": "state:48"},
+    )
+
+
+async def test_build_url_pairs_margins_and_redacts_the_key() -> None:
+    message = await _url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B01003", "variables": ["B01003_001E"]},
+            "id": "c1",
+        }
+    )
+    url = message.artifact.url
+    assert "B01003_001E" in url
+    assert "B01003_001M" in url
+    assert "for=county:201" in url or "for=county%3A201" in url
+    assert "in=state:48" in url or "in=state%3A48" in url
+    assert "key=" not in url
+    assert message.artifact.ok is True
+
+
+async def test_build_url_rejects_a_table_outside_the_pool() -> None:
+    message = await _url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.url == ""
+    assert "not in the search pool" in message.artifact.detail
+
+
+async def test_build_url_accepts_a_recorded_family_member() -> None:
+    message = await _url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B19013A"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is True
+    assert message.artifact.table_id == "B19013A"
+
+
+async def test_fetch_keeps_the_url_when_census_returns_400() -> None:
+    built = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:41")
+
+    def http_get(url: str) -> tuple[int, str]:
+        assert "key=secret" in url
+        return 400, "error: unknown/unsupported geography hierarchy"
+
+    tool = FetchDataTool(last_url=lambda: built, census_key=lambda: "secret", http_get=http_get)
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.status_code == 400
+    assert "key=" not in message.artifact.url
+    assert "2024/acs/acs5" in message.artifact.url
+    assert str(built) == message.artifact.url
+
+
+async def test_fetch_without_a_built_url_does_not_invent_one() -> None:
+    tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "secret")
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.url == ""
+    assert message.artifact.rows == []
+
+
+def test_census_url_reattaches_the_key_only_at_with_key() -> None:
+    url = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:41&key=secret")
+    assert "key=" not in str(url)
+    assert "key=" not in repr(url)
+    live = url.with_key("secret")
+    assert live.endswith("key=secret") or "key=secret" in live
+
+
+def test_geo_entries_keeps_every_county_row(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.retrieval import metadata
+
+    monkeypatch.setattr(metadata, "CACHE", tmp_path)
+    path = tmp_path / "acs5" / "2023" / "geography.json.gz"
+    path.parent.mkdir(parents=True)
+    payload = {
+        "fips": [
+            {
+                "name": "county",
+                "geoLevelDisplay": "050",
+                "requires": ["state"],
+                "wildcard": ["state"],
+                "optionalWithWCFor": "state",
+            },
+            {
+                "name": "county",
+                "geoLevelDisplay": "324",
+                "requires": ["state", "msa"],
+                "wildcard": [],
+            },
+        ]
+    }
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+    entries = geo_entries("acs5", 2023)
+    assert [entry.code for entry in entries] == ["050", "324"]
+    assert geo_levels("acs5", 2023)["county"].code == "324"

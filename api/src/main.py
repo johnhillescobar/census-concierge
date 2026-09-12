@@ -4,8 +4,8 @@ Start with:
 
     uv run uvicorn src.main:app --reload
 
-Swagger is at /docs. The route is a thin call into `run_ask` so the tool loop
-(CC-23) can grow without a second HTTP surface.
+Swagger is at /docs. The route is a thin call into `run_ask`; the four-tool
+loop lives in `ask.py`.
 """
 
 from __future__ import annotations
