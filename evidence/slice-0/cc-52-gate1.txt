@@ -1,0 +1,82 @@
+# Gate 1 — CC-52 — branch fix/experiment-corpus-identity
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+
+=== GOOD: all new tests against the implementation ===
+......                                                                   [100%]
+6 passed in 0.21s
+
+=== BAD: missing corpus_hash stays silent (mutation of result_corpus_status) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_a_result_without_a_corpus_hash_is_fatal _________________
+
+    def test_a_result_without_a_corpus_hash_is_fatal() -> None:
+        fatal, warnings = result_corpus_status([{"arm": "gemini-001"}], live=LIVE_POST_FOLD)
+>       assert fatal
+E       assert []
+
+api\tests\test_experiment_corpus.py:26: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_experiment_corpus.py::test_a_result_without_a_corpus_hash_is_fatal
+1 failed in 0.40s
+
+=== BAD: mixed corpus_hash stays silent (mutation of result_corpus_status) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_comparable_results_on_two_corpora_are_fatal _______________
+
+    def test_comparable_results_on_two_corpora_are_fatal() -> None:
+        fatal, _warnings = result_corpus_status(
+            [
+                {"arm": "gemini-001", **PRE_FOLD},
+                {"arm": "voyage-4-large", **POST_FOLD},
+            ],
+            live=LIVE_POST_FOLD,
+        )
+>       assert any("mixed" in line for line in fatal)
+E       assert False
+
+api\tests\test_experiment_corpus.py:39: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_experiment_corpus.py::test_comparable_results_on_two_corpora_are_fatal
+1 failed in 0.42s
+
+=== BAD: live corpus mismatch stays silent (mutation of result_corpus_status) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_a_live_corpus_mismatch_is_a_warning_not_fatal ______________
+
+    def test_a_live_corpus_mismatch_is_a_warning_not_fatal() -> None:
+        fatal, warnings = result_corpus_status(
+            [{"arm": "gemini-001", **PRE_FOLD}],
+            live=LIVE_POST_FOLD,
+        )
+        assert not fatal
+>       assert warnings
+E       assert []
+
+api\tests\test_experiment_corpus.py:48: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_experiment_corpus.py::test_a_live_corpus_mismatch_is_a_warning_not_fatal
+1 failed in 0.36s
+
+=== BAD: strip corpus_hash from encoder-gemini-001.json ===
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______ test_every_committed_result_records_the_corpus_it_was_scored_on _______
+E           AssertionError: encoder-gemini-001.json
+E           assert None in (636, 756)
+
+api\tests\test_experiment_corpus.py:75: AssertionError
+___ test_full_arms_share_the_pre_fold_corpus_and_the_screening_run_does_not ___
+E       KeyError: 'corpus_hash'
+
+api\tests\test_experiment_corpus.py:83: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_experiment_corpus.py::test_every_committed_result_records_the_corpus_it_was_scored_on
+FAILED api/tests/test_experiment_corpus.py::test_full_arms_share_the_pre_fold_corpus_and_the_screening_run_does_not
+2 failed in 0.34s
+
+=== GOOD: restore — all new tests ===
+......                                                                   [100%]
+6 passed in 0.29s

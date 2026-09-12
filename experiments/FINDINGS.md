@@ -1,11 +1,31 @@
 # What the sweep found
 
 Protocol in `PROTOCOL.md`, written before any arm ran. How to reproduce:
-`README.md`. Raw per-question ranks: `results/*.json`.
+`README.md`. Raw per-question ranks: `results/*.json`. Each of those files
+records `corpus_n` and `corpus_hash` (a fingerprint of the sorted table-id
+list). `run_sweep.py table` fails if a file is missing one or if comparable
+arms were scored on mixed corpora, and warns when the live harness corpus
+does not match.
 
-Corpus 756 table families. Primary set 600 generated questions; secondary set 40
-human-written long-tail questions. Every comparison paired per question,
-bootstrapped 10,000 times. `*` marks a CI excluding zero.
+**Axes A–C describe the pre-fold 756-document corpus**
+(`corpus_hash=c81155be334e7cfc`): race iterations and subject tables already
+folded, B/C twins still present as separate documents. That is the ranking
+corpus the encoder and reranker comparison actually ran on.
+
+`harness.corpus()` now rebuilds the **post-fold** 636-document corpus
+(`corpus_hash=fa38e94bcd758cb6`) from metadata, the same fold `build.py`
+shipped. Re-running `encoders` today will not reproduce the ranks below. The
+difference is the 120 collapsed `C` twins Axis E already measured (@1 43.0% →
+50.8% on this set), not encoder drift — so the published table is left as the
+record rather than regenerated onto a different corpus.
+
+Exception: `encoder-gemini-001-sampled40.json` is a screening run against the
+post-fold corpus (`index_mb` 7.82 → 636 documents). It is listed apart from
+the ranked table.
+
+Primary set 600 generated questions; secondary set 40 human-written long-tail
+questions. Every comparison paired per question, bootstrapped 10,000 times.
+`*` marks a CI excluding zero.
 
 ---
 

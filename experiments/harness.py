@@ -188,6 +188,64 @@ def corpus_identity(table_ids: list[str]) -> dict[str, int | str]:
     }
 
 
+def result_corpus_status(
+    records: list[dict],
+    live: dict[str, int | str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Inspect one comparable set of result records.
+
+    Fatal: a missing ``corpus_hash``, or more than one hash in the set (arms
+    scored on different corpora cannot be paired). Warning: the recorded hash
+    does not match ``live`` — expected for the published 756-document results
+    against today's post-fold corpus, and the thing that must not stay silent.
+    """
+    fatal: list[str] = []
+    warnings: list[str] = []
+    missing = [str(r.get("arm", "?")) for r in records if not r.get("corpus_hash")]
+    if missing:
+        shown = ", ".join(missing[:8])
+        extra = "…" if len(missing) > 8 else ""
+        fatal.append(f"no corpus_hash on {len(missing)} result(s): {shown}{extra}")
+
+    grouped: dict[str, list[str]] = {}
+    for record in records:
+        digest = record.get("corpus_hash")
+        if digest:
+            grouped.setdefault(str(digest), []).append(str(record.get("arm", "?")))
+    if len(grouped) > 1:
+        detail = "; ".join(f"{digest}={','.join(names)}" for digest, names in grouped.items())
+        fatal.append(f"mixed corpus_hash among comparable results: {detail}")
+
+    if live is not None and grouped and live.get("corpus_hash") not in grouped:
+        sample = next(r for r in records if r.get("corpus_hash"))
+        warnings.append(
+            f"results scored on corpus_n={sample.get('corpus_n')} "
+            f"hash={sample['corpus_hash']}; live corpus_n={live.get('corpus_n')} "
+            f"hash={live.get('corpus_hash')}. FINDINGS.md Axes A–C describe the "
+            "recorded corpus; re-running encoders today will not match those ranks."
+        )
+    return fatal, warnings
+
+
+def comparable_result_rows(results: Path | None = None) -> list[dict]:
+    """Non-screening result files that recorded a corpus hash.
+
+    Screening runs (``sampled`` in the stem) are a different n and must not
+    sit in the same comparable set. Axis C lean/rich/twin files and Axis B
+    rerankers belong with the unsuffixed arms: they were scored on the same
+    table list.
+    """
+    rows: list[dict] = []
+    for path in sorted((results or RESULTS).glob("*.json")):
+        if "sampled" in path.stem:
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if "error" in payload or not payload.get("corpus_hash"):
+            continue
+        rows.append(payload)
+    return rows
+
+
 def _slug(name: str) -> str:
     return name.replace("/", "__").replace(":", "_")
 
