@@ -12,6 +12,11 @@ and lost in the other thousand**. The product is *discovery*.
 Canonical documents — read before any non-trivial change:
 `CLAUDE.md` · `.claude/DESIGN.md` (what and why) · `.claude/PLAN.md` (order of work)
 
+Slice work follows `docs/playbooks/run-slice.md`: pre-flight claim check, Gate 1
+(tests + mutation check), Gate 2 (cold review), E2E before and after merge. Every
+phase persists its output to git / the PR / `evidence/slice-<N>/` before the next
+begins; a fresh context rebuilds from those, never from chat history.
+
 ## Budgets — the one rule that matters
 
 `budgets.toml` caps lines, files, graph nodes, tools, models, dependencies and
@@ -46,6 +51,10 @@ margins of error, GEOID, universe, and related tables. See `.claude/DESIGN.md` �
 - Introduce an abstraction before a second caller exists. Inline it.
 - Work ahead of the current slice in `.claude/PLAN.md`. If something belongs to a
   later slice, say which one and stop.
+- Carry slice state in the conversation. Persist each phase to the repo; a reset
+  session rebuilds from `.claude/PLAN.md` + `evidence/slice-<N>/` + the PR body.
+- Ship a new test without mutation-checking it: revert the behaviour it covers,
+  confirm the test fails, restore.
 
 ## When unsure
 

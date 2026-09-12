@@ -1,6 +1,9 @@
 # ARCHITECTURE — the system as it IS
 
-**Status: nothing is built. Slice 0 has not started.**
+**Status: slice 0 is built.** Retrieval runs end to end as a two-stage pipeline:
+`search()` retrieves a top-10 pool; `rerank.py` selects one table from it.
+`budgets.toml` gates retriever `@10` and selector `@1` on the long-tail tier
+separately — raw cosine `@1` is diagnostic only.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what
@@ -19,9 +22,16 @@ budgets.toml                 enforced complexity limits
 scripts/check_budgets.py     counts things — exits 1 on violation
 scripts/check_invariants.py  checks mistakes were not made; --base catches a
                              weakened budget
-scripts/eval_retrieval.py    the scoreboard — runs against a stub, scores 0
-evals/golden_questions.toml  42 questions; expect_table values UNVERIFIED
+scripts/fetch_metadata.py    caches ACS metadata to data/raw/ (no key)
+scripts/verify_golden.py     every expect_table checked against that metadata
+scripts/build_index.py       builds index_store/ (needs OPENAI_API_KEY)
+scripts/eval_retrieval.py    the scoreboard; --rerank, --holdout
+scripts/score_synthetic.py   generated-question quality, on a 600 sample
+scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
+evals/golden_questions.toml  66 scorable: 4 core, 40 long-tail, 14 trap,
+                             8 held out. All verified 2026-08-14.
 evidence/latest.json         last measured run
+evidence/retrieval_steps.md  every step's number, and what the plan got wrong
 docs/playbooks/review-pr.md  canonical review procedure
 pyproject.toml               uv workspace root; ruff + mypy + pytest config
 api/pyproject.toml           the app's dependencies (3 so far)
@@ -29,13 +39,66 @@ api/pyproject.toml           the app's dependencies (3 so far)
 .github/workflows/build-index.yml  manual; publishes the index release asset
 ```
 
-`api/src/` exists but is empty. No `web/`, no index, no agent, no server, no
-database. `build-index.yml` will fail until `scripts/build_index.py` exists —
-it is manual-dispatch only, so nothing runs it by accident.
+### Retrieval — `api/src/retrieval/`, 8 modules
 
-`check_budgets.py` currently exits 1 on `retrieval_at_1: 0 (limit 0.7)`. That is
-the intended state: the build is red on day zero for the right reason, and it
-cannot be turned green by writing code — only by making retrieval work.
+```
+metadata.py      fetch + cache ACS groups/variables/geography; family_id(),
+                 is_subject_table()
+availability.py  (dataset, vintage, table) -> universe + variable list.
+                 Built for slice 3's guards; slice 0 uses its table union.
+text.py          vintage-token stripping, !!-label unpacking, tokenizing
+bm25.py          Okapi BM25, no dependency; corpus-derived stopwords
+embedding.py     OpenAI embeddings; imports the client INSIDE the functions
+synthetic.py     LLM question generation, cached and committed
+build.py         assembles the artifact. Reaches OpenAI.
+index.py         loads the artifact, search(question, k). Never builds.
+rerank.py        LLM picks one of the top k. NOT called by search().
+```
+
+The boundary that matters: **`build.py` reaches OpenAI, `index.py` does not.**
+The artifact is produced offline and, in production, downloaded into the image.
+Nothing builds an index at import or at request time.
+
+`index.py` caches the loaded index at module scope — the one piece of
+module-level state this project allows, sanctioned because it is read-only.
+
+### Data and artifacts
+
+```
+data/raw/                     14 MB cached ACS metadata. Gitignored.
+                              ACS5 2016-2024, ACS1 2016-2024 (no 2020).
+data/synthetic_questions.json 8,748 questions, 1 MB, COMMITTED and readable.
+                              Currently not fed to the index — see below.
+index_store/lexical.json.gz   636 table families: ids, titles, universes,
+                              members, BM25 postings. Gitignored.
+index_store/semantic.npz       636 x 3072 float32 embeddings.
+index_store/availability.json.gz  the vintage matrix.
+```
+
+### What the index contains, and what it dropped
+
+1,458 tables in the union across all vintages → **636 documents**:
+
+- **588** race iterations (`B19013A`) and Puerto Rico variants folded into their
+  base table. They are the same table filtered, they carry near-identical
+  titles, and they crowded out their own parents. Members are retained in the
+  artifact and become slice 1's `alternatives[]`.
+- **114** `B00`/`B98`/`B99` survey-quality tables dropped — allocation rates and
+  sample counts, never the subject of a question.
+- **120** collapsed `C` tables folded into the `B` they are identical to.
+  `C15003` publishes the same title, universe and concept as `B15003` with
+  fewer categories, so the two documents were byte-identical and their vectors
+  equal — the winner decided by float noise, and reversible on any rebuild.
+  Members like the race iterations.
+
+`search()` ranks on embeddings alone. BM25 is built and unused: equal-weight RRF
+measured *worse* than embeddings alone on every metric. It is kept for the query
+that names a table ID verbatim, which the eval set does not test.
+
+`check_budgets.py` gates `retrieval_at_10`, `selector_at_1`, and
+`synthetic_alignment` from `make eval`. `synthetic_self_retrieval` (@1 rank
+against the full index) is recorded as a diagnostic only — questions are not
+embedded; see `evidence/retrieval_steps.md`.
 
 ## What each slice adds here
 
@@ -44,7 +107,7 @@ futures.
 
 | slice | adds to this file |
 |---|---|
-| 0 | the index: corpus, layers, artifacts, how it is built and loaded |
+| ~~0~~ | ~~the index~~ — done, above |
 | 1 | the agent loop, the five tools, the response contract, `POST /ask` |
 | 2 | `web/`, the generated client, the CI staleness check |
 | 3 | fan-out over years and geographies; the guard evaluation point |

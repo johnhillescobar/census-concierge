@@ -1,0 +1,187 @@
+# Gate 2 — slice 0 — branch `workflow/run-slice-pipeline`
+
+Reviewer: fresh subagent (no parent-session context).
+Date: 2026-09-11.
+Diff: `git diff origin/main...HEAD` (101 files, +42,002 / −214 lines).
+
+---
+
+## Pass 1 — code-only bug review (no author intent)
+
+**Method:** Read `api/src/retrieval/*.py`, `scripts/eval_retrieval.py`, `scripts/build_index.py`, `scripts/verify_golden.py`, `scripts/score_synthetic.py`, `scripts/check_budgets.py`, and unit tests under `api/tests/test_*.py`. Skimmed `experiments/` for defects that could affect the shipped retrieval path (they do not call into production search).
+
+### Findings
+
+| # | Severity | Location | Finding |
+|---|----------|----------|---------|
+| 1 | Low (inconsistency) | `api/src/retrieval/index.py` `search()` | When `semantic.npz` is present, every query returns `k` table IDs (top cosine), including nonsense with no lexical overlap. The BM25-only path returns `[]` when no query terms match postings — tested in `test_a_question_matching_nothing_returns_nothing_rather_than_guessing`. Production index uses embeddings only, so the “return nothing rather than guess” behaviour is not exercised on the shipped path. Not a silent-wrong-answer surface yet (no user response), but slice 1’s agent will always receive candidates. |
+| 2 | Deferred (experiments only) | `experiments/harness.py`, `experiments/run_margin.py` | Commit `b4991be` documents two unfixed experiment-methodology issues (corpus reproducibility; Mann-Whitney tie handling) left for the repo owner because they touch pre-registered experiment results. Not on the product retrieval path. |
+| — | — | All other reviewed paths | **Nothing definitive.** |
+
+### Areas reviewed with no bugs found
+
+- **`embedding.py`:** Batch-length guard raises on short API response (prevents row/table-ID shift). L2 normalization handles zero norm.
+- **`synthetic.py`:** Failed refresh drops stale cache entry instead of writing mismatched questions back.
+- **`build.py`:** `_fold_identical_twins` mutates members correctly; families without a base table are dropped (documented anti–silent-wrong-answer for race iterations); BM25-only rebuild unlinks stale `semantic.npz`.
+- **`bm25.py`:** `from_dict` round-trip, stopword/max-df logic, length-after-drop — covered by tests.
+- **`metadata.py`:** `fetch_all` continues past ACS1 2020 hole; `family_id` / `is_subject_table` regexes match test cases.
+- **`availability.py`:** Union takes newest vintage per table; sort order stable.
+- **`rerank.py`:** Hallucinated table IDs rejected; API failure falls back to top candidate; empty candidate list handled in `eval_retrieval.py` (not in `choose()` itself — caller guards).
+- **`eval_retrieval.py`:** `FileNotFoundError` on missing `index_store/` falls back to stub; `--rerank` bypasses `choose()` when `search()` returns `[]`.
+- **`score_synthetic.py`:** Assumes embeddings exist (offline script; would crash if run on BM25-only index — not a request path).
+
+### Pass 1 summary
+
+**No blocking code bugs** on the shipped retrieval path. One low-severity behavioural inconsistency between embedding and BM25 paths on empty-match queries. Two experiment-script issues explicitly deferred.
+
+---
+
+## Pass 2 — `docs/playbooks/review-pr.md`
+
+### Machines (run first — all must pass)
+
+#### `uv run python scripts/check_budgets.py`
+
+```
+BUDGETS
+
+  ok    api src LOC                849 <= 4000
+  ok    api src files               11 <= 40
+  ok    largest file LOC           165 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens         0 <= 1200
+  ok    doc lines                 1788 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  0 <= 6
+  ok    api routes                   0 <= 10
+  ok    tool schemas                 0 <= 12
+  ok    domain models                0 <= 15
+  ok    direct dependencies          4 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+Exit code: 0
+
+#### `uv run python scripts/check_invariants.py --base origin/main`
+
+```
+INVARIANTS
+
+  ok    no violations
+```
+
+Exit code: 0
+
+#### `uv run ruff check . && uv run ruff format --check .`
+
+```
+All checks passed!
+57 files already formatted
+```
+
+Exit code: 0
+
+#### `uv run mypy api/src`
+
+```
+Success: no issues found in 11 source files
+```
+
+Exit code: 0
+
+#### `uv run pytest -q -m "not integration"`
+
+```
+...........................................................              [100%]
+59 passed in 1.99s
+```
+
+Exit code: 0
+
+**Machine gate: PASS** (all five commands exited 0).
+
+---
+
+### The claim
+
+**What can a user do now that they could not before?**
+
+A developer (or downstream slice-1 agent) can pass a natural-language Census question to `search(question, k)` and receive ranked ACS table IDs from a built offline index; `scripts/eval_retrieval.py` scores retrieval against 66 golden questions and records retriever `@10`, selector `@1`, and synthetic alignment in `evidence/latest.json`.
+
+This is infrastructure for discovery, not an end-user answer — no agent, URL, or data fetch yet. That matches slice 0 scope.
+
+### Evidence
+
+`evidence/latest.json` (refreshed commit `bfa0363`) records:
+
+- `retrieval_at_10`: 0.90 (long_tail floor 0.90) ✓
+- `selector_at_1`: 0.85 (floor 0.70, gemini rerank) ✓
+- `synthetic_alignment`: 0.544 (floor 0.50) ✓
+- long_tail `retrieval_at_1` (raw cosine): 0.475 — diagnostic only, as documented
+
+No verbatim `make eval` / `make demo --repeat 3` transcript is attached to this gate2 file. Numbers are committed in `evidence/latest.json`; E2E transcript is a downstream gate (step 6 per `run-slice.md`). At n=40 long_tail, selector `@1` moves under ~10 points are noise; 0.85 vs floor 0.70 is a step-change, not a marginal delta.
+
+### Scope
+
+- **Slice fit:** Core deliverable is slice 0 (metadata cache, availability matrix, BM25+embedding index, golden eval, `search()` API). No agent, HTTP endpoint, geography resolution, MOE, or UI — consistent with PLAN “Not in this slice.”
+- **File count:** 101 files — well above the ~15 alarm. Justified breakdown: retrieval modules + tests (~20), committed `data/synthetic_questions.json` (~19k lines), `experiments/` results and harness (~30), process pipeline port (`gate.ps1`, playbooks, `test_process.py`), evidence JSON, workflow/docs. PR body must state this explicitly; not gratuitous feature creep, but not a small diff either.
+- **“While we were in there”:** `scripts/jira_transition.py`, `.vscode/launch.json`, and the full `experiments/` tree are adjuncts (Jira integration, dev ergonomics, pre-registered encoder/reranker sweeps). They do not change the retrieval contract. `doc_lines` raised 1600→1800 with dated log entry in `budgets.toml`; `check_invariants --base` confirms no silent budget weakening.
+
+### Silent-wrong-answer review
+
+**Nothing on a user response path** — slice 0 has no URL/MOE/GEOID/universe rendering.
+
+Relevant retrieval-side protections present in diff:
+
+- `build.py` drops table families with no base representative (avoids ranking a race iteration as the general table).
+- `is_subject_table` excludes B00/B98/B99 survey-quality tables.
+- `_fold_identical_twins` removes byte-identical C twins that would win/lose by float noise.
+- `rerank.py` refuses hallucinated table IDs not in the candidate list.
+- `embedding.py` aborts on batch length mismatch (prevents shifted embeddings).
+- No `&key=` handling in this slice (no Census fetch URLs constructed).
+
+### Shape
+
+- **New components:** `api/src/retrieval/` (8 modules) — matches `docs/ARCHITECTURE.md`, updated in same branch.
+- **No** new agent tools, FastAPI routes, graph nodes, or domain `BaseModel` subclasses.
+- **`build.py` / `index.py` boundary** preserved: OpenAI client only in build path; loader importable without key.
+- **`rerank.py`** deliberately not called from `search()` — selection separated from ranking for slice 1.
+
+### Tests
+
+- Behaviour-focused: distinct questions reach distinct tables (`test_index.py`); BM25 stopwords/serialization (`test_lexical_ranking.py`); metadata `fetch_all` gap probing (`test_metadata.py`); twin folding (`test_build.py`); availability union (`test_availability.py`).
+- **No** fake retriever returning one table for all inputs.
+- **No** assertions on prompt wording or LLM prose.
+- `test_process.py` covers doc/playbook integrity (process harness); separate from retrieval behaviour.
+- Mutation-check transcript for new tests: not re-run in this gate2 session (Gate 1 artifact); tests are structured to catch real regressions (e.g. score-order vs corpus-order, ACS1 2020 hole).
+
+### Verdict
+
+**Ship it with follow-ups**
+
+User-facing claim (slice 0): natural-language questions can be mapped to ranked ACS table candidates via an offline-built retrieval index, with long-tail retriever `@10` and selector `@1` above budget floors.
+
+Follow-ups (none are silent-wrong-answer blockers):
+
+1. PR body must explain 101-file scope (slice 0 + experiments evidence + pipeline port).
+2. Owner decision on deferred `experiments/harness.py` / `run_margin.py` methodology items (documented in `b4991be`).
+3. Consider a similarity floor or empty-pool signal on the embedding search path before slice 1 (Pass 1 item 1).
+4. E2E (`make eval` / `make demo` verbatim transcript) is downstream of Gate 2 per `run-slice.md` step 6.
+
+---
+
+## PR body bullets (Gate 2 findings)
+
+- Gate 2 machines: all five passed (budgets, invariants, ruff, mypy, 59 pytest).
+- Pass 1 code review: no blocking bugs; low-severity embedding-vs-BM25 empty-query inconsistency noted.
+- Scope: slice 0 retrieval complete; 101 files — explain breakdown in PR.
+- Silent-wrong-answer: nothing (no response path yet); retrieval-side corpus guards present.
+- Shape: matches `docs/ARCHITECTURE.md`; build/load boundary intact.
+- Evidence: `evidence/latest.json` — retriever `@10` 0.90, selector `@1` 0.85, `synthetic_alignment` 0.544.
+- Follow-ups: experiment methodology deferrals; E2E transcript in next gate.
+
+**One-line verdict: Ship it with follow-ups**

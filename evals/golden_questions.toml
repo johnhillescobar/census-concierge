@@ -2,11 +2,13 @@
 #
 # Write it BEFORE the agent exists. Everything downstream is judged against it.
 #
-# !! VERIFY EVERY expect_table BEFORE TRUSTING THIS FILE. !!
-# These IDs were written from memory as a starting point. A wrong fixture is
-# worse than no fixture: it will train you to "fix" correct behaviour. Check
-# each one at https://api.census.gov/data/2023/acs/acs5/groups.html and delete
-# this warning when you have.
+# Verified 2026-08-14 by `python scripts/verify_golden.py` against cached
+# metadata for ACS5 and ACS1, 2016-2024 (17 dataset-vintages). Every
+# expect_table exists and every expect_geo_level appears in geography.json.
+#
+# That check proves EXISTENCE, not correctness — it cannot tell you a table is
+# the right answer to its question. Re-run it after any edit; a wrong fixture is
+# worse than no fixture because it trains you to "fix" correct behaviour.
 #
 # tier:
 #   core      — the common tables most users already know. Cheap to pass.
@@ -197,6 +199,175 @@ text = "Housing units by number of units in the structure, Somerville MA"
 expect_table = "B25024"
 expect_geo_level = "place"
 topic = "housing_stock"
+tier = "long_tail"
+
+# q25-q44 were sourced by sampling the real corpus across under-covered topic
+# prefixes (B01-B29), reading titles from cached metadata, and writing a user's
+# phrasing afterwards. That order matters: picking questions first biases toward
+# the tables you already know, which is the bias this product exists to fix.
+
+[[question]]
+id = "q25"
+text = "At what age do people in Salt Lake County typically marry for the first time?"
+expect_table = "B12007"
+expect_geo_level = "county"
+topic = "marriage"
+tier = "long_tail"
+
+[[question]]
+id = "q26"
+text = "How many hours a week does the typical worker in Anchorage put in?"
+expect_table = "B23020"
+expect_geo_level = "county"
+topic = "work_hours"
+tier = "long_tail"
+
+[[question]]
+id = "q27"
+text = "How many residents of Maricopa County are actually eligible to vote?"
+expect_table = "B29001"
+expect_geo_level = "county"
+topic = "voting_age"
+tier = "long_tail"
+note = "Citizen voting-age population, not total population and not adults."
+
+[[question]]
+id = "q28"
+text = "Households in West Virginia getting food assistance where someone has a disability"
+expect_table = "B22010"
+expect_geo_level = "state"
+topic = "public_assistance"
+tier = "long_tail"
+
+[[question]]
+id = "q29"
+text = "What do people in Maine burn to heat their homes?"
+expect_table = "B25040"
+expect_geo_level = "state"
+topic = "housing_utilities"
+tier = "long_tail"
+
+[[question]]
+id = "q30"
+text = "How long have naturalized citizens in Hialeah held their citizenship?"
+expect_table = "B05011"
+expect_geo_level = "place"
+topic = "nativity"
+tier = "long_tail"
+
+[[question]]
+id = "q31"
+text = "How many homeowners in Nassau County are still paying off a loan on the house?"
+expect_table = "B25081"
+expect_geo_level = "county"
+topic = "housing_finance"
+tier = "long_tail"
+
+[[question]]
+id = "q32"
+text = "People with disabilities in Alabama who have no health insurance"
+expect_table = "B18135"
+expect_geo_level = "state"
+topic = "disability"
+tier = "long_tail"
+note = "Crosses disability and coverage. B27001 has coverage but no disability dimension."
+
+[[question]]
+id = "q33"
+text = "Households in Santa Ana where nobody over 14 speaks English well"
+expect_table = "B16002"
+expect_geo_level = "place"
+topic = "language"
+tier = "long_tail"
+note = "Limited-English-speaking HOUSEHOLDS. B16004 is the same idea per person."
+
+[[question]]
+id = "q34"
+text = "Workers in Bozeman who run their own business instead of working for someone else"
+expect_table = "B24080"
+expect_geo_level = "place"
+topic = "class_of_worker"
+tier = "long_tail"
+
+[[question]]
+id = "q35"
+text = "Homeowners in Miami-Dade spending more than a third of their income on housing"
+expect_table = "B25091"
+expect_geo_level = "county"
+topic = "housing_burden"
+tier = "long_tail"
+note = "Owner cost burden. B25070 is the renter equivalent and the likely confusion."
+
+[[question]]
+id = "q36"
+text = "Crowded housing in Santa Cruz County, more than one person per room"
+expect_table = "B25014"
+expect_geo_level = "county"
+topic = "crowding"
+tier = "long_tail"
+
+[[question]]
+id = "q37"
+text = "Which county in Florida has the oldest population?"
+expect_table = "B01002"
+expect_geo_level = "county"
+topic = "age"
+tier = "long_tail"
+
+[[question]]
+id = "q38"
+text = "Break down the Asian population in Fremont by specific origin"
+expect_table = "B02015"
+expect_geo_level = "place"
+topic = "race"
+tier = "long_tail"
+
+[[question]]
+id = "q39"
+text = "Why are so many homes in Detroit sitting empty?"
+expect_table = "B25004"
+expect_geo_level = "place"
+topic = "vacancy"
+tier = "long_tail"
+
+[[question]]
+id = "q40"
+text = "How many studio and one-bedroom units are there in Cambridge?"
+expect_table = "B25041"
+expect_geo_level = "place"
+topic = "housing_stock"
+tier = "long_tail"
+
+[[question]]
+id = "q41"
+text = "What did people in Ann Arbor study in college?"
+expect_table = "B15012"
+expect_geo_level = "place"
+topic = "education"
+tier = "long_tail"
+
+[[question]]
+id = "q42"
+text = "Veterans in Fayetteville with a service-connected disability rating"
+expect_table = "B21100"
+expect_geo_level = "place"
+topic = "veterans"
+tier = "long_tail"
+
+[[question]]
+id = "q43"
+text = "What time do commuters in Suffolk County leave the house?"
+expect_table = "B08302"
+expect_geo_level = "county"
+topic = "commuting"
+tier = "long_tail"
+
+[[question]]
+id = "q44"
+text = "Households in Sarasota County collecting Social Security"
+expect_table = "B19055"
+expect_geo_level = "county"
+topic = "income_sources"
 tier = "long_tail"
 
 # --- traps — silent wrong answers here lose the user permanently -------------
@@ -413,3 +584,86 @@ topic = "income"
 tier = "long_tail"
 note = """The ZCTA path must actually work for a single 5-year vintage. Pairs \
 with t15: knowing when ZCTA is wrong is useless if ZCTA is never reachable."""
+
+# --- holdout — long tail, NOT part of the tuning set --------------------------
+#
+# `holdout = true` keeps these out of `retrieval_at_1`. Run them at slice
+# boundaries only, with --holdout; the score lands as `retrieval_at_1_holdout`.
+#
+# Sharp divergence from the tuning set means you tuned to 40 questions rather
+# than to the problem. At this n that is a live risk, not a theoretical one.
+# Reading these while tuning spends them — there is no way to un-see a question.
+
+[[question]]
+id = "h01"
+text = "What is the median rent in Tucson before utilities are added?"
+expect_table = "B25058"
+expect_geo_level = "place"
+topic = "rent"
+tier = "long_tail"
+holdout = true
+note = "Contract rent, not gross rent (B25064). The distinction is the question."
+
+[[question]]
+id = "h02"
+text = "What year did the immigrants living in Dearborn arrive in the country?"
+expect_table = "B05015"
+expect_geo_level = "place"
+topic = "nativity"
+tier = "long_tail"
+holdout = true
+
+[[question]]
+id = "h03"
+text = "Employment rates by education level for working-age adults in Cleveland"
+expect_table = "B23006"
+expect_geo_level = "place"
+topic = "employment"
+tier = "long_tail"
+holdout = true
+
+[[question]]
+id = "h04"
+text = "How old is the typical house in Buffalo?"
+expect_table = "B25035"
+expect_geo_level = "place"
+topic = "housing_stock"
+tier = "long_tail"
+holdout = true
+note = "Median year built, not the B25034 distribution q13 asks for."
+
+[[question]]
+id = "h05"
+text = "Education levels of people living in Nevada who were born in another state"
+expect_table = "B06009"
+expect_geo_level = "state"
+topic = "nativity"
+tier = "long_tail"
+holdout = true
+
+[[question]]
+id = "h06"
+text = "How many people in Clark County got married in the past year?"
+expect_table = "B12501"
+expect_geo_level = "county"
+topic = "marriage"
+tier = "long_tail"
+holdout = true
+
+[[question]]
+id = "h07"
+text = "Is home internet access in Cameron County tied to household income?"
+expect_table = "B28004"
+expect_geo_level = "county"
+topic = "internet"
+tier = "long_tail"
+holdout = true
+
+[[question]]
+id = "h08"
+text = "Unmarried couples living together in Portland, Maine"
+expect_table = "B11009"
+expect_geo_level = "place"
+topic = "household_type"
+tier = "long_tail"
+holdout = true

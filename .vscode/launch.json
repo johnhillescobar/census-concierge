@@ -1,0 +1,214 @@
+{
+  // Debugging the experiments and the index build.
+  //
+  // `python` is pinned to this repo's venv rather than left to the interpreter
+  // picker, because the venv from the predecessor repo is often still active in
+  // the shell and uv ignores it with a warning that is easy to miss. Pinning it
+  // here means F5 cannot run against the wrong environment.
+  //
+  // `justMyCode` is false throughout: half of what goes wrong in the sweep goes
+  // wrong inside a provider client — a batch that comes back short, a rate limit
+  // surfaced as an empty list — and you cannot see that from your own frames.
+  //
+  // The experiment arms need `uv sync --group experiments` first (torch and
+  // friends, ~2 GB). The index and eval configs do not.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Start here. One arm, 40 questions, ~30 seconds. `table` and the full
+      // 600-question run are for producing numbers, not for finding out why a
+      // number is wrong.
+      "name": "sweep: one encoder, sampled",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_sweep.py",
+      "args": ["encoders", "--only", "${input:encoder}", "--sample", "40"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      "name": "sweep: one encoder, full 600",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_sweep.py",
+      "args": ["encoders", "--only", "${input:encoder}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // An A/B on what the document SAYS, not on models. `twin` is the variant
+      // that lost; keep it runnable so the negative result stays reproducible.
+      "name": "sweep: encoders, document variant",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_sweep.py",
+      "args": ["encoders", "--only", "${input:encoder}", "--rich", "${input:variant}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      "name": "sweep: rerankers",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_sweep.py",
+      "args": ["rerankers", "--only", "${input:reranker}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Pure statistics over results already on disk. No network, no keys, runs
+      // in about a second — the right config for stepping through paired_delta
+      // and the bootstrap without waiting for an encoder.
+      "name": "sweep: comparison table (no network)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_sweep.py",
+      "args": ["table"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Both read cached embeddings, so they are fast and free after the first
+      // encoder run — and they never call a model, which means a breakpoint in
+      // an encoder will not fire here. That is the cache, not a bug.
+      "name": "margin: confidence signal",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_margin.py",
+      "args": ["--encoder", "${input:encoder}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      "name": "codes: B/C prefix and subject",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/experiments/run_codes.py",
+      "args": ["--encoder", "${input:encoder}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Corpus shaping only — the folding and dropping rules — with no OpenAI
+      // call and no cost. This is the config for debugging _fold_identical_twins
+      // or anything else about which documents exist.
+      "name": "index: build, no embeddings (free)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/build_index.py",
+      "args": ["--bm25-only"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      "name": "eval: retrieval scoreboard",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/eval_retrieval.py",
+      "args": ["--verbose"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      "name": "pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "${file}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Ad-hoc: whatever file is open. PYTHONPATH carries api/ so `from
+      // src.retrieval import ...` resolves in a scratch script the way it does
+      // in the real ones.
+      "name": "python: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    }
+  ],
+  "inputs": [
+    {
+      "id": "encoder",
+      "type": "pickString",
+      "description": "Encoder arm (keys of encoders() in arms.py)",
+      "default": "gemini-001",
+      "options": [
+        "gemini-001",
+        "voyage-4-large",
+        "openai-3-large",
+        "openai-3-small",
+        "gemini-2",
+        "cohere-v4",
+        "embeddinggemma",
+        "bge-large",
+        "e5-large",
+        "bge-m3",
+        "mxbai",
+        "nomic",
+        "nemotron-8b",
+        "ingot-8b"
+      ]
+    },
+    {
+      "id": "reranker",
+      "type": "pickString",
+      "description": "Reranker arm (keys of rerankers() in arms.py)",
+      "default": "gemini-flash",
+      "options": ["gemini-flash", "gpt-4o-mini", "cohere-rerank", "bge-reranker", "mxbai-rerank"]
+    },
+    {
+      "id": "variant",
+      "type": "pickString",
+      "description": "Document variant to A/B against plain",
+      "default": "lean",
+      "options": ["lean", "rich", "twin"]
+    }
+  ]
+}

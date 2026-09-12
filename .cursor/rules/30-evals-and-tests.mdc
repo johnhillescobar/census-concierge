@@ -10,12 +10,17 @@ globs: api/tests/**,evals/**,scripts/**
 
 ## The scoreboard
 
-`retrieval@1` on the **long_tail** tier. The fraction of questions where the
-correct table ranks *first* — the agent acts on the top hit, so a right answer
-at rank 4 is a wrong answer to the user.
+Slice 0 gates three numbers from `make eval`:
 
-`@5` and MRR are diagnostics: `@5` low means the index is broken; `@5` high with
-`@1` low means ranking is broken (much cheaper to fix).
+- **retriever `@10`** — expected table in `search()`'s raw top-10 pool (long_tail).
+- **selector `@1`** — generative pick correct after rerank over that pool (long_tail).
+- **`synthetic_alignment`** — mean cosine from each generated question to its
+  table's semantic document (600-question sample). Catches off-topic generation;
+  rank-1 `synthetic_self_retrieval` (~45%) is diagnostic only.
+
+Raw cosine `@1` is recorded but not gated. `@5`, `@3`, and MRR are diagnostics:
+`@10` low means the pool is broken; `@10` high with selector `@1` low means the
+selector is wrong (cheaper than a new encoder).
 
 **`core` questions prove nothing.** "Population of Harris County" → `B01003`
 matches a word to itself. The real cases have no lexical overlap at all:
@@ -37,6 +42,10 @@ not the file length.
 ## Test rules
 
 - **Behavior only**: question in, table and URL out.
+- **Mutation-check every new test.** Revert the behaviour it covers, run only that
+  test, confirm it fails, restore. A test that passes against the broken
+  implementation is not a check - delete it or rewrite it. Revert one behaviour at
+  a time; name the mutation for what it reverts. (`docs/playbooks/run-slice.md` §3.)
 - **Never** assert on prompt wording or LLM prose. Those tests break on edits and
   survive regressions.
 - **Never** name a test after a ticket. `test_census_43_turn1_table_selection.py`

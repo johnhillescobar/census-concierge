@@ -65,6 +65,27 @@ Also non-negotiable in every response:
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
 
+## Jira — status source of truth
+
+Project **`CC`** at `johnhillescobar.atlassian.net`. Ticket status lives in Jira, not
+chat. Close with `uv run python scripts/jira_transition.py CC-N --done --comment "…"`
+(needs `ATLASSIAN_EMAIL` + `ATLASSIAN_API_TOKEN` in `.env`). Use the script, not IDE
+MCP — same path in Claude Code and Cursor.
+
+Jira owns *open vs done*; `.claude/PLAN.md` STATUS owns *what shipped and the
+evidence*. Name `CC-N` in commits/PRs; Jira comments link to the PR or `evidence/`.
+
+## Slice workflow
+
+One pipeline per slice: **pre-flight** (run every technical claim before coding) ->
+implement -> **Gate 1** (matrix tests, every new test mutation-checked) -> **Gate
+2** (cold review: `/code-review` then `docs/playbooks/review-pr.md`) -> fix ->
+**E2E** (`make eval` / `make demo`, transcript in the PR) -> merge -> **E2E again**
+against merged `main`. Every phase persists to git / the PR / `evidence/slice-<N>/`
+and **Jira** before the next; a fresh context rebuilds from those, never from chat
+history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;
+matrix and worked examples: `docs/process-evidence.md`.
+
 ## Traps
 
 - A retrieval fake that returns the same table for any input tests nothing.
@@ -96,7 +117,7 @@ breaks `_sqlite3` and `uuid_utils`. That cost real time once already.
 
 ```
 make check     # lint + types + tests + invariants + budgets, under 60s
-make eval      # retrieval scoreboard, no API keys needed
+make eval      # retrieval scoreboard; needs OPENAI_API_KEY to embed the query
 make demo      # end-to-end against live APIs; needs OPENAI_API_KEY, CENSUS_API_KEY
 make hooks     # one-time: install pre-commit
 ```
