@@ -1,0 +1,162 @@
+# Gate 1 — CC-19 — branch feat/cc-19-post-ask
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+
+=== GOOD: all new tests against the implementation ===
+......                                                                   [100%]
+6 passed in 0.34s
+
+=== BAD: empty question rejected (mutation of Field min_length=1 on AskRequest.question) ===
+.                                                                        [100%]
+1 passed in 0.25s
+
+=== BAD: blank/whitespace question rejected (mutation of question_is_not_blank validator) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_blank_question_is_a_validation_error __________________
+
+    def test_blank_question_is_a_validation_error() -> None:
+        response = client.post("/ask", json={"question": "   "})
+>       assert response.status_code == 422
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+api\tests\test_ask_route.py:57: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_blank_question_is_a_validation_error
+1 failed in 0.36s
+
+=== BAD: the route calls run_ask (mutation of post_ask body) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_valid_question_reaches_the_ask_loop ___________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A5381A5700>
+
+    def test_valid_question_reaches_the_ask_loop(monkeypatch: Any) -> None:
+        seen: list[str] = []
+    
+        async def fake_loop(question: str) -> AskResponse:
+            seen.append(question)
+            return AskResponse(
+                answer="from-loop",
+                url="",
+                rows=[],
+                moe=[],
+                geoid="",
+                universe="",
+                table_id="",
+                alternatives=[],
+                warnings=[],
+            )
+    
+        monkeypatch.setattr("src.main.run_ask", fake_loop)
+        response = client.post("/ask", json={"question": "  population of Harris County  "})
+        assert response.status_code == 200
+>       assert seen == ["population of Harris County"]
+E       AssertionError: assert [] == ['population ...arris County']
+E         
+E         Right contains one more item: 'population of Harris County'
+E         Use -v to get more diff
+
+api\tests\test_ask_route.py:85: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_valid_question_reaches_the_ask_loop
+1 failed in 0.34s
+
+=== BAD: AskResponse required contract fields including singular url, typed alternatives/warnings arrays (mutation of AskResponse) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+
+    def test_openapi_documents_post_ask() -> None:
+        schema = client.get("/openapi.json").json()
+        assert list(schema["paths"]) == ["/ask"]
+        post = schema["paths"]["/ask"]["post"]
+        assert post["operationId"] == "ask"
+        assert post["requestBody"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskRequest"
+        }
+        assert post["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskResponse"
+        }
+        request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
+        assert list(request_props) == ["question"]
+        response = schema["components"]["schemas"]["AskResponse"]
+        assert response["required"] == list(CONTRACT_FIELDS)
+>       assert "items" in response["properties"]["alternatives"]
+E       AssertionError: assert 'items' in {'type': 'string', 'title': 'Alternatives'}
+
+api\tests\test_ask_route.py:45: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.32s
+
+=== BAD: POST /ask is the only question-answering path (mutation: extra question route) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_ask_is_the_only_question_route _____________________
+
+    def test_ask_is_the_only_question_route() -> None:
+        schema = client.get("/openapi.json").json()
+>       assert list(schema["paths"]) == ["/ask"]
+E       AssertionError: assert ['/ask', '/query'] == ['/ask']
+E         
+E         Left contains one more item: '/query'
+E         Use -v to get more diff
+
+api\tests\test_ask_route.py:91: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_ask_is_the_only_question_route - Ass...
+1 failed in 0.32s
+
+=== BAD: missing question field is a validation error (mutation: question optional with a default) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_missing_question_is_a_validation_error _________________
+
+    def test_missing_question_is_a_validation_error() -> None:
+        response = client.post("/ask", json={})
+>       assert response.status_code == 422
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+api\tests\test_ask_route.py:62: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_missing_question_is_a_validation_error
+1 failed in 0.45s
+
+=== GOOD: restore — all new tests ===
+......                                                                   [100%]
+6 passed in 0.35s
+
+
+=== BAD: empty-string OpenAPI minLength (mutation of Field min_length=1; covering test_openapi_documents_post_ask) ===
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+
+    def test_openapi_documents_post_ask() -> None:
+        schema = client.get("/openapi.json").json()
+        assert list(schema["paths"]) == ["/ask"]
+        post = schema["paths"]["/ask"]["post"]
+        assert post["operationId"] == "ask"
+        assert post["requestBody"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskRequest"
+        }
+        assert post["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskResponse"
+        }
+        request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
+        assert list(request_props) == ["question"]
+>       assert request_props["question"]["minLength"] == 1
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'minLength'
+
+api\tests\test_ask_route.py:43: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - KeyErro...
+1 failed in 0.43s
+
+=== GOOD: restore after minLength assertion — all new tests ===
+......                                                                   [100%]
+6 passed in 0.31s

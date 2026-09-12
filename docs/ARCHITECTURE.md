@@ -1,9 +1,11 @@
 # ARCHITECTURE — the system as it IS
 
-**Status: slice 0 is built.** Retrieval runs end to end as a two-stage pipeline:
-`search()` retrieves a top-10 pool; `rerank.py` selects one table from it.
-`budgets.toml` gates retriever `@10` and selector `@1` on the long-tail tier
-separately — raw cosine `@1` is diagnostic only.
+**Status: slice 0 is built; slice 1 has the HTTP entrypoint.** Retrieval runs
+end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
+`rerank.py` selects one table from it. `budgets.toml` gates retriever `@10` and
+selector `@1` on the long-tail tier separately — raw cosine `@1` is diagnostic
+only. `POST /ask` exists; the four-tool loop that fills the response is not
+shipped yet.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what
@@ -34,7 +36,8 @@ evidence/latest.json         last measured run
 evidence/retrieval_steps.md  every step's number, and what the plan got wrong
 docs/playbooks/review-pr.md  canonical review procedure
 pyproject.toml               uv workspace root; ruff + mypy + pytest config
-api/pyproject.toml           the app's dependencies (3 so far)
+api/pyproject.toml           the app's dependencies
+api/src/main.py              FastAPI app; `POST /ask` → `run_ask`
 .github/workflows/check.yml  the gate, on every PR
 .github/workflows/build-index.yml  manual; publishes the index release asset
 ```
@@ -61,6 +64,17 @@ Nothing builds an index at import or at request time.
 
 `index.py` caches the loaded index at module scope — the one piece of
 module-level state this project allows, sanctioned because it is read-only.
+
+### HTTP — `api/src/main.py`, `ask.py`, `contract.py`
+
+One FastAPI app, one question-answering route: `POST /ask`. `/docs` and
+`/openapi.json` come from the framework. The route calls `run_ask(question)` and
+returns `AskResponse` — `answer`, `url` (singular), `rows`, `moe`, `geoid`,
+`universe`, `table_id`, `alternatives[]`, `warnings[]`. Rows are dicts, not a
+per-row model. Start with `uv run uvicorn src.main:app --reload`.
+
+`run_ask` is a stub until the four-tool loop (CC-23) fills it. The schema is
+declared now so slice 2's client generator has something explicit to read.
 
 ### Data and artifacts
 
@@ -108,7 +122,7 @@ futures.
 | slice | adds to this file |
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
-| 1 | the agent loop, the five tools, the response contract, `POST /ask` |
+| 1 | `POST /ask` (this file). Agent loop, tools, populated contract: not yet. |
 | 2 | `web/`, the generated client, the CI staleness check |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |

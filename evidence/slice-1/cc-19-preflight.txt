@@ -1,0 +1,52 @@
+# CC-19 pre-flight — raw command output
+# Captured before implementation. Not edited.
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC                849 <= 4000
+  ok    api src files               11 <= 40
+  ok    largest file LOC           165 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens         0 <= 1200
+  ok    doc lines                 1797 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  0 <= 6
+  ok    api routes                   0 <= 10
+  ok    tool schemas                 0 <= 12
+  ok    domain models                0 <= 15
+  ok    direct dependencies          4 <= 25
+
+All budgets met.
+
+$ grep POST /ask and FastAPI( under api/
+matches 0
+
+$ api/pyproject.toml [project.dependencies]
+['google-genai>=1.0', 'httpx>=0.28', 'numpy>=2.1', 'openai>=1.60']
+
+$ Test-Path scripts/run_demo.py
+False
+
+$ hatchling wheel packages
+{'packages': ['src']}
+
+$ uv run --with fastapi --with uvicorn python  (library behaviour)
+
+GET /docs 200
+GET /openapi.json 200
+openapi paths ['/ask']
+operationId ask_ask_post
+requestBody {'$ref': '#/components/schemas/AskRequest'}
+200 schema {'$ref': '#/components/schemas/AskResponse'}
+components ['Alternative', 'AskRequest', 'AskResponse', 'AskWarning', 'HTTPValidationError', 'ValidationError']
+AskResponse required ['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+AskResponse properties ['alternatives', 'answer', 'geoid', 'moe', 'rows', 'table_id', 'universe', 'url', 'warnings']
+empty question 422
+whitespace question 422
+missing question 422
+not json 422
+valid 200 reached 1
+pydantic empty: 1 errors
+fastapi 0.141.1
