@@ -1,0 +1,827 @@
+# Gate 1 — CC-25 — branch feat/cc-25-response-contract
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_assemble_emits_every_declared_field api/tests/test_ask_loop.py::test_each_estimate_is_returned_with_its_matching_margin api/tests/test_ask_loop.py::test_missing_margin_stays_visible_as_none api/tests/test_ask_loop.py::test_every_row_carries_an_affgeoid api/tests/test_ask_loop.py::test_many_rows_do_not_name_one_geoid api/tests/test_ask_loop.py::test_empty_matrix_universe_falls_back_to_the_search_hit api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ api/tests/test_ask_loop.py::test_universe_comes_from_the_requested_vintage api/tests/test_ask_loop.py::test_fetch_with_no_rows_still_returns_the_url api/tests/test_ask_loop.py::test_aborted_loop_still_returns_every_contract_field api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe api/tests/test_ask_route.py::test_openapi_documents_post_ask
+............                                                             [100%]
+12 passed in 0.66s
+(exit 0)
+
+=== BAD: assemble emits every declared field (mutation: AskResponse grows an undeclared extra field) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_assemble_emits_every_declared_field
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_assemble_emits_every_declared_field ___________________
+
+    def test_assemble_emits_every_declared_field() -> None:
+        response = assemble("", ExecutionRecord())
+>       assert list(response.model_dump()) == list(CONTRACT_FIELDS)
+E       AssertionError: assert ['answer', 'u...niverse', ...] == ['answer', 'u...niverse', ...]
+E         
+E         Left contains one more item: 'extra'
+E         Use -v to get more diff
+
+api\tests\test_ask_loop.py:274: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_assemble_emits_every_declared_field
+1 failed in 0.38s
+(exit 1)
+
+=== BAD: each estimate is returned with its matching margin (mutation: _moe_rows returns the estimate row unchanged) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_each_estimate_is_returned_with_its_matching_margin
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_each_estimate_is_returned_with_its_matching_margin ___________
+
+    def test_each_estimate_is_returned_with_its_matching_margin() -> None:
+        record = ExecutionRecord()
+        record.geography = {"geoid": "0500000US48201"}
+        record.rows = [
+            {
+                "NAME": "Harris County, Texas",
+                "GEO_ID": "0500000US48201",
+                "B01003_001E": "4838303",
+                "B01003_001M": "123",
+                "state": "48",
+                "county": "201",
+            }
+        ]
+        response = assemble("x", record)
+>       assert response.moe == [
+            {
+                "NAME": "Harris County, Texas",
+                "GEO_ID": "0500000US48201",
+                "B01003_001M": "123",
+            }
+        ]
+E       AssertionError: assert [{'NAME': 'Ha...: '123', ...}] == [{'NAME': 'Ha...001M': '123'}]
+E         
+E         At index 0 diff: {'NAME': 'Harris County, Texas', 'GEO_ID': '0500000US48201', 'B01003_001E': '4838303', 'B01003_001M': '123', 'state': '48', 'county': '201'} != {'NAME': 'Harris County, Texas', 'GEO_ID': '0500000US48201', 'B01003_001M': '123'}
+E         Use -v to get more diff
+
+api\tests\test_ask_loop.py:293: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_each_estimate_is_returned_with_its_matching_margin
+1 failed in 0.35s
+(exit 1)
+
+=== BAD: rows do not carry the Census URL (mutation: assemble copies the URL onto every row) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_each_estimate_is_returned_with_its_matching_margin
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_each_estimate_is_returned_with_its_matching_margin ___________
+
+    def test_each_estimate_is_returned_with_its_matching_margin() -> None:
+        record = ExecutionRecord()
+        record.geography = {"geoid": "0500000US48201"}
+        record.rows = [
+            {
+                "NAME": "Harris County, Texas",
+                "GEO_ID": "0500000US48201",
+                "B01003_001E": "4838303",
+                "B01003_001M": "123",
+                "state": "48",
+                "county": "201",
+            }
+        ]
+        response = assemble("x", record)
+        assert response.moe == [
+            {
+                "NAME": "Harris County, Texas",
+                "GEO_ID": "0500000US48201",
+                "B01003_001M": "123",
+            }
+        ]
+>       assert "url" not in response.rows[0]
+E       AssertionError: assert 'url' not in {'NAME': 'Harris County, Texas', 'GEO_ID': '0500000US48201', 'B01003_001E': '4838303', 'B01003_001M': '123', ...}
+
+api\tests\test_ask_loop.py:300: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_each_estimate_is_returned_with_its_matching_margin
+1 failed in 0.40s
+(exit 1)
+
+=== BAD: missing margin stays visible as None (mutation: _moe_rows keeps only keys that already exist) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_missing_margin_stays_visible_as_none
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_missing_margin_stays_visible_as_none __________________
+
+    def test_missing_margin_stays_visible_as_none() -> None:
+        record = ExecutionRecord()
+        record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}]
+        response = assemble("x", record)
+>       assert response.moe[0]["B01003_001M"] is None
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'B01003_001M'
+
+api\tests\test_ask_loop.py:307: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_missing_margin_stays_visible_as_none
+1 failed in 0.60s
+(exit 1)
+
+=== BAD: every row carries an AFFGEOID (mutation: _rows_with_geoid does not fill missing GEO_ID from the geography fallback) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_every_row_carries_an_affgeoid
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_every_row_carries_an_affgeoid ______________________
+
+    def test_every_row_carries_an_affgeoid() -> None:
+        record = ExecutionRecord()
+        record.geography = {"geoid": "0500000US48201", "for": "county:201", "in": "state:48"}
+        record.rows = [{"NAME": "Harris County, Texas", "B01003_001E": "1", "B01003_001M": "2"}]
+        response = assemble("x", record)
+>       assert response.rows[0]["GEO_ID"] == "0500000US48201"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'GEO_ID'
+
+api\tests\test_ask_loop.py:315: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_every_row_carries_an_affgeoid - KeyEr...
+1 failed in 0.49s
+(exit 1)
+
+=== BAD: many rows do not name one GEOID (mutation: _response_geoid names the first row even when many areas are returned) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_many_rows_do_not_name_one_geoid
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_many_rows_do_not_name_one_geoid _____________________
+
+    def test_many_rows_do_not_name_one_geoid() -> None:
+        record = ExecutionRecord()
+        record.geography = {"for": "county:*", "in": "state:41", "geoid": ""}
+        record.rows = [
+            {"GEO_ID": "0500000US41001", "B01003_001E": "1", "B01003_001M": "2"},
+            {"GEO_ID": "0500000US41003", "B01003_001E": "3", "B01003_001M": "4"},
+        ]
+        response = assemble("x", record)
+>       assert response.geoid == ""
+E       AssertionError: assert '0500000US41001' == ''
+E         
+E         + 0500000US41001
+
+api\tests\test_ask_loop.py:327: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_many_rows_do_not_name_one_geoid - Ass...
+1 failed in 0.36s
+(exit 1)
+
+=== BAD: empty matrix universe falls back to the search hit (mutation: assemble uses record.universe with no search-hit fallback) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_empty_matrix_universe_falls_back_to_the_search_hit
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_empty_matrix_universe_falls_back_to_the_search_hit ___________
+
+    def test_empty_matrix_universe_falls_back_to_the_search_hit() -> None:
+        record = ExecutionRecord()
+        record.table_id = "B19013"
+        record.universe = ""
+        record.pool = [
+            {
+                "table_id": "B19013",
+                "title": "Median Household Income",
+                "universe": "Households",
+                "members": [],
+            }
+        ]
+>       assert assemble("x", record).universe == "Households"
+E       AssertionError: assert '' == 'Households'
+E         
+E         - Households
+
+api\tests\test_ask_loop.py:343: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_empty_matrix_universe_falls_back_to_the_search_hit
+1 failed in 0.52s
+(exit 1)
+
+=== BAD: alternatives say how they differ (mutation: _how_differs always returns related table) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_alternatives_say_how_they_differ ____________________
+
+    def test_alternatives_say_how_they_differ() -> None:
+        record = ExecutionRecord()
+        record.table_id = "B19013"
+        record.universe = "Households"
+        record.pool = [
+            {
+                "table_id": "B19013",
+                "title": "Median Household Income",
+                "universe": "Households",
+                "members": ["B19013A"],
+            },
+            {
+                "table_id": "B19113",
+                "title": "Median Family Income",
+                "universe": "Families",
+                "members": [],
+            },
+            {
+                "table_id": "B19001",
+                "title": "Household Income",
+                "universe": "Households",
+                "members": [],
+            },
+            {
+                "table_id": "B15003",
+                "title": "Educational Attainment",
+                "universe": "Population 25 years and over",
+                "members": ["C15003"],
+            },
+            {
+                "table_id": "B25044",
+                "title": "Tenure by Vehicles Available",
+                "universe": "Occupied housing units",
+                "members": ["C25045"],
+            },
+            {
+                "table_id": "B11001",
+                "title": "Household Type",
+                "universe": "Households",
+                "members": [],
+            },
+        ]
+        by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
+>       assert by_id["B19013A"] == "race iteration"
+E       AssertionError: assert 'related table' == 'race iteration'
+E         
+E         - race iteration
+E         + related table
+
+api\tests\test_ask_loop.py:389: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ - As...
+1 failed in 0.44s
+(exit 1)
+
+=== BAD: universe comes from the requested vintage (mutation: assemble prefers the search-hit universe over the vintage facts) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_universe_comes_from_the_requested_vintage
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_universe_comes_from_the_requested_vintage ________________
+
+    async def test_universe_comes_from_the_requested_vintage() -> None:
+        record = ExecutionRecord()
+        record.pool = [
+            {
+                "table_id": "B01003",
+                "title": "Total Population",
+                "universe": "Total population",
+                "members": [],
+            }
+        ]
+        record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
+        record.geographies = [dict(record.geography)]
+        facts = {
+            "acs5": {
+                2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}},
+                2019: {"B01003": {"universe": "Total population (2019)", "variables": ["001E"]}},
+            }
+        }
+        tools = _tools(record)
+        tools["build_url"] = BuildUrlTool(
+            allowed_tables=lambda: {"B01003"},
+            latest_vintage=lambda dataset: 2024,
+            table_facts=lambda dataset, year, table_id: (
+                facts.get(dataset, {}).get(year, {}).get(table_id)
+            ),
+            last_geography=lambda: record.geography,
+            allowed_geographies=lambda: {("county:201", "state:48")},
+        )
+        queue = [
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "1", "name": "build_url", "args": {"table_id": "B01003", "vintage": 2019}}
+                ],
+            },
+            {"content": "done", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            _ = messages, openai_tools
+            return queue.pop(0)
+    
+        response = await run_ask("population", complete=complete, tools=tools, record=record)
+>       assert response.universe == "Total population (2019)"
+E       AssertionError: assert 'Total population' == 'Total population (2019)'
+E         
+E         - Total population (2019)
+E         ?                 -------
+E         + Total population
+
+api\tests\test_ask_loop.py:443: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_universe_comes_from_the_requested_vintage
+1 failed in 0.73s
+(exit 1)
+
+=== BAD: fetch with no rows still returns the URL (mutation: assemble drops the URL when there are no rows) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_fetch_with_no_rows_still_returns_the_url
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_fetch_with_no_rows_still_returns_the_url ________________
+
+    async def test_fetch_with_no_rows_still_returns_the_url() -> None:
+        record = ExecutionRecord()
+        record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+        record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
+        record.geographies = [dict(record.geography)]
+        tools = _tools(record)
+        tools["fetch_data"] = FetchDataTool(
+            last_url=lambda: record.url,
+            census_key=lambda: "secret",
+            http_get=lambda url: (200, [["NAME", "GEO_ID", "B01003_001E", "B01003_001M"]]),
+        )
+        queue = [
+            {
+                "content": "",
+                "tool_calls": [{"id": "1", "name": "build_url", "args": {"table_id": "B01003"}}],
+            },
+            {"content": "", "tool_calls": [{"id": "2", "name": "fetch_data", "args": {}}]},
+            {"content": "No rows.", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            _ = messages, openai_tools
+            return queue.pop(0)
+    
+        response = await run_ask("population", complete=complete, tools=tools, record=record)
+>       assert response.url
+E       AssertionError: assert ''
+E        +  where '' = AskResponse(answer='No rows.', url='', rows=[], moe=[], geoid='0500000US48201', universe='Total population', table_id='B01003', alternatives=[], warnings=[]).url
+
+api\tests\test_ask_loop.py:474: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_fetch_with_no_rows_still_returns_the_url
+1 failed in 0.63s
+(exit 1)
+
+=== BAD: aborted loop still returns every contract field (mutation: run_ask re-raises instead of assembling after two consecutive failures) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_aborted_loop_still_returns_every_contract_field
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_aborted_loop_still_returns_every_contract_field _____________
+
+    async def test_aborted_loop_still_returns_every_contract_field() -> None:
+        record = ExecutionRecord()
+        tools = _tools(record)
+        queue = [
+            {
+                "content": "trying",
+                "tool_calls": [
+                    {"id": "1", "name": "fetch_data", "args": {}},
+                    {"id": "2", "name": "fetch_data", "args": {}},
+                ],
+            }
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            _ = messages, openai_tools
+            return queue.pop(0)
+    
+>       response = await run_ask("population", complete=complete, tools=tools, record=record)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_ask_loop.py:501: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+api\src\ask.py:409: in run_ask
+    content = await dispatch(tool, call, record)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+tool = FetchDataTool(last_url=<function _tools.<locals>.<lambda> at 0x0000026969945C60>, census_key=<function _tools.<locals>.<lambda> at 0x0000026969945D00>, http_get=<function _tools.<locals>.<lambda> at 0x0000026969945DA0>)
+call = {'id': '2', 'name': 'fetch_data', 'args': {}}
+record = ExecutionRecord(pool=[], geography=None, geographies=[], url=None, table_id='', universe='', rows=[], timings=[{'tool'...ta', 'ms': 11.4, 'ok': False}, {'tool': 'fetch_data', 'ms': 0.2, 'ok': False}], consecutive_failures={'fetch_data': 2})
+
+    async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord) -> str:
+        name = tool.name
+        started = time.perf_counter()
+        ok = False
+        content = ""
+        try:
+            message = await tool.ainvoke(
+                {
+                    "type": "tool_call",
+                    "name": name,
+                    "args": call.get("args") or {},
+                    "id": call.get("id") or name,
+                }
+            )
+            content = str(getattr(message, "content", message))
+            artifact = getattr(message, "artifact", None)
+            ok = _artifact_ok(artifact)
+            _absorb(record, name, artifact)
+        except Exception as exc:  # noqa: BLE001 - contained tool failure goes back to the model
+            content = f"{name} failed: {redact_text(str(exc))}"
+            ok = False
+        record.timings.append(
+            {"tool": name, "ms": round((time.perf_counter() - started) * 1000, 1), "ok": ok}
+        )
+        if ok:
+            record.consecutive_failures[name] = 0
+        else:
+            record.consecutive_failures[name] = record.consecutive_failures.get(name, 0) + 1
+            if record.consecutive_failures[name] >= 2:
+>               raise RuntimeError(f"{name} failed twice")
+E               RuntimeError: fetch_data failed twice
+
+api\src\ask.py:259: RuntimeError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_aborted_loop_still_returns_every_contract_field
+1 failed in 0.60s
+(exit 1)
+
+=== BAD: scripted loop URL get= includes GEO_ID (mutation: BuildUrlTool omits GEO_ID from get=) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_scripted_loop_fills_url_rows_geoid_and_universe _____________
+
+    async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
+        record = ExecutionRecord()
+        tools = _tools(record)
+        queue: list[dict[str, Any]] = [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "1",
+                        "name": "search_tables",
+                        "args": {"question": "population of Harris County, Texas"},
+                    }
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+            },
+            {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+            {"content": "Harris County has data.", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            names = {tool["function"]["name"] for tool in openai_tools}
+            assert names == {"search_tables", "resolve_geography", "build_url", "fetch_data"}
+            _ = messages
+            return queue.pop(0)
+    
+        response = await run_ask(
+            "population of Harris County, Texas", complete=complete, tools=tools, record=record
+        )
+        assert isinstance(response, AskResponse)
+        assert list(response.model_dump()) == list(CONTRACT_FIELDS)
+        assert response.table_id == "B01003"
+        assert response.universe == "Total population"
+        assert response.geoid == "0500000US48201"
+        assert "key=" not in response.url
+        parts = urlsplit(response.url)
+        assert parts.path == "/data/2024/acs/acs5"
+        query = parse_qs(parts.query)
+        assert "B01003_001E" in query["get"][0]
+        assert "B01003_001M" in query["get"][0]
+>       assert "GEO_ID" in query["get"][0]
+E       AssertionError: assert 'GEO_ID' in 'NAME,B01003_001E,B01003_001M'
+
+api\tests\test_ask_loop.py:108: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+1 failed in 0.56s
+(exit 1)
+
+=== BAD: scripted loop rows carry GEO_ID (mutation: assemble strips GEO_ID from rows) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_scripted_loop_fills_url_rows_geoid_and_universe _____________
+
+    async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
+        record = ExecutionRecord()
+        tools = _tools(record)
+        queue: list[dict[str, Any]] = [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "1",
+                        "name": "search_tables",
+                        "args": {"question": "population of Harris County, Texas"},
+                    }
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+            },
+            {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+            {"content": "Harris County has data.", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            names = {tool["function"]["name"] for tool in openai_tools}
+            assert names == {"search_tables", "resolve_geography", "build_url", "fetch_data"}
+            _ = messages
+            return queue.pop(0)
+    
+        response = await run_ask(
+            "population of Harris County, Texas", complete=complete, tools=tools, record=record
+        )
+        assert isinstance(response, AskResponse)
+        assert list(response.model_dump()) == list(CONTRACT_FIELDS)
+        assert response.table_id == "B01003"
+        assert response.universe == "Total population"
+        assert response.geoid == "0500000US48201"
+        assert "key=" not in response.url
+        parts = urlsplit(response.url)
+        assert parts.path == "/data/2024/acs/acs5"
+        query = parse_qs(parts.query)
+        assert "B01003_001E" in query["get"][0]
+        assert "B01003_001M" in query["get"][0]
+        assert "GEO_ID" in query["get"][0]
+        assert query["for"] == ["county:201"]
+        assert query["in"] == ["state:48"]
+        assert "key" not in query
+        assert response.rows[0]["B01003_001E"] == "4838303"
+>       assert response.rows[0]["GEO_ID"] == "0500000US48201"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'GEO_ID'
+
+api\tests\test_ask_loop.py:113: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+1 failed in 0.58s
+(exit 1)
+
+=== BAD: scripted loop moe pairing keeps E out of moe (mutation: _moe_rows returns the estimate row unchanged) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_scripted_loop_fills_url_rows_geoid_and_universe _____________
+
+    async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
+        record = ExecutionRecord()
+        tools = _tools(record)
+        queue: list[dict[str, Any]] = [
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "1",
+                        "name": "search_tables",
+                        "args": {"question": "population of Harris County, Texas"},
+                    }
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+            },
+            {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+            {"content": "Harris County has data.", "tool_calls": []},
+        ]
+    
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            names = {tool["function"]["name"] for tool in openai_tools}
+            assert names == {"search_tables", "resolve_geography", "build_url", "fetch_data"}
+            _ = messages
+            return queue.pop(0)
+    
+        response = await run_ask(
+            "population of Harris County, Texas", complete=complete, tools=tools, record=record
+        )
+        assert isinstance(response, AskResponse)
+        assert list(response.model_dump()) == list(CONTRACT_FIELDS)
+        assert response.table_id == "B01003"
+        assert response.universe == "Total population"
+        assert response.geoid == "0500000US48201"
+        assert "key=" not in response.url
+        parts = urlsplit(response.url)
+        assert parts.path == "/data/2024/acs/acs5"
+        query = parse_qs(parts.query)
+        assert "B01003_001E" in query["get"][0]
+        assert "B01003_001M" in query["get"][0]
+        assert "GEO_ID" in query["get"][0]
+        assert query["for"] == ["county:201"]
+        assert query["in"] == ["state:48"]
+        assert "key" not in query
+        assert response.rows[0]["B01003_001E"] == "4838303"
+        assert response.rows[0]["GEO_ID"] == "0500000US48201"
+        assert "url" not in response.rows[0]
+        assert response.moe[0]["B01003_001M"] == "123"
+>       assert "B01003_001E" not in response.moe[0]
+E       AssertionError: assert 'B01003_001E' not in {'NAME': 'Harris County, Texas', 'B01003_001E': '4838303', 'B01003_001M': '123', 'GEO_ID': '0500000US48201', ...}
+
+api\tests\test_ask_loop.py:116: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+1 failed in 0.47s
+(exit 1)
+
+=== BAD: OpenAPI alternatives $ref Alternative (mutation: AskResponse.alternatives is list[dict] not list[Alternative]) ===
+$ uv run pytest -q api/tests/test_ask_route.py::test_openapi_documents_post_ask
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+
+    def test_openapi_documents_post_ask() -> None:
+        schema = client.get("/openapi.json").json()
+        assert list(schema["paths"]) == ["/ask"]
+        post = schema["paths"]["/ask"]["post"]
+        assert post["operationId"] == "ask"
+        assert post["requestBody"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskRequest"
+        }
+        assert post["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskResponse"
+        }
+        request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
+        assert list(request_props) == ["question"]
+        assert request_props["question"]["minLength"] == 1
+        response = schema["components"]["schemas"]["AskResponse"]
+        assert response["required"] == list(CONTRACT_FIELDS)
+>       assert response["properties"]["alternatives"]["items"] == {
+            "$ref": "#/components/schemas/Alternative"
+        }
+E       AssertionError: assert {'additionalP...pe': 'object'} == {'$ref': '#/c.../Alternative'}
+E         
+E         Left contains 2 more items:
+E         {'additionalProperties': {'type': 'string'}, 'type': 'object'}
+E         Right contains 1 more item:
+E         {'$ref': '#/components/schemas/Alternative'}
+E         Use -v to get more diff
+
+api\tests\test_ask_route.py:47: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.47s
+(exit 1)
+
+=== BAD: OpenAPI warnings $ref AskWarning (mutation: AskResponse.warnings is list[dict] not list[AskWarning]) ===
+$ uv run pytest -q api/tests/test_ask_route.py::test_openapi_documents_post_ask
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+
+    def test_openapi_documents_post_ask() -> None:
+        schema = client.get("/openapi.json").json()
+        assert list(schema["paths"]) == ["/ask"]
+        post = schema["paths"]["/ask"]["post"]
+        assert post["operationId"] == "ask"
+        assert post["requestBody"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskRequest"
+        }
+        assert post["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskResponse"
+        }
+        request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
+        assert list(request_props) == ["question"]
+        assert request_props["question"]["minLength"] == 1
+        response = schema["components"]["schemas"]["AskResponse"]
+        assert response["required"] == list(CONTRACT_FIELDS)
+        assert response["properties"]["alternatives"]["items"] == {
+            "$ref": "#/components/schemas/Alternative"
+        }
+>       assert response["properties"]["warnings"]["items"] == {
+            "$ref": "#/components/schemas/AskWarning"
+        }
+E       AssertionError: assert {'additionalP...pe': 'object'} == {'$ref': '#/c...s/AskWarning'}
+E         
+E         Left contains 2 more items:
+E         {'additionalProperties': {'type': 'string'}, 'type': 'object'}
+E         Right contains 1 more item:
+E         {'$ref': '#/components/schemas/AskWarning'}
+E         Use -v to get more diff
+
+api\tests\test_ask_route.py:50: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.44s
+(exit 1)
+
+=== BAD: OpenAPI url is a string not an array (mutation: AskResponse.url is list[str]) ===
+$ uv run pytest -q api/tests/test_ask_route.py::test_openapi_documents_post_ask
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+
+    def test_openapi_documents_post_ask() -> None:
+        schema = client.get("/openapi.json").json()
+        assert list(schema["paths"]) == ["/ask"]
+        post = schema["paths"]["/ask"]["post"]
+        assert post["operationId"] == "ask"
+        assert post["requestBody"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskRequest"
+        }
+        assert post["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskResponse"
+        }
+        request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
+        assert list(request_props) == ["question"]
+        assert request_props["question"]["minLength"] == 1
+        response = schema["components"]["schemas"]["AskResponse"]
+        assert response["required"] == list(CONTRACT_FIELDS)
+        assert response["properties"]["alternatives"]["items"] == {
+            "$ref": "#/components/schemas/Alternative"
+        }
+        assert response["properties"]["warnings"]["items"] == {
+            "$ref": "#/components/schemas/AskWarning"
+        }
+>       assert response["properties"]["url"]["type"] == "string"
+E       AssertionError: assert 'array' == 'string'
+E         
+E         - string
+E         + array
+
+api\tests\test_ask_route.py:53: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.53s
+(exit 1)
+
+=== BAD: OpenAPI url description is present (mutation: AskResponse.url Field has no description) ===
+$ uv run pytest -q api/tests/test_ask_route.py::test_openapi_documents_post_ask
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+
+    def test_openapi_documents_post_ask() -> None:
+        schema = client.get("/openapi.json").json()
+        assert list(schema["paths"]) == ["/ask"]
+        post = schema["paths"]["/ask"]["post"]
+        assert post["operationId"] == "ask"
+        assert post["requestBody"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskRequest"
+        }
+        assert post["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AskResponse"
+        }
+        request_props = schema["components"]["schemas"]["AskRequest"]["properties"]
+        assert list(request_props) == ["question"]
+        assert request_props["question"]["minLength"] == 1
+        response = schema["components"]["schemas"]["AskResponse"]
+        assert response["required"] == list(CONTRACT_FIELDS)
+        assert response["properties"]["alternatives"]["items"] == {
+            "$ref": "#/components/schemas/Alternative"
+        }
+        assert response["properties"]["warnings"]["items"] == {
+            "$ref": "#/components/schemas/AskWarning"
+        }
+        assert response["properties"]["url"]["type"] == "string"
+        assert "items" not in response["properties"]["url"]
+>       assert "description" in response["properties"]["url"]
+E       AssertionError: assert 'description' in {'type': 'string', 'title': 'Url'}
+
+api\tests\test_ask_route.py:55: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.37s
+(exit 1)
+
+=== GOOD: full unit suite after restore ===
+$ uv run pytest -q -m not integration
+........................................................................ [ 56%]
+........................................................                 [100%]
+128 passed in 2.91s
+(exit 0)
+
+=== restore: git status --porcelain ===
+$ git status --porcelain
+?? evidence/slice-1/cc-25-gate1.txt
+(exit 0)
+
+=== summary ===
+mutations_run=18
+verdict=PASS (all new tests mutation-checked GOOD/BAD as required)
