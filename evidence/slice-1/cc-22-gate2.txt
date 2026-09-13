@@ -1,0 +1,230 @@
+# CC-22 Gate 2
+# branch: feat/cc-22-guards
+# HEAD: f335b0f65695240bf08bcbcc7a08a388dbf3e716
+# origin/main: f256af93600298eaebffa119685ec57a62bd9c9c
+# captured: 2026-09-12T20:53:39-05:00
+# uncommitted: none (git status --short empty)
+
+=== git log origin/main...HEAD --oneline ===
+f335b0f evidence(slice-1): record CC-22 Gate 1 mutation transcript
+46bf4f6 feat(api): warn on silent-wrong-answer cases without blocking (CC-22)
+
+=== git diff --stat origin/main...HEAD ===
+ api/src/ask.py                             |  11 +-
+ api/src/contract.py                        |   3 +-
+ api/src/geo.py                             |   3 +
+ api/src/guards.py                          | 157 +++++++++++++
+ api/tests/test_guards.py                   | 153 +++++++++++++
+ docs/ARCHITECTURE.md                       |  19 +-
+ evidence/slice-1/cc-22-gate1.txt           | 348 +++++++++++++++++++++++++++++
+ evidence/slice-1/cc-22-preflight-claims.md |  21 ++
+ evidence/slice-1/cc-22-preflight.txt       | Bin 0 -> 34494 bytes
+ 9 files changed, 706 insertions(+), 9 deletions(-)
+
+=== git status --short ===
+(empty)
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+
+BUDGETS
+
+  ok    api src LOC               2167 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1796 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+[exit 0]
+
+
+=== uv run ruff check . ; uv run ruff format --check . ===
+$ uv run ruff check . ; uv run ruff format --check .
+
+All checks passed!
+76 files already formatted
+
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+
+Success: no issues found in 19 source files
+
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 48%]
+........................................................................ [ 97%]
+...                                                                      [100%]
+147 passed in 2.91s
+
+[exit 0]
+
+
+================================================================================
+PASS 1 ? generic bugs (cold read of git diff origin/main...HEAD; no intent)
+================================================================================
+Diff: 46bf4f6 + f335b0f vs origin/main (f256af9). Uncommitted at capture: none.
+9 files, +706 / -9. Production: guards.py (new), ask.py, contract.py, geo.py,
+ARCHITECTURE.md; rest is tests/evidence.
+
+Verdict: one real wiring bug; no crash; no dropped URL/MOE/GEOID; no test that
+cannot fail.
+
+Findings:
+- geography_unsupported keys off geo_status["legal"] is False. resolve_geography
+  sets legal=predicate is not None and bool(matched). A legal for/in with zero
+  name hits therefore lands as geography_unsupported, with detail
+  "no {level} matched ...". Unknown level and a true illegal combination use the
+  same flag. The guard cannot tell those cases apart. Answer still ships.
+- moe_not_significant compares only the first key on rows[0] that endswith "E"
+  and contains "_". Later estimate columns are ignored. Pairwise skip when any
+  of e1/e2/m1/m2 is missing is safe. Formula |e1-e2| <= sqrt(m1^2+m2^2) is the
+  90% MOE of the difference (local name se is misleading, math is not).
+- overlapping_vintage unions ACS5 end years parsed from YYYY-YYYY spans of 4 in
+  the question with every acs5 vintage appended from build_url (including
+  failed builds). Consecutive sorted unique years with gap < 5 warn. Single
+  year and 2017 vs 2022 do not. "from 2017 to 2023" is not a hyphen range and
+  does not fire.
+- ambiguous_place fires when len(geographies) > 1 and lists names; assemble
+  still returns the model answer. Multiple matches leave geography=None, so
+  build_url's allowed set is empty and a single URL cannot be built. Candidates
+  are the result.
+- universe_mismatch reads only the question. GuardRecord has no universe or
+  table_id, so a household question answered with a family table cannot warn.
+  Word-boundary needles (household/households, family/families, population,
+  housing unit/s) do not treat "family income" as two universes.
+- _absorb writes geo_status and appends vintages; assemble(answer, record)
+  always attaches evaluate(record) and never clears answer/url/rows. Failure
+  assemble still emits every AskResponse field. No new URL formatter; str(url)
+  is still CensusURL. Guards do not raise and do not ask a question.
+- Tests: none are tautological. Each positive test can fail if its guard is
+  removed; each negative test can fail if the guard is too eager. Gaps, not
+  cannot-fail: test_overlapping_vintages_from_build_url_calls and
+  test_illegal_geography_combination_warns stub ExecutionRecord fields and
+  never go through dispatch/_absorb; test_block_group_wildcard_in_a_state_is_illegal
+  stops at the tool artifact and does not check warnings[] on assemble.
+  test_ambiguous_resolve_lands_on_the_response is the one wiring test that
+  does. Search/geo fakes still vary by input (not a constant B01003 stub).
+  No assertion on prompt wording.
+
+================================================================================
+PASS 2 ? project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check . ; uv run ruff format --check .              [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  147 passed
+
+Machines are green. Review continues.
+
+--- the claim ---
+A user who POSTs /ask now gets the five DESIGN ?4 slice-1 warnings on the
+response when they apply ? overlapping ACS5 vintages, MOE-indistinguishable
+differences, illegal geography combinations, several matching places, and a
+question that names two universes ? without losing the answer, URL, MOE, GEOID,
+or universe. That sentence can be written. make demo / make eval are E2E (next
+phase); this Gate 2 does not treat a missing demo as a machine failure. No
+retrieval@1 delta is claimed. run_demo.py is CC-26, out of ticket.
+
+--- scope ---
+Belongs to slice 1 / CC-22: the five guards, none blocking. Not added:
+run_demo.py (CC-26), urls[] / multi-year fetch (slice 3), frontend, auth,
+graphs, a fifth tool, conversation, charts, clarification. geo.py block-group
+aliases are required so "every block group in Wyoming" is a legality miss, not
+a place search; they are not opportunistic. ARCHITECTURE.md updated in the
+implementation commit. 9 files, under ~15.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: assemble still returns str(CensusURL) or "". Guards never strip it.
+  OpenAPI keeps url a string, not an array. Redaction stays on the CensusURL
+  type; this PR does not format a URL any other way.
+- MOE: fetch pairing is unchanged; moe_not_significant reads artifacts and
+  warns. Estimates do not pass back through the model. The first-E-only scan
+  can miss a later indistinguishable column ? a missed case, not a dropped
+  margin on the contract.
+- GEOID: unchanged paths; ambiguous many-matches still leave top-level geoid
+  empty.
+- Universe: record.universe / selected hit still populate AskResponse.universe.
+  universe_mismatch is the t06 question-crossing-two-names case, not the t02
+  wrong-table pick; t02 has no expect_warning and is out of this ticket.
+- Guards warn and ship. None becomes a blocking question. Block-group wildcards
+  in a state are rejected (matches=[], legal=False), not rewritten as counties.
+  No silent vintage or geography substitution in this diff.
+- geography_unsupported on a zero-name-match (legal flag false because
+  matched is empty) is a wrong code with an honest detail string, not a
+  silent wrong number. Does not block.
+
+Out of ticket, do not demand: run_demo.py, urls[], frontend, auth, graphs, a
+fifth tool, table?level publication (availability is dataset/vintage/table
+only; slice-1 meaning is illegal for/in from geography.json).
+
+--- shape ---
+No new tool, route, Pydantic boundary-model, or .add_node(). AskWarning /
+AskResponse were already the HTTP contract; this PR names the five codes in
+the Field description. GuardRecord is a typing.Protocol in guards.py, not a
+sixth domain model. evaluate() is called once from assemble(), not
+middleware and not a fifth tool. Tools stay at 4. ARCHITECTURE.md updated in
+the same commit as guards.py.
+
+--- tests ---
+Behavior, not prompt wording. New tests drive evaluate()/assemble() from a
+constructed record or dispatch(resolve_geography); they assert warning codes,
+that the answer still ships, and that negatives stay quiet ? not LLM prose.
+No new test file named after a ticket. Search fake still varies by question.
+Gate 1 mutation transcript is in evidence/slice-1/cc-22-gate1.txt; this
+review does not re-run mutations.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: POST /ask now attaches the five
+slice-1 DESIGN ?4 warnings without blocking ? overlapping ACS5 vintages,
+indistinguishable MOE differences, illegal geography combinations, ambiguous
+places, and questions that name two universes ? and still returns answer, URL,
+MOE, GEOID, and universe.
+
+Follow-ups (none are silent-wrong-answer):
+1. Do not treat a legal combination with zero name matches as
+   geography_unsupported. geo.py ORs legality with bool(matched); the guard
+   believes legal=False always means unsupported geography.
+2. moe_not_significant should not stop at the first *_E column on row 0.
+3. Budget headroom after this PR: largest file 400/400 (ask.py), doc_lines
+   1796/1800. The next ask.py helper or docs sentence fails the gate.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
