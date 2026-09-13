@@ -212,6 +212,63 @@ async def test_unknown_vocabulary_does_not_invent_a_table(search_tool: SearchTab
     assert message.artifact.hits == []
 
 
+def _pool_search(question: str, k: int = 10) -> list[str]:
+    del question
+    return ["B27010", "B27001"][:k]
+
+
+async def test_selector_pick_is_first_hit() -> None:
+    tool = SearchTablesTool(
+        search=_pool_search,
+        describe=_describe,
+        select=lambda question, hits: "B27001",
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "health insurance by age"},
+            "id": "c1",
+        }
+    )
+    ids = [hit["table_id"] for hit in message.artifact.hits]
+    assert ids[0] == "B27001"
+    assert ids == ["B27001", "B27010"]
+
+
+async def test_empty_search_does_not_call_selector() -> None:
+    def boom(question: str, hits: list[dict[str, object]]) -> str:
+        raise AssertionError(f"selector called: {question!r} {hits!r}")
+
+    tool = SearchTablesTool(search=_search, describe=_describe, select=boom)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "zzzz nonexistent vocabulary"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.hits == []
+
+
+async def test_unknown_selector_id_keeps_retrieval_order() -> None:
+    tool = SearchTablesTool(
+        search=_pool_search,
+        describe=_describe,
+        select=lambda question, hits: "B99999",
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "health insurance by age"},
+            "id": "c1",
+        }
+    )
+    assert [hit["table_id"] for hit in message.artifact.hits] == ["B27010", "B27001"]
+
+
 def test_county_in_state_uses_summary_level_050_not_last_wins() -> None:
     chosen = legal_predicate("county", frozenset({"state"}), wildcard=True, entries=ENTRIES)
     assert chosen is not None

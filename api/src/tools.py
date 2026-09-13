@@ -81,6 +81,7 @@ class FetchDataResult(ToolResult):
 
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
+SelectFn = Callable[[str, list[dict[str, Any]]], str]
 AllowedTables = Callable[[], set[str]]
 AllowedGeographies = Callable[[], set[tuple[str, str]]]
 LatestVintage = Callable[[str], int]
@@ -96,6 +97,29 @@ def _census_get(url: str) -> tuple[int, Any]:
     except json.JSONDecodeError:
         payload = response.text
     return response.status_code, payload
+
+
+def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
+    """Move the selector's table to front. An unknown ID leaves ranking as-is."""
+    if not any(hit["table_id"] == picked for hit in hits):
+        return hits
+    return [hit for hit in hits if hit["table_id"] == picked] + [
+        hit for hit in hits if hit["table_id"] != picked
+    ]
+
+
+def _pick_table(question: str, hits: list[dict[str, Any]], select: SelectFn | None) -> str:
+    if select is not None:
+        return select(question, hits)
+    from src.retrieval.rerank import Candidate, choose
+
+    return choose(
+        question,
+        [
+            Candidate(str(hit["table_id"]), str(hit["title"]), str(hit.get("universe") or ""))
+            for hit in hits
+        ],
+    )
 
 
 def pair_margins(variable_ids: list[str]) -> list[str]:
@@ -123,6 +147,7 @@ class SearchTablesTool(BaseTool):
 
     search: SearchFn
     describe: DescribeTable
+    select: SelectFn | None = None
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
@@ -140,6 +165,9 @@ class SearchTablesTool(BaseTool):
                     "members": list(meta.get("members") or []),
                 }
             )
+        if len(hits) > 1:
+            picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+            hits = _promote(hits, picked)
         artifact = SearchTablesResult(hits=hits)
         listing = ", ".join(
             f"{hit['table_id']} {hit['title']} ({hit['universe'] or 'universe unpublished'})"
