@@ -1,0 +1,48 @@
+# CC-57 pre-flight — raw commands
+# base feat/cc-54-search-select @ 93fee04
+# target feat/cc-54-search-select (not main)
+# 2026-09-13T11:07:46-05:00
+
+===== git HEAD =====
+$ git rev-parse HEAD
+
+93fee04beacfb3d79f78c82c43094cf9bde20d0b
+
+===== git branch =====
+$ git rev-parse --abbrev-ref HEAD
+
+feat/cc-57-default-total
+
+===== empty-variables description =====
+$ rg -n Empty means every api/src/tools.py
+
+51:        description="Estimate variable IDs (E). Empty means every E in the table.",
+
+===== empty expansion =====
+$ rg -n if not variables:|table_id}_\{suffix api/src/tools.py
+
+250:        if not variables:
+251:            variables = [f"{table_id}_{suffix}" for suffix in suffixes]
+
+===== pair_margins =====
+$ rg -n def pair_margins api/src/tools.py
+
+125:def pair_margins(variable_ids: list[str]) -> list[str]:
+
+===== variables() drops M =====
+$ rg -n Estimate variables only|endswith api/src/retrieval/metadata.py
+
+188:    """Estimate variables only.
+197:        if not isinstance(meta, dict) or not variable_id.endswith("E"):
+
+===== gated answered_rate =====
+$ rg -n _rate\(long_tail\)|overall_answered_rate scripts/run_demo.py
+
+262:        "answered_rate": _rate(long_tail),
+
+===== retrieval search/choose =====
+$ rg -n def search|def choose api/src/retrieval
+
+api/src/retrieval\rerank.py:90:def choose(question: str, candidates: list[Candidate], model: str = MODEL) -> str:
+api/src/retrieval\index.py:99:def search(question: str, k: int = 5, store: Path = STORE) -> list[str]:
+

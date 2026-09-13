@@ -48,7 +48,7 @@ class BuildUrlInput(ToolInput):
     table_id: str = Field(description="ACS table ID from search_tables or a family member.")
     variables: list[str] = Field(
         default_factory=list,
-        description="Estimate variable IDs (E). Empty means every E in the table.",
+        description="Estimate variable IDs (E). Empty means the table total (001E).",
     )
     dataset: str = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(default=None, description="End year. Empty means latest ACS5.")
@@ -248,7 +248,7 @@ class BuildUrlTool(BaseTool):
             return result.detail, result
         suffixes: list[str] = list(facts.get("variables") or [])
         if not variables:
-            variables = [f"{table_id}_{suffix}" for suffix in suffixes]
+            variables = [f"{table_id}_001E"]
         normalized: list[str] = []
         missing: list[str] = []
         for variable_id in variables:

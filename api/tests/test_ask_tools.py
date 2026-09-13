@@ -551,6 +551,70 @@ async def test_build_url_rejects_a_margin_with_no_estimate() -> None:
     assert "B01003_999M" in message.artifact.detail
 
 
+def _wide_url_tool(*, include_total: bool = True) -> BuildUrlTool:
+    start = 1 if include_total else 2
+    suffixes = [f"{i:03d}E" for i in range(start, start + 26)]
+    facts = {"acs5": {2024: {"B99999": {"universe": "Synthetic universe", "variables": suffixes}}}}
+    return BuildUrlTool(
+        allowed_tables=lambda: {"B99999"},
+        allowed_geographies=lambda: {("county:201", "state:48")},
+        latest_vintage=lambda dataset: 2024,
+        table_facts=lambda dataset, year, table_id: (
+            facts.get(dataset, {}).get(year, {}).get(table_id)
+        ),
+        last_geography=lambda: {"for": "county:201", "in": "state:48"},
+    )
+
+
+async def test_omitted_variables_request_the_table_total() -> None:
+    message = await _wide_url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is True
+    assert artifact.variables == ["B99999_001E", "B99999_001M"]
+    assert "get=NAME,GEO_ID,B99999_001E,B99999_001M" in artifact.url
+    assert "B99999_002E" not in artifact.url
+    assert "B99999_002M" not in artifact.url
+
+
+async def test_explicit_estimate_does_not_expand_to_the_table() -> None:
+    message = await _wide_url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999", "variables": ["B99999_002E"]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is True
+    assert artifact.variables == ["B99999_002E", "B99999_002M"]
+    assert "B99999_001E" not in artifact.url
+    assert "B99999_001M" not in artifact.url
+
+
+async def test_missing_table_total_does_not_expand_to_every_cell() -> None:
+    message = await _wide_url_tool(include_total=False).ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is False
+    assert artifact.url == ""
+    assert "B99999_001E" in artifact.detail
+    assert "B99999_002E" not in artifact.variables
+
+
 async def test_fetch_error_body_does_not_carry_the_census_key() -> None:
     built = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:11")
 

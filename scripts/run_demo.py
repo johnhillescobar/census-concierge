@@ -8,8 +8,8 @@ t_llm, t_census_api, t_ours, prompt_hash and index_hash into evidence/latest.jso
 without removing slice-0 retrieval metrics.
 
 HTTP 200 and answered stay separate. Gated answered_rate is long_tail
-(empty long_tail is 0, never a fallback onto core/trap). t_* are means;
-only total p95 is a ceiling.
+(empty long_tail is 0, never a fallback onto core/trap). overall_answered_rate
+is all tiers and is not gated. t_* are means; only total p95 is a ceiling.
 """
 
 from __future__ import annotations
@@ -260,6 +260,7 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "repeat": repeat,
         "n": len(trials),
         "answered_rate": _rate(long_tail),
+        "overall_answered_rate": _rate(trials),
         "p95_latency_seconds": round(percentile(latencies, 95), 3),
         "t_llm": _mean([trial.t_llm for trial in trials]),
         "t_census_api": _mean([trial.t_census_api for trial in trials]),
@@ -328,6 +329,7 @@ def _print_report(summary: dict[str, Any], floors: tuple[float, float]) -> None:
         )
     print(
         f"\n  answered_rate  {summary['answered_rate']:.3f}  (long_tail, floor {answered_floor:g})"
+        f"   overall {summary['overall_answered_rate']:.3f}"
     )
     print(f"  p95_latency    {summary['p95_latency_seconds']:.3f}s  (ceiling {p95_ceiling:g}s)")
     print(
