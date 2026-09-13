@@ -301,6 +301,8 @@ to look up the table ID, it belongs in the long tail.*
 | | until |
 |---|---|
 | Clarification subsystem | the demo suite proves specific questions need it |
+| Gazetteer / geocoder module | ranked NAME listing (CC-54) and plan-strip override (CC-37) still fail a golden question. Census `onelineaddress` matches zero county names (CC-23). |
+| A fifth agent tool | a question in `golden_questions.toml` fails because no existing tool can do X. Years are a parameter (slice 3 / CC-28), not a tool. |
 | Graph nodes for branching | never |
 | Typed contracts at every boundary | a real bug demands one |
 | Caching, queues, horizontal scaling | someone complains |
