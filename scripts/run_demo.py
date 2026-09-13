@@ -267,7 +267,7 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
     body: dict[str, Any] = {}
     detail = ""
     try:
-        response = client.post("/ask", json={"question": entry["text"]})
+        response = client.post("/ask", json={"question": entry["text"]}, timeout=120.0)
         status = response.status_code
         payload = response.json()
         body = payload if isinstance(payload, dict) else {}
@@ -374,7 +374,7 @@ def main() -> int:
     prompt = short_hash(ROLE)
     index = index_hash()
     trials: list[Trial] = []
-    client = TestClient(app, timeout=120.0)
+    client = TestClient(app)
     for round_id in range(1, args.repeat + 1):
         for entry in questions:
             trial = _ask(client, clock, entry, round_id)
