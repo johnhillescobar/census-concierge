@@ -221,6 +221,23 @@ def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return hits
 
 
+def _rank_key(row: dict[str, str]) -> tuple[int, int, float, str]:
+    head = row.get("name", "").casefold().split(",", 1)[0]
+    if row.get("level") == "place":
+        klass = 2 if re.search(r"\bcdp\b", head) else 0 if re.search(r"\bcity\b", head) else 1
+    else:
+        klass = 0
+    try:
+        return (klass, 0, -float(row["population"]), row.get("geoid", ""))
+    except (KeyError, TypeError, ValueError):
+        return (klass, 1, 0.0, row.get("geoid", ""))
+
+
+def rank_matches(matches: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Place class, then population descending, then GEO_ID. Missing pop last."""
+    return sorted(matches, key=_rank_key)
+
+
 def list_census_names(
     for_level: str,
     in_parts: dict[str, str],
@@ -230,7 +247,7 @@ def list_census_names(
     key: str = "",
 ) -> list[dict[str, str]]:
     """NAME listing from the Census API. One request; `in=state:*` is legal."""
-    query = f"get=NAME,GEO_ID&for={for_level}:*"
+    query = f"get=NAME,GEO_ID,B01003_001E&for={for_level}:*"
     if in_parts:
         query += "&in=" + " ".join(f"{k}:{v}" for k, v in in_parts.items())
     built = CensusURL(f"{CENSUS_API}/{vintage}/acs/{dataset}?{query}")
@@ -241,11 +258,12 @@ def list_census_names(
     except (httpx.HTTPError, ValueError, TypeError):
         raise RuntimeError(f"geography listing failed; URL {built}") from None
     header, *body = payload
+    skip = {"NAME", "GEO_ID", "B01003_001E", for_level}
     rows: list[dict[str, str]] = []
     for raw in body:
         rec = {str(k): str(v) for k, v in zip(header, raw, strict=False)}
         code = rec.get(for_level, "*")
-        parents = {name: rec[name] for name in rec if name not in {"NAME", "GEO_ID", for_level}}
+        parents = {name: rec[name] for name in rec if name not in skip}
         rows.append(
             {
                 "name": rec.get("NAME", ""),
@@ -253,6 +271,7 @@ def list_census_names(
                 "for": f"{for_level}:{code}",
                 "in": " ".join(f"{k}:{v}" for k, v in parents.items()),
                 "geoid": rec.get("GEO_ID", ""),
+                "population": rec.get("B01003_001E", ""),
             }
         )
     return rows
@@ -371,10 +390,10 @@ class ResolveGeographyTool(BaseTool):
 
         rows = await asyncio.to_thread(self.list_geographies, for_level, list_in)
         token = place_token(query, state[0] if state else None)
-        matched = filter_rows(token, rows)
+        matched = rank_matches(filter_rows(token, rows))
         if not matched and token:
             # Whole-question queries still contain the place as a substring.
-            matched = filter_rows(token.split()[-1], rows) if token.split() else []
+            matched = rank_matches(filter_rows(token.split()[-1], rows) if token.split() else [])
         legal = predicate is not None
         if not legal:
             detail = f"{for_level} with in={dict(in_parts)} is not a legal combination"
@@ -383,13 +402,15 @@ class ResolveGeographyTool(BaseTool):
         else:
             detail = ""
         result = ResolveGeographyResult(matches=matched, wildcard=False, legal=legal, detail=detail)
-        if len(matched) != 1:
-            listing = "; ".join(
-                f"{row['name']} {row['for']} {row.get('in', '')}".strip() for row in matched
-            )
-            summary = f"{len(matched)} {for_level} candidates: {listing}"
-        else:
+        if len(matched) > 1:
+            pick = matched[0]
+            summary = (
+                f"selected {pick['for']} {pick.get('in', '')}; {len(matched) - 1} alternatives"
+            ).strip()
+        elif matched:
             summary = f"1 geography: {matched[0]['for']} {matched[0].get('in', '')}".strip()
+        else:
+            summary = f"0 {for_level} candidates"
         if detail:
             summary = detail
         return summary, result
