@@ -150,7 +150,7 @@ resolution, MOE handling, the UI.
 
 - [x] FastAPI app with Swagger. One endpoint.
 
-> **STATUS 2026-09-12.** CC-19 HTTP surface and CC-23 ask loop shipped. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
+> **STATUS 2026-09-12.** CC-19 HTTP surface, CC-23 ask loop, and CC-25 response contract shipped. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
 - [x] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [x] `build_url` returns the complete URL — variables, geography, vintage — and
