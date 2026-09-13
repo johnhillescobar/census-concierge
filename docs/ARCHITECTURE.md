@@ -1,13 +1,14 @@
 # ARCHITECTURE — the system as it IS
 
-**Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, and
-the five DESIGN §4 guards.** Retrieval runs
+**Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, the
+five DESIGN §4 guards, and `make demo`.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `budgets.toml` gates retriever `@10` and
 selector `@1` on the long-tail tier separately — raw cosine `@1` is diagnostic
 only. The ask loop fills `AskResponse` from tool artifacts — URL, paired MOE, GEOID,
-universe, structured alternatives, and non-blocking `warnings[]`. `make demo` is a later
-ticket.
+universe, structured alternatives, and non-blocking `warnings[]`. `scripts/run_demo.py`
+POSTs the golden set at `/ask` and merges `answered_rate`, `p95_latency_seconds`,
+timing splits, `prompt_hash`, and `index_hash` into `evidence/latest.json`.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what
@@ -30,6 +31,7 @@ scripts/fetch_metadata.py    caches ACS metadata to data/raw/ (no key)
 scripts/verify_golden.py     every expect_table checked against that metadata
 scripts/build_index.py       builds index_store/ (needs OPENAI_API_KEY)
 scripts/eval_retrieval.py    the scoreboard; --rerank, --holdout
+scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
 scripts/score_synthetic.py   generated-question quality, on a 600 sample
 scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
 evals/golden_questions.toml  66 scorable: 4 core, 40 long-tail, 14 trap,
@@ -95,7 +97,7 @@ record: overlapping ACS5 vintages, MOE-indistinguishable differences, illegal
 geography combinations, several matching places, and questions that cross
 universes. None of them blocks. `CensusURL` redacts `&key=` in `__str__` / the
 response; `with_key()` is the httpx site. `langchain_core` supplies schema and
-`ainvoke`; control flow is ours. `run_demo.py` (CC-26) is not shipped yet.
+`ainvoke`; control flow is ours. `make demo` is `scripts/run_demo.py --repeat 3`.
 
 ### Data and artifacts
 
@@ -143,7 +145,7 @@ futures.
 | slice | adds to this file |
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
-| 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards. Demo harness: not yet. |
+| 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
 | 2 | `web/`, the generated client, the CI staleness check |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |

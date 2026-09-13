@@ -1,0 +1,119 @@
+# CC-26 Copilot follow-up mutation check
+# warning-only URL, long_tail-only gate, persist every trial.
+
+=== GOOD: tests against the fix ===
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q api/tests/test_demo_harness.py
+................                                                         [100%]
+16 passed in 0.03s
+(exit 0)
+
+=== BAD: warning-only empty URL still answered ===
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q api/tests/test_demo_harness.py::test_warning_only_without_url_is_not_answered
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_warning_only_without_url_is_not_answered ________________
+
+    def test_warning_only_without_url_is_not_answered() -> None:
+        entry = {"id": "t03", "expect_warning": "moe_not_significant"}
+        body = _body(
+            table_id="",
+            url="",
+            rows=[],
+            warnings=[{"code": "moe_not_significant", "detail": "swamped"}],
+        )
+>       assert run_demo.is_answered(entry, status_code=200, body=body) is False
+E       AssertionError: assert True is False
+E        +  where True = <function is_answered at 0x00000271012E6660>({'id': 't03', 'expect_warning': 'moe_not_significant'}, status_code=200, body={'answer': 'ok', 'url': '', 'rows': [], 'moe': [], ...})
+E        +    where <function is_answered at 0x00000271012E6660> = run_demo.is_answered
+
+api\tests\test_demo_harness.py:70: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_warning_only_without_url_is_not_answered
+1 failed in 0.11s
+(exit 1)
+
+=== BAD: core-only run counted as gated answered_rate ===
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_core_only_run_does_not_count_as_gated_rate _______________
+
+    def test_core_only_run_does_not_count_as_gated_rate() -> None:
+        summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+>       assert summary["answered_rate"] == 0.0
+E       assert 1.0 == 0.0
+
+api\tests\test_demo_harness.py:249: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate
+1 failed in 0.11s
+(exit 1)
+
+=== BAD: successful trials dropped from evidence ===
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_gated_rate_uses_long_tail ________________________
+
+    def test_gated_rate_uses_long_tail() -> None:
+        trials = [
+            _trial(),
+            _trial(
+                id="q05",
+                text="tail",
+                tier="long_tail",
+                answered=False,
+                expected_table="B08301",
+                table_id="",
+                url="",
+                latency_s=2.0,
+                t_llm=1.0,
+                t_census_api=0.4,
+                t_ours=0.6,
+                detail="empty url",
+            ),
+        ]
+        summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+        assert summary["by_tier"]["core"]["answered_rate"] == 1.0
+        assert summary["t_llm"] == 0.75
+>       assert [row["id"] for row in summary["trials"]] == ["q01", "q05"]
+                                     ^^^^^^^^^^^^^^^^^
+E       KeyError: 'trials'
+
+api\tests\test_demo_harness.py:242: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail - KeyEr...
+1 failed in 0.13s
+(exit 1)
+
+=== BAD: warning+table without rows still answered ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_warning_and_table_without_rows_is_not_answered
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_warning_and_table_without_rows_is_not_answered _____________
+
+    def test_warning_and_table_without_rows_is_not_answered() -> None:
+        entry = {"id": "t01", "expect_table": "B19013", "expect_warning": "overlapping_vintage"}
+        body = _body(
+            table_id="B19013",
+            rows=[],
+            warnings=[{"code": "overlapping_vintage", "detail": "overlap"}],
+        )
+>       assert run_demo.is_answered(entry, status_code=200, body=body) is False
+E       AssertionError: assert True is False
+E        +  where True = <function is_answered at 0x000001FE6D3DEA20>({'id': 't01', 'expect_table': 'B19013', 'expect_warning': 'overlapping_vintage'}, status_code=200, body={'answer': 'ok', 'url': 'https://api.census.gov/data/2024/acs/acs5?get=B01003_001E', 'rows': [], 'moe': [], ...})
+E        +    where <function is_answered at 0x000001FE6D3DEA20> = run_demo.is_answered
+
+api\tests\test_demo_harness.py:92: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_warning_and_table_without_rows_is_not_answered
+1 failed in 0.18s
+(exit 1)
+
+=== GOOD: restored ===
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q api/tests/test_demo_harness.py
+................                                                         [100%]
+16 passed in 0.05s
+(exit 0)
+

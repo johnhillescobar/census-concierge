@@ -1,0 +1,61 @@
+# CC-26 Gate 2 follow-up mutation check
+# q23 (Austin vs Texas) is slice 3; a one-sided fetch must not count.
+
+=== GOOD: tests against the fix ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_slice3_and_holdout_are_out_of_scope api/tests/test_demo_harness.py::test_golden_file_scope_matches_slice1
+..                                                                       [100%]
+2 passed in 0.03s
+(exit 0)
+
+=== BAD: q23 included in slice-1 scope ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_slice3_and_holdout_are_out_of_scope api/tests/test_demo_harness.py::test_golden_file_scope_matches_slice1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+__________________ test_slice3_and_holdout_are_out_of_scope ___________________
+
+    def test_slice3_and_holdout_are_out_of_scope() -> None:
+        entries = [
+            {"id": "q01", "tier": "core"},
+            {"id": "q23", "tier": "long_tail"},
+            {"id": "q24", "tier": "long_tail"},
+            {"id": "t08", "tier": "trap"},
+            {"id": "t09", "tier": "trap"},
+            {"id": "t10", "tier": "trap"},
+            {"id": "h01", "tier": "long_tail", "holdout": True},
+        ]
+        ids = [entry["id"] for entry in run_demo.select_questions(entries)]
+>       assert ids == ["q01", "q24", "t08"]
+E       AssertionError: assert ['q01', 'q23', 'q24', 't08'] == ['q01', 'q24', 't08']
+E         
+E         At index 1 diff: 'q23' != 'q24'
+E         Left contains one more item: 't08'
+E         Use -v to get more diff
+
+api\tests\test_demo_harness.py:106: AssertionError
+____________________ test_golden_file_scope_matches_slice1 ____________________
+
+    def test_golden_file_scope_matches_slice1() -> None:
+        import tomllib
+    
+        with (ROOT / "evals" / "golden_questions.toml").open("rb") as handle:
+            entries = tomllib.load(handle)["question"]
+        picked = run_demo.select_questions(entries)
+        ids = {entry["id"] for entry in picked}
+        assert "h01" not in ids
+        assert "t09" not in ids and "t18" not in ids
+        assert "t01" in ids and "t08" in ids
+>       assert "q23" not in ids and "q24" in ids
+E       AssertionError: assert ('q23' not in {'q01', 'q02', 'q03', 'q04', 'q05', 'q06', ...})
+
+api\tests\test_demo_harness.py:119: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_slice3_and_holdout_are_out_of_scope
+FAILED api/tests/test_demo_harness.py::test_golden_file_scope_matches_slice1
+2 failed in 0.14s
+(exit 1)
+
+=== GOOD: restored ===
+$ uv run pytest -q api/tests/test_demo_harness.py
+..........                                                               [100%]
+10 passed in 0.04s
+(exit 0)
