@@ -436,6 +436,62 @@ def test_a_collapsed_member_is_not_a_race_iteration_of_the_pick() -> None:
     assert by_id["B15003"] == "race iteration"
 
 
+def test_selected_member_uses_the_parent_title() -> None:
+    record = ExecutionRecord()
+    record.table_id = "B19013A"
+    record.universe = "Households"
+    record.pool = [
+        {
+            "table_id": "B19013",
+            "title": "Median Household Income",
+            "universe": "Households",
+            "members": ["B19013A"],
+        },
+        {
+            "table_id": "B19001",
+            "title": "Household Income",
+            "universe": "Households",
+            "members": [],
+        },
+    ]
+    by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
+    assert by_id["B19001"] == "distribution versus median"
+    assert by_id["B19013"] == "race iteration"
+
+
+def test_no_selection_does_not_label_pool_members_as_collapsed() -> None:
+    record = ExecutionRecord()
+    record.pool = [
+        {
+            "table_id": "B15003",
+            "title": "Educational Attainment",
+            "universe": "Population 25 years and over",
+            "members": ["C15003", "B15003A"],
+        }
+    ]
+    by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
+    assert by_id["C15003"] == "related table"
+    assert by_id["B15003A"] == "related table"
+    assert by_id["B15003"] == "related table"
+
+
+def test_selecting_a_collapsed_member_labels_the_parent() -> None:
+    record = ExecutionRecord()
+    record.table_id = "C15003"
+    record.universe = "Population 25 years and over"
+    record.pool = [
+        {
+            "table_id": "B15003",
+            "title": "Educational Attainment",
+            "universe": "Population 25 years and over",
+            "members": ["C15003"],
+        }
+    ]
+    by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
+    assert by_id["B15003"] == "collapsed table"
+    assert "C15003" not in by_id
+
+
 async def test_universe_comes_from_the_requested_vintage() -> None:
     record = ExecutionRecord()
     record.pool = [

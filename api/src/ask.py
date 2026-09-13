@@ -156,18 +156,20 @@ def _how_differs(
         and (_RACE.match(other_id) or _RACE.match(selected_id))
     ):
         return "race iteration"
-    if member_of:
-        anchor = selected_id or member_of
+    if member_of and selected_id:
+        anchor = selected_id
         same_family = (
             member_of == anchor
+            or other_id == member_of
             or family_id(member_of) == family_id(anchor)
             or family_id(other_id) == family_id(anchor)
         )
         if same_family:
             if _RACE.match(other_id):
                 return "race iteration"
-            if (other_id.startswith("C") and member_of.startswith("B")) or (
-                other_id.startswith("B") and member_of.startswith("C")
+            if {other_id[:1], selected_id[:1]} == {"B", "C"} or (
+                (other_id.startswith("C") and member_of.startswith("B"))
+                or (other_id.startswith("B") and member_of.startswith("C"))
             ):
                 return "collapsed table"
     if selected_universe and other_universe and selected_universe != other_universe:
@@ -180,16 +182,29 @@ def _how_differs(
     return "related table"
 
 
+def _selected_hit(record: ExecutionRecord) -> dict[str, Any]:
+    selected = record.table_id
+    if not selected:
+        return {}
+    for hit in record.pool:
+        if str(hit["table_id"]) == selected:
+            return hit
+    for hit in record.pool:
+        members = {str(member) for member in (hit.get("members") or [])}
+        if selected in members:
+            return hit
+    return {}
+
+
 def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
-    selected_hit = next(
-        (hit for hit in record.pool if str(hit["table_id"]) == record.table_id),
-        {},
-    )
+    selected_hit = _selected_hit(record)
     selected_universe = record.universe or str(selected_hit.get("universe") or "")
     selected_title = str(selected_hit.get("title") or "")
     alternatives: list[Alternative] = []
     for hit in record.pool:
         table_id = str(hit["table_id"])
+        members = [str(member) for member in (hit.get("members") or [])]
+        parent = table_id if record.table_id in members else ""
         if table_id != record.table_id:
             alternatives.append(
                 Alternative(
@@ -197,6 +212,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                     reason=_how_differs(
                         table_id,
                         record.table_id,
+                        member_of=parent,
                         other_universe=str(hit.get("universe") or ""),
                         selected_universe=selected_universe,
                         other_title=str(hit.get("title") or ""),
@@ -204,8 +220,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                     ),
                 )
             )
-        for member in hit.get("members") or []:
-            member_id = str(member)
+        for member_id in members:
             if member_id != record.table_id:
                 alternatives.append(
                     Alternative(

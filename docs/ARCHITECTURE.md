@@ -85,7 +85,8 @@ not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index),
 is 324 and is the wrong county predicate), `build_url` (availability matrix, E
 paired with M), `fetch_data` (live Census; keeps the URL on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
-distribution versus median, collapsed table, race iteration), and puts AFFGEOID
+distribution versus median, collapsed table, race iteration, or related table),
+and puts AFFGEOID
 `GEO_ID` on every row. Top-level `geoid` names one geography or is empty.
 `CensusURL` redacts `&key=` in `__str__` / the response; `with_key()` is the httpx
 site. `langchain_core` supplies schema and `ainvoke`; control flow is ours. Guards

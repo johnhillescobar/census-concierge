@@ -35,3 +35,26 @@ $ uv run pytest -q api/tests/test_ask_loop.py::test_a_collapsed_member_is_not_a_
 $ uv run pytest -q -m "not integration"
 130 passed in 2.95s
 (exit 0)
+
+=== BAD: parent hit lookup skipped for selected members ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_selected_member_uses_the_parent_title
+FAILED - assert 'related table' == 'distribution versus median'
+1 failed in 0.42s
+(exit 1)
+
+=== BAD: members classified against the pool parent with no selection ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_no_selection_does_not_label_pool_members_as_collapsed
+FAILED - assert 'collapsed table' == 'related table'
+1 failed in 0.42s
+(exit 1)
+
+=== BAD: parent hit classified without membership evidence ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_selecting_a_collapsed_member_labels_the_parent
+FAILED - assert 'related table' == 'collapsed table'
+1 failed in 0.41s
+(exit 1)
+
+=== GOOD: restored ===
+$ uv run pytest -q -m "not integration"
+133 passed in 3.26s
+(exit 0)
