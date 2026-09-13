@@ -1,0 +1,134 @@
+Gate 2 transcript — feat/cc-26-demo vs origin/main
+Captured by piping each command through this UTF-8 LF writer (PowerShell Tee-Object on this host writes UTF-16).
+
+
+===== uv run python scripts/check_budgets.py =====
+COMMAND: uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2171 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1796 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+EXIT 0
+
+===== uv run python scripts/check_invariants.py --base origin/main =====
+COMMAND: uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+EXIT 0
+
+===== uv run ruff check . =====
+COMMAND: uv run ruff check .
+[1;32mAll checks passed![0m
+EXIT 0
+
+===== uv run ruff format --check . =====
+COMMAND: uv run ruff format --check .
+79 files already formatted
+EXIT 0
+
+===== uv run mypy api/src =====
+COMMAND: uv run mypy api/src
+Success: no issues found in 19 source files
+EXIT 0
+
+===== uv run pytest -q -m "not integration" =====
+COMMAND: uv run pytest -q -m not integration
+........................................................................ [ 43%]
+........................................................................ [ 87%]
+.....................                                                    [100%]
+165 passed in 3.59s
+EXIT 0
+
+===== machine exit codes =====
+check_budgets=0
+check_invariants=0
+ruff_check=0
+ruff_format=0
+mypy=0
+pytest=0
+ALL MACHINES EXIT 0
+
+===== PASS 1 — generic bugs (cold read of git diff origin/main...HEAD) =====
+Code only. Ticket notes and claimed intent not used to explain the diff away.
+
+Findings:
+
+1. is_answered() treats a warning-only golden row (no expect_table) as success
+   with no URL and no rows. t03 (moe_not_significant), t04, and t06 can score
+   as answered if the warning code is present even when nothing was fetched.
+   t05/ambiguous_place is the one case where that is defensible; the others
+   are not.
+
+2. is_answered() never inspects dataset or vintage on the URL. t07 (Phoenix
+   ACS1 2024) scores as answered if the agent silently substitutes ACS5, which
+   is the failure that question exists to catch.
+
+3. q23 is in the gated long_tail set. A single-geography B25064 response with
+   a URL and rows counts as answered for "Compare median gross rent in Austin
+   to the Texas average".
+
+No crash, leak-to-evidence, or extra production module. HTTP 200 and answered
+stay separate. merge_evidence keeps retrieval keys. leaks_key blocks a write
+when &key= is not REDACTED. t09-t18 and holdout are excluded.
+
+===== PASS 2 — project invariants (review-pr.md) =====
+Machines (all EXIT 0): check_budgets, check_invariants --base origin/main,
+ruff check, ruff format --check, mypy api/src, pytest -q -m "not integration"
+(165 passed). Budgets not weakened. No invariant violations.
+
+Human checklist:
+
+- Claim: a developer can run make demo / scripts/run_demo.py --repeat 3 and
+  get answered_rate, p95_latency_seconds, t_llm/t_census_api/t_ours,
+  prompt_hash, and index_hash merged into evidence/latest.json from live
+  POST /ask. That script did not exist on main.
+- Evidence: make demo output is not in this PR. Gate 2 is before E2E; not
+  a fail of this pass.
+- n=40 retrieval delta: nothing claimed.
+- Scope: belongs to slice 1 remaining work. 6 files. No later-slice
+  urls[], no new tool/route/node. ARCHITECTURE.md updated for the script.
+- Silent-wrong-answer on the API response path: nothing. This diff does not
+  change ask.py / contract / guards. The harness answered predicate does not
+  require moe, geoid, or universe (follow-up; long_tail still requires
+  table_id + url + rows).
+- Redaction: live URLs are passed through redact_text; the record is scanned
+  with leaks_key before write. No new non-CensusURL URL formatter.
+- Numbers through the model / blocking clarification / silent repair: nothing.
+- Shape: no new tool, route, Pydantic model, or add_node().
+- Tests: behaviour (http_ok vs answered, merge, p95 tail, scope, leak regex).
+  No prompt-wording asserts. No constant-table fake. New test file is not
+  make demo evidence.
+- prompt_hash hashes ROLE, not the rendered system_prompt() string
+  (date/vintage injection would not move the hash). Follow-up.
+
+===== VERDICT =====
+Ship it with follow-ups.
+
+Follow-ups (none are API silent-wrong-answer; they are scoreboard holes):
+- warning-only traps should not count as answered without a URL (except
+  ambiguous_place).
+- t07 (and any vintage trap) should fail when the URL is the wrong survey/year.
+- q23 should not count as answered on a one-sided fetch.
+- answered_rate should require moe/geoid/universe on the data path.
+- hash the rendered system prompt, or document that ROLE is the intentional
+  identity.
