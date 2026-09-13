@@ -1,0 +1,90 @@
+﻿# CC-26 pre-flight — raw commands
+# branch: feat/cc-26-demo
+# commit: 72708626ff98a31d89d11ddc09f83fcad504a622  (origin/main)
+
+===== glob scripts/ =====
+$ Get-ChildItem scripts | Select-Object -ExpandProperty Name
+__pycache__
+build_index.py
+check_budgets.py
+check_invariants.py
+diagnose.py
+eval_retrieval.py
+fetch_metadata.py
+gate.ps1
+gate.sh
+jira_transition.py
+score_synthetic.py
+taxonomize_rerank_misses.py
+verify_golden.py
+
+===== Makefile demo target =====
+$ Select-String -Path Makefile -Pattern "^demo:" -Context 0,2
+
+> Makefile:31:demo:
+  Makefile:32:	uv run python scripts/run_demo.py --repeat 3
+
+===== check_budgets already reads the fields the harness will write =====
+$ Select-String -Path scripts/check_budgets.py,budgets.toml -Pattern "answered_rate|p95_latency|t_llm"
+scripts\check_budgets.py:259:    p95 = _latest_evidence("p95_latency_seconds")
+scripts\check_budgets.py:261:        checks.append(Check("p95 latency (s)", p95,
+budgets["performance"]["p95_latency_seconds"]))
+scripts\check_budgets.py:266:        ("answered_rate", "answered_rate_min"),
+budgets.toml:63:p95_latency_seconds  = 20.0   # golden suite, measured by `make demo`
+budgets.toml:76:answered_rate_min    = 0.70   # correct URL + data returned
+
+===== evidence/latest.json has no demo keys yet =====
+$ uv run python -c "import json; from pathlib import Path; d=json.loads(Path('evidence/latest.json').read_text()); print(sorted(d.keys())); print('answered_rate', 'answered_rate' in d); print('p95', 'p95_latency_seconds' in d)"
+['by_tier', 'generated_at', 'holdout', 'misses', 'overall', 'reranked', 'retrieval_at_1', 'retrieval_at_10', 'retrieval_at_1_holdout', 'retrieval_at_1_reranked', 'selector_at_1', 'synthetic_alignment', 'synthetic_self_retrieval', 'synthetic_self_retrieval_at_5']
+answered_rate False
+p95 False
+
+===== POST /ask exists =====
+$ uv run python -c "from src.main import app; print([getattr(r,'path',None) for r in app.routes])"
+['/openapi.json', '/docs', '/docs/oauth2-redirect', '/redoc', '/ask']
+
+===== prompt ROLE and index_hash =====
+$ uv run python -c "from src.prompts import ROLE, system_prompt; from src.retrieval.index import index_hash; print('ROLE chars', len(ROLE)); print('index_hash', index_hash())"
+ROLE chars 474
+index_hash 377cd59fe62a
+
+===== ask.py timings (tools only; complete is untimed) =====
+$ Select-String -Path api/src/ask.py -Pattern "timings|_openai_complete|call_model"
+api\src\ask.py:1:"""The ask loop: call_model() then dispatch(), no graph.
+api\src\ask.py:52:    timings: list[dict[str, Any]] = field(default_factory=list)
+api\src\ask.py:281:    record.timings.append(
+api\src\ask.py:293:async def _openai_complete(
+api\src\ask.py:408:    complete = complete or _openai_complete
+
+===== budgets structural =====
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2171 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1796 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+===== largest files (LOC, blanks/comments excluded) =====
+ 400  api\src\ask.py
+ 357  api\src\geo.py
+ 290  api\src\tools.py
+ 172  api\src\retrieval\metadata.py
+ 165  api\src\retrieval\build.py
+
+===== in-scope golden questions (not holdout, not t09-t18) =====
+$ uv run python -c "..."
+in_scope 52 {'core': 4, 'long_tail': 40, 'trap': 8}
+holdout 8
+slice3 ['t09', 't10', 't11', 't12', 't13', 't14', 't15', 't16', 't17', 't18']
