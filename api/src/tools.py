@@ -169,11 +169,18 @@ class SearchTablesTool(BaseTool):
             picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
             hits = _promote(hits, picked)
         artifact = SearchTablesResult(hits=hits)
-        listing = ", ".join(
-            f"{hit['table_id']} {hit['title']} ({hit['universe'] or 'universe unpublished'})"
-            for hit in hits
+        if not hits:
+            return "0 candidates", artifact
+        lead = hits[0]
+        summary = (
+            f"selected {lead['table_id']} {lead['title']} "
+            f"({lead['universe'] or 'universe unpublished'})"
         )
-        summary = f"{len(hits)} candidates" + (f": {listing}" if listing else "")
+        members = [str(member) for member in lead.get("members") or []]
+        if members:
+            summary += f"; members {', '.join(members)}"
+        if len(hits) > 1:
+            summary += f"; {len(hits) - 1} related tables"
         return summary, artifact
 
 

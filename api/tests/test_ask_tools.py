@@ -234,6 +234,8 @@ async def test_selector_pick_is_first_hit() -> None:
     ids = [hit["table_id"] for hit in message.artifact.hits]
     assert ids[0] == "B27001"
     assert ids == ["B27001", "B27010"]
+    assert "B27001" in message.content
+    assert "B27010" not in message.content
 
 
 async def test_empty_search_does_not_call_selector() -> None:
