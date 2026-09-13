@@ -21,6 +21,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse
 from src.geo import ResolveGeographyTool, list_census_names
+from src.guards import evaluate
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import (
@@ -50,6 +51,9 @@ class ExecutionRecord:
     rows: list[dict[str, str | None]] = field(default_factory=list)
     timings: list[dict[str, Any]] = field(default_factory=list)
     consecutive_failures: dict[str, int] = field(default_factory=dict)
+    question: str = ""
+    vintages: list[tuple[str, int]] = field(default_factory=list)
+    geo_status: dict[str, str | bool] | None = None
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -72,11 +76,15 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
     elif name == "resolve_geography":
         matches = artifact.matches if hasattr(artifact, "matches") else artifact.get("matches", [])
         record.geographies = [dict(match) for match in matches]
+        legal = artifact.legal if hasattr(artifact, "legal") else artifact.get("legal", True)
+        detail = artifact.detail if hasattr(artifact, "detail") else artifact.get("detail", "")
+        record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
         if len(matches) == 1:
             record.geography = dict(matches[0])
         else:
             record.geography = None
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
+        record.vintages.append((artifact.dataset, artifact.vintage))
         record.rows = []
         if artifact.ok:
             record.url = CensusURL(artifact.url)
@@ -245,7 +253,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         universe=selected_universe,
         table_id=record.table_id,
         alternatives=alternatives,
-        warnings=[],
+        warnings=evaluate(record),
     )
 
 
@@ -386,6 +394,7 @@ async def run_ask(
     record: ExecutionRecord | None = None,
 ) -> AskResponse:
     record = record or ExecutionRecord()
+    record.question = record.question or question
     tools = tools or default_tools(record)
     openai_tools = [convert_to_openai_tool(tool) for tool in tools.values()]
     acs5, acs1 = _latest_vintages()

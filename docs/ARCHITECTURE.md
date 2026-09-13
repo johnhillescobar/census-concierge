@@ -1,12 +1,13 @@
 # ARCHITECTURE — the system as it IS
 
-**Status: slice 0 is built; slice 1 has `POST /ask` and the four-tool loop.** Retrieval runs
+**Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, and
+the five DESIGN §4 guards.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `budgets.toml` gates retriever `@10` and
 selector `@1` on the long-tail tier separately — raw cosine `@1` is diagnostic
 only. The ask loop fills `AskResponse` from tool artifacts — URL, paired MOE, GEOID,
-universe, structured alternatives. Slice-1 guards and `make demo` are later
-tickets.
+universe, structured alternatives, and non-blocking `warnings[]`. `make demo` is a later
+ticket.
 
 This file is deliberately not a design document. `.claude/DESIGN.md` holds what
 we intend and why; `.claude/PLAN.md` holds the order. **This file holds only what
@@ -40,6 +41,7 @@ pyproject.toml               uv workspace root; ruff + mypy + pytest config
 api/pyproject.toml           the app's dependencies
 api/src/main.py              FastAPI app; `POST /ask` → `run_ask`
 api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
+api/src/guards.py            DESIGN §4 slice-1 guards; evaluated at assemble
 api/src/tools.py             search_tables, build_url, fetch_data
 api/src/geo.py               resolve_geography; legality over all fips rows
 api/src/census_url.py        CensusURL — default form never carries `&key=`
@@ -88,9 +90,12 @@ pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),
 and puts AFFGEOID
 `GEO_ID` on every row. Top-level `geoid` names one geography or is empty.
-`CensusURL` redacts `&key=` in `__str__` / the response; `with_key()` is the httpx
-site. `langchain_core` supplies schema and `ainvoke`; control flow is ours. Guards
-(CC-22) and `run_demo.py` (CC-26) are not shipped yet.
+`evaluate()` in `guards.py` then attaches DESIGN §4 warnings from the execution
+record: overlapping ACS5 vintages, MOE-indistinguishable differences, illegal
+geography combinations, several matching places, and questions that cross
+universes. None of them blocks. `CensusURL` redacts `&key=` in `__str__` / the
+response; `with_key()` is the httpx site. `langchain_core` supplies schema and
+`ainvoke`; control flow is ours. `run_demo.py` (CC-26) is not shipped yet.
 
 ### Data and artifacts
 
@@ -138,7 +143,7 @@ futures.
 | slice | adds to this file |
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
-| 1 | `POST /ask`, four-tool loop, `CensusURL`. Guards and demo harness: not yet. |
+| 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards. Demo harness: not yet. |
 | 2 | `web/`, the generated client, the CI staleness check |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |

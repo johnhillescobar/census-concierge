@@ -86,6 +86,8 @@ _LEVELS = {
     "cities": "place",
     "tract": "tract",
     "tracts": "tract",
+    "block group": "block group",
+    "block groups": "block group",
     "zcta": "zip code tabulation area",
     "zctas": "zip code tabulation area",
     "zip": "zip code tabulation area",
@@ -93,6 +95,7 @@ _LEVELS = {
 
 _WILDCARD = re.compile(
     r"\b(?:all|every|each)\s+(counties|county|places|place|tracts|tract|"
+    r"block groups|block group|"
     r"zctas|zcta|zip codes|zips)\s+in\s+(.+)",
     re.IGNORECASE,
 )
