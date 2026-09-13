@@ -150,7 +150,7 @@ resolution, MOE handling, the UI.
 
 - [x] FastAPI app with Swagger. One endpoint.
 
-> **STATUS 2026-09-13.** Slice 1 closed. Demo harness shipped; answered_rate 0.214 (floor 0.70, unmet), p95 13.82s. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
+> **STATUS 2026-09-13.** Slice 1 closed. Floors met: answered_rate 0.803, p95 14.164s. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
 - [x] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [x] `build_url` returns the complete URL — variables, geography, vintage — and
