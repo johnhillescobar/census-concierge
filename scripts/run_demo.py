@@ -7,8 +7,9 @@ Needs OPENAI_API_KEY and CENSUS_API_KEY. Writes answered_rate, p95_latency_secon
 t_llm, t_census_api, t_ours, prompt_hash and index_hash into evidence/latest.json
 without removing slice-0 retrieval metrics.
 
-HTTP 200 and answered stay separate. Gated answered_rate is long_tail.
-t_* are means; only total p95 is a floor.
+HTTP 200 and answered stay separate. Gated answered_rate is long_tail
+(empty long_tail is 0, never a fallback onto core/trap). t_* are means;
+only total p95 is a ceiling.
 """
 
 from __future__ import annotations
@@ -40,7 +41,6 @@ sys.path.insert(0, str(API))
 
 _LEAK = re.compile(r"(?i)[?&]key=(?!REDACTED)[^&\s]+")
 CENSUS_TOOLS = frozenset({"fetch_data", "resolve_geography"})
-OPENAI_TOOLS = frozenset({"search_tables"})
 
 
 def short_hash(text: str) -> str:
@@ -94,14 +94,13 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     expected_warning = entry.get("expect_warning")
     if expected_warning == "ambiguous_place":
         return expected_warning in warnings
-    if expected_warning:
-        warned = expected_warning in warnings
-        if expected_table:
-            return warned and table_id == expected_table and bool(url)
-        return warned
-    if not expected_table:
+    if expected_warning and expected_warning not in warnings:
         return False
-    return table_id == expected_table and bool(url) and bool(rows)
+    if expected_warning and not url:
+        return False
+    if expected_table:
+        return table_id == expected_table and bool(url) and bool(rows)
+    return bool(expected_warning)
 
 
 def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]) -> str:
@@ -119,7 +118,7 @@ def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     table_id = str(body.get("table_id") or "")
     if expected_table and table_id != expected_table:
         return f"wrong table {table_id or '(none)'}"
-    if expected_table and not body.get("url"):
+    if expected_warning != "ambiguous_place" and not body.get("url"):
         return "empty url"
     if expected_table and not body.get("rows"):
         return "no rows"
@@ -206,8 +205,6 @@ def install_clock(clock: Clock) -> None:
             name = getattr(tool, "name", "")
             if name in CENSUS_TOOLS:
                 clock.census += elapsed
-            elif name in OPENAI_TOOLS:
-                clock.llm += elapsed
 
     ask_mod._openai_complete = complete  # type: ignore[method-assign]
     ask_mod.dispatch = dispatch  # type: ignore[method-assign]
@@ -221,10 +218,31 @@ def _rate(trials: list[Trial]) -> float:
     return round(sum(trial.answered for trial in trials) / len(trials), 3) if trials else 0.0
 
 
+def trial_record(trial: Trial) -> dict[str, Any]:
+    return {
+        "id": trial.id,
+        "repeat": trial.repeat,
+        "question": trial.text,
+        "tier": trial.tier,
+        "expected": trial.expected_table,
+        "got": trial.table_id,
+        "url": trial.url,
+        "http_ok": trial.http_ok,
+        "answered": trial.answered,
+        "warnings": trial.warnings,
+        "detail": trial.detail,
+        "latency_s": round(trial.latency_s, 3),
+        "t_llm": round(trial.t_llm, 3),
+        "t_census_api": round(trial.t_census_api, 3),
+        "t_ours": round(trial.t_ours, 3),
+        "rows": trial.rows,
+    }
+
+
 def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> dict[str, Any]:
     latencies = [trial.latency_s for trial in trials]
     long_tail = [trial for trial in trials if trial.tier == "long_tail"]
-    gated = long_tail or trials
+    records = [trial_record(trial) for trial in trials]
     by_tier = {
         tier: {
             "n": len(group),
@@ -241,7 +259,7 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "repeat": repeat,
         "n": len(trials),
-        "answered_rate": _rate(gated),
+        "answered_rate": _rate(long_tail),
         "p95_latency_seconds": round(percentile(latencies, 95), 3),
         "t_llm": _mean([trial.t_llm for trial in trials]),
         "t_census_api": _mean([trial.t_census_api for trial in trials]),
@@ -249,22 +267,8 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "prompt_hash": prompt,
         "index_hash": index,
         "by_tier": by_tier,
-        "misses": [
-            {
-                "id": trial.id,
-                "repeat": trial.repeat,
-                "question": trial.text,
-                "expected": trial.expected_table,
-                "got": trial.table_id,
-                "url": trial.url,
-                "http_ok": trial.http_ok,
-                "warnings": trial.warnings,
-                "detail": trial.detail,
-                "latency_s": round(trial.latency_s, 3),
-            }
-            for trial in trials
-            if not trial.answered
-        ],
+        "trials": records,
+        "misses": [record for record in records if not record["answered"]],
     }
 
 
@@ -277,7 +281,7 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
     body: dict[str, Any] = {}
     detail = ""
     try:
-        response = client.post("/ask", json={"question": entry["text"]}, timeout=120.0)
+        response = client.post("/ask", json={"question": entry["text"]})
         status = response.status_code
         payload = response.json()
         body = payload if isinstance(payload, dict) else {}
@@ -325,7 +329,7 @@ def _print_report(summary: dict[str, Any], floors: tuple[float, float]) -> None:
     print(
         f"\n  answered_rate  {summary['answered_rate']:.3f}  (long_tail, floor {answered_floor:g})"
     )
-    print(f"  p95_latency    {summary['p95_latency_seconds']:.3f}s  (floor {p95_ceiling:g}s)")
+    print(f"  p95_latency    {summary['p95_latency_seconds']:.3f}s  (ceiling {p95_ceiling:g}s)")
     print(
         f"  t_llm          {summary['t_llm']:.3f}s   t_census_api {summary['t_census_api']:.3f}s"
         f"   t_ours {summary['t_ours']:.3f}s   (means; not gated)"

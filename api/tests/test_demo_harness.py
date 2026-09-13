@@ -59,6 +59,40 @@ def test_ambiguous_place_with_empty_url_is_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=body) is True
 
 
+def test_warning_only_without_url_is_not_answered() -> None:
+    entry = {"id": "t03", "expect_warning": "moe_not_significant"}
+    body = _body(
+        table_id="",
+        url="",
+        rows=[],
+        warnings=[{"code": "moe_not_significant", "detail": "swamped"}],
+    )
+    assert run_demo.is_answered(entry, status_code=200, body=body) is False
+    assert run_demo.miss_detail(entry, status_code=200, body=body) == "empty url"
+
+
+def test_warning_only_with_url_is_answered() -> None:
+    entry = {"id": "t04", "expect_warning": "geography_unsupported"}
+    body = _body(
+        table_id="",
+        url="https://api.census.gov/data/2024/acs/acs5?get=B19013_001E",
+        rows=[],
+        warnings=[{"code": "geography_unsupported", "detail": "block group"}],
+    )
+    assert run_demo.is_answered(entry, status_code=200, body=body) is True
+
+
+def test_warning_and_table_without_rows_is_not_answered() -> None:
+    entry = {"id": "t01", "expect_table": "B19013", "expect_warning": "overlapping_vintage"}
+    body = _body(
+        table_id="B19013",
+        rows=[],
+        warnings=[{"code": "overlapping_vintage", "detail": "overlap"}],
+    )
+    assert run_demo.is_answered(entry, status_code=200, body=body) is False
+    assert run_demo.miss_detail(entry, status_code=200, body=body) == "no rows"
+
+
 def test_wrong_table_is_not_answered() -> None:
     entry = {"id": "q01", "expect_table": "B01003"}
     assert run_demo.is_answered(entry, status_code=200, body=_body(table_id="B19013")) is False
@@ -161,36 +195,39 @@ def test_key_in_a_url_is_a_leak() -> None:
     assert run_demo.leaks_key(json.dumps({"url": dirty})) is True
 
 
+def _trial(**fields: Any) -> run_demo.Trial:
+    payload: dict[str, Any] = {
+        "id": "q01",
+        "text": "core",
+        "tier": "core",
+        "repeat": 1,
+        "http_ok": True,
+        "answered": True,
+        "expected_table": "B01003",
+        "table_id": "B01003",
+        "url": "https://example",
+        "warnings": [],
+        "latency_s": 1.0,
+        "t_llm": 0.5,
+        "t_census_api": 0.2,
+        "t_ours": 0.3,
+        "detail": "",
+    }
+    payload.update(fields)
+    return run_demo.Trial(**payload)
+
+
 def test_gated_rate_uses_long_tail() -> None:
     trials = [
-        run_demo.Trial(
-            id="q01",
-            text="core",
-            tier="core",
-            repeat=1,
-            http_ok=True,
-            answered=True,
-            expected_table="B01003",
-            table_id="B01003",
-            url="https://example",
-            warnings=[],
-            latency_s=1.0,
-            t_llm=0.5,
-            t_census_api=0.2,
-            t_ours=0.3,
-            detail="",
-        ),
-        run_demo.Trial(
+        _trial(),
+        _trial(
             id="q05",
             text="tail",
             tier="long_tail",
-            repeat=1,
-            http_ok=True,
             answered=False,
             expected_table="B08301",
             table_id="",
             url="",
-            warnings=[],
             latency_s=2.0,
             t_llm=1.0,
             t_census_api=0.4,
@@ -202,3 +239,13 @@ def test_gated_rate_uses_long_tail() -> None:
     assert summary["answered_rate"] == 0.0
     assert summary["by_tier"]["core"]["answered_rate"] == 1.0
     assert summary["t_llm"] == 0.75
+    assert [row["id"] for row in summary["trials"]] == ["q01", "q05"]
+    assert summary["trials"][0]["answered"] is True
+    assert [row["id"] for row in summary["misses"]] == ["q05"]
+
+
+def test_core_only_run_does_not_count_as_gated_rate() -> None:
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+    assert summary["answered_rate"] == 0.0
+    assert "long_tail" not in summary["by_tier"]
+    assert summary["by_tier"]["core"]["answered_rate"] == 1.0
