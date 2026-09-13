@@ -1,0 +1,225 @@
+# CC-58 Gate 2
+# branch: feat/cc-58-ranked-geography
+# HEAD: c0c0d40dad0990bb4517c90527d613381839c32e
+# review base: origin/feat/cc-54-search-select @ d516bd3f4dccf88ae0d6853110d98e7dc848bdb8
+# origin/main: 97482e4b12cb6a518503cc2068ad56264fda9732
+# captured: 2026-09-13T12:23:37-05:00
+# uncommitted at capture start: none (git status --short empty)
+# machines: exit 0 (review continues)
+
+=== git log --oneline origin/feat/cc-54-search-select..HEAD ===
+$ git log --oneline origin/feat/cc-54-search-select..HEAD
+c0c0d40 fix(api): ship the dominant geography with an ambiguity warning (CC-58)
+[exit 0]
+
+=== git diff --stat origin/feat/cc-54-search-select...HEAD ===
+$ git diff --stat origin/feat/cc-54-search-select...HEAD
+ api/src/ask.py                             |  13 +-
+ api/src/geo.py                             |  41 ++++--
+ api/tests/test_ask_loop.py                 |  51 +++----
+ api/tests/test_ask_tools.py                | 217 ++++++++++++++++++++++++++++-
+ api/tests/test_guards.py                   |   2 +
+ docs/ARCHITECTURE.md                       |   4 +-
+ evidence/slice-1/cc-58-gate1.txt           |  39 ++++++
+ evidence/slice-1/cc-58-preflight-claims.md |  21 +++
+ evidence/slice-1/cc-58-preflight.txt       |  34 +++++
+ 9 files changed, 366 insertions(+), 56 deletions(-)
+[exit 0]
+
+=== git status --short ===
+(empty)
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2212 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.151 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+[exit 0]
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+[exit 0]
+
+=== uv run ruff check . ===
+$ uv run ruff check .
+[1;32mAll checks passed![0m
+[exit 0]
+
+=== uv run ruff format --check . ===
+$ uv run ruff format --check .
+82 files already formatted
+[exit 0]
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+Success: no issues found in 19 source files
+[exit 0]
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+.........................................                                [100%]
+185 passed in 3.64s
+[exit 0]
+
+================================================================================
+PASS 1 -- generic bugs (cold read of git diff origin/feat/cc-54-search-select...HEAD; no intent)
+================================================================================
+Diff: c0c0d40 vs origin/feat/cc-54-search-select (d516bd3). Uncommitted at capture: none.
+9 files, +366 / -56. Production: geo.py, ask.py, ARCHITECTURE.md; rest is tests/evidence.
+
+GOOD: no crash on 0 matches (geography=None). Listing error path still raises
+RuntimeError with CensusURL (no key). B01003_001E is skipped from the in=
+parents. pair_margins / fetch_data / assemble / CensusURL are untouched.
+ambiguous_place still fires when len(geographies)>1. Tests can fail.
+
+Findings:
+- list_census_names GET is now NAME,GEO_ID,B01003_001E. Rows store that column
+  as string population. rank_matches sorts filtered hits: place class
+  (city=0, other=1, cdp=2; non-place klass=0), then -float(population), then
+  geoid. Missing/unparseable population is (klass, 1, 0.0, geoid) so it sorts
+  after any numeric pop in that class.
+- Place class is the primary key. A city of 100 sorts above a town of 500000
+  and a CDP of 999999. That is what test_duplicate_names_rank_by_class_then_population
+  asserts. Not a crash; a size-blind class rule.
+- float() on a Census flag string such as -999999999 succeeds. -float of that
+  value is a large positive, so a flagged row would sort first in its class.
+  JSON null / empty / "None" still take the missing-pop branch.
+- If Census 400s the listing because B01003_001E is not a legal GET column
+  for that for_level, the whole resolve raises RuntimeError (same wrapper as
+  before). Previous GET was NAME,GEO_ID only.
+- ResolveGeographyTool summary for >1 hits is "selected {for} {in}; N
+  alternatives" and no longer names the other rows. Artifact.matches keeps
+  the full ranked list. When detail is set (illegal / no match) it still
+  overwrites the summary.
+- _absorb sets record.geography = dict(matches[0]) whenever matches is
+  nonempty (was only when len==1). allowed_geographies is every (for, in)
+  pair on record.geographies (was empty unless exactly one). build_url with
+  omitted for_spec/in_spec therefore uses the ranked pick; an explicit pair
+  from any match is also allowed. Changing geography still clears url/rows.
+- Loop test now builds and fetches after Cook County: URL contains
+  county:031 and state:17, rows and universe present, warnings ==
+  [ambiguous_place] with Georgia and Minnesota still in detail.
+
+nothing: exception on empty match list; key on the listing error string;
+B01003 leaking into in=; fifth tool; graph node; dropped GEO_ID/MOE pairing
+on the fetch path; a new URL formatter; numbers passing back through the model.
+
+================================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check .                                             [exit 0]
+uv run ruff format --check .                                    [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  185 passed
+
+GOOD: machines green. Budgets not weakened. No invariant violations.
+Review continues.
+
+--- the claim ---
+A question that matches several geographies now ships a Census URL, GEOID,
+rows, and universe for the ranked match, with ambiguous_place still listing
+every candidate, instead of refusing to build a URL.
+That sentence can be written. make demo / make eval are E2E (next phase);
+this Gate 2 does not treat a missing demo as a machine failure.
+No retrieval@1 delta is claimed; selector_at_1 in evidence/latest.json is
+unchanged (0.85). p95 in latest.json is still 18.151s.
+
+--- scope ---
+GOOD: belongs to slice 1 remaining work (resolve_geography + the
+ambiguous_place path of POST /ask). Not added: conversation memory, auth,
+database, frontend, charts, PDF, clarification, urls[] / multi-year fetch
+(slice 3), graph nodes, a fifth tool. retrieval/ is untouched. 9 files,
+under ~15. Evidence and preflight notes are Gate 1 / pre-flight artifacts,
+not opportunistic product code.
+ARCHITECTURE.md HTTP section updated in the same commit as geo.py / ask.py.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: success still returns str(CensusURL) from build_url. Listing also
+  builds CensusURL; str(built) on the listing failure path. This PR does not
+  format a URL any other way. Redaction stays on the CensusURL type.
+  Ambiguous resolve can now produce a non-empty URL (the ranked pick).
+  Unresolved / illegal / unknown-table failure branches still return url="".
+- MOE: fetch/build pairing unchanged. B01003_001E on the NAME listing is
+  ranking input, not the answer payload.
+- GEOID: get= still includes GEO_ID on build_url. assemble fallback is
+  record.geography.geoid, which is now set for multi-match. Warning still
+  lists the other names.
+- Universe: still from table_facts on the success path.
+- Guards: ambiguous_place still fires at len(geographies)>1 and does not
+  block. No new blocking question. Ranking plus absorb is a geography
+  default with the warning attached, not an invisible fix. Vintage is
+  untouched.
+- Numbers still do not pass back through the model.
+
+Out of ticket, do not demand: make demo numbers, urls[], frontend, auth,
+graphs, a fifth tool, ACS1 eligibility.
+
+--- shape ---
+GOOD / nothing: no new tool, route, Pydantic boundary-model, or .add_node().
+Tools stay at 4. rank_matches is a function in geo.py, not a new module.
+ARCHITECTURE.md now says NAME listing includes B01003_001E, matches[0] is
+selected, and the rest stay on geographies so ambiguous_place still warns.
+
+--- tests ---
+GOOD: behaviour, not prompt wording. New tests drive rank_matches,
+ResolveGeographyTool.ainvoke, list_census_names, dispatch+assemble.
+They assert ranked for/in order, that every match stays on the artifact,
+that Portland OR / Springfield MO / Cook IL are matches[0], that a
+state-qualified place stays unique, that B01003 stays off in=, and that
+the Cook County loop builds a URL with ambiguous_place still on the
+response. _list_geographies is a fixture map keyed by level, not a
+search() fake that returns one table for every question.
+Some tests assert on the tool summary string ("selected county:031",
+"alternatives"). That is model-visible tool content, not the system
+prompt; still brittle if the summary is rephrased.
+No new test file named after a ticket.
+Gate 1 mutation transcript is in evidence/slice-1/cc-58-gate1.txt; this
+review does not re-run mutations. A new test file is not evidence that
+POST /ask works; that is E2E.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: several NAME hits now select
+the ranked geography, build that URL, and still warn with every candidate.
+
+Follow-ups (none are silent-wrong-answer):
+1. NAME listing now requires B01003_001E as a GET column. A 400 at a
+   for_level that rejects it fails the whole resolve (existing RuntimeError).
+2. Negative ACS flag strings parse as floats and would rank first in class.
+3. Place class outranks population (tiny city over large town/CDP). Tested.
+4. Tool summary no longer names the alternative rows; warnings[].detail does.
+5. Budget headroom: doc_lines 1798/1800, p95 18.151/20, largest file 395/400.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
