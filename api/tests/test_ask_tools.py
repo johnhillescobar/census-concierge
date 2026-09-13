@@ -303,6 +303,28 @@ async def test_empty_search_does_not_call_selector() -> None:
     assert message.artifact.hits == []
 
 
+async def test_same_question_does_not_reselect() -> None:
+    calls: list[str] = []
+
+    def select(question: str, hits: list[dict[str, object]]) -> str:
+        del hits
+        calls.append(question)
+        return "B27001"
+
+    tool = SearchTablesTool(search=_pool_search, describe=_describe, select=select)
+    payload = {
+        "type": "tool_call",
+        "name": "search_tables",
+        "args": {"question": "health insurance by age"},
+        "id": "c1",
+    }
+    first = await tool.ainvoke(payload)
+    second = await tool.ainvoke({**payload, "id": "c2"})
+    assert calls == ["health insurance by age"]
+    assert [hit["table_id"] for hit in first.artifact.hits][0] == "B27001"
+    assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
+
+
 async def test_unknown_selector_id_keeps_retrieval_order() -> None:
     tool = SearchTablesTool(
         search=_pool_search,

@@ -1,0 +1,111 @@
+# CC-59 pre-flight
+# branch: feat/cc-54-search-select (will fork feat/cc-59-p95)
+# Do NOT overwrite evidence/slice-1/e2e-pre.txt.
+
+$ git rev-parse --abbrev-ref HEAD
+feat/cc-54-search-select
+
+$ git rev-parse HEAD
+a2456e0a05b87efbc294bf12490f0373b62ba936
+
+$ git log -1 --oneline
+a2456e0 Merge pull request #21 from johnhillescobar:feat/cc-58-ranked-geography
+
+$ git log --oneline origin/main..HEAD
+a2456e0 Merge pull request #21 from johnhillescobar:feat/cc-58-ranked-geography
+ca94fec evidence(slice-1): CC-58 E2E pre-PR transcript
+ef9a9fc evidence(slice-1): CC-58 Gate 2 review transcript
+c0c0d40 fix(api): ship the dominant geography with an ambiguity warning (CC-58)
+d516bd3 Merge pull request #20 from johnhillescobar:feat/cc-57-default-total
+68151a4 evidence(slice-1): CC-57 E2E pre-PR transcript
+5c4120c evidence(slice-1): CC-57 Gate 2 review transcript
+c09faaa fix(api): default empty build_url variables to the table total (CC-57)
+93fee04 evidence(slice-1): fix escaped dollar in CC-54 post-fix demo header
+a8e3cef evidence(slice-1): CC-54 PR A Gate 2 re-run and post-fix demo
+0cad725 fix(api): show only the selected table in search_tables summary (CC-54)
+60075fd evidence(slice-1): CC-54 PR A Gate 2 review transcript
+dcf228d evidence(slice-1): CC-54 PR A Gate 1 mutation transcript
+2df14df feat(api): let search_tables use the same table pick as eval --rerank (CC-54)
+
+$ merged CC-57 / CC-58
+fatal: ambiguous argument 'origin/feat/cc-54-search-select;': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+
+$ gh pr view 19 --json number,state,baseRefName,headRefName,title,url
+{"baseRefName":"main","headRefName":"feat/cc-54-search-select","number":19,"state":"OPEN","title":"feat(api): search_tables uses the eval --rerank pick (CC-54)","url":"https://github.com/johnhillescobar/census-concierge/pull/19"}
+
+=== FILES ===
+scripts/run_demo.py exists=True
+api/src/retrieval/rerank.py exists=True
+api/src/retrieval/index.py exists=True
+scripts/eval_retrieval.py exists=True
+evidence/slice-1/cc-58-e2e-pre.txt exists=True
+budgets.toml exists=True
+
+=== TIMING FIELDS IN run_demo.py ===
+t_llm True
+t_census_api True
+t_ours True
+p95_latency_seconds True
+answered_rate True
+overall_answered_rate True
+prompt_hash True
+index_hash True
+
+=== rerank fallback / MODEL ===
+fallback = candidates[0].table_id True
+MODEL gemini-3.7-flash True
+except Exception returns fallback True
+
+=== index.search LLM-free ===
+openai in index.py False
+genai in index.py False
+choose in index.py True
+
+=== --rerank --holdout write path ===
+if args.rerank before elif args.holdout True
+both flags: --rerank branch writes selector_at_1 (holdout n=8 would overwrite gated key)
+
+=== budgets ===
+p95_latency_seconds  = 20.0 True
+answered_rate_min    = 0.70 True
+retrieval_at_10_min  = 0.90 True
+selector_at_1_min    = 0.70 True
+synthetic_alignment_min = 0.50 True
+
+=== latest.json gated keys ===
+retrieval_at_1=0.475
+retrieval_at_10=0.9
+selector_at_1=0.825
+synthetic_alignment=0.544
+synthetic_self_retrieval_at_5=0.82
+p95_latency_seconds=15.356
+t_llm=3.753
+t_census_api=3.377
+t_ours=3.658
+prompt_hash=45b4e3d20ca0
+index_hash=377cd59fe62a
+answered_rate=0.769
+demo.answered_rate=0.769
+demo.overall_answered_rate=0.712
+demo.core n=12 answered_rate=0.75 http_ok=1.0
+demo.long_tail n=117 answered_rate=0.769 http_ok=1.0
+demo.trap n=24 answered_rate=0.417 http_ok=1.0
+
+=== CC-58 transcript p95/rate ===
+  answered_rate  0.769  (long_tail, floor 0.7)   overall 0.712
+  p95_latency    15.356s  (ceiling 20s)
+
+=== KEYS PRESENT (values not printed) ===
+OPENAI_API_KEY present=True
+CENSUS_API_KEY present=True
+GEMINI_API_KEY present=True
+
+=== LISTENING PROCESSES (uvicorn/8000) ===
+
+
+=== LOC ===
+api/src/retrieval/rerank.py nonblank_noncomment=79
+api/src/ask.py nonblank_noncomment=395
+api/src/tools.py nonblank_noncomment=320

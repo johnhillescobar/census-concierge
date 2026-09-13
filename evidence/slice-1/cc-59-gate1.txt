@@ -1,0 +1,51 @@
+# CC-59 Gate 1 — tests and mutation check
+# branch: feat/cc-59-p95
+# Do NOT overwrite evidence/slice-1/e2e-pre.txt.
+
+Mutations revert one behaviour at a time. GOOD = test fails against the broken
+implementation. BAD = test still passes (the test does not check that behaviour).
+
+## New tests
+
+api/tests/test_ask_tools.py::test_same_question_does_not_reselect
+api/tests/test_rerank.py::test_gemini_selector_disables_thinking
+api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error
+
+## Mutation 1 — same-question reselect (remove _picks memo in SearchTablesTool._arun)
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_same_question_does_not_reselect
+
+GOOD
+FAILED api/tests/test_ask_tools.py::test_same_question_does_not_reselect
+AssertionError: assert ['health insurance by age', 'health insurance by age'] == ['health insurance by age']
+1 failed
+
+Restored memo.
+
+## Mutation 2 — Gemini thinking_budget=0 (drop thinking_config)
+
+$ uv run pytest -q api/tests/test_rerank.py::test_gemini_selector_disables_thinking
+
+GOOD
+FAILED api/tests/test_rerank.py::test_gemini_selector_disables_thinking
+assert None == 0
+1 failed
+
+Restored thinking_budget=0.
+
+## Mutation 3 — fallback on selector exception (drop try/except in choose)
+
+$ uv run pytest -q api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error
+
+GOOD
+FAILED api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error
+RuntimeError: selector down
+1 failed
+
+Restored except Exception: return fallback.
+
+## Restored suite
+
+$ uv run pytest -q api/tests/test_rerank.py api/tests/test_ask_tools.py::test_same_question_does_not_reselect
+
+3 passed in 0.51s

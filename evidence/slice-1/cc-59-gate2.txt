@@ -1,0 +1,473 @@
+# CC-59 Gate 2
+# branch: feat/cc-59-p95
+# HEAD: b1c075ee34348c78a83504821fc5044e8a93e20c
+# review commit: b1c075e
+# review base: origin/feat/cc-54-search-select @ a2456e0a05b87efbc294bf12490f0373b62ba936
+# origin/main: 97482e4b12cb6a518503cc2068ad56264fda9732
+# captured: 2026-09-13T14:44:36-05:00
+# uncommitted at capture start: present; review ignores uncommitted files and _tmp_*.py
+# machines: committed tree exit 0 (first ruff check . failed only on ignored _tmp_*.py)
+=== git log --oneline origin/feat/cc-54-search-select..HEAD ===
+$ git log --oneline origin/feat/cc-54-search-select..HEAD
+b1c075e fix(api): run the table selector once per question (CC-59)
+[exit 0]
+
+=== git diff --stat origin/feat/cc-54-search-select...HEAD ===
+$ git diff --stat origin/feat/cc-54-search-select...HEAD
+ api/src/retrieval/rerank.py                |     5 +-
+ api/src/tools.py                           |     8 +-
+ api/tests/test_ask_tools.py                |    22 +
+ api/tests/test_rerank.py                   |    59 +
+ evidence/slice-1/cc-59-e2e-pre.txt         | 15227 +++++++++++++++++++++++++++
+ evidence/slice-1/cc-59-gate1.txt           |    51 +
+ evidence/slice-1/cc-59-preflight-claims.md |    23 +
+ evidence/slice-1/cc-59-preflight.txt       |   111 +
+ 8 files changed, 15503 insertions(+), 3 deletions(-)
+[exit 0]
+
+=== git diff --name-status origin/feat/cc-54-search-select...HEAD ===
+$ git diff --name-status origin/feat/cc-54-search-select...HEAD
+M	api/src/retrieval/rerank.py
+M	api/src/tools.py
+M	api/tests/test_ask_tools.py
+A	api/tests/test_rerank.py
+A	evidence/slice-1/cc-59-e2e-pre.txt
+A	evidence/slice-1/cc-59-gate1.txt
+A	evidence/slice-1/cc-59-preflight-claims.md
+A	evidence/slice-1/cc-59-preflight.txt
+[exit 0]
+
+=== git status --short ===
+$ git status --short
+ M evidence/slice-1/cc-59-e2e-pre.txt
+?? _tmp_cc59_candidate_e2e.py
+[exit 0]
+
+=== git show --stat --format=fuller b1c075e ===
+$ git show --stat --format=fuller b1c075e
+commit b1c075ee34348c78a83504821fc5044e8a93e20c
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Sun Sep 13 14:41:42 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Sun Sep 13 14:41:42 2026 -0500
+
+    fix(api): run the table selector once per question (CC-59)
+    
+    Repeated search_tables calls were paying Gemini on every loop turn and pushing p95 to 27s after CC-58. Reuse the pick for the same question in the request, and disable thinking on the existing choose() call.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ api/src/retrieval/rerank.py                |     5 +-
+ api/src/tools.py                           |     8 +-
+ api/tests/test_ask_tools.py                |    22 +
+ api/tests/test_rerank.py                   |    59 +
+ evidence/slice-1/cc-59-e2e-pre.txt         | 15227 +++++++++++++++++++++++++++
+ evidence/slice-1/cc-59-gate1.txt           |    51 +
+ evidence/slice-1/cc-59-preflight-claims.md |    23 +
+ evidence/slice-1/cc-59-preflight.txt       |   111 +
+ 8 files changed, 15503 insertions(+), 3 deletions(-)
+[exit 0]
+
+=== git diff origin/feat/cc-54-search-select...HEAD -- api/src/retrieval/rerank.py api/src/tools.py api/tests/test_ask_tools.py api/tests/test_rerank.py ===
+$ git diff origin/feat/cc-54-search-select...HEAD -- api/src/retrieval/rerank.py api/src/tools.py api/tests/test_ask_tools.py api/tests/test_rerank.py
+diff --git a/api/src/retrieval/rerank.py b/api/src/retrieval/rerank.py
+index 5d82f83..474837c 100644
+--- a/api/src/retrieval/rerank.py
++++ b/api/src/retrieval/rerank.py
+@@ -68,7 +68,10 @@ def _choose_gemini(question: str, listing: str, model: str) -> str | None:
+     response = client.models.generate_content(
+         model=model,
+         contents=f"{PROMPT}\n\nQuestion: {question}\n\nCandidates:\n{listing}",
+-        config=types.GenerateContentConfig(response_mime_type="application/json"),
++        config=types.GenerateContentConfig(
++            response_mime_type="application/json",
++            thinking_config=types.ThinkingConfig(thinking_budget=0),
++        ),
+     )
+     return _pick_table(response.text or "{}")
+ 
+diff --git a/api/src/tools.py b/api/src/tools.py
+index 21ed6ff..acbc050 100644
+--- a/api/src/tools.py
++++ b/api/src/tools.py
+@@ -12,7 +12,7 @@ from typing import Any, Literal
+ 
+ import httpx
+ from langchain_core.tools import BaseTool
+-from pydantic import BaseModel, ConfigDict, Field
++from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+ 
+ from src.census_url import CENSUS_API, CensusURL, redact_text
+ 
+@@ -148,6 +148,7 @@ class SearchTablesTool(BaseTool):
+     search: SearchFn
+     describe: DescribeTable
+     select: SelectFn | None = None
++    _picks: dict[str, str] = PrivateAttr(default_factory=dict)
+ 
+     def _run(self, *args: Any, **kwargs: Any) -> Any:
+         raise NotImplementedError("search_tables is async-only")
+@@ -166,7 +167,10 @@ class SearchTablesTool(BaseTool):
+                 }
+             )
+         if len(hits) > 1:
+-            picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
++            picked = self._picks.get(question)
++            if picked is None:
++                picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
++                self._picks[question] = picked
+             hits = _promote(hits, picked)
+         artifact = SearchTablesResult(hits=hits)
+         if not hits:
+diff --git a/api/tests/test_ask_tools.py b/api/tests/test_ask_tools.py
+index b2499ee..e52f18b 100644
+--- a/api/tests/test_ask_tools.py
++++ b/api/tests/test_ask_tools.py
+@@ -303,6 +303,28 @@ async def test_empty_search_does_not_call_selector() -> None:
+     assert message.artifact.hits == []
+ 
+ 
++async def test_same_question_does_not_reselect() -> None:
++    calls: list[str] = []
++
++    def select(question: str, hits: list[dict[str, object]]) -> str:
++        del hits
++        calls.append(question)
++        return "B27001"
++
++    tool = SearchTablesTool(search=_pool_search, describe=_describe, select=select)
++    payload = {
++        "type": "tool_call",
++        "name": "search_tables",
++        "args": {"question": "health insurance by age"},
++        "id": "c1",
++    }
++    first = await tool.ainvoke(payload)
++    second = await tool.ainvoke({**payload, "id": "c2"})
++    assert calls == ["health insurance by age"]
++    assert [hit["table_id"] for hit in first.artifact.hits][0] == "B27001"
++    assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
++
++
+ async def test_unknown_selector_id_keeps_retrieval_order() -> None:
+     tool = SearchTablesTool(
+         search=_pool_search,
+diff --git a/api/tests/test_rerank.py b/api/tests/test_rerank.py
+new file mode 100644
+index 0000000..063dfa7
+--- /dev/null
++++ b/api/tests/test_rerank.py
+@@ -0,0 +1,59 @@
++"""Selector choose(): fallback and Gemini config. No live model."""
++
++from __future__ import annotations
++
++from types import SimpleNamespace
++
++from src.retrieval.rerank import Candidate, choose
++
++
++def test_gemini_selector_disables_thinking(monkeypatch) -> None:
++    captured: dict[str, int | None] = {}
++
++    class FakeModels:
++        def generate_content(self, model: str, contents: str, config: object) -> SimpleNamespace:
++            del model, contents
++            thinking = getattr(config, "thinking_config", None)
++            captured["budget"] = getattr(thinking, "thinking_budget", None)
++            return SimpleNamespace(text='{"table": "B01003"}')
++
++    class FakeClient:
++        def __init__(self, api_key: str | None = None) -> None:
++            del api_key
++            self.models = FakeModels()
++
++    monkeypatch.setenv("GEMINI_API_KEY", "test")
++    import google.genai as genai
++
++    monkeypatch.setattr(genai, "Client", FakeClient)
++    picked = choose(
++        "population",
++        [Candidate("B01003", "Total Population", "Total population")],
++    )
++    assert picked == "B01003"
++    assert captured["budget"] == 0
++
++
++def test_selector_falls_back_to_retrieval_top_on_error(monkeypatch) -> None:
++    class FakeModels:
++        def generate_content(self, model: str, contents: str, config: object) -> SimpleNamespace:
++            del model, contents, config
++            raise RuntimeError("selector down")
++
++    class FakeClient:
++        def __init__(self, api_key: str | None = None) -> None:
++            del api_key
++            self.models = FakeModels()
++
++    monkeypatch.setenv("GEMINI_API_KEY", "test")
++    import google.genai as genai
++
++    monkeypatch.setattr(genai, "Client", FakeClient)
++    picked = choose(
++        "population",
++        [
++            Candidate("B01003", "Total Population", "Total population"),
++            Candidate("B19013", "Median Household Income", "Households"),
++        ],
++    )
++    assert picked == "B01003"
+[exit 0]
+
+=== uv run python -c ThinkingConfig inspect ===
+$ uv run python -c "from google.genai import types; cfg = types.GenerateContentConfig(response_mime_type='application/json', thinking_config=types.ThinkingConfig(thinking_budget=0)); print(cfg.thinking_config)"
+powershell.exe : At line:1 char:121
+At C:\Users\johnh\AppData\Local\Temp\ps-script-76e81225-9fb1-4ae6-b9c2-e6c76fa52706.ps1:114 char:13
++   $output = & powershell -NoProfile -Command $Cmd 2>&1 | Out-String
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (At line:1 char:121:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
++ ... .GenerateContentConfig(response_mime_type='application/json', thinkin ...
++                                                                 ~
+Missing argument in parameter list.
+    + CategoryInfo          : ParserError: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : MissingArgument
+ 
+[exit 1]
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         15.356 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  ok    answered_rate            0.769 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+[exit 0]
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+[exit 0]
+
+=== uv run ruff check . ===
+$ uv run ruff check .
+[1m[91m]8;;https://docs.astral.sh/ruff/rules/datetime-timezone-utc\UP017]8;;\[0m [[1m[96m*[0m][1m Use `datetime.UTC` alias[0m
+  [1m[94m--> [0m_tmp_cc59_candidate_e2e.py:75:55
+   [1m[94m|[0m
+[1m[94m73[0m [1m[94m|[0m             if code != 0:
+[1m[94m74[0m [1m[94m|[0m                 failed = code
+[1m[94m75[0m [1m[94m|[0m         handle.write(f"\n# finished_utc {datetime.now(timezone.utc).isoformat()}\n")
+   [1m[94m|[0m                                                       [1m[91m^^^^^^^^^^^^[0m
+[1m[94m76[0m [1m[94m|[0m     print("CC-59 CANDIDATE E2E DONE", flush=True)
+[1m[94m77[0m [1m[94m|[0m     return failed
+   [1m[94m|[0m
+[1m[96mhelp[0m[1m: Convert to `datetime.UTC` alias[0m
+[1m[94m  [0m [1m[94m|[0m
+[1m[94m7 [0m [1m[94m|[0m import sys
+[1m[94m  [0m [1m[31m-[0m [31mfrom datetime import datetime, [0m[1m[31mtimezone[0m[0m[31m
+[0m[1m[94m8 [0m [1m[32m+[0m [32mfrom datetime import datetime, [0m[1m[32mtimezone, UTC[0m[0m[32m
+[0m[1m[94m9 [0m [1m[94m|[0m from pathlib import Path
+--------------------------------------------------------------------------------
+[1m[94m74[0m [1m[94m|[0m                 failed = code
+[1m[94m  [0m [1m[31m-[0m [31m        handle.write(f"\n# finished_utc [0m[1m[31m{datetime.now(timezone.utc).isoformat()}\n")[0m[0m[31m
+[0m[1m[94m75[0m [1m[32m+[0m [32m        handle.write(f"\n# finished_utc [0m[1m[32m{datetime.now(UTC).isoformat()}\n")[0m[0m[32m
+[0m[1m[94m76[0m [1m[94m|[0m     print("CC-59 CANDIDATE E2E DONE", flush=True)
+[1m[94m  [0m [1m[94m|[0m
+
+Found 1 error.
+[[36m*[0m] 1 fixable with the `--fix` option.
+[exit 1]
+
+=== uv run ruff format --check . ===
+$ uv run ruff format --check .
+85 files already formatted
+[exit 0]
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+Success: no issues found in 19 source files
+[exit 0]
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m \"not integration\"
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+............................................                             [100%]
+188 passed in 3.35s
+[exit 0]
+
+=== command exits ===
+check_budgets=0
+git-diff-stat=0
+git-log=0
+mypy=0
+thinking-config=1
+git-name-status=0
+check_invariants=0
+pytest=0
+git-status=0
+git-show=0
+ruff-check=1
+ruff-format=0
+git-diff-code=0
+
+=== uv run ruff check . --exclude _tmp_*.py ===
+$ uv run ruff check . --exclude _tmp_*.py
+[1;32mAll checks passed![0m
+
+[exit 0]
+
+=== uv run python -c ThinkingConfig inspect (retry) ===
+$ uv run python -c from google.genai import types; ... ThinkingConfig(thinking_budget=0)
+ThinkingConfig(
+  thinking_budget=0
+)
+thinking_budget= 0
+
+[exit 0]
+
+================================================================================
+PASS 1 -- generic bugs (cold read of git diff origin/feat/cc-54-search-select...HEAD; no intent)
+================================================================================
+Diff: b1c075e vs origin/feat/cc-54-search-select (a2456e0). Uncommitted ignored:
+M evidence/slice-1/cc-59-e2e-pre.txt; ?? _tmp_cc59_candidate_e2e.py. _tmp_*.py ignored.
+8 files, +15503 / -3. Production: rerank.py, tools.py. Rest is tests/evidence.
+
+GOOD: empty hits still skip the selector. _promote still no-ops on an unknown
+ID. pair_margins / fetch_data / assemble / CensusURL / geo.py / ask.py loop
+are untouched. choose() still returns candidates[0] on any exception and
+still rejects a table ID not in the pool. Installed google.genai accepts
+GenerateContentConfig(thinking_config=ThinkingConfig(thinking_budget=0)).
+SearchTablesTool is constructed in default_tools() per run_ask, so _picks is
+per request, not a process singleton. Tests can fail.
+
+Findings:
+- SearchTablesTool._picks is keyed only by the question string. A later
+  search_tables call with the same question and a different k (or a different
+  hit list) reuses the first pick and _promote()s it if that ID is still in
+  hits. The selector is not re-run against the new listing.
+- A choose() exception caches the retrieval-top fallback under that question.
+  A later call in the same request will not retry the model.
+- thinking_budget=0 is passed on the Gemini path only. If the live API
+  rejects the field, the existing except Exception in choose() returns
+  retrieval top. The unit test monkeypatches Client and does not call Gemini.
+- test_rerank.py FakeModels reads config.thinking_config via getattr; the
+  real GenerateContentConfig object has that attribute (inspect above).
+
+nothing: crash on 0 hits; &key= on a new formatter; numbers passing through
+the model; a dropped GEOID/MOE pairing; a fifth tool; a graph node; cross-
+request cache (tool is built per run_ask).
+
+================================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check .                                             [exit 1]  only _tmp_cc59_candidate_e2e.py UP017 (ignored uncommitted)
+uv run ruff check . --exclude _tmp_*.py                         [exit 0]
+uv run ruff format --check .                                    [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  188 passed
+
+GOOD: committed tree machines green. Budgets not weakened (invariants --base
+origin/main: no violations). Review continues. First `ruff check .` is not a
+committed-diff failure.
+
+--- the claim ---
+A question whose loop calls search_tables more than once no longer invokes
+the table selector on every turn of that same question; Gemini choose() is
+configured with thinking_budget=0.
+That sentence can be written. make demo / make eval are E2E (next phase);
+this Gate 2 does not treat a missing post-change demo as a machine failure.
+This commit does not change evidence/latest.json. check_budgets p95 15.356,
+answered_rate 0.769, selector_at_1 0.825, retrieval_at_10 0.9 are the
+predecessor figures still in latest.json. Committed
+evidence/slice-1/cc-59-e2e-pre.txt is labeled HEAD a2456e0 (pre-change).
+No retrieval@1 delta is claimed.
+
+--- scope ---
+GOOD: belongs to slice 1 remaining work (POST /ask latency on the existing
+selector path). Not added: conversation memory, auth, database, frontend,
+charts, PDF, clarification, urls[] / multi-year fetch (slice 3), graph
+nodes, a fifth tool, a new route, a new dependency. index.search() is
+untouched. 8 files, under ~15. Production is 2 files (+13 / -3). Evidence
+and preflight notes are this ticket's artifacts, not opportunistic product
+code. ARCHITECTURE.md unchanged: no new component, boundary, or dependency.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: build_url / CensusURL / fetch failure URL paths are not in this
+  diff. Redaction stays on the CensusURL type. No new URL formatter.
+- MOE: pair_margins and fetch pairing unchanged.
+- GEOID: get= NAME,GEO_ID,*paired unchanged.
+- Universe: still from table_facts / hit metadata on search_tables.
+- Alternatives: search_tables still returns the rest of the pool as related
+  tables in the artifact; summary still appends "{n} related tables".
+- Guards: none added or made blocking. No new clarification prompt.
+- No silent vintage or geography substitution.
+- Numbers still do not pass back through the model.
+- Memoizing a table ID is a skipped re-rank, not a repaired Census value.
+
+Out of ticket, do not demand: make demo numbers for this commit, urls[],
+frontend, auth, graphs, a fifth tool.
+
+--- shape ---
+GOOD / nothing: no new tool, route, Pydantic boundary-model, or .add_node().
+Tools stay at 4. _picks is PrivateAttr on SearchTablesTool, not a new
+module. thinking_config is a field on the existing GenerateContentConfig
+call. ARCHITECTURE.md already says search_tables applies rerank.choose();
+a per-request memo and a thinking_budget are not a shape change.
+
+--- tests ---
+GOOD: behaviour, not prompt wording. New tests drive SearchTablesTool
+ainvoke call count, FakeClient thinking_budget, and choose() fallback.
+No assertion on PROMPT text or LLM prose. No new test file named after a
+ticket. _pool_search ignores the question and always returns B27010,
+B27001; that fake predates this PR (test_selector_pick_is_first_hit) and
+is used to test promotion/memo, not retrieval. Gate 1 mutation transcript
+is in evidence/slice-1/cc-59-gate1.txt; this review does not re-run
+mutations. A new test file is not evidence that POST /ask p95 moved; that
+is E2E.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: the same question no longer
+pays the table selector on every search_tables call in one request, and
+Gemini choose() is sent thinking_budget=0.
+
+Follow-ups (none are silent-wrong-answer):
+1. _picks is keyed by question only; a later call with a different k reuses
+   the first pick when that ID is still in hits.
+2. evidence/latest.json is unchanged in this commit; budget p95/answered_rate
+   are still CC-58 numbers. Post-change make demo is the next phase.
+3. Live Gemini rejecting thinking_budget=0 would fall back to retrieval top
+   via the existing except Exception (unit test does not hit the API).
+4. Budget headroom: doc_lines 1798/1800, largest file 395/400.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================

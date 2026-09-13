@@ -68,7 +68,10 @@ def _choose_gemini(question: str, listing: str, model: str) -> str | None:
     response = client.models.generate_content(
         model=model,
         contents=f"{PROMPT}\n\nQuestion: {question}\n\nCandidates:\n{listing}",
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
     )
     return _pick_table(response.text or "{}")
 
