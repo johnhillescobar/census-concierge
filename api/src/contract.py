@@ -58,5 +58,6 @@ class AskResponse(BaseModel):
         description="Related tables with the reason they differ from the selection."
     )
     warnings: list[AskWarning] = Field(
-        description="Typed warnings. Empty until slice-1 guards land."
+        description="Non-blocking guards: overlapping_vintage, moe_not_significant, "
+        "geography_unsupported, ambiguous_place, universe_mismatch."
     )
