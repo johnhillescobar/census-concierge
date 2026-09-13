@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 import httpx
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL, redact_text
 
@@ -148,6 +148,7 @@ class SearchTablesTool(BaseTool):
     search: SearchFn
     describe: DescribeTable
     select: SelectFn | None = None
+    _picks: dict[str, str] = PrivateAttr(default_factory=dict)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
@@ -166,7 +167,10 @@ class SearchTablesTool(BaseTool):
                 }
             )
         if len(hits) > 1:
-            picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+            picked = self._picks.get(question)
+            if picked is None:
+                picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+                self._picks[question] = picked
             hits = _promote(hits, picked)
         artifact = SearchTablesResult(hits=hits)
         if not hits:
