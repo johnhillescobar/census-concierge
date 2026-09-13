@@ -129,17 +129,11 @@ high and `@1` is low** — the diagnostic already tells you.
 selector `@1 >= 0.70`, `synthetic_alignment >= 0.50` — and
 `python scripts/check_budgets.py` exits 0.
 
-> **STATUS 2026-09-11 — every task above is built; the gate is met.**
-> Retriever `@10` 0.90, selector `@1` 0.80 (gemini-3.7-flash rerank, 5 runs);
-> raw cosine `@1` 0.475 is diagnostic only. `synthetic_alignment` 0.544;
-> `synthetic_self_retrieval` ~0.45 — diagnostic only once questions left the
-> embedded document. Two of this slice's prescriptions were measured wrong and
-> reversed — RRF fusion and synthetic questions both *lowered* `@1`. What worked
-> was corpus structure (1,458 documents to 756) plus a generative selector.
-> Ladder and diagnosis in `evidence/retrieval_steps.md`.
-> Post-merge E2E 2026-09-12 (CC-52, `main` @ 72ebd75): retriever `@10` 0.90,
-> selector `@1` 0.875, `synthetic_alignment` 0.544; `check_budgets.py` exit 0.
-> Transcript: `evidence/slice-0/e2e-post.txt`.
+Two prescriptions were measured wrong and reversed: RRF fusion and synthetic
+questions both *lowered* `@1`. Corpus fold (1,458 → 756) plus a generative
+selector cleared the gate. Ladder: `evidence/retrieval_steps.md`.
+
+> **STATUS 2026-09-12.** Slice 0 closed. Floors met. Evidence: `evidence/slice-0/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-8.
 
 **Read the number honestly.** At n=40, `@1` near 0.70 carries a standard error
 of ~7 points — a 95% interval of roughly ±14. A move from 0.70 to 0.76 is noise,

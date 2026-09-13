@@ -72,8 +72,9 @@ chat. Close with `uv run python scripts/jira_transition.py CC-N --done --comment
 (needs `ATLASSIAN_EMAIL` + `ATLASSIAN_API_TOKEN` in `.env`). Use the script, not IDE
 MCP — same path in Claude Code and Cursor.
 
-Jira owns *open vs done*; `.claude/PLAN.md` STATUS owns *what shipped and the
-evidence*. Name `CC-N` in commits/PRs; Jira comments link to the PR or `evidence/`.
+Jira owns *open vs done* and the post-merge numbers. `.claude/PLAN.md` STATUS
+is a close pointer (floors, `evidence/slice-<N>/`, epic URL), not an eval ledger.
+Name `CC-N` in commits/PRs; Jira comments link to the PR or `evidence/`.
 
 ## Slice workflow
 
