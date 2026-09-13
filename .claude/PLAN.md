@@ -150,7 +150,7 @@ resolution, MOE handling, the UI.
 
 - [x] FastAPI app with Swagger. One endpoint.
 
-> **STATUS 2026-09-12.** CC-19 HTTP surface, CC-23 ask loop, CC-25 response contract, and CC-22 guards shipped. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
+> **STATUS 2026-09-13.** Slice 1 closed. Demo harness shipped; answered_rate 0.214 (floor 0.70, unmet), p95 13.82s. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
 - [x] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [x] `build_url` returns the complete URL — variables, geography, vintage — and
@@ -161,12 +161,12 @@ resolution, MOE handling, the UI.
 - [x] The five slice-1 guards from DESIGN §4: `overlapping_vintage`,
       `moe_not_significant`, `geography_unsupported`, `ambiguous_place`,
       `universe_mismatch`. **None of them blocks** — warn and ship the answer.
-- [ ] `scripts/run_demo.py --repeat 3` → writes `answered_rate` and
+- [x] `scripts/run_demo.py --repeat 3` → writes `answered_rate` and
       `p95_latency_seconds` into `evidence/latest.json`, plus a breakdown:
       `t_llm`, `t_census_api`, `t_ours`. **Gate on the total only** — the split
       is diagnosis, the same way `@5` diagnoses `@1`. Without it, a slowdown in
       our code is indistinguishable from a slow model day.
-- [ ] Same run records `prompt_hash` and `index_hash`. Without them a prompt
+- [x] Same run records `prompt_hash` and `index_hash`. Without them a prompt
       change and an index change look identical in the evidence, and
       `answered_rate` is the noisier of the two numbers. Every score in the
       record should be attributable to a specific prompt and a specific index.
