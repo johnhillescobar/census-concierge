@@ -150,7 +150,7 @@ resolution, MOE handling, the UI.
 
 - [x] FastAPI app with Swagger. One endpoint.
 
-> **STATUS 2026-09-12.** CC-19 HTTP surface, CC-23 ask loop, and CC-25 response contract shipped. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
+> **STATUS 2026-09-12.** CC-19 HTTP surface, CC-23 ask loop, CC-25 response contract, and CC-22 guards shipped. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
 - [x] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [x] `build_url` returns the complete URL — variables, geography, vintage — and
@@ -158,7 +158,7 @@ resolution, MOE handling, the UI.
 - [x] Response contract includes: `answer`, `url`, `rows`, `moe`, `geoid`,
       `universe`, `table_id`, `alternatives[]`, `warnings[]`.
 - [x] `&key=` redacted at the boundary, everywhere.
-- [ ] The five slice-1 guards from DESIGN §4: `overlapping_vintage`,
+- [x] The five slice-1 guards from DESIGN §4: `overlapping_vintage`,
       `moe_not_significant`, `geography_unsupported`, `ambiguous_place`,
       `universe_mismatch`. **None of them blocks** — warn and ship the answer.
 - [ ] `scripts/run_demo.py --repeat 3` → writes `answered_rate` and
