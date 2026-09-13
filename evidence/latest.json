@@ -500,5 +500,1446 @@
   "retrieval_at_10": 0.9,
   "selector_at_1": 0.875,
   "synthetic_alignment": 0.544,
-  "synthetic_self_retrieval_at_5": 0.82
+  "synthetic_self_retrieval_at_5": 0.82,
+  "answered_rate": 0.256,
+  "p95_latency_seconds": 14.299,
+  "t_llm": 4.727,
+  "t_census_api": 2.884,
+  "t_ours": 0.633,
+  "prompt_hash": "45b4e3d20ca0",
+  "index_hash": "377cd59fe62a",
+  "demo": {
+    "generated_at": "2026-09-13T03:58:53+00:00",
+    "repeat": 3,
+    "n": 153,
+    "answered_rate": 0.256,
+    "p95_latency_seconds": 14.299,
+    "t_llm": 4.727,
+    "t_census_api": 2.884,
+    "t_ours": 0.633,
+    "prompt_hash": "45b4e3d20ca0",
+    "index_hash": "377cd59fe62a",
+    "by_tier": {
+      "core": {
+        "n": 12,
+        "answered_rate": 0.5,
+        "http_ok_rate": 1.0
+      },
+      "long_tail": {
+        "n": 117,
+        "answered_rate": 0.256,
+        "http_ok_rate": 1.0
+      },
+      "trap": {
+        "n": 24,
+        "answered_rate": 0.417,
+        "http_ok_rate": 1.0
+      }
+    },
+    "misses": [
+      {
+        "id": "q03",
+        "repeat": 1,
+        "question": "Educational attainment in Cook County",
+        "expected": "B15003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.543
+      },
+      {
+        "id": "q04",
+        "repeat": 1,
+        "question": "Poverty rate by census tract in Detroit",
+        "expected": "B17001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 11.117
+      },
+      {
+        "id": "q05",
+        "repeat": 1,
+        "question": "How many people bike to work in Portland?",
+        "expected": "B08301",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.384
+      },
+      {
+        "id": "q08",
+        "repeat": 1,
+        "question": "Disability rates among adults in rural Vermont counties",
+        "expected": "B18101",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 6.511
+      },
+      {
+        "id": "q09",
+        "repeat": 1,
+        "question": "Veteran population by county in North Carolina",
+        "expected": "B21001",
+        "got": "B21001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B21001_001E,B21001_001M,B21001_002E,B21001_002M,B21001_003E,B21001_003M,B21001_004E,B21001_004M,B21001_005E,B21001_005M,B21001_006E,B21001_006M,B21001_007E,B21001_007M,B21001_008E,B21001_008M,B21001_009E,B21001_009M,B21001_010E,B21001_010M,B21001_011E,B21001_011M,B21001_012E,B21001_012M,B21001_013E,B21001_013M,B21001_014E,B21001_014M,B21001_015E,B21001_015M,B21001_016E,B21001_016M,B21001_017E,B21001_017M,B21001_018E,B21001_018M,B21001_019E,B21001_019M,B21001_020E,B21001_020M,B21001_021E,B21001_021M,B21001_022E,B21001_022M,B21001_023E,B21001_023M,B21001_024E,B21001_024M,B21001_025E,B21001_025M,B21001_026E,B21001_026M,B21001_027E,B21001_027M,B21001_028E,B21001_028M,B21001_029E,B21001_029M,B21001_030E,B21001_030M,B21001_031E,B21001_031M,B21001_032E,B21001_032M,B21001_033E,B21001_033M,B21001_034E,B21001_034M,B21001_035E,B21001_035M,B21001_036E,B21001_036M,B21001_037E,B21001_037M,B21001_038E,B21001_038M,B21001_039E,B21001_039M&for=county:%2A&in=state:37",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 6.661
+      },
+      {
+        "id": "q10",
+        "repeat": 1,
+        "question": "What languages are spoken at home in Queens?",
+        "expected": "C16001",
+        "got": "C16001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,C16001_001E,C16001_001M,C16001_002E,C16001_002M,C16001_003E,C16001_003M,C16001_004E,C16001_004M,C16001_005E,C16001_005M,C16001_006E,C16001_006M,C16001_007E,C16001_007M,C16001_008E,C16001_008M,C16001_009E,C16001_009M,C16001_010E,C16001_010M,C16001_011E,C16001_011M,C16001_012E,C16001_012M,C16001_013E,C16001_013M,C16001_014E,C16001_014M,C16001_015E,C16001_015M,C16001_016E,C16001_016M,C16001_017E,C16001_017M,C16001_018E,C16001_018M,C16001_019E,C16001_019M,C16001_020E,C16001_020M,C16001_021E,C16001_021M,C16001_022E,C16001_022M,C16001_023E,C16001_023M,C16001_024E,C16001_024M,C16001_025E,C16001_025M,C16001_026E,C16001_026M,C16001_027E,C16001_027M,C16001_028E,C16001_028M,C16001_029E,C16001_029M,C16001_030E,C16001_030M,C16001_031E,C16001_031M,C16001_032E,C16001_032M,C16001_033E,C16001_033M,C16001_034E,C16001_034M,C16001_035E,C16001_035M,C16001_036E,C16001_036M,C16001_037E,C16001_037M,C16001_038E,C16001_038M&for=place:63116&in=state:42",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 9.943
+      },
+      {
+        "id": "q11",
+        "repeat": 1,
+        "question": "How long is the average commute in the Atlanta metro?",
+        "expected": "B08303",
+        "got": "B08603",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08603_001E,B08603_001M,B08603_002E,B08603_002M,B08603_003E,B08603_003M,B08603_004E,B08603_004M,B08603_005E,B08603_005M,B08603_006E,B08603_006M,B08603_007E,B08603_007M,B08603_008E,B08603_008M,B08603_009E,B08603_009M,B08603_010E,B08603_010M,B08603_011E,B08603_011M,B08603_012E,B08603_012M,B08603_013E,B08603_013M&for=county:%2A&in=state:13",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B08603",
+        "latency_s": 16.343
+      },
+      {
+        "id": "q12",
+        "repeat": 1,
+        "question": "Health insurance coverage for children in New Mexico",
+        "expected": "B27001",
+        "got": "B27010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M,B27010_002E,B27010_002M,B27010_003E,B27010_003M,B27010_004E,B27010_004M,B27010_005E,B27010_005M,B27010_006E,B27010_006M,B27010_007E,B27010_007M,B27010_008E,B27010_008M,B27010_009E,B27010_009M,B27010_010E,B27010_010M,B27010_011E,B27010_011M,B27010_012E,B27010_012M,B27010_013E,B27010_013M,B27010_014E,B27010_014M,B27010_015E,B27010_015M,B27010_016E,B27010_016M,B27010_017E,B27010_017M,B27010_018E,B27010_018M,B27010_019E,B27010_019M,B27010_020E,B27010_020M,B27010_021E,B27010_021M,B27010_022E,B27010_022M,B27010_023E,B27010_023M,B27010_024E,B27010_024M,B27010_025E,B27010_025M,B27010_026E,B27010_026M,B27010_027E,B27010_027M,B27010_028E,B27010_028M,B27010_029E,B27010_029M,B27010_030E,B27010_030M,B27010_031E,B27010_031M,B27010_032E,B27010_032M,B27010_033E,B27010_033M,B27010_034E,B27010_034M,B27010_035E,B27010_035M,B27010_036E,B27010_036M,B27010_037E,B27010_037M,B27010_038E,B27010_038M,B27010_039E,B27010_039M,B27010_040E,B27010_040M,B27010_041E,B27010_041M,B27010_042E,B27010_042M,B27010_043E,B27010_043M,B27010_044E,B27010_044M,B27010_045E,B27010_045M,B27010_046E,B27010_046M,B27010_047E,B27010_047M,B27010_048E,B27010_048M,B27010_049E,B27010_049M,B27010_050E,B27010_050M,B27010_051E,B27010_051M,B27010_052E,B27010_052M,B27010_053E,B27010_053M,B27010_054E,B27010_054M,B27010_055E,B27010_055M,B27010_056E,B27010_056M,B27010_057E,B27010_057M,B27010_058E,B27010_058M,B27010_059E,B27010_059M,B27010_060E,B27010_060M,B27010_061E,B27010_061M,B27010_062E,B27010_062M,B27010_063E,B27010_063M,B27010_064E,B27010_064M,B27010_065E,B27010_065M,B27010_066E,B27010_066M&for=state:35",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B27010",
+        "latency_s": 9.261
+      },
+      {
+        "id": "q13",
+        "repeat": 1,
+        "question": "When were the homes in Providence built?",
+        "expected": "B25034",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.414
+      },
+      {
+        "id": "q14",
+        "repeat": 1,
+        "question": "Households without a vehicle in Baltimore City",
+        "expected": "B08201",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.608
+      },
+      {
+        "id": "q15",
+        "repeat": 1,
+        "question": "Foreign-born population by county in Minnesota",
+        "expected": "B05002",
+        "got": "B05007",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05007_001E,B05007_001M,B05007_002E,B05007_002M,B05007_003E,B05007_003M,B05007_004E,B05007_004M,B05007_005E,B05007_005M,B05007_006E,B05007_006M,B05007_007E,B05007_007M,B05007_008E,B05007_008M,B05007_009E,B05007_009M,B05007_010E,B05007_010M,B05007_011E,B05007_011M,B05007_012E,B05007_012M,B05007_013E,B05007_013M,B05007_014E,B05007_014M,B05007_015E,B05007_015M,B05007_016E,B05007_016M,B05007_017E,B05007_017M,B05007_018E,B05007_018M,B05007_019E,B05007_019M,B05007_020E,B05007_020M,B05007_021E,B05007_021M,B05007_022E,B05007_022M,B05007_023E,B05007_023M,B05007_024E,B05007_024M,B05007_025E,B05007_025M,B05007_026E,B05007_026M,B05007_027E,B05007_027M,B05007_028E,B05007_028M,B05007_029E,B05007_029M,B05007_030E,B05007_030M,B05007_031E,B05007_031M,B05007_032E,B05007_032M,B05007_033E,B05007_033M,B05007_034E,B05007_034M,B05007_035E,B05007_035M,B05007_036E,B05007_036M,B05007_037E,B05007_037M,B05007_038E,B05007_038M,B05007_039E,B05007_039M,B05007_040E,B05007_040M,B05007_041E,B05007_041M,B05007_042E,B05007_042M,B05007_043E,B05007_043M,B05007_044E,B05007_044M,B05007_045E,B05007_045M,B05007_046E,B05007_046M,B05007_047E,B05007_047M,B05007_048E,B05007_048M,B05007_049E,B05007_049M,B05007_050E,B05007_050M,B05007_051E,B05007_051M,B05007_052E,B05007_052M,B05007_053E,B05007_053M,B05007_054E,B05007_054M,B05007_055E,B05007_055M,B05007_056E,B05007_056M,B05007_057E,B05007_057M,B05007_058E,B05007_058M,B05007_059E,B05007_059M,B05007_060E,B05007_060M,B05007_061E,B05007_061M,B05007_062E,B05007_062M,B05007_063E,B05007_063M,B05007_064E,B05007_064M,B05007_065E,B05007_065M,B05007_066E,B05007_066M,B05007_067E,B05007_067M,B05007_068E,B05007_068M,B05007_069E,B05007_069M,B05007_070E,B05007_070M,B05007_071E,B05007_071M,B05007_072E,B05007_072M,B05007_073E,B05007_073M,B05007_074E,B05007_074M,B05007_075E,B05007_075M,B05007_076E,B05007_076M,B05007_077E,B05007_077M,B05007_078E,B05007_078M,B05007_079E,B05007_079M,B05007_080E,B05007_080M,B05007_081E,B05007_081M,B05007_082E,B05007_082M,B05007_083E,B05007_083M,B05007_084E,B05007_084M,B05007_085E,B05007_085M,B05007_086E,B05007_086M,B05007_087E,B05007_087M,B05007_088E,B05007_088M,B05007_089E,B05007_089M,B05007_090E,B05007_090M,B05007_091E,B05007_091M,B05007_092E,B05007_092M,B05007_093E,B05007_093M,B05007_094E,B05007_094M,B05007_095E,B05007_095M,B05007_096E,B05007_096M,B05007_097E,B05007_097M,B05007_098E,B05007_098M,B05007_099E,B05007_099M,B05007_100E,B05007_100M,B05007_101E,B05007_101M,B05007_102E,B05007_102M,B05007_103E,B05007_103M,B05007_104E,B05007_104M,B05007_105E,B05007_105M,B05007_106E,B05007_106M&for=county:%2A&in=state:27",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B05007",
+        "latency_s": 79.846
+      },
+      {
+        "id": "q16",
+        "repeat": 1,
+        "question": "How many people live in group quarters in Ithaca?",
+        "expected": "B26001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.397
+      },
+      {
+        "id": "q17",
+        "repeat": 1,
+        "question": "Occupation breakdown for workers in Silicon Valley counties",
+        "expected": "B24010",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 9.119
+      },
+      {
+        "id": "q18",
+        "repeat": 1,
+        "question": "Renter versus owner households in Milwaukee",
+        "expected": "B25003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.417
+      },
+      {
+        "id": "q19",
+        "repeat": 1,
+        "question": "School enrollment by level in Fairfax County",
+        "expected": "B14001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.119
+      },
+      {
+        "id": "q20",
+        "repeat": 1,
+        "question": "People who moved into Boise from another state last year",
+        "expected": "B07001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.703
+      },
+      {
+        "id": "q21",
+        "repeat": 1,
+        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
+        "expected": "B19058",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 9.198
+      },
+      {
+        "id": "q26",
+        "repeat": 1,
+        "question": "How many hours a week does the typical worker in Anchorage put in?",
+        "expected": "B23020",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.629
+      },
+      {
+        "id": "q30",
+        "repeat": 1,
+        "question": "How long have naturalized citizens in Hialeah held their citizenship?",
+        "expected": "B05011",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.618
+      },
+      {
+        "id": "q31",
+        "repeat": 1,
+        "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
+        "expected": "B25081",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.193
+      },
+      {
+        "id": "q32",
+        "repeat": 1,
+        "question": "People with disabilities in Alabama who have no health insurance",
+        "expected": "B18135",
+        "got": "B18135",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18135_001E,B18135_001M,B18135_002E,B18135_002M,B18135_003E,B18135_003M,B18135_004E,B18135_004M,B18135_005E,B18135_005M,B18135_006E,B18135_006M,B18135_007E,B18135_007M,B18135_008E,B18135_008M,B18135_009E,B18135_009M,B18135_010E,B18135_010M,B18135_011E,B18135_011M,B18135_012E,B18135_012M,B18135_013E,B18135_013M,B18135_014E,B18135_014M,B18135_015E,B18135_015M,B18135_016E,B18135_016M,B18135_017E,B18135_017M,B18135_018E,B18135_018M,B18135_019E,B18135_019M,B18135_020E,B18135_020M,B18135_021E,B18135_021M,B18135_022E,B18135_022M,B18135_023E,B18135_023M,B18135_024E,B18135_024M,B18135_025E,B18135_025M,B18135_026E,B18135_026M,B18135_027E,B18135_027M,B18135_028E,B18135_028M,B18135_029E,B18135_029M,B18135_030E,B18135_030M,B18135_031E,B18135_031M,B18135_032E,B18135_032M,B18135_033E,B18135_033M,B18135_034E,B18135_034M&for=state:01",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 7.501
+      },
+      {
+        "id": "q33",
+        "repeat": 1,
+        "question": "Households in Santa Ana where nobody over 14 speaks English well",
+        "expected": "B16002",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.49
+      },
+      {
+        "id": "q34",
+        "repeat": 1,
+        "question": "Workers in Bozeman who run their own business instead of working for someone else",
+        "expected": "B24080",
+        "got": "B08604",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08604_001E,B08604_001M&for=place:08950&in=state:30",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B08604",
+        "latency_s": 9.225
+      },
+      {
+        "id": "q35",
+        "repeat": 1,
+        "question": "Homeowners in Miami-Dade spending more than a third of their income on housing",
+        "expected": "B25091",
+        "got": "B25095",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25095_001E,B25095_001M,B25095_002E,B25095_002M,B25095_003E,B25095_003M,B25095_004E,B25095_004M,B25095_005E,B25095_005M,B25095_006E,B25095_006M,B25095_007E,B25095_007M,B25095_008E,B25095_008M,B25095_009E,B25095_009M,B25095_010E,B25095_010M,B25095_011E,B25095_011M,B25095_012E,B25095_012M,B25095_013E,B25095_013M,B25095_014E,B25095_014M,B25095_015E,B25095_015M,B25095_016E,B25095_016M,B25095_017E,B25095_017M,B25095_018E,B25095_018M,B25095_019E,B25095_019M,B25095_020E,B25095_020M,B25095_021E,B25095_021M,B25095_022E,B25095_022M,B25095_023E,B25095_023M,B25095_024E,B25095_024M,B25095_025E,B25095_025M,B25095_026E,B25095_026M,B25095_027E,B25095_027M,B25095_028E,B25095_028M,B25095_029E,B25095_029M,B25095_030E,B25095_030M,B25095_031E,B25095_031M,B25095_032E,B25095_032M,B25095_033E,B25095_033M,B25095_034E,B25095_034M,B25095_035E,B25095_035M,B25095_036E,B25095_036M,B25095_037E,B25095_037M,B25095_038E,B25095_038M,B25095_039E,B25095_039M,B25095_040E,B25095_040M,B25095_041E,B25095_041M,B25095_042E,B25095_042M,B25095_043E,B25095_043M,B25095_044E,B25095_044M,B25095_045E,B25095_045M,B25095_046E,B25095_046M,B25095_047E,B25095_047M,B25095_048E,B25095_048M,B25095_049E,B25095_049M,B25095_050E,B25095_050M,B25095_051E,B25095_051M,B25095_052E,B25095_052M,B25095_053E,B25095_053M,B25095_054E,B25095_054M,B25095_055E,B25095_055M,B25095_056E,B25095_056M,B25095_057E,B25095_057M,B25095_058E,B25095_058M,B25095_059E,B25095_059M,B25095_060E,B25095_060M,B25095_061E,B25095_061M,B25095_062E,B25095_062M,B25095_063E,B25095_063M,B25095_064E,B25095_064M,B25095_065E,B25095_065M,B25095_066E,B25095_066M,B25095_067E,B25095_067M,B25095_068E,B25095_068M,B25095_069E,B25095_069M,B25095_070E,B25095_070M,B25095_071E,B25095_071M,B25095_072E,B25095_072M,B25095_073E,B25095_073M&for=county:086&in=state:12",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B25095",
+        "latency_s": 18.431
+      },
+      {
+        "id": "q36",
+        "repeat": 1,
+        "question": "Crowded housing in Santa Cruz County, more than one person per room",
+        "expected": "B25014",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.816
+      },
+      {
+        "id": "q38",
+        "repeat": 1,
+        "question": "Break down the Asian population in Fremont by specific origin",
+        "expected": "B02015",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.881
+      },
+      {
+        "id": "q39",
+        "repeat": 1,
+        "question": "Why are so many homes in Detroit sitting empty?",
+        "expected": "B25004",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 3.14
+      },
+      {
+        "id": "q40",
+        "repeat": 1,
+        "question": "How many studio and one-bedroom units are there in Cambridge?",
+        "expected": "B25041",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.894
+      },
+      {
+        "id": "q41",
+        "repeat": 1,
+        "question": "What did people in Ann Arbor study in college?",
+        "expected": "B15012",
+        "got": "C15010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,C15010_001E,C15010_001M,C15010_002E,C15010_002M,C15010_003E,C15010_003M,C15010_004E,C15010_004M,C15010_005E,C15010_005M,C15010_006E,C15010_006M&for=place:03000&in=state:26",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table C15010",
+        "latency_s": 10.835
+      },
+      {
+        "id": "q42",
+        "repeat": 1,
+        "question": "Veterans in Fayetteville with a service-connected disability rating",
+        "expected": "B21100",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.421
+      },
+      {
+        "id": "q43",
+        "repeat": 1,
+        "question": "What time do commuters in Suffolk County leave the house?",
+        "expected": "B08302",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.705
+      },
+      {
+        "id": "t02",
+        "repeat": 1,
+        "question": "Median family income by county in Iowa",
+        "expected": "B19113",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 4.949
+      },
+      {
+        "id": "t03",
+        "repeat": 1,
+        "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
+        "expected": "",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "missing warning moe_not_significant",
+        "latency_s": 3.158
+      },
+      {
+        "id": "t04",
+        "repeat": 1,
+        "question": "Median household income for every block group in Wyoming",
+        "expected": "",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "missing warning geography_unsupported",
+        "latency_s": 5.275
+      },
+      {
+        "id": "t08",
+        "repeat": 1,
+        "question": "Give me the income distribution, not just the median, for Travis County",
+        "expected": "B19001",
+        "got": "B19080",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19080_001E,B19080_001M,B19080_002E,B19080_002M,B19080_003E,B19080_003M,B19080_004E,B19080_004M,B19080_005E,B19080_005M&for=county:453&in=state:48",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B19080",
+        "latency_s": 11.885
+      },
+      {
+        "id": "q03",
+        "repeat": 2,
+        "question": "Educational attainment in Cook County",
+        "expected": "B15003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.015
+      },
+      {
+        "id": "q04",
+        "repeat": 2,
+        "question": "Poverty rate by census tract in Detroit",
+        "expected": "B17001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.804
+      },
+      {
+        "id": "q05",
+        "repeat": 2,
+        "question": "How many people bike to work in Portland?",
+        "expected": "B08301",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.21
+      },
+      {
+        "id": "q08",
+        "repeat": 2,
+        "question": "Disability rates among adults in rural Vermont counties",
+        "expected": "B18101",
+        "got": "B18101",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18101_001E,B18101_001M,B18101_002E,B18101_002M,B18101_003E,B18101_003M,B18101_004E,B18101_004M,B18101_005E,B18101_005M,B18101_006E,B18101_006M,B18101_007E,B18101_007M,B18101_008E,B18101_008M,B18101_009E,B18101_009M,B18101_010E,B18101_010M,B18101_011E,B18101_011M,B18101_012E,B18101_012M,B18101_013E,B18101_013M,B18101_014E,B18101_014M,B18101_015E,B18101_015M,B18101_016E,B18101_016M,B18101_017E,B18101_017M,B18101_018E,B18101_018M,B18101_019E,B18101_019M,B18101_020E,B18101_020M,B18101_021E,B18101_021M,B18101_022E,B18101_022M,B18101_023E,B18101_023M,B18101_024E,B18101_024M,B18101_025E,B18101_025M,B18101_026E,B18101_026M,B18101_027E,B18101_027M,B18101_028E,B18101_028M,B18101_029E,B18101_029M,B18101_030E,B18101_030M,B18101_031E,B18101_031M,B18101_032E,B18101_032M,B18101_033E,B18101_033M,B18101_034E,B18101_034M,B18101_035E,B18101_035M,B18101_036E,B18101_036M,B18101_037E,B18101_037M,B18101_038E,B18101_038M,B18101_039E,B18101_039M&for=county:%2A&in=state:50",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 12.414
+      },
+      {
+        "id": "q09",
+        "repeat": 2,
+        "question": "Veteran population by county in North Carolina",
+        "expected": "B21001",
+        "got": "B21001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B21001_001E,B21001_001M,B21001_002E,B21001_002M,B21001_003E,B21001_003M,B21001_004E,B21001_004M,B21001_005E,B21001_005M,B21001_006E,B21001_006M,B21001_007E,B21001_007M,B21001_008E,B21001_008M,B21001_009E,B21001_009M,B21001_010E,B21001_010M,B21001_011E,B21001_011M,B21001_012E,B21001_012M,B21001_013E,B21001_013M,B21001_014E,B21001_014M,B21001_015E,B21001_015M,B21001_016E,B21001_016M,B21001_017E,B21001_017M,B21001_018E,B21001_018M,B21001_019E,B21001_019M,B21001_020E,B21001_020M,B21001_021E,B21001_021M,B21001_022E,B21001_022M,B21001_023E,B21001_023M,B21001_024E,B21001_024M,B21001_025E,B21001_025M,B21001_026E,B21001_026M,B21001_027E,B21001_027M,B21001_028E,B21001_028M,B21001_029E,B21001_029M,B21001_030E,B21001_030M,B21001_031E,B21001_031M,B21001_032E,B21001_032M,B21001_033E,B21001_033M,B21001_034E,B21001_034M,B21001_035E,B21001_035M,B21001_036E,B21001_036M,B21001_037E,B21001_037M,B21001_038E,B21001_038M,B21001_039E,B21001_039M&for=county:%2A&in=state:37",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 10.658
+      },
+      {
+        "id": "q10",
+        "repeat": 2,
+        "question": "What languages are spoken at home in Queens?",
+        "expected": "C16001",
+        "got": "C16001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,C16001_001E,C16001_001M,C16001_002E,C16001_002M,C16001_003E,C16001_003M,C16001_004E,C16001_004M,C16001_005E,C16001_005M,C16001_006E,C16001_006M,C16001_007E,C16001_007M,C16001_008E,C16001_008M,C16001_009E,C16001_009M,C16001_010E,C16001_010M,C16001_011E,C16001_011M,C16001_012E,C16001_012M,C16001_013E,C16001_013M,C16001_014E,C16001_014M,C16001_015E,C16001_015M,C16001_016E,C16001_016M,C16001_017E,C16001_017M,C16001_018E,C16001_018M,C16001_019E,C16001_019M,C16001_020E,C16001_020M,C16001_021E,C16001_021M,C16001_022E,C16001_022M,C16001_023E,C16001_023M,C16001_024E,C16001_024M,C16001_025E,C16001_025M,C16001_026E,C16001_026M,C16001_027E,C16001_027M,C16001_028E,C16001_028M,C16001_029E,C16001_029M,C16001_030E,C16001_030M,C16001_031E,C16001_031M,C16001_032E,C16001_032M,C16001_033E,C16001_033M,C16001_034E,C16001_034M,C16001_035E,C16001_035M,C16001_036E,C16001_036M,C16001_037E,C16001_037M,C16001_038E,C16001_038M&for=place:63116&in=state:42",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 15.262
+      },
+      {
+        "id": "q12",
+        "repeat": 2,
+        "question": "Health insurance coverage for children in New Mexico",
+        "expected": "B27001",
+        "got": "B27010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M,B27010_002E,B27010_002M,B27010_003E,B27010_003M,B27010_004E,B27010_004M,B27010_005E,B27010_005M,B27010_006E,B27010_006M,B27010_007E,B27010_007M,B27010_008E,B27010_008M,B27010_009E,B27010_009M,B27010_010E,B27010_010M,B27010_011E,B27010_011M,B27010_012E,B27010_012M,B27010_013E,B27010_013M,B27010_014E,B27010_014M,B27010_015E,B27010_015M,B27010_016E,B27010_016M,B27010_017E,B27010_017M,B27010_018E,B27010_018M,B27010_019E,B27010_019M,B27010_020E,B27010_020M,B27010_021E,B27010_021M,B27010_022E,B27010_022M,B27010_023E,B27010_023M,B27010_024E,B27010_024M,B27010_025E,B27010_025M,B27010_026E,B27010_026M,B27010_027E,B27010_027M,B27010_028E,B27010_028M,B27010_029E,B27010_029M,B27010_030E,B27010_030M,B27010_031E,B27010_031M,B27010_032E,B27010_032M,B27010_033E,B27010_033M,B27010_034E,B27010_034M,B27010_035E,B27010_035M,B27010_036E,B27010_036M,B27010_037E,B27010_037M,B27010_038E,B27010_038M,B27010_039E,B27010_039M,B27010_040E,B27010_040M,B27010_041E,B27010_041M,B27010_042E,B27010_042M,B27010_043E,B27010_043M,B27010_044E,B27010_044M,B27010_045E,B27010_045M,B27010_046E,B27010_046M,B27010_047E,B27010_047M,B27010_048E,B27010_048M,B27010_049E,B27010_049M,B27010_050E,B27010_050M,B27010_051E,B27010_051M,B27010_052E,B27010_052M,B27010_053E,B27010_053M,B27010_054E,B27010_054M,B27010_055E,B27010_055M,B27010_056E,B27010_056M,B27010_057E,B27010_057M,B27010_058E,B27010_058M,B27010_059E,B27010_059M,B27010_060E,B27010_060M,B27010_061E,B27010_061M,B27010_062E,B27010_062M,B27010_063E,B27010_063M,B27010_064E,B27010_064M,B27010_065E,B27010_065M,B27010_066E,B27010_066M&for=state:35",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B27010",
+        "latency_s": 13.861
+      },
+      {
+        "id": "q13",
+        "repeat": 2,
+        "question": "When were the homes in Providence built?",
+        "expected": "B25034",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.176
+      },
+      {
+        "id": "q14",
+        "repeat": 2,
+        "question": "Households without a vehicle in Baltimore City",
+        "expected": "B08201",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.638
+      },
+      {
+        "id": "q15",
+        "repeat": 2,
+        "question": "Foreign-born population by county in Minnesota",
+        "expected": "B05002",
+        "got": "B05007",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05007_001E,B05007_001M,B05007_002E,B05007_002M,B05007_003E,B05007_003M,B05007_004E,B05007_004M,B05007_005E,B05007_005M,B05007_006E,B05007_006M,B05007_007E,B05007_007M,B05007_008E,B05007_008M,B05007_009E,B05007_009M,B05007_010E,B05007_010M,B05007_011E,B05007_011M,B05007_012E,B05007_012M,B05007_013E,B05007_013M,B05007_014E,B05007_014M,B05007_015E,B05007_015M,B05007_016E,B05007_016M,B05007_017E,B05007_017M,B05007_018E,B05007_018M,B05007_019E,B05007_019M,B05007_020E,B05007_020M,B05007_021E,B05007_021M,B05007_022E,B05007_022M,B05007_023E,B05007_023M,B05007_024E,B05007_024M,B05007_025E,B05007_025M,B05007_026E,B05007_026M,B05007_027E,B05007_027M,B05007_028E,B05007_028M,B05007_029E,B05007_029M,B05007_030E,B05007_030M,B05007_031E,B05007_031M,B05007_032E,B05007_032M,B05007_033E,B05007_033M,B05007_034E,B05007_034M,B05007_035E,B05007_035M,B05007_036E,B05007_036M,B05007_037E,B05007_037M,B05007_038E,B05007_038M,B05007_039E,B05007_039M,B05007_040E,B05007_040M,B05007_041E,B05007_041M,B05007_042E,B05007_042M,B05007_043E,B05007_043M,B05007_044E,B05007_044M,B05007_045E,B05007_045M,B05007_046E,B05007_046M,B05007_047E,B05007_047M,B05007_048E,B05007_048M,B05007_049E,B05007_049M,B05007_050E,B05007_050M,B05007_051E,B05007_051M,B05007_052E,B05007_052M,B05007_053E,B05007_053M,B05007_054E,B05007_054M,B05007_055E,B05007_055M,B05007_056E,B05007_056M,B05007_057E,B05007_057M,B05007_058E,B05007_058M,B05007_059E,B05007_059M,B05007_060E,B05007_060M,B05007_061E,B05007_061M,B05007_062E,B05007_062M,B05007_063E,B05007_063M,B05007_064E,B05007_064M,B05007_065E,B05007_065M,B05007_066E,B05007_066M,B05007_067E,B05007_067M,B05007_068E,B05007_068M,B05007_069E,B05007_069M,B05007_070E,B05007_070M,B05007_071E,B05007_071M,B05007_072E,B05007_072M,B05007_073E,B05007_073M,B05007_074E,B05007_074M,B05007_075E,B05007_075M,B05007_076E,B05007_076M,B05007_077E,B05007_077M,B05007_078E,B05007_078M,B05007_079E,B05007_079M,B05007_080E,B05007_080M,B05007_081E,B05007_081M,B05007_082E,B05007_082M,B05007_083E,B05007_083M,B05007_084E,B05007_084M,B05007_085E,B05007_085M,B05007_086E,B05007_086M,B05007_087E,B05007_087M,B05007_088E,B05007_088M,B05007_089E,B05007_089M,B05007_090E,B05007_090M,B05007_091E,B05007_091M,B05007_092E,B05007_092M,B05007_093E,B05007_093M,B05007_094E,B05007_094M,B05007_095E,B05007_095M,B05007_096E,B05007_096M,B05007_097E,B05007_097M,B05007_098E,B05007_098M,B05007_099E,B05007_099M,B05007_100E,B05007_100M,B05007_101E,B05007_101M,B05007_102E,B05007_102M,B05007_103E,B05007_103M,B05007_104E,B05007_104M,B05007_105E,B05007_105M,B05007_106E,B05007_106M&for=county:%2A&in=state:27",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B05007",
+        "latency_s": 12.134
+      },
+      {
+        "id": "q16",
+        "repeat": 2,
+        "question": "How many people live in group quarters in Ithaca?",
+        "expected": "B26001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.392
+      },
+      {
+        "id": "q17",
+        "repeat": 2,
+        "question": "Occupation breakdown for workers in Silicon Valley counties",
+        "expected": "B24010",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 8.28
+      },
+      {
+        "id": "q18",
+        "repeat": 2,
+        "question": "Renter versus owner households in Milwaukee",
+        "expected": "B25003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.019
+      },
+      {
+        "id": "q19",
+        "repeat": 2,
+        "question": "School enrollment by level in Fairfax County",
+        "expected": "B14001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.192
+      },
+      {
+        "id": "q20",
+        "repeat": 2,
+        "question": "People who moved into Boise from another state last year",
+        "expected": "B07001",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M,B07201_002E,B07201_002M,B07201_003E,B07201_003M,B07201_004E,B07201_004M,B07201_005E,B07201_005M,B07201_006E,B07201_006M,B07201_007E,B07201_007M,B07201_008E,B07201_008M,B07201_009E,B07201_009M,B07201_010E,B07201_010M,B07201_011E,B07201_011M,B07201_012E,B07201_012M,B07201_013E,B07201_013M,B07201_014E,B07201_014M&for=place:08830&in=state:16",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B07201",
+        "latency_s": 8.189
+      },
+      {
+        "id": "q21",
+        "repeat": 2,
+        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
+        "expected": "B19058",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 9.95
+      },
+      {
+        "id": "q26",
+        "repeat": 2,
+        "question": "How many hours a week does the typical worker in Anchorage put in?",
+        "expected": "B23020",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.286
+      },
+      {
+        "id": "q30",
+        "repeat": 2,
+        "question": "How long have naturalized citizens in Hialeah held their citizenship?",
+        "expected": "B05011",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.475
+      },
+      {
+        "id": "q31",
+        "repeat": 2,
+        "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
+        "expected": "B25081",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 3.856
+      },
+      {
+        "id": "q33",
+        "repeat": 2,
+        "question": "Households in Santa Ana where nobody over 14 speaks English well",
+        "expected": "B16002",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.498
+      },
+      {
+        "id": "q34",
+        "repeat": 2,
+        "question": "Workers in Bozeman who run their own business instead of working for someone else",
+        "expected": "B24080",
+        "got": "B08017",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08017_001E,B08017_001M,B08017_002E,B08017_002M,B08017_003E,B08017_003M,B08017_004E,B08017_004M,B08017_005E,B08017_005M,B08017_006E,B08017_006M,B08017_007E,B08017_007M,B08017_008E,B08017_008M,B08017_009E,B08017_009M,B08017_010E,B08017_010M,B08017_011E,B08017_011M,B08017_012E,B08017_012M,B08017_013E,B08017_013M,B08017_014E,B08017_014M,B08017_015E,B08017_015M,B08017_016E,B08017_016M,B08017_017E,B08017_017M,B08017_018E,B08017_018M,B08017_019E,B08017_019M,B08017_020E,B08017_020M,B08017_021E,B08017_021M,B08017_022E,B08017_022M,B08017_023E,B08017_023M&for=place:08950&in=state:30",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B08017",
+        "latency_s": 11.157
+      },
+      {
+        "id": "q35",
+        "repeat": 2,
+        "question": "Homeowners in Miami-Dade spending more than a third of their income on housing",
+        "expected": "B25091",
+        "got": "B25095",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25095_001E,B25095_001M,B25095_002E,B25095_002M,B25095_003E,B25095_003M,B25095_004E,B25095_004M,B25095_005E,B25095_005M,B25095_006E,B25095_006M,B25095_007E,B25095_007M,B25095_008E,B25095_008M,B25095_009E,B25095_009M,B25095_010E,B25095_010M,B25095_011E,B25095_011M,B25095_012E,B25095_012M,B25095_013E,B25095_013M,B25095_014E,B25095_014M,B25095_015E,B25095_015M,B25095_016E,B25095_016M,B25095_017E,B25095_017M,B25095_018E,B25095_018M,B25095_019E,B25095_019M,B25095_020E,B25095_020M,B25095_021E,B25095_021M,B25095_022E,B25095_022M,B25095_023E,B25095_023M,B25095_024E,B25095_024M,B25095_025E,B25095_025M,B25095_026E,B25095_026M,B25095_027E,B25095_027M,B25095_028E,B25095_028M,B25095_029E,B25095_029M,B25095_030E,B25095_030M,B25095_031E,B25095_031M,B25095_032E,B25095_032M,B25095_033E,B25095_033M,B25095_034E,B25095_034M,B25095_035E,B25095_035M,B25095_036E,B25095_036M,B25095_037E,B25095_037M,B25095_038E,B25095_038M,B25095_039E,B25095_039M,B25095_040E,B25095_040M,B25095_041E,B25095_041M,B25095_042E,B25095_042M,B25095_043E,B25095_043M,B25095_044E,B25095_044M,B25095_045E,B25095_045M,B25095_046E,B25095_046M,B25095_047E,B25095_047M,B25095_048E,B25095_048M,B25095_049E,B25095_049M,B25095_050E,B25095_050M,B25095_051E,B25095_051M,B25095_052E,B25095_052M,B25095_053E,B25095_053M,B25095_054E,B25095_054M,B25095_055E,B25095_055M,B25095_056E,B25095_056M,B25095_057E,B25095_057M,B25095_058E,B25095_058M,B25095_059E,B25095_059M,B25095_060E,B25095_060M,B25095_061E,B25095_061M,B25095_062E,B25095_062M,B25095_063E,B25095_063M,B25095_064E,B25095_064M,B25095_065E,B25095_065M,B25095_066E,B25095_066M,B25095_067E,B25095_067M,B25095_068E,B25095_068M,B25095_069E,B25095_069M,B25095_070E,B25095_070M,B25095_071E,B25095_071M,B25095_072E,B25095_072M,B25095_073E,B25095_073M&for=county:086&in=state:12",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B25095",
+        "latency_s": 21.334
+      },
+      {
+        "id": "q36",
+        "repeat": 2,
+        "question": "Crowded housing in Santa Cruz County, more than one person per room",
+        "expected": "B25014",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.483
+      },
+      {
+        "id": "q38",
+        "repeat": 2,
+        "question": "Break down the Asian population in Fremont by specific origin",
+        "expected": "B02015",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.148
+      },
+      {
+        "id": "q39",
+        "repeat": 2,
+        "question": "Why are so many homes in Detroit sitting empty?",
+        "expected": "B25004",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 3.066
+      },
+      {
+        "id": "q40",
+        "repeat": 2,
+        "question": "How many studio and one-bedroom units are there in Cambridge?",
+        "expected": "B25041",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.548
+      },
+      {
+        "id": "q41",
+        "repeat": 2,
+        "question": "What did people in Ann Arbor study in college?",
+        "expected": "B15012",
+        "got": "C15010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,C15010_001E,C15010_001M,C15010_002E,C15010_002M,C15010_003E,C15010_003M,C15010_004E,C15010_004M,C15010_005E,C15010_005M,C15010_006E,C15010_006M&for=place:03000&in=state:26",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table C15010",
+        "latency_s": 8.571
+      },
+      {
+        "id": "q42",
+        "repeat": 2,
+        "question": "Veterans in Fayetteville with a service-connected disability rating",
+        "expected": "B21100",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.957
+      },
+      {
+        "id": "q43",
+        "repeat": 2,
+        "question": "What time do commuters in Suffolk County leave the house?",
+        "expected": "B08302",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.445
+      },
+      {
+        "id": "t01",
+        "repeat": 2,
+        "question": "Compare median household income between 2015-2019 and 2018-2022",
+        "expected": "B19013",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "overlapping_vintage"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 2.574
+      },
+      {
+        "id": "t03",
+        "repeat": 2,
+        "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
+        "expected": "",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "missing warning moe_not_significant",
+        "latency_s": 3.272
+      },
+      {
+        "id": "t04",
+        "repeat": 2,
+        "question": "Median household income for every block group in Wyoming",
+        "expected": "",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "missing warning geography_unsupported",
+        "latency_s": 4.968
+      },
+      {
+        "id": "t07",
+        "repeat": 2,
+        "question": "Population of Phoenix in 2024 from the 1-year ACS",
+        "expected": "B01003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.552
+      },
+      {
+        "id": "t08",
+        "repeat": 2,
+        "question": "Give me the income distribution, not just the median, for Travis County",
+        "expected": "B19001",
+        "got": "B19080",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19080_001E,B19080_001M,B19080_002E,B19080_002M,B19080_003E,B19080_003M,B19080_004E,B19080_004M,B19080_005E,B19080_005M&for=county:453&in=state:48",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B19080",
+        "latency_s": 10.195
+      },
+      {
+        "id": "q03",
+        "repeat": 3,
+        "question": "Educational attainment in Cook County",
+        "expected": "B15003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.213
+      },
+      {
+        "id": "q04",
+        "repeat": 3,
+        "question": "Poverty rate by census tract in Detroit",
+        "expected": "B17001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.34
+      },
+      {
+        "id": "q05",
+        "repeat": 3,
+        "question": "How many people bike to work in Portland?",
+        "expected": "B08301",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.243
+      },
+      {
+        "id": "q06",
+        "repeat": 3,
+        "question": "Which counties in Mississippi have the worst broadband access?",
+        "expected": "B28002",
+        "got": "B28011",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28011_001E,B28011_001M,B28011_002E,B28011_002M,B28011_003E,B28011_003M,B28011_004E,B28011_004M,B28011_005E,B28011_005M,B28011_006E,B28011_006M,B28011_007E,B28011_007M,B28011_008E,B28011_008M&for=county:%2A&in=state:28",
+        "http_ok": true,
+        "warnings": [
+          "moe_not_significant"
+        ],
+        "detail": "wrong table B28011",
+        "latency_s": 5.613
+      },
+      {
+        "id": "q07",
+        "repeat": 3,
+        "question": "Renters spending more than 30% of income on rent, by county in Arizona",
+        "expected": "B25070",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 3.255
+      },
+      {
+        "id": "q08",
+        "repeat": 3,
+        "question": "Disability rates among adults in rural Vermont counties",
+        "expected": "B18101",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 4.537
+      },
+      {
+        "id": "q09",
+        "repeat": 3,
+        "question": "Veteran population by county in North Carolina",
+        "expected": "B21001",
+        "got": "B21001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B21001_001E,B21001_001M,B21001_002E,B21001_002M,B21001_003E,B21001_003M,B21001_004E,B21001_004M,B21001_005E,B21001_005M,B21001_006E,B21001_006M,B21001_007E,B21001_007M,B21001_008E,B21001_008M,B21001_009E,B21001_009M,B21001_010E,B21001_010M,B21001_011E,B21001_011M,B21001_012E,B21001_012M,B21001_013E,B21001_013M,B21001_014E,B21001_014M,B21001_015E,B21001_015M,B21001_016E,B21001_016M,B21001_017E,B21001_017M,B21001_018E,B21001_018M,B21001_019E,B21001_019M,B21001_020E,B21001_020M,B21001_021E,B21001_021M,B21001_022E,B21001_022M,B21001_023E,B21001_023M,B21001_024E,B21001_024M,B21001_025E,B21001_025M,B21001_026E,B21001_026M,B21001_027E,B21001_027M,B21001_028E,B21001_028M,B21001_029E,B21001_029M,B21001_030E,B21001_030M,B21001_031E,B21001_031M,B21001_032E,B21001_032M,B21001_033E,B21001_033M,B21001_034E,B21001_034M,B21001_035E,B21001_035M,B21001_036E,B21001_036M,B21001_037E,B21001_037M,B21001_038E,B21001_038M,B21001_039E,B21001_039M&for=county:%2A&in=state:37",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 7.213
+      },
+      {
+        "id": "q10",
+        "repeat": 3,
+        "question": "What languages are spoken at home in Queens?",
+        "expected": "C16001",
+        "got": "C16001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,C16001_001E,C16001_001M,C16001_002E,C16001_002M,C16001_003E,C16001_003M,C16001_004E,C16001_004M,C16001_005E,C16001_005M,C16001_006E,C16001_006M,C16001_007E,C16001_007M,C16001_008E,C16001_008M,C16001_009E,C16001_009M,C16001_010E,C16001_010M,C16001_011E,C16001_011M,C16001_012E,C16001_012M,C16001_013E,C16001_013M,C16001_014E,C16001_014M,C16001_015E,C16001_015M,C16001_016E,C16001_016M,C16001_017E,C16001_017M,C16001_018E,C16001_018M,C16001_019E,C16001_019M,C16001_020E,C16001_020M,C16001_021E,C16001_021M,C16001_022E,C16001_022M,C16001_023E,C16001_023M,C16001_024E,C16001_024M,C16001_025E,C16001_025M,C16001_026E,C16001_026M,C16001_027E,C16001_027M,C16001_028E,C16001_028M,C16001_029E,C16001_029M,C16001_030E,C16001_030M,C16001_031E,C16001_031M,C16001_032E,C16001_032M,C16001_033E,C16001_033M,C16001_034E,C16001_034M,C16001_035E,C16001_035M,C16001_036E,C16001_036M,C16001_037E,C16001_037M,C16001_038E,C16001_038M&for=place:63116&in=state:42",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 10.923
+      },
+      {
+        "id": "q11",
+        "repeat": 3,
+        "question": "How long is the average commute in the Atlanta metro?",
+        "expected": "B08303",
+        "got": "B08536",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08536_001E,B08536_001M,B08536_002E,B08536_002M,B08536_003E,B08536_003M,B08536_004E,B08536_004M,B08536_005E,B08536_005M,B08536_006E,B08536_006M,B08536_007E,B08536_007M,B08536_008E,B08536_008M,B08536_009E,B08536_009M,B08536_010E,B08536_010M,B08536_011E,B08536_011M,B08536_012E,B08536_012M&for=place:04000&in=state:13",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B08536",
+        "latency_s": 11.158
+      },
+      {
+        "id": "q12",
+        "repeat": 3,
+        "question": "Health insurance coverage for children in New Mexico",
+        "expected": "B27001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 3.71
+      },
+      {
+        "id": "q13",
+        "repeat": 3,
+        "question": "When were the homes in Providence built?",
+        "expected": "B25034",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.784
+      },
+      {
+        "id": "q14",
+        "repeat": 3,
+        "question": "Households without a vehicle in Baltimore City",
+        "expected": "B08201",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.929
+      },
+      {
+        "id": "q15",
+        "repeat": 3,
+        "question": "Foreign-born population by county in Minnesota",
+        "expected": "B05002",
+        "got": "B05007",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05007_001E,B05007_001M,B05007_002E,B05007_002M,B05007_003E,B05007_003M,B05007_004E,B05007_004M,B05007_005E,B05007_005M,B05007_006E,B05007_006M,B05007_007E,B05007_007M,B05007_008E,B05007_008M,B05007_009E,B05007_009M,B05007_010E,B05007_010M,B05007_011E,B05007_011M,B05007_012E,B05007_012M,B05007_013E,B05007_013M,B05007_014E,B05007_014M,B05007_015E,B05007_015M,B05007_016E,B05007_016M,B05007_017E,B05007_017M,B05007_018E,B05007_018M,B05007_019E,B05007_019M,B05007_020E,B05007_020M,B05007_021E,B05007_021M,B05007_022E,B05007_022M,B05007_023E,B05007_023M,B05007_024E,B05007_024M,B05007_025E,B05007_025M,B05007_026E,B05007_026M,B05007_027E,B05007_027M,B05007_028E,B05007_028M,B05007_029E,B05007_029M,B05007_030E,B05007_030M,B05007_031E,B05007_031M,B05007_032E,B05007_032M,B05007_033E,B05007_033M,B05007_034E,B05007_034M,B05007_035E,B05007_035M,B05007_036E,B05007_036M,B05007_037E,B05007_037M,B05007_038E,B05007_038M,B05007_039E,B05007_039M,B05007_040E,B05007_040M,B05007_041E,B05007_041M,B05007_042E,B05007_042M,B05007_043E,B05007_043M,B05007_044E,B05007_044M,B05007_045E,B05007_045M,B05007_046E,B05007_046M,B05007_047E,B05007_047M,B05007_048E,B05007_048M,B05007_049E,B05007_049M,B05007_050E,B05007_050M,B05007_051E,B05007_051M,B05007_052E,B05007_052M,B05007_053E,B05007_053M,B05007_054E,B05007_054M,B05007_055E,B05007_055M,B05007_056E,B05007_056M,B05007_057E,B05007_057M,B05007_058E,B05007_058M,B05007_059E,B05007_059M,B05007_060E,B05007_060M,B05007_061E,B05007_061M,B05007_062E,B05007_062M,B05007_063E,B05007_063M,B05007_064E,B05007_064M,B05007_065E,B05007_065M,B05007_066E,B05007_066M,B05007_067E,B05007_067M,B05007_068E,B05007_068M,B05007_069E,B05007_069M,B05007_070E,B05007_070M,B05007_071E,B05007_071M,B05007_072E,B05007_072M,B05007_073E,B05007_073M,B05007_074E,B05007_074M,B05007_075E,B05007_075M,B05007_076E,B05007_076M,B05007_077E,B05007_077M,B05007_078E,B05007_078M,B05007_079E,B05007_079M,B05007_080E,B05007_080M,B05007_081E,B05007_081M,B05007_082E,B05007_082M,B05007_083E,B05007_083M,B05007_084E,B05007_084M,B05007_085E,B05007_085M,B05007_086E,B05007_086M,B05007_087E,B05007_087M,B05007_088E,B05007_088M,B05007_089E,B05007_089M,B05007_090E,B05007_090M,B05007_091E,B05007_091M,B05007_092E,B05007_092M,B05007_093E,B05007_093M,B05007_094E,B05007_094M,B05007_095E,B05007_095M,B05007_096E,B05007_096M,B05007_097E,B05007_097M,B05007_098E,B05007_098M,B05007_099E,B05007_099M,B05007_100E,B05007_100M,B05007_101E,B05007_101M,B05007_102E,B05007_102M,B05007_103E,B05007_103M,B05007_104E,B05007_104M,B05007_105E,B05007_105M,B05007_106E,B05007_106M&for=county:%2A&in=state:27",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B05007",
+        "latency_s": 23.75
+      },
+      {
+        "id": "q16",
+        "repeat": 3,
+        "question": "How many people live in group quarters in Ithaca?",
+        "expected": "B26001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.407
+      },
+      {
+        "id": "q17",
+        "repeat": 3,
+        "question": "Occupation breakdown for workers in Silicon Valley counties",
+        "expected": "B24010",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 6.534
+      },
+      {
+        "id": "q18",
+        "repeat": 3,
+        "question": "Renter versus owner households in Milwaukee",
+        "expected": "B25003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.998
+      },
+      {
+        "id": "q19",
+        "repeat": 3,
+        "question": "School enrollment by level in Fairfax County",
+        "expected": "B14001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.897
+      },
+      {
+        "id": "q20",
+        "repeat": 3,
+        "question": "People who moved into Boise from another state last year",
+        "expected": "B07001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.59
+      },
+      {
+        "id": "q21",
+        "repeat": 3,
+        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
+        "expected": "B19058",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.901
+      },
+      {
+        "id": "q26",
+        "repeat": 3,
+        "question": "How many hours a week does the typical worker in Anchorage put in?",
+        "expected": "B23020",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.069
+      },
+      {
+        "id": "q30",
+        "repeat": 3,
+        "question": "How long have naturalized citizens in Hialeah held their citizenship?",
+        "expected": "B05011",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 9.181
+      },
+      {
+        "id": "q31",
+        "repeat": 3,
+        "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
+        "expected": "B25081",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.051
+      },
+      {
+        "id": "q32",
+        "repeat": 3,
+        "question": "People with disabilities in Alabama who have no health insurance",
+        "expected": "B18135",
+        "got": "B18135",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18135_001E,B18135_001M,B18135_002E,B18135_002M,B18135_003E,B18135_003M,B18135_004E,B18135_004M,B18135_005E,B18135_005M,B18135_006E,B18135_006M,B18135_007E,B18135_007M,B18135_008E,B18135_008M,B18135_009E,B18135_009M,B18135_010E,B18135_010M,B18135_011E,B18135_011M,B18135_012E,B18135_012M,B18135_013E,B18135_013M,B18135_014E,B18135_014M,B18135_015E,B18135_015M,B18135_016E,B18135_016M,B18135_017E,B18135_017M,B18135_018E,B18135_018M,B18135_019E,B18135_019M,B18135_020E,B18135_020M,B18135_021E,B18135_021M,B18135_022E,B18135_022M,B18135_023E,B18135_023M,B18135_024E,B18135_024M,B18135_025E,B18135_025M,B18135_026E,B18135_026M,B18135_027E,B18135_027M,B18135_028E,B18135_028M,B18135_029E,B18135_029M,B18135_030E,B18135_030M,B18135_031E,B18135_031M,B18135_032E,B18135_032M,B18135_033E,B18135_033M,B18135_034E,B18135_034M&for=state:01",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "no rows",
+        "latency_s": 10.112
+      },
+      {
+        "id": "q33",
+        "repeat": 3,
+        "question": "Households in Santa Ana where nobody over 14 speaks English well",
+        "expected": "B16002",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 6.71
+      },
+      {
+        "id": "q34",
+        "repeat": 3,
+        "question": "Workers in Bozeman who run their own business instead of working for someone else",
+        "expected": "B24080",
+        "got": "B08018",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08018_001E,B08018_001M,B08018_002E,B08018_002M,B08018_003E,B08018_003M,B08018_004E,B08018_004M,B08018_005E,B08018_005M,B08018_006E,B08018_006M,B08018_007E,B08018_007M,B08018_008E,B08018_008M&for=place:08950&in=state:30",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B08018",
+        "latency_s": 12.173
+      },
+      {
+        "id": "q35",
+        "repeat": 3,
+        "question": "Homeowners in Miami-Dade spending more than a third of their income on housing",
+        "expected": "B25091",
+        "got": "B25101",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25101_001E,B25101_001M,B25101_002E,B25101_002M,B25101_003E,B25101_003M,B25101_004E,B25101_004M,B25101_005E,B25101_005M,B25101_006E,B25101_006M,B25101_007E,B25101_007M,B25101_008E,B25101_008M,B25101_009E,B25101_009M,B25101_010E,B25101_010M,B25101_011E,B25101_011M,B25101_012E,B25101_012M,B25101_013E,B25101_013M,B25101_014E,B25101_014M,B25101_015E,B25101_015M,B25101_016E,B25101_016M,B25101_017E,B25101_017M,B25101_018E,B25101_018M,B25101_019E,B25101_019M,B25101_020E,B25101_020M,B25101_021E,B25101_021M,B25101_022E,B25101_022M,B25101_023E,B25101_023M,B25101_024E,B25101_024M,B25101_025E,B25101_025M,B25101_026E,B25101_026M,B25101_027E,B25101_027M,B25101_028E,B25101_028M,B25101_029E,B25101_029M,B25101_030E,B25101_030M,B25101_031E,B25101_031M,B25101_032E,B25101_032M,B25101_033E,B25101_033M,B25101_034E,B25101_034M,B25101_035E,B25101_035M,B25101_036E,B25101_036M,B25101_037E,B25101_037M,B25101_038E,B25101_038M,B25101_039E,B25101_039M,B25101_040E,B25101_040M,B25101_041E,B25101_041M,B25101_042E,B25101_042M,B25101_043E,B25101_043M,B25101_044E,B25101_044M,B25101_045E,B25101_045M&for=county:086&in=state:12",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B25101",
+        "latency_s": 13.019
+      },
+      {
+        "id": "q36",
+        "repeat": 3,
+        "question": "Crowded housing in Santa Cruz County, more than one person per room",
+        "expected": "B25014",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 4.918
+      },
+      {
+        "id": "q38",
+        "repeat": 3,
+        "question": "Break down the Asian population in Fremont by specific origin",
+        "expected": "B02015",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 7.159
+      },
+      {
+        "id": "q39",
+        "repeat": 3,
+        "question": "Why are so many homes in Detroit sitting empty?",
+        "expected": "B25004",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table (none)",
+        "latency_s": 3.089
+      },
+      {
+        "id": "q40",
+        "repeat": 3,
+        "question": "How many studio and one-bedroom units are there in Cambridge?",
+        "expected": "B25041",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.651
+      },
+      {
+        "id": "q41",
+        "repeat": 3,
+        "question": "What did people in Ann Arbor study in college?",
+        "expected": "B15012",
+        "got": "C15010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,C15010_001E,C15010_001M,C15010_002E,C15010_002M,C15010_003E,C15010_003M,C15010_004E,C15010_004M,C15010_005E,C15010_005M,C15010_006E,C15010_006M&for=place:03000&in=state:26",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table C15010",
+        "latency_s": 9.829
+      },
+      {
+        "id": "q42",
+        "repeat": 3,
+        "question": "Veterans in Fayetteville with a service-connected disability rating",
+        "expected": "B21100",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.243
+      },
+      {
+        "id": "q43",
+        "repeat": 3,
+        "question": "What time do commuters in Suffolk County leave the house?",
+        "expected": "B08302",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 5.409
+      },
+      {
+        "id": "t01",
+        "repeat": 3,
+        "question": "Compare median household income between 2015-2019 and 2018-2022",
+        "expected": "B19013",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "overlapping_vintage",
+          "geography_unsupported"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 3.514
+      },
+      {
+        "id": "t03",
+        "repeat": 3,
+        "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
+        "expected": "",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "missing warning moe_not_significant",
+        "latency_s": 3.039
+      },
+      {
+        "id": "t04",
+        "repeat": 3,
+        "question": "Median household income for every block group in Wyoming",
+        "expected": "",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "missing warning geography_unsupported",
+        "latency_s": 4.879
+      },
+      {
+        "id": "t07",
+        "repeat": 3,
+        "question": "Population of Phoenix in 2024 from the 1-year ACS",
+        "expected": "B01003",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.165
+      },
+      {
+        "id": "t08",
+        "repeat": 3,
+        "question": "Give me the income distribution, not just the median, for Travis County",
+        "expected": "B19001",
+        "got": "B19081",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19081_001E,B19081_001M,B19081_002E,B19081_002M,B19081_003E,B19081_003M,B19081_004E,B19081_004M,B19081_005E,B19081_005M,B19081_006E,B19081_006M&for=county:453&in=state:48",
+        "http_ok": true,
+        "warnings": [],
+        "detail": "wrong table B19081",
+        "latency_s": 12.657
+      }
+    ]
+  }
 }
