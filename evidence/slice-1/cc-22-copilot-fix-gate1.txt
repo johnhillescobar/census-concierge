@@ -1,0 +1,52 @@
+# CC-22 Copilot review fixes — Gate 1 mutation check
+# branch: feat/cc-22-guards
+# captured after addressing PR #14 Copilot comments
+# GOOD: uv run pytest -q -m "not integration" → 155 passed
+# Each BAD run reverts one behaviour, confirms the covering test fails, restores.
+
+=== GOOD: all tests against the implementation ===
+$ uv run pytest -q -m "not integration"
+155 passed in 2.98s
+(exit 0)
+
+=== BAD: threshold predicate is not a comparison (mutation: restore more than/less than on _COMPARE) ===
+FAILED api/tests/test_guards.py::test_threshold_predicate_is_not_a_comparison
+assert ['moe_not_significant'] == []
+
+=== BAD: later estimate column is checked (mutation: for estimate in keys[:1]) ===
+FAILED api/tests/test_guards.py::test_later_estimate_column_is_checked
+assert [] == ['moe_not_significant']
+
+=== BAD: unavailable margins are not compared (mutation: drop -555555555 from _MISSING) ===
+FAILED api/tests/test_guards.py::test_unavailable_margins_are_not_compared
+assert ['moe_not_significant'] == []
+
+=== BAD: overlapping vintages do not compare leftover rows (mutation: skip overlapping_vintage short-circuit) ===
+FAILED api/tests/test_guards.py::test_overlapping_vintages_do_not_compare_leftover_rows
+assert ['overlapping_vintage', 'moe_not_significant'] == ['overlapping_vintage']
+
+=== BAD: ambiguous place lists every match (mutation: names[:12]) ===
+FAILED api/tests/test_guards.py::test_several_matching_places_are_the_result
+assert 'Springfield 14' in truncated detail
+
+=== BAD: unknown place keeps predicate legality (mutation: legal and bool(matched)) ===
+FAILED api/tests/test_ask_tools.py::test_unknown_place_keeps_predicate_legality
+assert False is True  (legal=False on a lookup miss)
+
+=== BAD: unknown place is not unsupported geography (mutation: legal and bool(matched)) ===
+FAILED api/tests/test_guards.py::test_unknown_place_is_not_unsupported_geography
+assert record.geo_status["legal"] is True  → False
+
+=== BAD: new geography drops previous fetch (mutation: do not clear url/rows/table_id) ===
+FAILED api/tests/test_guards.py::test_new_geography_drops_previous_fetch
+assert record.url is None  → leftover Harris County CensusURL
+
+=== BAD: same geography keeps the fetch (mutation: always clear artifacts) ===
+FAILED api/tests/test_guards.py::test_same_geography_keeps_the_fetch
+assert record.rows == rows  → []
+
+=== BAD: block group wildcard lands on the response (mutation: geography_unsupported always None) ===
+FAILED api/tests/test_guards.py::test_block_group_wildcard_in_a_state_is_illegal
+assert [] == ['geography_unsupported']
+
+All ten covering tests failed under their mutation and passed after restore.

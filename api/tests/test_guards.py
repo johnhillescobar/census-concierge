@@ -74,6 +74,57 @@ def test_wildcard_rows_without_a_comparison_do_not_warn() -> None:
     assert _codes(record) == []
 
 
+def test_threshold_predicate_is_not_a_comparison() -> None:
+    record = ExecutionRecord(
+        question="Renters spending more than 30% of income on rent, by county in Arizona"
+    )
+    record.rows = [
+        {"GEO_ID": "a", "B25070_007E": "1", "B25070_007M": "50"},
+        {"GEO_ID": "b", "B25070_007E": "2", "B25070_007M": "50"},
+    ]
+    assert _codes(record) == []
+
+
+def test_later_estimate_column_is_checked() -> None:
+    record = ExecutionRecord(question=T03)
+    record.rows = [
+        {
+            "GEO_ID": "a",
+            "B17001_001E": "1000",
+            "B17001_001M": "10",
+            "B17001_002E": "100",
+            "B17001_002M": "50",
+        },
+        {
+            "GEO_ID": "b",
+            "B17001_001E": "2000",
+            "B17001_001M": "10",
+            "B17001_002E": "110",
+            "B17001_002M": "50",
+        },
+    ]
+    assert _codes(record) == ["moe_not_significant"]
+
+
+def test_unavailable_margins_are_not_compared() -> None:
+    record = ExecutionRecord(question=T03)
+    record.rows = [
+        {"GEO_ID": "a", "B01003_001E": "100", "B01003_001M": "-555555555"},
+        {"GEO_ID": "b", "B01003_001E": "110", "B01003_001M": "-555555555"},
+    ]
+    assert _codes(record) == []
+
+
+def test_overlapping_vintages_do_not_compare_leftover_rows() -> None:
+    record = ExecutionRecord(question=T01)
+    record.vintages = [("acs5", 2019), ("acs5", 2022)]
+    record.rows = [
+        {"GEO_ID": "a", "B19013_001E": "100", "B19013_001M": "50"},
+        {"GEO_ID": "b", "B19013_001E": "110", "B19013_001M": "50"},
+    ]
+    assert _codes(record) == ["overlapping_vintage"]
+
+
 def test_illegal_geography_combination_warns() -> None:
     record = ExecutionRecord()
     record.geo_status = {
@@ -86,15 +137,12 @@ def test_illegal_geography_combination_warns() -> None:
 
 def test_several_matching_places_are_the_result() -> None:
     record = ExecutionRecord(question="Population of Springfield")
-    record.geographies = [
-        {"name": "Springfield city, Illinois", "for": "place:1769000", "in": "state:17"},
-        {"name": "Springfield city, Massachusetts", "for": "place:2567000", "in": "state:25"},
-        {"name": "Springfield city, Missouri", "for": "place:2970000", "in": "state:29"},
-    ]
+    record.geographies = [{"name": f"Springfield {i}"} for i in range(15)]
     warnings = evaluate(record)
     assert [item.code for item in warnings] == ["ambiguous_place"]
-    assert "Illinois" in warnings[0].detail
-    assert "Massachusetts" in warnings[0].detail
+    assert "Springfield 0" in warnings[0].detail
+    assert "Springfield 14" in warnings[0].detail
+    assert "+3 more" not in warnings[0].detail
     response = assemble("candidates listed", record)
     assert response.answer == "candidates listed"
     assert response.url == ""
@@ -125,20 +173,73 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
         *ENTRIES,
         GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
     ]
+    record = ExecutionRecord(question="Median household income for every block group in Wyoming")
     tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=entries)
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"query": "every block group in Wyoming"},
-            "id": "bg1",
-        }
+    await dispatch(tool, {"id": "bg1", "args": {"query": "every block group in Wyoming"}}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["legal"] is False
+    assert record.geographies == []
+    response = assemble("answer still ships", record)
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert "block group" in response.warnings[0].detail
+    assert response.answer == "answer still ships"
+
+
+async def test_unknown_place_is_not_unsupported_geography() -> None:
+    record = ExecutionRecord(question="Population of Atlantis, Texas")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"], {"id": "2", "args": {"query": "Atlantis, Texas"}}, record
     )
-    artifact = message.artifact
-    assert artifact.legal is False
-    assert artifact.wildcard is True
-    assert artifact.matches == []
-    assert "block group" in artifact.detail
+    assert record.geo_status is not None
+    assert record.geo_status["legal"] is True
+    assert record.geographies == []
+    assert _codes(record) == []
+
+
+async def test_new_geography_drops_previous_fetch() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "1", "args": {"query": "Harris County, Texas"}},
+        record,
+    )
+    await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
+    await dispatch(tools["fetch_data"], {"id": "3", "args": {}}, record)
+    assert record.rows
+    await dispatch(
+        tools["resolve_geography"], {"id": "4", "args": {"query": "Cook County"}}, record
+    )
+    assert record.url is None
+    assert record.rows == []
+    assert record.table_id == ""
+    response = assemble("candidates listed", record)
+    assert response.url == ""
+    assert [item.code for item in response.warnings] == ["ambiguous_place"]
+    assert response.answer == "candidates listed"
+
+
+async def test_same_geography_keeps_the_fetch() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "1", "args": {"query": "Harris County, Texas"}},
+        record,
+    )
+    await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
+    await dispatch(tools["fetch_data"], {"id": "3", "args": {}}, record)
+    rows = list(record.rows)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "4", "args": {"query": "Harris County, Texas"}},
+        record,
+    )
+    assert record.rows == rows
+    assert record.table_id == "B01003"
 
 
 async def test_ambiguous_resolve_lands_on_the_response() -> None:

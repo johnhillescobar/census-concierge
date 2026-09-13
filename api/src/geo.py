@@ -382,9 +382,7 @@ class ResolveGeographyTool(BaseTool):
             detail = f"no {for_level} matched {query!r}"
         else:
             detail = ""
-        result = ResolveGeographyResult(
-            matches=matched, wildcard=False, legal=legal and bool(matched), detail=detail
-        )
+        result = ResolveGeographyResult(matches=matched, wildcard=False, legal=legal, detail=detail)
         if len(matched) != 1:
             listing = "; ".join(
                 f"{row['name']} {row['for']} {row.get('in', '')}".strip() for row in matched

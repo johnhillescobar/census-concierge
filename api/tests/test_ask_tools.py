@@ -561,6 +561,21 @@ async def test_unknown_level_does_not_list_census_names() -> None:
     assert "unknown geography level" in message.artifact.detail
 
 
+async def test_unknown_place_keeps_predicate_legality() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Atlantis, Texas"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is True
+    assert message.artifact.matches == []
+    assert "no place matched" in message.artifact.detail
+
+
 def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyPatch) -> None:
     import httpx
     from src.census_url import redact_text

@@ -15,7 +15,7 @@ _ACS5_SPAN = 5
 _RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
 _COMPARE = re.compile(
     r"\b(?:higher|lower|compare[d]?|versus|difference|ranked?|worst|best)\b|"
-    r"\bvs\.?\b|\bmore than\b|\bless than\b",
+    r"\bvs\.?\b",
     re.IGNORECASE,
 )
 _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -24,7 +24,16 @@ _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("population", ("population",)),
     ("housing units", ("housing units", "housing unit")),
 )
-_MISSING = {None, "", "-999999999", "-888888888", "-666666666", "-222222222"}
+_MISSING = {
+    None,
+    "",
+    "-999999999",
+    "-888888888",
+    "-666666666",
+    "-555555555",
+    "-333333333",
+    "-222222222",
+}
 
 
 class GuardRecord(Protocol):
@@ -72,27 +81,26 @@ def _numeric(row: dict[str, str | None], key: str) -> float | None:
 
 
 def moe_not_significant(record: GuardRecord) -> AskWarning | None:
+    # Leftover last-fetch rows are not a vintage pair. Slice 3 keeps series.
+    if overlapping_vintage(record) is not None:
+        return None
     if not _COMPARE.search(record.question) or len(record.rows) < 2:
         return None
     keys = [key for key in record.rows[0] if key.endswith("E") and "_" in key]
-    if not keys:
-        return None
-    estimate = keys[0]
-    margin = f"{estimate[:-1]}M"
-    for i, left in enumerate(record.rows):
-        for right in record.rows[i + 1 :]:
-            e1, e2 = _numeric(left, estimate), _numeric(right, estimate)
-            m1, m2 = _numeric(left, margin), _numeric(right, margin)
-            if e1 is None or e2 is None or m1 is None or m2 is None:
-                continue
-            diff = abs(e1 - e2)
-            se = math.sqrt(m1 * m1 + m2 * m2)
-            if diff <= se:
-                return AskWarning(
-                    code="moe_not_significant",
-                    detail="difference is within the 90% margin of error "
-                    "and is not distinguishable",
-                )
+    for estimate in keys:
+        margin = f"{estimate[:-1]}M"
+        for i, left in enumerate(record.rows):
+            for right in record.rows[i + 1 :]:
+                e1, e2 = _numeric(left, estimate), _numeric(right, estimate)
+                m1, m2 = _numeric(left, margin), _numeric(right, margin)
+                if e1 is None or e2 is None or m1 is None or m2 is None:
+                    continue
+                if abs(e1 - e2) <= math.sqrt(m1 * m1 + m2 * m2):
+                    return AskWarning(
+                        code="moe_not_significant",
+                        detail="difference is within the 90% margin of error "
+                        "and is not distinguishable",
+                    )
     return None
 
 
@@ -115,11 +123,10 @@ def ambiguous_place(record: GuardRecord) -> AskWarning | None:
         str(row.get("name") or f"{row.get('for', '')} {row.get('in', '')}".strip())
         for row in matches
     ]
-    listing = "; ".join(names[:12])
-    extra = f" (+{len(names) - 12} more)" if len(names) > 12 else ""
+    listing = "; ".join(names)
     return AskWarning(
         code="ambiguous_place",
-        detail=f"{len(names)} matching geographies: {listing}{extra}",
+        detail=f"{len(names)} matching geographies: {listing}",
     )
 
 

@@ -75,14 +75,14 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         record.pool = list(hits)
     elif name == "resolve_geography":
         matches = artifact.matches if hasattr(artifact, "matches") else artifact.get("matches", [])
+        previous = record.geography
         record.geographies = [dict(match) for match in matches]
         legal = artifact.legal if hasattr(artifact, "legal") else artifact.get("legal", True)
         detail = artifact.detail if hasattr(artifact, "detail") else artifact.get("detail", "")
         record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
-        if len(matches) == 1:
-            record.geography = dict(matches[0])
-        else:
-            record.geography = None
+        record.geography = dict(matches[0]) if len(matches) == 1 else None
+        if record.geography != previous:
+            record.url, record.rows, record.table_id, record.universe = None, [], "", ""
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         record.rows = []
