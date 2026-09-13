@@ -1,0 +1,268 @@
+# CC-54 Gate 2 re-run
+# branch: feat/cc-54-search-select
+# HEAD: 0cad7256a17148f4d93db6668efb54b339023ccc
+# origin/main: 97482e4b12cb6a518503cc2068ad56264fda9732
+# captured: 2026-09-13T09:27:58-05:00
+# prior Gate 2: evidence/slice-1/cc-54-gate2.txt (HEAD dcf228d, Ship it with follow-ups)
+# fix commit: 0cad725 — model-visible search_tables summary names only the choose() pick
+# uncommitted (not in origin/main...HEAD; machines still ran on this tree):
+#   M evidence/latest.json
+#   M evidence/slice-1/cc-54-e2e-pre.txt
+#   ?? evidence/slice-1/cc-54-e2e-pre-fix.txt
+# check_budgets.py therefore read dirty latest.json (p95 18.451, selector_at_1 0.85).
+# HEAD's committed latest.json still has p95 13.82, selector_at_1 0.875.
+
+=== git log origin/main...HEAD --oneline ===
+0cad725 fix(api): show only the selected table in search_tables summary (CC-54)
+60075fd evidence(slice-1): CC-54 PR A Gate 2 review transcript
+dcf228d evidence(slice-1): CC-54 PR A Gate 1 mutation transcript
+2df14df feat(api): let search_tables use the same table pick as eval --rerank (CC-54)
+
+=== git diff --stat origin/main...HEAD ===
+ api/src/retrieval/rerank.py                |    7 +-
+ api/src/tools.py                           |   43 +-
+ api/tests/test_ask_tools.py                |   59 +
+ docs/ARCHITECTURE.md                       |    8 +-
+ evidence/slice-1/cc-54-e2e-pre.txt         | 8097 ++++++++++++++++++++++++++++
+ evidence/slice-1/cc-54-fix-mutations.txt   |   24 +
+ evidence/slice-1/cc-54-gate1.txt           |  151 +
+ evidence/slice-1/cc-54-gate2.txt           |  227 +
+ evidence/slice-1/cc-54-preflight-claims.md |   25 +
+ evidence/slice-1/cc-54-preflight.txt       |  127 +
+ 10 files changed, 8757 insertions(+), 11 deletions(-)
+
+=== git status --short ===
+ M evidence/latest.json
+ M evidence/slice-1/cc-54-e2e-pre.txt
+?? evidence/slice-1/cc-54-e2e-pre-fix.txt
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2200 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.451 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+[exit 0]
+
+
+=== uv run ruff check . ; uv run ruff format --check . ===
+$ uv run ruff check .
+All checks passed!
+[exit 0]
+
+$ uv run ruff format --check .
+80 files already formatted
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+Success: no issues found in 19 source files
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+174 passed in 6.02s
+[exit 0]
+
+
+================================================================================
+PASS 1 -- generic bugs (cold read of git diff origin/main...HEAD; no intent)
+================================================================================
+Diff: 2df14df + dcf228d + 60075fd + 0cad725 vs origin/main (97482e4).
+10 files, +8757 / -11. Production: tools.py, rerank.py docstring, ARCHITECTURE.md.
+0cad725 is the non-trivial fix this re-run exists for: SearchTablesTool._arun
+content string names hits[0] only; SearchTablesResult.hits stays the full
+promoted pool. Tests: two asserts on that split. Evidence: prior gates,
+reorder-only E2E (cc-54-e2e-pre.txt), fix mutation transcript.
+
+Verdict: no crash; no dropped URL/MOE/GEOID/universe; no test that cannot fail.
+The summary/artifact split matches how dispatch already works (model gets
+content; assemble reads record.pool from the artifact).
+
+Findings:
+- search_tables still builds hits from search() + describe(), then if
+  len(hits) > 1 thread-offloads _pick_table and _promote. Empty and singleton
+  pools skip choose(). choose() indexes candidates[0]; that path cannot run
+  on []. Unchanged from dcf228d.
+- After promote, artifact = SearchTablesResult(hits=hits) still holds the
+  whole list. Empty hits return ("0 candidates", artifact) before formatting
+  a lead row. Non-empty: content is "selected {id} {title} ({universe});
+  members …; N related tables". Sibling table_ids are not in that string.
+  dispatch() appends only content to the model messages; _absorb copies
+  artifact.hits onto record.pool. assemble() still walks the full pool for
+  alternatives[].
+- Members of hits[0] are still named in content. Those are family IDs
+  (race iterations, folded C tables), which build_url already allows. They
+  are not the retrieval siblings that 0cad725 hides. Empty title yields a
+  double space before the universe clause — cosmetic.
+- Unknown select id: _promote leaves order as-is, then content labels
+  retrieval rank-1 as "selected". The unknown id never appears in content.
+  An injected select can still return an unknown id; choose() itself maps a
+  hallucinated id to candidates[0].
+- k is still the tool-call k (default 10). k=1 never calls choose().
+  eval --rerank still searches max(k, 10) then truncates. asyncio.to_thread
+  around the sync Gemini/OpenAI call is still the right shape. choose()
+  still swallows Exception and returns rank-1.
+- absorb/assemble/build_url/fetch_data are still untouched. allowed_tables()
+  is still the full pool plus members, so a model that invents a sibling ID
+  that happens to be in the pool will still get a URL. The observation no
+  longer supplies those IDs. No new URL formatter; str(url) is still
+  CensusURL.
+- Tests: test_selector_pick_is_first_hit now also asserts "B27001" in
+  content and "B27010" not in content, while ids == ["B27001", "B27010"].
+  That is the fix. Mutation transcript (cc-54-fix-mutations.txt) shows the
+  restored listing fails the new assert. No new test function; count stays
+  174. Still no unit test with select=None and len(hits)>1. _describe has
+  no B27010/B27001 entries, so those hits have empty title/universe; the
+  new asserts only read ids in content.
+- Nothing: no exception on empty search; no fifth tool; no graph node; no
+  drop of the pool from the artifact or from alternatives[].
+
+================================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check . ; uv run ruff format --check .              [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  174 passed
+
+Machines are green. Review continues.
+check_invariants --base did not see a widened budget.
+Budgets were counted against a dirty evidence/latest.json (see header).
+Committed HEAD latest.json is still selector_at_1 0.875 / p95 13.82; both
+pass either way. This gate does not treat that dirt as part of the PR.
+
+--- the claim ---
+A user who POSTs /ask now gets search_tables reordered to the same choose()
+pick as `make eval --rerank`, and the model-visible tool summary names only
+that pick. The rest of the pool stays on the artifact and in alternatives[].
+That sentence can be written. make demo / make eval after this fix are E2E
+(next phase); this re-run does not treat a missing post-fix demo as a
+machine failure. Committed cc-54-e2e-pre.txt is the reorder-only run that
+motivated 0cad725 (long_tail answered_rate 0.248, p95 18.451s) — evidence
+that listing the pool in content was not enough, not a claim that this PR
+cleared the floor. No retrieval@1 improvement is claimed; at n=40 a move
+under ~10 points would be noise anyway.
+
+--- scope ---
+Belongs to slice 1: the four-tool loop, search_tables using the slice-0
+selector, not a fifth tool. The summary change is still that tool's
+content/artifact split (ToolResult already says the model sees only the
+content string). Not added: conversation memory, auth, database, frontend,
+charts, PDF, clarification, urls[] / multi-year fetch (slice 3), graph
+nodes. ask.py is untouched (still 400/400). ARCHITECTURE.md was updated in
+2df14df for choose() wiring; 0cad725 did not add a sentence that the model
+sees only the pick. 10 files vs origin/main, under ~15. Evidence files are
+gate transcripts, preflight, the motivating E2E, and the fix mutation
+check — not opportunistic product code.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: assemble still returns str(CensusURL) or "". This PR does not format
+  a URL any other way. Redaction stays on the CensusURL type.
+- MOE: pair_margins / fetch pairing unchanged. Estimates do not pass back
+  through the model. choose() sees table_id, title, universe — not row
+  values. The new summary also carries no estimates.
+- GEOID: unchanged paths.
+- Universe: still from build_url facts / selected hit. The summary prints
+  the lead universe; it does not rewrite the contract.
+- Alternatives: user-facing alternatives[] still enumerate every other hit
+  in record.pool plus members. Hiding sibling IDs from the tool observation
+  does not drop them from the response. Members of the selected table remain
+  visible to the model, which is the family-member allowlist the prompt
+  already states.
+- Guards unchanged. No new blocking question. No silent vintage or
+  geography substitution. Steering the model to the choose() pick is
+  selection, not an invisible geography or year fix.
+- A wrong choose() pick can still become the table the loop builds — that
+  is the selector failing, the same failure make eval --rerank already
+  measures, not a dropped field. build_url still accepts any id in the
+  pool, so a hallucinated sibling that is also a hit would still fetch.
+
+Out of ticket, do not demand: post-fix make demo numbers, urls[],
+frontend, auth, graphs, a fifth tool.
+
+--- shape ---
+No new tool, route, Pydantic boundary-model, or .add_node(). SelectFn is
+still a Callable alias on SearchTablesTool. Tools stay at 4. index.search()
+still does not import rerank. The tool-to-model content string changed
+(full listing → selected row + related count); ARCHITECTURE.md still says
+search_tables applies the pick and does not mention that the observation
+omits sibling IDs. That file is not false. doc_lines is 1798/1800, so a
+clarifying sentence may not fit without cutting elsewhere.
+
+--- tests ---
+Behavior, not prompt wording. The fix adds two asserts on tool content
+ids, not on prose. Artifact order assertions remain. No new test file
+named after a ticket. _pool_search is still a fixed two-id pool for
+promotion, not a retrieval fake used to score "did search find the table";
+_search still returns different ids for bike vs broadband vs unknown.
+Fix mutation transcript is in evidence/slice-1/cc-54-fix-mutations.txt.
+Gap, not cannot-fail: no unit test hits select=None with len(hits)>1, so
+the Candidate mapping into choose() is still unwired in pytest. No assert
+that unknown-id content names rank-1 and omits the unknown id.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: POST /ask search_tables now
+puts choose()'s table first over the retrieved pool — the same pick as
+`make eval --rerank` — and the model-visible summary names only that pick,
+without a fifth tool, without calling choose() from index.search(), and
+without dropping the rest of the candidates from the artifact, URL, MOE,
+GEOID, universe, or alternatives[].
+
+Follow-ups (none are silent-wrong-answer):
+1. Unit tests never run the production adapter (select is None, pool size
+   > 1). Older search fakes return at most one id, so they cannot catch a
+   broken Candidate mapping into choose().
+2. search_tables chooses over the model's k (k=1 skips choose entirely).
+   eval --rerank always retrieves max(k, 10) then truncates.
+3. Every multi-hit search_tables call is now a Gemini round trip. p95 in
+   committed evidence/latest.json is still 13.82s from before this wiring;
+   dirty working-tree latest.json shows 18.451s from the reorder-only E2E.
+   Post-fix E2E is the measurement, not this gate.
+4. Budget headroom: largest file 400/400 (ask.py), doc_lines 1798/1800.
+5. ARCHITECTURE.md does not say the model-visible summary omits sibling
+   IDs. Two lines of doc budget remain.
+6. build_url's allowlist is still the full pool, so a hallucinated sibling
+   ID that is also a hit still builds. The observation no longer offers
+   those IDs; that is the fix, not a hard reject.
+
+================================================================================
+GATE 2 RE-RUN VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
