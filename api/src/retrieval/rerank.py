@@ -6,10 +6,9 @@ Measured 2026-08-14 on the tuning set that is exactly the shape — `@10` 90%,
 separates `B25091` from `B25095` is universe and phrasing, which is a reading
 task, not a distance in vector space.
 
-Deliberately NOT called from `search()`. Retrieval ranks; selection is the
-agent's job, and in slice 1 this prompt becomes part of what the agent already
-does with the candidate list. Keeping it separate means slice 1 can delete this
-module rather than unpick an LLM call from inside the loader.
+Deliberately NOT called from `search()`. `search_tables` calls `choose()` so
+the ask loop gets the same pick as `make eval --rerank`. The loader stays free
+of the LLM; an empty pool must not reach `candidates[0]`.
 """
 
 from __future__ import annotations
@@ -69,7 +68,10 @@ def _choose_gemini(question: str, listing: str, model: str) -> str | None:
     response = client.models.generate_content(
         model=model,
         contents=f"{PROMPT}\n\nQuestion: {question}\n\nCandidates:\n{listing}",
-        config=types.GenerateContentConfig(response_mime_type="application/json"),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
     )
     return _pick_table(response.text or "{}")
 

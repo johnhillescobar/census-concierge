@@ -1,0 +1,127 @@
+﻿# CC-54 PR A pre-flight — raw commands
+# 97482e4  main
+# 2026-09-13T08:17:33.8183810-05:00
+
+
+===== git HEAD =====
+$ git rev-parse HEAD
+
+97482e4b12cb6a518503cc2068ad56264fda9732
+
+===== choose() definition =====
+$ rg -n "def choose" api/src/retrieval/rerank.py
+
+91:def choose(question: str, candidates: list[Candidate], model: str = MODEL) -> str:
+
+===== choose() callers =====
+$ rg -n "choose\(" --glob "*.py" .
+
+.\scripts\eval_retrieval.py:115:            # choose() reads candidates[0] unconditionally; search() returning
+.\scripts\eval_retrieval.py:119:        picked = choose(
+.\experiments\prompt_tuning.py:136:def _choose(question: str, candidates: list[str], prompt: str, model: str = MODEL) -> str | None:
+.\experiments\prompt_tuning.py:184:        picked = _choose(question, cands, variant.prompt)
+.\scripts\taxonomize_rerank_misses.py:102:        picked = choose(
+.\api\src\retrieval\rerank.py:91:def choose(question: str, candidates: list[Candidate], model: str = MODEL) -> str:
+
+===== index.search does not import rerank =====
+$ rg -n "rerank|choose" api/src/retrieval/index.py
+
+102:    Ranking only. It does not choose ΓÇö the agent does that, from these
+
+===== SearchTablesTool _arun =====
+$ rg -n "class SearchTablesTool|def _arun|self.search" api/src/tools.py
+
+117:class SearchTablesTool(BaseTool):
+130:    async def _arun(self, question: str, k: int = 10) -> tuple[str, SearchTablesResult]:
+131:        table_ids = await asyncio.to_thread(self.search, question, k)
+168:    async def _arun(
+299:    async def _arun(self) -> tuple[str, FetchDataResult]:
+
+===== default_tools search wiring =====
+$ rg -n "SearchTablesTool|index.search|def search" api/src/ask.py
+
+33:    SearchTablesTool,
+337:    def search(question: str, k: int) -> list[str]:
+338:        return index.search(question, k)
+361:        "search_tables": SearchTablesTool(search=search, describe=describe),
+
+===== eval --rerank promotion =====
+$ rg -n "picked|search_and_rerank|choose" scripts/eval_retrieval.py
+
+107:    from src.retrieval.rerank import Candidate, choose  # type: ignore[import-not-found]
+112:    def search_and_rerank(question: str, k: int) -> list[str]:
+115:            # choose() reads candidates[0] unconditionally; search() returning
+119:        picked = choose(
+123:        return [picked, *(t for t in ranked if t != picked)][:k]
+125:    return search_and_rerank
+
+===== BaseTool count =====
+$ rg -n "class \w+\(BaseTool\)" api/src
+
+api/src\tools.py:117:class SearchTablesTool(BaseTool):
+api/src\tools.py:152:class BuildUrlTool(BaseTool):
+api/src\tools.py:285:class FetchDataTool(BaseTool):
+api/src\geo.py:261:class ResolveGeographyTool(BaseTool):
+
+===== GEMINI model in rerank =====
+$ rg -n "MODEL|GEMINI" api/src/retrieval/rerank.py
+
+23:MODEL = "gemini-3.7-flash"
+68:    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+91:def choose(question: str, candidates: list[Candidate], model: str = MODEL) -> str:
+
+===== GEMINI_API_KEY present (name only) =====
+$ python -c "import os; from dotenv import load_dotenv; load_dotenv(); print('GEMINI_API_KEY set:', bool(os.environ.get('GEMINI_API_KEY')))"
+
+GEMINI_API_KEY set: True
+
+===== structural budgets =====
+$ uv run python scripts/check_budgets.py --structural-only
+
+
+BUDGETS
+
+  ok    api src LOC               2171 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+
+===== tools.py loc =====
+$ uv run python -c "from pathlib import Path; import sys; sys.path.insert(0,'scripts'); import check_budgets as c; print('tools.py', c._loc(Path('api/src/tools.py'))); print('ask.py', c._loc(Path('api/src/ask.py'))); print('geo.py', c._loc(Path('api/src/geo.py'))); print('rerank.py', c._loc(Path('api/src/retrieval/rerank.py')))"
+
+tools.py 290
+ask.py 400
+geo.py 357
+rerank.py 80
+
+===== empty-search test exists =====
+$ rg -n "unknown_vocabulary_does_not_invent|hits == \[\]" api/tests
+
+api/tests\test_ask_tools.py:203:async def test_unknown_vocabulary_does_not_invent_a_table(search_tool: SearchTablesTool) -> None:
+api/tests\test_ask_tools.py:212:    assert message.artifact.hits == []
+
+===== BuildUrlInput empty variables description =====
+$ rg -n "Empty means every" api/src/tools.py
+
+51:        description="Estimate variable IDs (E). Empty means every E in the table.",
+
+===== ambiguous_place sets geography None =====
+$ rg -n "len\(matches\) == 1" api/src/ask.py
+
+83:        record.geography = dict(matches[0]) if len(matches) == 1 else None
+
+===== allowed_geographies empty when several matches =====
+$ rg -n "len\(record.geographies\) == 1" api/src/ask.py
+
+375:                if len(record.geographies) == 1

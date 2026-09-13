@@ -80,7 +80,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         legal = artifact.legal if hasattr(artifact, "legal") else artifact.get("legal", True)
         detail = artifact.detail if hasattr(artifact, "detail") else artifact.get("detail", "")
         record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
-        record.geography = dict(matches[0]) if len(matches) == 1 else None
+        record.geography = dict(matches[0]) if matches else None
         if record.geography != previous:
             record.url, record.rows, record.table_id, record.universe = None, [], "", ""
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
@@ -367,14 +367,9 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         ),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: _allowed(record),
-            allowed_geographies=lambda: (
-                {
-                    (str(geo.get("for") or ""), str(geo.get("in") or ""))
-                    for geo in record.geographies
-                }
-                if len(record.geographies) == 1
-                else set()
-            ),
+            allowed_geographies=lambda: {
+                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+            },
             latest_vintage=latest,
             table_facts=facts,
             last_geography=lambda: record.geography,

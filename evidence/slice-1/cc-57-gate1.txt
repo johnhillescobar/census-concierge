@@ -1,0 +1,164 @@
+# Gate 1 — CC-57 — branch feat/cc-57-default-total
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+# 2026-09-13T11:10:20-05:00
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials
+......                                                                   [100%]
+6 passed in 0.78s
+(exit 0)
+
+=== BAD: omitted variables request the table total (mutation: restore empty-list expansion to all suffixes) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______________ test_omitted_variables_request_the_table_total ________________
+
+    async def test_omitted_variables_request_the_table_total() -> None:
+        message = await _wide_url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.ok is True
+>       assert artifact.variables == ["B99999_001E", "B99999_001M"]
+E       AssertionError: assert ['B99999_001E...99_003M', ...] == ['B99999_001E', 'B99999_001M']
+E         
+E         Left contains 50 more items, first extra item: 'B99999_002E'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:580: AssertionError
+___________ test_missing_table_total_does_not_expand_to_every_cell ____________
+
+    async def test_missing_table_total_does_not_expand_to_every_cell() -> None:
+        message = await _wide_url_tool(include_total=False).ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.ok is False
+E       AssertionError: assert True is False
+E        +  where True = BuildUrlResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B99999_002E,B99999_002M,B99999_..., 'B99999_026M', 'B99999_027E', 'B99999_027M'], dataset='acs5', vintage=2024, detail='', universe='Synthetic universe').ok
+
+api\tests\test_ask_tools.py:612: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total
+FAILED api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell
+2 failed in 0.31s
+(exit 1)
+
+=== BAD: explicit estimate does not expand to the table (mutation: always replace variables with 001E) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_explicit_estimate_does_not_expand_to_the_table _____________
+
+    async def test_explicit_estimate_does_not_expand_to_the_table() -> None:
+        message = await _wide_url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999", "variables": ["B99999_002E"]},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.ok is True
+>       assert artifact.variables == ["B99999_002E", "B99999_002M"]
+E       AssertionError: assert ['B99999_001E', 'B99999_001M'] == ['B99999_002E', 'B99999_002M']
+E         
+E         At index 0 diff: 'B99999_001E' != 'B99999_002E'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:597: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table
+1 failed in 0.36s
+(exit 1)
+
+=== BAD: overall_answered_rate uses all trials (mutation: overall_answered_rate uses long_tail only) ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_________________ test_overall_answered_rate_uses_all_trials __________________
+
+    def test_overall_answered_rate_uses_all_trials() -> None:
+        trials = [
+            _trial(),
+            _trial(
+                id="q05",
+                text="tail",
+                tier="long_tail",
+                answered=False,
+                expected_table="B08301",
+                table_id="",
+                url="",
+                latency_s=2.0,
+                t_llm=1.0,
+                t_census_api=0.4,
+                t_ours=0.6,
+                detail="empty url",
+            ),
+            _trial(id="t01", text="trap", tier="trap"),
+        ]
+        summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+>       assert summary["overall_answered_rate"] == 0.667
+E       assert 0.0 == 0.667
+
+api\tests\test_demo_harness.py:277: AssertionError
+_______________________ test_gated_rate_uses_long_tail ________________________
+
+    def test_gated_rate_uses_long_tail() -> None:
+        trials = [
+            _trial(),
+            _trial(
+                id="q05",
+                text="tail",
+                tier="long_tail",
+                answered=False,
+                expected_table="B08301",
+                table_id="",
+                url="",
+                latency_s=2.0,
+                t_llm=1.0,
+                t_census_api=0.4,
+                t_ours=0.6,
+                detail="empty url",
+            ),
+        ]
+        summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+>       assert summary["overall_answered_rate"] == 0.5
+E       assert 0.0 == 0.5
+
+api\tests\test_demo_harness.py:240: AssertionError
+_______________ test_core_only_run_does_not_count_as_gated_rate _______________
+
+    def test_core_only_run_does_not_count_as_gated_rate() -> None:
+        summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+>       assert summary["overall_answered_rate"] == 1.0
+E       assert 0.0 == 1.0
+
+api\tests\test_demo_harness.py:251: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials
+FAILED api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail - asser...
+FAILED api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate
+3 failed in 0.13s
+(exit 1)
+
+=== GOOD: restore and re-run new tests ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials
+......                                                                   [100%]
+6 passed in 0.69s
+(exit 0)

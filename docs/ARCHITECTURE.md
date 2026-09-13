@@ -3,7 +3,8 @@
 **Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, the
 five DESIGN §4 guards, and `make demo`.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
-`rerank.py` selects one table from it. `budgets.toml` gates retriever `@10` and
+`rerank.py` selects one table from it. `search_tables` applies that pick;
+`index.search()` does not. `budgets.toml` gates retriever `@10` and
 selector `@1` on the long-tail tier separately — raw cosine `@1` is diagnostic
 only. The ask loop fills `AskResponse` from tool artifacts — URL, paired MOE, GEOID,
 universe, structured alternatives, and non-blocking `warnings[]`. `scripts/run_demo.py`
@@ -65,7 +66,8 @@ embedding.py     OpenAI embeddings; imports the client INSIDE the functions
 synthetic.py     LLM question generation, cached and committed
 build.py         assembles the artifact. Reaches OpenAI.
 index.py         loads the artifact, search(question, k). Never builds.
-rerank.py        LLM picks one of the top k. NOT called by search().
+rerank.py        LLM picks one of the top k. search_tables calls choose();
+                 search() does not.
 ```
 
 The boundary that matters: **`build.py` reaches OpenAI, `index.py` does not.**
@@ -84,10 +86,13 @@ returns `AskResponse` — `answer`, `url` (singular), `rows`, `moe`, `geoid`,
 per-row model. Start with `uv run uvicorn src.main:app --reload`.
 
 `run_ask` is a hand-rolled loop (`complete` then `dispatch`), not a graph and
-not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index),
+not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index, then `rerank.choose`),
 `resolve_geography` (every `geography.json` fips row — `geo_levels()` last-wins
-is 324 and is the wrong county predicate), `build_url` (availability matrix, E
-paired with M), `fetch_data` (live Census; keeps the URL on failure). `assemble()`
+is 324 and is the wrong county predicate; NAME listing includes `B01003_001E` and
+ranks filtered matches by place class, population, then GEO_ID — `matches[0]` is
+selected, the rest stay on `geographies` so `ambiguous_place` still warns), `build_url` (availability matrix;
+empty `variables` is the table total `001E`, then E paired with M),
+`fetch_data` (live Census; keeps the URL on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),
 and puts AFFGEOID

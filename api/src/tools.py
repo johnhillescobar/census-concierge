@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 import httpx
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL, redact_text
 
@@ -48,7 +48,7 @@ class BuildUrlInput(ToolInput):
     table_id: str = Field(description="ACS table ID from search_tables or a family member.")
     variables: list[str] = Field(
         default_factory=list,
-        description="Estimate variable IDs (E). Empty means every E in the table.",
+        description="Estimate variable IDs (E). Empty means the table total (001E).",
     )
     dataset: str = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(default=None, description="End year. Empty means latest ACS5.")
@@ -81,6 +81,7 @@ class FetchDataResult(ToolResult):
 
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
+SelectFn = Callable[[str, list[dict[str, Any]]], str]
 AllowedTables = Callable[[], set[str]]
 AllowedGeographies = Callable[[], set[tuple[str, str]]]
 LatestVintage = Callable[[str], int]
@@ -96,6 +97,29 @@ def _census_get(url: str) -> tuple[int, Any]:
     except json.JSONDecodeError:
         payload = response.text
     return response.status_code, payload
+
+
+def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
+    """Move the selector's table to front. An unknown ID leaves ranking as-is."""
+    if not any(hit["table_id"] == picked for hit in hits):
+        return hits
+    return [hit for hit in hits if hit["table_id"] == picked] + [
+        hit for hit in hits if hit["table_id"] != picked
+    ]
+
+
+def _pick_table(question: str, hits: list[dict[str, Any]], select: SelectFn | None) -> str:
+    if select is not None:
+        return select(question, hits)
+    from src.retrieval.rerank import Candidate, choose
+
+    return choose(
+        question,
+        [
+            Candidate(str(hit["table_id"]), str(hit["title"]), str(hit.get("universe") or ""))
+            for hit in hits
+        ],
+    )
 
 
 def pair_margins(variable_ids: list[str]) -> list[str]:
@@ -123,6 +147,8 @@ class SearchTablesTool(BaseTool):
 
     search: SearchFn
     describe: DescribeTable
+    select: SelectFn | None = None
+    _picks: dict[str, str] = PrivateAttr(default_factory=dict)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
@@ -140,12 +166,25 @@ class SearchTablesTool(BaseTool):
                     "members": list(meta.get("members") or []),
                 }
             )
+        if len(hits) > 1:
+            picked = self._picks.get(question)
+            if picked is None:
+                picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+                self._picks[question] = picked
+            hits = _promote(hits, picked)
         artifact = SearchTablesResult(hits=hits)
-        listing = ", ".join(
-            f"{hit['table_id']} {hit['title']} ({hit['universe'] or 'universe unpublished'})"
-            for hit in hits
+        if not hits:
+            return "0 candidates", artifact
+        lead = hits[0]
+        summary = (
+            f"selected {lead['table_id']} {lead['title']} "
+            f"({lead['universe'] or 'universe unpublished'})"
         )
-        summary = f"{len(hits)} candidates" + (f": {listing}" if listing else "")
+        members = [str(member) for member in lead.get("members") or []]
+        if members:
+            summary += f"; members {', '.join(members)}"
+        if len(hits) > 1:
+            summary += f"; {len(hits) - 1} related tables"
         return summary, artifact
 
 
@@ -213,7 +252,7 @@ class BuildUrlTool(BaseTool):
             return result.detail, result
         suffixes: list[str] = list(facts.get("variables") or [])
         if not variables:
-            variables = [f"{table_id}_{suffix}" for suffix in suffixes]
+            variables = [f"{table_id}_001E"]
         normalized: list[str] = []
         missing: list[str] = []
         for variable_id in variables:

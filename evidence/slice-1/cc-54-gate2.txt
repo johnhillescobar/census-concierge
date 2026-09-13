@@ -1,0 +1,227 @@
+# CC-54 Gate 2
+# branch: feat/cc-54-search-select
+# HEAD: dcf228d142b1c974ae4028830cd9375616606b30
+# origin/main: 97482e4b12cb6a518503cc2068ad56264fda9732
+# captured: 2026-09-13T08:25:11-05:00
+# uncommitted: none (git status --short empty)
+
+=== git log origin/main...HEAD --oneline ===
+dcf228d evidence(slice-1): CC-54 PR A Gate 1 mutation transcript
+2df14df feat(api): let search_tables use the same table pick as eval --rerank (CC-54)
+
+=== git diff --stat origin/main...HEAD ===
+ api/src/retrieval/rerank.py                |   7 +-
+ api/src/tools.py                           |  28 ++++++
+ api/tests/test_ask_tools.py                |  57 +++++++++++
+ docs/ARCHITECTURE.md                       |   8 +-
+ evidence/slice-1/cc-54-gate1.txt           | 151 +++++++++++++++++++++++++++++
+ evidence/slice-1/cc-54-preflight-claims.md |  25 +++++
+ evidence/slice-1/cc-54-preflight.txt       | 127 ++++++++++++++++++++++++
+ 7 files changed, 396 insertions(+), 7 deletions(-)
+
+=== git status --short ===
+(empty)
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+
+BUDGETS
+
+  ok    api src LOC               2193 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)          13.82 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+[exit 0]
+
+
+=== uv run ruff check . && uv run ruff format --check . ===
+$ uv run ruff check .
+All checks passed!
+[exit 0]
+
+$ uv run ruff format --check .
+80 files already formatted
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+
+Success: no issues found in 19 source files
+
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+174 passed in 3.62s
+
+[exit 0]
+
+
+================================================================================
+PASS 1 -- generic bugs (cold read of git diff origin/main...HEAD; no intent)
+================================================================================
+Diff: 2df14df + dcf228d vs origin/main (97482e4). Uncommitted at capture: none.
+7 files, +396 / -7. Production: tools.py, rerank.py docstring, ARCHITECTURE.md;
+rest is tests/evidence.
+
+Verdict: no crash; no dropped URL/MOE/GEOID/universe; no test that cannot fail.
+No wiring bug that ships a wrong contract.
+
+Findings:
+- SearchTablesTool._arun still builds hits from search() + describe(). After
+  that, if len(hits) > 1 it thread-offloads _pick_table and _promote. Empty and
+  singleton pools skip the selector. choose() indexes candidates[0]; that path
+  cannot run on [].
+- _pick_table uses an injected select when set; otherwise lazy-imports
+  Candidate/choose and maps each hit to Candidate(table_id, title, universe).
+  default_tools() does not pass select, so production is always that choose()
+  path when the pool has more than one hit. Existing _search in this file
+  returns 0 or 1 id, so the older tests never enter it.
+- _promote: if picked is a hit's table_id, that hit (all copies) move to front;
+  otherwise the list is unchanged. Duplicate ids in the pool would cluster, not
+  dedupe. An injected select can return an unknown id; choose() itself already
+  maps a hallucinated id to candidates[0].
+- k is whatever the tool call sent (default 10, ge=1). search(question, k) then
+  maybe choose over that list. A k of 1 never calls the selector. A k under 10
+  chooses over a smaller pool than scripts/eval_retrieval.py search_and_rerank,
+  which searches max(k, 10) then truncates after the pick.
+- asyncio.to_thread around the sync Gemini/OpenAI call is the right shape for
+  _arun. choose() swallows Exception and returns rank-1; a missing key is a
+  no-op reorder, not a raised tool error.
+- absorb/assemble/build_url/fetch_data are untouched. record.pool is still the
+  full hit list, order changed. alternatives[] still enumerate every other hit
+  (and members); selected table_id still comes from build_url, not hits[0].
+  No new URL formatter; str(url) is still CensusURL.
+- Tests: test_selector_pick_is_first_hit, test_empty_search_does_not_call_selector,
+  test_unknown_selector_id_keeps_retrieval_order. Each can fail (Gate 1 already
+  showed it). _pool_search ignores the question and always returns
+  B27010/B27001; those three tests assert promotion/skip/unknown-id, not that
+  retrieval ranked by question. _search still varies by input. No assertion on
+  prompt wording. describe() has no B27010/B27001 entries; those hits get empty
+  title/universe, which the new tests do not read.
+- Nothing: no exception on empty search; no fifth tool; no graph node; no
+  dropped listing of the rest of the pool.
+
+================================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check . && uv run ruff format --check .             [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  174 passed
+
+Machines are green. Review continues.
+
+--- the claim ---
+A user who POSTs /ask now gets search_tables hits reordered so the same
+choose() pick as `make eval --rerank` is first, and the rest of the pool
+stays visible. That sentence can be written. make demo / make eval are E2E
+(next phase); this Gate 2 does not treat a missing demo as a machine failure.
+No retrieval@1 delta is claimed; selector_at_1 in evidence/latest.json is
+unchanged (0.875).
+
+--- scope ---
+Belongs to slice 1: the four-tool loop, search_tables using the slice-0
+selector, not a fifth tool. Not added: conversation memory, auth, database,
+frontend, charts, PDF, clarification, urls[] / multi-year fetch (slice 3),
+graph nodes. ask.py is untouched (still 400/400). ARCHITECTURE.md updated in
+the implementation commit. 7 files, under ~15. Evidence and preflight notes
+are the Gate 1 / pre-flight artifacts, not opportunistic product code.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: assemble still returns str(CensusURL) or "". This PR does not format a
+  URL any other way. Redaction stays on the CensusURL type.
+- MOE: pair_margins / fetch pairing unchanged. Estimates do not pass back
+  through the model. choose() sees table_id, title, universe -- not row values.
+- GEOID: unchanged paths.
+- Universe: still from build_url facts / selected hit. choose() is told the
+  universe string; it does not rewrite it on the contract.
+- Guards unchanged. No new blocking question. No silent vintage or geography
+  substitution. Reordering the pool is selection, not an invisible geography
+  or year fix. The model still sees every candidate in the tool summary;
+  build_url still allows the whole pool plus family members.
+- A wrong choose() pick can still become the table the loop builds -- that is
+  the selector failing, the same failure make eval --rerank already measures,
+  not a dropped field.
+
+Out of ticket, do not demand: make demo numbers, urls[], frontend, auth,
+graphs, a fifth tool.
+
+--- shape ---
+No new tool, route, Pydantic boundary-model, or .add_node(). SelectFn is a
+Callable alias on the existing SearchTablesTool; tests inject it so unit tests
+never call Gemini. Tools stay at 4. index.search() still does not import
+rerank. ARCHITECTURE.md updated in the same commit as tools.py: search_tables
+calls choose(); search() does not.
+
+--- tests ---
+Behavior, not prompt wording. New tests drive SearchTablesTool.ainvoke with an
+injected select and assert hit order, empty-pool skip, and unknown-id keep.
+No new test file named after a ticket. _pool_search is a fixed two-id pool for
+promotion, not a retrieval fake used to score "did search find the table";
+_search still returns different ids for bike vs broadband vs unknown.
+Gate 1 mutation transcript is in evidence/slice-1/cc-54-gate1.txt; this
+review does not re-run mutations.
+Gap, not cannot-fail: no unit test hits select=None with len(hits)>1, so the
+Candidate mapping into choose() is unwired in pytest. Production is that path.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: POST /ask search_tables now puts
+choose()'s table first over the retrieved pool -- the same pick as
+`make eval --rerank` -- without a fifth tool, without calling choose() from
+index.search(), and without dropping the rest of the candidates, URL, MOE,
+GEOID, or universe.
+
+Follow-ups (none are silent-wrong-answer):
+1. Unit tests never run the production adapter (select is None, pool size > 1).
+   Older search fakes return at most one id, so they cannot catch a broken
+   Candidate mapping into choose().
+2. search_tables chooses over the model's k (k=1 skips choose entirely).
+   eval --rerank always retrieves max(k, 10) then truncates.
+3. Every multi-hit search_tables call is now a Gemini round trip. p95 in
+   evidence/latest.json is still 13.82s from before this wiring; E2E is the
+   measurement, not this gate.
+4. Budget headroom: largest file 400/400 (ask.py), doc_lines 1798/1800.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================

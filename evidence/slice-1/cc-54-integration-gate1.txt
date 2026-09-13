@@ -1,0 +1,815 @@
+# Gate 1 — CC-54 umbrella vs origin/main
+# branch: feat/cc-54-search-select
+# HEAD: c3ef9a1e55caea08a9f2882de39707ed5452720f
+# date: 2026-09-13T17:04:32-05:00
+# Incremental transcripts left untouched: evidence/slice-1/cc-54-gate1.txt,
+# cc-54-fix-mutations.txt, cc-57-gate1.txt, cc-58-gate1.txt, cc-59-gate1.txt,
+# and evidence/slice-1/gate1.txt (CC-19).
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+# GOOD = the test fails against the broken implementation.
+# BAD = the test still passes (it does not check that behaviour).
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url api/tests/test_ask_tools.py::test_selector_pick_is_first_hit api/tests/test_ask_tools.py::test_empty_search_does_not_call_selector api/tests/test_ask_tools.py::test_same_question_does_not_reselect api/tests/test_ask_tools.py::test_unknown_selector_id_keeps_retrieval_order api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population api/tests/test_ask_tools.py::test_missing_population_sorts_last_then_geoid api/tests/test_ask_tools.py::test_county_rank_ignores_place_class api/tests/test_ask_tools.py::test_cook_county_selects_illinois_and_keeps_every_match api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine api/tests/test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match api/tests/test_ask_tools.py::test_state_qualified_place_stays_exact api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials api/tests/test_rerank.py::test_gemini_selector_disables_thinking api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+......................                                                   [100%]
+22 passed in 1.79s
+Failed to send compressed multipart ingest: langsmith.utils.LangSmithRateLimitError: Rate limit exceeded for https://api.smith.langchain.com/runs/multipart. HTTPError('429 Client Error: Too Many Requests for url: https://api.smith.langchain.com/runs/multipart', '{"error":"Too many requests: tenant exceeded usage limits: Monthly unique traces usage limit exceeded"}\n')trace=01a09ccc-fdb9-70d0-a06d-010771a72ad4,id=01a09ccc-fdb9-70d0-a06d-010771a72ad4; trace=01a09ccc-fdb9-70d0-a06d-010771a72ad4,id=01a09ccc-fdb9-70d0-a06d-010771a72ad4; trace=01a09ccc-fdbd-7573-aae2-1b04473f8c37,id=01a09ccc-fdbd-7573-aae2-1b04473f8c37; trace=01a09ccc-fdbd-7573-aae2-1b04473f8c37,id=01a09ccc-fdbd-7573-aae2-1b04473f8c37; trace=01a09ccc-fdc4-7b43-a750-7b90db3dede1,id=01a09ccc-fdc4-7b43-a750-7b90db3dede1; trace=01a09ccc-fdc4-7b43-a750-7b90db3dede1,id=01a09ccc-fdc4-7b43-a750-7b90db3dede1; trace=01a09ccc-fdcd-7072-815a-3c98b6e51b5b,id=01a09ccc-fdcd-7072-815a-3c98b6e51b5b; trace=01a09ccc-fdcd-7072-815a-3c98b6e51b5b,id=01a09ccc-fdcd-7072-815a-3c98b6e51b5b; trace=01a09ccc-fdef-7132-b219-eb89f669b795,id=01a09ccc-fdef-7132-b219-eb89f669b795; trace=01a09ccc-fdef-7132-b219-eb89f669b795,id=01a09ccc-fdef-7132-b219-eb89f669b795; trace=01a09ccc-fdf5-7ce1-93d4-e9ca57e0397c,id=01a09ccc-fdf5-7ce1-93d4-e9ca57e0397c; trace=01a09ccc-fdf5-7ce1-93d4-e9ca57e0397c,id=01a09ccc-fdf5-7ce1-93d4-e9ca57e0397c; trace=01a09ccc-fdfb-7c52-b86c-4e54823a505c,id=01a09ccc-fdfb-7c52-b86c-4e54823a505c; trace=01a09ccc-fdfb-7c52-b86c-4e54823a505c,id=01a09ccc-fdfb-7c52-b86c-4e54823a505c; trace=01a09ccc-fe03-7532-9ac0-cb5bc725a813,id=01a09ccc-fe03-7532-9ac0-cb5bc725a813; trace=01a09ccc-fe03-7532-9ac0-cb5bc725a813,id=01a09ccc-fe03-7532-9ac0-cb5bc725a813; trace=01a09ccc-fe0d-7bc0-8caf-5654b818a1a2,id=01a09ccc-fe0d-7bc0-8caf-5654b818a1a2; trace=01a09ccc-fe0d-7bc0-8caf-5654b818a1a2,id=01a09ccc-fe0d-7bc0-8caf-5654b818a1a2; trace=01a09ccc-fe18-7a03-8611-f72819b68663,id=01a09ccc-fe18-7a03-8611-f72819b68663; trace=01a09ccc-fe18-7a03-8611-f72819b68663,id=01a09ccc-fe18-7a03-8611-f72819b68663; trace=01a09ccc-ffa5-77b0-a5ce-d1f30b563202,id=01a09ccc-ffa5-77b0-a5ce-d1f30b563202; trace=01a09ccc-ffa5-77b0-a5ce-d1f30b563202,id=01a09ccc-ffa5-77b0-a5ce-d1f30b563202
+(exit 0)
+
+=== GOOD: selector pick is first hit (mutation: _promote returns hits unchanged) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_selector_pick_is_first_hit
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_selector_pick_is_first_hit _______________________
+
+    async def test_selector_pick_is_first_hit() -> None:
+        tool = SearchTablesTool(
+            search=_pool_search,
+            describe=_describe,
+            select=lambda question, hits: "B27001",
+        )
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "health insurance by age"},
+                "id": "c1",
+            }
+        )
+        ids = [hit["table_id"] for hit in message.artifact.hits]
+>       assert ids[0] == "B27001"
+E       AssertionError: assert 'B27010' == 'B27001'
+E         
+E         - B27001
+E         ?      -
+E         + B27010
+E         ?     +
+
+api\tests\test_ask_tools.py:284: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_selector_pick_is_first_hit - Asserti...
+1 failed in 0.29s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: empty search does not call selector (mutation: selector runs even when the pool is empty) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_empty_search_does_not_call_selector
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_empty_search_does_not_call_selector ___________________
+
+    async def test_empty_search_does_not_call_selector() -> None:
+        def boom(question: str, hits: list[dict[str, object]]) -> str:
+            raise AssertionError(f"selector called: {question!r} {hits!r}")
+    
+        tool = SearchTablesTool(search=_search, describe=_describe, select=boom)
+>       message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "zzzz nonexistent vocabulary"},
+                "id": "c1",
+            }
+        )
+
+api\tests\test_ask_tools.py:295: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
+    raise error_to_raise
+.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\tools.py:172: in _arun
+    picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\tools.py:113: in _pick_table
+    return select(question, hits)
+           ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+question = 'zzzz nonexistent vocabulary', hits = []
+
+    def boom(question: str, hits: list[dict[str, object]]) -> str:
+>       raise AssertionError(f"selector called: {question!r} {hits!r}")
+E       AssertionError: selector called: 'zzzz nonexistent vocabulary' []
+
+api\tests\test_ask_tools.py:292: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_empty_search_does_not_call_selector
+1 failed in 0.34s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: unknown selector id keeps retrieval order (mutation: _promote prepends an unknown id instead of leaving ranking as-is) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_unknown_selector_id_keeps_retrieval_order
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_unknown_selector_id_keeps_retrieval_order ________________
+
+    async def test_unknown_selector_id_keeps_retrieval_order() -> None:
+        tool = SearchTablesTool(
+            search=_pool_search,
+            describe=_describe,
+            select=lambda question, hits: "B99999",
+        )
+>       message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "health insurance by age"},
+                "id": "c1",
+            }
+        )
+
+api\tests\test_ask_tools.py:334: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
+    raise error_to_raise
+.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = SearchTablesTool(search=<function _pool_search at 0x00000242CAFE8040>, describe=<function _describe at 0x00000242C9BB23E0>, select=<function test_unknown_selector_id_keeps_retrieval_order.<locals>.<lambda> at 0x00000242CAFEB9C0>)
+question = 'health insurance by age', k = 10
+
+    async def _arun(self, question: str, k: int = 10) -> tuple[str, SearchTablesResult]:
+        table_ids = await asyncio.to_thread(self.search, question, k)
+        hits: list[dict[str, Any]] = []
+        for table_id in table_ids:
+            meta = self.describe(table_id) or {}
+            hits.append(
+                {
+                    "table_id": table_id,
+                    "title": meta.get("title", ""),
+                    "universe": meta.get("universe", ""),
+                    "members": list(meta.get("members") or []),
+                }
+            )
+        if len(hits) > 1:
+            picked = self._picks.get(question)
+            if picked is None:
+                picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+                self._picks[question] = picked
+            hits = _promote(hits, picked)
+        artifact = SearchTablesResult(hits=hits)
+        if not hits:
+            return "0 candidates", artifact
+        lead = hits[0]
+        summary = (
+>           f"selected {lead['table_id']} {lead['title']} "
+                                           ^^^^^^^^^^^^^
+            f"({lead['universe'] or 'universe unpublished'})"
+        )
+E       KeyError: 'title'
+
+api\src\tools.py:176: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_unknown_selector_id_keeps_retrieval_order
+1 failed in 0.31s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: same question does not reselect (mutation: remove _picks memo in SearchTablesTool._arun) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_same_question_does_not_reselect
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_same_question_does_not_reselect _____________________
+
+    async def test_same_question_does_not_reselect() -> None:
+        calls: list[str] = []
+    
+        def select(question: str, hits: list[dict[str, object]]) -> str:
+            del hits
+            calls.append(question)
+            return "B27001"
+    
+        tool = SearchTablesTool(search=_pool_search, describe=_describe, select=select)
+        payload = {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "health insurance by age"},
+            "id": "c1",
+        }
+        first = await tool.ainvoke(payload)
+        second = await tool.ainvoke({**payload, "id": "c2"})
+>       assert calls == ["health insurance by age"]
+E       AssertionError: assert ['health insu...rance by age'] == ['health insurance by age']
+E         
+E         Left contains one more item: 'health insurance by age'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:323: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_same_question_does_not_reselect - As...
+1 failed in 0.31s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: selector pick is first hit (mutation: summary lists every hit id) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_selector_pick_is_first_hit
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_selector_pick_is_first_hit _______________________
+
+    async def test_selector_pick_is_first_hit() -> None:
+        tool = SearchTablesTool(
+            search=_pool_search,
+            describe=_describe,
+            select=lambda question, hits: "B27001",
+        )
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "health insurance by age"},
+                "id": "c1",
+            }
+        )
+        ids = [hit["table_id"] for hit in message.artifact.hits]
+        assert ids[0] == "B27001"
+        assert ids == ["B27001", "B27010"]
+        assert "B27001" in message.content
+>       assert "B27010" not in message.content
+E       AssertionError: assert 'B27010' not in 'B27001 B270...lated tables'
+E         
+E         'B27010' is contained here:
+E           B27001 B27010; 1 related tables
+E         ?        ++++++
+
+api\tests\test_ask_tools.py:287: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_selector_pick_is_first_hit - Asserti...
+1 failed in 0.43s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: ranking (mutation: rank_matches returns list(matches) unsorted) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population api/tests/test_ask_tools.py::test_missing_population_sorts_last_then_geoid api/tests/test_ask_tools.py::test_county_rank_ignores_place_class api/tests/test_ask_tools.py::test_cook_county_selects_illinois_and_keeps_every_match api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine api/tests/test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match
+FFFFFF                                                                   [100%]
+================================== FAILURES ===================================
+_____________ test_duplicate_names_rank_by_class_then_population ______________
+
+    def test_duplicate_names_rank_by_class_then_population() -> None:
+        rows = [
+            {
+                "name": "Riverton CDP, Wyoming",
+                "level": "place",
+                "for": "place:2",
+                "in": "state:56",
+                "geoid": "1600000US5600002",
+                "population": "999999",
+            },
+            {
+                "name": "Riverton town, Wyoming",
+                "level": "place",
+                "for": "place:3",
+                "in": "state:56",
+                "geoid": "1600000US5600003",
+                "population": "500000",
+            },
+            {
+                "name": "Riverton city, Wyoming",
+                "level": "place",
+                "for": "place:1",
+                "in": "state:56",
+                "geoid": "1600000US5600001",
+                "population": "100",
+            },
+        ]
+>       assert [row["for"] for row in rank_matches(rows)] == ["place:1", "place:3", "place:2"]
+E       AssertionError: assert ['place:2', '...3', 'place:1'] == ['place:1', '...3', 'place:2']
+E         
+E         At index 0 diff: 'place:2' != 'place:1'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:423: AssertionError
+________________ test_missing_population_sorts_last_then_geoid ________________
+
+    def test_missing_population_sorts_last_then_geoid() -> None:
+        rows = [
+            {
+                "name": "Alpha city, X",
+                "level": "place",
+                "for": "place:1",
+                "geoid": "z",
+                "population": "nope",
+            },
+            {
+                "name": "Beta city, X",
+                "level": "place",
+                "for": "place:2",
+                "geoid": "m",
+                "population": "10",
+            },
+            {
+                "name": "Gamma city, X",
+                "level": "place",
+                "for": "place:3",
+                "geoid": "a",
+                "population": "10",
+            },
+        ]
+>       assert [row["for"] for row in rank_matches(rows)] == ["place:3", "place:2", "place:1"]
+E       AssertionError: assert ['place:1', '...2', 'place:3'] == ['place:3', '...2', 'place:1']
+E         
+E         At index 0 diff: 'place:1' != 'place:3'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:450: AssertionError
+____________________ test_county_rank_ignores_place_class _____________________
+
+    def test_county_rank_ignores_place_class() -> None:
+        rows = [
+            {
+                "name": "Cook County, Georgia",
+                "level": "county",
+                "for": "county:075",
+                "geoid": "0500000US13075",
+                "population": "17532",
+            },
+            {
+                "name": "Cook County, Illinois",
+                "level": "county",
+                "for": "county:031",
+                "geoid": "0500000US17031",
+                "population": "5182090",
+            },
+        ]
+>       assert rank_matches(rows)[0]["for"] == "county:031"
+E       AssertionError: assert 'county:075' == 'county:031'
+E         
+E         - county:031
+E         ?         ^^
+E         + county:075
+E         ?         ^^
+
+api\tests\test_ask_tools.py:470: AssertionError
+___________ test_cook_county_selects_illinois_and_keeps_every_match ___________
+
+    async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Cook County"},
+                "id": "c1",
+            }
+        )
+        matches = message.artifact.matches
+>       assert [row["in"] for row in matches] == ["state:17", "state:13", "state:27"]
+E       AssertionError: assert ['state:13', ...', 'state:27'] == ['state:17', ...', 'state:27']
+E         
+E         At index 0 diff: 'state:13' != 'state:17'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:508: AssertionError
+___________________ test_portland_selects_oregon_over_maine ___________________
+
+    async def test_portland_selects_oregon_over_maine() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "bike to work in Portland"},
+                "id": "c1",
+            }
+        )
+        matches = message.artifact.matches
+>       assert matches[0]["in"] == "state:41"
+E       AssertionError: assert 'state:23' == 'state:41'
+E         
+E         - state:41
+E         ?       ^^
+E         + state:23
+E         ?       ^^
+
+api\tests\test_ask_tools.py:526: AssertionError
+___________ test_springfield_selects_missouri_and_keeps_every_match ___________
+
+    async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Population of Springfield"},
+                "id": "c1",
+            }
+        )
+        matches = message.artifact.matches
+>       assert matches[0]["in"] == "state:29"
+E       AssertionError: assert 'state:51' == 'state:29'
+E         
+E         - state:29
+E         ?       ^^
+E         + state:51
+E         ?       ^^
+
+api\tests\test_ask_tools.py:542: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population
+FAILED api/tests/test_ask_tools.py::test_missing_population_sorts_last_then_geoid
+FAILED api/tests/test_ask_tools.py::test_county_rank_ignores_place_class - As...
+FAILED api/tests/test_ask_tools.py::test_cook_county_selects_illinois_and_keeps_every_match
+FAILED api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine
+FAILED api/tests/test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match
+6 failed in 0.34s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: absorb winner (mutation: restore geography only when len(matches)==1) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+FF                                                                       [100%]
+================================== FAILURES ===================================
+______________ test_ambiguous_geography_builds_the_selected_url _______________
+
+    async def test_ambiguous_geography_builds_the_selected_url() -> None:
+        record = ExecutionRecord(question="Population of Cook County")
+        tools = _tools(record)
+        await dispatch(tools["search_tables"], {"id": "1", "args": {"question": "population"}}, record)
+        await dispatch(
+            tools["resolve_geography"], {"id": "2", "args": {"query": "Cook County"}}, record
+        )
+        assert len(record.geographies) == 3
+>       assert record.geography is not None
+E       AssertionError: assert None is not None
+E        +  where None = ExecutionRecord(pool=[{'table_id': 'B01003', 'title': 'Total Population', 'universe': 'Total population', 'members': [..., 'resolve_geography': 0}, question='Population of Cook County', vintages=[], geo_status={'legal': True, 'detail': ''}).geography
+
+api\tests\test_ask_loop.py:249: AssertionError
+________________ test_ambiguous_resolve_lands_on_the_response _________________
+
+    async def test_ambiguous_resolve_lands_on_the_response() -> None:
+        record = ExecutionRecord(question="Population of Cook County")
+        tools = _tools(record)
+        await dispatch(
+            tools["resolve_geography"], {"id": "2", "args": {"query": "Cook County"}}, record
+        )
+        response = assemble("three Cook Counties", record)
+        assert len(record.geographies) == 3
+>       assert record.geography is not None
+E       AssertionError: assert None is not None
+E        +  where None = ExecutionRecord(pool=[], geography=None, geographies=[{'name': 'Cook County, Illinois', 'level': 'county', 'for': 'cou...={'resolve_geography': 0}, question='Population of Cook County', vintages=[], geo_status={'legal': True, 'detail': ''}).geography
+
+api\tests\test_guards.py:253: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url
+FAILED api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+2 failed in 0.64s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: omitted variables request the table total (mutation: restore empty-list expansion to all suffixes) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______________ test_omitted_variables_request_the_table_total ________________
+
+    async def test_omitted_variables_request_the_table_total() -> None:
+        message = await _wide_url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.ok is True
+>       assert artifact.variables == ["B99999_001E", "B99999_001M"]
+E       AssertionError: assert ['B99999_001E...99_003M', ...] == ['B99999_001E', 'B99999_001M']
+E         
+E         Left contains 50 more items, first extra item: 'B99999_002E'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:779: AssertionError
+___________ test_missing_table_total_does_not_expand_to_every_cell ____________
+
+    async def test_missing_table_total_does_not_expand_to_every_cell() -> None:
+        message = await _wide_url_tool(include_total=False).ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.ok is False
+E       AssertionError: assert True is False
+E        +  where True = BuildUrlResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B99999_002E,B99999_002M,B99999_..., 'B99999_026M', 'B99999_027E', 'B99999_027M'], dataset='acs5', vintage=2024, detail='', universe='Synthetic universe').ok
+
+api\tests\test_ask_tools.py:811: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total
+FAILED api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell
+2 failed in 0.31s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: explicit estimate does not expand to the table (mutation: always replace variables with 001E) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_explicit_estimate_does_not_expand_to_the_table _____________
+
+    async def test_explicit_estimate_does_not_expand_to_the_table() -> None:
+        message = await _wide_url_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "build_url",
+                "args": {"table_id": "B99999", "variables": ["B99999_002E"]},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.ok is True
+>       assert artifact.variables == ["B99999_002E", "B99999_002M"]
+E       AssertionError: assert ['B99999_001E', 'B99999_001M'] == ['B99999_002E', 'B99999_002M']
+E         
+E         At index 0 diff: 'B99999_001E' != 'B99999_002E'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:796: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table
+1 failed in 0.26s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: overall_answered_rate uses all trials (mutation: overall_answered_rate uses long_tail only) ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_________________ test_overall_answered_rate_uses_all_trials __________________
+
+    def test_overall_answered_rate_uses_all_trials() -> None:
+        trials = [
+            _trial(),
+            _trial(
+                id="q05",
+                text="tail",
+                tier="long_tail",
+                answered=False,
+                expected_table="B08301",
+                table_id="",
+                url="",
+                latency_s=2.0,
+                t_llm=1.0,
+                t_census_api=0.4,
+                t_ours=0.6,
+                detail="empty url",
+            ),
+            _trial(id="t01", text="trap", tier="trap"),
+        ]
+        summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+>       assert summary["overall_answered_rate"] == 0.667
+E       assert 0.0 == 0.667
+
+api\tests\test_demo_harness.py:277: AssertionError
+_______________________ test_gated_rate_uses_long_tail ________________________
+
+    def test_gated_rate_uses_long_tail() -> None:
+        trials = [
+            _trial(),
+            _trial(
+                id="q05",
+                text="tail",
+                tier="long_tail",
+                answered=False,
+                expected_table="B08301",
+                table_id="",
+                url="",
+                latency_s=2.0,
+                t_llm=1.0,
+                t_census_api=0.4,
+                t_ours=0.6,
+                detail="empty url",
+            ),
+        ]
+        summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+>       assert summary["overall_answered_rate"] == 0.5
+E       assert 0.0 == 0.5
+
+api\tests\test_demo_harness.py:240: AssertionError
+_______________ test_core_only_run_does_not_count_as_gated_rate _______________
+
+    def test_core_only_run_does_not_count_as_gated_rate() -> None:
+        summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+        assert summary["answered_rate"] == 0.0
+>       assert summary["overall_answered_rate"] == 1.0
+E       assert 0.0 == 1.0
+
+api\tests\test_demo_harness.py:251: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials
+FAILED api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail - asser...
+FAILED api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate
+3 failed in 0.18s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: Gemini thinking_budget=0 (mutation: drop thinking_config) ===
+$ uv run pytest -q api/tests/test_rerank.py::test_gemini_selector_disables_thinking
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_gemini_selector_disables_thinking ____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E5B4FBD640>
+
+    def test_gemini_selector_disables_thinking(monkeypatch) -> None:
+        captured: dict[str, int | None] = {}
+    
+        class FakeModels:
+            def generate_content(self, model: str, contents: str, config: object) -> SimpleNamespace:
+                del model, contents
+                thinking = getattr(config, "thinking_config", None)
+                captured["budget"] = getattr(thinking, "thinking_budget", None)
+                return SimpleNamespace(text='{"table": "B01003"}')
+    
+        class FakeClient:
+            def __init__(self, api_key: str | None = None) -> None:
+                del api_key
+                self.models = FakeModels()
+    
+        monkeypatch.setenv("GEMINI_API_KEY", "test")
+        import google.genai as genai
+    
+        monkeypatch.setattr(genai, "Client", FakeClient)
+        picked = choose(
+            "population",
+            [Candidate("B01003", "Total Population", "Total population")],
+        )
+        assert picked == "B01003"
+>       assert captured["budget"] == 0
+E       assert None == 0
+
+api\tests\test_rerank.py:34: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_gemini_selector_disables_thinking - ass...
+1 failed in 0.33s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: fallback on selector exception (mutation: drop try/except in choose) ===
+$ uv run pytest -q api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_selector_falls_back_to_retrieval_top_on_error ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002BD03C4D1C0>
+
+    def test_selector_falls_back_to_retrieval_top_on_error(monkeypatch) -> None:
+        class FakeModels:
+            def generate_content(self, model: str, contents: str, config: object) -> SimpleNamespace:
+                del model, contents, config
+                raise RuntimeError("selector down")
+    
+        class FakeClient:
+            def __init__(self, api_key: str | None = None) -> None:
+                del api_key
+                self.models = FakeModels()
+    
+        monkeypatch.setenv("GEMINI_API_KEY", "test")
+        import google.genai as genai
+    
+        monkeypatch.setattr(genai, "Client", FakeClient)
+>       picked = choose(
+            "population",
+            [
+                Candidate("B01003", "Total Population", "Total population"),
+                Candidate("B19013", "Median Household Income", "Households"),
+            ],
+        )
+
+api\tests\test_rerank.py:52: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+api\src\retrieval\rerank.py:100: in choose
+    picked = _choose_gemini(question, listing, model)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\retrieval\rerank.py:68: in _choose_gemini
+    response = client.models.generate_content(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <test_rerank.test_selector_falls_back_to_retrieval_top_on_error.<locals>.FakeModels object at 0x000002BD03C4CEF0>
+
+    def generate_content(self, model: str, contents: str, config: object) -> SimpleNamespace:
+        del model, contents, config
+>       raise RuntimeError("selector down")
+E       RuntimeError: selector down
+
+api\tests\test_rerank.py:41: RuntimeError
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error
+1 failed in 0.37s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: listing keeps population off the in clause (mutation: B01003_001E not skipped from parent in= keys) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_listing_keeps_population_off_the_in_clause _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A19F9BB950>
+
+    def test_listing_keeps_population_off_the_in_clause(monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, str] = {}
+    
+        class _Resp:
+            def raise_for_status(self) -> None:
+                return None
+    
+            def json(self) -> list[list[str]]:
+                return [
+                    ["NAME", "GEO_ID", "B01003_001E", "state", "county"],
+                    ["Cook County, Illinois", "0500000US17031", "5182090", "17", "031"],
+                ]
+    
+        def fake_get(url: str, timeout: float = 0) -> object:
+            _ = timeout
+            captured["url"] = url
+            return _Resp()
+    
+        monkeypatch.setattr("src.geo.httpx.get", fake_get)
+        rows = list_census_names("county", {"state": "*"}, key="")
+        assert "B01003_001E" in captured["url"]
+        assert rows[0]["population"] == "5182090"
+>       assert rows[0]["in"] == "state:17"
+E       AssertionError: assert 'B01003_001E:5182090 state:17' == 'state:17'
+E         
+E         - state:17
+E         + B01003_001E:5182090 state:17
+
+api\tests\test_ask_tools.py:923: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause
+1 failed in 0.33s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: state-qualified place stays exact (mutation: skip state in_parts so Portland, Maine lists every Portland) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_state_qualified_place_stays_exact
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_state_qualified_place_stays_exact ____________________
+
+    async def test_state_qualified_place_stays_exact() -> None:
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Portland, Maine"},
+                "id": "c1",
+            }
+        )
+>       assert [row["in"] for row in message.artifact.matches] == ["state:23"]
+E       AssertionError: assert ['state:41', 'state:23'] == ['state:23']
+E         
+E         At index 0 diff: 'state:41' != 'state:23'
+E         Left contains one more item: 'state:23'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:562: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_state_qualified_place_stays_exact - ...
+1 failed in 0.26s
+(exit 1)
+# LABEL: GOOD (tests failed against the broken implementation)
+
+=== GOOD: new tests after restore ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url api/tests/test_ask_tools.py::test_selector_pick_is_first_hit api/tests/test_ask_tools.py::test_empty_search_does_not_call_selector api/tests/test_ask_tools.py::test_same_question_does_not_reselect api/tests/test_ask_tools.py::test_unknown_selector_id_keeps_retrieval_order api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population api/tests/test_ask_tools.py::test_missing_population_sorts_last_then_geoid api/tests/test_ask_tools.py::test_county_rank_ignores_place_class api/tests/test_ask_tools.py::test_cook_county_selects_illinois_and_keeps_every_match api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine api/tests/test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match api/tests/test_ask_tools.py::test_state_qualified_place_stays_exact api/tests/test_ask_tools.py::test_omitted_variables_request_the_table_total api/tests/test_ask_tools.py::test_explicit_estimate_does_not_expand_to_the_table api/tests/test_ask_tools.py::test_missing_table_total_does_not_expand_to_every_cell api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail api/tests/test_demo_harness.py::test_core_only_run_does_not_count_as_gated_rate api/tests/test_demo_harness.py::test_overall_answered_rate_uses_all_trials api/tests/test_rerank.py::test_gemini_selector_disables_thinking api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+......................                                                   [100%]
+22 passed in 1.37s
+Failed to send compressed multipart ingest: langsmith.utils.LangSmithRateLimitError: Rate limit exceeded for https://api.smith.langchain.com/runs/multipart. HTTPError('429 Client Error: Too Many Requests for url: https://api.smith.langchain.com/runs/multipart', '{"error":"Too many requests: tenant exceeded usage limits: Monthly unique traces usage limit exceeded"}\n')trace=01a09ccd-6b18-7c70-8a9d-2cfa8e7ea9d1,id=01a09ccd-6b18-7c70-8a9d-2cfa8e7ea9d1; trace=01a09ccd-6d88-7801-ba32-bf9773d58212,id=01a09ccd-6d88-7801-ba32-bf9773d58212; trace=01a09ccd-6d88-7801-ba32-bf9773d58212,id=01a09ccd-6d88-7801-ba32-bf9773d58212; trace=01a09ccd-6d8f-72a2-8f83-a98c61e40f7e,id=01a09ccd-6d8f-72a2-8f83-a98c61e40f7e; trace=01a09ccd-6d8f-72a2-8f83-a98c61e40f7e,id=01a09ccd-6d8f-72a2-8f83-a98c61e40f7e; trace=01a09ccd-6d92-7f03-97fa-f49bb5a77e4f,id=01a09ccd-6d92-7f03-97fa-f49bb5a77e4f; trace=01a09ccd-6d92-7f03-97fa-f49bb5a77e4f,id=01a09ccd-6d92-7f03-97fa-f49bb5a77e4f; trace=01a09ccd-6d9a-77d0-8581-ceaed65ce753,id=01a09ccd-6d9a-77d0-8581-ceaed65ce753; trace=01a09ccd-6d9a-77d0-8581-ceaed65ce753,id=01a09ccd-6d9a-77d0-8581-ceaed65ce753; trace=01a09ccd-6da1-7a20-8bf4-212adf0067fa,id=01a09ccd-6da1-7a20-8bf4-212adf0067fa; trace=01a09ccd-6da1-7a20-8bf4-212adf0067fa,id=01a09ccd-6da1-7a20-8bf4-212adf0067fa; trace=01a09ccd-6da8-7232-a258-8a84c6cd8192,id=01a09ccd-6da8-7232-a258-8a84c6cd8192; trace=01a09ccd-6da8-7232-a258-8a84c6cd8192,id=01a09ccd-6da8-7232-a258-8a84c6cd8192; trace=01a09ccd-6daa-73e3-9cd5-180d8f5ce3e0,id=01a09ccd-6daa-73e3-9cd5-180d8f5ce3e0; trace=01a09ccd-6daa-73e3-9cd5-180d8f5ce3e0,id=01a09ccd-6daa-73e3-9cd5-180d8f5ce3e0; trace=01a09ccd-6db1-7433-8c89-fee3fa2f9c8e,id=01a09ccd-6db1-7433-8c89-fee3fa2f9c8e; trace=01a09ccd-6db1-7433-8c89-fee3fa2f9c8e,id=01a09ccd-6db1-7433-8c89-fee3fa2f9c8e; trace=01a09ccd-6dba-7de0-9174-00b01ff68e22,id=01a09ccd-6dba-7de0-9174-00b01ff68e22; trace=01a09ccd-6dba-7de0-9174-00b01ff68e22,id=01a09ccd-6dba-7de0-9174-00b01ff68e22; trace=01a09ccd-6dc4-7562-848a-bb8ab7940d46,id=01a09ccd-6dc4-7562-848a-bb8ab7940d46; trace=01a09ccd-6dc4-7562-848a-bb8ab7940d46,id=01a09ccd-6dc4-7562-848a-bb8ab7940d46; trace=01a09ccd-6dca-7e63-b129-292e77786556,id=01a09ccd-6dca-7e63-b129-292e77786556; trace=01a09ccd-6dca-7e63-b129-292e77786556,id=01a09ccd-6dca-7e63-b129-292e77786556; trace=01a09ccd-6dd0-7de0-94aa-cce278d5fdd9,id=01a09ccd-6dd0-7de0-94aa-cce278d5fdd9; trace=01a09ccd-6dd0-7de0-94aa-cce278d5fdd9,id=01a09ccd-6dd0-7de0-94aa-cce278d5fdd9; trace=01a09ccd-6dd7-7dd2-a01f-2cca7e576843,id=01a09ccd-6dd7-7dd2-a01f-2cca7e576843; trace=01a09ccd-6dd7-7dd2-a01f-2cca7e576843,id=01a09ccd-6dd7-7dd2-a01f-2cca7e576843; trace=01a09ccd-6ddb-7113-b980-824d2e9bba35,id=01a09ccd-6ddb-7113-b980-824d2e9bba35; trace=01a09ccd-6ddb-7113-b980-824d2e9bba35,id=01a09ccd-6ddb-7113-b980-824d2e9bba35; trace=01a09ccd-6ddf-72e2-9cb8-a9cc37da55d1,id=01a09ccd-6ddf-72e2-9cb8-a9cc37da55d1; trace=01a09ccd-6ddf-72e2-9cb8-a9cc37da55d1,id=01a09ccd-6ddf-72e2-9cb8-a9cc37da55d1; trace=01a09ccd-6ef3-7be2-9aa3-26ddd67bf04a,id=01a09ccd-6ef3-7be2-9aa3-26ddd67bf04a; trace=01a09ccd-6ef3-7be2-9aa3-26ddd67bf04a,id=01a09ccd-6ef3-7be2-9aa3-26ddd67bf04a
+(exit 0)
+
+=== restore: git diff -- api/ scripts/run_demo.py ===
+$ git diff -- api/ scripts/run_demo.py
+(exit 0)
+
+=== restore: git status --porcelain ===
+$ git status --porcelain
+?? evidence/slice-1/cc-54-integration-gate1.txt
+(exit 0)
+
+=== summary ===
+mutations_run=14
+verdict=PASS (all new tests mutation-checked GOOD)

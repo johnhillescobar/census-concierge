@@ -19,6 +19,7 @@ from src.geo import (
     legal_predicate,
     list_census_names,
     place_token,
+    rank_matches,
 )
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
@@ -90,6 +91,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
             "for": "county:201",
             "in": "state:48",
             "geoid": "0500000US48201",
+            "population": "4731145",
         },
         {
             "name": "Harrison County, Texas",
@@ -97,6 +99,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
             "for": "county:203",
             "in": "state:48",
             "geoid": "0500000US48203",
+            "population": "69091",
         },
         {
             "name": "Cook County, Georgia",
@@ -104,6 +107,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
             "for": "county:075",
             "in": "state:13",
             "geoid": "0500000US13075",
+            "population": "17532",
         },
         {
             "name": "Cook County, Illinois",
@@ -111,6 +115,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
             "for": "county:031",
             "in": "state:17",
             "geoid": "0500000US17031",
+            "population": "5182090",
         },
         {
             "name": "Cook County, Minnesota",
@@ -118,6 +123,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
             "for": "county:031",
             "in": "state:27",
             "geoid": "0500000US27031",
+            "population": "5635",
         },
     ]
     if level == "place":
@@ -128,6 +134,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
                 "for": "place:3651000",
                 "in": "state:36",
                 "geoid": "1600000US3651000",
+                "population": "8336817",
             },
             {
                 "name": "Albany city, New York",
@@ -135,6 +142,7 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
                 "for": "place:3601000",
                 "in": "state:36",
                 "geoid": "1600000US3601000",
+                "population": "99224",
             },
             {
                 "name": "Austin city, Texas",
@@ -142,6 +150,47 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
                 "for": "place:4805000",
                 "in": "state:48",
                 "geoid": "1600000US4805000",
+                "population": "974447",
+            },
+            {
+                "name": "Portland city, Maine",
+                "level": "place",
+                "for": "place:60545",
+                "in": "state:23",
+                "geoid": "1600000US2360545",
+                "population": "68854",
+            },
+            {
+                "name": "Portland city, Oregon",
+                "level": "place",
+                "for": "place:59000",
+                "in": "state:41",
+                "geoid": "1600000US4159000",
+                "population": "641165",
+            },
+            {
+                "name": "Springfield CDP, Virginia",
+                "level": "place",
+                "for": "place:75344",
+                "in": "state:51",
+                "geoid": "1600000US5175344",
+                "population": "31882",
+            },
+            {
+                "name": "Springfield city, Illinois",
+                "level": "place",
+                "for": "place:72000",
+                "in": "state:17",
+                "geoid": "1600000US1772000",
+                "population": "114394",
+            },
+            {
+                "name": "Springfield city, Missouri",
+                "level": "place",
+                "for": "place:70000",
+                "in": "state:29",
+                "geoid": "1600000US2970000",
+                "population": "169954",
             },
         ]
         state = in_parts.get("state")
@@ -212,6 +261,87 @@ async def test_unknown_vocabulary_does_not_invent_a_table(search_tool: SearchTab
     assert message.artifact.hits == []
 
 
+def _pool_search(question: str, k: int = 10) -> list[str]:
+    del question
+    return ["B27010", "B27001"][:k]
+
+
+async def test_selector_pick_is_first_hit() -> None:
+    tool = SearchTablesTool(
+        search=_pool_search,
+        describe=_describe,
+        select=lambda question, hits: "B27001",
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "health insurance by age"},
+            "id": "c1",
+        }
+    )
+    ids = [hit["table_id"] for hit in message.artifact.hits]
+    assert ids[0] == "B27001"
+    assert ids == ["B27001", "B27010"]
+    assert "B27001" in message.content
+    assert "B27010" not in message.content
+
+
+async def test_empty_search_does_not_call_selector() -> None:
+    def boom(question: str, hits: list[dict[str, object]]) -> str:
+        raise AssertionError(f"selector called: {question!r} {hits!r}")
+
+    tool = SearchTablesTool(search=_search, describe=_describe, select=boom)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "zzzz nonexistent vocabulary"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.hits == []
+
+
+async def test_same_question_does_not_reselect() -> None:
+    calls: list[str] = []
+
+    def select(question: str, hits: list[dict[str, object]]) -> str:
+        del hits
+        calls.append(question)
+        return "B27001"
+
+    tool = SearchTablesTool(search=_pool_search, describe=_describe, select=select)
+    payload = {
+        "type": "tool_call",
+        "name": "search_tables",
+        "args": {"question": "health insurance by age"},
+        "id": "c1",
+    }
+    first = await tool.ainvoke(payload)
+    second = await tool.ainvoke({**payload, "id": "c2"})
+    assert calls == ["health insurance by age"]
+    assert [hit["table_id"] for hit in first.artifact.hits][0] == "B27001"
+    assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
+
+
+async def test_unknown_selector_id_keeps_retrieval_order() -> None:
+    tool = SearchTablesTool(
+        search=_pool_search,
+        describe=_describe,
+        select=lambda question, hits: "B99999",
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "health insurance by age"},
+            "id": "c1",
+        }
+    )
+    assert [hit["table_id"] for hit in message.artifact.hits] == ["B27010", "B27001"]
+
+
 def test_county_in_state_uses_summary_level_050_not_last_wins() -> None:
     chosen = legal_predicate("county", frozenset({"state"}), wildcard=True, entries=ENTRIES)
     assert chosen is not None
@@ -263,6 +393,83 @@ def test_harris_does_not_match_harrison() -> None:
     assert [row["for"] for row in hits] == ["county:201"]
 
 
+def test_duplicate_names_rank_by_class_then_population() -> None:
+    rows = [
+        {
+            "name": "Riverton CDP, Wyoming",
+            "level": "place",
+            "for": "place:2",
+            "in": "state:56",
+            "geoid": "1600000US5600002",
+            "population": "999999",
+        },
+        {
+            "name": "Riverton town, Wyoming",
+            "level": "place",
+            "for": "place:3",
+            "in": "state:56",
+            "geoid": "1600000US5600003",
+            "population": "500000",
+        },
+        {
+            "name": "Riverton city, Wyoming",
+            "level": "place",
+            "for": "place:1",
+            "in": "state:56",
+            "geoid": "1600000US5600001",
+            "population": "100",
+        },
+    ]
+    assert [row["for"] for row in rank_matches(rows)] == ["place:1", "place:3", "place:2"]
+
+
+def test_missing_population_sorts_last_then_geoid() -> None:
+    rows = [
+        {
+            "name": "Alpha city, X",
+            "level": "place",
+            "for": "place:1",
+            "geoid": "z",
+            "population": "nope",
+        },
+        {
+            "name": "Beta city, X",
+            "level": "place",
+            "for": "place:2",
+            "geoid": "m",
+            "population": "10",
+        },
+        {
+            "name": "Gamma city, X",
+            "level": "place",
+            "for": "place:3",
+            "geoid": "a",
+            "population": "10",
+        },
+    ]
+    assert [row["for"] for row in rank_matches(rows)] == ["place:3", "place:2", "place:1"]
+
+
+def test_county_rank_ignores_place_class() -> None:
+    rows = [
+        {
+            "name": "Cook County, Georgia",
+            "level": "county",
+            "for": "county:075",
+            "geoid": "0500000US13075",
+            "population": "17532",
+        },
+        {
+            "name": "Cook County, Illinois",
+            "level": "county",
+            "for": "county:031",
+            "geoid": "0500000US17031",
+            "population": "5182090",
+        },
+    ]
+    assert rank_matches(rows)[0]["for"] == "county:031"
+
+
 async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
     tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
     message = await tool.ainvoke(
@@ -287,7 +494,7 @@ async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
     ]
 
 
-async def test_cook_county_returns_candidates_instead_of_picking() -> None:
+async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
     tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
     message = await tool.ainvoke(
         {
@@ -297,12 +504,63 @@ async def test_cook_county_returns_candidates_instead_of_picking() -> None:
             "id": "c1",
         }
     )
-    codes = sorted(row["in"] for row in message.artifact.matches)
-    assert codes == ["state:13", "state:17", "state:27"]
-    assert len(message.artifact.matches) == 3
-    assert "Cook County, Illinois" in message.content
-    assert "county:031" in message.content
-    assert "state:13" in message.content
+    matches = message.artifact.matches
+    assert [row["in"] for row in matches] == ["state:17", "state:13", "state:27"]
+    assert len(matches) == 3
+    assert "selected county:031 state:17" in message.content
+    assert "2 alternatives" in message.content
+    assert "state:13" not in message.content
+
+
+async def test_portland_selects_oregon_over_maine() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "bike to work in Portland"},
+            "id": "c1",
+        }
+    )
+    matches = message.artifact.matches
+    assert matches[0]["in"] == "state:41"
+    assert {row["in"] for row in matches} == {"state:41", "state:23"}
+    assert "alternatives" in message.content
+
+
+async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Population of Springfield"},
+            "id": "c1",
+        }
+    )
+    matches = message.artifact.matches
+    assert matches[0]["in"] == "state:29"
+    assert {row["name"] for row in matches} == {
+        "Springfield city, Missouri",
+        "Springfield city, Illinois",
+        "Springfield CDP, Virginia",
+    }
+    assert "alternatives" in message.content
+    assert "Springfield city, Illinois" not in message.content
+
+
+async def test_state_qualified_place_stays_exact() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Portland, Maine"},
+            "id": "c1",
+        }
+    )
+    assert [row["in"] for row in message.artifact.matches] == ["state:23"]
+    assert "alternatives" not in message.content
 
 
 async def test_harris_county_texas_resolves_to_codes() -> None:
@@ -492,6 +750,70 @@ async def test_build_url_rejects_a_margin_with_no_estimate() -> None:
     assert "B01003_999M" in message.artifact.detail
 
 
+def _wide_url_tool(*, include_total: bool = True) -> BuildUrlTool:
+    start = 1 if include_total else 2
+    suffixes = [f"{i:03d}E" for i in range(start, start + 26)]
+    facts = {"acs5": {2024: {"B99999": {"universe": "Synthetic universe", "variables": suffixes}}}}
+    return BuildUrlTool(
+        allowed_tables=lambda: {"B99999"},
+        allowed_geographies=lambda: {("county:201", "state:48")},
+        latest_vintage=lambda dataset: 2024,
+        table_facts=lambda dataset, year, table_id: (
+            facts.get(dataset, {}).get(year, {}).get(table_id)
+        ),
+        last_geography=lambda: {"for": "county:201", "in": "state:48"},
+    )
+
+
+async def test_omitted_variables_request_the_table_total() -> None:
+    message = await _wide_url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is True
+    assert artifact.variables == ["B99999_001E", "B99999_001M"]
+    assert "get=NAME,GEO_ID,B99999_001E,B99999_001M" in artifact.url
+    assert "B99999_002E" not in artifact.url
+    assert "B99999_002M" not in artifact.url
+
+
+async def test_explicit_estimate_does_not_expand_to_the_table() -> None:
+    message = await _wide_url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999", "variables": ["B99999_002E"]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is True
+    assert artifact.variables == ["B99999_002E", "B99999_002M"]
+    assert "B99999_001E" not in artifact.url
+    assert "B99999_001M" not in artifact.url
+
+
+async def test_missing_table_total_does_not_expand_to_every_cell() -> None:
+    message = await _wide_url_tool(include_total=False).ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is False
+    assert artifact.url == ""
+    assert "B99999_001E" in artifact.detail
+    assert "B99999_002E" not in artifact.variables
+
+
 async def test_fetch_error_body_does_not_carry_the_census_key() -> None:
     built = CensusURL("https://api.census.gov/data/2024/acs/acs5?get=NAME&for=state:11")
 
@@ -574,6 +896,32 @@ async def test_unknown_place_keeps_predicate_legality() -> None:
     assert message.artifact.legal is True
     assert message.artifact.matches == []
     assert "no place matched" in message.artifact.detail
+
+
+def test_listing_keeps_population_off_the_in_clause(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, str] = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> list[list[str]]:
+            return [
+                ["NAME", "GEO_ID", "B01003_001E", "state", "county"],
+                ["Cook County, Illinois", "0500000US17031", "5182090", "17", "031"],
+            ]
+
+    def fake_get(url: str, timeout: float = 0) -> object:
+        _ = timeout
+        captured["url"] = url
+        return _Resp()
+
+    monkeypatch.setattr("src.geo.httpx.get", fake_get)
+    rows = list_census_names("county", {"state": "*"}, key="")
+    assert "B01003_001E" in captured["url"]
+    assert rows[0]["population"] == "5182090"
+    assert rows[0]["in"] == "state:17"
+    assert "B01003" not in rows[0]["in"]
 
 
 def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyPatch) -> None:

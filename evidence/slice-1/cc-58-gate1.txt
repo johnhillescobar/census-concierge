@@ -1,0 +1,39 @@
+# Gate 1 — CC-58 — branch feat/cc-58-ranked-geography
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+# 2026-09-13T12:25:00-05:00
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population api/tests/test_ask_tools.py::test_missing_population_sorts_last_then_geoid api/tests/test_ask_tools.py::test_county_rank_ignores_place_class api/tests/test_ask_tools.py::test_cook_county_selects_illinois_and_keeps_every_match api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine api/tests/test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match api/tests/test_ask_tools.py::test_state_qualified_place_stays_exact api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+..........                                                               [100%]
+10 passed in 0.41s
+(exit 0)
+
+=== BAD: ranking (mutation: rank_matches returns list(matches) unsorted) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population api/tests/test_ask_tools.py::test_missing_population_sorts_last_then_geoid api/tests/test_ask_tools.py::test_county_rank_ignores_place_class api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine api/tests/test_ask_tools.py::test_springfield_selects_missouri_and_keeps_every_match api/tests/test_ask_tools.py::test_cook_county_selects_illinois_and_keeps_every_match
+FFFFFF                                                                   [100%]
+FAILED test_duplicate_names_rank_by_class_then_population - AssertionError: assert ['place:2', 'place:3', 'place:1'] == ['place:1', 'place:3', 'place:2']
+FAILED test_missing_population_sorts_last_then_geoid - AssertionError: assert ['place:1', 'place:2', 'place:3'] == ['place:3', 'place:2', 'place:1']
+FAILED test_county_rank_ignores_place_class - AssertionError: assert 'county:075' == 'county:031'
+FAILED test_portland_selects_oregon_over_maine - AssertionError: assert 'state:23' == 'state:41'
+FAILED test_springfield_selects_missouri_and_keeps_every_match - AssertionError: assert 'state:51' == 'state:29'
+FAILED test_cook_county_selects_illinois_and_keeps_every_match - AssertionError: assert ['state:13', 'state:17', 'state:27'] == ['state:17', 'state:13', 'state:27']
+6 failed in 0.39s
+(exit 1)
+# restored rank_matches to sorted(..., key=_rank_key)
+
+=== BAD: absorb winner (mutation: restore len(matches)==1) ===
+$ uv run pytest -q api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+FF                                                                       [100%]
+FAILED test_ambiguous_geography_builds_the_selected_url - AssertionError: assert None is not None
+FAILED test_ambiguous_resolve_lands_on_the_response - AssertionError: assert None is not None
+2 failed in 0.47s
+(exit 1)
+# restored record.geography = dict(matches[0]) if matches else None
+
+=== GOOD: restored implementation ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_duplicate_names_rank_by_class_then_population api/tests/test_ask_tools.py::test_portland_selects_oregon_over_maine api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+....                                                                     [100%]
+4 passed in 0.36s
+(exit 0)
+
+Verdict: PASS. Ranking and absorb mutations fail the new tests; restore is green.

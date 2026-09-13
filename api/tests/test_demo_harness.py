@@ -237,6 +237,7 @@ def test_gated_rate_uses_long_tail() -> None:
     ]
     summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
     assert summary["answered_rate"] == 0.0
+    assert summary["overall_answered_rate"] == 0.5
     assert summary["by_tier"]["core"]["answered_rate"] == 1.0
     assert summary["t_llm"] == 0.75
     assert [row["id"] for row in summary["trials"]] == ["q01", "q05"]
@@ -247,5 +248,30 @@ def test_gated_rate_uses_long_tail() -> None:
 def test_core_only_run_does_not_count_as_gated_rate() -> None:
     summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
     assert summary["answered_rate"] == 0.0
+    assert summary["overall_answered_rate"] == 1.0
     assert "long_tail" not in summary["by_tier"]
     assert summary["by_tier"]["core"]["answered_rate"] == 1.0
+
+
+def test_overall_answered_rate_uses_all_trials() -> None:
+    trials = [
+        _trial(),
+        _trial(
+            id="q05",
+            text="tail",
+            tier="long_tail",
+            answered=False,
+            expected_table="B08301",
+            table_id="",
+            url="",
+            latency_s=2.0,
+            t_llm=1.0,
+            t_census_api=0.4,
+            t_ours=0.6,
+            detail="empty url",
+        ),
+        _trial(id="t01", text="trap", tier="trap"),
+    ]
+    summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+    assert summary["answered_rate"] == 0.0
+    assert summary["overall_answered_rate"] == 0.667

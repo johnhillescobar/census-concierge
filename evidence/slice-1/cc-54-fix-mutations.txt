@@ -1,0 +1,24 @@
+# Gate 5 mutation — CC-54 PR A summary-only selected table
+# After E2E pre (answered_rate 0.248) still picked siblings, the model-visible
+# summary names only hits[0]; the artifact keeps the pool.
+
+=== BAD: selector pick is first hit (mutation: summary lists every hit id) ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_selector_pick_is_first_hit
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_selector_pick_is_first_hit _______________________
+
+    async def test_selector_pick_is_first_hit() -> None:
+        ...
+        assert "B27001" in message.content
+>       assert "B27010" not in message.content
+E       AssertionError: assert 'B27010' not in '2 candidate...unpublished)'
+
+api\tests\test_ask_tools.py:238: AssertionError
+1 failed in 0.28s
+(exit 1)
+
+=== GOOD: restored ===
+$ uv run pytest -q api/tests/test_ask_tools.py::test_selector_pick_is_first_hit api/tests/test_ask_loop.py
+.......................                                                  [100%]
+(exit 0)

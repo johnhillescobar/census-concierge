@@ -1,0 +1,319 @@
+# CC-54 umbrella Gate 2 vs origin/main
+# ticket: CC-54 (slice 1 integration)
+# branch: feat/cc-54-search-select
+# HEAD: 67ac43fac1db68c600c97891d07327c910c81314
+# origin/main: 97482e4b12cb6a518503cc2068ad56264fda9732
+# captured: 2026-09-13
+#
+# Incremental Gate 2 files left untouched:
+#   evidence/slice-1/cc-54-gate2.txt
+#   evidence/slice-1/cc-54-gate2-rerun.txt
+#   evidence/slice-1/cc-57-gate2.txt
+#   evidence/slice-1/cc-58-gate2.txt
+#   evidence/slice-1/cc-59-gate2.txt
+#   evidence/slice-1/gate2.txt (CC-19)
+
+=== git log origin/main...HEAD --oneline ===
+67ac43f evidence(slice-1): CC-54 umbrella Gate 1 mutation transcript
+c3ef9a1 Merge pull request #22 from johnhillescobar:feat/cc-59-p95
+1933730 evidence(slice-1): CC-59 E2E pre-PR demo clears p95 (CC-59)
+b1c075e fix(api): run the table selector once per question (CC-59)
+a2456e0 Merge pull request #21 from johnhillescobar:feat/cc-58-ranked-geography
+ca94fec evidence(slice-1): CC-58 E2E pre-PR transcript
+ef9a9fc evidence(slice-1): CC-58 Gate 2 review transcript
+c0c0d40 fix(api): ship the dominant geography with an ambiguity warning (CC-58)
+d516bd3 Merge pull request #20 from johnhillescobar:feat/cc-57-default-total
+68151a4 evidence(slice-1): CC-57 E2E pre-PR transcript
+5c4120c evidence(slice-1): CC-57 Gate 2 review transcript
+c09faaa fix(api): default empty build_url variables to the table total (CC-57)
+93fee04 evidence(slice-1): fix escaped dollar in CC-54 post-fix demo header
+a8e3cef evidence(slice-1): CC-54 PR A Gate 2 re-run and post-fix demo
+0cad725 fix(api): show only the selected table in search_tables summary (CC-54)
+60075fd evidence(slice-1): CC-54 PR A Gate 2 review transcript
+dcf228d evidence(slice-1): CC-54 PR A Gate 1 mutation transcript
+2df14df feat(api): let search_tables use the same table pick as eval --rerank (CC-54)
+
+=== git diff --stat origin/main...HEAD ===
+ api/src/ask.py                               |    13 +-
+ api/src/geo.py                               |    41 +-
+ api/src/retrieval/rerank.py                  |    12 +-
+ api/src/tools.py                             |    53 +-
+ api/tests/test_ask_loop.py                   |    51 +-
+ api/tests/test_ask_tools.py                  |   362 +-
+ api/tests/test_demo_harness.py               |    26 +
+ api/tests/test_guards.py                     |     2 +
+ api/tests/test_rerank.py                     |    59 +
+ docs/ARCHITECTURE.md                         |    15 +-
+ evidence/latest.json                         |  4554 ++---
+ evidence/slice-1/cc-54-e2e-pre-fix.txt       |  8362 +++++++++
+ evidence/slice-1/cc-54-e2e-pre.txt           |  8097 ++++++++
+ evidence/slice-1/cc-54-fix-mutations.txt     |    24 +
+ evidence/slice-1/cc-54-gate1.txt             |   151 +
+ evidence/slice-1/cc-54-gate2-rerun.txt       |   268 +
+ evidence/slice-1/cc-54-gate2.txt             |   227 +
+ evidence/slice-1/cc-54-integration-gate1.txt |   815 +
+ evidence/slice-1/cc-54-preflight-claims.md   |    25 +
+ evidence/slice-1/cc-54-preflight.txt         |   127 +
+ evidence/slice-1/cc-57-e2e-pre.txt           |  8174 +++++++++
+ evidence/slice-1/cc-57-gate1.txt             |   164 +
+ evidence/slice-1/cc-57-gate2.txt             |   232 +
+ evidence/slice-1/cc-57-preflight-claims.md   |    21 +
+ evidence/slice-1/cc-57-preflight.txt         |    48 +
+ evidence/slice-1/cc-58-e2e-pre.txt           |  8666 +++++++++
+ evidence/slice-1/cc-58-gate1.txt             |    39 +
+ evidence/slice-1/cc-58-gate2.txt             |   225 +
+ evidence/slice-1/cc-58-preflight-claims.md   |    21 +
+ evidence/slice-1/cc-58-preflight.txt         |    34 +
+ evidence/slice-1/cc-59-e2e-pre.txt           | 24338 +++++++++++++++++++++++++
+ evidence/slice-1/cc-59-gate1.txt             |    51 +
+ evidence/slice-1/cc-59-gate2.txt             |   473 +
+ evidence/slice-1/cc-59-preflight-claims.md   |    23 +
+ evidence/slice-1/cc-59-preflight.txt         |   111 +
+ scripts/run_demo.py                          |     6 +-
+ 36 files changed, 62811 insertions(+), 3099 deletions(-)
+
+=== git status --short ===
+(empty)
+
+================================================================
+Pass 1 — generic bugs (cold read of git diff origin/main...HEAD)
+Code only. PR body, Jira, and preflight notes not read.
+Looked for crashes, dropped URL/MOE/GEOID/universe, key leaks,
+silent repairs, wrong control flow.
+================================================================
+
+Production diff (excluding evidence/): ask.py, geo.py, rerank.py,
+tools.py, scripts/run_demo.py, docs/ARCHITECTURE.md, tests.
+
+Findings: nothing.
+
+- assemble() still emits url, moe, geoid, universe, table_id,
+  alternatives, warnings on every path; failed fetch keeps the
+  built CensusURL. Empty assemble still has the contract fields.
+- CensusURL is the URL type on listing errors, build_url, and
+  fetch_data. with_key() is only at httpx. No raw &key= formatting.
+- search_tables: choose() only when len(hits)>1, so an empty pool
+  never hits candidates[0]. Unknown selector IDs leave retrieval
+  order. Pool stays intact after _promote; alternatives[] still
+  come from the full pool.
+- resolve_geography: matches[0] is selected when any matches exist;
+  the rest stay on record.geographies so ambiguous_place still
+  warns. Illegal combos are still rejected (not rewritten).
+- build_url empty variables is now table_id_001E then pair_margins,
+  not every E. Missing 001E fails loud (no URL), same as other
+  build_url validation failures.
+- choose() still falls back to retrieval rank-1 on exception;
+  thinking_budget=0 is inside that try.
+- SearchTablesTool._picks is a per-instance PrivateAttr;
+  default_tools() builds a new tool per request.
+- No new graph node, route, or blocking clarification prompt.
+- Numbers from B01003_001E listing are used only for rank_matches;
+  they are not in the model summary and not in AskResponse rows.
+
+================================================================
+Pass 2 — project invariants (docs/playbooks/review-pr.md)
+Machines first. A non-zero exit ends the review.
+================================================================
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         11.689 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.829 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+[exit 0]
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+[exit 0]
+
+=== uv run ruff check . ===
+$ uv run ruff check .
+
+[1;32mAll checks passed![0m
+
+[exit 0]
+
+=== uv run ruff format --check . ===
+$ uv run ruff format --check .
+
+84 files already formatted
+
+[exit 0]
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+
+Success: no issues found in 19 source files
+
+[exit 0]
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+............................................                             [100%]
+188 passed in 5.09s
+
+[exit 0]
+
+
+--- machines ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check .                                             [exit 0]
+uv run ruff format --check .                                    [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  188 passed
+
+GOOD: machines green. Budgets not weakened (invariants --base origin/main:
+no violations). Review continues. This Gate 2 did not run make demo / make eval.
+
+--- the claim ---
+A user of POST /ask now gets three loop behaviours they did not have on
+origin/main: search_tables promotes the same table pick as `make eval --rerank`
+and shows that pick (not the whole listing) to the model; several NAME hits
+select the ranked geography, build that URL, and still warn via
+ambiguous_place; omitting build_url variables requests {table}_001E (and 001M)
+instead of every estimate. The demo harness also records overall_answered_rate
+across all tiers beside the unchanged long_tail answered_rate gate.
+That sentence can be written. This is not scaffolding.
+
+Is the evidence real? This review did not run make demo. The branch already
+carries stacked E2E transcripts (cc-54/57/58/59-e2e-pre*.txt) and
+evidence/latest.json demo.repeat=3 n=153: answered_rate 0.829 (long_tail),
+overall_answered_rate 0.765, p95 11.689s, selector_at_1 0.875,
+retrieval_at_10 0.9. check_budgets reads those floors and exits 0. At n=40,
+a move under ~10 points in retrieval@1 is noise; this PR does not claim one.
+The answered_rate move versus origin/main's recorded 0.214 is a step change
+at --repeat 3, not a one-run anecdote — and umbrella E2E vs origin/main is
+still the next phase.
+
+--- scope ---
+Belongs to slice 1 (POST /ask loop, DESIGN §4 guards, make demo scoreboard).
+Not added: conversation memory, auth, database, frontend, charts, PDF,
+clarification, urls[] / multi-year fetch (slice 3), graph nodes, a fifth tool,
+a new route. 36 files vs origin/main because this is the CC-54 umbrella with
+CC-57/58/59 already merged into the branch: 6 production/doc files
+(ask.py, geo.py, rerank.py, tools.py, run_demo.py, ARCHITECTURE.md), 5 test
+files, latest.json, and the stacked evidence/preflight corpus. Over ~15
+because of evidence transcripts, not opportunistic product code.
+ARCHITECTURE.md updated in the same stacked commits as the shape changes.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: success is still str(CensusURL) from build_url. fetch_data failure
+  keeps that URL. Listing errors use CensusURL in the RuntimeError. No new
+  formatter. Ambiguous resolve can now produce a non-empty URL (ranked pick).
+  Unresolved / illegal / missing-001E still return url="".
+- MOE: pair_margins still runs on the success path; empty default becomes
+  001E then 001M. B01003_001E on the NAME listing is ranking input, not the
+  answer payload.
+- GEOID: get= still includes GEO_ID. assemble fallback is
+  record.geography.geoid, now set whenever matches is non-empty. Warning
+  still lists the other names.
+- Universe: still from table_facts / hit metadata.
+- Alternatives: full pool remains on the artifact after _promote; assemble()
+  still emits alternatives[]. Model summary now counts related tables instead
+  of naming them.
+- &key=: redaction stays on the CensusURL type. Tests still catch listing
+  and fetch error bodies.
+- Numbers do not pass back through the model (rows stay in the artifact;
+  listing population is not in the tool summary).
+- Guards still warn and ship. ambiguous_place fires at len(geographies)>1.
+  No new blocking clarification prompt.
+- Ranking plus absorb is a geography default with the warning attached, not
+  an invisible fix. Illegal ZCTA-in-county / extra parents are still
+  rejected, not rewritten. Vintage substitution is untouched.
+- Filling omitted variables is a documented tool default (schema text +
+  ARCHITECTURE), same pattern as vintage=None meaning latest ACS5. Missing
+  001E fails closed rather than expanding to every cell.
+
+Out of ticket, do not demand: a new make demo run in this gate, urls[],
+frontend, auth, graphs, a fifth tool, S/DP totals as a slice-1 golden path.
+
+--- shape ---
+No new tool, route, Pydantic boundary-model, or .add_node(). Tools stay at 4.
+SelectFn is a Callable on the existing SearchTablesTool; rank_matches is a
+function in geo.py; _picks is PrivateAttr, not a module global.
+index.search() still does not call choose(). ARCHITECTURE.md says
+search_tables applies the pick, NAME listing includes B01003_001E, matches[0]
+is selected with the rest on geographies, and empty variables is 001E then
+paired M.
+
+--- tests ---
+Behavior, not prompt wording. No new test file named after a ticket.
+_search still returns different ids for bike vs broadband vs unknown.
+_pool_search is a fixed two-id pool used to test promotion/memo, not a
+retrieval fake that scores "did search find the table".
+New tests drive: selector promotion, empty-pool skip, unknown-id keep,
+once-per-question memo, thinking_budget=0, choose() fallback, rank_matches
+class/pop/GEOID, Cook/Portland/Springfield selection with every match kept,
+omitted variables -> 001E+001M, missing 001E fails closed, overall_answered_rate
+uses all trials while gated answered_rate stays long_tail,
+ambiguous_geography_builds_the_selected_url with ambiguous_place still on
+the response.
+Some tests assert on tool summary strings ("selected county:031",
+"B27010 not in content"). That is model-visible tool content, not the
+system prompt; still brittle if the summary is rephrased.
+Gate 1 mutation transcript is evidence/slice-1/cc-54-integration-gate1.txt;
+this review does not re-run mutations. A new test file is not evidence that
+POST /ask works; that is E2E (next phase).
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: POST /ask now selects the eval
+reranker's table, fetches the ranked geography when several NAME hits match
+(with ambiguous_place listing the rest), and builds the table-total URL when
+variables are omitted — URL, MOE, GEOID, universe, and alternatives still on
+every response path.
+
+Follow-ups (none are silent-wrong-answer):
+1. NAME listing now requires B01003_001E as a GET column. A 400 at a
+   for_level that rejects it fails the whole resolve (existing RuntimeError).
+2. The empty-variables default is the literal suffix 001E, not "whatever this
+   table's total actually is". Subject/profile totals are not 001E; empty
+   variables there fail closed with url="".
+3. SearchTablesTool._picks is keyed by question only; a later call with a
+   different k reuses the first pick when that ID is still in hits. A choose()
+   exception caches the retrieval-top fallback for that question in-request.
+4. Production adapter (select is None, pool size > 1 -> Candidate mapping into
+   choose()) is not hit by SearchTablesTool unit tests; they inject select.
+   k=1 still skips choose entirely.
+5. Model-facing summaries omit alternative table IDs and geography names;
+   alternatives[] and warnings[].detail still carry them.
+6. Budget headroom: doc_lines 1798/1800, largest file 395/400.
+7. Umbrella E2E vs origin/main is the next phase. This review did not re-run
+   make demo; latest.json already holds the stacked --repeat 3 numbers.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
