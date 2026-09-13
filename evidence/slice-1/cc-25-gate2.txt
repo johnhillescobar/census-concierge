@@ -1,0 +1,187 @@
+# CC-25 Gate 2
+# branch: feat/cc-25-response-contract
+# HEAD: 953f23f4112f1b4a7f1a3c469910d2c7167a612a
+# origin/main: 7d14c79fe7808fd924a244c21b83982811720fe3
+# captured: 2026-09-12T18:39:36-05:00
+# uncommitted: none (git status --short empty)
+
+=== git log origin/main...HEAD --oneline ===
+953f23f evidence(slice-1): Gate 1 mutation transcript for CC-25 de9e34c feat(api): return a complete ask contract with paired MOE and classified alternatives (CC-25)
+
+=== git diff --stat origin/main...HEAD ===
+ api/src/ask.py                             | 128 ++++-  api/src/contract.py                        |  39 +-  api/tests/test_ask_loop.py                 | 255 ++++++++-  api/tests/test_ask_route.py                |  14 +-  docs/ARCHITECTURE.md                       |  14 +-  evidence/slice-1/cc-25-ac-eval.md          |  18 +  evidence/slice-1/cc-25-gate1.txt           | 827 +++++++++++++++++++++++++++++  evidence/slice-1/cc-25-preflight-claims.md |  27 +  evidence/slice-1/cc-25-preflight.txt       | Bin 0 -> 21304 bytes  9 files changed, 1282 insertions(+), 40 deletions(-)
+
+=== git status --short ===
+(empty)
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+
+BUDGETS
+
+  ok    api src LOC               2004 <= 4000
+  ok    api src files               18 <= 40
+  ok    largest file LOC           371 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1799 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+[exit 0]
+
+
+=== uv run ruff check . && uv run ruff format --check . ===
+$ uv run ruff check . && uv run ruff format --check .
+
+[1;32mAll checks passed![0m
+73 files already formatted
+
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+
+Success: no issues found in 18 source files
+
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 56%]
+........................................................                 [100%]
+128 passed in 2.75s
+
+[exit 0]
+
+
+================================================================================
+PASS 1 — generic bugs (cold read of git diff origin/main...HEAD; no intent)
+================================================================================
+Diff: de9e34c + 953f23f vs origin/main (7d14c79). Uncommitted at capture: none.
+9 files, +1282 / -40. Production: ask.py, contract.py, ARCHITECTURE.md; rest is tests/evidence.
+
+Verdict: no functional bugs.
+
+Findings:
+- nothing that ships a wrong URL, drops a margin, or loses GEOID on the paths this diff adds.
+  `_moe_rows` keys each M to its E (`B01003_001E` -> `B01003_001M`) and keeps a missing
+  margin as None. `_rows_with_geoid` copies rows before stamping a resolved AFFGEOID
+  onto rows that lack `GEO_ID`. `_response_geoid` uses the resolved geoid when one
+  geography was chosen, the sole row's `GEO_ID` otherwise, and empty for many rows
+  when the geography match has `geoid=""`. `str(record.url)` still goes through
+  CensusURL. Failure assemble (`warnings=[]`, empty record) still emits every
+  AskResponse field.
+- `_how_differs(..., member_of=)` labels a family member from the pool parent, not
+  from `selected_id`. A C-table hanging off a non-selected hit is `"collapsed table"`
+  even when the pick is a different family. Not a crash and not a wrong number.
+- `Alternative.reason` Field text lists four values; assemble also emits
+  `"related table"`, which that description does not mention.
+
+================================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check . && uv run ruff format --check .             [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  128 passed
+
+Machines are green. Review continues.
+
+--- the claim ---
+A user who POSTs /ask now gets the full contract filled from tool artifacts:
+Census URL (variables, geography, vintage, no key), each estimate paired with
+its M, AFFGEOID on rows, universe of the selected table, and alternatives[]
+with a classified reason. That sentence can be written. make demo / make eval
+are E2E (next phase); this Gate 2 does not treat a missing demo as a machine
+failure. No retrieval@1 delta is claimed.
+
+--- scope ---
+Belongs to slice 1 / CC-25: response contract (answer, url, rows, moe, geoid,
+universe, table_id, alternatives[], warnings[]). Not added: DESIGN §4 guards
+(CC-22), run_demo.py (CC-26), conversation, auth, frontend, charts, clarification,
+urls[]. ARCHITECTURE.md updated in the implementation commit. 9 files, under ~15.
+Nothing opportunistic beyond the ticket. warnings[] stays empty, as documented.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: `AskResponse.url` is `str(CensusURL)`; aborted loop and fetch-with-no-rows
+  still return the field (empty or built). OpenAPI keeps `url` a string, not an array.
+- MOE: assemble pairs M to each E; missing M is null, not omitted. Fetch content
+  is a count + redacted URL; estimates stay on the artifact, not in the model
+  summary path this ticket changed.
+- GEOID: every returned row gets `GEO_ID` from Census or the single resolved
+  geography; top-level `geoid` is empty when many areas are returned (wildcard
+  matches already store `geoid=""`).
+- Universe: `record.universe` from build_url / table_facts, else the selected
+  search hit. Vintage-specific string is preferred when build_url ran.
+- Alternatives: related table IDs still ship; reasons are classified. Guards
+  are not in this ticket and do not become blocking questions. No silent vintage
+  or geography substitution in this diff. Redaction stays on the CensusURL type;
+  this PR does not format a URL any other way.
+
+Noted, does not block: Alternative.reason OpenAPI text omits `"related table"`;
+member reasons can name collapsed/race against the pool parent rather than the
+pick. Both are label quality, not a missing URL/MOE/GEOID/universe.
+
+--- shape ---
+No new tool, route, Pydantic boundary-model, or `.add_node()`. Alternative /
+AskWarning / AskResponse were already the HTTP contract; this PR adds Field
+descriptions. Rows stay untyped dicts. ARCHITECTURE.md updated in the same
+commit as assemble().
+
+--- tests ---
+Behavior, not prompt wording. Search fake still varies by question
+(bike/broadband/income/population/empty) — not a constant B01003 stub. New tests
+drive `assemble()` with constructed records or a scripted `complete()`; they
+assert URL query parts, paired M, GEOID, universe, and reason values, not LLM
+prose. No new test file named after a ticket. Gate 1 mutation transcript is in
+evidence/slice-1/cc-25-gate1.txt; this review does not re-run mutations.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: POST /ask now returns a complete
+ask contract — redacted Census URL, per-estimate MOE, AFFGEOID, universe, and
+classified alternatives — including on empty fetch and aborted loop.
+
+Follow-ups (none are silent-wrong-answer):
+1. Document `"related table"` on `Alternative.reason` (assemble emits it; the
+   Field description does not).
+2. Classify member reasons against the selected table, not only the pool parent,
+   so a C-table in another family is not labeled `"collapsed table"` on an
+   income answer.
+3. Budget headroom after this PR: doc_lines 1799/1800, largest file 371/400.
+   The next docs sentence or ask.py helper fails the gate.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
+
