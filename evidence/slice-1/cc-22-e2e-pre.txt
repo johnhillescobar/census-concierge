@@ -1,0 +1,433 @@
+# E2E pre-PR -- slice 1 / CC-22
+# branch: feat/cc-22-guards
+# commit: 638fb4d
+# captured: 2026-09-12 21:03:06 -0500
+# scripts/run_demo.py: absent (CC-26). Live acceptance is check_budgets + Makefile eval recipes + POST /ask.
+# make is not on PATH; recipes run with uv (CLAUDE.md: every target is one uv line).
+# Do NOT overwrite evidence/slice-1/e2e-pre.txt (CC-19), cc-23-e2e-pre.txt, or cc-25-e2e-pre.txt.
+# uvicorn: --env-file .env added because parent process lacked keys (values not printed).
+# overlapping_vintage pretty-print of 67 county rows is compacted; raw HTTP body is complete.
+
+$ git rev-parse --abbrev-ref HEAD
+feat/cc-22-guards
+$ git log -1 --oneline
+638fb4d evidence(slice-1): record CC-22 Gate 2 review
+
+===== env keys (presence only; values not printed) =====
+OPENAI_API_KEY present=True
+CENSUS_API_KEY present=True
+GEMINI_API_KEY present=True
+
+===== check_budgets =====
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2167 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1796 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+[exit 0]
+
+===== make eval =====
+# Makefile `eval` recipes (make not installed on this machine):
+#   uv run python scripts/eval_retrieval.py --verbose
+#   uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+#   uv run python scripts/score_synthetic.py
+
+$ uv run python scripts/eval_retrieval.py --verbose
+RETRIEVAL
+
+  core       n=4    @1=75%   @3=75%   @5=75%   @10=100%   mrr=0.78
+  long_tail  n=40   @1=48%   @3=70%   @5=82%   @10=90%   mrr=0.61
+  trap       n=14   @1=21%   @3=36%   @5=36%   @10=57%   mrr=0.32
+
+  OVERALL    n=58   @1=43%
+
+MISSES
+
+  q04  expected B17001   got B06012, B17101, B17025
+      Poverty rate by census tract in Detroit
+  q06  expected B28002   got B28003, B28008, B28012
+      Which counties in Mississippi have the worst broadband access?
+  q07  expected B25070   got B25071, B25074, B25070
+      Renters spending more than 30% of income on rent, by county in Arizona
+  q08  expected B18101   got B18108, B18101, C18121
+      Disability rates among adults in rural Vermont counties
+  q09  expected B21001   got B26107, B26207, C21005
+      Veteran population by county in North Carolina
+  q11  expected B08303   got B08536, B08136, B08135
+      How long is the average commute in the Atlanta metro?
+  q12  expected B27001   got B27010, C27016, B27016
+      Health insurance coverage for children in New Mexico
+  q13  expected B25034   got B25035, B25107, B25034
+      When were the homes in Providence built?
+  q15  expected B05002   got B05007, B05015, C05006
+      Foreign-born population by county in Minnesota
+  q17  expected B24010   got B08007, B08604, B24060
+      Occupation breakdown for workers in Silicon Valley counties
+  q18  expected B25003   got B25072, B25095, C25055
+      Renter versus owner households in Milwaukee
+  q20  expected B07001   got B07101, B25039, B07413
+      People who moved into Boise from another state last year
+  q21  expected B19058   got C22001, B22001, B22003
+      Households receiving SNAP benefits in the Rio Grande Valley
+  q22  expected B25024   got B11011, B25024, B25127
+      Housing units by number of units in the structure, Somerville MA
+  q31  expected B25081   got B25027, B25096, B25081
+      How many homeowners in Nassau County are still paying off a loan on the house?
+  q33  expected B16002   got C16002, B16002, B16005
+      Households in Santa Ana where nobody over 14 speaks English well
+  q34  expected B24080   got B08018, B08604, B08017
+      Workers in Bozeman who run their own business instead of working for someone else
+  q35  expected B25091   got B25095, B25140, B25101
+      Homeowners in Miami-Dade spending more than a third of their income on housing
+  q37  expected B01002   got B07402, B07002, B09020
+      Which county in Florida has the oldest population?
+  q39  expected B25004   got B25005, B25004, B25085
+      Why are so many homes in Detroit sitting empty?
+  q41  expected B15012   got C15010, B15010, B15012
+      What did people in Ann Arbor study in college?
+  q43  expected B08302   got B08132, B08302, B08532
+      What time do commuters in Suffolk County leave the house?
+  t07  expected B01003   got B07201, B19301, B07101
+      Population of Phoenix in 2024 from the 1-year ACS
+  t08  expected B19001   got B19082, B19301, B19081
+      Give me the income distribution, not just the median, for Travis County
+  t09  expected B28001   got B25046, B25083, B28011
+      Number of cell phones in Denver since 2017
+  t10  expected B19013   got B19202, B19013, B25119
+      Plot median household income for Cuyahoga County every year from 2017 to 2023
+  t11  expected B23025   got B25109, B23027, B08009
+      Unemployment in Middlebury, Vermont each year since 2017
+  t12  expected B17001   got B17024, B17002, B17026
+      1-year ACS poverty for Fresno County, 2018 through 2022
+  t13  expected B28002   got B28011, B28002, B28004
+      Broadband subscription trend by census tract in Wayne County, 2018 to 2022
+  t14  expected B28001   got B28010, B28003, B28005
+      How has the share of households with a computer changed since 2013?
+  t16  expected B17001   got B06012, B17025, B17101
+      Compare poverty by census tract within the city of Denver
+  t17  expected B19013   got B19202, B19081, B25119
+      What is the median household income across these five tracts combined?
+  t18  expected B27001   got C27014, B27003, C27021
+      Total population without health insurance across every tract in Wayne County
+
+Wrote evidence\latest.json
+
+
+[exit 0]
+
+$ uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+RETRIEVAL
+
+  long_tail  n=40   @1=88%   @3=90%   @5=90%   @10=90%   mrr=0.89
+
+  OVERALL    n=40   @1=88%
+
+Wrote evidence\latest.json
+
+
+[exit 0]
+
+$ uv run python scripts/score_synthetic.py
+
+SYNTHETIC QUESTION QUALITY
+
+  sampled              600 of 8748 questions
+  alignment (gated)    0.544   mean cosine to own document
+  self-retrieval @1    45%   diagnostic — same ranking problem as golden set
+  self-retrieval @5    82%   diagnostic
+
+  weakest alignment (question far from its own document):
+    B25130   0.244  Other Vacancy Status
+             What is the number of homes that are preparing to be rented or sold?
+    B02023   0.263  Black or African American Alone by Selected Grou
+             I'm researching the number of Kenyans in the U.S.; can you help with tha
+    B11012   0.287  Households by Type
+             How many single moms live alone in the U.S.?
+    B11014   0.292  Population in Subfamilies by Subfamily Type by R
+             How many children are part of married couples with kids?
+    B25024   0.295  Units in Structure
+             Can you tell me how many mobile homes are located here?
+    B24010   0.308  Sex by Occupation for the Civilian Employed Popu
+             Can you provide data on the number of female teachers in secondary educa
+    B14002   0.313  Sex by School Enrollment by Level of School by T
+             How many students are enrolled in graduate programs at private instituti
+    B08126   0.315  Means of Transportation to Work by Industry
+             How many workers in education and healthcare are working from home?
+
+  worst self-retrieval (own question does not rank first):
+    B09005   4 miss(es)  Household Type for Children Under 18 Years in Househ
+    B26203   3 miss(es)  Group Quarters Type (5 Types)
+    B08136   3 miss(es)  Aggregate Travel Time to Work (in Minutes) of Worker
+    B08501   3 miss(es)  Means of Transportation to Work by Age for Workplace
+    B08528   3 miss(es)  Means of Transportation to Work by Class of Worker f
+    B07411   3 miss(es)  Median Income in the Past 12 Months (in 2024 Inflati
+    B25086   3 miss(es)  Aggregate Price Asked (Dollars)
+    C18121   3 miss(es)  Work Experience by Disability Status
+
+Wrote evidence\latest.json
+
+
+[exit 0]
+
+===== live POST /ask =====
+$ uv run uvicorn src.main:app --host 127.0.0.1 --port 8768 --env-file .env
+[uvicorn started; waiting for /docs]
+ready=True
+
+$ GET http://127.0.0.1:8768/docs
+ready=True
+docs_status=200
+$ POST http://127.0.0.1:8768/ask  Content-Type: application/json
+{"question": "population of Harris County, Texas"}
+# timeout=180s
+HTTP/1.1 200 OK
+date: Sun, 13 Sep 2026 02:01:24 GMT
+server: uvicorn
+content-length: 1836
+content-type: application/json
+
+{"answer":"The population of Harris County, Texas can be accessed at the following URL: [Census Data](https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48).","url":"https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48","rows":[{"NAME":"Harris County, Texas","GEO_ID":"0500000US48201","B01003_001E":"4838303","B01003_001M":"-555555555","state":"48","county":"201"}],"moe":[{"GEO_ID":"0500000US48201","NAME":"Harris County, Texas","B01003_001M":"-555555555"}],"geoid":"0500000US48201","universe":"Total population","table_id":"B01003","alternatives":[{"table_id":"B03003","reason":"related table"},{"table_id":"B25008","reason":"universe"},{"table_id":"B25008A","reason":"related table"},{"table_id":"B25008B","reason":"related table"},{"table_id":"B25008C","reason":"related table"},{"table_id":"B25008D","reason":"related table"},{"table_id":"B25008E","reason":"related table"},{"table_id":"B25008F","reason":"related table"},{"table_id":"B25008G","reason":"related table"},{"table_id":"B25008H","reason":"related table"},{"table_id":"B25008I","reason":"related table"},{"table_id":"B03002","reason":"related table"},{"table_id":"C03002","reason":"related table"},{"table_id":"B25026","reason":"universe"},{"table_id":"B07204","reason":"universe"},{"table_id":"B07204PR","reason":"related table"},{"table_id":"C07204","reason":"related table"},{"table_id":"C07204PR","reason":"related table"},{"table_id":"B26001","reason":"universe"},{"table_id":"B05012","reason":"universe"},{"table_id":"B05012PR","reason":"related table"},{"table_id":"B03001","reason":"related table"},{"table_id":"C03001","reason":"related table"},{"table_id":"B25033","reason":"universe"},{"table_id":"C25033","reason":"related table"}],"warnings":[]}
+[exit 0]
+
+===== response fields (ordinary) =====
+answer: "The population of Harris County, Texas can be accessed at the following URL: [Census Data](https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48)."
+url: "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48"
+rows: [
+  {
+    "NAME": "Harris County, Texas",
+    "GEO_ID": "0500000US48201",
+    "B01003_001E": "4838303",
+    "B01003_001M": "-555555555",
+    "state": "48",
+    "county": "201"
+  }
+]
+moe: [
+  {
+    "GEO_ID": "0500000US48201",
+    "NAME": "Harris County, Texas",
+    "B01003_001M": "-555555555"
+  }
+]
+geoid: "0500000US48201"
+universe: "Total population"
+table_id: "B01003"
+alternatives: n=25 reasons=['related table', 'universe']
+alternatives[:3]: [
+  {
+    "table_id": "B03003",
+    "reason": "related table"
+  },
+  {
+    "table_id": "B25008",
+    "reason": "universe"
+  },
+  {
+    "table_id": "B25008A",
+    "reason": "related table"
+  }
+]
+warnings: []
+
+===== key= absence (ordinary; True means absent) =====
+key= absent from answer: True
+key= absent from url: True
+key= absent from rows: True
+key= absent from moe: True
+key= absent from geoid: True
+key= absent from universe: True
+key= absent from table_id: True
+key= absent from alternatives: True
+key= absent from warnings: True
+key= absent from full body: True
+CENSUS_API_KEY value absent from body: True
+
+===== optional Census GET of returned URL (key attached locally, not printed) =====
+$ GET <redacted url>  (https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=REDACTED)
+census_http_status: 200
+census_body_prefix:
+[["NAME","GEO_ID","B01003_001E","B01003_001M","state","county"],
+["Harris County, Texas","0500000US48201","4838303","-555555555","48","201"]]
+
+===== live POST /ask (trap overlapping_vintage) =====
+$ POST http://127.0.0.1:8768/ask  Content-Type: application/json
+{"question": "Compare median household income between 2015-2019 and 2018-2022"}
+# timeout=180s
+HTTP/1.1 200 OK
+date: Sun, 13 Sep 2026 02:01:33 GMT
+server: uvicorn
+content-length: 18274
+content-type: application/json
+
+{"answer":"I have gathered the median household income data you're interested in for counties in Pennsylvania for the two periods: 2015-2019 and 2018-2022.\n\n### 2015-2019 Median Household Income Data\nYou can view the data by following this [link](https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:%2A&in=state:42).\n\n### 2018-2022 Median Household Income Data\nYou can view the data by following this [link](https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:%2A&in=state:42).\n\nIf you need further analysis or specific information, feel free to ask!","url":"https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:%2A&in=state:42","rows":[{"NAME":"Adams County, Pennsylvania","GEO_ID":"0500000US42001","B19013_001E":"78975","B19013_001M":"3334","state":"42","county":"001"},{"NAME":"Allegheny County, Pennsylvania","GEO_ID":"0500000US42003","B19013_001E":"72537","B19013_001M":"869","state":"42","county":"003"},{"NAME":"Armstrong County, Pennsylvania","GEO_ID":"0500000US42005","B19013_001E":"61011","B19013_001M":"2202","state":"42","county":"005"},{"NAME":"Beaver County, Pennsylvania","GEO_ID":"0500000US42007","B19013_001E":"67194","B19013_001M":"1531","state":"42","county":"007"},{"NAME":"Bedford County, Pennsylvania","GEO_ID":"0500000US42009","B19013_001E":"58337","B19013_001M":"2606","state":"42","county":"009"},{"NAME":"Berks County, Pennsylvania","GEO_ID":"0500000US42011","B19013_001E":"74617","B19013_001M":"1191","state":"42","county":"011"},{"NAME":"Blair County, Pennsylvania","GEO_ID":"0500000US42013","B19013_001E":"59386","B19013_001M":"2058","state":"42","county":"013"},{"NAME":"Bradford County, Pennsylvania","GEO_ID":"0500000US42015","B19013_001E":"60650","B19013_001M":"2167","state":"42","county":"015"},{"NAME":"Bucks County, Pennsylvania","GEO_ID":"0500000US42017","B19013_001E":"107826","B19013_001M":"1516","state":"42","county":"017"},{"NAME":"Butler County, Pennsylvania","GEO_ID":"0500000US42019","B19013_001E":"82932","B19013_001M":"2164","state":"42","county":"019"},{"NAME":"Cambria County, Pennsylvania","GEO_ID":"0500000US42021","B19013_001E":"54221","B19013_001M":"1809","state":"42","county":"021"},{"NAME":"Cameron County, Pennsylvania","GEO_ID":"0500000US42023","B19013_001E":"46186","B19013_001M":"2605","state":"42","county":"023"},{"NAME":"Carbon County, Pennsylvania","GEO_ID":"0500000US42025","B19013_001E":"64538","B19013_001M":"3424","state":"42","county":"025"},{"NAME":"Centre County, Pennsylvania","GEO_ID":"0500000US42027","B19013_001E":"70087","B19013_001M":"1941","state":"42","county":"027"},{"NAME":"Chester County, Pennsylvania","GEO_ID":"0500000US42029","B19013_001E":"118574","B19013_001M":"2021","state":"42","county":"029"},{"NAME":"Clarion County, Pennsylvania","GEO_ID":"0500000US42031","B19013_001E":"58690","B19013_001M":"2562","state":"42","county":"031"},{"NAME":"Clearfield County, Pennsylvania","GEO_ID":"0500000US42033","B19013_001E":"56982","B19013_001M":"1591","state":"42","county":"033"},{"NAME":"Clinton County, Pennsylvania","GEO_ID":"0500000US42035","B19013_001E":"59011","B19013_001M":"2275","state":"42","county":"035"},{"NAME":"Columbia County, Pennsylvania","GEO_ID":"0500000US42037","B19013_001E":"59457","B19013_001M":"2234","state":"42","county":"037"},{"NAME":"Crawford County, Pennsylvania","GEO_ID":"0500000US42039","B19013_001E":"58734","B19013_001M":"2298","state":"42","county":"039"},{"NAME":"Cumberland County, Pennsylvania","GEO_ID":"0500000US42041","B19013_001E":"82849","B19013_001M":"1822","state":"42","county":"041"},{"NAME":"Dauphin County, Pennsylvania","GEO_ID":"0500000US42043","B19013_001E":"71046","B19013_001M":"1614","state":"42","county":"043"},{"NAME":"Delaware County, Pennsylvania","GEO_ID":"0500000US42045","B19013_001E":"86390","B19013_001M":"1326","state":"42","county":"045"},{"NAME":"Elk County, Pennsylvania","GEO_ID":"0500000US42047","B19013_001E":"61672","B19013_001M":"4091","state":"42","county":"047"},{"NAME":"Erie County, Pennsylvania","GEO_ID":"0500000US42049","B19013_001E":"59396","B19013_001M":"1515","state":"42","county":"049"},{"NAME":"Fayette County, Pennsylvania","GEO_ID":"0500000US42051","B19013_001E":"55579","B19013_001M":"2314","state":"42","county":"051"},{"NAME":"Forest County, Pennsylvania","GEO_ID":"0500000US42053","B19013_001E":"46188","B19013_001M":"4612","state":"42","county":"053"},{"NAME":"Franklin County, Pennsylvania","GEO_ID":"0500000US42055","B19013_001E":"71808","B19013_001M":"2153","state":"42","county":"055"},{"NAME":"Fulton County, Pennsylvania","GEO_ID":"0500000US42057","B19013_001E":"63153","B19013_001M":"2303","state":"42","county":"057"},{"NAME":"Greene County, Pennsylvania","GEO_ID":"0500000US42059","B19013_001E":"66283","B19013_001M":"4247","state":"42","county":"059"},{"NAME":"Huntingdon County, Pennsylvania","GEO_ID":"0500000US42061","B19013_001E":"61300","B19013_001M":"2892","state":"42","county":"061"},{"NAME":"Indiana County, Pennsylvania","GEO_ID":"0500000US42063","B19013_001E":"57170","B19013_001M":"2657","state":"42","county":"063"},{"NAME":"Jefferson County, Pennsylvania","GEO_ID":"0500000US42065","B19013_001E":"56607","B19013_001M":"1932","state":"42","county":"065"},{"NAME":"Juniata County, Pennsylvania","GEO_ID":"0500000US42067","B19013_001E":"61915","B19013_001M":"2963","state":"42","county":"067"},{"NAME":"Lackawanna County, Pennsylvania","GEO_ID":"0500000US42069","B19013_001E":"63739","B19013_001M":"1644","state":"42","county":"069"},{"NAME":"Lancaster County, Pennsylvania","GEO_ID":"0500000US42071","B19013_001E":"81458","B19013_001M":"1462","state":"42","county":"071"},{"NAME":"Lawrence County, Pennsylvania","GEO_ID":"0500000US42073","B19013_001E":"57585","B19013_001M":"1767","state":"42","county":"073"},{"NAME":"Lebanon County, Pennsylvania","GEO_ID":"0500000US42075","B19013_001E":"72532","B19013_001M":"1949","state":"42","county":"075"},{"NAME":"Lehigh County, Pennsylvania","GEO_ID":"0500000US42077","B19013_001E":"74973","B19013_001M":"1499","state":"42","county":"077"},{"NAME":"Luzerne County, Pennsylvania","GEO_ID":"0500000US42079","B19013_001E":"60836","B19013_001M":"1430","state":"42","county":"079"},{"NAME":"Lycoming County, Pennsylvania","GEO_ID":"0500000US42081","B19013_001E":"63437","B19013_001M":"2788","state":"42","county":"081"},{"NAME":"McKean County, Pennsylvania","GEO_ID":"0500000US42083","B19013_001E":"57861","B19013_001M":"2748","state":"42","county":"083"},{"NAME":"Mercer County, Pennsylvania","GEO_ID":"0500000US42085","B19013_001E":"57353","B19013_001M":"2084","state":"42","county":"085"},{"NAME":"Mifflin County, Pennsylvania","GEO_ID":"0500000US42087","B19013_001E":"58012","B19013_001M":"1989","state":"42","county":"087"},{"NAME":"Monroe County, Pennsylvania","GEO_ID":"0500000US42089","B19013_001E":"80656","B19013_001M":"2560","state":"42","county":"089"},{"NAME":"Montgomery County, Pennsylvania","GEO_ID":"0500000US42091","B19013_001E":"107441","B19013_001M":"1366","state":"42","county":"091"},{"NAME":"Montour County, Pennsylvania","GEO_ID":"0500000US42093","B19013_001E":"72626","B19013_001M":"5146","state":"42","county":"093"},{"NAME":"Northampton County, Pennsylvania","GEO_ID":"0500000US42095","B19013_001E":"82201","B19013_001M":"1588","state":"42","county":"095"},{"NAME":"Northumberland County, Pennsylvania","GEO_ID":"0500000US42097","B19013_001E":"55952","B19013_001M":"1495","state":"42","county":"097"},{"NAME":"Perry County, Pennsylvania","GEO_ID":"0500000US42099","B19013_001E":"76103","B19013_001M":"2415","state":"42","county":"099"},{"NAME":"Philadelphia County, Pennsylvania","GEO_ID":"0500000US42101","B19013_001E":"57537","B19013_001M":"792","state":"42","county":"101"},{"NAME":"Pike County, Pennsylvania","GEO_ID":"0500000US42103","B19013_001E":"76416","B19013_001M":"3741","state":"42","county":"103"},{"NAME":"Potter County, Pennsylvania","GEO_ID":"0500000US42105","B19013_001E":"56491","B19013_001M":"2495","state":"42","county":"105"},{"NAME":"Schuylkill County, Pennsylvania","GEO_ID":"0500000US42107","B19013_001E":"63574","B19013_001M":"1527","state":"42","county":"107"},{"NAME":"Snyder County, Pennsylvania","GEO_ID":"0500000US42109","B19013_001E":"65914","B19013_001M":"3666","state":"42","county":"109"},{"NAME":"Somerset County, Pennsylvania","GEO_ID":"0500000US42111","B19013_001E":"57357","B19013_001M":"1592","state":"42","county":"111"},{"NAME":"Sullivan County, Pennsylvania","GEO_ID":"0500000US42113","B19013_001E":"62910","B19013_001M":"5821","state":"42","county":"113"},{"NAME":"Susquehanna County, Pennsylvania","GEO_ID":"0500000US42115","B19013_001E":"63968","B19013_001M":"2010","state":"42","county":"115"},{"NAME":"Tioga County, Pennsylvania","GEO_ID":"0500000US42117","B19013_001E":"59707","B19013_001M":"1927","state":"42","county":"117"},{"NAME":"Union County, Pennsylvania","GEO_ID":"0500000US42119","B19013_001E":"64914","B19013_001M":"4753","state":"42","county":"119"},{"NAME":"Venango County, Pennsylvania","GEO_ID":"0500000US42121","B19013_001E":"59278","B19013_001M":"2044","state":"42","county":"121"},{"NAME":"Warren County, Pennsylvania","GEO_ID":"0500000US42123","B19013_001E":"57925","B19013_001M":"3005","state":"42","county":"123"},{"NAME":"Washington County, Pennsylvania","GEO_ID":"0500000US42125","B19013_001E":"74403","B19013_001M":"1769","state":"42","county":"125"},{"NAME":"Wayne County, Pennsylvania","GEO_ID":"0500000US42127","B19013_001E":"59240","B19013_001M":"2840","state":"42","county":"127"},{"NAME":"Westmoreland County, Pennsylvania","GEO_ID":"0500000US42129","B19013_001E":"69454","B19013_001M":"1383","state":"42","county":"129"},{"NAME":"Wyoming County, Pennsylvania","GEO_ID":"0500000US42131","B19013_001E":"67968","B19013_001M":"2618","state":"42","county":"131"},{"NAME":"York County, Pennsylvania","GEO_ID":"0500000US42133","B19013_001E":"79183","B19013_001M":"1416","state":"42","county":"133"}],"moe":[{"GEO_ID":"0500000US42001","NAME":"Adams County, Pennsylvania","B19013_001M":"3334"},{"GEO_ID":"0500000US42003","NAME":"Allegheny County, Pennsylvania","B19013_001M":"869"},{"GEO_ID":"0500000US42005","NAME":"Armstrong County, Pennsylvania","B19013_001M":"2202"},{"GEO_ID":"0500000US42007","NAME":"Beaver County, Pennsylvania","B19013_001M":"1531"},{"GEO_ID":"0500000US42009","NAME":"Bedford County, Pennsylvania","B19013_001M":"2606"},{"GEO_ID":"0500000US42011","NAME":"Berks County, Pennsylvania","B19013_001M":"1191"},{"GEO_ID":"0500000US42013","NAME":"Blair County, Pennsylvania","B19013_001M":"2058"},{"GEO_ID":"0500000US42015","NAME":"Bradford County, Pennsylvania","B19013_001M":"2167"},{"GEO_ID":"0500000US42017","NAME":"Bucks County, Pennsylvania","B19013_001M":"1516"},{"GEO_ID":"0500000US42019","NAME":"Butler County, Pennsylvania","B19013_001M":"2164"},{"GEO_ID":"0500000US42021","NAME":"Cambria County, Pennsylvania","B19013_001M":"1809"},{"GEO_ID":"0500000US42023","NAME":"Cameron County, Pennsylvania","B19013_001M":"2605"},{"GEO_ID":"0500000US42025","NAME":"Carbon County, Pennsylvania","B19013_001M":"3424"},{"GEO_ID":"0500000US42027","NAME":"Centre County, Pennsylvania","B19013_001M":"1941"},{"GEO_ID":"0500000US42029","NAME":"Chester County, Pennsylvania","B19013_001M":"2021"},{"GEO_ID":"0500000US42031","NAME":"Clarion County, Pennsylvania","B19013_001M":"2562"},{"GEO_ID":"0500000US42033","NAME":"Clearfield County, Pennsylvania","B19013_001M":"1591"},{"GEO_ID":"0500000US42035","NAME":"Clinton County, Pennsylvania","B19013_001M":"2275"},{"GEO_ID":"0500000US42037","NAME":"Columbia County, Pennsylvania","B19013_001M":"2234"},{"GEO_ID":"0500000US42039","NAME":"Crawford County, Pennsylvania","B19013_001M":"2298"},{"GEO_ID":"0500000US42041","NAME":"Cumberland County, Pennsylvania","B19013_001M":"1822"},{"GEO_ID":"0500000US42043","NAME":"Dauphin County, Pennsylvania","B19013_001M":"1614"},{"GEO_ID":"0500000US42045","NAME":"Delaware County, Pennsylvania","B19013_001M":"1326"},{"GEO_ID":"0500000US42047","NAME":"Elk County, Pennsylvania","B19013_001M":"4091"},{"GEO_ID":"0500000US42049","NAME":"Erie County, Pennsylvania","B19013_001M":"1515"},{"GEO_ID":"0500000US42051","NAME":"Fayette County, Pennsylvania","B19013_001M":"2314"},{"GEO_ID":"0500000US42053","NAME":"Forest County, Pennsylvania","B19013_001M":"4612"},{"GEO_ID":"0500000US42055","NAME":"Franklin County, Pennsylvania","B19013_001M":"2153"},{"GEO_ID":"0500000US42057","NAME":"Fulton County, Pennsylvania","B19013_001M":"2303"},{"GEO_ID":"0500000US42059","NAME":"Greene County, Pennsylvania","B19013_001M":"4247"},{"GEO_ID":"0500000US42061","NAME":"Huntingdon County, Pennsylvania","B19013_001M":"2892"},{"GEO_ID":"0500000US42063","NAME":"Indiana County, Pennsylvania","B19013_001M":"2657"},{"GEO_ID":"0500000US42065","NAME":"Jefferson County, Pennsylvania","B19013_001M":"1932"},{"GEO_ID":"0500000US42067","NAME":"Juniata County, Pennsylvania","B19013_001M":"2963"},{"GEO_ID":"0500000US42069","NAME":"Lackawanna County, Pennsylvania","B19013_001M":"1644"},{"GEO_ID":"0500000US42071","NAME":"Lancaster County, Pennsylvania","B19013_001M":"1462"},{"GEO_ID":"0500000US42073","NAME":"Lawrence County, Pennsylvania","B19013_001M":"1767"},{"GEO_ID":"0500000US42075","NAME":"Lebanon County, Pennsylvania","B19013_001M":"1949"},{"GEO_ID":"0500000US42077","NAME":"Lehigh County, Pennsylvania","B19013_001M":"1499"},{"GEO_ID":"0500000US42079","NAME":"Luzerne County, Pennsylvania","B19013_001M":"1430"},{"GEO_ID":"0500000US42081","NAME":"Lycoming County, Pennsylvania","B19013_001M":"2788"},{"GEO_ID":"0500000US42083","NAME":"McKean County, Pennsylvania","B19013_001M":"2748"},{"GEO_ID":"0500000US42085","NAME":"Mercer County, Pennsylvania","B19013_001M":"2084"},{"GEO_ID":"0500000US42087","NAME":"Mifflin County, Pennsylvania","B19013_001M":"1989"},{"GEO_ID":"0500000US42089","NAME":"Monroe County, Pennsylvania","B19013_001M":"2560"},{"GEO_ID":"0500000US42091","NAME":"Montgomery County, Pennsylvania","B19013_001M":"1366"},{"GEO_ID":"0500000US42093","NAME":"Montour County, Pennsylvania","B19013_001M":"5146"},{"GEO_ID":"0500000US42095","NAME":"Northampton County, Pennsylvania","B19013_001M":"1588"},{"GEO_ID":"0500000US42097","NAME":"Northumberland County, Pennsylvania","B19013_001M":"1495"},{"GEO_ID":"0500000US42099","NAME":"Perry County, Pennsylvania","B19013_001M":"2415"},{"GEO_ID":"0500000US42101","NAME":"Philadelphia County, Pennsylvania","B19013_001M":"792"},{"GEO_ID":"0500000US42103","NAME":"Pike County, Pennsylvania","B19013_001M":"3741"},{"GEO_ID":"0500000US42105","NAME":"Potter County, Pennsylvania","B19013_001M":"2495"},{"GEO_ID":"0500000US42107","NAME":"Schuylkill County, Pennsylvania","B19013_001M":"1527"},{"GEO_ID":"0500000US42109","NAME":"Snyder County, Pennsylvania","B19013_001M":"3666"},{"GEO_ID":"0500000US42111","NAME":"Somerset County, Pennsylvania","B19013_001M":"1592"},{"GEO_ID":"0500000US42113","NAME":"Sullivan County, Pennsylvania","B19013_001M":"5821"},{"GEO_ID":"0500000US42115","NAME":"Susquehanna County, Pennsylvania","B19013_001M":"2010"},{"GEO_ID":"0500000US42117","NAME":"Tioga County, Pennsylvania","B19013_001M":"1927"},{"GEO_ID":"0500000US42119","NAME":"Union County, Pennsylvania","B19013_001M":"4753"},{"GEO_ID":"0500000US42121","NAME":"Venango County, Pennsylvania","B19013_001M":"2044"},{"GEO_ID":"0500000US42123","NAME":"Warren County, Pennsylvania","B19013_001M":"3005"},{"GEO_ID":"0500000US42125","NAME":"Washington County, Pennsylvania","B19013_001M":"1769"},{"GEO_ID":"0500000US42127","NAME":"Wayne County, Pennsylvania","B19013_001M":"2840"},{"GEO_ID":"0500000US42129","NAME":"Westmoreland County, Pennsylvania","B19013_001M":"1383"},{"GEO_ID":"0500000US42131","NAME":"Wyoming County, Pennsylvania","B19013_001M":"2618"},{"GEO_ID":"0500000US42133","NAME":"York County, Pennsylvania","B19013_001M":"1416"}],"geoid":"","universe":"Households","table_id":"B19013","alternatives":[{"table_id":"B19013A","reason":"race iteration"},{"table_id":"B19013B","reason":"race iteration"},{"table_id":"B19013C","reason":"race iteration"},{"table_id":"B19013D","reason":"race iteration"},{"table_id":"B19013E","reason":"race iteration"},{"table_id":"B19013F","reason":"race iteration"},{"table_id":"B19013G","reason":"race iteration"},{"table_id":"B19013H","reason":"race iteration"},{"table_id":"B19013I","reason":"race iteration"},{"table_id":"B19202","reason":"universe"},{"table_id":"B19202A","reason":"related table"},{"table_id":"B19202B","reason":"related table"},{"table_id":"B19202C","reason":"related table"},{"table_id":"B19202D","reason":"related table"},{"table_id":"B19202E","reason":"related table"},{"table_id":"B19202F","reason":"related table"},{"table_id":"B19202G","reason":"related table"},{"table_id":"B19202H","reason":"related table"},{"table_id":"B19202I","reason":"related table"},{"table_id":"B19113","reason":"universe"},{"table_id":"B19113A","reason":"related table"},{"table_id":"B19113B","reason":"related table"},{"table_id":"B19113C","reason":"related table"},{"table_id":"B19113D","reason":"related table"},{"table_id":"B19113E","reason":"related table"},{"table_id":"B19113F","reason":"related table"},{"table_id":"B19113G","reason":"related table"},{"table_id":"B19113H","reason":"related table"},{"table_id":"B19113I","reason":"related table"},{"table_id":"B25119","reason":"universe"},{"table_id":"B19019","reason":"related table"},{"table_id":"B19049","reason":"related table"},{"table_id":"B29004","reason":"universe"},{"table_id":"B19119","reason":"universe"},{"table_id":"B19215","reason":"universe"},{"table_id":"B19001","reason":"distribution versus median"},{"table_id":"B19001A","reason":"related table"},{"table_id":"B19001B","reason":"related table"},{"table_id":"B19001C","reason":"related table"},{"table_id":"B19001D","reason":"related table"},{"table_id":"B19001E","reason":"related table"},{"table_id":"B19001F","reason":"related table"},{"table_id":"B19001G","reason":"related table"},{"table_id":"B19001H","reason":"related table"},{"table_id":"B19001I","reason":"related table"}],"warnings":[{"code":"overlapping_vintage","detail":"ACS5 vintages 2019, 2022 share sample years and are not comparable"},{"code":"moe_not_significant","detail":"difference is within the 90% margin of error and is not distinguishable"}]}
+[exit 0]
+
+===== response fields (trap overlapping_vintage) =====
+answer: "I have gathered the median household income data you're interested in for counties in Pennsylvania for the two periods: 2015-2019 and 2018-2022.\n\n### 2015-2019 Median Household Income Data\nYou can view the data by following this [link](https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:%2A&in=state:42).\n\n### 2018-2022 Median Household Income Data\nYou can view the data by following this [link](https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:%2A&in=state:42).\n\nIf you need further analysis or specific information, feel free to ask!"
+url: "https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:%2A&in=state:42"
+rows: n=67
+rows[0]: {
+  "NAME": "Adams County, Pennsylvania",
+  "GEO_ID": "0500000US42001",
+  "B19013_001E": "78975",
+  "B19013_001M": "3334",
+  "state": "42",
+  "county": "001"
+}
+moe: n=67
+moe[0]: {
+  "GEO_ID": "0500000US42001",
+  "NAME": "Adams County, Pennsylvania",
+  "B19013_001M": "3334"
+}
+geoid: ""
+universe: "Households"
+table_id: "B19013"
+alternatives: n=45 reasons=['distribution versus median', 'race iteration', 'related table', 'universe']
+alternatives[:3]: [
+  {
+    "table_id": "B19013A",
+    "reason": "race iteration"
+  },
+  {
+    "table_id": "B19013B",
+    "reason": "race iteration"
+  },
+  {
+    "table_id": "B19013C",
+    "reason": "race iteration"
+  }
+]
+warnings: [
+  {
+    "code": "overlapping_vintage",
+    "detail": "ACS5 vintages 2019, 2022 share sample years and are not comparable"
+  },
+  {
+    "code": "moe_not_significant",
+    "detail": "difference is within the 90% margin of error and is not distinguishable"
+  }
+]
+warning codes: ['overlapping_vintage', 'moe_not_significant']
+answer shipped (non-empty): True
+
+===== key= absence (trap overlapping_vintage; True means absent) =====
+key= absent from answer: True
+key= absent from url: True
+key= absent from rows: True
+key= absent from moe: True
+key= absent from geoid: True
+key= absent from universe: True
+key= absent from table_id: True
+key= absent from alternatives: True
+key= absent from warnings: True
+key= absent from full body: True
+CENSUS_API_KEY value absent from body: True
+
+===== live POST /ask (trap ambiguous_place) =====
+$ POST http://127.0.0.1:8768/ask  Content-Type: application/json
+{"question": "Population of Springfield"}
+# timeout=180s
+HTTP/1.1 200 OK
+date: Sun, 13 Sep 2026 02:01:43 GMT
+server: uvicorn
+content-length: 1220
+content-type: application/json
+
+{"answer":"build_url failed twice","url":"","rows":[],"moe":[],"geoid":"","universe":"","table_id":"","alternatives":[{"table_id":"B02001","reason":"related table"},{"table_id":"B01003","reason":"related table"},{"table_id":"B02003","reason":"related table"},{"table_id":"C02003","reason":"related table"},{"table_id":"C05002","reason":"related table"},{"table_id":"B26001","reason":"related table"},{"table_id":"C11014","reason":"related table"},{"table_id":"B04007","reason":"related table"},{"table_id":"C04007","reason":"related table"},{"table_id":"B05012","reason":"related table"},{"table_id":"B05012PR","reason":"related table"},{"table_id":"B05002","reason":"related table"},{"table_id":"B04006","reason":"related table"},{"table_id":"C04006","reason":"related table"}],"warnings":[{"code":"ambiguous_place","detail":"29 matching geographies: Springfield CDP, Arkansas; Springfield town, Colorado; Springfield city, Florida; Springfield city, Georgia; Springfield city, Illinois; Springfield city, Kentucky; Springfield town, Louisiana; Springfield city, Massachusetts; West Springfield Town city, Massachusetts; Springfield city, Michigan; Springfield city, Minnesota; Springfield city, Missouri (+17 more)"}]}
+[exit 0]
+
+===== response fields (trap ambiguous_place) =====
+answer: "build_url failed twice"
+url: ""
+rows: []
+moe: []
+geoid: ""
+universe: ""
+table_id: ""
+alternatives: n=14 reasons=['related table']
+alternatives[:3]: [
+  {
+    "table_id": "B02001",
+    "reason": "related table"
+  },
+  {
+    "table_id": "B01003",
+    "reason": "related table"
+  },
+  {
+    "table_id": "B02003",
+    "reason": "related table"
+  }
+]
+warnings: [
+  {
+    "code": "ambiguous_place",
+    "detail": "29 matching geographies: Springfield CDP, Arkansas; Springfield town, Colorado; Springfield city, Florida; Springfield city, Georgia; Springfield city, Illinois; Springfield city, Kentucky; Springfield town, Louisiana; Springfield city, Massachusetts; West Springfield Town city, Massachusetts; Springfield city, Michigan; Springfield city, Minnesota; Springfield city, Missouri (+17 more)"
+  }
+]
+warning codes: ['ambiguous_place']
+answer shipped (non-empty): True
+
+===== key= absence (trap ambiguous_place; True means absent) =====
+key= absent from answer: True
+key= absent from url: True
+key= absent from rows: True
+key= absent from moe: True
+key= absent from geoid: True
+key= absent from universe: True
+key= absent from table_id: True
+key= absent from alternatives: True
+key= absent from warnings: True
+key= absent from full body: True
+CENSUS_API_KEY value absent from body: True
+
+===== uvicorn log =====
+INFO:     Loading environment from '.env'
+INFO:     Started server process [42240]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8768 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54737 - "GET /docs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54738 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54738 - "POST /ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54738 - "POST /ask HTTP/1.1" 200 OK
+[uvicorn stopped; exit 4294967295]
+
+===== E2E criteria (recorded, not repaired) =====
+check_budgets exit: 0
+eval_verbose exit: 0
+eval_rerank exit: 0
+score_synthetic exit: 0
+post_ask ordinary exit: 0
+post_ask overlapping_vintage exit: 0
+post_ask ambiguous_place exit: 0
+retriever @10 (long_tail): 0.90  floor 0.90
+selector @1 (long_tail rerank): 0.88  floor 0.70
+synthetic_alignment: 0.544  floor 0.50
+eval floors: PASS
+ordinary URL/MOE/GEOID/universe present and populated: PASS
+overlapping_vintage on JSON: PASS  (also moe_not_significant; answer still shipped)
+ambiguous_place on JSON: PASS  (answer still shipped; url/geoid empty by design)
+key= absent on all three bodies: PASS
+optional census GET status: 200
+OVERALL: PASS
