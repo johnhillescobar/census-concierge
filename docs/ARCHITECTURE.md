@@ -88,7 +88,9 @@ per-row model. Start with `uv run uvicorn src.main:app --reload`.
 `run_ask` is a hand-rolled loop (`complete` then `dispatch`), not a graph and
 not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index, then `rerank.choose`),
 `resolve_geography` (every `geography.json` fips row — `geo_levels()` last-wins
-is 324 and is the wrong county predicate), `build_url` (availability matrix;
+is 324 and is the wrong county predicate; NAME listing includes `B01003_001E` and
+ranks filtered matches by place class, population, then GEO_ID — `matches[0]` is
+selected, the rest stay on `geographies` so `ambiguous_place` still warns), `build_url` (availability matrix;
 empty `variables` is the table total `001E`, then E paired with M),
 `fetch_data` (live Census; keeps the URL on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,

@@ -1,0 +1,34 @@
+﻿# CC-58 pre-flight
+# branch: feat/cc-58-ranked-geography
+# base: origin/feat/cc-54-search-select (CC-57 merged, d516bd3)
+# Do NOT overwrite evidence/slice-1/e2e-pre.txt.
+
+$ git rev-parse --abbrev-ref HEAD
+feat/cc-58-ranked-geography
+$ git rev-parse HEAD
+d516bd3f4dccf88ae0d6853110d98e7dc848bdb8
+$ git log -1 --oneline
+d516bd3 Merge pull request #20 from johnhillescobar:feat/cc-57-default-total
+$ git merge-base HEAD origin/feat/cc-54-search-select
+d516bd3f4dccf88ae0d6853110d98e7dc848bdb8
+
+=== LOC ===
+api/src/geo.py 357
+api/src/ask.py 400
+api/src/tools.py 320
+=== CLAIMS ===
+list_census_names get= query = f"get=NAME,GEO_ID
+absorb len==1 True
+allowed_geographies len==1 True
+last_geography True
+B01003_001E in geo.py False
+
+CENSUS_API_KEY present True
+OR places 200 n 426
+Portland OR [{'NAME': 'Portland city, Oregon', 'GEO_ID': '1600000US4159000', 'B01003_001E': '641165', 'state': '41', 'place': '59000'}]
+Portland ME [{'NAME': 'Portland city, Maine', 'GEO_ID': '1600000US2360545', 'B01003_001E': '68854', 'state': '23', 'place': '60545'}]
+counties 200 n 3222
+Cook Cook County, Illinois 5182090 0500000US17031
+Cook Cook County, Georgia 17532 0500000US13075
+Cook Cook County, Minnesota 5635 0500000US27031
+Springfield MO [{'NAME': 'Springfield city, Missouri', 'GEO_ID': '1600000US2970000', 'B01003_001E': '169954', 'state': '29', 'place': '70000'}]

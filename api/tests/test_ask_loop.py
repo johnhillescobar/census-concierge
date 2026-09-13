@@ -32,14 +32,9 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 facts.get(dataset, {}).get(year, {}).get(table_id)
             ),
             last_geography=lambda: record.geography,
-            allowed_geographies=lambda: (
-                {
-                    (str(geo.get("for") or ""), str(geo.get("in") or ""))
-                    for geo in record.geographies
-                }
-                if len(record.geographies) == 1
-                else set()
-            ),
+            allowed_geographies=lambda: {
+                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+            },
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
@@ -147,14 +142,9 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
             latest_vintage=lambda dataset: 2024,
             table_facts=lambda dataset, year, table_id: facts["acs5"][year][table_id],
             last_geography=lambda: record.geography,
-            allowed_geographies=lambda: (
-                {
-                    (str(geo.get("for") or ""), str(geo.get("in") or ""))
-                    for geo in record.geographies
-                }
-                if len(record.geographies) == 1
-                else set()
-            ),
+            allowed_geographies=lambda: {
+                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+            },
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
@@ -248,25 +238,28 @@ async def test_successful_rebuild_drops_previous_rows() -> None:
     assert record.table_id == "B01003"
 
 
-async def test_ambiguous_geography_cannot_be_built_as_one_url() -> None:
-    record = ExecutionRecord()
+async def test_ambiguous_geography_builds_the_selected_url() -> None:
+    record = ExecutionRecord(question="Population of Cook County")
     tools = _tools(record)
     await dispatch(tools["search_tables"], {"id": "1", "args": {"question": "population"}}, record)
     await dispatch(
         tools["resolve_geography"], {"id": "2", "args": {"query": "Cook County"}}, record
     )
     assert len(record.geographies) == 3
-    assert record.geography is None
-    await dispatch(
-        tools["build_url"],
-        {
-            "id": "3",
-            "args": {"table_id": "B01003", "for_spec": "county:031", "in_spec": "state:17"},
-        },
-        record,
-    )
-    assert record.url is None
-    assert record.table_id == ""
+    assert record.geography is not None
+    assert record.geography["in"] == "state:17"
+    await dispatch(tools["build_url"], {"id": "3", "args": {"table_id": "B01003"}}, record)
+    await dispatch(tools["fetch_data"], {"id": "4", "args": {}}, record)
+    response = assemble("Cook County, Illinois", record)
+    assert record.url is not None
+    assert "county:031" in str(record.url)
+    assert "state:17" in str(record.url)
+    assert response.table_id == "B01003"
+    assert response.rows
+    assert response.universe == "Total population"
+    assert [item.code for item in response.warnings] == ["ambiguous_place"]
+    assert "Cook County, Georgia" in response.warnings[0].detail
+    assert "Cook County, Minnesota" in response.warnings[0].detail
 
 
 def test_assemble_emits_every_declared_field() -> None:

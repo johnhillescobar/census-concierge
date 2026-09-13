@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-13T16:31:01+00:00",
+  "generated_at": "2026-09-13T17:29:21+00:00",
   "retrieval_at_1": 0.475,
   "overall": {
     "n": 58,
@@ -420,28 +420,28 @@
       }
     ]
   },
-  "synthetic_self_retrieval": 0.452,
-  "retrieval_at_1_reranked": 0.85,
+  "synthetic_self_retrieval": 0.45,
+  "retrieval_at_1_reranked": 0.825,
   "reranked": {
-    "generated_at": "2026-09-13T16:32:36+00:00",
-    "retrieval_at_1": 0.85,
+    "generated_at": "2026-09-13T17:31:15+00:00",
+    "retrieval_at_1": 0.825,
     "retrieval_at_10": 0.9,
     "overall": {
       "n": 40,
-      "retrieval_at_1": 0.85,
-      "retrieval_at_3": 0.9,
+      "retrieval_at_1": 0.825,
+      "retrieval_at_3": 0.875,
       "retrieval_at_5": 0.9,
       "retrieval_at_10": 0.9,
-      "mrr": 0.871
+      "mrr": 0.852
     },
     "by_tier": {
       "long_tail": {
         "n": 40,
-        "retrieval_at_1": 0.85,
-        "retrieval_at_3": 0.9,
+        "retrieval_at_1": 0.825,
+        "retrieval_at_3": 0.875,
         "retrieval_at_5": 0.9,
         "retrieval_at_10": 0.9,
-        "mrr": 0.871
+        "mrr": 0.852
       }
     },
     "misses": [
@@ -453,6 +453,16 @@
           "B16001",
           "C16001",
           "B26213"
+        ]
+      },
+      {
+        "id": "q12",
+        "question": "Health insurance coverage for children in New Mexico",
+        "expected": "B27001",
+        "got": [
+          "B27010",
+          "C27016",
+          "B27016"
         ]
       },
       {
@@ -508,41 +518,41 @@
     ]
   },
   "retrieval_at_10": 0.9,
-  "selector_at_1": 0.85,
+  "selector_at_1": 0.825,
   "synthetic_alignment": 0.544,
   "synthetic_self_retrieval_at_5": 0.82,
-  "p95_latency_seconds": 18.151,
-  "t_llm": 3.361,
-  "t_census_api": 2.991,
-  "t_ours": 3.283,
+  "p95_latency_seconds": 15.356,
+  "t_llm": 3.753,
+  "t_census_api": 3.377,
+  "t_ours": 3.658,
   "prompt_hash": "45b4e3d20ca0",
   "index_hash": "377cd59fe62a",
   "demo": {
-    "generated_at": "2026-09-13T16:58:34+00:00",
+    "generated_at": "2026-09-13T18:00:40+00:00",
     "repeat": 3,
     "n": 153,
-    "answered_rate": 0.444,
-    "overall_answered_rate": 0.431,
-    "p95_latency_seconds": 18.151,
-    "t_llm": 3.361,
-    "t_census_api": 2.991,
-    "t_ours": 3.283,
+    "answered_rate": 0.769,
+    "overall_answered_rate": 0.712,
+    "p95_latency_seconds": 15.356,
+    "t_llm": 3.753,
+    "t_census_api": 3.377,
+    "t_ours": 3.658,
     "prompt_hash": "45b4e3d20ca0",
     "index_hash": "377cd59fe62a",
     "by_tier": {
       "core": {
         "n": 12,
-        "answered_rate": 0.5,
+        "answered_rate": 0.75,
         "http_ok_rate": 1.0
       },
       "long_tail": {
         "n": 117,
-        "answered_rate": 0.444,
+        "answered_rate": 0.769,
         "http_ok_rate": 1.0
       },
       "trap": {
         "n": 24,
-        "answered_rate": 0.333,
+        "answered_rate": 0.417,
         "http_ok_rate": 1.0
       }
     },
@@ -559,10 +569,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 13.516,
-        "t_llm": 5.969,
-        "t_census_api": 3.476,
-        "t_ours": 4.071,
+        "latency_s": 8.744,
+        "t_llm": 4.914,
+        "t_census_api": 1.738,
+        "t_ours": 2.092,
         "rows": 1
       },
       {
@@ -577,10 +587,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.995,
-        "t_llm": 3.807,
-        "t_census_api": 1.334,
-        "t_ours": 2.853,
+        "latency_s": 6.018,
+        "t_llm": 3.517,
+        "t_census_api": 0.645,
+        "t_ours": 1.857,
         "rows": 36
       },
       {
@@ -589,19 +599,19 @@
         "question": "Educational attainment in Cook County",
         "tier": "core",
         "expected": "B15003",
-        "got": "",
-        "url": "",
+        "got": "B15003",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B15003_001E,B15003_001M&for=county:031&in=state:17",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.556,
-        "t_llm": 3.104,
-        "t_census_api": 1.821,
-        "t_ours": 3.632,
-        "rows": 0
+        "detail": "",
+        "latency_s": 7.054,
+        "t_llm": 3.584,
+        "t_census_api": 1.69,
+        "t_ours": 1.781,
+        "rows": 1
       },
       {
         "id": "q04",
@@ -617,10 +627,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 12.028,
-        "t_llm": 3.173,
-        "t_census_api": 4.982,
-        "t_ours": 3.873,
+        "latency_s": 8.155,
+        "t_llm": 3.241,
+        "t_census_api": 2.771,
+        "t_ours": 2.143,
         "rows": 0
       },
       {
@@ -629,19 +639,19 @@
         "question": "How many people bike to work in Portland?",
         "tier": "long_tail",
         "expected": "B08301",
-        "got": "",
-        "url": "",
+        "got": "B08301",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_014E,B08301_014M&for=place:59000&in=state:41",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.793,
-        "t_llm": 2.704,
-        "t_census_api": 4.28,
-        "t_ours": 3.81,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.707,
+        "t_llm": 5.256,
+        "t_census_api": 6.275,
+        "t_ours": 2.177,
+        "rows": 1
       },
       {
         "id": "q06",
@@ -657,10 +667,10 @@
           "moe_not_significant"
         ],
         "detail": "",
-        "latency_s": 9.59,
-        "t_llm": 3.61,
-        "t_census_api": 1.343,
-        "t_ours": 4.638,
+        "latency_s": 8.519,
+        "t_llm": 3.517,
+        "t_census_api": 1.224,
+        "t_ours": 3.778,
         "rows": 82
       },
       {
@@ -675,10 +685,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.513,
-        "t_llm": 4.165,
-        "t_census_api": 1.423,
-        "t_ours": 3.926,
+        "latency_s": 9.359,
+        "t_llm": 4.528,
+        "t_census_api": 1.469,
+        "t_ours": 3.362,
         "rows": 15
       },
       {
@@ -693,10 +703,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.516,
-        "t_llm": 4.501,
-        "t_census_api": 2.812,
-        "t_ours": 4.203,
+        "latency_s": 10.113,
+        "t_llm": 4.599,
+        "t_census_api": 2.385,
+        "t_ours": 3.129,
         "rows": 14
       },
       {
@@ -711,10 +721,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.769,
-        "t_llm": 3.831,
-        "t_census_api": 1.611,
-        "t_ours": 3.327,
+        "latency_s": 8.957,
+        "t_llm": 4.032,
+        "t_census_api": 1.284,
+        "t_ours": 3.64,
         "rows": 100
       },
       {
@@ -729,10 +739,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 12.637,
-        "t_llm": 3.443,
-        "t_census_api": 5.502,
-        "t_ours": 3.692,
+        "latency_s": 12.149,
+        "t_llm": 4.107,
+        "t_census_api": 4.597,
+        "t_ours": 3.444,
         "rows": 1
       },
       {
@@ -742,16 +752,16 @@
         "tier": "long_tail",
         "expected": "B08303",
         "got": "B08303",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:121&in=state:13",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:%2A&in=state:13",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 20.888,
-        "t_llm": 4.939,
-        "t_census_api": 11.755,
-        "t_ours": 4.193,
-        "rows": 1
+        "latency_s": 15.356,
+        "t_llm": 4.906,
+        "t_census_api": 6.144,
+        "t_ours": 4.307,
+        "rows": 159
       },
       {
         "id": "q12",
@@ -759,16 +769,16 @@
         "question": "Health insurance coverage for children in New Mexico",
         "tier": "long_tail",
         "expected": "B27001",
-        "got": "B27001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M&for=state:35",
+        "got": "B27010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M&for=state:35",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 10.655,
-        "t_llm": 3.632,
-        "t_census_api": 1.544,
-        "t_ours": 5.479,
+        "detail": "wrong table B27010",
+        "latency_s": 9.087,
+        "t_llm": 3.587,
+        "t_census_api": 1.192,
+        "t_ours": 4.308,
         "rows": 1
       },
       {
@@ -777,19 +787,19 @@
         "question": "When were the homes in Providence built?",
         "tier": "long_tail",
         "expected": "B25034",
-        "got": "",
-        "url": "",
+        "got": "B25034",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25034_001E,B25034_001M&for=place:59000&in=state:44",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.289,
-        "t_llm": 2.851,
-        "t_census_api": 3.62,
-        "t_ours": 3.818,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.682,
+        "t_llm": 3.536,
+        "t_census_api": 5.696,
+        "t_ours": 3.45,
+        "rows": 1
       },
       {
         "id": "q14",
@@ -797,19 +807,19 @@
         "question": "Households without a vehicle in Baltimore City",
         "tier": "long_tail",
         "expected": "B08201",
-        "got": "",
-        "url": "",
+        "got": "B08201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M,B08201_005E,B08201_005M&for=place:04000&in=state:24",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.786,
-        "t_llm": 2.619,
-        "t_census_api": 4.093,
-        "t_ours": 4.075,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.113,
+        "t_llm": 3.917,
+        "t_census_api": 5.143,
+        "t_ours": 4.052,
+        "rows": 1
       },
       {
         "id": "q15",
@@ -823,10 +833,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.164,
-        "t_llm": 4.176,
-        "t_census_api": 1.42,
-        "t_ours": 5.568,
+        "latency_s": 9.592,
+        "t_llm": 3.879,
+        "t_census_api": 1.304,
+        "t_ours": 4.41,
         "rows": 87
       },
       {
@@ -839,14 +849,12 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
+        "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 10.504,
-        "t_llm": 2.217,
-        "t_census_api": 4.631,
-        "t_ours": 3.657,
+        "latency_s": 13.765,
+        "t_llm": 3.382,
+        "t_census_api": 7.157,
+        "t_ours": 3.226,
         "rows": 0
       },
       {
@@ -859,12 +867,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "wrong table (none)",
-        "latency_s": 14.91,
-        "t_llm": 3.572,
-        "t_census_api": 7.938,
-        "t_ours": 3.399,
+        "latency_s": 7.007,
+        "t_llm": 2.057,
+        "t_census_api": 1.389,
+        "t_ours": 3.562,
         "rows": 0
       },
       {
@@ -881,10 +891,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 19.445,
-        "t_llm": 3.505,
-        "t_census_api": 3.004,
-        "t_ours": 12.937,
+        "latency_s": 25.443,
+        "t_llm": 6.13,
+        "t_census_api": 6.01,
+        "t_ours": 13.303,
         "rows": 0
       },
       {
@@ -893,19 +903,19 @@
         "question": "School enrollment by level in Fairfax County",
         "tier": "long_tail",
         "expected": "B14001",
-        "got": "",
-        "url": "",
+        "got": "B14001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B14001_001E,B14001_001M&for=county:059&in=state:51",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.511,
-        "t_llm": 2.719,
-        "t_census_api": 0.915,
-        "t_ours": 1.877,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.804,
+        "t_llm": 3.786,
+        "t_census_api": 2.904,
+        "t_ours": 3.114,
+        "rows": 1
       },
       {
         "id": "q20",
@@ -913,19 +923,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "",
-        "url": "",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_002E,B07201_002M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.717,
-        "t_llm": 2.654,
-        "t_census_api": 2.558,
-        "t_ours": 3.505,
-        "rows": 0
+        "detail": "wrong table B07201",
+        "latency_s": 13.895,
+        "t_llm": 3.78,
+        "t_census_api": 6.042,
+        "t_ours": 4.072,
+        "rows": 1
       },
       {
         "id": "q21",
@@ -933,19 +943,19 @@
         "question": "Households receiving SNAP benefits in the Rio Grande Valley",
         "tier": "long_tail",
         "expected": "B19058",
-        "got": "",
-        "url": "",
+        "got": "B19058",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=place:49270&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 11.203,
-        "t_llm": 3.784,
-        "t_census_api": 3.935,
-        "t_ours": 3.484,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.219,
+        "t_llm": 4.258,
+        "t_census_api": 5.699,
+        "t_ours": 3.262,
+        "rows": 1
       },
       {
         "id": "q22",
@@ -959,10 +969,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.083,
-        "t_llm": 3.769,
-        "t_census_api": 1.602,
-        "t_ours": 1.712,
+        "latency_s": 10.231,
+        "t_llm": 3.608,
+        "t_census_api": 3.195,
+        "t_ours": 3.428,
         "rows": 1
       },
       {
@@ -977,10 +987,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.509,
-        "t_llm": 3.352,
-        "t_census_api": 1.81,
-        "t_ours": 1.347,
+        "latency_s": 10.283,
+        "t_llm": 3.84,
+        "t_census_api": 3.21,
+        "t_ours": 3.233,
         "rows": 1
       },
       {
@@ -989,19 +999,19 @@
         "question": "How many hours a week does the typical worker in Anchorage put in?",
         "tier": "long_tail",
         "expected": "B23020",
-        "got": "",
-        "url": "",
+        "got": "B23020",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23020_001E,B23020_001M&for=place:01504&in=state:21",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.369,
-        "t_llm": 2.905,
-        "t_census_api": 2.342,
-        "t_ours": 2.122,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.039,
+        "t_llm": 3.138,
+        "t_census_api": 4.835,
+        "t_ours": 3.066,
+        "rows": 1
       },
       {
         "id": "q27",
@@ -1015,10 +1025,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.603,
-        "t_llm": 3.32,
-        "t_census_api": 1.777,
-        "t_ours": 2.506,
+        "latency_s": 11.059,
+        "t_llm": 3.902,
+        "t_census_api": 3.096,
+        "t_ours": 4.06,
         "rows": 1
       },
       {
@@ -1033,10 +1043,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.389,
-        "t_llm": 4.586,
-        "t_census_api": 2.457,
-        "t_ours": 2.346,
+        "latency_s": 9.011,
+        "t_llm": 4.61,
+        "t_census_api": 1.406,
+        "t_ours": 2.994,
         "rows": 1
       },
       {
@@ -1051,10 +1061,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 5.363,
-        "t_llm": 2.844,
-        "t_census_api": 0.792,
-        "t_ours": 1.726,
+        "latency_s": 7.77,
+        "t_llm": 3.538,
+        "t_census_api": 1.191,
+        "t_ours": 3.041,
         "rows": 1
       },
       {
@@ -1063,19 +1073,19 @@
         "question": "How long have naturalized citizens in Hialeah held their citizenship?",
         "tier": "long_tail",
         "expected": "B05011",
-        "got": "",
-        "url": "",
+        "got": "B05011",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05011_001E,B05011_001M&for=place:30000&in=state:12",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.031,
-        "t_llm": 3.486,
-        "t_census_api": 2.3,
-        "t_ours": 2.245,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.882,
+        "t_llm": 4.214,
+        "t_census_api": 4.603,
+        "t_ours": 3.064,
+        "rows": 1
       },
       {
         "id": "q31",
@@ -1083,19 +1093,19 @@
         "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
         "tier": "long_tail",
         "expected": "B25081",
-        "got": "",
-        "url": "",
+        "got": "B25081",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_003E,B25081_003M&for=county:059&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.304,
-        "t_llm": 2.344,
-        "t_census_api": 0.885,
-        "t_ours": 2.076,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.037,
+        "t_llm": 3.771,
+        "t_census_api": 2.624,
+        "t_ours": 3.641,
+        "rows": 1
       },
       {
         "id": "q32",
@@ -1109,10 +1119,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 5.82,
-        "t_llm": 3.318,
-        "t_census_api": 0.822,
-        "t_ours": 1.68,
+        "latency_s": 8.743,
+        "t_llm": 3.536,
+        "t_census_api": 1.82,
+        "t_ours": 3.387,
         "rows": 1
       },
       {
@@ -1121,19 +1131,19 @@
         "question": "Households in Santa Ana where nobody over 14 speaks English well",
         "tier": "long_tail",
         "expected": "B16002",
-        "got": "",
-        "url": "",
+        "got": "B16002",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_001E,B16002_001M,B16002_003E,B16002_003M&for=place:69000&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.492,
-        "t_llm": 2.622,
-        "t_census_api": 2.144,
-        "t_ours": 1.726,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.42,
+        "t_llm": 3.695,
+        "t_census_api": 4.387,
+        "t_ours": 3.338,
+        "rows": 1
       },
       {
         "id": "q34",
@@ -1147,10 +1157,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 10.157,
-        "t_llm": 3.475,
-        "t_census_api": 3.898,
-        "t_ours": 2.785,
+        "latency_s": 11.571,
+        "t_llm": 4.805,
+        "t_census_api": 2.693,
+        "t_ours": 4.073,
         "rows": 1
       },
       {
@@ -1160,15 +1170,15 @@
         "tier": "long_tail",
         "expected": "B25091",
         "got": "B25091",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25091_003E,B25091_003M,B25091_004E,B25091_004M,B25091_005E,B25091_005M&for=county:086&in=state:12",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25091_001E,B25091_001M&for=county:086&in=state:12",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.477,
-        "t_llm": 4.274,
-        "t_census_api": 4.635,
-        "t_ours": 2.567,
+        "latency_s": 16.061,
+        "t_llm": 4.715,
+        "t_census_api": 7.555,
+        "t_ours": 3.791,
         "rows": 1
       },
       {
@@ -1177,19 +1187,19 @@
         "question": "Crowded housing in Santa Cruz County, more than one person per room",
         "tier": "long_tail",
         "expected": "B25014",
-        "got": "",
-        "url": "",
+        "got": "B25014",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25014_001E,B25014_001M&for=county:087&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.139,
-        "t_llm": 2.538,
-        "t_census_api": 0.845,
-        "t_ours": 1.757,
-        "rows": 0
+        "detail": "",
+        "latency_s": 15.272,
+        "t_llm": 3.99,
+        "t_census_api": 3.532,
+        "t_ours": 7.749,
+        "rows": 1
       },
       {
         "id": "q37",
@@ -1203,10 +1213,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.974,
-        "t_llm": 4.193,
-        "t_census_api": 0.931,
-        "t_ours": 1.851,
+        "latency_s": 10.765,
+        "t_llm": 4.073,
+        "t_census_api": 1.466,
+        "t_ours": 5.225,
         "rows": 67
       },
       {
@@ -1215,19 +1225,19 @@
         "question": "Break down the Asian population in Fremont by specific origin",
         "tier": "long_tail",
         "expected": "B02015",
-        "got": "",
-        "url": "",
+        "got": "B02015",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B02015_001E,B02015_001M&for=place:26000&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.716,
-        "t_llm": 2.931,
-        "t_census_api": 2.371,
-        "t_ours": 2.414,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.604,
+        "t_llm": 4.217,
+        "t_census_api": 5.429,
+        "t_ours": 3.958,
+        "rows": 1
       },
       {
         "id": "q39",
@@ -1241,10 +1251,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 2.566,
-        "t_llm": 2.392,
+        "latency_s": 2.942,
+        "t_llm": 2.314,
         "t_census_api": 0.0,
-        "t_ours": 0.174,
+        "t_ours": 0.627,
         "rows": 0
       },
       {
@@ -1253,19 +1263,19 @@
         "question": "How many studio and one-bedroom units are there in Cambridge?",
         "tier": "long_tail",
         "expected": "B25041",
-        "got": "",
-        "url": "",
+        "got": "B25041",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25041_002E,B25041_002M,B25041_003E,B25041_003M&for=place:11000&in=state:25",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.631,
-        "t_llm": 2.75,
-        "t_census_api": 2.237,
-        "t_ours": 1.645,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.648,
+        "t_llm": 4.597,
+        "t_census_api": 5.488,
+        "t_ours": 3.563,
+        "rows": 1
       },
       {
         "id": "q41",
@@ -1279,10 +1289,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B15010",
-        "latency_s": 12.935,
-        "t_llm": 5.186,
-        "t_census_api": 3.894,
-        "t_ours": 3.855,
+        "latency_s": 14.585,
+        "t_llm": 4.857,
+        "t_census_api": 4.433,
+        "t_ours": 5.294,
         "rows": 1
       },
       {
@@ -1291,19 +1301,19 @@
         "question": "Veterans in Fayetteville with a service-connected disability rating",
         "tier": "long_tail",
         "expected": "B21100",
-        "got": "",
-        "url": "",
+        "got": "B21100",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B21100_001E,B21100_001M&for=place:22920&in=state:37",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.844,
-        "t_llm": 2.754,
-        "t_census_api": 3.056,
-        "t_ours": 2.034,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.25,
+        "t_llm": 3.579,
+        "t_census_api": 5.208,
+        "t_ours": 3.462,
+        "rows": 1
       },
       {
         "id": "q43",
@@ -1311,19 +1321,19 @@
         "question": "What time do commuters in Suffolk County leave the house?",
         "tier": "long_tail",
         "expected": "B08302",
-        "got": "",
-        "url": "",
+        "got": "B08303",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:103&in=state:36",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.266,
-        "t_llm": 2.282,
-        "t_census_api": 0.974,
-        "t_ours": 2.01,
-        "rows": 0
+        "detail": "wrong table B08303",
+        "latency_s": 9.621,
+        "t_llm": 3.411,
+        "t_census_api": 2.688,
+        "t_ours": 3.522,
+        "rows": 1
       },
       {
         "id": "q44",
@@ -1337,10 +1347,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.577,
-        "t_llm": 3.758,
-        "t_census_api": 3.192,
-        "t_ours": 1.627,
+        "latency_s": 10.496,
+        "t_llm": 4.074,
+        "t_census_api": 3.058,
+        "t_ours": 3.365,
         "rows": 1
       },
       {
@@ -1357,10 +1367,10 @@
           "overlapping_vintage"
         ],
         "detail": "",
-        "latency_s": 10.4,
-        "t_llm": 4.75,
-        "t_census_api": 2.477,
-        "t_ours": 3.172,
+        "latency_s": 20.59,
+        "t_llm": 6.792,
+        "t_census_api": 5.676,
+        "t_ours": 8.123,
         "rows": 3222
       },
       {
@@ -1375,10 +1385,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.41,
-        "t_llm": 3.578,
-        "t_census_api": 1.084,
-        "t_ours": 1.748,
+        "latency_s": 8.949,
+        "t_llm": 4.079,
+        "t_census_api": 1.389,
+        "t_ours": 3.481,
         "rows": 99
       },
       {
@@ -1393,10 +1403,10 @@
         "answered": false,
         "warnings": [],
         "detail": "missing warning moe_not_significant",
-        "latency_s": 2.051,
-        "t_llm": 1.216,
-        "t_census_api": 0.661,
-        "t_ours": 0.174,
+        "latency_s": 3.05,
+        "t_llm": 0.738,
+        "t_census_api": 1.814,
+        "t_ours": 0.497,
         "rows": 0
       },
       {
@@ -1409,12 +1419,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 5.292,
-        "t_llm": 2.817,
-        "t_census_api": 0.697,
-        "t_ours": 1.777,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "empty url",
+        "latency_s": 11.383,
+        "t_llm": 5.742,
+        "t_census_api": 1.667,
+        "t_ours": 3.974,
         "rows": 0
       },
       {
@@ -1423,19 +1435,19 @@
         "question": "Population of Springfield",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B01003",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:70000&in=state:29",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 7.98,
-        "t_llm": 4.126,
-        "t_census_api": 2.289,
-        "t_ours": 1.565,
-        "rows": 0
+        "latency_s": 12.11,
+        "t_llm": 4.037,
+        "t_census_api": 5.304,
+        "t_ours": 2.769,
+        "rows": 1
       },
       {
         "id": "t06",
@@ -1451,10 +1463,10 @@
           "universe_mismatch"
         ],
         "detail": "empty url",
-        "latency_s": 24.343,
-        "t_llm": 5.281,
-        "t_census_api": 12.228,
-        "t_ours": 6.834,
+        "latency_s": 17.958,
+        "t_llm": 5.13,
+        "t_census_api": 8.219,
+        "t_ours": 4.609,
         "rows": 0
       },
       {
@@ -1463,19 +1475,19 @@
         "question": "Population of Phoenix in 2024 from the 1-year ACS",
         "tier": "trap",
         "expected": "B01003",
-        "got": "",
-        "url": "",
+        "got": "B01003",
+        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:55000&in=state:04",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.155,
-        "t_llm": 2.612,
-        "t_census_api": 3.295,
-        "t_ours": 2.248,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.127,
+        "t_llm": 3.525,
+        "t_census_api": 5.546,
+        "t_ours": 3.056,
+        "rows": 1
       },
       {
         "id": "t08",
@@ -1483,16 +1495,16 @@
         "question": "Give me the income distribution, not just the median, for Travis County",
         "tier": "trap",
         "expected": "B19001",
-        "got": "B19082",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19082_001E,B19082_001M&for=county:453&in=state:48",
+        "got": "B19101",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19101_001E,B19101_001M&for=county:453&in=state:48",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "wrong table B19082",
-        "latency_s": 11.03,
-        "t_llm": 3.772,
-        "t_census_api": 2.472,
-        "t_ours": 4.786,
+        "detail": "wrong table B19101",
+        "latency_s": 11.265,
+        "t_llm": 4.252,
+        "t_census_api": 2.55,
+        "t_ours": 4.463,
         "rows": 1
       },
       {
@@ -1507,10 +1519,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.799,
-        "t_llm": 2.917,
-        "t_census_api": 3.237,
-        "t_ours": 1.645,
+        "latency_s": 11.675,
+        "t_llm": 3.271,
+        "t_census_api": 4.919,
+        "t_ours": 3.485,
         "rows": 1
       },
       {
@@ -1525,10 +1537,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 5.956,
-        "t_llm": 3.043,
-        "t_census_api": 1.468,
-        "t_ours": 1.445,
+        "latency_s": 9.339,
+        "t_llm": 3.569,
+        "t_census_api": 2.56,
+        "t_ours": 3.21,
         "rows": 1
       },
       {
@@ -1543,10 +1555,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.26,
-        "t_llm": 3.795,
-        "t_census_api": 0.603,
-        "t_ours": 1.862,
+        "latency_s": 8.498,
+        "t_llm": 4.04,
+        "t_census_api": 1.336,
+        "t_ours": 3.122,
         "rows": 36
       },
       {
@@ -1555,19 +1567,19 @@
         "question": "Educational attainment in Cook County",
         "tier": "core",
         "expected": "B15003",
-        "got": "",
-        "url": "",
+        "got": "B15003",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B15003_001E,B15003_001M&for=county:031&in=state:17",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.312,
-        "t_llm": 2.742,
-        "t_census_api": 1.545,
-        "t_ours": 2.025,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.195,
+        "t_llm": 3.289,
+        "t_census_api": 2.503,
+        "t_ours": 3.402,
+        "rows": 1
       },
       {
         "id": "q04",
@@ -1583,10 +1595,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 12.498,
-        "t_llm": 4.26,
-        "t_census_api": 5.983,
-        "t_ours": 2.255,
+        "latency_s": 11.737,
+        "t_llm": 4.06,
+        "t_census_api": 4.403,
+        "t_ours": 3.273,
         "rows": 0
       },
       {
@@ -1595,17 +1607,19 @@
         "question": "How many people bike to work in Portland?",
         "tier": "long_tail",
         "expected": "B08301",
-        "got": "",
-        "url": "",
+        "got": "B08301",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_002E,B08301_002M&for=place:59000&in=state:41",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 5.085,
-        "t_llm": 2.595,
-        "t_census_api": 0.642,
-        "t_ours": 1.848,
-        "rows": 0
+        "answered": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "",
+        "latency_s": 11.851,
+        "t_llm": 3.333,
+        "t_census_api": 5.028,
+        "t_ours": 3.49,
+        "rows": 1
       },
       {
         "id": "q06",
@@ -1621,10 +1635,10 @@
           "moe_not_significant"
         ],
         "detail": "",
-        "latency_s": 7.969,
-        "t_llm": 4.307,
-        "t_census_api": 1.657,
-        "t_ours": 2.005,
+        "latency_s": 9.589,
+        "t_llm": 3.872,
+        "t_census_api": 1.447,
+        "t_ours": 4.271,
         "rows": 82
       },
       {
@@ -1634,15 +1648,15 @@
         "tier": "long_tail",
         "expected": "B25070",
         "got": "B25070",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M,B25070_002E,B25070_002M,B25070_003E,B25070_003M,B25070_004E,B25070_004M,B25070_005E,B25070_005M,B25070_006E,B25070_006M,B25070_007E,B25070_007M,B25070_008E,B25070_008M,B25070_009E,B25070_009M&for=county:%2A&in=state:04",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M,B25070_002E,B25070_002M,B25070_003E,B25070_003M&for=county:%2A&in=state:04",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.42,
-        "t_llm": 4.712,
-        "t_census_api": 0.814,
-        "t_ours": 1.894,
+        "latency_s": 9.996,
+        "t_llm": 4.253,
+        "t_census_api": 1.289,
+        "t_ours": 4.454,
         "rows": 15
       },
       {
@@ -1651,17 +1665,17 @@
         "question": "Disability rates among adults in rural Vermont counties",
         "tier": "long_tail",
         "expected": "B18101",
-        "got": "B18101",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18101_001E,B18101_001M&for=county:%2A&in=state:50",
+        "got": "B18101G",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18101G_001E,B18101G_001M&for=county:%2A&in=state:50",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 8.115,
-        "t_llm": 4.163,
-        "t_census_api": 1.743,
-        "t_ours": 2.209,
-        "rows": 14
+        "detail": "wrong table B18101G",
+        "latency_s": 9.314,
+        "t_llm": 4.968,
+        "t_census_api": 0.968,
+        "t_ours": 3.378,
+        "rows": 0
       },
       {
         "id": "q09",
@@ -1675,10 +1689,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.185,
-        "t_llm": 3.978,
-        "t_census_api": 1.245,
-        "t_ours": 1.961,
+        "latency_s": 8.778,
+        "t_llm": 3.879,
+        "t_census_api": 1.484,
+        "t_ours": 3.415,
         "rows": 100
       },
       {
@@ -1693,10 +1707,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 18.118,
-        "t_llm": 3.573,
-        "t_census_api": 11.185,
-        "t_ours": 3.359,
+        "latency_s": 11.724,
+        "t_llm": 3.595,
+        "t_census_api": 4.71,
+        "t_ours": 3.419,
         "rows": 1
       },
       {
@@ -1705,16 +1719,18 @@
         "question": "How long is the average commute in the Atlanta metro?",
         "tier": "long_tail",
         "expected": "B08303",
-        "got": "B08303",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:121&in=state:13",
+        "got": "B08013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
         "http_ok": true,
-        "answered": true,
-        "warnings": [],
-        "detail": "",
-        "latency_s": 18.151,
-        "t_llm": 4.817,
-        "t_census_api": 9.089,
-        "t_ours": 4.245,
+        "answered": false,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table B08013",
+        "latency_s": 14.512,
+        "t_llm": 3.506,
+        "t_census_api": 4.571,
+        "t_ours": 6.435,
         "rows": 1
       },
       {
@@ -1723,16 +1739,16 @@
         "question": "Health insurance coverage for children in New Mexico",
         "tier": "long_tail",
         "expected": "B27001",
-        "got": "B27001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M&for=state:35",
+        "got": "B27010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M&for=state:35",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 9.549,
-        "t_llm": 3.321,
-        "t_census_api": 1.162,
-        "t_ours": 5.066,
+        "detail": "wrong table B27010",
+        "latency_s": 10.836,
+        "t_llm": 3.998,
+        "t_census_api": 1.279,
+        "t_ours": 5.559,
         "rows": 1
       },
       {
@@ -1741,19 +1757,19 @@
         "question": "When were the homes in Providence built?",
         "tier": "long_tail",
         "expected": "B25034",
-        "got": "",
-        "url": "",
+        "got": "B25034",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25034_001E,B25034_001M&for=place:59000&in=state:44",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.513,
-        "t_llm": 2.959,
-        "t_census_api": 3.127,
-        "t_ours": 4.427,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.865,
+        "t_llm": 3.661,
+        "t_census_api": 4.214,
+        "t_ours": 2.989,
+        "rows": 1
       },
       {
         "id": "q14",
@@ -1761,19 +1777,19 @@
         "question": "Households without a vehicle in Baltimore City",
         "tier": "long_tail",
         "expected": "B08201",
-        "got": "",
-        "url": "",
+        "got": "B08201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M&for=place:04000&in=state:24",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.037,
-        "t_llm": 3.241,
-        "t_census_api": 3.239,
-        "t_ours": 3.557,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.85,
+        "t_llm": 3.734,
+        "t_census_api": 4.18,
+        "t_ours": 3.937,
+        "rows": 1
       },
       {
         "id": "q15",
@@ -1787,10 +1803,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.71,
-        "t_llm": 3.435,
-        "t_census_api": 1.207,
-        "t_ours": 4.068,
+        "latency_s": 8.892,
+        "t_llm": 3.447,
+        "t_census_api": 1.193,
+        "t_ours": 4.251,
         "rows": 87
       },
       {
@@ -1799,19 +1815,19 @@
         "question": "How many people live in group quarters in Ithaca?",
         "tier": "long_tail",
         "expected": "B26001",
-        "got": "",
-        "url": "",
+        "got": "B26001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B26001_001E,B26001_001M&for=place:38077&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.697,
-        "t_llm": 2.154,
-        "t_census_api": 3.227,
-        "t_ours": 3.316,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.178,
+        "t_llm": 3.869,
+        "t_census_api": 5.793,
+        "t_ours": 3.516,
+        "rows": 1
       },
       {
         "id": "q17",
@@ -1819,17 +1835,19 @@
         "question": "Occupation breakdown for workers in Silicon Valley counties",
         "tier": "long_tail",
         "expected": "B24010",
-        "got": "B24114",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B24114_001E,B24114_001M&for=county:081&in=state:06",
+        "got": "",
+        "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "wrong table B24114",
-        "latency_s": 13.352,
-        "t_llm": 5.309,
-        "t_census_api": 4.923,
-        "t_ours": 3.12,
-        "rows": 1
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.538,
+        "t_llm": 3.263,
+        "t_census_api": 1.42,
+        "t_ours": 3.855,
+        "rows": 0
       },
       {
         "id": "q18",
@@ -1837,17 +1855,19 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "",
-        "url": "",
+        "got": "B25009",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=county:%2A&in=state:55",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 19.212,
-        "t_llm": 3.109,
-        "t_census_api": 5.87,
-        "t_ours": 10.233,
-        "rows": 0
+        "warnings": [
+          "moe_not_significant"
+        ],
+        "detail": "wrong table B25009",
+        "latency_s": 23.547,
+        "t_llm": 4.978,
+        "t_census_api": 4.61,
+        "t_ours": 13.959,
+        "rows": 72
       },
       {
         "id": "q19",
@@ -1855,19 +1875,19 @@
         "question": "School enrollment by level in Fairfax County",
         "tier": "long_tail",
         "expected": "B14001",
-        "got": "",
-        "url": "",
+        "got": "B14001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B14001_001E,B14001_001M&for=county:059&in=state:51",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.085,
-        "t_llm": 2.721,
-        "t_census_api": 1.334,
-        "t_ours": 3.03,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.109,
+        "t_llm": 4.01,
+        "t_census_api": 2.881,
+        "t_ours": 3.217,
+        "rows": 1
       },
       {
         "id": "q20",
@@ -1875,19 +1895,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "",
-        "url": "",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.609,
-        "t_llm": 2.859,
-        "t_census_api": 2.941,
-        "t_ours": 3.81,
-        "rows": 0
+        "detail": "wrong table B07201",
+        "latency_s": 12.911,
+        "t_llm": 3.551,
+        "t_census_api": 4.166,
+        "t_ours": 5.194,
+        "rows": 1
       },
       {
         "id": "q21",
@@ -1896,16 +1916,18 @@
         "tier": "long_tail",
         "expected": "B19058",
         "got": "B19058",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=county:%2A&in=state:48",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=place:49270&in=state:06",
         "http_ok": true,
         "answered": true,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "",
-        "latency_s": 13.098,
-        "t_llm": 5.025,
-        "t_census_api": 4.744,
-        "t_ours": 3.33,
-        "rows": 254
+        "latency_s": 7.874,
+        "t_llm": 3.062,
+        "t_census_api": 2.944,
+        "t_ours": 1.868,
+        "rows": 1
       },
       {
         "id": "q22",
@@ -1919,10 +1941,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.847,
-        "t_llm": 3.688,
-        "t_census_api": 2.1,
-        "t_ours": 3.058,
+        "latency_s": 6.978,
+        "t_llm": 3.39,
+        "t_census_api": 1.541,
+        "t_ours": 2.046,
         "rows": 1
       },
       {
@@ -1937,10 +1959,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.008,
-        "t_llm": 4.237,
-        "t_census_api": 2.505,
-        "t_ours": 3.266,
+        "latency_s": 9.336,
+        "t_llm": 3.566,
+        "t_census_api": 3.017,
+        "t_ours": 2.753,
         "rows": 1
       },
       {
@@ -1949,19 +1971,19 @@
         "question": "How many hours a week does the typical worker in Anchorage put in?",
         "tier": "long_tail",
         "expected": "B23020",
-        "got": "",
-        "url": "",
+        "got": "B23020",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23020_001E,B23020_001M&for=place:01504&in=state:21",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.999,
-        "t_llm": 2.662,
-        "t_census_api": 3.093,
-        "t_ours": 4.245,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.127,
+        "t_llm": 4.005,
+        "t_census_api": 4.468,
+        "t_ours": 3.654,
+        "rows": 1
       },
       {
         "id": "q27",
@@ -1975,10 +1997,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.476,
-        "t_llm": 3.684,
-        "t_census_api": 3.267,
-        "t_ours": 3.526,
+        "latency_s": 9.738,
+        "t_llm": 3.87,
+        "t_census_api": 2.925,
+        "t_ours": 2.943,
         "rows": 1
       },
       {
@@ -1988,15 +2010,15 @@
         "tier": "long_tail",
         "expected": "B22010",
         "got": "B22010",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M&for=state:54",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M,B22010_002E,B22010_002M,B22010_003E,B22010_003M&for=state:54",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.519,
-        "t_llm": 3.515,
-        "t_census_api": 0.823,
-        "t_ours": 3.181,
+        "latency_s": 10.063,
+        "t_llm": 5.174,
+        "t_census_api": 1.695,
+        "t_ours": 3.194,
         "rows": 1
       },
       {
@@ -2011,10 +2033,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.345,
-        "t_llm": 3.918,
-        "t_census_api": 0.588,
-        "t_ours": 1.839,
+        "latency_s": 9.784,
+        "t_llm": 3.457,
+        "t_census_api": 1.187,
+        "t_ours": 5.139,
         "rows": 1
       },
       {
@@ -2023,19 +2045,19 @@
         "question": "How long have naturalized citizens in Hialeah held their citizenship?",
         "tier": "long_tail",
         "expected": "B05011",
-        "got": "",
-        "url": "",
+        "got": "B05011",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05011_001E,B05011_001M&for=place:30000&in=state:12",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.464,
-        "t_llm": 2.391,
-        "t_census_api": 2.46,
-        "t_ours": 1.613,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.447,
+        "t_llm": 3.724,
+        "t_census_api": 5.228,
+        "t_ours": 3.496,
+        "rows": 1
       },
       {
         "id": "q31",
@@ -2043,19 +2065,19 @@
         "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
         "tier": "long_tail",
         "expected": "B25081",
-        "got": "",
-        "url": "",
+        "got": "B25081",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_003E,B25081_003M&for=county:059&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.109,
-        "t_llm": 2.604,
-        "t_census_api": 1.299,
-        "t_ours": 2.207,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.557,
+        "t_llm": 3.547,
+        "t_census_api": 3.194,
+        "t_ours": 3.815,
+        "rows": 1
       },
       {
         "id": "q32",
@@ -2064,15 +2086,15 @@
         "tier": "long_tail",
         "expected": "B18135",
         "got": "B18135",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18135_001E,B18135_001M,B18135_002E,B18135_002M,B18135_003E,B18135_003M&for=state:01",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18135_001E,B18135_001M&for=state:01",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.368,
-        "t_llm": 3.642,
-        "t_census_api": 1.237,
-        "t_ours": 3.489,
+        "latency_s": 7.676,
+        "t_llm": 3.239,
+        "t_census_api": 1.2,
+        "t_ours": 3.236,
         "rows": 1
       },
       {
@@ -2089,10 +2111,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 10.52,
-        "t_llm": 2.79,
-        "t_census_api": 3.136,
-        "t_ours": 4.595,
+        "latency_s": 10.97,
+        "t_llm": 3.054,
+        "t_census_api": 4.697,
+        "t_ours": 3.219,
         "rows": 0
       },
       {
@@ -2101,17 +2123,17 @@
         "question": "Workers in Bozeman who run their own business instead of working for someone else",
         "tier": "long_tail",
         "expected": "B24080",
-        "got": "",
-        "url": "",
+        "got": "B19053",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19053_001E,B19053_001M&for=place:08950&in=state:30",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 9.947,
-        "t_llm": 3.143,
-        "t_census_api": 3.343,
-        "t_ours": 3.46,
-        "rows": 0
+        "detail": "wrong table B19053",
+        "latency_s": 10.564,
+        "t_llm": 3.648,
+        "t_census_api": 2.743,
+        "t_ours": 4.173,
+        "rows": 1
       },
       {
         "id": "q35",
@@ -2125,10 +2147,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 14.092,
-        "t_llm": 4.171,
-        "t_census_api": 5.819,
-        "t_ours": 4.102,
+        "latency_s": 14.922,
+        "t_llm": 4.032,
+        "t_census_api": 6.804,
+        "t_ours": 4.087,
         "rows": 1
       },
       {
@@ -2137,19 +2159,19 @@
         "question": "Crowded housing in Santa Cruz County, more than one person per room",
         "tier": "long_tail",
         "expected": "B25014",
-        "got": "",
-        "url": "",
+        "got": "B25014",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25014_001E,B25014_001M&for=county:087&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.223,
-        "t_llm": 2.318,
-        "t_census_api": 1.367,
-        "t_ours": 3.538,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.858,
+        "t_llm": 4.908,
+        "t_census_api": 2.778,
+        "t_ours": 3.173,
+        "rows": 1
       },
       {
         "id": "q37",
@@ -2163,10 +2185,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.932,
-        "t_llm": 3.169,
-        "t_census_api": 1.291,
-        "t_ours": 3.472,
+        "latency_s": 7.881,
+        "t_llm": 3.658,
+        "t_census_api": 1.212,
+        "t_ours": 3.011,
         "rows": 67
       },
       {
@@ -2175,19 +2197,19 @@
         "question": "Break down the Asian population in Fremont by specific origin",
         "tier": "long_tail",
         "expected": "B02015",
-        "got": "",
-        "url": "",
+        "got": "B02015",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B02015_001E,B02015_001M&for=place:26000&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.464,
-        "t_llm": 2.664,
-        "t_census_api": 4.37,
-        "t_ours": 3.431,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.47,
+        "t_llm": 3.286,
+        "t_census_api": 5.001,
+        "t_ours": 3.183,
+        "rows": 1
       },
       {
         "id": "q39",
@@ -2201,10 +2223,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 2.869,
-        "t_llm": 2.292,
+        "latency_s": 2.666,
+        "t_llm": 2.143,
         "t_census_api": 0.0,
-        "t_ours": 0.576,
+        "t_ours": 0.523,
         "rows": 0
       },
       {
@@ -2213,19 +2235,19 @@
         "question": "How many studio and one-bedroom units are there in Cambridge?",
         "tier": "long_tail",
         "expected": "B25041",
-        "got": "",
-        "url": "",
+        "got": "B25041",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25041_002E,B25041_002M,B25041_003E,B25041_003M&for=place:11000&in=state:25",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.349,
-        "t_llm": 2.679,
-        "t_census_api": 2.971,
-        "t_ours": 3.699,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.673,
+        "t_llm": 3.913,
+        "t_census_api": 5.41,
+        "t_ours": 3.349,
+        "rows": 1
       },
       {
         "id": "q41",
@@ -2233,16 +2255,16 @@
         "question": "What did people in Ann Arbor study in college?",
         "tier": "long_tail",
         "expected": "B15012",
-        "got": "B15010",
-        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B15010_001E,B15010_001M&for=place:03000&in=state:26",
+        "got": "B15012",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B15012_001E,B15012_001M&for=place:03000&in=state:26",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table B15010",
-        "latency_s": 12.922,
-        "t_llm": 4.09,
-        "t_census_api": 4.49,
-        "t_ours": 4.343,
+        "detail": "",
+        "latency_s": 13.862,
+        "t_llm": 3.996,
+        "t_census_api": 5.137,
+        "t_ours": 4.729,
         "rows": 1
       },
       {
@@ -2251,19 +2273,19 @@
         "question": "Veterans in Fayetteville with a service-connected disability rating",
         "tier": "long_tail",
         "expected": "B21100",
-        "got": "",
-        "url": "",
+        "got": "B21100",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B21100_001E,B21100_001M&for=place:22920&in=state:37",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.006,
-        "t_llm": 2.595,
-        "t_census_api": 3.208,
-        "t_ours": 3.203,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.905,
+        "t_llm": 3.6,
+        "t_census_api": 4.891,
+        "t_ours": 3.414,
+        "rows": 1
       },
       {
         "id": "q43",
@@ -2271,19 +2293,19 @@
         "question": "What time do commuters in Suffolk County leave the house?",
         "tier": "long_tail",
         "expected": "B08302",
-        "got": "",
-        "url": "",
+        "got": "B08302",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08302_001E,B08302_001M&for=county:103&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.835,
-        "t_llm": 3.396,
-        "t_census_api": 1.328,
-        "t_ours": 3.111,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.991,
+        "t_llm": 3.705,
+        "t_census_api": 2.898,
+        "t_ours": 3.388,
+        "rows": 1
       },
       {
         "id": "q44",
@@ -2297,10 +2319,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.976,
-        "t_llm": 3.364,
-        "t_census_api": 2.623,
-        "t_ours": 2.989,
+        "latency_s": 9.421,
+        "t_llm": 3.624,
+        "t_census_api": 2.868,
+        "t_ours": 2.93,
         "rows": 1
       },
       {
@@ -2317,10 +2339,10 @@
           "overlapping_vintage"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 9.978,
-        "t_llm": 2.302,
+        "latency_s": 5.349,
+        "t_llm": 2.022,
         "t_census_api": 0.0,
-        "t_ours": 7.676,
+        "t_ours": 3.327,
         "rows": 0
       },
       {
@@ -2335,10 +2357,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.774,
-        "t_llm": 3.383,
-        "t_census_api": 1.03,
-        "t_ours": 3.361,
+        "latency_s": 8.54,
+        "t_llm": 4.111,
+        "t_census_api": 1.123,
+        "t_ours": 3.305,
         "rows": 99
       },
       {
@@ -2353,10 +2375,10 @@
         "answered": false,
         "warnings": [],
         "detail": "missing warning moe_not_significant",
-        "latency_s": 3.039,
-        "t_llm": 0.758,
-        "t_census_api": 1.656,
-        "t_ours": 0.626,
+        "latency_s": 3.386,
+        "t_llm": 0.821,
+        "t_census_api": 1.928,
+        "t_ours": 0.637,
         "rows": 0
       },
       {
@@ -2373,10 +2395,10 @@
           "geography_unsupported"
         ],
         "detail": "empty url",
-        "latency_s": 8.518,
-        "t_llm": 4.188,
-        "t_census_api": 1.504,
-        "t_ours": 2.826,
+        "latency_s": 9.331,
+        "t_llm": 3.598,
+        "t_census_api": 2.422,
+        "t_ours": 3.311,
         "rows": 0
       },
       {
@@ -2385,19 +2407,19 @@
         "question": "Population of Springfield",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B01003",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:70000&in=state:29",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.092,
-        "t_llm": 3.799,
-        "t_census_api": 3.124,
-        "t_ours": 3.169,
-        "rows": 0
+        "latency_s": 10.986,
+        "t_llm": 3.411,
+        "t_census_api": 4.452,
+        "t_ours": 3.123,
+        "rows": 1
       },
       {
         "id": "t06",
@@ -2413,10 +2435,10 @@
           "universe_mismatch"
         ],
         "detail": "empty url",
-        "latency_s": 16.525,
-        "t_llm": 4.787,
-        "t_census_api": 7.37,
-        "t_ours": 4.367,
+        "latency_s": 9.45,
+        "t_llm": 3.914,
+        "t_census_api": 1.229,
+        "t_ours": 4.307,
         "rows": 0
       },
       {
@@ -2429,12 +2451,14 @@
         "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:55000&in=state:04",
         "http_ok": true,
         "answered": true,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "",
-        "latency_s": 8.634,
-        "t_llm": 3.362,
-        "t_census_api": 2.16,
-        "t_ours": 3.112,
+        "latency_s": 11.838,
+        "t_llm": 3.461,
+        "t_census_api": 5.179,
+        "t_ours": 3.198,
         "rows": 1
       },
       {
@@ -2449,10 +2473,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19101",
-        "latency_s": 10.13,
-        "t_llm": 3.286,
-        "t_census_api": 2.681,
-        "t_ours": 4.164,
+        "latency_s": 12.191,
+        "t_llm": 4.491,
+        "t_census_api": 3.177,
+        "t_ours": 4.523,
         "rows": 1
       },
       {
@@ -2461,17 +2485,17 @@
         "question": "Median household income for ZCTA 90210",
         "tier": "long_tail",
         "expected": "B19013",
-        "got": "",
-        "url": "",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=zip+code+tabulation+area:90210",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 7.552,
-        "t_llm": 1.966,
-        "t_census_api": 2.491,
-        "t_ours": 3.094,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.366,
+        "t_llm": 2.883,
+        "t_census_api": 5.409,
+        "t_ours": 3.075,
+        "rows": 1
       },
       {
         "id": "q01",
@@ -2485,10 +2509,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.486,
-        "t_llm": 3.438,
-        "t_census_api": 2.16,
-        "t_ours": 2.887,
+        "latency_s": 8.743,
+        "t_llm": 3.21,
+        "t_census_api": 2.429,
+        "t_ours": 3.103,
         "rows": 1
       },
       {
@@ -2503,10 +2527,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.228,
-        "t_llm": 3.443,
-        "t_census_api": 1.03,
-        "t_ours": 2.756,
+        "latency_s": 8.567,
+        "t_llm": 3.699,
+        "t_census_api": 1.516,
+        "t_ours": 3.351,
         "rows": 36
       },
       {
@@ -2515,19 +2539,19 @@
         "question": "Educational attainment in Cook County",
         "tier": "core",
         "expected": "B15003",
-        "got": "",
-        "url": "",
+        "got": "B15003",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B15003_001E,B15003_001M&for=county:031&in=state:17",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 11.573,
-        "t_llm": 2.932,
-        "t_census_api": 1.385,
-        "t_ours": 7.256,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.234,
+        "t_llm": 3.731,
+        "t_census_api": 3.267,
+        "t_ours": 3.237,
+        "rows": 1
       },
       {
         "id": "q04",
@@ -2543,10 +2567,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 14.611,
-        "t_llm": 4.389,
-        "t_census_api": 6.235,
-        "t_ours": 3.987,
+        "latency_s": 11.026,
+        "t_llm": 3.413,
+        "t_census_api": 3.333,
+        "t_ours": 4.28,
         "rows": 0
       },
       {
@@ -2555,19 +2579,19 @@
         "question": "How many people bike to work in Portland?",
         "tier": "long_tail",
         "expected": "B08301",
-        "got": "",
-        "url": "",
+        "got": "B08301",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_002E,B08301_002M&for=place:59000&in=state:41",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.1,
-        "t_llm": 2.814,
-        "t_census_api": 2.949,
-        "t_ours": 3.336,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.482,
+        "t_llm": 3.579,
+        "t_census_api": 5.775,
+        "t_ours": 3.128,
+        "rows": 1
       },
       {
         "id": "q06",
@@ -2576,17 +2600,17 @@
         "tier": "long_tail",
         "expected": "B28002",
         "got": "B28002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M,B28002_002E,B28002_002M,B28002_003E,B28002_003M,B28002_004E,B28002_004M,B28002_005E,B28002_005M,B28002_006E,B28002_006M,B28002_007E,B28002_007M,B28002_008E,B28002_008M&for=county:%2A&in=state:28",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=county:%2A&in=state:28",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "moe_not_significant"
         ],
         "detail": "",
-        "latency_s": 10.697,
-        "t_llm": 4.81,
-        "t_census_api": 2.417,
-        "t_ours": 3.47,
+        "latency_s": 8.031,
+        "t_llm": 3.686,
+        "t_census_api": 1.08,
+        "t_ours": 3.265,
         "rows": 82
       },
       {
@@ -2596,15 +2620,15 @@
         "tier": "long_tail",
         "expected": "B25070",
         "got": "B25070",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M,B25070_003E,B25070_003M&for=county:%2A&in=state:04",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M&for=county:%2A&in=state:04",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.583,
-        "t_llm": 4.698,
-        "t_census_api": 1.612,
-        "t_ours": 3.274,
+        "latency_s": 8.608,
+        "t_llm": 3.437,
+        "t_census_api": 1.162,
+        "t_ours": 4.009,
         "rows": 15
       },
       {
@@ -2619,10 +2643,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.736,
-        "t_llm": 4.626,
-        "t_census_api": 3.628,
-        "t_ours": 3.482,
+        "latency_s": 14.826,
+        "t_llm": 4.198,
+        "t_census_api": 7.229,
+        "t_ours": 3.399,
         "rows": 14
       },
       {
@@ -2637,10 +2661,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.273,
-        "t_llm": 3.704,
-        "t_census_api": 1.344,
-        "t_ours": 3.225,
+        "latency_s": 7.835,
+        "t_llm": 3.374,
+        "t_census_api": 0.994,
+        "t_ours": 3.467,
         "rows": 100
       },
       {
@@ -2655,10 +2679,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 11.572,
-        "t_llm": 3.941,
-        "t_census_api": 4.446,
-        "t_ours": 3.185,
+        "latency_s": 14.373,
+        "t_llm": 3.172,
+        "t_census_api": 6.258,
+        "t_ours": 4.942,
         "rows": 1
       },
       {
@@ -2667,16 +2691,18 @@
         "question": "How long is the average commute in the Atlanta metro?",
         "tier": "long_tail",
         "expected": "B08303",
-        "got": "B08303",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:121&in=state:13",
+        "got": "B08013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
         "http_ok": true,
-        "answered": true,
-        "warnings": [],
-        "detail": "",
-        "latency_s": 25.233,
-        "t_llm": 5.567,
-        "t_census_api": 15.326,
-        "t_ours": 4.34,
+        "answered": false,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table B08013",
+        "latency_s": 14.363,
+        "t_llm": 3.506,
+        "t_census_api": 4.425,
+        "t_ours": 6.432,
         "rows": 1
       },
       {
@@ -2691,10 +2717,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.631,
-        "t_llm": 3.467,
-        "t_census_api": 1.374,
-        "t_ours": 4.79,
+        "latency_s": 9.5,
+        "t_llm": 3.509,
+        "t_census_api": 1.224,
+        "t_ours": 4.767,
         "rows": 1
       },
       {
@@ -2703,19 +2729,19 @@
         "question": "When were the homes in Providence built?",
         "tier": "long_tail",
         "expected": "B25034",
-        "got": "",
-        "url": "",
+        "got": "B25034",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25034_001E,B25034_001M&for=place:59000&in=state:44",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.617,
-        "t_llm": 2.704,
-        "t_census_api": 3.266,
-        "t_ours": 3.647,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.379,
+        "t_llm": 3.394,
+        "t_census_api": 4.115,
+        "t_ours": 2.87,
+        "rows": 1
       },
       {
         "id": "q14",
@@ -2723,19 +2749,19 @@
         "question": "Households without a vehicle in Baltimore City",
         "tier": "long_tail",
         "expected": "B08201",
-        "got": "",
-        "url": "",
+        "got": "B08201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M&for=place:04000&in=state:24",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.499,
-        "t_llm": 2.609,
-        "t_census_api": 3.324,
-        "t_ours": 3.566,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.853,
+        "t_llm": 3.212,
+        "t_census_api": 5.917,
+        "t_ours": 3.724,
+        "rows": 1
       },
       {
         "id": "q15",
@@ -2749,10 +2775,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.536,
-        "t_llm": 4.129,
-        "t_census_api": 1.527,
-        "t_ours": 4.879,
+        "latency_s": 9.916,
+        "t_llm": 3.741,
+        "t_census_api": 2.538,
+        "t_ours": 3.636,
         "rows": 87
       },
       {
@@ -2761,19 +2787,19 @@
         "question": "How many people live in group quarters in Ithaca?",
         "tier": "long_tail",
         "expected": "B26001",
-        "got": "",
-        "url": "",
+        "got": "B26001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B26001_001E,B26001_001M&for=place:38077&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.775,
-        "t_llm": 2.592,
-        "t_census_api": 2.909,
-        "t_ours": 3.274,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.996,
+        "t_llm": 3.369,
+        "t_census_api": 4.594,
+        "t_ours": 3.033,
+        "rows": 1
       },
       {
         "id": "q17",
@@ -2787,10 +2813,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 10.95,
-        "t_llm": 4.022,
-        "t_census_api": 3.654,
-        "t_ours": 3.274,
+        "latency_s": 12.197,
+        "t_llm": 3.294,
+        "t_census_api": 4.372,
+        "t_ours": 4.531,
         "rows": 0
       },
       {
@@ -2799,19 +2825,19 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "",
-        "url": "",
+        "got": "B25081",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 21.791,
-        "t_llm": 3.332,
-        "t_census_api": 4.435,
-        "t_ours": 14.025,
-        "rows": 0
+        "detail": "wrong table B25081",
+        "latency_s": 23.244,
+        "t_llm": 3.895,
+        "t_census_api": 5.104,
+        "t_ours": 14.245,
+        "rows": 1
       },
       {
         "id": "q19",
@@ -2819,19 +2845,19 @@
         "question": "School enrollment by level in Fairfax County",
         "tier": "long_tail",
         "expected": "B14001",
-        "got": "",
-        "url": "",
+        "got": "B14001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B14001_001E,B14001_001M&for=county:059&in=state:51",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.015,
-        "t_llm": 2.594,
-        "t_census_api": 1.301,
-        "t_ours": 3.12,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.942,
+        "t_llm": 3.64,
+        "t_census_api": 3.347,
+        "t_ours": 2.955,
+        "rows": 1
       },
       {
         "id": "q20",
@@ -2839,19 +2865,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "",
-        "url": "",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.781,
-        "t_llm": 2.72,
-        "t_census_api": 3.137,
-        "t_ours": 3.924,
-        "rows": 0
+        "detail": "wrong table B07201",
+        "latency_s": 13.69,
+        "t_llm": 3.761,
+        "t_census_api": 5.927,
+        "t_ours": 4.003,
+        "rows": 1
       },
       {
         "id": "q21",
@@ -2859,17 +2885,19 @@
         "question": "Households receiving SNAP benefits in the Rio Grande Valley",
         "tier": "long_tail",
         "expected": "B19058",
-        "got": "",
-        "url": "",
+        "got": "B19058",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=place:49270&in=state:06",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 16.368,
-        "t_llm": 4.63,
-        "t_census_api": 8.207,
-        "t_ours": 3.532,
-        "rows": 0
+        "answered": true,
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "",
+        "latency_s": 14.695,
+        "t_llm": 3.853,
+        "t_census_api": 6.968,
+        "t_ours": 3.874,
+        "rows": 1
       },
       {
         "id": "q22",
@@ -2883,10 +2911,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.675,
-        "t_llm": 3.451,
-        "t_census_api": 1.434,
-        "t_ours": 2.79,
+        "latency_s": 9.786,
+        "t_llm": 3.436,
+        "t_census_api": 2.563,
+        "t_ours": 3.788,
         "rows": 1
       },
       {
@@ -2901,10 +2929,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.746,
-        "t_llm": 3.264,
-        "t_census_api": 1.518,
-        "t_ours": 1.963,
+        "latency_s": 10.373,
+        "t_llm": 3.615,
+        "t_census_api": 3.486,
+        "t_ours": 3.272,
         "rows": 1
       },
       {
@@ -2913,19 +2941,19 @@
         "question": "How many hours a week does the typical worker in Anchorage put in?",
         "tier": "long_tail",
         "expected": "B23020",
-        "got": "",
-        "url": "",
+        "got": "B23020",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23020_001E,B23020_001M&for=place:01504&in=state:21",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.566,
-        "t_llm": 2.498,
-        "t_census_api": 2.891,
-        "t_ours": 2.177,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.761,
+        "t_llm": 3.885,
+        "t_census_api": 4.442,
+        "t_ours": 3.434,
+        "rows": 1
       },
       {
         "id": "q27",
@@ -2939,10 +2967,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.425,
-        "t_llm": 2.981,
-        "t_census_api": 1.53,
-        "t_ours": 1.913,
+        "latency_s": 9.581,
+        "t_llm": 3.461,
+        "t_census_api": 2.855,
+        "t_ours": 3.264,
         "rows": 1
       },
       {
@@ -2952,15 +2980,15 @@
         "tier": "long_tail",
         "expected": "B22010",
         "got": "B22010",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M&for=state:54",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M,B22010_002E,B22010_002M,B22010_004E,B22010_004M&for=state:54",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 5.785,
-        "t_llm": 3.196,
-        "t_census_api": 0.62,
-        "t_ours": 1.969,
+        "latency_s": 9.332,
+        "t_llm": 4.764,
+        "t_census_api": 1.145,
+        "t_ours": 3.424,
         "rows": 1
       },
       {
@@ -2975,10 +3003,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 5.519,
-        "t_llm": 3.2,
-        "t_census_api": 0.571,
-        "t_ours": 1.748,
+        "latency_s": 7.146,
+        "t_llm": 3.224,
+        "t_census_api": 0.835,
+        "t_ours": 3.087,
         "rows": 1
       },
       {
@@ -2987,19 +3015,19 @@
         "question": "How long have naturalized citizens in Hialeah held their citizenship?",
         "tier": "long_tail",
         "expected": "B05011",
-        "got": "",
-        "url": "",
+        "got": "B05011",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05011_001E,B05011_001M&for=place:30000&in=state:12",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.403,
-        "t_llm": 2.384,
-        "t_census_api": 2.33,
-        "t_ours": 1.689,
-        "rows": 0
+        "detail": "",
+        "latency_s": 6.586,
+        "t_llm": 3.26,
+        "t_census_api": 1.379,
+        "t_ours": 1.947,
+        "rows": 1
       },
       {
         "id": "q31",
@@ -3007,19 +3035,19 @@
         "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
         "tier": "long_tail",
         "expected": "B25081",
-        "got": "",
-        "url": "",
+        "got": "B25081",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M&for=county:059&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 4.764,
-        "t_llm": 1.853,
-        "t_census_api": 0.85,
-        "t_ours": 2.06,
-        "rows": 0
+        "detail": "",
+        "latency_s": 6.986,
+        "t_llm": 3.583,
+        "t_census_api": 1.912,
+        "t_ours": 1.491,
+        "rows": 1
       },
       {
         "id": "q32",
@@ -3033,10 +3061,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 5.535,
-        "t_llm": 3.045,
-        "t_census_api": 0.894,
-        "t_ours": 1.596,
+        "latency_s": 10.196,
+        "t_llm": 6.537,
+        "t_census_api": 0.925,
+        "t_ours": 2.734,
         "rows": 1
       },
       {
@@ -3045,19 +3073,19 @@
         "question": "Households in Santa Ana where nobody over 14 speaks English well",
         "tier": "long_tail",
         "expected": "B16002",
-        "got": "",
-        "url": "",
+        "got": "B16002",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_002E,B16002_002M&for=place:69000&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.9,
-        "t_llm": 2.818,
-        "t_census_api": 2.253,
-        "t_ours": 1.828,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.911,
+        "t_llm": 4.114,
+        "t_census_api": 4.31,
+        "t_ours": 2.488,
+        "rows": 1
       },
       {
         "id": "q34",
@@ -3071,10 +3099,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 7.655,
-        "t_llm": 3.347,
-        "t_census_api": 1.932,
-        "t_ours": 2.375,
+        "latency_s": 8.443,
+        "t_llm": 3.251,
+        "t_census_api": 2.868,
+        "t_ours": 2.325,
         "rows": 1
       },
       {
@@ -3089,10 +3117,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 13.565,
-        "t_llm": 4.226,
-        "t_census_api": 5.208,
-        "t_ours": 4.131,
+        "latency_s": 15.242,
+        "t_llm": 3.937,
+        "t_census_api": 8.624,
+        "t_ours": 2.681,
         "rows": 67
       },
       {
@@ -3101,19 +3129,19 @@
         "question": "Crowded housing in Santa Cruz County, more than one person per room",
         "tier": "long_tail",
         "expected": "B25014",
-        "got": "",
-        "url": "",
+        "got": "B25014",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25014_001E,B25014_001M&for=county:087&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.715,
-        "t_llm": 2.534,
-        "t_census_api": 2.032,
-        "t_ours": 3.149,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.995,
+        "t_llm": 3.976,
+        "t_census_api": 3.115,
+        "t_ours": 2.904,
+        "rows": 1
       },
       {
         "id": "q37",
@@ -3127,10 +3155,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.593,
-        "t_llm": 3.38,
-        "t_census_api": 1.526,
-        "t_ours": 3.687,
+        "latency_s": 7.996,
+        "t_llm": 3.469,
+        "t_census_api": 1.132,
+        "t_ours": 3.395,
         "rows": 67
       },
       {
@@ -3139,19 +3167,19 @@
         "question": "Break down the Asian population in Fremont by specific origin",
         "tier": "long_tail",
         "expected": "B02015",
-        "got": "",
-        "url": "",
+        "got": "B02015",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B02015_001E,B02015_001M&for=place:26000&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 11.328,
-        "t_llm": 2.961,
-        "t_census_api": 4.973,
-        "t_ours": 3.393,
-        "rows": 0
+        "detail": "",
+        "latency_s": 12.707,
+        "t_llm": 3.553,
+        "t_census_api": 6.062,
+        "t_ours": 3.092,
+        "rows": 1
       },
       {
         "id": "q39",
@@ -3165,10 +3193,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 2.694,
-        "t_llm": 1.981,
+        "latency_s": 2.457,
+        "t_llm": 1.923,
         "t_census_api": 0.0,
-        "t_ours": 0.713,
+        "t_ours": 0.534,
         "rows": 0
       },
       {
@@ -3177,19 +3205,19 @@
         "question": "How many studio and one-bedroom units are there in Cambridge?",
         "tier": "long_tail",
         "expected": "B25041",
-        "got": "",
-        "url": "",
+        "got": "B25041",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25041_003E,B25041_003M,B25041_004E,B25041_004M&for=place:11000&in=state:25",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.583,
-        "t_llm": 2.732,
-        "t_census_api": 3.246,
-        "t_ours": 3.605,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.654,
+        "t_llm": 3.463,
+        "t_census_api": 5.229,
+        "t_ours": 2.961,
+        "rows": 1
       },
       {
         "id": "q41",
@@ -3203,10 +3231,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 13.039,
-        "t_llm": 3.722,
-        "t_census_api": 4.39,
-        "t_ours": 4.926,
+        "latency_s": 12.594,
+        "t_llm": 3.503,
+        "t_census_api": 5.296,
+        "t_ours": 3.795,
         "rows": 1
       },
       {
@@ -3215,19 +3243,19 @@
         "question": "Veterans in Fayetteville with a service-connected disability rating",
         "tier": "long_tail",
         "expected": "B21100",
-        "got": "",
-        "url": "",
+        "got": "B21100",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B21100_001E,B21100_001M&for=place:22920&in=state:37",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.126,
-        "t_llm": 2.969,
-        "t_census_api": 3.137,
-        "t_ours": 3.019,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.503,
+        "t_llm": 3.622,
+        "t_census_api": 4.586,
+        "t_ours": 3.296,
+        "rows": 1
       },
       {
         "id": "q43",
@@ -3235,19 +3263,19 @@
         "question": "What time do commuters in Suffolk County leave the house?",
         "tier": "long_tail",
         "expected": "B08302",
-        "got": "",
-        "url": "",
+        "got": "B08302",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08302_001E,B08302_001M&for=county:103&in=state:36",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.791,
-        "t_llm": 3.137,
-        "t_census_api": 1.125,
-        "t_ours": 3.529,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.663,
+        "t_llm": 3.686,
+        "t_census_api": 3.066,
+        "t_ours": 2.91,
+        "rows": 1
       },
       {
         "id": "q44",
@@ -3261,10 +3289,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 26.309,
-        "t_llm": 3.694,
-        "t_census_api": 19.47,
-        "t_ours": 3.145,
+        "latency_s": 10.446,
+        "t_llm": 4.183,
+        "t_census_api": 2.976,
+        "t_ours": 3.287,
         "rows": 1
       },
       {
@@ -3281,10 +3309,10 @@
           "overlapping_vintage"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 9.11,
-        "t_llm": 1.787,
+        "latency_s": 7.155,
+        "t_llm": 1.848,
         "t_census_api": 0.0,
-        "t_ours": 7.323,
+        "t_ours": 5.307,
         "rows": 0
       },
       {
@@ -3299,10 +3327,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.817,
-        "t_llm": 3.426,
-        "t_census_api": 3.087,
-        "t_ours": 3.305,
+        "latency_s": 7.609,
+        "t_llm": 3.682,
+        "t_census_api": 1.09,
+        "t_ours": 2.837,
         "rows": 99
       },
       {
@@ -3317,10 +3345,10 @@
         "answered": false,
         "warnings": [],
         "detail": "missing warning moe_not_significant",
-        "latency_s": 5.404,
-        "t_llm": 0.936,
-        "t_census_api": 3.995,
-        "t_ours": 0.473,
+        "latency_s": 2.96,
+        "t_llm": 0.86,
+        "t_census_api": 1.587,
+        "t_ours": 0.513,
         "rows": 0
       },
       {
@@ -3333,12 +3361,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 9.782,
-        "t_llm": 4.819,
-        "t_census_api": 1.875,
-        "t_ours": 3.088,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "empty url",
+        "latency_s": 8.82,
+        "t_llm": 5.089,
+        "t_census_api": 0.777,
+        "t_ours": 2.955,
         "rows": 0
       },
       {
@@ -3347,19 +3377,19 @@
         "question": "Population of Springfield",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B01003",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:70000&in=state:29",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 8.777,
-        "t_llm": 2.903,
-        "t_census_api": 3.218,
-        "t_ours": 2.656,
-        "rows": 0
+        "latency_s": 12.711,
+        "t_llm": 3.569,
+        "t_census_api": 6.192,
+        "t_ours": 2.95,
+        "rows": 1
       },
       {
         "id": "t06",
@@ -3375,10 +3405,10 @@
           "universe_mismatch"
         ],
         "detail": "empty url",
-        "latency_s": 11.252,
-        "t_llm": 2.942,
-        "t_census_api": 4.541,
-        "t_ours": 3.769,
+        "latency_s": 18.63,
+        "t_llm": 5.494,
+        "t_census_api": 8.702,
+        "t_ours": 4.433,
         "rows": 0
       },
       {
@@ -3387,19 +3417,17 @@
         "question": "Population of Phoenix in 2024 from the 1-year ACS",
         "tier": "trap",
         "expected": "B01003",
-        "got": "",
-        "url": "",
+        "got": "B01003",
+        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:55000&in=state:04",
         "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.473,
-        "t_llm": 2.79,
-        "t_census_api": 2.998,
-        "t_ours": 3.684,
-        "rows": 0
+        "answered": true,
+        "warnings": [],
+        "detail": "",
+        "latency_s": 8.203,
+        "t_llm": 3.144,
+        "t_census_api": 2.31,
+        "t_ours": 2.749,
+        "rows": 1
       },
       {
         "id": "t08",
@@ -3413,10 +3441,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19101",
-        "latency_s": 12.445,
-        "t_llm": 3.974,
-        "t_census_api": 3.02,
-        "t_ours": 5.451,
+        "latency_s": 12.179,
+        "t_llm": 3.531,
+        "t_census_api": 3.2,
+        "t_ours": 5.448,
         "rows": 1
       },
       {
@@ -3431,34 +3459,14 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 18.139,
-        "t_llm": 3.988,
-        "t_census_api": 10.809,
-        "t_ours": 3.341,
+        "latency_s": 11.937,
+        "t_llm": 3.098,
+        "t_census_api": 5.949,
+        "t_ours": 2.891,
         "rows": 1
       }
     ],
     "misses": [
-      {
-        "id": "q03",
-        "repeat": 1,
-        "question": "Educational attainment in Cook County",
-        "tier": "core",
-        "expected": "B15003",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.556,
-        "t_llm": 3.104,
-        "t_census_api": 1.821,
-        "t_ours": 3.632,
-        "rows": 0
-      },
       {
         "id": "q04",
         "repeat": 1,
@@ -3473,30 +3481,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 12.028,
-        "t_llm": 3.173,
-        "t_census_api": 4.982,
-        "t_ours": 3.873,
-        "rows": 0
-      },
-      {
-        "id": "q05",
-        "repeat": 1,
-        "question": "How many people bike to work in Portland?",
-        "tier": "long_tail",
-        "expected": "B08301",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.793,
-        "t_llm": 2.704,
-        "t_census_api": 4.28,
-        "t_ours": 3.81,
+        "latency_s": 8.155,
+        "t_llm": 3.241,
+        "t_census_api": 2.771,
+        "t_ours": 2.143,
         "rows": 0
       },
       {
@@ -3511,51 +3499,29 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 12.637,
-        "t_llm": 3.443,
-        "t_census_api": 5.502,
-        "t_ours": 3.692,
+        "latency_s": 12.149,
+        "t_llm": 4.107,
+        "t_census_api": 4.597,
+        "t_ours": 3.444,
         "rows": 1
       },
       {
-        "id": "q13",
+        "id": "q12",
         "repeat": 1,
-        "question": "When were the homes in Providence built?",
+        "question": "Health insurance coverage for children in New Mexico",
         "tier": "long_tail",
-        "expected": "B25034",
-        "got": "",
-        "url": "",
+        "expected": "B27001",
+        "got": "B27010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M&for=state:35",
         "http_ok": true,
         "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.289,
-        "t_llm": 2.851,
-        "t_census_api": 3.62,
-        "t_ours": 3.818,
-        "rows": 0
-      },
-      {
-        "id": "q14",
-        "repeat": 1,
-        "question": "Households without a vehicle in Baltimore City",
-        "tier": "long_tail",
-        "expected": "B08201",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.786,
-        "t_llm": 2.619,
-        "t_census_api": 4.093,
-        "t_ours": 4.075,
-        "rows": 0
+        "warnings": [],
+        "detail": "wrong table B27010",
+        "latency_s": 9.087,
+        "t_llm": 3.587,
+        "t_census_api": 1.192,
+        "t_ours": 4.308,
+        "rows": 1
       },
       {
         "id": "q16",
@@ -3567,14 +3533,12 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
+        "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 10.504,
-        "t_llm": 2.217,
-        "t_census_api": 4.631,
-        "t_ours": 3.657,
+        "latency_s": 13.765,
+        "t_llm": 3.382,
+        "t_census_api": 7.157,
+        "t_ours": 3.226,
         "rows": 0
       },
       {
@@ -3587,12 +3551,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "wrong table (none)",
-        "latency_s": 14.91,
-        "t_llm": 3.572,
-        "t_census_api": 7.938,
-        "t_ours": 3.399,
+        "latency_s": 7.007,
+        "t_llm": 2.057,
+        "t_census_api": 1.389,
+        "t_ours": 3.562,
         "rows": 0
       },
       {
@@ -3609,30 +3575,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 19.445,
-        "t_llm": 3.505,
-        "t_census_api": 3.004,
-        "t_ours": 12.937,
-        "rows": 0
-      },
-      {
-        "id": "q19",
-        "repeat": 1,
-        "question": "School enrollment by level in Fairfax County",
-        "tier": "long_tail",
-        "expected": "B14001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.511,
-        "t_llm": 2.719,
-        "t_census_api": 0.915,
-        "t_ours": 1.877,
+        "latency_s": 25.443,
+        "t_llm": 6.13,
+        "t_census_api": 6.01,
+        "t_ours": 13.303,
         "rows": 0
       },
       {
@@ -3641,119 +3587,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "",
-        "url": "",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_002E,B07201_002M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.717,
-        "t_llm": 2.654,
-        "t_census_api": 2.558,
-        "t_ours": 3.505,
-        "rows": 0
-      },
-      {
-        "id": "q21",
-        "repeat": 1,
-        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
-        "tier": "long_tail",
-        "expected": "B19058",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 11.203,
-        "t_llm": 3.784,
-        "t_census_api": 3.935,
-        "t_ours": 3.484,
-        "rows": 0
-      },
-      {
-        "id": "q26",
-        "repeat": 1,
-        "question": "How many hours a week does the typical worker in Anchorage put in?",
-        "tier": "long_tail",
-        "expected": "B23020",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.369,
-        "t_llm": 2.905,
-        "t_census_api": 2.342,
-        "t_ours": 2.122,
-        "rows": 0
-      },
-      {
-        "id": "q30",
-        "repeat": 1,
-        "question": "How long have naturalized citizens in Hialeah held their citizenship?",
-        "tier": "long_tail",
-        "expected": "B05011",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.031,
-        "t_llm": 3.486,
-        "t_census_api": 2.3,
-        "t_ours": 2.245,
-        "rows": 0
-      },
-      {
-        "id": "q31",
-        "repeat": 1,
-        "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
-        "tier": "long_tail",
-        "expected": "B25081",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.304,
-        "t_llm": 2.344,
-        "t_census_api": 0.885,
-        "t_ours": 2.076,
-        "rows": 0
-      },
-      {
-        "id": "q33",
-        "repeat": 1,
-        "question": "Households in Santa Ana where nobody over 14 speaks English well",
-        "tier": "long_tail",
-        "expected": "B16002",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.492,
-        "t_llm": 2.622,
-        "t_census_api": 2.144,
-        "t_ours": 1.726,
-        "rows": 0
+        "detail": "wrong table B07201",
+        "latency_s": 13.895,
+        "t_llm": 3.78,
+        "t_census_api": 6.042,
+        "t_ours": 4.072,
+        "rows": 1
       },
       {
         "id": "q34",
@@ -3767,51 +3613,11 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 10.157,
-        "t_llm": 3.475,
-        "t_census_api": 3.898,
-        "t_ours": 2.785,
+        "latency_s": 11.571,
+        "t_llm": 4.805,
+        "t_census_api": 2.693,
+        "t_ours": 4.073,
         "rows": 1
-      },
-      {
-        "id": "q36",
-        "repeat": 1,
-        "question": "Crowded housing in Santa Cruz County, more than one person per room",
-        "tier": "long_tail",
-        "expected": "B25014",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.139,
-        "t_llm": 2.538,
-        "t_census_api": 0.845,
-        "t_ours": 1.757,
-        "rows": 0
-      },
-      {
-        "id": "q38",
-        "repeat": 1,
-        "question": "Break down the Asian population in Fremont by specific origin",
-        "tier": "long_tail",
-        "expected": "B02015",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.716,
-        "t_llm": 2.931,
-        "t_census_api": 2.371,
-        "t_ours": 2.414,
-        "rows": 0
       },
       {
         "id": "q39",
@@ -3825,30 +3631,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 2.566,
-        "t_llm": 2.392,
+        "latency_s": 2.942,
+        "t_llm": 2.314,
         "t_census_api": 0.0,
-        "t_ours": 0.174,
-        "rows": 0
-      },
-      {
-        "id": "q40",
-        "repeat": 1,
-        "question": "How many studio and one-bedroom units are there in Cambridge?",
-        "tier": "long_tail",
-        "expected": "B25041",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.631,
-        "t_llm": 2.75,
-        "t_census_api": 2.237,
-        "t_ours": 1.645,
+        "t_ours": 0.627,
         "rows": 0
       },
       {
@@ -3863,31 +3649,11 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B15010",
-        "latency_s": 12.935,
-        "t_llm": 5.186,
-        "t_census_api": 3.894,
-        "t_ours": 3.855,
+        "latency_s": 14.585,
+        "t_llm": 4.857,
+        "t_census_api": 4.433,
+        "t_ours": 5.294,
         "rows": 1
-      },
-      {
-        "id": "q42",
-        "repeat": 1,
-        "question": "Veterans in Fayetteville with a service-connected disability rating",
-        "tier": "long_tail",
-        "expected": "B21100",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.844,
-        "t_llm": 2.754,
-        "t_census_api": 3.056,
-        "t_ours": 2.034,
-        "rows": 0
       },
       {
         "id": "q43",
@@ -3895,19 +3661,19 @@
         "question": "What time do commuters in Suffolk County leave the house?",
         "tier": "long_tail",
         "expected": "B08302",
-        "got": "",
-        "url": "",
+        "got": "B08303",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:103&in=state:36",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 5.266,
-        "t_llm": 2.282,
-        "t_census_api": 0.974,
-        "t_ours": 2.01,
-        "rows": 0
+        "detail": "wrong table B08303",
+        "latency_s": 9.621,
+        "t_llm": 3.411,
+        "t_census_api": 2.688,
+        "t_ours": 3.522,
+        "rows": 1
       },
       {
         "id": "t03",
@@ -3921,10 +3687,10 @@
         "answered": false,
         "warnings": [],
         "detail": "missing warning moe_not_significant",
-        "latency_s": 2.051,
-        "t_llm": 1.216,
-        "t_census_api": 0.661,
-        "t_ours": 0.174,
+        "latency_s": 3.05,
+        "t_llm": 0.738,
+        "t_census_api": 1.814,
+        "t_ours": 0.497,
         "rows": 0
       },
       {
@@ -3937,12 +3703,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 5.292,
-        "t_llm": 2.817,
-        "t_census_api": 0.697,
-        "t_ours": 1.777,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "empty url",
+        "latency_s": 11.383,
+        "t_llm": 5.742,
+        "t_census_api": 1.667,
+        "t_ours": 3.974,
         "rows": 0
       },
       {
@@ -3959,30 +3727,10 @@
           "universe_mismatch"
         ],
         "detail": "empty url",
-        "latency_s": 24.343,
-        "t_llm": 5.281,
-        "t_census_api": 12.228,
-        "t_ours": 6.834,
-        "rows": 0
-      },
-      {
-        "id": "t07",
-        "repeat": 1,
-        "question": "Population of Phoenix in 2024 from the 1-year ACS",
-        "tier": "trap",
-        "expected": "B01003",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.155,
-        "t_llm": 2.612,
-        "t_census_api": 3.295,
-        "t_ours": 2.248,
+        "latency_s": 17.958,
+        "t_llm": 5.13,
+        "t_census_api": 8.219,
+        "t_ours": 4.609,
         "rows": 0
       },
       {
@@ -3991,37 +3739,17 @@
         "question": "Give me the income distribution, not just the median, for Travis County",
         "tier": "trap",
         "expected": "B19001",
-        "got": "B19082",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19082_001E,B19082_001M&for=county:453&in=state:48",
+        "got": "B19101",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19101_001E,B19101_001M&for=county:453&in=state:48",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "wrong table B19082",
-        "latency_s": 11.03,
-        "t_llm": 3.772,
-        "t_census_api": 2.472,
-        "t_ours": 4.786,
+        "detail": "wrong table B19101",
+        "latency_s": 11.265,
+        "t_llm": 4.252,
+        "t_census_api": 2.55,
+        "t_ours": 4.463,
         "rows": 1
-      },
-      {
-        "id": "q03",
-        "repeat": 2,
-        "question": "Educational attainment in Cook County",
-        "tier": "core",
-        "expected": "B15003",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.312,
-        "t_llm": 2.742,
-        "t_census_api": 1.545,
-        "t_ours": 2.025,
-        "rows": 0
       },
       {
         "id": "q04",
@@ -4037,28 +3765,28 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 12.498,
-        "t_llm": 4.26,
-        "t_census_api": 5.983,
-        "t_ours": 2.255,
+        "latency_s": 11.737,
+        "t_llm": 4.06,
+        "t_census_api": 4.403,
+        "t_ours": 3.273,
         "rows": 0
       },
       {
-        "id": "q05",
+        "id": "q08",
         "repeat": 2,
-        "question": "How many people bike to work in Portland?",
+        "question": "Disability rates among adults in rural Vermont counties",
         "tier": "long_tail",
-        "expected": "B08301",
-        "got": "",
-        "url": "",
+        "expected": "B18101",
+        "got": "B18101G",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18101G_001E,B18101G_001M&for=county:%2A&in=state:50",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 5.085,
-        "t_llm": 2.595,
-        "t_census_api": 0.642,
-        "t_ours": 1.848,
+        "detail": "wrong table B18101G",
+        "latency_s": 9.314,
+        "t_llm": 4.968,
+        "t_census_api": 0.968,
+        "t_ours": 3.378,
         "rows": 0
       },
       {
@@ -4073,71 +3801,49 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 18.118,
-        "t_llm": 3.573,
-        "t_census_api": 11.185,
-        "t_ours": 3.359,
+        "latency_s": 11.724,
+        "t_llm": 3.595,
+        "t_census_api": 4.71,
+        "t_ours": 3.419,
         "rows": 1
       },
       {
-        "id": "q13",
+        "id": "q11",
         "repeat": 2,
-        "question": "When were the homes in Providence built?",
+        "question": "How long is the average commute in the Atlanta metro?",
         "tier": "long_tail",
-        "expected": "B25034",
-        "got": "",
-        "url": "",
+        "expected": "B08303",
+        "got": "B08013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.513,
-        "t_llm": 2.959,
-        "t_census_api": 3.127,
-        "t_ours": 4.427,
-        "rows": 0
+        "detail": "wrong table B08013",
+        "latency_s": 14.512,
+        "t_llm": 3.506,
+        "t_census_api": 4.571,
+        "t_ours": 6.435,
+        "rows": 1
       },
       {
-        "id": "q14",
+        "id": "q12",
         "repeat": 2,
-        "question": "Households without a vehicle in Baltimore City",
+        "question": "Health insurance coverage for children in New Mexico",
         "tier": "long_tail",
-        "expected": "B08201",
-        "got": "",
-        "url": "",
+        "expected": "B27001",
+        "got": "B27010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M&for=state:35",
         "http_ok": true,
         "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.037,
-        "t_llm": 3.241,
-        "t_census_api": 3.239,
-        "t_ours": 3.557,
-        "rows": 0
-      },
-      {
-        "id": "q16",
-        "repeat": 2,
-        "question": "How many people live in group quarters in Ithaca?",
-        "tier": "long_tail",
-        "expected": "B26001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.697,
-        "t_llm": 2.154,
-        "t_census_api": 3.227,
-        "t_ours": 3.316,
-        "rows": 0
+        "warnings": [],
+        "detail": "wrong table B27010",
+        "latency_s": 10.836,
+        "t_llm": 3.998,
+        "t_census_api": 1.279,
+        "t_ours": 5.559,
+        "rows": 1
       },
       {
         "id": "q17",
@@ -4145,17 +3851,19 @@
         "question": "Occupation breakdown for workers in Silicon Valley counties",
         "tier": "long_tail",
         "expected": "B24010",
-        "got": "B24114",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B24114_001E,B24114_001M&for=county:081&in=state:06",
+        "got": "",
+        "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "wrong table B24114",
-        "latency_s": 13.352,
-        "t_llm": 5.309,
-        "t_census_api": 4.923,
-        "t_ours": 3.12,
-        "rows": 1
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table (none)",
+        "latency_s": 8.538,
+        "t_llm": 3.263,
+        "t_census_api": 1.42,
+        "t_ours": 3.855,
+        "rows": 0
       },
       {
         "id": "q18",
@@ -4163,37 +3871,19 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 19.212,
-        "t_llm": 3.109,
-        "t_census_api": 5.87,
-        "t_ours": 10.233,
-        "rows": 0
-      },
-      {
-        "id": "q19",
-        "repeat": 2,
-        "question": "School enrollment by level in Fairfax County",
-        "tier": "long_tail",
-        "expected": "B14001",
-        "got": "",
-        "url": "",
+        "got": "B25009",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=county:%2A&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
-          "ambiguous_place"
+          "moe_not_significant"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.085,
-        "t_llm": 2.721,
-        "t_census_api": 1.334,
-        "t_ours": 3.03,
-        "rows": 0
+        "detail": "wrong table B25009",
+        "latency_s": 23.547,
+        "t_llm": 4.978,
+        "t_census_api": 4.61,
+        "t_ours": 13.959,
+        "rows": 72
       },
       {
         "id": "q20",
@@ -4201,79 +3891,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "",
-        "url": "",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.609,
-        "t_llm": 2.859,
-        "t_census_api": 2.941,
-        "t_ours": 3.81,
-        "rows": 0
-      },
-      {
-        "id": "q26",
-        "repeat": 2,
-        "question": "How many hours a week does the typical worker in Anchorage put in?",
-        "tier": "long_tail",
-        "expected": "B23020",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.999,
-        "t_llm": 2.662,
-        "t_census_api": 3.093,
-        "t_ours": 4.245,
-        "rows": 0
-      },
-      {
-        "id": "q30",
-        "repeat": 2,
-        "question": "How long have naturalized citizens in Hialeah held their citizenship?",
-        "tier": "long_tail",
-        "expected": "B05011",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.464,
-        "t_llm": 2.391,
-        "t_census_api": 2.46,
-        "t_ours": 1.613,
-        "rows": 0
-      },
-      {
-        "id": "q31",
-        "repeat": 2,
-        "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
-        "tier": "long_tail",
-        "expected": "B25081",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.109,
-        "t_llm": 2.604,
-        "t_census_api": 1.299,
-        "t_ours": 2.207,
-        "rows": 0
+        "detail": "wrong table B07201",
+        "latency_s": 12.911,
+        "t_llm": 3.551,
+        "t_census_api": 4.166,
+        "t_ours": 5.194,
+        "rows": 1
       },
       {
         "id": "q33",
@@ -4289,10 +3919,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 10.52,
-        "t_llm": 2.79,
-        "t_census_api": 3.136,
-        "t_ours": 4.595,
+        "latency_s": 10.97,
+        "t_llm": 3.054,
+        "t_census_api": 4.697,
+        "t_ours": 3.219,
         "rows": 0
       },
       {
@@ -4301,57 +3931,17 @@
         "question": "Workers in Bozeman who run their own business instead of working for someone else",
         "tier": "long_tail",
         "expected": "B24080",
-        "got": "",
-        "url": "",
+        "got": "B19053",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19053_001E,B19053_001M&for=place:08950&in=state:30",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 9.947,
-        "t_llm": 3.143,
-        "t_census_api": 3.343,
-        "t_ours": 3.46,
-        "rows": 0
-      },
-      {
-        "id": "q36",
-        "repeat": 2,
-        "question": "Crowded housing in Santa Cruz County, more than one person per room",
-        "tier": "long_tail",
-        "expected": "B25014",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.223,
-        "t_llm": 2.318,
-        "t_census_api": 1.367,
-        "t_ours": 3.538,
-        "rows": 0
-      },
-      {
-        "id": "q38",
-        "repeat": 2,
-        "question": "Break down the Asian population in Fremont by specific origin",
-        "tier": "long_tail",
-        "expected": "B02015",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.464,
-        "t_llm": 2.664,
-        "t_census_api": 4.37,
-        "t_ours": 3.431,
-        "rows": 0
+        "detail": "wrong table B19053",
+        "latency_s": 10.564,
+        "t_llm": 3.648,
+        "t_census_api": 2.743,
+        "t_ours": 4.173,
+        "rows": 1
       },
       {
         "id": "q39",
@@ -4365,88 +3955,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 2.869,
-        "t_llm": 2.292,
+        "latency_s": 2.666,
+        "t_llm": 2.143,
         "t_census_api": 0.0,
-        "t_ours": 0.576,
-        "rows": 0
-      },
-      {
-        "id": "q40",
-        "repeat": 2,
-        "question": "How many studio and one-bedroom units are there in Cambridge?",
-        "tier": "long_tail",
-        "expected": "B25041",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.349,
-        "t_llm": 2.679,
-        "t_census_api": 2.971,
-        "t_ours": 3.699,
-        "rows": 0
-      },
-      {
-        "id": "q41",
-        "repeat": 2,
-        "question": "What did people in Ann Arbor study in college?",
-        "tier": "long_tail",
-        "expected": "B15012",
-        "got": "B15010",
-        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B15010_001E,B15010_001M&for=place:03000&in=state:26",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table B15010",
-        "latency_s": 12.922,
-        "t_llm": 4.09,
-        "t_census_api": 4.49,
-        "t_ours": 4.343,
-        "rows": 1
-      },
-      {
-        "id": "q42",
-        "repeat": 2,
-        "question": "Veterans in Fayetteville with a service-connected disability rating",
-        "tier": "long_tail",
-        "expected": "B21100",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.006,
-        "t_llm": 2.595,
-        "t_census_api": 3.208,
-        "t_ours": 3.203,
-        "rows": 0
-      },
-      {
-        "id": "q43",
-        "repeat": 2,
-        "question": "What time do commuters in Suffolk County leave the house?",
-        "tier": "long_tail",
-        "expected": "B08302",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.835,
-        "t_llm": 3.396,
-        "t_census_api": 1.328,
-        "t_ours": 3.111,
+        "t_ours": 0.523,
         "rows": 0
       },
       {
@@ -4463,10 +3975,10 @@
           "overlapping_vintage"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 9.978,
-        "t_llm": 2.302,
+        "latency_s": 5.349,
+        "t_llm": 2.022,
         "t_census_api": 0.0,
-        "t_ours": 7.676,
+        "t_ours": 3.327,
         "rows": 0
       },
       {
@@ -4481,10 +3993,10 @@
         "answered": false,
         "warnings": [],
         "detail": "missing warning moe_not_significant",
-        "latency_s": 3.039,
-        "t_llm": 0.758,
-        "t_census_api": 1.656,
-        "t_ours": 0.626,
+        "latency_s": 3.386,
+        "t_llm": 0.821,
+        "t_census_api": 1.928,
+        "t_ours": 0.637,
         "rows": 0
       },
       {
@@ -4501,10 +4013,10 @@
           "geography_unsupported"
         ],
         "detail": "empty url",
-        "latency_s": 8.518,
-        "t_llm": 4.188,
-        "t_census_api": 1.504,
-        "t_ours": 2.826,
+        "latency_s": 9.331,
+        "t_llm": 3.598,
+        "t_census_api": 2.422,
+        "t_ours": 3.311,
         "rows": 0
       },
       {
@@ -4521,10 +4033,10 @@
           "universe_mismatch"
         ],
         "detail": "empty url",
-        "latency_s": 16.525,
-        "t_llm": 4.787,
-        "t_census_api": 7.37,
-        "t_ours": 4.367,
+        "latency_s": 9.45,
+        "t_llm": 3.914,
+        "t_census_api": 1.229,
+        "t_ours": 4.307,
         "rows": 0
       },
       {
@@ -4539,49 +4051,11 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19101",
-        "latency_s": 10.13,
-        "t_llm": 3.286,
-        "t_census_api": 2.681,
-        "t_ours": 4.164,
+        "latency_s": 12.191,
+        "t_llm": 4.491,
+        "t_census_api": 3.177,
+        "t_ours": 4.523,
         "rows": 1
-      },
-      {
-        "id": "q24",
-        "repeat": 2,
-        "question": "Median household income for ZCTA 90210",
-        "tier": "long_tail",
-        "expected": "B19013",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 7.552,
-        "t_llm": 1.966,
-        "t_census_api": 2.491,
-        "t_ours": 3.094,
-        "rows": 0
-      },
-      {
-        "id": "q03",
-        "repeat": 3,
-        "question": "Educational attainment in Cook County",
-        "tier": "core",
-        "expected": "B15003",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 11.573,
-        "t_llm": 2.932,
-        "t_census_api": 1.385,
-        "t_ours": 7.256,
-        "rows": 0
       },
       {
         "id": "q04",
@@ -4597,30 +4071,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 14.611,
-        "t_llm": 4.389,
-        "t_census_api": 6.235,
-        "t_ours": 3.987,
-        "rows": 0
-      },
-      {
-        "id": "q05",
-        "repeat": 3,
-        "question": "How many people bike to work in Portland?",
-        "tier": "long_tail",
-        "expected": "B08301",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.1,
-        "t_llm": 2.814,
-        "t_census_api": 2.949,
-        "t_ours": 3.336,
+        "latency_s": 11.026,
+        "t_llm": 3.413,
+        "t_census_api": 3.333,
+        "t_ours": 4.28,
         "rows": 0
       },
       {
@@ -4635,71 +4089,31 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 11.572,
-        "t_llm": 3.941,
-        "t_census_api": 4.446,
-        "t_ours": 3.185,
+        "latency_s": 14.373,
+        "t_llm": 3.172,
+        "t_census_api": 6.258,
+        "t_ours": 4.942,
         "rows": 1
       },
       {
-        "id": "q13",
+        "id": "q11",
         "repeat": 3,
-        "question": "When were the homes in Providence built?",
+        "question": "How long is the average commute in the Atlanta metro?",
         "tier": "long_tail",
-        "expected": "B25034",
-        "got": "",
-        "url": "",
+        "expected": "B08303",
+        "got": "B08013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.617,
-        "t_llm": 2.704,
-        "t_census_api": 3.266,
-        "t_ours": 3.647,
-        "rows": 0
-      },
-      {
-        "id": "q14",
-        "repeat": 3,
-        "question": "Households without a vehicle in Baltimore City",
-        "tier": "long_tail",
-        "expected": "B08201",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.499,
-        "t_llm": 2.609,
-        "t_census_api": 3.324,
-        "t_ours": 3.566,
-        "rows": 0
-      },
-      {
-        "id": "q16",
-        "repeat": 3,
-        "question": "How many people live in group quarters in Ithaca?",
-        "tier": "long_tail",
-        "expected": "B26001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.775,
-        "t_llm": 2.592,
-        "t_census_api": 2.909,
-        "t_ours": 3.274,
-        "rows": 0
+        "detail": "wrong table B08013",
+        "latency_s": 14.363,
+        "t_llm": 3.506,
+        "t_census_api": 4.425,
+        "t_ours": 6.432,
+        "rows": 1
       },
       {
         "id": "q17",
@@ -4713,10 +4127,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 10.95,
-        "t_llm": 4.022,
-        "t_census_api": 3.654,
-        "t_ours": 3.274,
+        "latency_s": 12.197,
+        "t_llm": 3.294,
+        "t_census_api": 4.372,
+        "t_ours": 4.531,
         "rows": 0
       },
       {
@@ -4725,39 +4139,19 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "",
-        "url": "",
+        "got": "B25081",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 21.791,
-        "t_llm": 3.332,
-        "t_census_api": 4.435,
-        "t_ours": 14.025,
-        "rows": 0
-      },
-      {
-        "id": "q19",
-        "repeat": 3,
-        "question": "School enrollment by level in Fairfax County",
-        "tier": "long_tail",
-        "expected": "B14001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.015,
-        "t_llm": 2.594,
-        "t_census_api": 1.301,
-        "t_ours": 3.12,
-        "rows": 0
+        "detail": "wrong table B25081",
+        "latency_s": 23.244,
+        "t_llm": 3.895,
+        "t_census_api": 5.104,
+        "t_ours": 14.245,
+        "rows": 1
       },
       {
         "id": "q20",
@@ -4765,117 +4159,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "",
-        "url": "",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.781,
-        "t_llm": 2.72,
-        "t_census_api": 3.137,
-        "t_ours": 3.924,
-        "rows": 0
-      },
-      {
-        "id": "q21",
-        "repeat": 3,
-        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
-        "tier": "long_tail",
-        "expected": "B19058",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 16.368,
-        "t_llm": 4.63,
-        "t_census_api": 8.207,
-        "t_ours": 3.532,
-        "rows": 0
-      },
-      {
-        "id": "q26",
-        "repeat": 3,
-        "question": "How many hours a week does the typical worker in Anchorage put in?",
-        "tier": "long_tail",
-        "expected": "B23020",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.566,
-        "t_llm": 2.498,
-        "t_census_api": 2.891,
-        "t_ours": 2.177,
-        "rows": 0
-      },
-      {
-        "id": "q30",
-        "repeat": 3,
-        "question": "How long have naturalized citizens in Hialeah held their citizenship?",
-        "tier": "long_tail",
-        "expected": "B05011",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.403,
-        "t_llm": 2.384,
-        "t_census_api": 2.33,
-        "t_ours": 1.689,
-        "rows": 0
-      },
-      {
-        "id": "q31",
-        "repeat": 3,
-        "question": "How many homeowners in Nassau County are still paying off a loan on the house?",
-        "tier": "long_tail",
-        "expected": "B25081",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 4.764,
-        "t_llm": 1.853,
-        "t_census_api": 0.85,
-        "t_ours": 2.06,
-        "rows": 0
-      },
-      {
-        "id": "q33",
-        "repeat": 3,
-        "question": "Households in Santa Ana where nobody over 14 speaks English well",
-        "tier": "long_tail",
-        "expected": "B16002",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 6.9,
-        "t_llm": 2.818,
-        "t_census_api": 2.253,
-        "t_ours": 1.828,
-        "rows": 0
+        "detail": "wrong table B07201",
+        "latency_s": 13.69,
+        "t_llm": 3.761,
+        "t_census_api": 5.927,
+        "t_ours": 4.003,
+        "rows": 1
       },
       {
         "id": "q34",
@@ -4889,51 +4185,11 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 7.655,
-        "t_llm": 3.347,
-        "t_census_api": 1.932,
-        "t_ours": 2.375,
+        "latency_s": 8.443,
+        "t_llm": 3.251,
+        "t_census_api": 2.868,
+        "t_ours": 2.325,
         "rows": 1
-      },
-      {
-        "id": "q36",
-        "repeat": 3,
-        "question": "Crowded housing in Santa Cruz County, more than one person per room",
-        "tier": "long_tail",
-        "expected": "B25014",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.715,
-        "t_llm": 2.534,
-        "t_census_api": 2.032,
-        "t_ours": 3.149,
-        "rows": 0
-      },
-      {
-        "id": "q38",
-        "repeat": 3,
-        "question": "Break down the Asian population in Fremont by specific origin",
-        "tier": "long_tail",
-        "expected": "B02015",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 11.328,
-        "t_llm": 2.961,
-        "t_census_api": 4.973,
-        "t_ours": 3.393,
-        "rows": 0
       },
       {
         "id": "q39",
@@ -4947,70 +4203,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 2.694,
-        "t_llm": 1.981,
+        "latency_s": 2.457,
+        "t_llm": 1.923,
         "t_census_api": 0.0,
-        "t_ours": 0.713,
-        "rows": 0
-      },
-      {
-        "id": "q40",
-        "repeat": 3,
-        "question": "How many studio and one-bedroom units are there in Cambridge?",
-        "tier": "long_tail",
-        "expected": "B25041",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.583,
-        "t_llm": 2.732,
-        "t_census_api": 3.246,
-        "t_ours": 3.605,
-        "rows": 0
-      },
-      {
-        "id": "q42",
-        "repeat": 3,
-        "question": "Veterans in Fayetteville with a service-connected disability rating",
-        "tier": "long_tail",
-        "expected": "B21100",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.126,
-        "t_llm": 2.969,
-        "t_census_api": 3.137,
-        "t_ours": 3.019,
-        "rows": 0
-      },
-      {
-        "id": "q43",
-        "repeat": 3,
-        "question": "What time do commuters in Suffolk County leave the house?",
-        "tier": "long_tail",
-        "expected": "B08302",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.791,
-        "t_llm": 3.137,
-        "t_census_api": 1.125,
-        "t_ours": 3.529,
+        "t_ours": 0.534,
         "rows": 0
       },
       {
@@ -5027,10 +4223,10 @@
           "overlapping_vintage"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 9.11,
-        "t_llm": 1.787,
+        "latency_s": 7.155,
+        "t_llm": 1.848,
         "t_census_api": 0.0,
-        "t_ours": 7.323,
+        "t_ours": 5.307,
         "rows": 0
       },
       {
@@ -5045,10 +4241,10 @@
         "answered": false,
         "warnings": [],
         "detail": "missing warning moe_not_significant",
-        "latency_s": 5.404,
-        "t_llm": 0.936,
-        "t_census_api": 3.995,
-        "t_ours": 0.473,
+        "latency_s": 2.96,
+        "t_llm": 0.86,
+        "t_census_api": 1.587,
+        "t_ours": 0.513,
         "rows": 0
       },
       {
@@ -5061,12 +4257,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 9.782,
-        "t_llm": 4.819,
-        "t_census_api": 1.875,
-        "t_ours": 3.088,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "empty url",
+        "latency_s": 8.82,
+        "t_llm": 5.089,
+        "t_census_api": 0.777,
+        "t_ours": 2.955,
         "rows": 0
       },
       {
@@ -5083,30 +4281,10 @@
           "universe_mismatch"
         ],
         "detail": "empty url",
-        "latency_s": 11.252,
-        "t_llm": 2.942,
-        "t_census_api": 4.541,
-        "t_ours": 3.769,
-        "rows": 0
-      },
-      {
-        "id": "t07",
-        "repeat": 3,
-        "question": "Population of Phoenix in 2024 from the 1-year ACS",
-        "tier": "trap",
-        "expected": "B01003",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 9.473,
-        "t_llm": 2.79,
-        "t_census_api": 2.998,
-        "t_ours": 3.684,
+        "latency_s": 18.63,
+        "t_llm": 5.494,
+        "t_census_api": 8.702,
+        "t_ours": 4.433,
         "rows": 0
       },
       {
@@ -5121,12 +4299,13 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19101",
-        "latency_s": 12.445,
-        "t_llm": 3.974,
-        "t_census_api": 3.02,
-        "t_ours": 5.451,
+        "latency_s": 12.179,
+        "t_llm": 3.531,
+        "t_census_api": 3.2,
+        "t_ours": 5.448,
         "rows": 1
       }
     ]
-  }
+  },
+  "answered_rate": 0.769
 }
