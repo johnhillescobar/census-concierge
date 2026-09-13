@@ -150,8 +150,7 @@ resolution, MOE handling, the UI.
 
 - [x] FastAPI app with Swagger. One endpoint.
 
-> **STATUS 2026-09-12 (CC-19, `main` @ ae9ff2e).** Live `/docs` 200, `/ask` 422/200 (stub). Retriever `@10` 0.90, selector `@1` 0.875. Transcript: `evidence/slice-1/e2e-post.txt`. `make demo` is CC-26.
-> **STATUS 2026-09-12 (CC-23, `main` @ 7d14c79).** Live `POST /ask` ACS5 2024 B01003 Harris County (GEOID 0500000US48201), key redacted. Retriever `@10` 0.90, selector `@1` 0.85, alignment 0.544. Transcript: `evidence/slice-1/cc-23-e2e-post.txt`.
+> **STATUS 2026-09-12.** CC-19 HTTP surface and CC-23 ask loop shipped. Evidence: `evidence/slice-1/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-1.
 - [x] Tool-calling loop, 4 tools: `search_tables`, `resolve_geography`,
       `build_url`, `fetch_data`. **Not a graph.**
 - [x] `build_url` returns the complete URL — variables, geography, vintage — and
