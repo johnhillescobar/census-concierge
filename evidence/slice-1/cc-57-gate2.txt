@@ -1,0 +1,232 @@
+# CC-57 Gate 2
+# branch: feat/cc-57-default-total
+# HEAD: c09faaa2ba7407c0912ec759471e83902e537d0f
+# review base: feat/cc-54-search-select @ 93fee04beacfb3d79f78c82c43094cf9bde20d0b
+# origin/main: 97482e4b12cb6a518503cc2068ad56264fda9732
+# captured: 2026-09-13T11:25:30-05:00
+# uncommitted at capture start: none (git status --short empty)
+# machines: exit 0 (review continues)
+
+=== git log feat/cc-54-search-select...HEAD --oneline ===
+c09faaa fix(api): default empty build_url variables to the table total (CC-57)
+
+=== git diff --stat feat/cc-54-search-select...HEAD ===
+ api/src/tools.py                           |   4 +-
+ api/tests/test_ask_tools.py                |  64 +++++++++++
+ api/tests/test_demo_harness.py             |  26 +++++
+ docs/ARCHITECTURE.md                       |   5 +-
+ evidence/slice-1/cc-57-gate1.txt           | 164 +++++++++++++++++++++++++++++
+ evidence/slice-1/cc-57-preflight-claims.md |  21 ++++
+ evidence/slice-1/cc-57-preflight.txt       |  48 +++++++++
+ scripts/run_demo.py                        |   6 +-
+ 8 files changed, 332 insertions(+), 6 deletions(-)
+
+=== git status --short ===
+(empty)
+
+=== uv run python scripts/check_budgets.py ===
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2200 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)          13.82 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+[exit 0]
+
+
+=== uv run python scripts/check_invariants.py --base origin/main ===
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+[exit 0]
+
+
+=== uv run ruff check . ===
+$ uv run ruff check .
+All checks passed!
+[exit 0]
+
+
+=== uv run ruff format --check . ===
+$ uv run ruff format --check .
+81 files already formatted
+[exit 0]
+
+
+=== uv run mypy api/src ===
+$ uv run mypy api/src
+Success: no issues found in 19 source files
+
+[exit 0]
+
+
+=== uv run pytest -q -m "not integration" ===
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 40%]
+........................................................................ [ 80%]
+..................................                                       [100%]
+178 passed in 3.84s
+
+[exit 0]
+
+
+================================================================================
+PASS 1 -- generic bugs (cold read of git diff feat/cc-54-search-select...HEAD; no intent)
+================================================================================
+Diff: c09faaa vs feat/cc-54-search-select (93fee04). Uncommitted at capture: none.
+8 files, +332 / -6. Production: tools.py (two lines), run_demo.py (summarize + print),
+ARCHITECTURE.md; rest is tests/evidence.
+
+GOOD: no crash; success path still CensusURL + pair_margins; empty-default tests
+can fail; gated answered_rate is not replaced.
+
+Findings:
+- BuildUrlTool._arun still does variables = list(variables or []), so omitted
+  and [] are the same. After table_facts succeeds it used to set variables to
+  every suffix in facts["variables"]. It now sets variables to a single
+  constructed id: f"{table_id}_001E". That literal is not taken from the
+  suffix list. The existing loop then checks whether suffix "001E" is in
+  suffixes. Hit: normalize keeps it, pair_margins appends 001M, get= is
+  NAME,GEO_ID,{table}_001E,{table}_001M. Miss: ok=False, url="", detail
+  names the missing id, and the other suffixes are not substituted in.
+  A table whose total is not named 001E (subject-table C01_001E, profile
+  0001E) therefore fails closed on an empty variables list. B/C detailed
+  tables in the golden set do use 001E.
+- The default fires with no warning on the artifact. A call that names a
+  distribution table and omits variables returns the universe total as a
+  successful URL. Vintage=None already means latest ACS5 the same way.
+  Explicit non-empty lists skip the new assignment; pair_margins is unchanged.
+- Failure branches this tool already had (no search pool, unknown table,
+  missing facts, missing variable, unresolved geography) still return url="".
+  No new URL formatter; str(url) is still CensusURL. fetch_data / assemble
+  / guards are untouched. Estimates still do not pass back through the model.
+- summarize() adds overall_answered_rate = _rate(trials) next to
+  answered_rate = _rate(long_tail). Empty long_tail is still 0.
+  _rate([]) is 0.0; 2/3 rounds to 0.667. Floors and merge_evidence still
+  key off answered_rate. overall is printed on the same line as the gated
+  rate, labeled "overall". merge_evidence copies a fixed key list to the
+  top of latest.json; overall_answered_rate is not on that list. The whole
+  summary dict is stored under demo[], so the number is in latest.json only
+  as demo.overall_answered_rate.
+- Tests: test_omitted_variables_request_the_table_total,
+  test_explicit_estimate_does_not_expand_to_the_table,
+  test_missing_table_total_does_not_expand_to_every_cell,
+  test_overall_answered_rate_uses_all_trials, plus asserts on the two
+  existing gated-rate tests. _wide_url_tool is a 26-suffix synthetic facts
+  map for URL construction, not a search() fake that returns one table for
+  every question. No prompt-wording asserts. No new test file named after a
+  ticket.
+
+nothing: exception on empty search/build; fifth tool; graph node; key leak;
+dropped MOE pairing on the success path; replacing long_tail answered_rate.
+
+
+================================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md)
+================================================================================
+
+--- machines (run first; transcript above; all exit 0) ---
+uv run python scripts/check_budgets.py                          [exit 0]
+uv run python scripts/check_invariants.py --base origin/main    [exit 0]
+uv run ruff check .                                             [exit 0]
+uv run ruff format --check .                                    [exit 0]
+uv run mypy api/src                                             [exit 0]
+uv run pytest -q -m "not integration"                           [exit 0]  178 passed
+
+GOOD: machines green. Budgets not weakened. No invariant violations.
+Review continues.
+
+--- the claim ---
+A caller of build_url who omits variables now gets the table total
+({table}_001E paired with 001M) as a working Census URL, instead of every
+estimate in the table. make demo also reports overall_answered_rate over
+all tiers without replacing the long_tail answered_rate gate.
+That sentence can be written. make demo / make eval are E2E (next phase);
+this Gate 2 does not treat a missing demo as a machine failure.
+No retrieval@1 delta is claimed; selector_at_1 in evidence/latest.json is
+unchanged (0.875). p95 in latest.json is still 13.82s.
+
+--- scope ---
+GOOD: belongs to slice 1 remaining work (the four-tool loop's build_url, and
+the demo scoreboard). Not added: conversation memory, auth, database,
+frontend, charts, PDF, clarification, urls[] / multi-year fetch (slice 3),
+graph nodes, a fifth tool. retrieval/ is untouched. ask.py is untouched
+(still 400/400). 8 files, under ~15. Evidence and preflight notes are Gate 1
+/ pre-flight artifacts, not opportunistic product code.
+ARCHITECTURE.md HTTP section updated in the same commit as tools.py.
+
+--- silent-wrong-answer ---
+nothing that blocks.
+- URL: success still returns str(CensusURL). This PR does not format a URL
+  any other way. Redaction stays on the CensusURL type. build_url failure
+  still returns url="" (existing missing-variable / unresolved-geo shape).
+- MOE: pair_margins still runs on the success path after the default; empty
+  default becomes 001E then 001M. Explicit lists unchanged.
+- GEOID: get= still includes GEO_ID. Unchanged paths.
+- Universe: still from table_facts on the success / unresolved-geo paths.
+- Guards unchanged. No new blocking question. No silent vintage or geography
+  substitution. Filling an omitted variables list is a documented tool
+  default (schema text + ARCHITECTURE), the same pattern as vintage=None
+  meaning latest ACS5. The URL names the cell. Missing 001E fails closed
+  rather than expanding to every cell.
+- Numbers still do not pass back through the model.
+
+Out of ticket, do not demand: make demo numbers, urls[], frontend, auth,
+graphs, a fifth tool, S/DP table families as a slice-1 golden path.
+
+--- shape ---
+GOOD / nothing: no new tool, route, Pydantic boundary-model, or .add_node().
+Tools stay at 4. No new abstraction. ARCHITECTURE.md HTTP sentence now says
+empty variables is the table total 001E then E paired with M.
+The status paragraph still lists merge keys without overall_answered_rate;
+that field is not a new boundary, and merge_evidence still only lifts the
+gated answered_rate.
+
+--- tests ---
+GOOD: behaviour, not prompt wording. New tests drive BuildUrlTool.ainvoke
+and summarize(). They assert the get= list, that an explicit estimate is
+not replaced, that a missing 001E does not expand to the other suffixes,
+and that overall_answered_rate uses every trial while answered_rate stays
+long_tail (0 on a core-only run). No constant-table retrieval fake.
+Gate 1 mutation transcript is in evidence/slice-1/cc-57-gate1.txt; this
+review does not re-run mutations. A new test file is not evidence that
+POST /ask works; that is E2E.
+
+--- verdict ---
+Ship it with follow-ups. User-facing claim: omitting build_url variables
+now requests {table}_001E (and 001M) instead of every estimate, and the
+demo harness records overall_answered_rate across all tiers beside the
+unchanged long_tail gate.
+
+Follow-ups (none are silent-wrong-answer):
+1. The default is the literal suffix 001E, not "whatever this table's total
+   actually is". Subject/profile totals are not 001E; empty variables there
+   fail closed with url="".
+2. overall_answered_rate is not copied to the top-level latest.json keys;
+   it lives under demo[]. check_budgets still reads answered_rate.
+3. ARCHITECTURE.md opening merge list does not name overall_answered_rate.
+4. Budget headroom: largest file 400/400 (ask.py), doc_lines 1798/1800.
+
+================================================================================
+GATE 2 VERDICT: SHIP IT WITH FOLLOW-UPS
+================================================================================
