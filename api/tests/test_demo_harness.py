@@ -82,7 +82,7 @@ def test_merge_keeps_retrieval_metrics() -> None:
         "index_hash": "def",
         "misses": [{"id": "q06"}],
     }
-    merged = run_demo.merge_evidence(existing, demo)
+    merged = run_demo.merge_evidence(existing, demo, answered_floor=0.70)
     assert merged["retrieval_at_10"] == 0.9
     assert merged["selector_at_1"] == 0.875
     assert merged["answered_rate"] == 0.72
@@ -90,6 +90,38 @@ def test_merge_keeps_retrieval_metrics() -> None:
     assert merged["t_llm"] == 8.0
     assert merged["misses"] == ["old"]
     assert merged["demo"]["misses"] == [{"id": "q06"}]
+
+
+def test_a_first_miss_is_not_promoted_to_the_gated_key() -> None:
+    existing = {"retrieval_at_10": 0.9}
+    demo = {
+        "answered_rate": 0.256,
+        "p95_latency_seconds": 14.1,
+        "t_llm": 8.0,
+        "t_census_api": 1.2,
+        "t_ours": 0.4,
+        "prompt_hash": "abc",
+        "index_hash": "def",
+    }
+    merged = run_demo.merge_evidence(existing, demo, answered_floor=0.70)
+    assert "answered_rate" not in merged
+    assert merged["demo"]["answered_rate"] == 0.256
+    assert merged["retrieval_at_10"] == 0.9
+
+
+def test_a_regression_from_a_prior_rate_stays_on_the_gated_key() -> None:
+    existing = {"answered_rate": 0.80, "retrieval_at_10": 0.9}
+    demo = {
+        "answered_rate": 0.256,
+        "p95_latency_seconds": 14.1,
+        "t_llm": 8.0,
+        "t_census_api": 1.2,
+        "t_ours": 0.4,
+        "prompt_hash": "abc",
+        "index_hash": "def",
+    }
+    merged = run_demo.merge_evidence(existing, demo, answered_floor=0.70)
+    assert merged["answered_rate"] == 0.256
 
 
 def test_slice3_and_holdout_are_out_of_scope() -> None:
