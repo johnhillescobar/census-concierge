@@ -1,0 +1,270 @@
+# Gate 1 — CC-26 — branch feat/cc-26-demo
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_demo_harness.py
+..........                                                               [100%]
+10 passed in 0.05s
+(exit 0)
+
+=== BAD: is_answered always returns True ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_http_ok_is_not_answered api/tests/test_demo_harness.py::test_wrong_table_is_not_answered
+FF                                                                       [100%]
+================================== FAILURES ===================================
+________________________ test_http_ok_is_not_answered _________________________
+
+    def test_http_ok_is_not_answered() -> None:
+        entry = {"id": "q01", "expect_table": "B01003"}
+        body = _body(table_id="", url="", rows=[])
+        assert run_demo.http_ok(200) is True
+>       assert run_demo.is_answered(entry, status_code=200, body=body) is False
+E       AssertionError: assert True is False
+E        +  where True = <function is_answered at 0x0000020DB89F25C0>({'id': 'q01', 'expect_table': 'B01003'}, status_code=200, body={'answer': 'ok', 'url': '', 'rows': [], 'moe': [], ...})
+E        +    where <function is_answered at 0x0000020DB89F25C0> = run_demo.is_answered
+
+api\tests\test_demo_harness.py:36: AssertionError
+______________________ test_wrong_table_is_not_answered _______________________
+
+    def test_wrong_table_is_not_answered() -> None:
+        entry = {"id": "q01", "expect_table": "B01003"}
+>       assert run_demo.is_answered(entry, status_code=200, body=_body(table_id="B19013")) is False
+E       AssertionError: assert True is False
+E        +  where True = <function is_answered at 0x0000020DB89F25C0>({'id': 'q01', 'expect_table': 'B01003'}, status_code=200, body={'answer': 'ok', 'url': 'https://api.census.gov/data/2024/acs/acs5?get=B01003_001E', 'rows': [{'B01003_001E': '1'}], 'moe': [], ...})
+E        +    where <function is_answered at 0x0000020DB89F25C0> = run_demo.is_answered
+E        +    and   {'answer': 'ok', 'url': 'https://api.census.gov/data/2024/acs/acs5?get=B01003_001E', 'rows': [{'B01003_001E': '1'}], 'moe': [], ...} = _body(table_id='B19013')
+
+api\tests\test_demo_harness.py:64: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_http_ok_is_not_answered - Asserti...
+FAILED api/tests/test_demo_harness.py::test_wrong_table_is_not_answered - Ass...
+2 failed in 0.17s
+(exit 1)
+
+=== BAD: empty URL still counts as answered when expect_table is set (the t01 case) ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_empty_url_is_not_answered_when_a_table_was_expected
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_empty_url_is_not_answered_when_a_table_was_expected ___________
+
+    def test_empty_url_is_not_answered_when_a_table_was_expected() -> None:
+        entry = {"id": "t01", "expect_table": "B19013", "expect_warning": "overlapping_vintage"}
+        body = _body(
+            table_id="B19013",
+            url="",
+            rows=[],
+            warnings=[{"code": "overlapping_vintage", "detail": "overlap"}],
+        )
+>       assert run_demo.is_answered(entry, status_code=200, body=body) is False
+E       AssertionError: assert True is False
+E        +  where True = <function is_answered at 0x000002EF3458E520>({'id': 't01', 'expect_table': 'B19013', 'expect_warning': 'overlapping_vintage'}, status_code=200, body={'answer': 'ok', 'url': '', 'rows': [], 'moe': [], ...})
+E        +    where <function is_answered at 0x000002EF3458E520> = run_demo.is_answered
+
+api\tests\test_demo_harness.py:47: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_empty_url_is_not_answered_when_a_table_was_expected
+1 failed in 0.14s
+(exit 1)
+
+=== BAD: ambiguous_place with empty URL is NOT answered (invert t05) ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_ambiguous_place_with_empty_url_is_answered
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_ambiguous_place_with_empty_url_is_answered _______________
+
+    def test_ambiguous_place_with_empty_url_is_answered() -> None:
+        entry = {"id": "t05", "expect_warning": "ambiguous_place"}
+        body = _body(
+            table_id="",
+            url="",
+            rows=[],
+            warnings=[{"code": "ambiguous_place", "detail": "several Springfields"}],
+        )
+>       assert run_demo.is_answered(entry, status_code=200, body=body) is True
+E       AssertionError: assert False is True
+E        +  where False = <function is_answered at 0x00000253B71AE520>({'id': 't05', 'expect_warning': 'ambiguous_place'}, status_code=200, body={'answer': 'ok', 'url': '', 'rows': [], 'moe': [], ...})
+E        +    where <function is_answered at 0x00000253B71AE520> = run_demo.is_answered
+
+api\tests\test_demo_harness.py:59: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_ambiguous_place_with_empty_url_is_answered
+1 failed in 0.16s
+(exit 1)
+
+=== BAD: percentile returns the mean ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_p95_is_the_tail_not_the_mean
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________________ test_p95_is_the_tail_not_the_mean ______________________
+
+    def test_p95_is_the_tail_not_the_mean() -> None:
+        values = [1.0] * 94 + [20.0] * 6
+>       assert run_demo.percentile(values, 95) == 20.0
+E       assert 2.14 == 20.0
+E        +  where 2.14 = <function percentile at 0x00000263C4DCA2A0>([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ...], 95)
+E        +    where <function percentile at 0x00000263C4DCA2A0> = run_demo.percentile
+
+api\tests\test_demo_harness.py:69: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_p95_is_the_tail_not_the_mean - as...
+1 failed in 0.19s
+(exit 1)
+
+=== BAD: merge_evidence replaces the whole dict instead of keeping retrieval keys ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_merge_keeps_retrieval_metrics
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_merge_keeps_retrieval_metrics ______________________
+
+    def test_merge_keeps_retrieval_metrics() -> None:
+        existing = {"retrieval_at_10": 0.9, "selector_at_1": 0.875, "misses": ["old"]}
+        demo = {
+            "answered_rate": 0.72,
+            "p95_latency_seconds": 14.1,
+            "t_llm": 8.0,
+            "t_census_api": 1.2,
+            "t_ours": 0.4,
+            "prompt_hash": "abc",
+            "index_hash": "def",
+            "misses": [{"id": "q06"}],
+        }
+        merged = run_demo.merge_evidence(existing, demo)
+>       assert merged["retrieval_at_10"] == 0.9
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'retrieval_at_10'
+
+api\tests\test_demo_harness.py:86: KeyError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_merge_keeps_retrieval_metrics - K...
+1 failed in 0.13s
+(exit 1)
+
+=== BAD: is_slice1 / select_questions includes holdout and t09–t18 ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_slice3_and_holdout_are_out_of_scope api/tests/test_demo_harness.py::test_golden_file_scope_matches_slice1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+__________________ test_slice3_and_holdout_are_out_of_scope ___________________
+
+    def test_slice3_and_holdout_are_out_of_scope() -> None:
+        entries = [
+            {"id": "q01", "tier": "core"},
+            {"id": "q23", "tier": "long_tail"},
+            {"id": "t08", "tier": "trap"},
+            {"id": "t09", "tier": "trap"},
+            {"id": "t10", "tier": "trap"},
+            {"id": "h01", "tier": "long_tail", "holdout": True},
+        ]
+        ids = [entry["id"] for entry in run_demo.select_questions(entries)]
+>       assert ids == ["q01", "q23", "t08"]
+E       AssertionError: assert ['q01', 'q23'... 't10', 'h01'] == ['q01', 'q23', 't08']
+E         
+E         Left contains 3 more items, first extra item: 't09'
+E         Use -v to get more diff
+
+api\tests\test_demo_harness.py:105: AssertionError
+____________________ test_golden_file_scope_matches_slice1 ____________________
+
+    def test_golden_file_scope_matches_slice1() -> None:
+        import tomllib
+    
+        with (ROOT / "evals" / "golden_questions.toml").open("rb") as handle:
+            entries = tomllib.load(handle)["question"]
+        picked = run_demo.select_questions(entries)
+        ids = {entry["id"] for entry in picked}
+>       assert "h01" not in ids
+E       AssertionError: assert 'h01' not in {'h01', 'h02', 'h03', 'h04', 'h05', 'h06', ...}
+
+api\tests\test_demo_harness.py:115: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_slice3_and_holdout_are_out_of_scope
+FAILED api/tests/test_demo_harness.py::test_golden_file_scope_matches_slice1
+2 failed in 0.22s
+(exit 1)
+
+=== BAD: leaks_key always returns False ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_key_in_a_url_is_a_leak
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________________ test_key_in_a_url_is_a_leak _________________________
+
+    def test_key_in_a_url_is_a_leak() -> None:
+        clean = "https://api.census.gov/data/2024/acs/acs5?get=B01003_001E&for=county:201"
+        dirty = clean + "&key=secretvalue"
+        assert run_demo.leaks_key(clean) is False
+>       assert run_demo.leaks_key(dirty) is True
+E       AssertionError: assert False is True
+E        +  where False = <function leaks_key at 0x00000252BEE9E200>('https://api.census.gov/data/2024/acs/acs5?get=B01003_001E&for=county:201&key=secretvalue')
+E        +    where <function leaks_key at 0x00000252BEE9E200> = run_demo.leaks_key
+
+api\tests\test_demo_harness.py:126: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_key_in_a_url_is_a_leak - Assertio...
+1 failed in 0.23s
+(exit 1)
+
+=== BAD: summarize gated answered_rate uses all trials (so core 100% + long_tail 0% would pass) ===
+$ uv run pytest -q api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_gated_rate_uses_long_tail ________________________
+
+    def test_gated_rate_uses_long_tail() -> None:
+        trials = [
+            run_demo.Trial(
+                id="q01",
+                text="core",
+                tier="core",
+                repeat=1,
+                http_ok=True,
+                answered=True,
+                expected_table="B01003",
+                table_id="B01003",
+                url="https://example",
+                warnings=[],
+                latency_s=1.0,
+                t_llm=0.5,
+                t_census_api=0.2,
+                t_ours=0.3,
+                detail="",
+            ),
+            run_demo.Trial(
+                id="q05",
+                text="tail",
+                tier="long_tail",
+                repeat=1,
+                http_ok=True,
+                answered=False,
+                expected_table="B08301",
+                table_id="",
+                url="",
+                warnings=[],
+                latency_s=2.0,
+                t_llm=1.0,
+                t_census_api=0.4,
+                t_ours=0.6,
+                detail="empty url",
+            ),
+        ]
+        summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+>       assert summary["answered_rate"] == 0.0
+E       assert 0.5 == 0.0
+
+api\tests\test_demo_harness.py:169: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_gated_rate_uses_long_tail - asser...
+1 failed in 0.16s
+(exit 1)
+
+=== GOOD: all new tests after restore ===
+$ uv run pytest -q api/tests/test_demo_harness.py
+..........                                                               [100%]
+10 passed in 0.04s
+(exit 0)
+
+=== restore: git status --porcelain ===
+$ git status --porcelain
+?? evidence/slice-1/cc-26-gate1.txt
+(exit 0)
+
+=== summary ===
+mutations_run=8
+verdict=PASS (all new tests mutation-checked GOOD/BAD as required)
