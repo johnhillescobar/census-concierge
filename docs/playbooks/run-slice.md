@@ -83,8 +83,10 @@ one-line correction does not. Stop after one re-run; still fix what it finds.
 verbatim, never reflowed - and save to `evidence/slice-<N>/e2e-pre.txt`. A failing
 criterion keeps the PR open with that output in the body; reporting a red result is
 the correct outcome. After the merge, re-run against merged `main` into
-`evidence/slice-<N>/e2e-post.txt` and append the numbers to the slice's STATUS
-block in `.claude/PLAN.md` - the merge itself is an unverified change.
+`evidence/slice-<N>/e2e-post.txt` and comment the numbers on the Jira ticket
+and the slice epic. PLAN.md STATUS stays a one-line close pointer (floors met,
+`evidence/slice-<N>/`, epic URL). Do not append eval novels into PLAN — the
+merge itself is an unverified change.
 
 ## The handoff rule
 
@@ -96,8 +98,8 @@ fresh context - Claude Code `/clear` or a subagent, Cursor New Chat or an
 
 **Jira (project `CC`) is the status source of truth.** Close with
 `uv run python scripts/jira_transition.py CC-N --done --comment "…"` (evidence in
-the comment). PLAN.md STATUS records what shipped; keep them aligned. Name `CC-N` in
-commits and PRs.
+the comment). PLAN.md STATUS is a close pointer; post-merge numbers live on
+the ticket. Name `CC-N` in commits and PRs.
 
 ## Delegating the token-heavy phases
 

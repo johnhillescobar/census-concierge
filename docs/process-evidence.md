@@ -13,9 +13,9 @@ every citation in the adversarial matrix resolves to a section in the defect
 index. A pinned transcript that stops reproducing is the failure that check exists
 to catch: the whole argument of the playbook is that only real output counts.
 
-The matrix and the index start short on purpose. Slice 0 has not shipped, so there
-is no pull-request defect history yet; every row below is a measured finding from
-building the slice-0 index. A row is added when a real defect is caught, never to
+The matrix and the index start short on purpose. Slice 0 shipped without a
+pull-request defect history; every row below is a measured finding from
+building that index. A row is added when a real defect is caught, never to
 look thorough.
 
 ---
