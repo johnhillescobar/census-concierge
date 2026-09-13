@@ -96,13 +96,14 @@ def test_slice3_and_holdout_are_out_of_scope() -> None:
     entries = [
         {"id": "q01", "tier": "core"},
         {"id": "q23", "tier": "long_tail"},
+        {"id": "q24", "tier": "long_tail"},
         {"id": "t08", "tier": "trap"},
         {"id": "t09", "tier": "trap"},
         {"id": "t10", "tier": "trap"},
         {"id": "h01", "tier": "long_tail", "holdout": True},
     ]
     ids = [entry["id"] for entry in run_demo.select_questions(entries)]
-    assert ids == ["q01", "q23", "t08"]
+    assert ids == ["q01", "q24", "t08"]
 
 
 def test_golden_file_scope_matches_slice1() -> None:
@@ -115,8 +116,8 @@ def test_golden_file_scope_matches_slice1() -> None:
     assert "h01" not in ids
     assert "t09" not in ids and "t18" not in ids
     assert "t01" in ids and "t08" in ids
-    assert "q23" in ids and "q24" in ids
-    assert len(picked) == 52
+    assert "q23" not in ids and "q24" in ids
+    assert len(picked) == 51
 
 
 def test_key_in_a_url_is_a_leak() -> None:
