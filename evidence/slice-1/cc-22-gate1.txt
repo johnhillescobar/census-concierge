@@ -1,0 +1,348 @@
+# Gate 1 — CC-22 — branch feat/cc-22-guards
+# Mutation check: revert one behaviour at a time, confirm the covering test fails, restore.
+
+=== GOOD: all new tests against the implementation ===
+$ uv run pytest -q api/tests/test_guards.py
+..............                                                           [100%]
+14 passed in 0.36s
+(exit 0)
+
+=== BAD: empty record emits no warnings (mutation: _overlaps always returns True) ===
+$ uv run pytest -q api/tests/test_guards.py::test_empty_record_emits_no_warnings
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_empty_record_emits_no_warnings _____________________
+
+    def test_empty_record_emits_no_warnings() -> None:
+>       assert evaluate(ExecutionRecord()) == []
+E       AssertionError: assert [AskWarning(c... comparable')] == []
+E         
+E         Left contains one more item: AskWarning(code='overlapping_vintage', detail='ACS5 vintages  share sample years and are not comparable')
+E         Use -v to get more diff
+
+api\tests\test_guards.py:25: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_empty_record_emits_no_warnings - Assert...
+1 failed in 0.47s
+(exit 1)
+
+=== BAD: overlapping acs5 ranges warn without a second fetch (mutation: _overlaps always returns False) ===
+$ uv run pytest -q api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_overlapping_acs5_ranges_warn_without_a_second_fetch ___________
+
+    def test_overlapping_acs5_ranges_warn_without_a_second_fetch() -> None:
+        record = ExecutionRecord(question=T01)
+>       assert _codes(record) == ["overlapping_vintage"]
+E       AssertionError: assert [] == ['overlapping_vintage']
+E         
+E         Right contains one more item: 'overlapping_vintage'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:30: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch
+1 failed in 0.45s
+(exit 1)
+
+=== BAD: overlapping vintages from build_url calls (mutation: overlapping_vintage stops reading record.vintages) ===
+$ uv run pytest -q api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_overlapping_vintages_from_build_url_calls ________________
+
+    def test_overlapping_vintages_from_build_url_calls() -> None:
+        record = ExecutionRecord()
+        record.vintages = [("acs5", 2019), ("acs5", 2022)]
+>       assert _codes(record) == ["overlapping_vintage"]
+E       AssertionError: assert [] == ['overlapping_vintage']
+E         
+E         Right contains one more item: 'overlapping_vintage'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:41: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls
+1 failed in 0.38s
+(exit 1)
+
+=== BAD: non-overlapping acs5 end years do not warn (mutation: _overlaps always returns True) ===
+$ uv run pytest -q api/tests/test_guards.py::test_non_overlapping_acs5_end_years_do_not_warn
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_non_overlapping_acs5_end_years_do_not_warn _______________
+
+    def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
+        record = ExecutionRecord()
+        record.vintages = [("acs5", 2017), ("acs5", 2022)]
+>       assert _codes(record) == []
+E       AssertionError: assert ['overlapping_vintage'] == []
+E         
+E         Left contains one more item: 'overlapping_vintage'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:47: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_non_overlapping_acs5_end_years_do_not_warn
+1 failed in 0.36s
+(exit 1)
+
+=== BAD: indistinguishable tracts are not ranked (mutation: moe_not_significant always returns None) ===
+$ uv run pytest -q api/tests/test_guards.py::test_indistinguishable_tracts_are_not_ranked
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_indistinguishable_tracts_are_not_ranked _________________
+
+    def test_indistinguishable_tracts_are_not_ranked() -> None:
+        record = ExecutionRecord(question=T03)
+        record.rows = [
+            {"GEO_ID": "1400000US1915501201", "B17001_002E": "100", "B17001_002M": "50"},
+            {"GEO_ID": "1400000US1915501305", "B17001_002E": "110", "B17001_002M": "50"},
+        ]
+>       assert _codes(record) == ["moe_not_significant"]
+E       AssertionError: assert [] == ['moe_not_significant']
+E         
+E         Right contains one more item: 'moe_not_significant'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:56: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_indistinguishable_tracts_are_not_ranked
+1 failed in 0.43s
+(exit 1)
+
+=== BAD: distinguishable difference does not warn (mutation: moe_not_significant skips the MOE comparison and always warns) ===
+$ uv run pytest -q api/tests/test_guards.py::test_distinguishable_difference_does_not_warn
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_distinguishable_difference_does_not_warn ________________
+
+    def test_distinguishable_difference_does_not_warn() -> None:
+        record = ExecutionRecord(question=T03)
+        record.rows = [
+            {"GEO_ID": "a", "B17001_002E": "1000", "B17001_002M": "10"},
+            {"GEO_ID": "b", "B17001_002E": "2000", "B17001_002M": "10"},
+        ]
+>       assert _codes(record) == []
+E       AssertionError: assert ['moe_not_significant'] == []
+E         
+E         Left contains one more item: 'moe_not_significant'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:65: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_distinguishable_difference_does_not_warn
+1 failed in 0.47s
+(exit 1)
+
+=== BAD: wildcard rows without a comparison do not warn (mutation: moe_not_significant skips the comparison-language check) ===
+$ uv run pytest -q api/tests/test_guards.py::test_wildcard_rows_without_a_comparison_do_not_warn
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_wildcard_rows_without_a_comparison_do_not_warn _____________
+
+    def test_wildcard_rows_without_a_comparison_do_not_warn() -> None:
+        record = ExecutionRecord(question="Median family income by county in Iowa")
+        record.rows = [
+            {"GEO_ID": "a", "B19113_001E": "1", "B19113_001M": "50"},
+            {"GEO_ID": "b", "B19113_001E": "2", "B19113_001M": "50"},
+        ]
+>       assert _codes(record) == []
+E       AssertionError: assert ['moe_not_significant'] == []
+E         
+E         Left contains one more item: 'moe_not_significant'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:74: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_wildcard_rows_without_a_comparison_do_not_warn
+1 failed in 0.44s
+(exit 1)
+
+=== BAD: illegal geography combination warns (mutation: geography_unsupported treats geo_status legal False as no warning) ===
+$ uv run pytest -q api/tests/test_guards.py::test_illegal_geography_combination_warns
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_illegal_geography_combination_warns ___________________
+
+    def test_illegal_geography_combination_warns() -> None:
+        record = ExecutionRecord()
+        record.geo_status = {
+            "legal": False,
+            "detail": "block group with in={'state': '56'} is not a legal combination",
+        }
+>       assert _codes(record) == ["geography_unsupported"]
+E       AssertionError: assert [] == ['geography_unsupported']
+E         
+E         Right contains one more item: 'geography_unsupported'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:83: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_illegal_geography_combination_warns - A...
+1 failed in 0.45s
+(exit 1)
+
+=== BAD: several matching places are the result (mutation: ambiguous_place does not warn when len(geographies) > 1) ===
+$ uv run pytest -q api/tests/test_guards.py::test_several_matching_places_are_the_result
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_several_matching_places_are_the_result _________________
+
+    def test_several_matching_places_are_the_result() -> None:
+        record = ExecutionRecord(question="Population of Springfield")
+        record.geographies = [
+            {"name": "Springfield city, Illinois", "for": "place:1769000", "in": "state:17"},
+            {"name": "Springfield city, Massachusetts", "for": "place:2567000", "in": "state:25"},
+            {"name": "Springfield city, Missouri", "for": "place:2970000", "in": "state:29"},
+        ]
+        warnings = evaluate(record)
+>       assert [item.code for item in warnings] == ["ambiguous_place"]
+E       AssertionError: assert [] == ['ambiguous_place']
+E         
+E         Right contains one more item: 'ambiguous_place'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:95: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_several_matching_places_are_the_result
+1 failed in 0.57s
+(exit 1)
+
+=== BAD: one geography is not ambiguous (mutation: ambiguous_place warns when a single geography is present) ===
+$ uv run pytest -q api/tests/test_guards.py::test_one_geography_is_not_ambiguous
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_one_geography_is_not_ambiguous _____________________
+
+    def test_one_geography_is_not_ambiguous() -> None:
+        record = ExecutionRecord()
+        record.geographies = [{"name": "Harris County, Texas", "for": "county:201", "in": "state:48"}]
+>       assert _codes(record) == []
+E       AssertionError: assert ['ambiguous_place'] == []
+E         
+E         Left contains one more item: 'ambiguous_place'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:107: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_one_geography_is_not_ambiguous - Assert...
+1 failed in 0.40s
+(exit 1)
+
+=== BAD: question crossing households and families warns (mutation: universe_mismatch requires three universe classes instead of two) ===
+$ uv run pytest -q api/tests/test_guards.py::test_question_crossing_households_and_families_warns
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_question_crossing_households_and_families_warns _____________
+
+    def test_question_crossing_households_and_families_warns() -> None:
+        record = ExecutionRecord(question=T06)
+        warnings = evaluate(record)
+>       assert [item.code for item in warnings] == ["universe_mismatch"]
+E       AssertionError: assert [] == ['universe_mismatch']
+E         
+E         Right contains one more item: 'universe_mismatch'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:113: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_question_crossing_households_and_families_warns
+1 failed in 0.46s
+(exit 1)
+
+=== BAD: family income alone is not a universe mismatch (mutation: universe_mismatch fires on a single named universe) ===
+$ uv run pytest -q api/tests/test_guards.py::test_family_income_alone_is_not_a_universe_mismatch
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_family_income_alone_is_not_a_universe_mismatch _____________
+
+    def test_family_income_alone_is_not_a_universe_mismatch() -> None:
+        record = ExecutionRecord(question="Median family income by county in Iowa")
+>       assert _codes(record) == []
+E       AssertionError: assert ['universe_mismatch'] == []
+E         
+E         Left contains one more item: 'universe_mismatch'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:120: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_family_income_alone_is_not_a_universe_mismatch
+1 failed in 0.44s
+(exit 1)
+
+=== BAD: block group wildcard in a state is illegal (mutation: remove "block group" from geo.py _LEVELS/_WILDCARD) ===
+$ uv run pytest -q api/tests/test_guards.py::test_block_group_wildcard_in_a_state_is_illegal
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_block_group_wildcard_in_a_state_is_illegal _______________
+
+    async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
+        entries = [
+            *ENTRIES,
+            GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
+        ]
+        tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=entries)
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "every block group in Wyoming"},
+                "id": "bg1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.legal is False
+>       assert artifact.wildcard is True
+E       assert False is True
+E        +  where False = ResolveGeographyResult(matches=[], wildcard=False, legal=False, detail="no place matched 'every block group in Wyoming'").wildcard
+
+api\tests\test_guards.py:139: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_block_group_wildcard_in_a_state_is_illegal
+1 failed in 0.56s
+(exit 1)
+
+=== BAD: ambiguous resolve lands on the response (mutation: assemble hard-codes warnings=[] so dispatch+assemble does not attach ambiguous_place) ===
+$ uv run pytest -q api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_ambiguous_resolve_lands_on_the_response _________________
+
+    async def test_ambiguous_resolve_lands_on_the_response() -> None:
+        record = ExecutionRecord(question="Population of Cook County")
+        tools = _tools(record)
+        await dispatch(
+            tools["resolve_geography"], {"id": "2", "args": {"query": "Cook County"}}, record
+        )
+        response = assemble("three Cook Counties", record)
+        assert len(record.geographies) == 3
+>       assert [item.code for item in response.warnings] == ["ambiguous_place"]
+E       AssertionError: assert [] == ['ambiguous_place']
+E         
+E         Right contains one more item: 'ambiguous_place'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:152: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_ambiguous_resolve_lands_on_the_response
+1 failed in 0.49s
+(exit 1)
+
+=== GOOD: full unit suite after restore ===
+$ uv run pytest -q -m not integration
+........................................................................ [ 48%]
+........................................................................ [ 97%]
+...                                                                      [100%]
+147 passed in 3.02s
+(exit 0)
+
+=== restore: git status --porcelain ===
+$ git status --porcelain
+?? evidence/slice-1/cc-22-gate1.txt
+(exit 0)
+
+=== summary ===
+mutations_run=14
+verdict=PASS (all new tests mutation-checked GOOD/BAD as required)
