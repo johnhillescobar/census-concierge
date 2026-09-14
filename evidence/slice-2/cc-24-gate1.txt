@@ -1,0 +1,309 @@
+# Gate 1 — CC-24
+# Mutations named for the behaviour they revert, not a review index.
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION estimate-pairs-drop-moe =====
+file: web/src/display.ts
+
+> test
+> vitest run --reporter=verbose src/display.test.ts
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ Ã— src/display.test.ts > estimatePairs > pairs each estimate with its matching 90% MOE 6ms
+   â†’ expected [ { variable: 'B01003_001E', â€¦(2) } ] to deeply equal [ { variable: 'B01003_001E', â€¦(2) } ]
+ âœ“ src/display.test.ts > estimatePairs > keeps an estimate when the matching MOE is missing 0ms
+ âœ“ src/display.test.ts > censusFetchFailed > is true when a URL shipped and Census returned no rows 0ms
+ âœ“ src/display.test.ts > censusFetchFailed > is false when rows arrived 0ms
+ âœ“ src/display.test.ts > redactCensusUrl > strips key= from a Census URL 1ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  19:53:58
+   Duration  3.22s (transform 35ms, setup 174ms, collect 33ms, tests 9ms, environment 602ms, prepare 93ms)
+VERDICT GOOD — exit 1
+
+===== MUTATION census-fetch-failed-never =====
+file: web/src/display.ts
+
+> test
+> vitest run --reporter=verbose src/display.test.ts src/App.test.tsx
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ âœ“ src/display.test.ts > estimatePairs > pairs each estimate with its matching 90% MOE 2ms
+ âœ“ src/display.test.ts > estimatePairs > keeps an estimate when the matching MOE is missing 0ms
+ Ã— src/display.test.ts > censusFetchFailed > is true when a URL shipped and Census returned no rows 10ms
+   â†’ expected false to be true // Object.is equality
+ âœ“ src/display.test.ts > censusFetchFailed > is false when rows arrived 0ms
+ âœ“ src/display.test.ts > redactCensusUrl > strips key= from a Census URL 3ms
+ âœ“ src/App.test.tsx > App pane states > starts idle, with no Census URL 30ms
+ âœ“ src/App.test.tsx > App pane states > shows a loading state distinct from idle while the request is in flight 133ms
+ âœ“ src/App.test.tsx > App pane states > shows an error state distinct from idle when the API is unreachable 65ms
+ âœ“ src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 61ms
+ Ã— src/App.test.tsx > App result > keeps URL and table metadata on Census fetch failure, with a visible notice 78ms
+   â†’ Unable to find an accessible element with the role "status"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  Name "Warnings":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"median rent in nowhere"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"warnings"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"median rent in nowhere"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mCensus returned HTTP 400.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB25064[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mRenter-occupied housing units paying cash rent[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m1600000US4805000[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<pre[39m
+          [33mclass[39m=[32m"census-url"[39m
+        [36m>[39m
+          [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME%2CGEO_ID%2CB25064_001E%2CB25064_001M&for=place%3A99999&in=state%3A48[0m
+        [36m</pre>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB25063[0m
+            [0m â€” [0m
+            [0mdistribution versus median[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mWarnings[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"warnings"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mgeography_unsupported[0m
+            [0m: [0m
+            [0mnot published at this level[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 8 passed (10)
+   Start at  19:54:03
+   Duration  4.04s (transform 109ms, setup 413ms, collect 362ms, tests 387ms, environment 1.25s, prepare 280ms)
+VERDICT GOOD — exit 1
+
+===== MUTATION hide-census-url =====
+file: web/src/App.tsx
+
+> test
+> vitest run --reporter=verbose src/App.test.tsx
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ âœ“ src/App.test.tsx > App pane states > starts idle, with no Census URL 21ms
+ âœ“ src/App.test.tsx > App pane states > shows a loading state distinct from idle while the request is in flight 102ms
+ âœ“ src/App.test.tsx > App pane states > shows an error state distinct from idle when the API is unreachable 47ms
+ Ã— src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 66ms
+   â†’ expected '' to contain 'https://api.census.gov/data/2024/acs/â€¦'
+ Ã— src/App.test.tsx > App result > keeps URL and table metadata on Census fetch failure, with a visible notice 45ms
+   â†’ expected '' to contain 'B25064_001E'
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  19:54:09
+   Duration  3.53s (transform 70ms, setup 145ms, collect 138ms, tests 283ms, environment 509ms, prepare 159ms)
+VERDICT GOOD — exit 1
+
+===== MUTATION loading-state-stays-idle =====
+file: web/src/App.tsx
+
+> test
+> vitest run --reporter=verbose src/App.test.tsx
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ âœ“ src/App.test.tsx > App pane states > starts idle, with no Census URL 27ms
+ Ã— src/App.test.tsx > App pane states > shows a loading state distinct from idle while the request is in flight 100ms
+   â†’ expected 'idle' to be 'loading' // Object.is equality
+ âœ“ src/App.test.tsx > App pane states > shows an error state distinct from idle when the API is unreachable 47ms
+ âœ“ src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 46ms
+ âœ“ src/App.test.tsx > App result > keeps URL and table metadata on Census fetch failure, with a visible notice 32ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  19:54:14
+   Duration  3.63s (transform 72ms, setup 186ms, collect 116ms, tests 255ms, environment 631ms, prepare 133ms)
+VERDICT GOOD — exit 1
+
+===== RESTORE =====
+
+> test
+> vitest run --reporter=dot
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+Â·Â·Â·Â·Â·Â·Â·Â·Â·Â·
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  19:54:20
+   Duration  4.37s (transform 100ms, setup 456ms, collect 335ms, tests 407ms, environment 1.40s, prepare 259ms)
+RESTORE ok — full web suite passed
+

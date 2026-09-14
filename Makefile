@@ -4,10 +4,10 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index serve
+.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index serve web-test
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
-check: lint types test invariants
+check: lint types test invariants web-test
 	uv run python scripts/check_budgets.py
 
 ## Retrieval scoreboard. No agent, no server, no Census key. Needs
@@ -32,8 +32,12 @@ demo:
 	uv run python scripts/run_demo.py --repeat 3
 
 ## Local API. Swagger at http://127.0.0.1:8000/docs
+## Chat UI (another terminal): npm --prefix web install && npm --prefix web run dev
 serve:
 	uv run uvicorn src.main:app --reload
+
+web-test:
+	npm --prefix web ci && npm --prefix web test && npm --prefix web run typecheck
 
 ## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
 ## Usage: make gate PHASE=gate2 SLICE=0 [ENGINE=cursor]. See docs/playbooks/run-slice.md.

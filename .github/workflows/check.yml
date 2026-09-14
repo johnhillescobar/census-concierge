@@ -42,6 +42,18 @@ jobs:
         # aborting before the code is inspected.
         run: uv run pytest -q -m "not integration" || [ $? -eq 5 ]
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: web tests
+        run: |
+          npm --prefix web ci
+          npm --prefix web test
+          npm --prefix web run typecheck
+
       - name: budgets (structural)
         # The quality floors live in the `scoreboard` job below. This one must
         # be green at all times, so that a regression in it means something.

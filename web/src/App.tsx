@@ -1,0 +1,116 @@
+import { FormEvent, useState } from "react";
+import { ask, type AskResponse } from "./ask";
+import { censusFetchFailed, estimatePairs, redactCensusUrl, type PaneState } from "./display";
+
+type AppProps = {
+  askFn?: (question: string) => Promise<AskResponse>;
+};
+
+export function App({ askFn = ask }: AppProps) {
+  const [question, setQuestion] = useState("");
+  const [state, setState] = useState<PaneState>("idle");
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<AskResponse | null>(null);
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    const text = question.trim();
+    if (!text || state === "loading") {
+      return;
+    }
+    setState("loading");
+    setError("");
+    setResult(null);
+    try {
+      const response = await askFn(text);
+      setResult(response);
+      setState("result");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "ask failed");
+      setState("error");
+    }
+  }
+
+  const pairs = result ? estimatePairs(result.rows[0], result.moe[0]) : [];
+  const url = result ? redactCensusUrl(result.url) : "";
+  const failed = result ? censusFetchFailed(result) : false;
+
+  return (
+    <main>
+      <h1>census-concierge</h1>
+      <p className="lede">Ask a Census question. The table, URL, and related tables come back together.</p>
+      <form onSubmit={onSubmit}>
+        <input
+          aria-label="Question"
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder="population of Harris County, Texas"
+        />
+        <button type="submit" disabled={state === "loading"}>
+          Ask
+        </button>
+      </form>
+      <section className="pane" data-state={state}>
+        {state === "idle" ? <p>Type a question to see the selected table, its URL, and alternatives.</p> : null}
+        {state === "loading" ? <p>Looking up tables…</p> : null}
+        {state === "error" ? <p>Could not reach the API: {error}</p> : null}
+        {state === "result" && result ? (
+          <>
+            {failed ? (
+              <p className="notice" role="status">
+                Census fetch failed. The URL and table metadata are still shown.
+              </p>
+            ) : null}
+            {result.answer ? <p className="answer">{result.answer}</p> : null}
+            <dl className="meta">
+              <dt>Table</dt>
+              <dd>{result.table_id || "—"}</dd>
+              <dt>Universe</dt>
+              <dd>{result.universe || "—"}</dd>
+              <dt>GEOID</dt>
+              <dd>{result.geoid || "—"}</dd>
+            </dl>
+            {pairs.length > 0 ? (
+              <>
+                <h2>Estimates</h2>
+                <ul className="estimates">
+                  {pairs.map((pair) => (
+                    <li key={pair.variable}>
+                      {pair.variable}: {pair.estimate ?? "—"} ± {pair.moe ?? "—"}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <h2>Census API URL</h2>
+            <pre className="census-url">{url || "—"}</pre>
+            <h2>Alternatives</h2>
+            {result.alternatives.length > 0 ? (
+              <ul className="alts">
+                {result.alternatives.map((alt) => (
+                  <li key={`${alt.table_id}:${alt.reason}`}>
+                    {alt.table_id} — {alt.reason}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>None in this response.</p>
+            )}
+            {result.warnings.length > 0 ? (
+              <>
+                <h2>Warnings</h2>
+                <ul className="warnings">
+                  {result.warnings.map((warning) => (
+                    <li key={warning.code}>
+                      {warning.code}: {warning.detail}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </section>
+    </main>
+  );
+}
