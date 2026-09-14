@@ -45,7 +45,9 @@ export function App({ askFn = ask }: AppProps) {
   const failed = result ? censusFetchFailed(result) : false;
   const geoidLabel =
     result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
-  const showYear = new Set(areas.map((area) => area.year).filter(Boolean)).size > 1;
+  const series = (result?.attempted_years.length ?? 0) > 1;
+  const showYear = series || new Set(areas.map((area) => area.year).filter(Boolean)).size > 1;
+  const multi = areas.length > 1 || series;
 
   async function onCopyUrl() {
     if (!urlText) {
@@ -94,7 +96,7 @@ export function App({ askFn = ask }: AppProps) {
               <dt>GEOID</dt>
               <dd>{geoidLabel}</dd>
             </dl>
-            {areas.length === 1 && areas[0].pairs.length > 0 ? (
+            {areas.length === 1 && areas[0].pairs.length > 0 && !multi ? (
               <>
                 <h2>Estimates</h2>
                 <ul className="estimates">
@@ -106,7 +108,7 @@ export function App({ askFn = ask }: AppProps) {
                 </ul>
               </>
             ) : null}
-            {areas.length > 1 ? (
+            {multi && areas.length > 0 ? (
               <>
                 <h2>Estimates</h2>
                 <table className="geo-table">

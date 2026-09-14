@@ -1,0 +1,20 @@
+CC-28 Gate 1 (fix) — leftover vintage + Year column
+branch: feat/cc-28-year-fanout
+
+Mutation 1: fetch_data extend vintages instead of replace
+  revert: record.vintages.extend(...) in api/src/ask.py _absorb
+  tests: test_fetched_years_replace_the_built_template_vintage
+         test_overlapping_fetched_years_still_warn
+  result: 2 failed (template 2024 stayed in vintages)
+  VERDICT GOOD
+  restored: if artifact.attempted_years: record.vintages = [...]
+
+Mutation 2: series flag always false
+  revert: const series = false in web/src/App.tsx
+  test: labels the year when more than one vintage was attempted
+  result: 1 failed (no Year columnheader; single-row list)
+  VERDICT GOOD
+  restored: series = attempted_years.length > 1
+
+Restore re-run: 215 pytest passed; 27 vitest passed (temp copy; Dropbox web/node_modules EBUSY).
+OpenAPI omitted_years description no longer names CC-31; packages/client regenerated.

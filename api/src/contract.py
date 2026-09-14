@@ -58,9 +58,7 @@ class AskResponse(BaseModel):
     attempted_years: list[int] = Field(description="Years for which a Census request was issued.")
     succeeded_years: list[int] = Field(description="Attempted years whose HTTP call succeeded.")
     failed_years: list[int] = Field(description="Attempted years that failed or timed out.")
-    omitted_years: list[int] = Field(
-        description="Requested years that were not attempted. CC-31 supplies each reason."
-    )
+    omitted_years: list[int] = Field(description="Requested years that were not attempted.")
     legs: list[RequestLeg] = Field(
         description="Per-year outcome in requested order, including failed legs."
     )

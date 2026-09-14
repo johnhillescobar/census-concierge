@@ -47,6 +47,30 @@ def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
     assert _codes(record) == []
 
 
+async def test_fetched_years_replace_the_built_template_vintage() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
+    record.geographies = [dict(record.geography)]
+    await dispatch(tools["build_url"], {"id": "1", "args": {"table_id": "B01003"}}, record)
+    await dispatch(tools["fetch_data"], {"id": "2", "args": {"years": [2022]}}, record)
+    assert record.vintages == [("acs5", 2022)]
+    assert _codes(record) == []
+
+
+async def test_overlapping_fetched_years_still_warn() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
+    record.geographies = [dict(record.geography)]
+    await dispatch(tools["build_url"], {"id": "1", "args": {"table_id": "B01003"}}, record)
+    await dispatch(tools["fetch_data"], {"id": "2", "args": {"years": [2019, 2022]}}, record)
+    assert record.vintages == [("acs5", 2019), ("acs5", 2022)]
+    assert _codes(record) == ["overlapping_vintage"]
+
+
 def test_indistinguishable_tracts_are_not_ranked() -> None:
     record = ExecutionRecord(question=T03)
     record.rows = [

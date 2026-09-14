@@ -1,0 +1,137 @@
+CC-28 Gate 2 — machine gates
+branch: feat/cc-28-year-fanout
+HEAD: e26c98a
+base: origin/main
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2444 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           392 <= 400
+  ok    web src LOC                791 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . ==========
+[1;32mAll checks passed![0m
+exit: 0
+
+========== uv run ruff format --check . ==========
+93 files already formatted
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 20 source files
+exit: 0
+
+========== uv run pytest -q -m not integration ==========
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+.....................................................................    [100%]
+213 passed in 4.30s
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpt9_ojc8e\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpt9_ojc8e\schema.d.ts [35ms]
+packages/client is up to date.
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+========== Gate 2 cold review ==========
+diff: origin/main...HEAD (e26c98a)
+passes: generic bugs, then review-pr.md invariants
+code only; ticket text not used as intent
+
+Pass 1 — generic bugs
+
+1. leftover build_url vintage mixed into fetch years
+   api/src/ask.py _absorb: build_url appends (dataset, vintage), then fetch_data
+   extends attempted_years. overlapping_vintage uses set() so a repeated same
+   year is fine, but the template year stays in the list even when it was not
+   fetched. build_url at 2024 then fetch_data(years=[2022]) yields vintages
+   2022 and 2024 and fires overlapping_vintage on a one-year fetch.
+   build 2024 + fetch [2017, 2022] (non-overlapping) also warns because 2024
+   remains. The rows and urls[] are the fetched years only.
+
+2. years list is unbounded; only in-flight is capped
+   MAX_IN_FLIGHT=5 is an asyncio.Semaphore. test_three_legs_overlap_and_eight_never_exceed_five
+   asserts eight years are all attempted. FetchDataInput.years has no max_length.
+   A long years list is N Census GETs (60s timeout each).
+
+3. partial HTTP failure looks like a complete one-year answer in the pane
+   censusFetchFailed is urls.length>0 && rows.length===0, so any successful
+   leg suppresses the fetch-failed notice. If one geography-year survives,
+   areas.length===1 and the Year column is omitted. Failed legs still appear
+   in urls[] and legs[].
+
+4. CensusURL.with_year is a no-op when the path has no /data/<digits>/ segment
+   Fan-out would then GET the same URL for every year and tag identical rows
+   with different year values. build_url always emits /data/<year>/acs/<dataset>,
+   so this needs a non-build_url last_url to bite.
+
+Pass 2 — project invariants (docs/playbooks/review-pr.md)
+
+Machines: all seven commands exit 0 (output above). check_invariants --base
+origin/main reports no violations. Budgets not weakened. No new tool, route,
+or graph node. ARCHITECTURE.md updated. generated client --check clean.
+Redaction stays on CensusURL; exception text goes through redact_text; the
+UI maps urls through redactCensusUrl. MOE/GEOID/universe still assemble on
+success and failure. Numbers stay in the fetch artifact; the model sees row
+counts and URLs. No blocking clarification. No silent geography repair.
+
+Findings:
+
+1. overlapping_vintage is now wrong on the build_url + fetch_data(years) path
+   (same mechanism as pass 1 #1). That guard is DESIGN §4; a false positive
+   is not a silent wrong number (answer still ships) but it is a regressing
+   warning. moe_not_significant is skipped whenever overlapping_vintage fires,
+   so the leftover template year can also suppress a significance warning.
+
+2. 26 files vs the ~15 guideline. Implementation is fetch.py + url->urls[] +
+   client + pane. The rest is tests, generated OpenAPI/TS, ARCHITECTURE.md,
+   and evidence/. PR body needs the sentence; the extra AskResponse year
+   buckets (requested/attempted/succeeded/failed/omitted + legs) are the
+   fan-out contract, not a fifth tool.
+
+3. A silently short series can still look complete in the pane (pass 1 #3).
+   The product URL list includes failed years, so this is not a missing-URL
+   failure. omitted_years is only filled when last_url is missing; HTTP
+   failures go to failed_years and are not explained in the UI. Saying why
+   a year is missing is not in this diff.
+
+4. FetchDataInput.years has no upper bound (pass 1 #2). p95 is gated on
+   evidence/latest.json (still 14.164s); this gate did not run demo.
+
+5. AskResponse.omitted_years Field description names CC-31 in the OpenAPI
+   schema the TS client ships. Ticket IDs do not belong on the public contract.
+
+Verdict: ship it with follow-ups
+Most important: leftover build_url vintage makes overlapping_vintage fire
+for fetched years that do not include the template year.

@@ -94,7 +94,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         record.rows = artifact.rows
         record.fetch = artifact
         dataset = record.url.dataset if record.url else "acs5"
-        record.vintages.extend((dataset, year) for year in artifact.attempted_years)
+        if artifact.attempted_years:
+            record.vintages = [(dataset, year) for year in artifact.attempted_years]
 
 
 def _allowed(record: ExecutionRecord) -> set[str]:

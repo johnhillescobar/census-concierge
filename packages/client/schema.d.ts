@@ -87,7 +87,7 @@ export interface components {
             }[];
             /**
              * Omitted Years
-             * @description Requested years that were not attempted. CC-31 supplies each reason.
+             * @description Requested years that were not attempted.
              */
             omitted_years: number[];
             /**
