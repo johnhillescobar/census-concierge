@@ -1,0 +1,114 @@
+===== git HEAD =====
+COMMAND: git rev-parse HEAD origin/main
+e04c4450266dd8f76f2776d0e52cdf5699f90417
+e04c4450266dd8f76f2776d0e52cdf5699f90417
+
+COMMAND: git log -1 --oneline origin/main
+e04c445 Merge pull request #27 from johnhillescobar:evidence/cc-27-e2e-post
+
+===== Jira =====
+COMMAND: uv run python scripts/jira_transition.py CC-32 --status
+CC-32  To Do  Story
+Serve the built frontend from the same app and surface the generated URL visibly
+
+===== current app: routes, middleware, CORS =====
+COMMAND: from src.main import app; routes, user_middleware, openapi paths
+title census-concierge
+routes [('/openapi.json', {'GET', 'HEAD'}, 'Route'), ('/docs', {'GET', 'HEAD'}, 'Route'), ('/docs/oauth2-redirect', {'GET', 'HEAD'}, 'Route'), ('/redoc', {'GET', 'HEAD'}, 'Route'), ('/ask', {'POST'}, 'APIRoute')]
+user_middleware []
+openapi paths ['/ask']
+live GET / 404
+
+===== copy control in UI =====
+COMMAND: scan web/src/App.tsx
+copy button False
+census-url pre True
+navigator.clipboard False
+
+===== dist gitignore / exists (before this ticket's build) =====
+web/dist exists False
+gitignore has dist/ True
+
+===== fetch is relative /ask =====
+fetch /ask True
+CORS in web False
+
+===== run_demo client =====
+TestClient True
+from src.main import app True
+
+===== budgets =====
+COMMAND: uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                650 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+===== ask.py loc =====
+ask.py nonblank-noncomment 395
+
+===== StaticFiles is already a dep =====
+StaticFiles <class 'starlette.staticfiles.StaticFiles'>
+fastapi 0.141.1
+
+===== StaticFiles missing dir =====
+COMMAND: StaticFiles(directory="web/dist-does-not-exist")
+missing dir raises RuntimeError: Directory 'web/dist-does-not-exist' does not exist
+check_dir=False constructs without raise
+
+===== html=True behaviour (starlette StaticFiles.get_response) =====
+Directory URL serves index.html. Unknown paths 404 (optional 404.html). Not an SPA history fallback.
+
+===== mount vs no-mount OpenAPI =====
+openapi identical True
+live / mounted / bare openapi paths ['/ask']
+
+===== TestClient against a fake dist =====
+GET / 200 text/html; charset=utf-8
+GET / body has title True
+GET / ACAO None
+GET /assets/app.js 200 text/javascript
+GET /no-such-page 404
+GET /docs 200
+GET /openapi.json 200 ['/ask']
+POST /ask 200
+POST /ask ACAO None
+GET /ask 404
+OPTIONS /ask 405
+OPTIONS ACAO None
+
+===== Vite production build =====
+COMMAND: npm --prefix web run build
+dist/index.html                   0.40 kB
+dist/assets/index-C5HQK8Lk.css    1.67 kB
+dist/assets/index-EP442y-y.js   226.92 kB
+
+Built index.html script src="/assets/index-EP442y-y.js" (root-absolute; works when FastAPI mounts dist at /).
+
+===== TestClient against the real Vite dist =====
+GET / 200 text/html; charset=utf-8
+title in body True
+asset path in html True
+GET js 200 text/javascript; charset=utf-8 bytes 226922
+GET css 200 bytes 1665
+POST /ask 200
+docs 200
+openapi paths ['/ask']
+ACAO / None
+
+===== PLAN remaining slice-2 boxes =====
+- [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
+- [ ] **FastAPI serves the Vite build output** as static files. One container,

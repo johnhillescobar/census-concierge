@@ -17,6 +17,7 @@ export function App({ askFn = ask }: AppProps) {
   const [state, setState] = useState<PaneState>("idle");
   const [error, setError] = useState("");
   const [result, setResult] = useState<AskResponse | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -27,6 +28,7 @@ export function App({ askFn = ask }: AppProps) {
     setState("loading");
     setError("");
     setResult(null);
+    setCopied(false);
     try {
       const response = await askFn(text);
       setResult(response);
@@ -42,6 +44,18 @@ export function App({ askFn = ask }: AppProps) {
   const failed = result ? censusFetchFailed(result) : false;
   const geoidLabel =
     result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
+
+  async function onCopyUrl() {
+    if (!url) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <main>
@@ -122,7 +136,12 @@ export function App({ askFn = ask }: AppProps) {
             ) : null}
             <h2>Census API URL</h2>
             {url ? (
-              <pre className="census-url">{url}</pre>
+              <div className="url-row">
+                <pre className="census-url">{url}</pre>
+                <button type="button" onClick={() => void onCopyUrl()}>
+                  {copied ? "Copied" : "Copy URL"}
+                </button>
+              </div>
             ) : (
               <p className="notice" role="status">
                 No Census URL was built.

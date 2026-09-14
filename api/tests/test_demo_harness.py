@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,6 +28,48 @@ def _body(**fields: Any) -> dict[str, Any]:
     }
     payload.update(fields)
     return payload
+
+
+def _root(
+    status_code: int, content_type: str, text: str, acao: str | None = None
+) -> SimpleNamespace:
+    headers = {"content-type": content_type}
+    if acao is not None:
+        headers["access-control-allow-origin"] = acao
+    return SimpleNamespace(
+        get=lambda _path: SimpleNamespace(status_code=status_code, headers=headers, text=text)
+    )
+
+
+def test_html_index_is_a_served_build() -> None:
+    info = run_demo.inspect_served_build(
+        _root(200, "text/html; charset=utf-8", "<title>census-concierge</title>")
+    )
+    assert run_demo.served_build_ok(info) is True
+
+
+def test_missing_index_is_not_a_served_build() -> None:
+    info = run_demo.inspect_served_build(_root(404, "application/json", '{"detail":"Not Found"}'))
+    assert run_demo.served_build_ok(info) is False
+
+
+def test_json_root_is_not_a_served_build() -> None:
+    info = run_demo.inspect_served_build(
+        _root(200, "application/json", '{"title":"census-concierge"}')
+    )
+    assert run_demo.served_build_ok(info) is False
+
+
+def test_cors_header_is_not_a_served_build() -> None:
+    info = run_demo.inspect_served_build(
+        _root(
+            200,
+            "text/html; charset=utf-8",
+            "<title>census-concierge</title>",
+            acao="*",
+        )
+    )
+    assert run_demo.served_build_ok(info) is False
 
 
 def test_http_ok_is_not_answered() -> None:

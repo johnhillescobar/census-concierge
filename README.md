@@ -52,9 +52,9 @@ budgets.toml  complexity limits, enforced in CI
 ```
 make check   # budgets, lint, types, tests — under 60s
 make eval    # retrieval scoreboard
-make demo    # end-to-end, needs live keys
-uv run uvicorn src.main:app --reload   # POST /ask; Swagger at /docs
-npm --prefix web install && npm --prefix web run dev   # chat UI; proxies /ask
+make demo    # build web/dist, then end-to-end against that same process; needs live keys
+uv run uvicorn src.main:app --reload   # POST /ask; GET / is the UI after `npm --prefix web run build`
+npm --prefix web install && npm --prefix web run dev   # Vite; proxies /ask
 uv run python scripts/generate_client.py   # regenerate packages/client; --check in make check
 ```
 

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { AskResponse } from "./ask";
 
@@ -44,6 +44,7 @@ describe("App pane states", () => {
     render(<App askFn={() => Promise.resolve(harris)} />);
     expect(pane().dataset.state).toBe("idle");
     expect(document.querySelector(".census-url")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy URL" })).toBeNull();
     expect(screen.getByText(/type a question/i)).toBeTruthy();
   });
 
@@ -86,10 +87,48 @@ describe("App result", () => {
     expect(document.querySelector(".census-url")?.textContent).toContain(
       "https://api.census.gov/data/2024/acs/acs5",
     );
+    expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruthy();
     expect(screen.getByText(/B01003_001E: 4838303 ± 123/)).toBeTruthy();
     expect(screen.getByText("0500000US48201")).toBeTruthy();
     expect(screen.getByText("Total population")).toBeTruthy();
     expect(screen.getByText(/B01001 — related table/)).toBeTruthy();
+  });
+
+  it("copies the visible Census URL without a key parameter", async () => {
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const user = userEvent.setup({ delay: null });
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            url: `${harris.url}&key=secret`,
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    await user.click(screen.getByRole("button", { name: "Copy URL" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copied = writeText.mock.calls[0][0] as string;
+    expect(copied).toContain("https://api.census.gov/data/2024/acs/acs5");
+    expect(copied).toContain("B01003_001E");
+    expect(copied).not.toMatch(/key=/i);
+    expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy();
+  });
+
+  it("keeps the copy control when clipboard write is denied", async () => {
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("denied"));
+    const user = userEvent.setup({ delay: null });
+    render(<App askFn={() => Promise.resolve(harris)} />);
+    await user.type(screen.getByLabelText("Question"), "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    await user.click(screen.getByRole("button", { name: "Copy URL" }));
+    expect(pane().dataset.state).toBe("result");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruthy());
   });
 
   it("keeps URL and table metadata on Census fetch failure, with a visible notice", async () => {
@@ -101,6 +140,7 @@ describe("App result", () => {
     expect(pane().dataset.state).not.toBe("error");
     expect(screen.getByRole("status").textContent).toMatch(/census fetch failed/i);
     expect(document.querySelector(".census-url")?.textContent).toContain("B25064_001E");
+    expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruthy();
     expect(screen.getByText("B25064")).toBeTruthy();
     expect(screen.getByText("Renter-occupied housing units paying cash rent")).toBeTruthy();
     expect(screen.getByText("1600000US4805000")).toBeTruthy();
@@ -219,6 +259,7 @@ describe("App result", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
     await waitFor(() => expect(pane().dataset.state).toBe("result"));
     expect(document.querySelector(".census-url")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy URL" })).toBeNull();
     expect(screen.getByRole("status").textContent).toMatch(/no census url was built/i);
   });
 
