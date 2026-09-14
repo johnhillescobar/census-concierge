@@ -5,7 +5,8 @@
 
 Needs OPENAI_API_KEY and CENSUS_API_KEY. Builds of `web/dist` are required:
 GET / must be the UI on the same app that scores POST /ask (`make demo` builds
-it). Writes answered_rate, p95_latency_seconds,
+it). Writes a one-line heartbeat to evidence/demo-progress.txt each trial, then
+answered_rate, p95_latency_seconds,
 t_llm, t_census_api, t_ours, prompt_hash and index_hash into evidence/latest.json
 without removing slice-0 retrieval metrics.
 
@@ -36,6 +37,7 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS = ROOT / "evals" / "golden_questions.toml"
 EVIDENCE = ROOT / "evidence" / "latest.json"
+PROGRESS = ROOT / "evidence" / "demo-progress.txt"
 API = ROOT / "api"
 
 load_dotenv(ROOT / ".env")
@@ -374,6 +376,18 @@ def _print_report(summary: dict[str, Any], floors: tuple[float, float]) -> None:
                 print(f"      {miss['url']}")
 
 
+def write_progress(done: int, total: int, trial: Trial) -> None:
+    """One-line heartbeat so a long `--repeat` run is readable without stdout."""
+    mark = "ok" if trial.answered else "MISS"
+    line = (
+        f"{datetime.now(UTC).isoformat(timespec='seconds')}  "
+        f"{done}/{total}  {mark}  {trial.id} r{trial.repeat}  "
+        f"{trial.latency_s:.1f}s  {trial.table_id or '—'}\n"
+    )
+    PROGRESS.write_text(line, encoding="utf-8")
+    print(line, end="", flush=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repeat", type=int, default=3)
@@ -388,7 +402,10 @@ def main() -> int:
     if missing:
         print(f"Missing {', '.join(missing)} in the environment.", file=sys.stderr)
         return 2
-    print("OPENAI_API_KEY present=True  CENSUS_API_KEY present=True  (values not printed)")
+    print(
+        "OPENAI_API_KEY present=True  CENSUS_API_KEY present=True  (values not printed)",
+        flush=True,
+    )
 
     with QUESTIONS.open("rb") as handle:
         entries = tomllib.load(handle)["question"]
@@ -421,7 +438,8 @@ def main() -> int:
         f"{served['content_type'] or 'no-content-type'}  "
         f"title={'yes' if served['has_title'] else 'no'}  "
         f"root={'yes' if served['has_root'] else 'no'}  "
-        f"acao={served['acao'] or 'none'}"
+        f"acao={served['acao'] or 'none'}",
+        flush=True,
     )
     if not served_build_ok(served):
         print(
@@ -430,10 +448,12 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    total = len(questions) * args.repeat
     for round_id in range(1, args.repeat + 1):
         for entry in questions:
             trial = _ask(client, clock, entry, round_id)
             trials.append(trial)
+            write_progress(len(trials), total, trial)
             if args.verbose:
                 mark = "ok" if trial.answered else "MISS"
                 print(
