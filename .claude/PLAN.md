@@ -185,7 +185,7 @@ a core question.
 ## Slice 2 — Chat UI, one pane
 
 - [x] React + TypeScript, minimal.
-- [ ] TS client generated from the OpenAPI schema; CI fails if the committed
+- [x] TS client generated from the OpenAPI schema; CI fails if the committed
       copy is stale.
 - [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
 - [ ] **FastAPI serves the Vite build output** as static files. One container,

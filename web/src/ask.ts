@@ -1,26 +1,8 @@
-/** Temporary contract types. CC-27 replaces this module with packages/client. */
+import type { components } from "../../packages/client/schema";
 
-export type Alternative = {
-  table_id: string;
-  reason: string;
-};
-
-export type AskWarning = {
-  code: string;
-  detail: string;
-};
-
-export type AskResponse = {
-  answer: string;
-  url: string;
-  rows: Record<string, string | null>[];
-  moe: Record<string, string | null>[];
-  geoid: string;
-  universe: string;
-  table_id: string;
-  alternatives: Alternative[];
-  warnings: AskWarning[];
-};
+export type Alternative = components["schemas"]["Alternative"];
+export type AskWarning = components["schemas"]["AskWarning"];
+export type AskResponse = components["schemas"]["AskResponse"];
 
 export async function ask(question: string): Promise<AskResponse> {
   let response: Response;

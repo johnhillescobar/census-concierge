@@ -54,6 +54,9 @@ jobs:
           npm --prefix web test
           npm --prefix web run typecheck
 
+      - name: generated client
+        run: uv run python scripts/generate_client.py --check
+
       - name: budgets (structural)
         # The quality floors live in the `scoreboard` job below. This one must
         # be green at all times, so that a regression in it means something.

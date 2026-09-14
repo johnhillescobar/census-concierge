@@ -1,0 +1,103 @@
+# Gate 1 — CC-27
+# Mutations named for the behaviour they revert, not a review index.
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION handwritten-ask-response =====
+file: web/src/ask.ts
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_ask_ts_consumes_generated_types _____________________
+
+    def test_ask_ts_consumes_generated_types() -> None:
+        text = ASK_TS.read_text(encoding="utf-8")
+        assert "packages/client/schema" in text
+>       assert "export type AskResponse = {" not in text
+E       assert 'export type...Response = {' not in 'import type...sponse;\n}\n'
+E         
+E         'export type AskResponse = {' is contained here:
+E           arning"];
+E           export type AskResponse = { answer: string };
+E           
+E           export async function ask(question: string): Promise<AskResponse> {
+E             let response: Response;...
+E         
+E         ...Full output truncated (14 lines hidden), use '-vv' to show
+
+api\tests\test_generated_client.py:53: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+1 failed in 0.38s
+VERDICT GOOD — exit 1
+restored
+
+===== MUTATION stale-openapi-json =====
+file: packages/client/openapi.json
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_committed_openapi_matches_the_live_app _________________
+
+    def test_committed_openapi_matches_the_live_app() -> None:
+        live = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
+        committed = (CLIENT / "openapi.json").read_text(encoding="utf-8")
+>       assert committed == live, (
+            "packages/client/openapi.json is stale. "
+            "Regenerate with: uv run python scripts/generate_client.py"
+        )
+E       AssertionError: packages/client/openapi.json is stale. Regenerate with: uv run python scripts/generate_client.py
+E       assert '{\n  "compon...  }\n  }\n}\n' == '{\n  "compon...  }\n  }\n}\n'
+E         
+E         Skipping 5591 identical leading characters in diff, use -v to show
+E         - "title": "census-concierge",
+E         + "title": "stale-title",
+E               "version": "0.1.0"
+E             },
+E             "openapi": "3.1.0",...
+E         
+E         ...Full output truncated (41 lines hidden), use '-vv' to show
+
+api\tests\test_generated_client.py:35: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_generated_client.py::test_committed_openapi_matches_the_live_app
+1 failed in 0.34s
+VERDICT GOOD — exit 1
+restored
+
+===== MUTATION schema-missing-table-id =====
+file: packages/client/schema.d.ts
+(reverted AskResponse `table_id: string;` only; Alternative.table_id left in place)
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_generated_schema_declares_every_contract_field _____________
+
+    def test_generated_schema_declares_every_contract_field() -> None:
+        text = (CLIENT / "schema.d.ts").read_text(encoding="utf-8")
+        start = text.index("AskResponse:")
+        end = text.index("AskWarning:", start)
+        body = text[start:end]
+        for field in CONTRACT_FIELDS:
+>           assert f"{field}:" in body, field
+E           AssertionError: table_id
+E           assert 'table_id:' in 'AskResponse: {\n            /**\n             * Alternatives\n             * @description Related tables with the rea...     */\n            warnings: components["schemas"]["AskWarning"][];\n        };\n        /** AskWarning */\n        '
+
+api\tests\test_generated_client.py:47: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+1 failed in 0.45s
+VERDICT GOOD — exit 1
+restored
+
+===== MUTATION check-detects-stale-schema =====
+file: packages/client/schema.d.ts
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmp6moauda7\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp6moauda7\schema.d.ts [47.6ms]
+packages/client is stale relative to the live OpenAPI schema.
+Regenerate with:  uv run python scripts/generate_client.py
+VERDICT GOOD — exit 1
+restored
+
+===== MUTATION restore-green =====
+...                                                                      [100%]
+3 passed in 0.32s
+VERDICT GOOD — exit 0 (want 0)
