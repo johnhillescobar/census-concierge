@@ -1,20 +1,19 @@
-"""Ask-loop tools: schemas plus search_tables, build_url, and fetch_data.
+"""Ask-loop tools: schemas plus search_tables and build_url.
 
 resolve_geography lives in `geo.py` so legality stays next to geography.json.
+fetch_data lives in `fetch.py` so year fan-out stays off this file's line cap.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Callable
 from typing import Any, Literal
 
-import httpx
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
-from src.census_url import CENSUS_API, CensusURL, redact_text
+from src.census_url import CENSUS_API, CensusURL
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -67,18 +66,6 @@ class BuildUrlResult(ToolResult):
     universe: str = ""
 
 
-class FetchDataInput(ToolInput):
-    """No arguments. Fetches the URL already produced by build_url."""
-
-
-class FetchDataResult(ToolResult):
-    ok: bool
-    url: str
-    rows: list[dict[str, str | None]]
-    status_code: int
-    detail: str
-
-
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
 SelectFn = Callable[[str, list[dict[str, Any]]], str]
@@ -86,17 +73,7 @@ AllowedTables = Callable[[], set[str]]
 AllowedGeographies = Callable[[], set[tuple[str, str]]]
 LatestVintage = Callable[[str], int]
 TableFacts = Callable[[str, int, str], dict[str, Any] | None]
-LastUrl = Callable[[], CensusURL | None]
 LastGeography = Callable[[], dict[str, str] | None]
-
-
-def _census_get(url: str) -> tuple[int, Any]:
-    response = httpx.get(url, timeout=60.0)
-    try:
-        payload: Any = response.json()
-    except json.JSONDecodeError:
-        payload = response.text
-    return response.status_code, payload
 
 
 def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
@@ -319,58 +296,3 @@ class BuildUrlTool(BaseTool):
             universe=str(facts.get("universe") or ""),
         )
         return str(url), result
-
-
-class FetchDataTool(BaseTool):
-    name: str = "fetch_data"
-    description: str = "Fetch rows for the URL already built. Does not take a URL."
-    args_schema: type[BaseModel] = FetchDataInput
-    response_format: Literal["content_and_artifact"] = "content_and_artifact"
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    last_url: LastUrl
-    census_key: Callable[[], str]
-    http_get: Callable[[str], tuple[int, Any]] | None = None
-
-    def _run(self, *args: Any, **kwargs: Any) -> Any:
-        raise NotImplementedError("fetch_data is async-only")
-
-    async def _arun(self) -> tuple[str, FetchDataResult]:
-        built = self.last_url()
-        if built is None:
-            result = FetchDataResult(
-                ok=False, url="", rows=[], status_code=0, detail="call build_url before fetch_data"
-            )
-            return result.detail, result
-        redacted = str(built)
-        live = built.with_key(self.census_key())
-        try:
-            if self.http_get is not None:
-                status, payload = await asyncio.to_thread(self.http_get, live)
-            else:
-                status, payload = await asyncio.to_thread(_census_get, live)
-        except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            result = FetchDataResult(
-                ok=False, url=redacted, rows=[], status_code=0, detail=redact_text(str(exc))
-            )
-            return f"fetch failed; URL {redacted}", result
-        if status != 200 or not isinstance(payload, list) or not payload:
-            detail = payload if isinstance(payload, str) else f"HTTP {status}"
-            result = FetchDataResult(
-                ok=False,
-                url=redacted,
-                rows=[],
-                status_code=status,
-                detail=redact_text(str(detail)[:300]),
-            )
-            return f"fetch failed ({status}); URL {redacted}", result
-        header, *body = payload
-        rows = [
-            {
-                str(key): (None if value is None else str(value))
-                for key, value in zip(header, row, strict=False)
-            }
-            for row in body
-        ]
-        result = FetchDataResult(ok=True, url=redacted, rows=rows, status_code=status, detail="")
-        return f"{len(rows)} rows; URL {redacted}", result

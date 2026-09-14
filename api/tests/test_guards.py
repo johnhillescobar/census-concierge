@@ -145,7 +145,7 @@ def test_several_matching_places_are_the_result() -> None:
     assert "+3 more" not in warnings[0].detail
     response = assemble("candidates listed", record)
     assert response.answer == "candidates listed"
-    assert response.url == ""
+    assert response.urls == []
     assert response.geoid == ""
 
 
@@ -216,7 +216,7 @@ async def test_new_geography_drops_previous_fetch() -> None:
     assert record.rows == []
     assert record.table_id == ""
     response = assemble("candidates listed", record)
-    assert response.url == ""
+    assert response.urls == []
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert response.answer == "candidates listed"
 

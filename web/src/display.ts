@@ -11,6 +11,7 @@ export type EstimateCell = {
 export type GeographyEstimates = {
   geoid: string;
   name: string;
+  year: string;
   pairs: EstimateCell[];
 };
 
@@ -51,8 +52,12 @@ export function formatCensusValue(raw: string | null | undefined): string {
   return raw;
 }
 
+export function censusUrls(response: AskResponse): string[] {
+  return response.urls.map(redactCensusUrl).filter(Boolean);
+}
+
 export function censusFetchFailed(response: AskResponse): boolean {
-  return Boolean(response.url) && response.rows.length === 0;
+  return censusUrls(response).length > 0 && response.rows.length === 0;
 }
 
 export function estimatePairs(
@@ -76,6 +81,7 @@ export function estimatesByGeography(response: AskResponse): GeographyEstimates[
   return response.rows.map((row, index) => ({
     geoid: row.GEO_ID ?? "",
     name: row.NAME ?? "",
+    year: row.year ?? "",
     pairs: estimatePairs(row, response.moe[index]),
   }));
 }

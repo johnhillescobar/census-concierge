@@ -20,6 +20,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse
+from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.geo import ResolveGeographyTool, list_census_names
 from src.guards import evaluate
 from src.prompts import system_prompt
@@ -27,8 +28,6 @@ from src.retrieval.metadata import family_id
 from src.tools import (
     BuildUrlResult,
     BuildUrlTool,
-    FetchDataResult,
-    FetchDataTool,
     SearchTablesResult,
     SearchTablesTool,
 )
@@ -54,6 +53,7 @@ class ExecutionRecord:
     question: str = ""
     vintages: list[tuple[str, int]] = field(default_factory=list)
     geo_status: dict[str, str | bool] | None = None
+    fetch: FetchDataResult | None = None
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -82,22 +82,19 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
         record.geography = dict(matches[0]) if matches else None
         if record.geography != previous:
-            record.url, record.rows, record.table_id, record.universe = None, [], "", ""
+            clear_series(record)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
-        record.rows = []
+        clear_series(record)
         if artifact.ok:
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
             record.universe = artifact.universe
-        else:
-            record.url = None
-            record.table_id = ""
-            record.universe = ""
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
         record.rows = artifact.rows
-        if artifact.url:
-            record.url = CensusURL(artifact.url)
+        record.fetch = artifact
+        dataset = record.url.dataset if record.url else "acs5"
+        record.vintages.extend((dataset, year) for year in artifact.attempted_years)
 
 
 def _allowed(record: ExecutionRecord) -> set[str]:
@@ -246,7 +243,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
     rows = _rows_with_geoid(record.rows, fallback)
     return AskResponse(
         answer=answer,
-        url=str(record.url) if record.url else "",
+        **series_from_record(record),
         rows=rows,
         moe=_moe_rows(rows),
         geoid=_response_geoid(rows, fallback),

@@ -107,6 +107,13 @@ def served_build_ok(info: dict[str, Any]) -> bool:
     )
 
 
+def census_urls(body: dict[str, Any]) -> list[str]:
+    items = body.get("urls")
+    if not isinstance(items, list):
+        return []
+    return [str(item) for item in items if item]
+
+
 def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]) -> bool:
     if not http_ok(status_code):
         return False
@@ -114,7 +121,7 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
         str(item.get("code") or "") for item in body.get("warnings") or [] if isinstance(item, dict)
     }
     table_id = str(body.get("table_id") or "")
-    url = str(body.get("url") or "")
+    has_url = bool(census_urls(body))
     rows = body.get("rows") or []
     expected_table = entry.get("expect_table")
     expected_warning = entry.get("expect_warning")
@@ -122,10 +129,10 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
         return expected_warning in warnings
     if expected_warning and expected_warning not in warnings:
         return False
-    if expected_warning and not url:
+    if expected_warning and not has_url:
         return False
     if expected_table:
-        return table_id == expected_table and bool(url) and bool(rows)
+        return table_id == expected_table and has_url and bool(rows)
     return bool(expected_warning)
 
 
@@ -144,7 +151,7 @@ def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     table_id = str(body.get("table_id") or "")
     if expected_table and table_id != expected_table:
         return f"wrong table {table_id or '(none)'}"
-    if expected_warning != "ambiguous_place" and not body.get("url"):
+    if expected_warning != "ambiguous_place" and not census_urls(body):
         return "empty url"
     if expected_table and not body.get("rows"):
         return "no rows"
@@ -319,7 +326,7 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
     t_llm = clock.llm
     t_census = clock.census
     t_ours = max(0.0, elapsed - t_llm - t_census)
-    url = redact_text(str(body.get("url") or ""))
+    url = redact_text(" ".join(census_urls(body)))
     warnings = [
         str(item.get("code") or "") for item in body.get("warnings") or [] if isinstance(item, dict)
     ]

@@ -10,7 +10,15 @@ import {
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
-  url: "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  urls: [
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  ],
+  requested_years: [2024],
+  attempted_years: [2024],
+  succeeded_years: [2024],
+  failed_years: [],
+  omitted_years: [],
+  legs: [],
   rows: [
     {
       NAME: "Harris County, Texas",
@@ -60,7 +68,7 @@ describe("censusFetchFailed", () => {
 
 describe("redactCensusUrl", () => {
   it("strips key= from a Census URL", () => {
-    const raw = `${harris.url}&key=secret`;
+    const raw = `${harris.urls[0]}&key=secret`;
     expect(redactCensusUrl(raw)).not.toContain("key=");
     expect(redactCensusUrl(raw)).toContain("get=NAME");
   });
@@ -96,6 +104,7 @@ describe("estimatesByGeography", () => {
       {
         geoid: "0500000US48201",
         name: "Harris County, Texas",
+        year: "",
         pairs: [{ variable: "B01003_001E", estimate: "4838303", moe: "123" }],
       },
     ]);

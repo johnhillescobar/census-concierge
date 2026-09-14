@@ -59,10 +59,25 @@ export interface components {
              */
             answer: string;
             /**
+             * Attempted Years
+             * @description Years for which a Census request was issued.
+             */
+            attempted_years: number[];
+            /**
+             * Failed Years
+             * @description Attempted years that failed or timed out.
+             */
+            failed_years: number[];
+            /**
              * Geoid
              * @description AFFGEOID of the selected geography; empty when many areas are returned.
              */
             geoid: string;
+            /**
+             * Legs
+             * @description Per-year outcome in requested order, including failed legs.
+             */
+            legs: components["schemas"]["RequestLeg"][];
             /**
              * Moe
              * @description Per-row 90% margins, keyed to each estimate's matching M variable.
@@ -71,12 +86,27 @@ export interface components {
                 [key: string]: string | null;
             }[];
             /**
+             * Omitted Years
+             * @description Requested years that were not attempted. CC-31 supplies each reason.
+             */
+            omitted_years: number[];
+            /**
+             * Requested Years
+             * @description Years asked of fetch_data, de-duplicated in first-requested order.
+             */
+            requested_years: number[];
+            /**
              * Rows
              * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID).
              */
             rows: {
                 [key: string]: string | null;
             }[];
+            /**
+             * Succeeded Years
+             * @description Attempted years whose HTTP call succeeded.
+             */
+            succeeded_years: number[];
             /**
              * Table Id
              * @description Selected ACS table ID.
@@ -88,10 +118,10 @@ export interface components {
              */
             universe: string;
             /**
-             * Url
-             * @description Census API URL for this answer. Singular; slice 3 grows urls[].
+             * Urls
+             * @description Key-redacted Census API URLs, one per attempted year, in requested order.
              */
-            url: string;
+            urls: string[];
             /**
              * Warnings
              * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch.
@@ -115,6 +145,34 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** RequestLeg */
+        RequestLeg: {
+            /**
+             * Detail
+             * @description Redacted reason when ok is false; empty on success.
+             */
+            detail: string;
+            /**
+             * Ok
+             * @description Whether this HTTP call returned parseable rows.
+             */
+            ok: boolean;
+            /**
+             * Status Code
+             * @description Census HTTP status; 0 on timeout or transport failure.
+             */
+            status_code: number;
+            /**
+             * Url
+             * @description Key-redacted Census API URL for this year.
+             */
+            url: string;
+            /**
+             * Year
+             * @description Vintage end year for this Census request.
+             */
+            year: number;
         };
         /** ValidationError */
         ValidationError: {

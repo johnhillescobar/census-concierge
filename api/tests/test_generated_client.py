@@ -18,7 +18,13 @@ ASK_TS = ROOT / "web" / "src" / "ask.ts"
 
 CONTRACT_FIELDS = (
     "answer",
-    "url",
+    "urls",
+    "requested_years",
+    "attempted_years",
+    "succeeded_years",
+    "failed_years",
+    "omitted_years",
+    "legs",
     "rows",
     "moe",
     "geoid",

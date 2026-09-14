@@ -3,7 +3,15 @@ import { ask, type AskResponse } from "./ask";
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
-  url: "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  urls: [
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  ],
+  requested_years: [2024],
+  attempted_years: [2024],
+  succeeded_years: [2024],
+  failed_years: [],
+  omitted_years: [],
+  legs: [],
   rows: [{ NAME: "Harris County, Texas", GEO_ID: "0500000US48201", B01003_001E: "4838303" }],
   moe: [{ B01003_001M: "123" }],
   geoid: "0500000US48201",

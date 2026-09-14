@@ -17,7 +17,13 @@ import run_demo  # noqa: E402
 def _body(**fields: Any) -> dict[str, Any]:
     payload = {
         "answer": "ok",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=B01003_001E",
+        "urls": ["https://api.census.gov/data/2024/acs/acs5?get=B01003_001E"],
+        "requested_years": [],
+        "attempted_years": [],
+        "succeeded_years": [],
+        "failed_years": [],
+        "omitted_years": [],
+        "legs": [],
         "rows": [{"B01003_001E": "1"}],
         "moe": [],
         "geoid": "0500000US48201",
@@ -26,6 +32,9 @@ def _body(**fields: Any) -> dict[str, Any]:
         "alternatives": [],
         "warnings": [],
     }
+    if "url" in fields:
+        url = fields.pop("url")
+        fields.setdefault("urls", [url] if url else [])
     payload.update(fields)
     return payload
 
@@ -108,6 +117,15 @@ def test_empty_url_is_not_answered_when_a_table_was_expected() -> None:
     )
     assert run_demo.is_answered(entry, status_code=200, body=body) is False
     assert run_demo.miss_detail(entry, status_code=200, body=body) == "empty url"
+
+
+def test_urls_array_scores_as_the_product_url() -> None:
+    entry = {"id": "q01", "expect_table": "B01003"}
+    body = _body(urls=["https://api.census.gov/data/2019/acs/acs5?get=B01003_001E"])
+    assert run_demo.is_answered(entry, status_code=200, body=body) is True
+    missing = _body(urls=[], table_id="B01003")
+    assert run_demo.is_answered(entry, status_code=200, body=missing) is False
+    assert run_demo.miss_detail(entry, status_code=200, body=missing) == "empty url"
 
 
 def test_ambiguous_place_with_empty_url_is_answered() -> None:

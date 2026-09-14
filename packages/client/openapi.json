@@ -51,10 +51,34 @@
             "title": "Answer",
             "type": "string"
           },
+          "attempted_years": {
+            "description": "Years for which a Census request was issued.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Attempted Years",
+            "type": "array"
+          },
+          "failed_years": {
+            "description": "Attempted years that failed or timed out.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Failed Years",
+            "type": "array"
+          },
           "geoid": {
             "description": "AFFGEOID of the selected geography; empty when many areas are returned.",
             "title": "Geoid",
             "type": "string"
+          },
+          "legs": {
+            "description": "Per-year outcome in requested order, including failed legs.",
+            "items": {
+              "$ref": "#/components/schemas/RequestLeg"
+            },
+            "title": "Legs",
+            "type": "array"
           },
           "moe": {
             "description": "Per-row 90% margins, keyed to each estimate's matching M variable.",
@@ -72,6 +96,22 @@
               "type": "object"
             },
             "title": "Moe",
+            "type": "array"
+          },
+          "omitted_years": {
+            "description": "Requested years that were not attempted. CC-31 supplies each reason.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Omitted Years",
+            "type": "array"
+          },
+          "requested_years": {
+            "description": "Years asked of fetch_data, de-duplicated in first-requested order.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Requested Years",
             "type": "array"
           },
           "rows": {
@@ -92,6 +132,14 @@
             "title": "Rows",
             "type": "array"
           },
+          "succeeded_years": {
+            "description": "Attempted years whose HTTP call succeeded.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Succeeded Years",
+            "type": "array"
+          },
           "table_id": {
             "description": "Selected ACS table ID.",
             "title": "Table Id",
@@ -102,10 +150,13 @@
             "title": "Universe",
             "type": "string"
           },
-          "url": {
-            "description": "Census API URL for this answer. Singular; slice 3 grows urls[].",
-            "title": "Url",
-            "type": "string"
+          "urls": {
+            "description": "Key-redacted Census API URLs, one per attempted year, in requested order.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Urls",
+            "type": "array"
           },
           "warnings": {
             "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch.",
@@ -118,7 +169,13 @@
         },
         "required": [
           "answer",
-          "url",
+          "urls",
+          "requested_years",
+          "attempted_years",
+          "succeeded_years",
+          "failed_years",
+          "omitted_years",
+          "legs",
           "rows",
           "moe",
           "geoid",
@@ -161,6 +218,44 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "RequestLeg": {
+        "properties": {
+          "detail": {
+            "description": "Redacted reason when ok is false; empty on success.",
+            "title": "Detail",
+            "type": "string"
+          },
+          "ok": {
+            "description": "Whether this HTTP call returned parseable rows.",
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "status_code": {
+            "description": "Census HTTP status; 0 on timeout or transport failure.",
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "url": {
+            "description": "Key-redacted Census API URL for this year.",
+            "title": "Url",
+            "type": "string"
+          },
+          "year": {
+            "description": "Vintage end year for this Census request.",
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "url",
+          "ok",
+          "status_code",
+          "detail"
+        ],
+        "title": "RequestLeg",
         "type": "object"
       },
       "ValidationError": {

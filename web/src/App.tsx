@@ -2,9 +2,9 @@ import { FormEvent, useState } from "react";
 import { ask, type AskResponse } from "./ask";
 import {
   censusFetchFailed,
+  censusUrls,
   estimatesByGeography,
   formatCensusValue,
-  redactCensusUrl,
   type PaneState,
 } from "./display";
 
@@ -40,17 +40,19 @@ export function App({ askFn = ask }: AppProps) {
   }
 
   const areas = result ? estimatesByGeography(result) : [];
-  const url = result ? redactCensusUrl(result.url) : "";
+  const urls = result ? censusUrls(result) : [];
+  const urlText = urls.join("\n");
   const failed = result ? censusFetchFailed(result) : false;
   const geoidLabel =
     result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
+  const showYear = new Set(areas.map((area) => area.year).filter(Boolean)).size > 1;
 
   async function onCopyUrl() {
-    if (!url) {
+    if (!urlText) {
       return;
     }
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(urlText);
       setCopied(true);
     } catch {
       setCopied(false);
@@ -110,6 +112,7 @@ export function App({ askFn = ask }: AppProps) {
                 <table className="geo-table">
                   <thead>
                     <tr>
+                      {showYear ? <th>Year</th> : null}
                       <th>GEOID</th>
                       <th>Name</th>
                       <th>Variable</th>
@@ -121,7 +124,8 @@ export function App({ askFn = ask }: AppProps) {
                     {areas.flatMap((area) => {
                       const pairs = area.pairs.length > 0 ? area.pairs : [{ variable: "", estimate: null, moe: null }];
                       return pairs.map((pair) => (
-                        <tr key={`${area.geoid}:${area.name}:${pair.variable}`}>
+                        <tr key={`${area.year}:${area.geoid}:${area.name}:${pair.variable}`}>
+                          {showYear ? <td>{area.year || "—"}</td> : null}
                           <td>{area.geoid || "—"}</td>
                           <td>{area.name || "—"}</td>
                           <td>{pair.variable || "—"}</td>
@@ -135,11 +139,17 @@ export function App({ askFn = ask }: AppProps) {
               </>
             ) : null}
             <h2>Census API URL</h2>
-            {url ? (
+            {urls.length > 0 ? (
               <div className="url-row">
-                <pre className="census-url">{url}</pre>
+                <div className="census-urls">
+                  {urls.map((item) => (
+                    <pre key={item} className="census-url">
+                      {item}
+                    </pre>
+                  ))}
+                </div>
                 <button type="button" onClick={() => void onCopyUrl()}>
-                  {copied ? "Copied" : "Copy URL"}
+                  {copied ? "Copied" : urls.length > 1 ? "Copy URLs" : "Copy URL"}
                 </button>
               </div>
             ) : (
