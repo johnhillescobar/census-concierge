@@ -1,0 +1,1648 @@
+# Gate 2 — CC-27
+# Machine output captured by scripts; do not edit after capture.
+# branch: feat/cc-27-generated-client
+# HEAD: 96c17fbd2101b26399a89342750e1be920b643c8
+# origin/main: 6eef2043fb0bf46ff105faa3a115e6d014f8968d
+# captured: 2026-09-14T06:55:57-05:00
+
+########## PASS 1 cold review ##########
+
+===== git log origin/main..HEAD =====
+> git log origin/main..HEAD
+commit 96c17fbd2101b26399a89342750e1be920b643c8
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Mon Sep 14 06:52:05 2026 -0500
+
+    feat(web): generate the TS client from OpenAPI and fail CI on drift (CC-27)
+    
+    Handwritten AskResponse in the chat UI can silently diverge from the API contract. Generate packages/client from app.openapi() and check it in make check so a breaking schema change cannot merge alone.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+exit: 0
+
+===== git diff --stat origin/main...HEAD =====
+> git diff --stat origin/main...HEAD
+ .claude/PLAN.md                            |   2 +-
+ .github/workflows/check.yml                |   3 +
+ Makefile                                   |   8 +-
+ README.md                                  |   1 +
+ api/tests/test_generated_client.py         |  53 ++++++
+ docs/ARCHITECTURE.md                       |  14 +-
+ evidence/slice-2/cc-27-gate1.txt           | 103 +++++++++++
+ evidence/slice-2/cc-27-preflight-claims.md |  25 +++
+ evidence/slice-2/cc-27-preflight.txt       |  69 +++++++
+ packages/client/openapi.json               | 253 ++++++++++++++++++++++++++
+ packages/client/schema.d.ts                | 174 ++++++++++++++++++
+ scripts/generate_client.py                 | 114 ++++++++++++
+ web/package-lock.json                      | 277 +++++++++++++++++++++++++++++
+ web/package.json                           |   1 +
+ web/src/ask.ts                             |  26 +--
+ 15 files changed, 1093 insertions(+), 30 deletions(-)
+exit: 0
+
+===== git diff origin/main...HEAD =====
+> git diff origin/main...HEAD
+diff --git a/.claude/PLAN.md b/.claude/PLAN.md
+index eaad39d..df4c6ad 100644
+--- a/.claude/PLAN.md
++++ b/.claude/PLAN.md
+@@ -185,7 +185,7 @@ a core question.
+ ## Slice 2 — Chat UI, one pane
+ 
+ - [x] React + TypeScript, minimal.
+-- [ ] TS client generated from the OpenAPI schema; CI fails if the committed
++- [x] TS client generated from the OpenAPI schema; CI fails if the committed
+       copy is stale.
+ - [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
+ - [ ] **FastAPI serves the Vite build output** as static files. One container,
+diff --git a/.github/workflows/check.yml b/.github/workflows/check.yml
+index aa89838..5833999 100644
+--- a/.github/workflows/check.yml
++++ b/.github/workflows/check.yml
+@@ -54,6 +54,9 @@ jobs:
+           npm --prefix web test
+           npm --prefix web run typecheck
+ 
++      - name: generated client
++        run: uv run python scripts/generate_client.py --check
++
+       - name: budgets (structural)
+         # The quality floors live in the `scoreboard` job below. This one must
+         # be green at all times, so that a regression in it means something.
+diff --git a/Makefile b/Makefile
+index b20e350..e9a563c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -4,11 +4,11 @@
+ # uv manages the environment. `uv run` syncs it first, so there is no venv to
+ # activate and no "works on my machine" gap with CI, which runs the same lines.
+ 
+-.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index serve web-test
++.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index serve web-test client
+ 
+ ## Fast gate. Must stay under 60 seconds or it stops getting run.
+ check: lint types test invariants web-test
+-	uv run python scripts/check_budgets.py
++	uv run python scripts/generate_client.py --check && uv run python scripts/check_budgets.py
+ 
+ ## Retrieval scoreboard. No agent, no server, no Census key. Needs
+ ## OPENAI_API_KEY and GEMINI_API_KEY: embed the query, then score retriever
+@@ -39,6 +39,10 @@ serve:
+ web-test:
+ 	npm --prefix web ci && npm --prefix web test && npm --prefix web run typecheck
+ 
++## Regenerate packages/client from the live OpenAPI schema. --check is in `make check`.
++client:
++	uv run python scripts/generate_client.py
++
+ ## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
+ ## Usage: make gate PHASE=gate2 SLICE=0 [ENGINE=cursor]. See docs/playbooks/run-slice.md.
+ gate:
+diff --git a/README.md b/README.md
+index 228e895..8ce8f65 100644
+--- a/README.md
++++ b/README.md
+@@ -55,6 +55,7 @@ make eval    # retrieval scoreboard
+ make demo    # end-to-end, needs live keys
+ uv run uvicorn src.main:app --reload   # POST /ask; Swagger at /docs
+ npm --prefix web install && npm --prefix web run dev   # chat UI; proxies /ask
++uv run python scripts/generate_client.py   # regenerate packages/client; --check in make check
+ ```
+ 
+ Read `CLAUDE.md` first. It is short, and most of it is prohibitions earned the
+diff --git a/api/tests/test_generated_client.py b/api/tests/test_generated_client.py
+new file mode 100644
+index 0000000..9f76962
+--- /dev/null
++++ b/api/tests/test_generated_client.py
+@@ -0,0 +1,53 @@
++"""The committed OpenAPI snapshot is the TypeScript client's source of truth.
++
++A handwritten AskResponse in the web app is how the contract drifts. The
++snapshot is the Python half of the CI drift gate; `generate_client.py --check`
++also regenerates schema.d.ts.
++"""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++from src.main import app
++
++ROOT = Path(__file__).resolve().parents[2]
++CLIENT = ROOT / "packages" / "client"
++ASK_TS = ROOT / "web" / "src" / "ask.ts"
++
++CONTRACT_FIELDS = (
++    "answer",
++    "url",
++    "rows",
++    "moe",
++    "geoid",
++    "universe",
++    "table_id",
++    "alternatives",
++    "warnings",
++)
++
++
++def test_committed_openapi_matches_the_live_app() -> None:
++    live = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
++    committed = (CLIENT / "openapi.json").read_text(encoding="utf-8")
++    assert committed == live, (
++        "packages/client/openapi.json is stale. "
++        "Regenerate with: uv run python scripts/generate_client.py"
++    )
++
++
++def test_generated_schema_declares_every_contract_field() -> None:
++    text = (CLIENT / "schema.d.ts").read_text(encoding="utf-8")
++    start = text.index("AskResponse:")
++    end = text.index("AskWarning:", start)
++    body = text[start:end]
++    for field in CONTRACT_FIELDS:
++        assert f"{field}:" in body, field
++
++
++def test_ask_ts_consumes_generated_types() -> None:
++    text = ASK_TS.read_text(encoding="utf-8")
++    assert "packages/client/schema" in text
++    assert "export type AskResponse = {" not in text
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index cf410b9..3069885 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -2,8 +2,8 @@
+ 
+ **Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, the
+ five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
+-UI that POSTs `/ask` (generated client and FastAPI static serving are not
+-built yet).** Retrieval runs
++UI that POSTs `/ask` through types generated from the OpenAPI schema
++(FastAPI static serving is not built yet).** Retrieval runs
+ end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
+ `rerank.py` selects one table from it. `search_tables` applies that pick;
+ `index.search()` does not. `budgets.toml` gates retriever `@10` and
+@@ -37,6 +37,7 @@ scripts/eval_retrieval.py    the scoreboard; --rerank, --holdout
+ scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
+ scripts/score_synthetic.py   generated-question quality, on a 600 sample
+ scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
++scripts/generate_client.py   OpenAPI → packages/client; `--check` is the drift gate
+ evals/golden_questions.toml  66 scorable: 4 core, 40 long-tail, 14 trap,
+                              8 held out. All verified 2026-08-14.
+ evidence/latest.json         last measured run
+@@ -54,6 +55,7 @@ api/src/prompts.py           one system prompt; date and vintages injected
+ .github/workflows/check.yml  the gate, on every PR
+ .github/workflows/build-index.yml  manual; publishes the index release asset
+ web/                         Vite + React + TypeScript chat pane
++packages/client/             generated from `/openapi.json`; CI fails if stale
+ ```
+ 
+ ### Retrieval — `api/src/retrieval/`, 8 modules
+@@ -110,8 +112,10 @@ response; `with_key()` is the httpx site. `langchain_core` supplies schema and
+ ### Chat UI — `web/`
+ 
+ Vite + React + TypeScript, one pane. `npm --prefix web run dev` proxies
+-`POST /ask` to the API on `:8000`. Types in `web/src/ask.ts` duplicate
+-`AskResponse` until the generated client lands. Census-fetch failure is `url`
++`POST /ask` to the API on `:8000`. `web/src/ask.ts` imports `AskResponse`
++from `packages/client/schema.d.ts`, which `scripts/generate_client.py`
++writes from `app.openapi()` via `openapi-typescript`. `make check` and CI
++regenerate and fail on drift. Census-fetch failure is `url`
+ set and `rows` empty — there is no `http_ok` on the contract. An empty `url`
+ (loop aborted before `build_url`) is a status notice, not a `—` standing in for
+ the URL. Census missing sentinels (`-555555555` and the rest) render as `—`.
+@@ -165,7 +169,7 @@ futures.
+ |---|---|
+ | ~~0~~ | ~~the index~~ — done, above |
+ | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
+-| 2 | `web/` chat pane (CC-24). Generated client and FastAPI static serving still open. |
++| 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI static serving still open. |
+ | 3 | fan-out over years and geographies; the guard evaluation point |
+ | 4 | the canvas and its state model |
+ | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
+diff --git a/evidence/slice-2/cc-27-gate1.txt b/evidence/slice-2/cc-27-gate1.txt
+new file mode 100644
+index 0000000..2c6780c
+--- /dev/null
++++ b/evidence/slice-2/cc-27-gate1.txt
+@@ -0,0 +1,103 @@
++# Gate 1 — CC-27
++# Mutations named for the behaviour they revert, not a review index.
++# GOOD = test fails against the broken implementation (the check works).
++# BAD  = test still passes (delete or rewrite it).
++
++===== MUTATION handwritten-ask-response =====
++file: web/src/ask.ts
++F                                                                        [100%]
++================================== FAILURES ===================================
++____________________ test_ask_ts_consumes_generated_types _____________________
++
++    def test_ask_ts_consumes_generated_types() -> None:
++        text = ASK_TS.read_text(encoding="utf-8")
++        assert "packages/client/schema" in text
++>       assert "export type AskResponse = {" not in text
++E       assert 'export type...Response = {' not in 'import type...sponse;\n}\n'
++E         
++E         'export type AskResponse = {' is contained here:
++E           arning"];
++E           export type AskResponse = { answer: string };
++E           
++E           export async function ask(question: string): Promise<AskResponse> {
++E             let response: Response;...
++E         
++E         ...Full output truncated (14 lines hidden), use '-vv' to show
++
++api\tests\test_generated_client.py:53: AssertionError
++=========================== short test summary info ===========================
++FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
++1 failed in 0.38s
++VERDICT GOOD — exit 1
++restored
++
++===== MUTATION stale-openapi-json =====
++file: packages/client/openapi.json
++F                                                                        [100%]
++================================== FAILURES ===================================
++_________________ test_committed_openapi_matches_the_live_app _________________
++
++    def test_committed_openapi_matches_the_live_app() -> None:
++        live = json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
++        committed = (CLIENT / "openapi.json").read_text(encoding="utf-8")
++>       assert committed == live, (
++            "packages/client/openapi.json is stale. "
++            "Regenerate with: uv run python scripts/generate_client.py"
++        )
++E       AssertionError: packages/client/openapi.json is stale. Regenerate with: uv run python scripts/generate_client.py
++E       assert '{\n  "compon...  }\n  }\n}\n' == '{\n  "compon...  }\n  }\n}\n'
++E         
++E         Skipping 5591 identical leading characters in diff, use -v to show
++E         - "title": "census-concierge",
++E         + "title": "stale-title",
++E               "version": "0.1.0"
++E             },
++E             "openapi": "3.1.0",...
++E         
++E         ...Full output truncated (41 lines hidden), use '-vv' to show
++
++api\tests\test_generated_client.py:35: AssertionError
++=========================== short test summary info ===========================
++FAILED api/tests/test_generated_client.py::test_committed_openapi_matches_the_live_app
++1 failed in 0.34s
++VERDICT GOOD — exit 1
++restored
++
++===== MUTATION schema-missing-table-id =====
++file: packages/client/schema.d.ts
++(reverted AskResponse `table_id: string;` only; Alternative.table_id left in place)
++
++F                                                                        [100%]
++================================== FAILURES ===================================
++_____________ test_generated_schema_declares_every_contract_field _____________
++
++    def test_generated_schema_declares_every_contract_field() -> None:
++        text = (CLIENT / "schema.d.ts").read_text(encoding="utf-8")
++        start = text.index("AskResponse:")
++        end = text.index("AskWarning:", start)
++        body = text[start:end]
++        for field in CONTRACT_FIELDS:
++>           assert f"{field}:" in body, field
++E           AssertionError: table_id
++E           assert 'table_id:' in 'AskResponse: {\n            /**\n             * Alternatives\n             * @description Related tables with the rea...     */\n            warnings: components["schemas"]["AskWarning"][];\n        };\n        /** AskWarning */\n        '
++
++api\tests\test_generated_client.py:47: AssertionError
++=========================== short test summary info ===========================
++FAILED api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
++1 failed in 0.45s
++VERDICT GOOD — exit 1
++restored
++
++===== MUTATION check-detects-stale-schema =====
++file: packages/client/schema.d.ts
++✨ openapi-typescript 7.9.1
++🚀 C:\Users\johnh\AppData\Local\Temp\tmp6moauda7\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp6moauda7\schema.d.ts [47.6ms]
++packages/client is stale relative to the live OpenAPI schema.
++Regenerate with:  uv run python scripts/generate_client.py
++VERDICT GOOD — exit 1
++restored
++
++===== MUTATION restore-green =====
++...                                                                      [100%]
++3 passed in 0.32s
++VERDICT GOOD — exit 0 (want 0)
+diff --git a/evidence/slice-2/cc-27-preflight-claims.md b/evidence/slice-2/cc-27-preflight-claims.md
+new file mode 100644
+index 0000000..6d9c9d0
+--- /dev/null
++++ b/evidence/slice-2/cc-27-preflight-claims.md
+@@ -0,0 +1,25 @@
++# CC-27 pre-flight — claims vs measured
++
++Raw command output: `evidence/slice-2/cc-27-preflight.txt`.
++
++Settled on `origin/main` @ `6eef204` (slice 2 CC-24 merged; generated client not built).
++
++| Claim in the ticket | Settled by | Verdict |
++| --- | --- | --- |
++| FastAPI exposes a schema a TS generator can read | `app.openapi()` / `GET /openapi.json`; OpenAPI 3.1; `operationId` `ask`; components `AskRequest`, `AskResponse`, `Alternative`, `AskWarning` | **Holds.** `AskResponse.required` is the nine contract fields. `url` is a string. `rows`/`moe` items are objects with `additionalProperties` `string \| null`. |
++| `openapi-typescript` can consume that schema | `npx openapi-typescript@7.9.1` on a dumped `openapi.json` | **Holds.** Emits `AskResponse` with `rows: { [key: string]: string \| null }[]`, which is the handwritten `Record<string, string \| null>[]`. No machine-specific paths in the output. |
++| Frontend currently duplicates the contract | `web/src/ask.ts` | **Holds as the gap.** Local `AskResponse` / `Alternative` / `AskWarning` restated by hand. Comment says CC-27 replaces them. |
++| `packages/client/` is the committed generated output | `Path('packages/client').exists()`; `.gitignore` comment; DESIGN §5 | **Fails as implemented.** Directory absent. Git tracks it on purpose so CI can diff. `.cursorignore` already excludes it. Ruff already `extend-exclude`s it. |
++| CI / `make check` fail on drift | `.github/workflows/check.yml`; `Makefile` `check` | **Fails as implemented.** No generate or `--check` step. Check job: "no network beyond dependency install" — generator must be a locked `web` devDependency, not `npx --yes` at check time. |
++| Regeneration is a documented one-step command | README "Working on this"; Makefile | **Fails as implemented.** No `make client` / `scripts/generate_client.py`. **`doc_lines` 1798/1800** — do not add prescriptive-doc paragraphs. Document in Makefile + README + ARCHITECTURE (none counted except PLAN checkbox). |
++| `uv run python` from repo root can dump the schema without the index or keys | `from src.main import app`; `app.openapi()` | **Holds.** Same import as `test_ask_route.py` in CI. |
++| Room in the budgets | `check_budgets.py --structural-only` | **Holds.** web src LOC 666/3000. **`doc_lines` 1798/1800**. `direct_dependencies` 7/25 — do not add the generator to `api/pyproject.toml`. `ask.py` 395/400 — do not touch it. |
++| FastAPI static serving / copy control | Jira CC-32 | **Out of this ticket.** |
++
++## Decision
++
++Dump the live schema with `app.openapi()`, generate `packages/client/schema.d.ts` with pinned `openapi-typescript@7.9.1` (web devDependency), commit that file plus `packages/client/openapi.json`. `web/src/ask.ts` keeps the fetch helper and imports types from the generated schema — no second `AskResponse` shape. `uv run python scripts/generate_client.py` regenerates; `--check` is part of `make check` and CI after `npm --prefix web ci`.
++
++## Out of this ticket
++
++CC-32 FastAPI static serving, copy control, `make demo` against the served build. Canvas, charts, plan strip (slice 4). `openapi-fetch` / a generated runtime SDK — one route, one fetch helper; a generic client waits for a second caller.
+diff --git a/evidence/slice-2/cc-27-preflight.txt b/evidence/slice-2/cc-27-preflight.txt
+new file mode 100644
+index 0000000..0719e51
+--- /dev/null
++++ b/evidence/slice-2/cc-27-preflight.txt
+@@ -0,0 +1,69 @@
++===== git HEAD =====
++COMMAND: git rev-parse HEAD origin/main
++6eef204
++6eef204
++
++===== log =====
++COMMAND: git log -1 --oneline origin/main
++6eef204 Merge pull request #25 from johnhillescobar:evidence/cc-24-e2e-post
++
++===== Jira =====
++COMMAND: uv run python scripts/jira_transition.py CC-27 --status
++CC-27  To Do  Story
++Generate a typed client from the API schema and fail on drift
++
++===== AskResponse / OpenAPI =====
++COMMAND: uv run python -c from src.main import app; schema = app.openapi()
++print('openapi', schema['openapi'])
++print('paths', list(schema['paths']))
++print('components', list(schema['components']['schemas']))
++print('required', schema['components']['schemas']['AskResponse']['required'])
++print('url.type', schema['components']['schemas']['AskResponse']['properties']['url']['type'])
++print('rows', schema['components']['schemas']['AskResponse']['properties']['rows'])
++openapi 3.1.0
++paths ['/ask']
++components ['Alternative', 'AskRequest', 'AskResponse', 'AskWarning', 'HTTPValidationError', 'ValidationError']
++required ['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
++url.type string
++rows items additionalProperties anyOf string|null
++
++===== uv run from repo root =====
++COMMAND: uv run python -c "from src.main import app; print(app.title, list(app.openapi()['paths']))"
++census-concierge ['/ask']
++
++===== openapi-typescript 7.9.1 =====
++COMMAND: npx --yes openapi-typescript@7.9.1 <dumped openapi.json> -o schema.d.ts
++✨ openapi-typescript 7.9.1
++🚀 .../cc27-openapi.json → .../cc27-schema.d.ts [45.2ms]
++
++Generated AskResponse.rows: { [key: string]: string | null }[]
++No source-path in the output file.
++
++===== packages/client =====
++COMMAND: python -c print exists
++packages/client exists False
++web/src/ask.ts has handwritten AskResponse True
++
++===== CI drift step =====
++COMMAND: grep generate_client .github/workflows/check.yml Makefile
++(no matches)
++
++===== structural budgets =====
++COMMAND: uv run python scripts/check_budgets.py --structural-only
++
++BUDGETS
++
++  ok    api src LOC               2219 <= 4000
++  ok    api src files               19 <= 40
++  ok    largest file LOC           395 <= 400
++  ok    web src LOC                666 <= 3000
++  ok    system prompt tokens       188 <= 1200
++  ok    doc lines                 1798 <= 1800
++  ok    graph nodes                  0 <= 8
++  ok    agent tools                  4 <= 6
++  ok    api routes                   1 <= 10
++  ok    tool schemas                 8 <= 12
++  ok    domain models                4 <= 15
++  ok    direct dependencies          7 <= 25
++
++All budgets met.
+diff --git a/packages/client/openapi.json b/packages/client/openapi.json
+new file mode 100644
+index 0000000..573beff
+--- /dev/null
++++ b/packages/client/openapi.json
+@@ -0,0 +1,253 @@
++{
++  "components": {
++    "schemas": {
++      "Alternative": {
++        "properties": {
++          "reason": {
++            "description": "How this table differs: universe, distribution versus median, collapsed table, race iteration, or related table.",
++            "title": "Reason",
++            "type": "string"
++          },
++          "table_id": {
++            "description": "ACS table ID.",
++            "title": "Table Id",
++            "type": "string"
++          }
++        },
++        "required": [
++          "table_id",
++          "reason"
++        ],
++        "title": "Alternative",
++        "type": "object"
++      },
++      "AskRequest": {
++        "properties": {
++          "question": {
++            "description": "The user's question. Leading and trailing whitespace is stripped.",
++            "minLength": 1,
++            "title": "Question",
++            "type": "string"
++          }
++        },
++        "required": [
++          "question"
++        ],
++        "title": "AskRequest",
++        "type": "object"
++      },
++      "AskResponse": {
++        "properties": {
++          "alternatives": {
++            "description": "Related tables with the reason they differ from the selection.",
++            "items": {
++              "$ref": "#/components/schemas/Alternative"
++            },
++            "title": "Alternatives",
++            "type": "array"
++          },
++          "answer": {
++            "description": "Natural-language answer.",
++            "title": "Answer",
++            "type": "string"
++          },
++          "geoid": {
++            "description": "AFFGEOID of the selected geography; empty when many areas are returned.",
++            "title": "Geoid",
++            "type": "string"
++          },
++          "moe": {
++            "description": "Per-row 90% margins, keyed to each estimate's matching M variable.",
++            "items": {
++              "additionalProperties": {
++                "anyOf": [
++                  {
++                    "type": "string"
++                  },
++                  {
++                    "type": "null"
++                  }
++                ]
++              },
++              "type": "object"
++            },
++            "title": "Moe",
++            "type": "array"
++          },
++          "rows": {
++            "description": "Census rows as returned. Each row carries GEO_ID (AFFGEOID).",
++            "items": {
++              "additionalProperties": {
++                "anyOf": [
++                  {
++                    "type": "string"
++                  },
++                  {
++                    "type": "null"
++                  }
++                ]
++              },
++              "type": "object"
++            },
++            "title": "Rows",
++            "type": "array"
++          },
++          "table_id": {
++            "description": "Selected ACS table ID.",
++            "title": "Table Id",
++            "type": "string"
++          },
++          "universe": {
++            "description": "Published universe of the selected table.",
++            "title": "Universe",
++            "type": "string"
++          },
++          "url": {
++            "description": "Census API URL for this answer. Singular; slice 3 grows urls[].",
++            "title": "Url",
++            "type": "string"
++          },
++          "warnings": {
++            "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch.",
++            "items": {
++              "$ref": "#/components/schemas/AskWarning"
++            },
++            "title": "Warnings",
++            "type": "array"
++          }
++        },
++        "required": [
++          "answer",
++          "url",
++          "rows",
++          "moe",
++          "geoid",
++          "universe",
++          "table_id",
++          "alternatives",
++          "warnings"
++        ],
++        "title": "AskResponse",
++        "type": "object"
++      },
++      "AskWarning": {
++        "properties": {
++          "code": {
++            "description": "Machine-readable warning code.",
++            "title": "Code",
++            "type": "string"
++          },
++          "detail": {
++            "description": "What was raised, in one sentence.",
++            "title": "Detail",
++            "type": "string"
++          }
++        },
++        "required": [
++          "code",
++          "detail"
++        ],
++        "title": "AskWarning",
++        "type": "object"
++      },
++      "HTTPValidationError": {
++        "properties": {
++          "detail": {
++            "items": {
++              "$ref": "#/components/schemas/ValidationError"
++            },
++            "title": "Detail",
++            "type": "array"
++          }
++        },
++        "title": "HTTPValidationError",
++        "type": "object"
++      },
++      "ValidationError": {
++        "properties": {
++          "ctx": {
++            "title": "Context",
++            "type": "object"
++          },
++          "input": {
++            "title": "Input"
++          },
++          "loc": {
++            "items": {
++              "anyOf": [
++                {
++                  "type": "string"
++                },
++                {
++                  "type": "integer"
++                }
++              ]
++            },
++            "title": "Location",
++            "type": "array"
++          },
++          "msg": {
++            "title": "Message",
++            "type": "string"
++          },
++          "type": {
++            "title": "Error Type",
++            "type": "string"
++          }
++        },
++        "required": [
++          "loc",
++          "msg",
++          "type"
++        ],
++        "title": "ValidationError",
++        "type": "object"
++      }
++    }
++  },
++  "info": {
++    "title": "census-concierge",
++    "version": "0.1.0"
++  },
++  "openapi": "3.1.0",
++  "paths": {
++    "/ask": {
++      "post": {
++        "operationId": "ask",
++        "requestBody": {
++          "content": {
++            "application/json": {
++              "schema": {
++                "$ref": "#/components/schemas/AskRequest"
++              }
++            }
++          },
++          "required": true
++        },
++        "responses": {
++          "200": {
++            "content": {
++              "application/json": {
++                "schema": {
++                  "$ref": "#/components/schemas/AskResponse"
++                }
++              }
++            },
++            "description": "Successful Response"
++          },
++          "422": {
++            "content": {
++              "application/json": {
++                "schema": {
++                  "$ref": "#/components/schemas/HTTPValidationError"
++                }
++              }
++            },
++            "description": "Validation Error"
++          }
++        },
++        "summary": "Post Ask"
++      }
++    }
++  }
++}
+diff --git a/packages/client/schema.d.ts b/packages/client/schema.d.ts
+new file mode 100644
+index 0000000..0cec628
+--- /dev/null
++++ b/packages/client/schema.d.ts
+@@ -0,0 +1,174 @@
++/**
++ * This file was auto-generated by openapi-typescript.
++ * Do not make direct changes to the file.
++ */
++
++export interface paths {
++    "/ask": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Post Ask */
++        post: operations["ask"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++}
++export type webhooks = Record<string, never>;
++export interface components {
++    schemas: {
++        /** Alternative */
++        Alternative: {
++            /**
++             * Reason
++             * @description How this table differs: universe, distribution versus median, collapsed table, race iteration, or related table.
++             */
++            reason: string;
++            /**
++             * Table Id
++             * @description ACS table ID.
++             */
++            table_id: string;
++        };
++        /** AskRequest */
++        AskRequest: {
++            /**
++             * Question
++             * @description The user's question. Leading and trailing whitespace is stripped.
++             */
++            question: string;
++        };
++        /** AskResponse */
++        AskResponse: {
++            /**
++             * Alternatives
++             * @description Related tables with the reason they differ from the selection.
++             */
++            alternatives: components["schemas"]["Alternative"][];
++            /**
++             * Answer
++             * @description Natural-language answer.
++             */
++            answer: string;
++            /**
++             * Geoid
++             * @description AFFGEOID of the selected geography; empty when many areas are returned.
++             */
++            geoid: string;
++            /**
++             * Moe
++             * @description Per-row 90% margins, keyed to each estimate's matching M variable.
++             */
++            moe: {
++                [key: string]: string | null;
++            }[];
++            /**
++             * Rows
++             * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID).
++             */
++            rows: {
++                [key: string]: string | null;
++            }[];
++            /**
++             * Table Id
++             * @description Selected ACS table ID.
++             */
++            table_id: string;
++            /**
++             * Universe
++             * @description Published universe of the selected table.
++             */
++            universe: string;
++            /**
++             * Url
++             * @description Census API URL for this answer. Singular; slice 3 grows urls[].
++             */
++            url: string;
++            /**
++             * Warnings
++             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch.
++             */
++            warnings: components["schemas"]["AskWarning"][];
++        };
++        /** AskWarning */
++        AskWarning: {
++            /**
++             * Code
++             * @description Machine-readable warning code.
++             */
++            code: string;
++            /**
++             * Detail
++             * @description What was raised, in one sentence.
++             */
++            detail: string;
++        };
++        /** HTTPValidationError */
++        HTTPValidationError: {
++            /** Detail */
++            detail?: components["schemas"]["ValidationError"][];
++        };
++        /** ValidationError */
++        ValidationError: {
++            /** Context */
++            ctx?: Record<string, never>;
++            /** Input */
++            input?: unknown;
++            /** Location */
++            loc: (string | number)[];
++            /** Message */
++            msg: string;
++            /** Error Type */
++            type: string;
++        };
++    };
++    responses: never;
++    parameters: never;
++    requestBodies: never;
++    headers: never;
++    pathItems: never;
++}
++export type $defs = Record<string, never>;
++export interface operations {
++    ask: {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["AskRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["AskResponse"];
++                };
++            };
++            /** @description Validation Error */
++            422: {
++                headers: {
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["HTTPValidationError"];
++                };
++            };
++        };
++    };
++}
+diff --git a/scripts/generate_client.py b/scripts/generate_client.py
+new file mode 100644
+index 0000000..44feaec
+--- /dev/null
++++ b/scripts/generate_client.py
+@@ -0,0 +1,114 @@
++#!/usr/bin/env python3
++"""Regenerate packages/client from FastAPI's OpenAPI schema.
++
++    uv run python scripts/generate_client.py
++    uv run python scripts/generate_client.py --check
++
++--check exits 1 when the committed copy is stale. That is the CI drift gate.
++Fix: run the command without --check and commit packages/client/.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import subprocess
++import sys
++import tempfile
++from pathlib import Path
++
++from src.main import app
++
++ROOT = Path(__file__).resolve().parent.parent
++WEB = ROOT / "web"
++CLIENT = ROOT / "packages" / "client"
++OPENAPI_JSON = CLIENT / "openapi.json"
++SCHEMA_DTS = CLIENT / "schema.d.ts"
++
++
++def _openapi_typescript() -> str:
++    win = WEB / "node_modules" / ".bin" / "openapi-typescript.cmd"
++    unix = WEB / "node_modules" / ".bin" / "openapi-typescript"
++    if win.exists():
++        return str(win)
++    if unix.exists():
++        return str(unix)
++    print(
++        "openapi-typescript is not installed. Run: npm --prefix web ci",
++        file=sys.stderr,
++    )
++    sys.exit(1)
++
++
++def _dump_openapi() -> str:
++    return json.dumps(app.openapi(), indent=2, sort_keys=True) + "\n"
++
++
++def _normalize(text: str) -> str:
++    text = text.replace("\r\n", "\n").replace("\r", "\n")
++    if not text.endswith("\n"):
++        text += "\n"
++    return text
++
++
++def _generate_schema(openapi: str) -> str:
++    binary = _openapi_typescript()
++    with tempfile.TemporaryDirectory() as tmp:
++        src = Path(tmp) / "openapi.json"
++        dst = Path(tmp) / "schema.d.ts"
++        src.write_text(openapi, encoding="utf-8", newline="\n")
++        subprocess.run([binary, str(src), "-o", str(dst)], cwd=ROOT, check=True)
++        return _normalize(dst.read_text(encoding="utf-8"))
++
++
++def generate() -> tuple[str, str]:
++    openapi = _dump_openapi()
++    return openapi, _generate_schema(openapi)
++
++
++def write(openapi: str, schema: str) -> None:
++    CLIENT.mkdir(parents=True, exist_ok=True)
++    OPENAPI_JSON.write_text(openapi, encoding="utf-8", newline="\n")
++    SCHEMA_DTS.write_text(schema, encoding="utf-8", newline="\n")
++
++
++def _read(path: Path) -> str | None:
++    if not path.is_file():
++        return None
++    return _normalize(path.read_text(encoding="utf-8"))
++
++
++def check(openapi: str, schema: str) -> int:
++    committed_json = _read(OPENAPI_JSON)
++    committed_schema = _read(SCHEMA_DTS)
++    stale = committed_json != openapi or committed_schema != schema
++    if not stale:
++        print("packages/client is up to date.")
++        return 0
++    print(
++        "packages/client is stale relative to the live OpenAPI schema.\n"
++        "Regenerate with:  uv run python scripts/generate_client.py",
++        file=sys.stderr,
++    )
++    return 1
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--check",
++        action="store_true",
++        help="exit 1 if the committed client does not match the live schema",
++    )
++    args = parser.parse_args()
++    openapi, schema = generate()
++    if args.check:
++        return check(openapi, schema)
++    write(openapi, schema)
++    print(f"wrote {OPENAPI_JSON.relative_to(ROOT).as_posix()}")
++    print(f"wrote {SCHEMA_DTS.relative_to(ROOT).as_posix()}")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/web/package-lock.json b/web/package-lock.json
+index d244730..53ef46b 100644
+--- a/web/package-lock.json
++++ b/web/package-lock.json
+@@ -16,6 +16,7 @@
+         "@types/react-dom": "^19.1.9",
+         "@vitejs/plugin-react": "^5.0.2",
+         "jsdom": "^26.1.0",
++        "openapi-typescript": "7.9.1",
+         "typescript": "^5.9.2",
+         "vite": "^7.1.5",
+         "vitest": "^3.2.4"
+@@ -958,6 +959,52 @@
+         "node": "^22.20 || ^24.12 || >=25"
+       }
+     },
++    "node_modules/@redocly/ajv": {
++      "version": "8.11.2",
++      "resolved": "https://registry.npmjs.org/@redocly/ajv/-/ajv-8.11.2.tgz",
++      "integrity": "sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "fast-deep-equal": "^3.1.1",
++        "json-schema-traverse": "^1.0.0",
++        "require-from-string": "^2.0.2",
++        "uri-js-replace": "^1.0.1"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/epoberezkin"
++      }
++    },
++    "node_modules/@redocly/config": {
++      "version": "0.22.0",
++      "resolved": "https://registry.npmjs.org/@redocly/config/-/config-0.22.0.tgz",
++      "integrity": "sha512-gAy93Ddo01Z3bHuVdPWfCwzgfaYgMdaZPcfL7JZ7hWJoK9V0lXDbigTWkhiPFAaLWzbOJ+kbUQG1+XwIm0KRGQ==",
++      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/@redocly/openapi-core": {
++      "version": "1.34.20",
++      "resolved": "https://registry.npmjs.org/@redocly/openapi-core/-/openapi-core-1.34.20.tgz",
++      "integrity": "sha512-ypeBZ/6BKXR9+7/TtbKhbl4UgD7raHhPS12oknlKno2A8+lnFkxIwiE/Aklu6L2cd/ioH+fCWuMxi9/p3EyAPw==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@redocly/ajv": "8.11.2",
++        "@redocly/config": "0.22.0",
++        "colorette": "1.4.0",
++        "https-proxy-agent": "7.0.6",
++        "js-levenshtein": "1.1.6",
++        "js-yaml": "4.3.2",
++        "minimatch": "5.1.9",
++        "pluralize": "8.0.0",
++        "yaml-ast-parser": "0.0.43"
++      },
++      "engines": {
++        "node": ">=18.17.0",
++        "npm": ">=9.5.0"
++      }
++    },
+     "node_modules/@rolldown/pluginutils": {
+       "version": "1.0.0-rc.3",
+       "resolved": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.0.0-rc.3.tgz",
+@@ -1622,6 +1669,16 @@
+         "node": ">= 14"
+       }
+     },
++    "node_modules/ansi-colors": {
++      "version": "4.1.3",
++      "resolved": "https://registry.npmjs.org/ansi-colors/-/ansi-colors-4.1.3.tgz",
++      "integrity": "sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/ansi-regex": {
+       "version": "5.0.1",
+       "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
+@@ -1647,6 +1704,13 @@
+         "url": "https://github.com/chalk/ansi-styles?sponsor=1"
+       }
+     },
++    "node_modules/argparse": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz",
++      "integrity": "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==",
++      "dev": true,
++      "license": "Python-2.0"
++    },
+     "node_modules/aria-query": {
+       "version": "5.3.0",
+       "resolved": "https://registry.npmjs.org/aria-query/-/aria-query-5.3.0.tgz",
+@@ -1668,6 +1732,13 @@
+         "node": ">=12"
+       }
+     },
++    "node_modules/balanced-match": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
++      "integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/baseline-browser-mapping": {
+       "version": "2.11.23",
+       "resolved": "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.11.23.tgz",
+@@ -1681,6 +1752,16 @@
+         "node": ">=6.0.0"
+       }
+     },
++    "node_modules/brace-expansion": {
++      "version": "2.1.4",
++      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.4.tgz",
++      "integrity": "sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "balanced-match": "^1.0.0"
++      }
++    },
+     "node_modules/browserslist": {
+       "version": "4.28.9",
+       "resolved": "https://registry.npmjs.org/browserslist/-/browserslist-4.28.9.tgz",
+@@ -1763,6 +1844,13 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/change-case": {
++      "version": "5.4.4",
++      "resolved": "https://registry.npmjs.org/change-case/-/change-case-5.4.4.tgz",
++      "integrity": "sha512-HRQyTk2/YPEkt9TnUPbOpr64Uw3KOicFWPVBb+xiHvd6eBx/qPr9xqfBFDT8P2vWsvvz4jbEkfDe71W3VyNu2w==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/check-error": {
+       "version": "2.1.3",
+       "resolved": "https://registry.npmjs.org/check-error/-/check-error-2.1.3.tgz",
+@@ -1773,6 +1861,13 @@
+         "node": ">= 16"
+       }
+     },
++    "node_modules/colorette": {
++      "version": "1.4.0",
++      "resolved": "https://registry.npmjs.org/colorette/-/colorette-1.4.0.tgz",
++      "integrity": "sha512-Y2oEozpomLn7Q3HFP7dpww7AtMJplbM9lGZP6RDfHqmbeRjiwRg4n6VM6j4KLmRke85uWEI7JqF17f3pqdRA0g==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/convert-source-map": {
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz",
+@@ -1968,6 +2063,13 @@
+         "node": ">=12.0.0"
+       }
+     },
++    "node_modules/fast-deep-equal": {
++      "version": "3.1.3",
++      "resolved": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
++      "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/fdir": {
+       "version": "6.5.0",
+       "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+@@ -2065,6 +2167,19 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/index-to-position": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/index-to-position/-/index-to-position-1.2.0.tgz",
++      "integrity": "sha512-Yg7+ztRkqslMAS2iFaU+Oa4KTSidr63OsFGlOrJoW981kIYO3CGCS3wA95P1mUi/IVSJkn0D479KTJpVpvFNuw==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/is-potential-custom-element-name": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/is-potential-custom-element-name/-/is-potential-custom-element-name-1.0.1.tgz",
+@@ -2072,6 +2187,16 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/js-levenshtein": {
++      "version": "1.1.6",
++      "resolved": "https://registry.npmjs.org/js-levenshtein/-/js-levenshtein-1.1.6.tgz",
++      "integrity": "sha512-X2BB11YZtrRqY4EnQcLX5Rh373zbK4alC1FW7D7MBhL2gtcC17cTnr6DmfHZeS0s2rTHjUTMMHfG7gO8SSdw+g==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/js-tokens": {
+       "version": "4.0.0",
+       "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz",
+@@ -2079,6 +2204,29 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/js-yaml": {
++      "version": "4.3.2",
++      "resolved": "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz",
++      "integrity": "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==",
++      "dev": true,
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/puzrin"
++        },
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/nodeca"
++        }
++      ],
++      "license": "MIT",
++      "dependencies": {
++        "argparse": "^2.0.1"
++      },
++      "bin": {
++        "js-yaml": "bin/js-yaml.js"
++      }
++    },
+     "node_modules/jsdom": {
+       "version": "26.1.0",
+       "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-26.1.0.tgz",
+@@ -2132,6 +2280,13 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/json-schema-traverse": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
++      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/json5": {
+       "version": "2.2.3",
+       "resolved": "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz",
+@@ -2183,6 +2338,19 @@
+         "@jridgewell/sourcemap-codec": "^1.5.5"
+       }
+     },
++    "node_modules/minimatch": {
++      "version": "5.1.9",
++      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-5.1.9.tgz",
++      "integrity": "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw==",
++      "dev": true,
++      "license": "ISC",
++      "dependencies": {
++        "brace-expansion": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=10"
++      }
++    },
+     "node_modules/ms": {
+       "version": "2.1.3",
+       "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+@@ -2226,6 +2394,45 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/openapi-typescript": {
++      "version": "7.9.1",
++      "resolved": "https://registry.npmjs.org/openapi-typescript/-/openapi-typescript-7.9.1.tgz",
++      "integrity": "sha512-9gJtoY04mk6iPMbToPjPxEAtfXZ0dTsMZtsgUI8YZta0btPPig9DJFP4jlerQD/7QOwYgb0tl+zLUpDf7vb7VA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@redocly/openapi-core": "^1.34.5",
++        "ansi-colors": "^4.1.3",
++        "change-case": "^5.4.4",
++        "parse-json": "^8.3.0",
++        "supports-color": "^10.1.0",
++        "yargs-parser": "^21.1.1"
++      },
++      "bin": {
++        "openapi-typescript": "bin/cli.js"
++      },
++      "peerDependencies": {
++        "typescript": "^5.x"
++      }
++    },
++    "node_modules/parse-json": {
++      "version": "8.3.0",
++      "resolved": "https://registry.npmjs.org/parse-json/-/parse-json-8.3.0.tgz",
++      "integrity": "sha512-ybiGyvspI+fAoRQbIPRddCcSTV9/LsJbf0e/S85VLowVGzRmokfneg2kwVW/KU5rOXrPSbF1qAKPMgNTqqROQQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@babel/code-frame": "^7.26.2",
++        "index-to-position": "^1.1.0",
++        "type-fest": "^4.39.1"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/parse5": {
+       "version": "7.3.0",
+       "resolved": "https://registry.npmjs.org/parse5/-/parse5-7.3.0.tgz",
+@@ -2276,6 +2483,16 @@
+         "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
++    "node_modules/pluralize": {
++      "version": "8.0.0",
++      "resolved": "https://registry.npmjs.org/pluralize/-/pluralize-8.0.0.tgz",
++      "integrity": "sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=4"
++      }
++    },
+     "node_modules/postcss": {
+       "version": "8.5.28",
+       "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.28.tgz",
+@@ -2370,6 +2587,16 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/require-from-string": {
++      "version": "2.0.2",
++      "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
++      "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/rollup": {
+       "version": "4.63.2",
+       "resolved": "https://registry.npmjs.org/rollup/-/rollup-4.63.2.tgz",
+@@ -2510,6 +2737,19 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/supports-color": {
++      "version": "10.2.2",
++      "resolved": "https://registry.npmjs.org/supports-color/-/supports-color-10.2.2.tgz",
++      "integrity": "sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g==",
++      "dev": true,
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/supports-color?sponsor=1"
++      }
++    },
+     "node_modules/symbol-tree": {
+       "version": "3.2.4",
+       "resolved": "https://registry.npmjs.org/symbol-tree/-/symbol-tree-3.2.4.tgz",
+@@ -2624,6 +2864,19 @@
+         "node": ">=18"
+       }
+     },
++    "node_modules/type-fest": {
++      "version": "4.41.0",
++      "resolved": "https://registry.npmjs.org/type-fest/-/type-fest-4.41.0.tgz",
++      "integrity": "sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==",
++      "dev": true,
++      "license": "(MIT OR CC0-1.0)",
++      "engines": {
++        "node": ">=16"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/typescript": {
+       "version": "5.9.3",
+       "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+@@ -2669,6 +2922,13 @@
+         "browserslist": ">= 4.21.0"
+       }
+     },
++    "node_modules/uri-js-replace": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/uri-js-replace/-/uri-js-replace-1.0.1.tgz",
++      "integrity": "sha512-W+C9NWNLFOoBI2QWDp4UT9pv65r2w5Cx+3sTYFvtMdDBxkKt1syCqsUdSFAChbEe1uK5TfS04wt/nGwmaeIQ0g==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/vite": {
+       "version": "7.3.6",
+       "resolved": "https://registry.npmjs.org/vite/-/vite-7.3.6.tgz",
+@@ -2963,6 +3223,23 @@
+       "integrity": "sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==",
+       "dev": true,
+       "license": "ISC"
++    },
++    "node_modules/yaml-ast-parser": {
++      "version": "0.0.43",
++      "resolved": "https://registry.npmjs.org/yaml-ast-parser/-/yaml-ast-parser-0.0.43.tgz",
++      "integrity": "sha512-2PTINUwsRqSd+s8XxKaJWQlUuEMHJQyEuh2edBbW8KNJz0SJPwUSD2zRWqezFEdN7IzAgeuYHFUCF7o8zRdZ0A==",
++      "dev": true,
++      "license": "Apache-2.0"
++    },
++    "node_modules/yargs-parser": {
++      "version": "21.1.1",
++      "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz",
++      "integrity": "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==",
++      "dev": true,
++      "license": "ISC",
++      "engines": {
++        "node": ">=12"
++      }
+     }
+   }
+ }
+diff --git a/web/package.json b/web/package.json
+index 90f0e76..307c056 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -20,6 +20,7 @@
+     "@types/react-dom": "^19.1.9",
+     "@vitejs/plugin-react": "^5.0.2",
+     "jsdom": "^26.1.0",
++    "openapi-typescript": "7.9.1",
+     "typescript": "^5.9.2",
+     "vite": "^7.1.5",
+     "vitest": "^3.2.4"
+diff --git a/web/src/ask.ts b/web/src/ask.ts
+index 8430d22..2fd7574 100644
+--- a/web/src/ask.ts
++++ b/web/src/ask.ts
+@@ -1,26 +1,8 @@
+-/** Temporary contract types. CC-27 replaces this module with packages/client. */
++import type { components } from "../../packages/client/schema";
+ 
+-export type Alternative = {
+-  table_id: string;
+-  reason: string;
+-};
+-
+-export type AskWarning = {
+-  code: string;
+-  detail: string;
+-};
+-
+-export type AskResponse = {
+-  answer: string;
+-  url: string;
+-  rows: Record<string, string | null>[];
+-  moe: Record<string, string | null>[];
+-  geoid: string;
+-  universe: string;
+-  table_id: string;
+-  alternatives: Alternative[];
+-  warnings: AskWarning[];
+-};
++export type Alternative = components["schemas"]["Alternative"];
++export type AskWarning = components["schemas"]["AskWarning"];
++export type AskResponse = components["schemas"]["AskResponse"];
+ 
+ export async function ask(question: string): Promise<AskResponse> {
+   let response: Response;
+exit: 0
+
+########## PASS 2 machines ##########
+
+===== check_budgets.py =====
+> uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                650 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+===== check_invariants.py --base origin/main =====
+> uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+===== ruff check . =====
+> uv run ruff check .
+[1;32mAll checks passed![0m
+exit: 0
+
+===== ruff format --check . =====
+> uv run ruff format --check .
+88 files already formatted
+exit: 0
+
+===== mypy api/src =====
+> uv run mypy api/src
+Success: no issues found in 19 source files
+exit: 0
+
+===== pytest -q -m "not integration" =====
+> uv run pytest -q -m not integration
+........................................................................ [ 37%]
+........................................................................ [ 75%]
+...............................................                          [100%]
+191 passed in 4.10s
+exit: 0
+
+===== generate_client.py --check =====
+> uv run python scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmp3xmqpcah\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp3xmqpcah\schema.d.ts [33.5ms]
+packages/client is up to date.
+exit: 0
+
+===== npm --prefix web test =====
+> npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 8ms
+ ✓ src/display.test.ts (10 tests) 14ms
+ ✓ src/App.test.tsx (10 tests) 1583ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  368ms
+
+ Test Files  3 passed (3)
+      Tests  23 passed (23)
+   Start at  06:56:10
+   Duration  6.02s (transform 294ms, setup 802ms, collect 1.11s, tests 1.60s, environment 2.20s, prepare 393ms)
+
+exit: 0
+
+===== npm --prefix web run typecheck =====
+> npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+
+exit: 0
+
+===== machine exit summary =====
+0 0 0 0 0 0 0 0 0
+any_nonzero: False
+
+########## PASS 1 findings ##########
+
+Cold read of git diff origin/main...HEAD and git log origin/main..HEAD (code
+only). One commit: 96c17fb.
+
+Findings: nothing.
+
+Looked at, and did not treat as defects:
+- scripts/generate_client.py resolves web/node_modules/.bin/openapi-typescript
+  (.cmd on Windows, bare binary on Unix), dumps app.openapi() with sorted keys,
+  normalizes newlines, and --check diffs both openapi.json and schema.d.ts.
+  subprocess.run on the .cmd path succeeded on this host.
+- packages/client/schema.d.ts AskResponse fields are required (no ?): answer,
+  url, rows, moe, geoid, universe, table_id, alternatives, warnings.
+- web/src/ask.ts replaces the handwritten types with components["schemas"]
+  aliases; fetch is still a type assertion (`as AskResponse`). Same compile-time
+  contract as before, not a new hole.
+- api/tests/test_generated_client.py slices schema.d.ts between "AskResponse:"
+  and "AskWarning:" — valid with the current generator order; not a live bug.
+- CI runs generate_client.py --check after npm --prefix web ci, so the binary
+  exists. Makefile check does the same after web-test.
+- No new exception-swallowing, no missing await, no URL built outside CensusURL.
+
+########## PASS 2 machines ##########
+
+Already captured above. All nine commands exit 0.
+any_nonzero: False
+
+  check_budgets.py                         0  (doc lines 1798 <= 1800)
+  check_invariants.py --base origin/main   0
+  ruff check .                             0
+  ruff format --check .                    0
+  mypy api/src                             0
+  pytest -q -m "not integration"           0  (191 passed)
+  generate_client.py --check               0  (packages/client is up to date)
+  npm --prefix web test                    0  (23 passed)
+  npm --prefix web run typecheck           0
+
+########## PASS 2 invariants ##########
+
+Claim: a breaking AskResponse schema change cannot merge unless the committed
+TypeScript types are regenerated. That is the slice-2 generated-client item,
+not a new browser capability.
+
+Evidence: this PR does not claim a scoreboard move. make eval / make demo are
+the next phase (E2E), not this gate.
+
+Scope: belongs to slice 2 (TS client from OpenAPI; CI fails if stale). Not a
+later-slice item. 15 files, at the ~15 guideline: generated openapi.json +
+schema.d.ts, lockfile, evidence, and the drift gate. Nothing piled on "while
+we were in there."
+
+Silent-wrong-answer: generated AskResponse still requires url, moe, geoid,
+universe, alternatives, warnings. App.tsx still renders those on the result
+path, including Census-fetch failure (url set, rows empty). No new URL
+formatting path; CensusURL redaction unchanged. No numbers through the model.
+No blocking clarification. No silent vintage/geography repair.
+
+Shape: no new tool, route, Pydantic model, or graph node. docs/ARCHITECTURE.md
+updated in the same commit. openapi-typescript is a web devDependency (not
+counted in direct_dependencies).
+
+Tests: snapshot equality against live app.openapi(); contract field names in
+schema.d.ts; ask.ts imports the generated module. Behaviour, not prompt
+wording. No retriever fake.
+
+Findings: nothing.
+
+########## verdict ##########
+
+Ship it — the chat UI now type-checks against OpenAPI-generated AskResponse,
+and CI fails if that copy is stale.
