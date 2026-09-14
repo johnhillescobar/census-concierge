@@ -55,6 +55,7 @@ make eval    # retrieval scoreboard
 make demo    # end-to-end, needs live keys
 uv run uvicorn src.main:app --reload   # POST /ask; Swagger at /docs
 npm --prefix web install && npm --prefix web run dev   # chat UI; proxies /ask
+uv run python scripts/generate_client.py   # regenerate packages/client; --check in make check
 ```
 
 Read `CLAUDE.md` first. It is short, and most of it is prohibitions earned the

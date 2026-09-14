@@ -1,0 +1,69 @@
+===== git HEAD =====
+COMMAND: git rev-parse HEAD origin/main
+6eef204
+6eef204
+
+===== log =====
+COMMAND: git log -1 --oneline origin/main
+6eef204 Merge pull request #25 from johnhillescobar:evidence/cc-24-e2e-post
+
+===== Jira =====
+COMMAND: uv run python scripts/jira_transition.py CC-27 --status
+CC-27  To Do  Story
+Generate a typed client from the API schema and fail on drift
+
+===== AskResponse / OpenAPI =====
+COMMAND: uv run python -c from src.main import app; schema = app.openapi()
+print('openapi', schema['openapi'])
+print('paths', list(schema['paths']))
+print('components', list(schema['components']['schemas']))
+print('required', schema['components']['schemas']['AskResponse']['required'])
+print('url.type', schema['components']['schemas']['AskResponse']['properties']['url']['type'])
+print('rows', schema['components']['schemas']['AskResponse']['properties']['rows'])
+openapi 3.1.0
+paths ['/ask']
+components ['Alternative', 'AskRequest', 'AskResponse', 'AskWarning', 'HTTPValidationError', 'ValidationError']
+required ['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+url.type string
+rows items additionalProperties anyOf string|null
+
+===== uv run from repo root =====
+COMMAND: uv run python -c "from src.main import app; print(app.title, list(app.openapi()['paths']))"
+census-concierge ['/ask']
+
+===== openapi-typescript 7.9.1 =====
+COMMAND: npx --yes openapi-typescript@7.9.1 <dumped openapi.json> -o schema.d.ts
+✨ openapi-typescript 7.9.1
+🚀 .../cc27-openapi.json → .../cc27-schema.d.ts [45.2ms]
+
+Generated AskResponse.rows: { [key: string]: string | null }[]
+No source-path in the output file.
+
+===== packages/client =====
+COMMAND: python -c print exists
+packages/client exists False
+web/src/ask.ts has handwritten AskResponse True
+
+===== CI drift step =====
+COMMAND: grep generate_client .github/workflows/check.yml Makefile
+(no matches)
+
+===== structural budgets =====
+COMMAND: uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                666 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.

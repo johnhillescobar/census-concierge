@@ -2,8 +2,8 @@
 
 **Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, the
 five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
-UI that POSTs `/ask` (generated client and FastAPI static serving are not
-built yet).** Retrieval runs
+UI that POSTs `/ask` through types generated from the OpenAPI schema
+(FastAPI static serving is not built yet).** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and
@@ -37,6 +37,7 @@ scripts/eval_retrieval.py    the scoreboard; --rerank, --holdout
 scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
 scripts/score_synthetic.py   generated-question quality, on a 600 sample
 scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
+scripts/generate_client.py   OpenAPI → packages/client; `--check` is the drift gate
 evals/golden_questions.toml  66 scorable: 4 core, 40 long-tail, 14 trap,
                              8 held out. All verified 2026-08-14.
 evidence/latest.json         last measured run
@@ -54,6 +55,7 @@ api/src/prompts.py           one system prompt; date and vintages injected
 .github/workflows/check.yml  the gate, on every PR
 .github/workflows/build-index.yml  manual; publishes the index release asset
 web/                         Vite + React + TypeScript chat pane
+packages/client/             generated from `/openapi.json`; CI fails if stale
 ```
 
 ### Retrieval — `api/src/retrieval/`, 8 modules
@@ -110,8 +112,10 @@ response; `with_key()` is the httpx site. `langchain_core` supplies schema and
 ### Chat UI — `web/`
 
 Vite + React + TypeScript, one pane. `npm --prefix web run dev` proxies
-`POST /ask` to the API on `:8000`. Types in `web/src/ask.ts` duplicate
-`AskResponse` until the generated client lands. Census-fetch failure is `url`
+`POST /ask` to the API on `:8000`. `web/src/ask.ts` imports `AskResponse`
+from `packages/client/schema.d.ts`, which `scripts/generate_client.py`
+writes from `app.openapi()` via `openapi-typescript`. `make check` and CI
+regenerate and fail on drift. Census-fetch failure is `url`
 set and `rows` empty — there is no `http_ok` on the contract. An empty `url`
 (loop aborted before `build_url`) is a status notice, not a `—` standing in for
 the URL. Census missing sentinels (`-555555555` and the rest) render as `—`.
@@ -165,7 +169,7 @@ futures.
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
 | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
-| 2 | `web/` chat pane (CC-24). Generated client and FastAPI static serving still open. |
+| 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI static serving still open. |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |

@@ -4,11 +4,11 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index serve web-test
+.PHONY: check eval demo gate lint types test fmt invariants hooks metadata index serve web-test client
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
 check: lint types test invariants web-test
-	uv run python scripts/check_budgets.py
+	uv run python scripts/generate_client.py --check && uv run python scripts/check_budgets.py
 
 ## Retrieval scoreboard. No agent, no server, no Census key. Needs
 ## OPENAI_API_KEY and GEMINI_API_KEY: embed the query, then score retriever
@@ -38,6 +38,10 @@ serve:
 
 web-test:
 	npm --prefix web ci && npm --prefix web test && npm --prefix web run typecheck
+
+## Regenerate packages/client from the live OpenAPI schema. --check is in `make check`.
+client:
+	uv run python scripts/generate_client.py
 
 ## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
 ## Usage: make gate PHASE=gate2 SLICE=0 [ENGINE=cursor]. See docs/playbooks/run-slice.md.
