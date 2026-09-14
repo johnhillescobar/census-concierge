@@ -1,0 +1,118 @@
+# CC-24 Gate 2 re-run
+# After multi-geography estimate fix
+# HEAD: f1e43466650b03e6ffc869e98027838aebc6f63c
+
+===== git log =====
+COMMAND: git log --oneline origin/main..HEAD
+f1e4346 fix(web): label every geography in a multi-area answer (CC-24)
+50d2347 evidence(slice-2): CC-24 Gate 2 review transcript
+1409267 feat(web): add a single-pane chat shell for POST /ask (CC-24)
+exit 0
+
+===== diff stat =====
+COMMAND: git diff --stat origin/main
+ .claude/PLAN.md                            |    2 +-
+ .github/workflows/check.yml                |   12 +
+ Makefile                                   |    8 +-
+ README.md                                  |    1 +
+ docs/ARCHITECTURE.md                       |   16 +-
+ evidence/slice-2/cc-24-fix-mutations.txt   |  268 +++
+ evidence/slice-2/cc-24-gate1.txt           |  309 +++
+ evidence/slice-2/cc-24-gate2.txt           |  112 ++
+ evidence/slice-2/cc-24-preflight-claims.md |   26 +
+ evidence/slice-2/cc-24-preflight.txt       |  Bin 0 -> 11598 bytes
+ web/index.html                             |   12 +
+ web/package-lock.json                      | 2968 ++++++++++++++++++++++++++++
+ web/package.json                           |   27 +
+ web/src/App.css                            |  155 ++
+ web/src/App.test.tsx                       |  145 ++
+ web/src/App.tsx                            |  143 ++
+ web/src/ask.ts                             |   35 +
+ web/src/display.test.ts                    |  102 +
+ web/src/display.ts                         |   57 +
+ web/src/main.tsx                           |   14 +
+ web/src/test-setup.ts                      |    4 +
+ web/src/vite-env.d.ts                      |    1 +
+ web/tsconfig.json                          |   21 +
+ web/vite.config.ts                         |   15 +
+ 24 files changed, 4448 insertions(+), 5 deletions(-)
+exit 0
+
+===== budgets =====
+COMMAND: uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                465 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+exit 0
+
+===== invariants =====
+COMMAND: uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+exit 0
+
+===== ruff =====
+COMMAND: uv run ruff check .
+[1;32mAll checks passed![0m
+exit 0
+
+===== ruff format =====
+COMMAND: uv run ruff format --check .
+86 files already formatted
+exit 0
+
+===== mypy =====
+COMMAND: uv run mypy api/src
+Success: no issues found in 19 source files
+exit 0
+
+===== pytest =====
+COMMAND: uv run pytest -q -m "not integration"
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+............................................                             [100%]
+188 passed in 4.77s
+exit 0
+
+===== web test =====
+COMMAND: npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/display.test.ts (7 tests) 9ms
+ ✓ src/App.test.tsx (6 tests) 1135ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  327ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  20:06:51
+   Duration  5.61s (transform 225ms, setup 711ms, collect 714ms, tests 1.14s, environment 1.18s, prepare 253ms)
+exit 0
+
+===== web types =====
+COMMAND: npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+exit 0
+
