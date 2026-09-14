@@ -1,0 +1,45 @@
+# Copilot-comment fix mutations — CC-24
+
+Seven mutations, all GOOD. Restore: 23 passed.
+
+MUTATION first-variable-only-table
+GOOD = tests fail against the reverted behaviour.
+Tests  1 failed | 9 passed (10)
+FAIL  src/App.test.tsx > App result > renders every estimate variable for every geography
+
+MUTATION lowercase-key-only
+GOOD = tests fail against the reverted behaviour.
+Tests  2 failed | 8 passed (10)
+FAIL  src/display.test.ts > redactCensusUrl > strips a first-parameter key and an uppercase KEY
+FAIL  src/display.test.ts > redactCensusUrl > strips key= from a URL the parser rejects
+
+MUTATION raw-sentinel-moe
+GOOD = tests fail against the reverted behaviour.
+Tests  2 failed | 18 passed (20)
+FAIL  src/App.test.tsx > App result > does not present a Census missing sentinel as a numeric MOE
+FAIL  src/display.test.ts > formatCensusValue > renders Census missing sentinels as unavailable
+
+MUTATION dash-for-empty-url
+GOOD = tests fail against the reverted behaviour.
+Tests  1 failed | 9 passed (10)
+FAIL  src/App.test.tsx > App result > does not treat an empty URL as a successful Census URL
+
+MUTATION reach-prefix-on-http
+GOOD = tests fail against the reverted behaviour.
+Tests  2 failed | 8 passed (10)
+FAIL  src/App.test.tsx > App pane states > shows an error state distinct from idle when the API is unreachable
+FAIL  src/App.test.tsx > App result > does not label an HTTP failure as unreachable
+
+MUTATION ask-skips-non-2xx
+GOOD = tests fail against the reverted behaviour.
+Tests  1 failed | 2 passed (3)
+FAIL  src/ask.test.ts > ask > throws on a non-2xx response
+
+MUTATION ask-get-instead-of-post
+GOOD = tests fail against the reverted behaviour.
+Tests  1 failed | 2 passed (3)
+FAIL  src/ask.test.ts > ask > POSTs the question as JSON to /ask
+
+RESTORE full suite
+exit 0
+Tests  23 passed (23)

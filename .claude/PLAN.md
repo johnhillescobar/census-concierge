@@ -184,7 +184,7 @@ a core question.
 
 ## Slice 2 — Chat UI, one pane
 
-- [ ] React + TypeScript, minimal.
+- [x] React + TypeScript, minimal.
 - [ ] TS client generated from the OpenAPI schema; CI fails if the committed
       copy is stale.
 - [ ] Chat: question in, answer + URL out. The URL is visible and copyable.

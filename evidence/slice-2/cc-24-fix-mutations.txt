@@ -1,0 +1,268 @@
+# Gate 5 mutation — CC-24 multi-geography estimates
+
+MUTATION first-row-only-estimates
+GOOD = tests fail against collapsing several geographies onto rows[0].
+
+
+> test
+> vitest run --reporter=verbose src/display.test.ts src/App.test.tsx
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ Γ£ô src/display.test.ts > estimatePairs > pairs each estimate with its matching 90% MOE 5ms
+ Γ£ô src/display.test.ts > estimatePairs > keeps an estimate when the matching MOE is missing 1ms
+ Γ£ô src/display.test.ts > censusFetchFailed > is true when a URL shipped and Census returned no rows 1ms
+ Γ£ô src/display.test.ts > censusFetchFailed > is false when rows arrived 0ms
+ Γ£ô src/display.test.ts > redactCensusUrl > strips key= from a Census URL 7ms
+ Γ£ô src/display.test.ts > estimatesByGeography > keeps one geography on a single-row response 1ms
+ ├ù src/display.test.ts > estimatesByGeography > does not collapse several geographies onto the first row 22ms
+   ΓåÆ expected [ { geoid: '0500000US41001', ΓÇª(2) } ] to have a length of 2 but got 1
+ Γ£ô src/App.test.tsx > App pane states > starts idle, with no Census URL 101ms
+ Γ£ô src/App.test.tsx > App pane states > shows a loading state distinct from idle while the request is in flight 386ms
+ Γ£ô src/App.test.tsx > App pane states > shows an error state distinct from idle when the API is unreachable 158ms
+ Γ£ô src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 162ms
+ Γ£ô src/App.test.tsx > App result > keeps URL and table metadata on Census fetch failure, with a visible notice 146ms
+ ├ù src/App.test.tsx > App result > labels every geography instead of presenting the first row as the answer 196ms
+   ΓåÆ Unable to find an element with the text: 2 areas. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of every county in Oregon"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mPopulation for Oregon counties.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mΓÇö[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m16668[0m
+            [0m ┬▒ [0m
+            [0m24[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<pre[39m
+          [33mclass[39m=[32m"census-url"[39m
+        [36m>[39m
+          [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME%2CGEO_ID%2CB01003_001E%2CB01003_001M&for=county%3A201&in=state%3A48[0m
+        [36m</pre>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m ΓÇö [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+node.exe : 
+At line:1 char:1
++ & "C:\nvm4w\nodejs/node.exe" "C:\nvm4w\nodejs/node_modules/npm/bin/np ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 2 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/App.test.tsx > App result > labels every geography instead of presenting the first row as the answer
+TestingLibraryElementError: Unable to find an element with the text: 2 areas. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your 
+text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of every county in Oregon"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mPopulation for Oregon counties.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mΓÇö[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m16668[0m
+            [0m ┬▒ [0m
+            [0m24[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<pre[39m
+          [33mclass[39m=[32m"census-url"[39m
+        [36m>[39m
+          [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME%2CGEO_ID%2CB01003_001E%2CB01003_001M&for=county%3A201&in=state%3A48[0m
+        [36m</pre>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m ΓÇö [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ Γ¥» Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ Γ¥» node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ Γ¥» node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ Γ¥» node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ Γ¥» src/App.test.tsx:138:19
+    136|     await user.click(screen.getByRole("button", { name: "Ask" }));
+    137|     await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    138|     expect(screen.getByText("2 areas")).toBeTruthy();
+       |                   ^
+    139|     expect(screen.queryByText(/B01003_001E: 16668 ┬▒ 24/)).toBeNull();
+    140|     expect(screen.getByText("0500000US41001")).toBeTruthy();
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+
+ FAIL  src/display.test.ts > estimatesByGeography > does not collapse several geographies onto the first row
+AssertionError: expected [ { geoid: '0500000US41001', ΓÇª(2) } ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ Γ¥» src/display.test.ts:98:19
+     96|     };
+     97|     const areas = estimatesByGeography(oregon);
+     98|     expect(areas).toHaveLength(2);
+       |                   ^
+     99|     expect(areas.map((area) => area.geoid)).toEqual(["0500000US41001",ΓÇª
+    100|     expect(areas.map((area) => area.pairs[0]?.estimate)).toEqual(["166ΓÇª
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 11 passed (13)
+   Start at  20:03:52
+   Duration  6.80s (transform 254ms, setup 1.34s, collect 630ms, tests 1.20s, environment 2.24s, prepare 290ms)
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»
+
+
+RESTORE ok — full web suite passed (13 tests)

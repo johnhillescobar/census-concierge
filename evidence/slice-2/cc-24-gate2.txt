@@ -1,0 +1,112 @@
+# Gate 2 ? CC-24
+# Machine output captured via Git tee.exe. Do not edit after capture.
+# branch: feat/cc-24-chat-shell
+# HEAD: 1409267030a9025584803ae423b14c7ebcf61997
+# origin/main: e805357e457cc3a5f08cc6d52156b3a0f5002d5a
+# captured: 2026-09-13T19:57:54.0727038-05:00
+
+===== git diff --stat origin/main =====
+> git diff --stat origin/main
+ .claude/PLAN.md                            |    2 +-
+ .github/workflows/check.yml                |   12 +
+ Makefile                                   |    8 +-
+ README.md                                  |    1 +
+ docs/ARCHITECTURE.md                       |   16 +-
+ evidence/slice-2/cc-24-gate1.txt           |  309 +++
+ evidence/slice-2/cc-24-preflight-claims.md |   26 +
+ evidence/slice-2/cc-24-preflight.txt       |  Bin 0 -> 11598 bytes
+ web/index.html                             |   12 +
+ web/package-lock.json                      | 2968 ++++++++++++++++++++++++++++
+ web/package.json                           |   27 +
+ web/src/App.css                            |  137 ++
+ web/src/App.test.tsx                       |  108 +
+ web/src/App.tsx                            |  116 ++
+ web/src/ask.ts                             |   35 +
+ web/src/display.test.ts                    |   61 +
+ web/src/display.ts                         |   43 +
+ web/src/main.tsx                           |   14 +
+ web/src/test-setup.ts                      |    4 +
+ web/src/vite-env.d.ts                      |    1 +
+ web/tsconfig.json                          |   21 +
+ web/vite.config.ts                         |   15 +
+ 22 files changed, 3931 insertions(+), 5 deletions(-)
+exit: 0
+
+===== check_budgets.py =====
+> uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                351 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+===== check_invariants.py --base origin/main =====
+> uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+===== ruff check . =====
+> uv run ruff check .
+[1;32mAll checks passed![0m
+exit: 0
+
+===== ruff format --check . =====
+> uv run ruff format --check .
+85 files already formatted
+exit: 0
+
+===== mypy api/src =====
+> uv run mypy api/src
+Success: no issues found in 19 source files
+exit: 0
+
+===== pytest -q -m not integration =====
+> uv run pytest -q -m "not integration"
+........................................................................ [ 38%]
+........................................................................ [ 76%]
+............................................                             [100%]
+188 passed in 3.84s
+exit: 0
+
+===== npm --prefix web test =====
+> npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ??? src/display.test.ts (5 tests) 10ms
+ ??? src/App.test.tsx (5 tests) 357ms
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  19:58:06
+   Duration  3.92s (transform 100ms, setup 422ms, collect 334ms, tests 367ms, environment 1.23s, prepare 197ms)
+
+exit: 0
+

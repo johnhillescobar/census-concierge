@@ -1,0 +1,155 @@
+:root {
+  color: #1b1b18;
+  background: #f6f4ef;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  line-height: 1.45;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+h1 {
+  font-size: 1.35rem;
+  font-weight: 650;
+  margin: 0 0 0.25rem;
+}
+
+.lede {
+  margin: 0 0 1.25rem;
+  color: #5c5a52;
+}
+
+form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+form input {
+  flex: 1;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  border: 1px solid #b9b6ab;
+  border-radius: 4px;
+}
+
+form button {
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  border: 0;
+  border-radius: 4px;
+  background: #1b1b18;
+  color: #f6f4ef;
+  cursor: pointer;
+}
+
+form button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.pane {
+  padding: 1rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid #d7d4c8;
+  background: #fff;
+}
+
+.pane[data-state="idle"] {
+  color: #5c5a52;
+  background: #f0eee6;
+}
+
+.pane[data-state="loading"] {
+  color: #3d4a6b;
+  background: #e8eef8;
+  border-color: #b7c5e0;
+}
+
+.pane[data-state="error"] {
+  color: #6b1d1d;
+  background: #f8e8e8;
+  border-color: #d9a3a3;
+}
+
+.notice {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  background: #f4e7c5;
+  border: 1px solid #d4b56a;
+  border-radius: 4px;
+}
+
+.answer {
+  margin: 0 0 1rem;
+}
+
+.meta {
+  display: grid;
+  gap: 0.35rem 1rem;
+  grid-template-columns: 7.5rem 1fr;
+  margin: 0 0 1rem;
+}
+
+.meta dt {
+  color: #5c5a52;
+  font-weight: 600;
+}
+
+.meta dd {
+  margin: 0;
+}
+
+.census-url {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #1b1b18;
+  color: #f6f4ef;
+  font-size: 0.82rem;
+  border-radius: 4px;
+}
+
+.estimates,
+.alts,
+.warnings {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+}
+
+h2 {
+  font-size: 0.95rem;
+  margin: 0 0 0.4rem;
+}
+
+.geo-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.geo-table th,
+.geo-table td {
+  text-align: left;
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid #d7d4c8;
+}
+
+.geo-table th {
+  color: #5c5a52;
+}

@@ -1,0 +1,145 @@
+===== git HEAD =====
+
+===== rev-parse =====
+COMMAND: git rev-parse HEAD origin/main
+e805357e457cc3a5f08cc6d52156b3a0f5002d5a
+e805357e457cc3a5f08cc6d52156b3a0f5002d5a
+
+===== log =====
+COMMAND: git log -1 --oneline origin/main
+e805357 Merge pull request #23 from johnhillescobar:evidence/cc-54-e2e-post
+
+===== AskResponse fields =====
+COMMAND: uv run python -c from src.contract import AskResponse, Alternative, AskWarning, AskRequest
+print(list(AskResponse.model_fields))
+print('url', AskResponse.model_fields['url'].annotation)
+print('rows', AskResponse.model_fields['rows'].annotation)
+print('moe', AskResponse.model_fields['moe'].annotation)
+print('alts', AskResponse.model_fields['alternatives'].annotation)
+print('AskRequest', list(AskRequest.model_fields))
+print('no http_ok', 'http_ok' not in AskResponse.model_fields)
+['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+url <class 'str'>
+rows list[dict[str, str | None]]
+moe list[dict[str, str | None]]
+alts list[src.contract.Alternative]
+AskRequest ['question']
+no http_ok True
+
+===== openapi /ask =====
+COMMAND: uv run python -c from fastapi.testclient import TestClient
+from src.main import app
+schema = TestClient(app).get('/openapi.json').json()
+print('paths', list(schema['paths']))
+print('components', list(schema['components']['schemas']))
+props = schema['components']['schemas']['AskResponse']['properties']
+print('required', schema['components']['schemas']['AskResponse']['required'])
+print('url.type', props['url']['type'])
+print('middleware', getattr(app, 'user_middleware', []))
+print('cors', any('CORS' in type(m.cls).__name__ for m in app.user_middleware))
+paths ['/ask']
+components ['Alternative', 'AskRequest', 'AskResponse', 'AskWarning', 'HTTPValidationError', 'ValidationError']
+required ['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+url.type string
+middleware []
+cors False
+
+===== web/ and packages/client/ =====
+COMMAND: uv run python -c from pathlib import Path
+print('web exists', (Path('web')).exists())
+print('packages/client exists', (Path('packages')/'client').exists())
+print('web src files', list((Path('web')/'src').glob('*')) if (Path('web')/'src').exists() else [])
+web exists False
+packages/client exists False
+web src files []
+
+===== failed-fetch test name =====
+COMMAND: uv run python -c from pathlib import Path
+text = Path('api/tests/test_ask_loop.py').read_text(encoding='utf-8')
+for name in ('test_failed_fetch_still_returns_the_built_url', 'test_fetch_with_no_rows_still_returns_the_url', 'test_scripted_loop_fills_url_rows_geoid_and_universe'):
+    print(name, name in text)
+test_failed_fetch_still_returns_the_built_url True
+test_fetch_with_no_rows_still_returns_the_url True
+test_scripted_loop_fills_url_rows_geoid_and_universe True
+
+===== pytest failed-fetch + contract =====
+COMMAND: uv run pytest -q api/tests/test_ask_loop.py::test_failed_fetch_still_returns_the_built_url api/tests/test_ask_loop.py::test_fetch_with_no_rows_still_returns_the_url api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe api/tests/test_ask_route.py::test_openapi_documents_post_ask
+....                                                                     [100%]
+4 passed in 1.03s
+
+===== structural budgets =====
+COMMAND: uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2219 <= 4000
+  ok    api src files               19 <= 40
+  ok    largest file LOC           395 <= 400
+  ok    web src LOC                  0 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1798 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                4 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+
+===== file loc =====
+COMMAND: uv run python -c from pathlib import Path
+from scripts.check_budgets import _loc, API_SRC
+files=sorted(p for p in API_SRC.rglob('*.py') if p.name != '__pycache__')
+[print(f'{_loc(p):4d}  {p.relative_to(API_SRC)}') for p in files]
+   0  __init__.py
+ 395  ask.py
+  41  census_url.py
+  51  contract.py
+ 374  geo.py
+ 136  guards.py
+  14  main.py
+  20  prompts.py
+   0  retrieval\__init__.py
+  71  retrieval\availability.py
+  87  retrieval\bm25.py
+ 165  retrieval\build.py
+  34  retrieval\embedding.py
+  84  retrieval\index.py
+ 172  retrieval\metadata.py
+  82  retrieval\rerank.py
+ 114  retrieval\synthetic.py
+  55  retrieval\text.py
+ 324  tools.py
+
+===== PLAN slice 2 lines =====
+COMMAND: uv run python -c from pathlib import Path
+text = Path('.claude/PLAN.md').read_text(encoding='utf-8')
+start = text.index('## Slice 2')
+end = text.index('## Slice 3')
+print(text[start:end])
+## Slice 2 ù Chat UI, one pane
+
+- [ ] React + TypeScript, minimal.
+- [ ] TS client generated from the OpenAPI schema; CI fails if the committed
+      copy is stale.
+- [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
+- [ ] **FastAPI serves the Vite build output** as static files. One container,
+      one domain, no CORS (DESIGN º5). The build output path is a deployment
+      detail, not a local convenience ù set it now, not at slice 8.
+
+**Done when:** you type in a browser and get an answer with a usable URL.
+
+**Not in this slice:** the canvas, charts, series and comparisons, memory, auth.
+
+---
+
+
+
+===== evidence/latest.json quality =====
+  answered_rate=0.803
+  p95_latency_seconds=14.164
+  retrieval_at_10=0.9
+  selector_at_1=0.85
+  synthetic_alignment=0.544
