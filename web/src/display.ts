@@ -8,6 +8,12 @@ export type EstimateCell = {
   moe: string | null;
 };
 
+export type GeographyEstimates = {
+  geoid: string;
+  name: string;
+  pairs: EstimateCell[];
+};
+
 export function redactCensusUrl(url: string): string {
   if (!url) {
     return "";
@@ -40,4 +46,12 @@ export function estimatePairs(
       estimate: row[variable] ?? null,
       moe: margins[`${variable.slice(0, -1)}M`] ?? null,
     }));
+}
+
+export function estimatesByGeography(response: AskResponse): GeographyEstimates[] {
+  return response.rows.map((row, index) => ({
+    geoid: row.GEO_ID ?? "",
+    name: row.NAME ?? "",
+    pairs: estimatePairs(row, response.moe[index]),
+  }));
 }

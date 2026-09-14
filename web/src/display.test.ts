@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AskResponse } from "./ask";
-import { censusFetchFailed, estimatePairs, redactCensusUrl } from "./display";
+import { censusFetchFailed, estimatePairs, estimatesByGeography, redactCensusUrl } from "./display";
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
@@ -57,5 +57,46 @@ describe("redactCensusUrl", () => {
     const raw = `${harris.url}&key=secret`;
     expect(redactCensusUrl(raw)).not.toContain("key=");
     expect(redactCensusUrl(raw)).toContain("get=NAME");
+  });
+});
+
+describe("estimatesByGeography", () => {
+  it("keeps one geography on a single-row response", () => {
+    expect(estimatesByGeography(harris)).toEqual([
+      {
+        geoid: "0500000US48201",
+        name: "Harris County, Texas",
+        pairs: [{ variable: "B01003_001E", estimate: "4838303", moe: "123" }],
+      },
+    ]);
+  });
+
+  it("does not collapse several geographies onto the first row", () => {
+    const oregon: AskResponse = {
+      ...harris,
+      geoid: "",
+      rows: [
+        {
+          NAME: "Baker County, Oregon",
+          GEO_ID: "0500000US41001",
+          B01003_001E: "16668",
+          B01003_001M: "24",
+        },
+        {
+          NAME: "Benton County, Oregon",
+          GEO_ID: "0500000US41003",
+          B01003_001E: "95184",
+          B01003_001M: "51",
+        },
+      ],
+      moe: [
+        { GEO_ID: "0500000US41001", NAME: "Baker County, Oregon", B01003_001M: "24" },
+        { GEO_ID: "0500000US41003", NAME: "Benton County, Oregon", B01003_001M: "51" },
+      ],
+    };
+    const areas = estimatesByGeography(oregon);
+    expect(areas).toHaveLength(2);
+    expect(areas.map((area) => area.geoid)).toEqual(["0500000US41001", "0500000US41003"]);
+    expect(areas.map((area) => area.pairs[0]?.estimate)).toEqual(["16668", "95184"]);
   });
 });

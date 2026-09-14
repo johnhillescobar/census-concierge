@@ -105,4 +105,41 @@ describe("App result", () => {
     expect(screen.getByText("1600000US4805000")).toBeTruthy();
     expect(screen.getByText(/B25063 — distribution versus median/)).toBeTruthy();
   });
+
+  it("labels every geography instead of presenting the first row as the answer", async () => {
+    const user = userEvent.setup({ delay: null });
+    const oregon: AskResponse = {
+      ...harris,
+      answer: "Population for Oregon counties.",
+      geoid: "",
+      rows: [
+        {
+          NAME: "Baker County, Oregon",
+          GEO_ID: "0500000US41001",
+          B01003_001E: "16668",
+          B01003_001M: "24",
+        },
+        {
+          NAME: "Benton County, Oregon",
+          GEO_ID: "0500000US41003",
+          B01003_001E: "95184",
+          B01003_001M: "51",
+        },
+      ],
+      moe: [
+        { GEO_ID: "0500000US41001", NAME: "Baker County, Oregon", B01003_001M: "24" },
+        { GEO_ID: "0500000US41003", NAME: "Benton County, Oregon", B01003_001M: "51" },
+      ],
+    };
+    render(<App askFn={() => Promise.resolve(oregon)} />);
+    await user.type(screen.getByLabelText("Question"), "population of every county in Oregon");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByText("2 areas")).toBeTruthy();
+    expect(screen.queryByText(/B01003_001E: 16668 ± 24/)).toBeNull();
+    expect(screen.getByText("0500000US41001")).toBeTruthy();
+    expect(screen.getByText("0500000US41003")).toBeTruthy();
+    expect(screen.getByText("16668")).toBeTruthy();
+    expect(screen.getByText("95184")).toBeTruthy();
+  });
 });

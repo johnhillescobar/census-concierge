@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { ask, type AskResponse } from "./ask";
-import { censusFetchFailed, estimatePairs, redactCensusUrl, type PaneState } from "./display";
+import { censusFetchFailed, estimatesByGeography, redactCensusUrl, type PaneState } from "./display";
 
 type AppProps = {
   askFn?: (question: string) => Promise<AskResponse>;
@@ -31,9 +31,11 @@ export function App({ askFn = ask }: AppProps) {
     }
   }
 
-  const pairs = result ? estimatePairs(result.rows[0], result.moe[0]) : [];
+  const areas = result ? estimatesByGeography(result) : [];
   const url = result ? redactCensusUrl(result.url) : "";
   const failed = result ? censusFetchFailed(result) : false;
+  const geoidLabel =
+    result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
 
   return (
     <main>
@@ -68,18 +70,43 @@ export function App({ askFn = ask }: AppProps) {
               <dt>Universe</dt>
               <dd>{result.universe || "—"}</dd>
               <dt>GEOID</dt>
-              <dd>{result.geoid || "—"}</dd>
+              <dd>{geoidLabel}</dd>
             </dl>
-            {pairs.length > 0 ? (
+            {areas.length === 1 && areas[0].pairs.length > 0 ? (
               <>
                 <h2>Estimates</h2>
                 <ul className="estimates">
-                  {pairs.map((pair) => (
+                  {areas[0].pairs.map((pair) => (
                     <li key={pair.variable}>
                       {pair.variable}: {pair.estimate ?? "—"} ± {pair.moe ?? "—"}
                     </li>
                   ))}
                 </ul>
+              </>
+            ) : null}
+            {areas.length > 1 ? (
+              <>
+                <h2>Estimates</h2>
+                <table className="geo-table">
+                  <thead>
+                    <tr>
+                      <th>GEOID</th>
+                      <th>Name</th>
+                      <th>Estimate</th>
+                      <th>MOE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {areas.map((area) => (
+                      <tr key={`${area.geoid}:${area.name}`}>
+                        <td>{area.geoid || "—"}</td>
+                        <td>{area.name || "—"}</td>
+                        <td>{area.pairs[0]?.estimate ?? "—"}</td>
+                        <td>{area.pairs[0]?.moe ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </>
             ) : null}
             <h2>Census API URL</h2>
