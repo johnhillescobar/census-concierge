@@ -1,6 +1,12 @@
 import { FormEvent, useState } from "react";
 import { ask, type AskResponse } from "./ask";
-import { censusFetchFailed, estimatesByGeography, redactCensusUrl, type PaneState } from "./display";
+import {
+  censusFetchFailed,
+  estimatesByGeography,
+  formatCensusValue,
+  redactCensusUrl,
+  type PaneState,
+} from "./display";
 
 type AppProps = {
   askFn?: (question: string) => Promise<AskResponse>;
@@ -55,7 +61,7 @@ export function App({ askFn = ask }: AppProps) {
       <section className="pane" data-state={state}>
         {state === "idle" ? <p>Type a question to see the selected table, its URL, and alternatives.</p> : null}
         {state === "loading" ? <p>Looking up tables…</p> : null}
-        {state === "error" ? <p>Could not reach the API: {error}</p> : null}
+        {state === "error" ? <p>{error}</p> : null}
         {state === "result" && result ? (
           <>
             {failed ? (
@@ -78,7 +84,7 @@ export function App({ askFn = ask }: AppProps) {
                 <ul className="estimates">
                   {areas[0].pairs.map((pair) => (
                     <li key={pair.variable}>
-                      {pair.variable}: {pair.estimate ?? "—"} ± {pair.moe ?? "—"}
+                      {pair.variable}: {formatCensusValue(pair.estimate)} ± {formatCensusValue(pair.moe)}
                     </li>
                   ))}
                 </ul>
@@ -92,25 +98,36 @@ export function App({ askFn = ask }: AppProps) {
                     <tr>
                       <th>GEOID</th>
                       <th>Name</th>
+                      <th>Variable</th>
                       <th>Estimate</th>
                       <th>MOE</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {areas.map((area) => (
-                      <tr key={`${area.geoid}:${area.name}`}>
-                        <td>{area.geoid || "—"}</td>
-                        <td>{area.name || "—"}</td>
-                        <td>{area.pairs[0]?.estimate ?? "—"}</td>
-                        <td>{area.pairs[0]?.moe ?? "—"}</td>
-                      </tr>
-                    ))}
+                    {areas.flatMap((area) => {
+                      const pairs = area.pairs.length > 0 ? area.pairs : [{ variable: "", estimate: null, moe: null }];
+                      return pairs.map((pair) => (
+                        <tr key={`${area.geoid}:${area.name}:${pair.variable}`}>
+                          <td>{area.geoid || "—"}</td>
+                          <td>{area.name || "—"}</td>
+                          <td>{pair.variable || "—"}</td>
+                          <td>{formatCensusValue(pair.estimate)}</td>
+                          <td>{formatCensusValue(pair.moe)}</td>
+                        </tr>
+                      ));
+                    })}
                   </tbody>
                 </table>
               </>
             ) : null}
             <h2>Census API URL</h2>
-            <pre className="census-url">{url || "—"}</pre>
+            {url ? (
+              <pre className="census-url">{url}</pre>
+            ) : (
+              <p className="notice" role="status">
+                No Census URL was built.
+              </p>
+            )}
             <h2>Alternatives</h2>
             {result.alternatives.length > 0 ? (
               <ul className="alts">

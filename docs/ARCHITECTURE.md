@@ -112,9 +112,11 @@ response; `with_key()` is the httpx site. `langchain_core` supplies schema and
 Vite + React + TypeScript, one pane. `npm --prefix web run dev` proxies
 `POST /ask` to the API on `:8000`. Types in `web/src/ask.ts` duplicate
 `AskResponse` until the generated client lands. Census-fetch failure is `url`
-set and `rows` empty — there is no `http_ok` on the contract. The pane uses
-`data-state` `idle` / `loading` / `error` / `result`. FastAPI does not serve
-`web/dist` yet, and there is no CORS middleware.
+set and `rows` empty — there is no `http_ok` on the contract. An empty `url`
+(loop aborted before `build_url`) is a status notice, not a `—` standing in for
+the URL. Census missing sentinels (`-555555555` and the rest) render as `—`.
+The pane uses `data-state` `idle` / `loading` / `error` / `result`. FastAPI does
+not serve `web/dist` yet, and there is no CORS middleware.
 
 ### Data and artifacts
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { AskResponse } from "./ask";
-import { censusFetchFailed, estimatePairs, estimatesByGeography, redactCensusUrl } from "./display";
+import {
+  censusFetchFailed,
+  estimatePairs,
+  estimatesByGeography,
+  formatCensusValue,
+  redactCensusUrl,
+} from "./display";
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
@@ -57,6 +63,30 @@ describe("redactCensusUrl", () => {
     const raw = `${harris.url}&key=secret`;
     expect(redactCensusUrl(raw)).not.toContain("key=");
     expect(redactCensusUrl(raw)).toContain("get=NAME");
+  });
+
+  it("strips a first-parameter key and an uppercase KEY", () => {
+    const first = "https://api.census.gov/data/2024/acs/acs5?key=secret&get=NAME";
+    const upper = "https://api.census.gov/data/2024/acs/acs5?get=NAME&KEY=secret";
+    expect(redactCensusUrl(first)).not.toMatch(/key=/i);
+    expect(redactCensusUrl(first)).toContain("get=NAME");
+    expect(redactCensusUrl(upper)).not.toMatch(/key=/i);
+    expect(redactCensusUrl(upper)).toContain("get=NAME");
+  });
+
+  it("strips key= from a URL the parser rejects", () => {
+    const raw = "not-a-url?key=secret&get=NAME";
+    expect(redactCensusUrl(raw)).not.toMatch(/key=/i);
+    expect(redactCensusUrl(raw)).toContain("get=NAME");
+  });
+});
+
+describe("formatCensusValue", () => {
+  it("renders Census missing sentinels as unavailable", () => {
+    expect(formatCensusValue("-555555555")).toBe("—");
+    expect(formatCensusValue("-999999999")).toBe("—");
+    expect(formatCensusValue(null)).toBe("—");
+    expect(formatCensusValue("4838303")).toBe("4838303");
   });
 });
 

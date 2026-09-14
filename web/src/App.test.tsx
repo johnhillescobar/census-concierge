@@ -69,7 +69,8 @@ describe("App pane states", () => {
     await user.type(screen.getByLabelText("Question"), "population of Harris County");
     await user.click(screen.getByRole("button", { name: "Ask" }));
     await waitFor(() => expect(pane().dataset.state).toBe("error"));
-    expect(screen.getByText(/could not reach the api: network down/i)).toBeTruthy();
+    expect(screen.getByText("network down")).toBeTruthy();
+    expect(screen.queryByText(/could not reach/i)).toBeNull();
     expect(document.querySelector(".census-url")).toBeNull();
     expect(screen.queryByText(/type a question/i)).toBeNull();
   });
@@ -141,5 +142,93 @@ describe("App result", () => {
     expect(screen.getByText("0500000US41003")).toBeTruthy();
     expect(screen.getByText("16668")).toBeTruthy();
     expect(screen.getByText("95184")).toBeTruthy();
+    expect(screen.getAllByText("B01003_001E")).toHaveLength(2);
+  });
+
+  it("renders every estimate variable for every geography", async () => {
+    const user = userEvent.setup({ delay: null });
+    const mixed: AskResponse = {
+      ...harris,
+      answer: "Sex by age for two counties.",
+      geoid: "",
+      rows: [
+        {
+          NAME: "Baker County, Oregon",
+          GEO_ID: "0500000US41001",
+          B01001_001E: "16668",
+          B01001_002E: "8401",
+        },
+        {
+          NAME: "Benton County, Oregon",
+          GEO_ID: "0500000US41003",
+          B01001_001E: "95184",
+          B01001_002E: "47012",
+        },
+      ],
+      moe: [
+        { B01001_001M: "24", B01001_002M: "18" },
+        { B01001_001M: "51", B01001_002M: "33" },
+      ],
+    };
+    render(<App askFn={() => Promise.resolve(mixed)} />);
+    await user.type(screen.getByLabelText("Question"), "sex by age in Oregon counties");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getAllByText("B01001_001E")).toHaveLength(2);
+    expect(screen.getAllByText("B01001_002E")).toHaveLength(2);
+    expect(screen.getByText("8401")).toBeTruthy();
+    expect(screen.getByText("47012")).toBeTruthy();
+  });
+
+  it("does not present a Census missing sentinel as a numeric MOE", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            moe: [{ GEO_ID: "0500000US48201", NAME: "Harris County, Texas", B01003_001M: "-555555555" }],
+            rows: [{ ...harris.rows[0], B01003_001M: "-555555555" }],
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByText(/B01003_001E: 4838303 ± —/)).toBeTruthy();
+    expect(screen.queryByText(/-555555555/)).toBeNull();
+  });
+
+  it("does not treat an empty URL as a successful Census URL", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            url: "",
+            rows: [],
+            moe: [],
+            answer: "stopped before build_url",
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(document.querySelector(".census-url")).toBeNull();
+    expect(screen.getByRole("status").textContent).toMatch(/no census url was built/i);
+  });
+
+  it("does not label an HTTP failure as unreachable", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<App askFn={() => Promise.reject(new Error("ask failed (500)"))} />);
+    await user.type(screen.getByLabelText("Question"), "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("error"));
+    expect(screen.getByText("ask failed (500)")).toBeTruthy();
+    expect(screen.queryByText(/could not reach/i)).toBeNull();
   });
 });

@@ -23,11 +23,16 @@ export type AskResponse = {
 };
 
 export async function ask(question: string): Promise<AskResponse> {
-  const response = await fetch("/ask", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+  } catch {
+    throw new Error("Could not reach the API");
+  }
   if (!response.ok) {
     throw new Error(`ask failed (${response.status})`);
   }
