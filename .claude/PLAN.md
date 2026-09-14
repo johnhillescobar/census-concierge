@@ -196,6 +196,8 @@ a core question.
 
 **Not in this slice:** the canvas, charts, series and comparisons, memory, auth.
 
+> **STATUS 2026-09-14.** Slice 2 closed. answered_rate 0.778; p95 24.546s (ceiling 20s, recorded). Evidence: `evidence/slice-2/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-5.
+
 ---
 
 ## Slice 3 — Series and comparisons
