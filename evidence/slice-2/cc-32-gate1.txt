@@ -1,0 +1,2183 @@
+# Gate 1 — CC-32
+# Mutations named for the behaviour they revert, not a review index.
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+# Raw command output, UTF-8, captured on Windows.
+
+===== baseline =====
+$ uv run pytest -vv api/tests/test_static_frontend.py api/tests/test_demo_harness.py::test_html_index_is_a_served_build api/tests/test_demo_harness.py::test_missing_index_is_not_a_served_build api/tests/test_demo_harness.py::test_json_root_is_not_a_served_build api/tests/test_demo_harness.py::test_cors_header_is_not_a_served_build
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 11 items
+
+api/tests/test_static_frontend.py::test_get_root_serves_the_built_index PASSED [  9%]
+api/tests/test_static_frontend.py::test_built_assets_are_same_origin PASSED [ 18%]
+api/tests/test_static_frontend.py::test_post_ask_still_works_when_the_ui_is_mounted PASSED [ 27%]
+api/tests/test_static_frontend.py::test_openapi_stays_ask_only_when_the_ui_is_mounted PASSED [ 36%]
+api/tests/test_static_frontend.py::test_docs_still_work_when_the_ui_is_mounted PASSED [ 45%]
+api/tests/test_static_frontend.py::test_missing_dist_does_not_take_down_ask PASSED [ 54%]
+api/tests/test_static_frontend.py::test_serving_the_ui_does_not_install_cors PASSED [ 63%]
+api/tests/test_demo_harness.py::test_html_index_is_a_served_build PASSED [ 72%]
+api/tests/test_demo_harness.py::test_missing_index_is_not_a_served_build PASSED [ 81%]
+api/tests/test_demo_harness.py::test_json_root_is_not_a_served_build PASSED [ 90%]
+api/tests/test_demo_harness.py::test_cors_header_is_not_a_served_build PASSED [100%]
+
+============================= 11 passed in 0.52s ==============================
+exit 0
+$ npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 8ms
+ ✓ src/display.test.ts (10 tests) 12ms
+ ✓ src/App.test.tsx (12 tests) 665ms
+
+ Test Files  3 passed (3)
+      Tests  25 passed (25)
+   Start at  08:19:33
+   Duration  4.45s (transform 94ms, setup 657ms, collect 642ms, tests 685ms, environment 2.22s, prepare 364ms)
+
+exit 0
+VERDICT baseline GREEN
+
+===== MUTATION no-static-mount =====
+$ uv run pytest -vv api/tests/test_static_frontend.py::test_get_root_serves_the_built_index api/tests/test_static_frontend.py::test_built_assets_are_same_origin
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+api/tests/test_static_frontend.py::test_get_root_serves_the_built_index FAILED [ 50%]
+api/tests/test_static_frontend.py::test_built_assets_are_same_origin FAILED [100%]
+
+================================== FAILURES ===================================
+____________________ test_get_root_serves_the_built_index _____________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-865/test_get_root_serves_the_built0')
+
+    def test_get_root_serves_the_built_index(tmp_path: Path) -> None:
+        response = TestClient(create_app(_dist(tmp_path))).get("/")
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+api\tests\test_static_frontend.py:41: AssertionError
+______________________ test_built_assets_are_same_origin ______________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-865/test_built_assets_are_same_ori0')
+
+    def test_built_assets_are_same_origin(tmp_path: Path) -> None:
+        response = TestClient(create_app(_dist(tmp_path))).get("/assets/app.js")
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+api\tests\test_static_frontend.py:49: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_static_frontend.py::test_get_root_serves_the_built_index - assert 404 == 200
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED api/tests/test_static_frontend.py::test_built_assets_are_same_origin - assert 404 == 200
+ +  where 404 = <Response [404 Not Found]>.status_code
+============================== 2 failed in 0.52s ==============================
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION ask-swallowed-by-mount =====
+$ uv run pytest -vv api/tests/test_static_frontend.py::test_post_ask_still_works_when_the_ui_is_mounted
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_static_frontend.py::test_post_ask_still_works_when_the_ui_is_mounted FAILED [100%]
+
+================================== FAILURES ===================================
+______________ test_post_ask_still_works_when_the_ui_is_mounted _______________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-866/test_post_ask_still_works_when0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F036BAB680>
+
+    def test_post_ask_still_works_when_the_ui_is_mounted(tmp_path: Path, monkeypatch: Any) -> None:
+        async def fake_loop(question: str) -> AskResponse:
+            _ = question
+            return AskResponse(**EMPTY)
+    
+        monkeypatch.setattr("src.main.run_ask", fake_loop)
+        response = TestClient(create_app(_dist(tmp_path))).post(
+            "/ask", json={"question": "population of Harris County"}
+        )
+>       assert response.status_code == 200
+E       assert 405 == 200
+E        +  where 405 = <Response [405 Method Not Allowed]>.status_code
+
+api\tests\test_static_frontend.py:63: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_static_frontend.py::test_post_ask_still_works_when_the_ui_is_mounted - assert 405 == 200
+ +  where 405 = <Response [405 Method Not Allowed]>.status_code
+============================== 1 failed in 0.38s ==============================
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION missing-dist-raises =====
+$ uv run pytest -vv api/tests/test_static_frontend.py::test_missing_dist_does_not_take_down_ask
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_static_frontend.py::test_missing_dist_does_not_take_down_ask FAILED [100%]
+
+================================== FAILURES ===================================
+__________________ test_missing_dist_does_not_take_down_ask ___________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-867/test_missing_dist_does_not_tak0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022D084C7410>
+
+    def test_missing_dist_does_not_take_down_ask(tmp_path: Path, monkeypatch: Any) -> None:
+        async def fake_loop(question: str) -> AskResponse:
+            _ = question
+            return AskResponse(**EMPTY)
+    
+        monkeypatch.setattr("src.main.run_ask", fake_loop)
+>       client = TestClient(create_app(tmp_path / "no-dist"))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_static_frontend.py:89: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+api\src\main.py:33: in create_app
+    application.mount("/", StaticFiles(directory=root, html=True), name="frontend")
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <starlette.staticfiles.StaticFiles object at 0x0000022D084C7B00>
+directory = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-867/test_missing_dist_does_not_tak0/no-dist')
+packages = None, html = True, check_dir = True, follow_symlink = False
+
+    def __init__(
+        self,
+        *,
+        directory: PathLike | None = None,
+        packages: list[str | tuple[str, str]] | None = None,
+        html: bool = False,
+        check_dir: bool = True,
+        follow_symlink: bool = False,
+    ) -> None:
+        self.directory = directory
+        self.packages = packages
+        self.all_directories = self.get_directories(directory, packages)
+        self.html = html
+        self.config_checked = False
+        self.follow_symlink = follow_symlink
+        if check_dir and directory is not None and not os.path.isdir(directory):
+>           raise RuntimeError(f"Directory '{directory}' does not exist")
+E           RuntimeError: Directory 'C:\Users\johnh\AppData\Local\Temp\pytest-of-johnh\pytest-867\test_missing_dist_does_not_tak0\no-dist' does not exist
+
+.venv\Lib\site-packages\starlette\staticfiles.py:56: RuntimeError
+=========================== short test summary info ===========================
+FAILED api/tests/test_static_frontend.py::test_missing_dist_does_not_take_down_ask - RuntimeError: Directory 'C:\Users\johnh\AppData\Local\Temp\pytest-of-johnh\pytest-867\test_missing_dist_does_not_tak0\no-dist' does not exist
+============================== 1 failed in 0.44s ==============================
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION extra-root-route =====
+$ uv run pytest -vv api/tests/test_static_frontend.py::test_openapi_stays_ask_only_when_the_ui_is_mounted api/tests/test_static_frontend.py::test_docs_still_work_when_the_ui_is_mounted
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+api/tests/test_static_frontend.py::test_openapi_stays_ask_only_when_the_ui_is_mounted FAILED [ 50%]
+api/tests/test_static_frontend.py::test_docs_still_work_when_the_ui_is_mounted FAILED [100%]
+
+================================== FAILURES ===================================
+_____________ test_openapi_stays_ask_only_when_the_ui_is_mounted ______________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-868/test_openapi_stays_ask_only_wh0')
+
+    def test_openapi_stays_ask_only_when_the_ui_is_mounted(tmp_path: Path) -> None:
+        schema = create_app(_dist(tmp_path)).openapi()
+>       assert list(schema["paths"]) == ["/ask"]
+E       AssertionError: assert ['/ask', '/'] == ['/ask']
+E         
+E         Left contains one more item: '/'
+E         
+E         Full diff:
+E           [
+E               '/ask',
+E         +     '/',
+E           ]
+
+api\tests\test_static_frontend.py:70: AssertionError
+_________________ test_docs_still_work_when_the_ui_is_mounted _________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-868/test_docs_still_work_when_the_0')
+
+    def test_docs_still_work_when_the_ui_is_mounted(tmp_path: Path) -> None:
+        client = TestClient(create_app(_dist(tmp_path)))
+        docs = client.get("/docs")
+        assert docs.status_code == 200
+        openapi = client.get("/openapi.json")
+        assert openapi.status_code == 200
+>       assert list(openapi.json()["paths"]) == ["/ask"]
+E       AssertionError: assert ['/ask', '/'] == ['/ask']
+E         
+E         Left contains one more item: '/'
+E         
+E         Full diff:
+E           [
+E               '/ask',
+E         +     '/',
+E           ]
+
+api\tests\test_static_frontend.py:80: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_static_frontend.py::test_openapi_stays_ask_only_when_the_ui_is_mounted - AssertionError: assert ['/ask', '/'] == ['/ask']
+  
+  Left contains one more item: '/'
+  
+  Full diff:
+    [
+        '/ask',
+  +     '/',
+    ]
+FAILED api/tests/test_static_frontend.py::test_docs_still_work_when_the_ui_is_mounted - AssertionError: assert ['/ask', '/'] == ['/ask']
+  
+  Left contains one more item: '/'
+  
+  Full diff:
+    [
+        '/ask',
+  +     '/',
+    ]
+============================== 2 failed in 0.72s ==============================
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION cors-installed =====
+$ uv run pytest -vv api/tests/test_static_frontend.py::test_serving_the_ui_does_not_install_cors api/tests/test_static_frontend.py::test_get_root_serves_the_built_index api/tests/test_static_frontend.py::test_post_ask_still_works_when_the_ui_is_mounted
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 3 items
+
+api/tests/test_static_frontend.py::test_serving_the_ui_does_not_install_cors FAILED [ 33%]
+api/tests/test_static_frontend.py::test_get_root_serves_the_built_index PASSED [ 66%]
+api/tests/test_static_frontend.py::test_post_ask_still_works_when_the_ui_is_mounted PASSED [100%]
+
+================================== FAILURES ===================================
+__________________ test_serving_the_ui_does_not_install_cors __________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-869/test_serving_the_ui_does_not_i0')
+
+    def test_serving_the_ui_does_not_install_cors(tmp_path: Path) -> None:
+>       assert create_app(_dist(tmp_path)).user_middleware == []
+E       AssertionError: assert [Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])] == []
+E         
+E         Left contains one more item: Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+E         
+E         Full diff:
+E         - []
+E         + [
+E         +     Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']),
+E         + ]
+
+api\tests\test_static_frontend.py:96: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_static_frontend.py::test_serving_the_ui_does_not_install_cors - AssertionError: assert [Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])] == []
+  
+  Left contains one more item: Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+  
+  Full diff:
+  - []
+  + [
+  +     Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*']),
+  + ]
+========================= 1 failed, 2 passed in 0.47s =========================
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION copy-raw-url =====
+$ cd web
+$ npx.cmd vitest run src/App.test.tsx
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/App.test.tsx (12 tests | 1 failed) 667ms
+   ✓ App pane states > starts idle, with no Census URL 71ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight 92ms
+   ✓ App pane states > shows an error state distinct from idle when the API is unreachable 49ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 52ms
+   × App result > copies the visible Census URL without a key parameter 75ms
+     → expected 'https://api.census.gov/data/2024/acs/…' not to match /key=/i
+   ✓ App result > keeps the copy control when clipboard write is denied 60ms
+   ✓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice 35ms
+   ✓ App result > labels every geography instead of presenting the first row as the answer 47ms
+   ✓ App result > renders every estimate variable for every geography 45ms
+   ✓ App result > does not present a Census missing sentinel as a numeric MOE 46ms
+   ✓ App result > does not treat an empty URL as a successful Census URL 32ms
+   ✓ App result > does not label an HTTP failure as unreachable 62ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+   Start at  08:19:49
+   Duration  4.05s (transform 104ms, setup 272ms, collect 167ms, tests 667ms, environment 581ms, prepare 91ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > copies the visible Census URL without a key parameter
+AssertionError: expected 'https://api.census.gov/data/2024/acs/…' not to match /key=/i
+
+- Expected: 
+/key=/i
+
++ Received: 
+"https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret"
+
+ ❯ src/App.test.tsx:118:24
+    116|     expect(copied).toContain("https://api.census.gov/data/2024/acs/acs…
+    117|     expect(copied).toContain("B01003_001E");
+    118|     expect(copied).not.toMatch(/key=/i);
+       |                        ^
+    119|     expect(screen.getByRole("button", { name: "Copied" })).toBeTruthy(…
+    120|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION no-copy-control =====
+$ cd web
+$ npx.cmd vitest run src/App.test.tsx -t "Copy URL|copies the visible Census URL|keeps the copy control|renders URL, estimate with MOE|keeps URL and table metadata"
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/App.test.tsx (12 tests | 4 failed | 8 skipped) 414ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   × App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 191ms
+     → Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Estimates":
+  [36m<h2 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"population of Harris County"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"estimates"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of Harris County"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mHarris County has 4,838,303 people.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US48201[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m4838303[0m
+            [0m ± [0m
+            [0m123[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × App result > copies the visible Census URL without a key parameter 61ms
+     → Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Estimates":
+  [36m<h2 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"population of Harris County"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"estimates"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of Harris County"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mHarris County has 4,838,303 people.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US48201[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m4838303[0m
+            [0m ± [0m
+            [0m123[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME%2CGEO_ID%2CB01003_001E%2CB01003_001M&for=county%3A201&in=state%3A48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × App result > keeps the copy control when clipboard write is denied 89ms
+     → Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Estimates":
+  [36m<h2 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"population of Harris County"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"estimates"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of Harris County"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mHarris County has 4,838,303 people.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US48201[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m4838303[0m
+            [0m ± [0m
+            [0m123[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × App result > keeps URL and table metadata on Census fetch failure, with a visible notice 72ms
+     → Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  Name "Warnings":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"median rent in nowhere"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"notice"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"warnings"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"median rent in nowhere"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"notice"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0mCensus fetch failed. The URL and table metadata are still shown.[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mCensus returned HTTP 400.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB25064[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mRenter-occupied housing units paying cash rent[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m1600000US4805000[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:99999&in=state:48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB25063[0m
+            [0m — [0m
+            [0mdistribution versus median[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mWarnings[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"warnings"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mgeography_unsupported[0m
+            [0m: [0m
+            [0mnot published at this level[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > does not label an HTTP failure as unreachable
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 8 skipped (12)
+   Start at  08:19:55
+   Duration  3.70s (transform 78ms, setup 181ms, collect 175ms, tests 414ms, environment 577ms, prepare 118ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Estimates":
+  [36m<h2 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"population of Harris County"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"estimates"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of Harris County"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mHarris County has 4,838,303 people.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US48201[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m4838303[0m
+            [0m ± [0m
+            [0m123[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/App.test.tsx:90:19
+     88|       "https://api.census.gov/data/2024/acs/acs5",
+     89|     );
+     90|     expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruth…
+       |                   ^
+     91|     expect(screen.getByText(/B01003_001E: 4838303 ± 123/)).toBeTruthy(…
+     92|     expect(screen.getByText("0500000US48201")).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/App.test.tsx > App result > copies the visible Census URL without a key parameter
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Estimates":
+  [36m<h2 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"population of Harris County"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"estimates"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of Harris County"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mHarris County has 4,838,303 people.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US48201[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m4838303[0m
+            [0m ± [0m
+            [0m123[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME%2CGEO_ID%2CB01003_001E%2CB01003_001M&for=county%3A201&in=state%3A48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/App.test.tsx:113:29
+    111|     await user.click(screen.getByRole("button", { name: "Ask" }));
+    112|     await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    113|     await user.click(screen.getByRole("button", { name: "Copy URL" }));
+       |                             ^
+    114|     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    115|     const copied = writeText.mock.calls[0][0] as string;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/App.test.tsx > App result > keeps the copy control when clipboard write is denied
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Estimates":
+  [36m<h2 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"population of Harris County"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"estimates"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of Harris County"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mHarris County has 4,838,303 people.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US48201[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"estimates"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01003_001E[0m
+            [0m: [0m
+            [0m4838303[0m
+            [0m ± [0m
+            [0m123[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/App.test.tsx:129:29
+    127|     await user.click(screen.getByRole("button", { name: "Ask" }));
+    128|     await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    129|     await user.click(screen.getByRole("button", { name: "Copy URL" }));
+       |                             ^
+    130|     expect(pane().dataset.state).toBe("result");
+    131|     await waitFor(() => expect(screen.getByRole("button", { name: "Cop…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/App.test.tsx > App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy URL"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main />[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "census-concierge":
+  [36m<h1 />[39m
+
+  Name "Census API URL":
+  [36m<h2 />[39m
+
+  Name "Alternatives":
+  [36m<h2 />[39m
+
+  Name "Warnings":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"lede"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"answer"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Question":
+  [36m<input[39m
+    [33maria-label[39m=[32m"Question"[39m
+    [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+    [33mvalue[39m=[32m"median rent in nowhere"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ask":
+  [36m<button[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"notice"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  Name "":
+  [36m<dt />[39m
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  Name "":
+  [36m<dd />[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"alts"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"warnings"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li />[39m
+
+  Name "":
+  [36m<li />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"median rent in nowhere"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"notice"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0mCensus fetch failed. The URL and table metadata are still shown.[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mCensus returned HTTP 400.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB25064[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mRenter-occupied housing units paying cash rent[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m1600000US4805000[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<pre[39m
+            [33mclass[39m=[32m"census-url"[39m
+          [36m>[39m
+            [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:99999&in=state:48[0m
+          [36m</pre>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB25063[0m
+            [0m — [0m
+            [0mdistribution versus median[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<h2>[39m
+          [0mWarnings[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"warnings"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mgeography_unsupported[0m
+            [0m: [0m
+            [0mnot published at this level[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/App.test.tsx:143:19
+    141|     expect(screen.getByRole("status").textContent).toMatch(/census fet…
+    142|     expect(document.querySelector(".census-url")?.textContent).toConta…
+    143|     expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruth…
+       |                   ^
+    144|     expect(screen.getByText("B25064")).toBeTruthy();
+    145|     expect(screen.getByText("Renter-occupied housing units paying cash…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== MUTATION served-build-always-ok =====
+$ uv run pytest -vv api/tests/test_demo_harness.py::test_html_index_is_a_served_build api/tests/test_demo_harness.py::test_missing_index_is_not_a_served_build api/tests/test_demo_harness.py::test_json_root_is_not_a_served_build api/tests/test_demo_harness.py::test_cors_header_is_not_a_served_build
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 4 items
+
+api/tests/test_demo_harness.py::test_html_index_is_a_served_build PASSED [ 25%]
+api/tests/test_demo_harness.py::test_missing_index_is_not_a_served_build FAILED [ 50%]
+api/tests/test_demo_harness.py::test_json_root_is_not_a_served_build FAILED [ 75%]
+api/tests/test_demo_harness.py::test_cors_header_is_not_a_served_build FAILED [100%]
+
+================================== FAILURES ===================================
+__________________ test_missing_index_is_not_a_served_build ___________________
+
+    def test_missing_index_is_not_a_served_build() -> None:
+        info = run_demo.inspect_served_build(_root(404, "application/json", '{"detail":"Not Found"}'))
+>       assert run_demo.served_build_ok(info) is False
+E       AssertionError: assert True is False
+E        +  where True = <function served_build_ok at 0x0000028B124D27A0>({'status_code': 404, 'content_type': 'application/json', 'has_title': False, 'acao': None})
+E        +    where <function served_build_ok at 0x0000028B124D27A0> = run_demo.served_build_ok
+
+api\tests\test_demo_harness.py:53: AssertionError
+____________________ test_json_root_is_not_a_served_build _____________________
+
+    def test_json_root_is_not_a_served_build() -> None:
+        info = run_demo.inspect_served_build(
+            _root(200, "application/json", '{"title":"census-concierge"}')
+        )
+>       assert run_demo.served_build_ok(info) is False
+E       AssertionError: assert True is False
+E        +  where True = <function served_build_ok at 0x0000028B124D27A0>({'status_code': 200, 'content_type': 'application/json', 'has_title': True, 'acao': None})
+E        +    where <function served_build_ok at 0x0000028B124D27A0> = run_demo.served_build_ok
+
+api\tests\test_demo_harness.py:60: AssertionError
+___________________ test_cors_header_is_not_a_served_build ____________________
+
+    def test_cors_header_is_not_a_served_build() -> None:
+        info = run_demo.inspect_served_build(
+            _root(
+                200,
+                "text/html; charset=utf-8",
+                "<title>census-concierge</title>",
+                acao="*",
+            )
+        )
+>       assert run_demo.served_build_ok(info) is False
+E       AssertionError: assert True is False
+E        +  where True = <function served_build_ok at 0x0000028B124D27A0>({'status_code': 200, 'content_type': 'text/html; charset=utf-8', 'has_title': True, 'acao': '*'})
+E        +    where <function served_build_ok at 0x0000028B124D27A0> = run_demo.served_build_ok
+
+api\tests\test_demo_harness.py:72: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_missing_index_is_not_a_served_build - AssertionError: assert True is False
+ +  where True = <function served_build_ok at 0x0000028B124D27A0>({'status_code': 404, 'content_type': 'application/json', 'has_title': False, 'acao': None})
+ +    where <function served_build_ok at 0x0000028B124D27A0> = run_demo.served_build_ok
+FAILED api/tests/test_demo_harness.py::test_json_root_is_not_a_served_build - AssertionError: assert True is False
+ +  where True = <function served_build_ok at 0x0000028B124D27A0>({'status_code': 200, 'content_type': 'application/json', 'has_title': True, 'acao': None})
+ +    where <function served_build_ok at 0x0000028B124D27A0> = run_demo.served_build_ok
+FAILED api/tests/test_demo_harness.py::test_cors_header_is_not_a_served_build - AssertionError: assert True is False
+ +  where True = <function served_build_ok at 0x0000028B124D27A0>({'status_code': 200, 'content_type': 'text/html; charset=utf-8', 'has_title': True, 'acao': '*'})
+ +    where <function served_build_ok at 0x0000028B124D27A0> = run_demo.served_build_ok
+========================= 3 failed, 1 passed in 0.18s =========================
+exit 1
+restored
+VERDICT GOOD — exit 1
+
+===== SUMMARY =====
+no-static-mount: GOOD
+ask-swallowed-by-mount: GOOD
+missing-dist-raises: GOOD
+extra-root-route: GOOD
+cors-installed: GOOD
+copy-raw-url: GOOD
+no-copy-control: GOOD
+served-build-always-ok: GOOD
+OVERALL all GOOD
