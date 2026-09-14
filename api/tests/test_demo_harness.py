@@ -41,10 +41,11 @@ def _root(
     )
 
 
+_VITE_INDEX = '<title>census-concierge</title><div id="root"></div>'
+
+
 def test_html_index_is_a_served_build() -> None:
-    info = run_demo.inspect_served_build(
-        _root(200, "text/html; charset=utf-8", "<title>census-concierge</title>")
-    )
+    info = run_demo.inspect_served_build(_root(200, "text/html; charset=utf-8", _VITE_INDEX))
     assert run_demo.served_build_ok(info) is True
 
 
@@ -60,12 +61,30 @@ def test_json_root_is_not_a_served_build() -> None:
     assert run_demo.served_build_ok(info) is False
 
 
+def test_product_name_in_body_is_not_a_served_build() -> None:
+    info = run_demo.inspect_served_build(
+        _root(
+            200,
+            "text/html; charset=utf-8",
+            '<html><title>Error</title><p>census-concierge</p><div id="root"></div></html>',
+        )
+    )
+    assert run_demo.served_build_ok(info) is False
+
+
+def test_title_without_root_is_not_a_served_build() -> None:
+    info = run_demo.inspect_served_build(
+        _root(200, "text/html; charset=utf-8", "<title>census-concierge</title>")
+    )
+    assert run_demo.served_build_ok(info) is False
+
+
 def test_cors_header_is_not_a_served_build() -> None:
     info = run_demo.inspect_served_build(
         _root(
             200,
             "text/html; charset=utf-8",
-            "<title>census-concierge</title>",
+            _VITE_INDEX,
             acao="*",
         )
     )

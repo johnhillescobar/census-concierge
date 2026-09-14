@@ -85,10 +85,12 @@ def http_ok(status_code: int) -> bool:
 
 def inspect_served_build(client: Any) -> dict[str, Any]:
     response = client.get("/")
+    text = response.text or ""
     return {
         "status_code": response.status_code,
         "content_type": str(response.headers.get("content-type") or ""),
-        "has_title": "census-concierge" in (response.text or ""),
+        "has_title": "<title>census-concierge</title>" in text,
+        "has_root": 'id="root"' in text,
         "acao": response.headers.get("access-control-allow-origin"),
     }
 
@@ -98,6 +100,7 @@ def served_build_ok(info: dict[str, Any]) -> bool:
         http_ok(int(info["status_code"]))
         and "text/html" in str(info["content_type"])
         and bool(info["has_title"])
+        and bool(info["has_root"])
         and info["acao"] is None
     )
 
@@ -417,11 +420,13 @@ def main() -> int:
         f"served_build  GET / {served['status_code']}  "
         f"{served['content_type'] or 'no-content-type'}  "
         f"title={'yes' if served['has_title'] else 'no'}  "
+        f"root={'yes' if served['has_root'] else 'no'}  "
         f"acao={served['acao'] or 'none'}"
     )
     if not served_build_ok(served):
         print(
-            "Frontend is not being served. Build it first: npm --prefix web run build",
+            "Frontend is not being served. "
+            "Build it first: npm --prefix web ci && npm --prefix web run build",
             file=sys.stderr,
         )
         return 2

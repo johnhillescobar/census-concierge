@@ -28,8 +28,10 @@ index:
 	uv run python scripts/build_index.py
 
 ## End-to-end against live APIs. Needs OPENAI_API_KEY and CENSUS_API_KEY.
-## Builds web/dist so GET / is the UI on the same process that scores POST /ask.
+## Installs web deps, then builds web/dist so GET / is the UI on the same
+## process that scores POST /ask.
 demo:
+	npm --prefix web ci
 	npm --prefix web run build
 	uv run python scripts/run_demo.py --repeat 3
 

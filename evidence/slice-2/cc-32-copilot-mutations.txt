@@ -1,0 +1,16 @@
+# Gate 1 (Copilot follow-up) — CC-32
+# GOOD = test fails against the broken implementation.
+
+===== MUTATION title-anywhere =====
+file: scripts/run_demo.py
+has_title: '<title>census-concierge</title>' in text  ->  'census-concierge' in text
+FAILED api/tests/test_demo_harness.py::test_product_name_in_body_is_not_a_served_build
+VERDICT GOOD — exit 1
+restored
+
+===== MUTATION no-root-check =====
+file: scripts/run_demo.py
+drop `and bool(info["has_root"])` from served_build_ok
+FAILED api/tests/test_demo_harness.py::test_title_without_root_is_not_a_served_build
+VERDICT GOOD — exit 1
+restored
