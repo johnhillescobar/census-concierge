@@ -1,0 +1,59 @@
+# E2E post-merge -- slice 2 / CC-24 vs merged main
+# ticket: CC-24
+# GitHub PR: #24
+# branch: main
+# HEAD: f68ff6827ba7fcee19c5e220488e331f323e3c06
+# captured: 2026-09-13 21:00:18 -0500
+# This is playbook step 9 (E2E post against merged main).
+# Do NOT overwrite evidence/slice-1/* .
+#
+# Predecessor: evidence/slice-2/cc-24-e2e-pre.txt (Vite UI vs live POST /ask).
+# make demo against FastAPI-served web/dist remains CC-32.
+#
+# Commands:
+#   git rev-parse --abbrev-ref HEAD
+#   git rev-parse HEAD
+#   git log -1 --oneline
+#   uv run uvicorn src.main:app --host 127.0.0.1 --port 8000 --env-file .env
+#   npm --prefix web run dev -- --host 127.0.0.1 --port 5173
+#   Playwright against http://127.0.0.1:5173/
+#     question: population of Harris County, Texas
+
+$ git rev-parse --abbrev-ref HEAD
+main
+
+$ git rev-parse HEAD
+f68ff6827ba7fcee19c5e220488e331f323e3c06
+
+$ git log -1 --oneline
+f68ff68 Merge pull request #24 from johnhillescobar:feat/cc-24-chat-shell
+
+===== idle =====
+heading: census-concierge
+pane text: Type a question to see the selected table, its URL, and alternatives.
+census-url: absent
+Ask button: enabled
+
+===== loading (Ask disabled while POST /ask in flight) =====
+Ask button: disabled
+pane: Looking up tables…
+data-state: loading
+census-url: absent
+
+===== result (live POST /ask, question: population of Harris County, Texas) =====
+Table: B01003
+Universe: Total population
+GEOID: 0500000US48201
+Estimates: B01003_001E: 4838303 ± —
+Census API URL: https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48
+Alternatives: present (B02001 related table, and others)
+key=: absent from displayed URL
+# Census MOE sentinel -555555555 is shown as — by formatCensusValue, not dropped.
+# Console on the success path: favicon.ico 404 only (not a product defect).
+
+===== error (API process stopped; Vite proxy POST /ask 500) =====
+pane: ask failed (500)
+census-url: absent
+# Distinct from idle. Not a Census-fetch failure (no AskResponse).
+
+Verdict: PASS. Typed in the browser on merged main and got an answer with a usable redacted Census URL, MOE, GEOID, universe, and alternatives.
