@@ -1,0 +1,53 @@
+# E2E post-merge -- slice 2 / CC-27 vs merged main
+# ticket: CC-27
+# GitHub PR: #26
+# branch: main
+# HEAD: 40315ce1f7360b9998eb61649055c01b85f86a9b
+# captured: 2026-09-14 07:15:49 -0500
+# This is playbook step 9 (E2E post against merged main).
+# Do NOT overwrite evidence/slice-2/cc-27-e2e-pre.txt or evidence/slice-2/cc-24-*.
+#
+# Predecessor: evidence/slice-2/cc-27-e2e-pre.txt
+# This ticket is the generated TS client + CI drift gate.
+# make eval / make demo do not import packages/client; they are not the acceptance run.
+
+$ git rev-parse --abbrev-ref HEAD
+main
+
+$ git rev-parse HEAD
+40315ce1f7360b9998eb61649055c01b85f86a9b
+
+$ git log -1 --oneline
+40315ce Merge pull request #26 from johnhillescobar:feat/cc-27-generated-client
+
+===== generate_client --check =====
+COMMAND: uv run python scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpsopcehpt\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpsopcehpt\schema.d.ts [44.3ms]
+packages/client is up to date.
+exit: 0
+
+===== pytest generated client =====
+COMMAND: uv run pytest -q api/tests/test_generated_client.py
+...                                                                      [100%]
+3 passed in 0.28s
+exit: 0
+
+===== web typecheck =====
+COMMAND: npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+exit: 0
+
+===== live OpenAPI vs committed snapshot =====
+match: True
+AskResponse.required: ['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+ask.ts imports packages/client/schema: True
+ask.ts handwritten AskResponse object: False
+
+===== CI on merge commit =====
+COMMAND: gh run list --branch main --limit 1
+completed	success	Merge pull request #26 from johnhillescobar:feat/cc-27-generated-client	check	main	push	34841874591	56s	2026-09-14T12:09:26Z
+
+Verdict: PASS
