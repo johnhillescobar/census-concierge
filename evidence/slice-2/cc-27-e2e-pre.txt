@@ -1,0 +1,33 @@
+# E2E pre-PR -- slice 2 / CC-27
+# HEAD: 92d0d74
+# captured: 2026-09-14T11:59:46.212549+00:00
+# This ticket is the generated TS client + CI drift gate.
+# make eval / make demo do not import packages/client; they are not the acceptance run.
+
+===== generate_client --check =====
+COMMAND: C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpxmz5yr11\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpxmz5yr11\schema.d.ts [47.5ms]
+packages/client is up to date.
+exit: 0
+
+===== pytest generated client =====
+COMMAND: C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q api/tests/test_generated_client.py
+...                                                                      [100%]
+3 passed in 0.36s
+exit: 0
+
+===== web typecheck =====
+COMMAND: npm.cmd --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+exit: 0
+
+===== live OpenAPI vs committed snapshot =====
+match: True
+AskResponse.required: ['answer', 'url', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+ask.ts imports packages/client/schema: True
+ask.ts handwritten AskResponse object: False
+
+Verdict: PASS
