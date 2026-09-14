@@ -3,7 +3,9 @@
 
     python scripts/run_demo.py --repeat 3
 
-Needs OPENAI_API_KEY and CENSUS_API_KEY. Writes answered_rate, p95_latency_seconds,
+Needs OPENAI_API_KEY and CENSUS_API_KEY. Builds of `web/dist` are required:
+GET / must be the UI on the same app that scores POST /ask (`make demo` builds
+it). Writes answered_rate, p95_latency_seconds,
 t_llm, t_census_api, t_ours, prompt_hash and index_hash into evidence/latest.json
 without removing slice-0 retrieval metrics.
 
@@ -79,6 +81,28 @@ def select_questions(
 
 def http_ok(status_code: int) -> bool:
     return status_code == 200
+
+
+def inspect_served_build(client: Any) -> dict[str, Any]:
+    response = client.get("/")
+    text = response.text or ""
+    return {
+        "status_code": response.status_code,
+        "content_type": str(response.headers.get("content-type") or ""),
+        "has_title": "<title>census-concierge</title>" in text,
+        "has_root": 'id="root"' in text,
+        "acao": response.headers.get("access-control-allow-origin"),
+    }
+
+
+def served_build_ok(info: dict[str, Any]) -> bool:
+    return (
+        http_ok(int(info["status_code"]))
+        and "text/html" in str(info["content_type"])
+        and bool(info["has_title"])
+        and bool(info["has_root"])
+        and info["acao"] is None
+    )
 
 
 def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]) -> bool:
@@ -391,6 +415,21 @@ def main() -> int:
     index = index_hash()
     trials: list[Trial] = []
     client = TestClient(app)
+    served = inspect_served_build(client)
+    print(
+        f"served_build  GET / {served['status_code']}  "
+        f"{served['content_type'] or 'no-content-type'}  "
+        f"title={'yes' if served['has_title'] else 'no'}  "
+        f"root={'yes' if served['has_root'] else 'no'}  "
+        f"acao={served['acao'] or 'none'}"
+    )
+    if not served_build_ok(served):
+        print(
+            "Frontend is not being served. "
+            "Build it first: npm --prefix web ci && npm --prefix web run build",
+            file=sys.stderr,
+        )
+        return 2
     for round_id in range(1, args.repeat + 1):
         for entry in questions:
             trial = _ask(client, clock, entry, round_id)

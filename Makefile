@@ -28,11 +28,16 @@ index:
 	uv run python scripts/build_index.py
 
 ## End-to-end against live APIs. Needs OPENAI_API_KEY and CENSUS_API_KEY.
+## Installs web deps, then builds web/dist so GET / is the UI on the same
+## process that scores POST /ask.
 demo:
+	npm --prefix web ci
+	npm --prefix web run build
 	uv run python scripts/run_demo.py --repeat 3
 
 ## Local API. Swagger at http://127.0.0.1:8000/docs
-## Chat UI (another terminal): npm --prefix web install && npm --prefix web run dev
+## After `npm --prefix web run build`, GET / is the chat UI (same origin as /ask).
+## Chat UI during development (another terminal): npm --prefix web install && npm --prefix web run dev
 serve:
 	uv run uvicorn src.main:app --reload
 

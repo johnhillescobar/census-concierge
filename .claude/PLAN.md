@@ -187,8 +187,8 @@ a core question.
 - [x] React + TypeScript, minimal.
 - [x] TS client generated from the OpenAPI schema; CI fails if the committed
       copy is stale.
-- [ ] Chat: question in, answer + URL out. The URL is visible and copyable.
-- [ ] **FastAPI serves the Vite build output** as static files. One container,
+- [x] Chat: question in, answer + URL out. The URL is visible and copyable.
+- [x] **FastAPI serves the Vite build output** as static files. One container,
       one domain, no CORS (DESIGN §5). The build output path is a deployment
       detail, not a local convenience — set it now, not at slice 8.
 

@@ -2,8 +2,8 @@
 
 **Status: slice 0 is built; slice 1 has `POST /ask`, the four-tool loop, the
 five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
-UI that POSTs `/ask` through types generated from the OpenAPI schema
-(FastAPI static serving is not built yet).** Retrieval runs
+UI that POSTs `/ask` through types generated from the OpenAPI schema, served
+from the same FastAPI process when `web/dist` exists.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and
@@ -45,7 +45,7 @@ evidence/retrieval_steps.md  every step's number, and what the plan got wrong
 docs/playbooks/review-pr.md  canonical review procedure
 pyproject.toml               uv workspace root; ruff + mypy + pytest config
 api/pyproject.toml           the app's dependencies
-api/src/main.py              FastAPI app; `POST /ask` → `run_ask`
+api/src/main.py              FastAPI app; `POST /ask` → `run_ask`; serves `web/dist`
 api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
 api/src/guards.py            DESIGN §4 slice-1 guards; evaluated at assemble
 api/src/tools.py             search_tables, build_url, fetch_data
@@ -85,7 +85,9 @@ module-level state this project allows, sanctioned because it is read-only.
 ### HTTP — `api/src/main.py`, `ask.py`, `contract.py`
 
 One FastAPI app, one question-answering route: `POST /ask`. `/docs` and
-`/openapi.json` come from the framework. The route calls `run_ask(question)` and
+`/openapi.json` come from the framework. When `web/dist` exists, `create_app()`
+mounts it at `/` (`StaticFiles`, directory index). There is no CORS middleware.
+The route calls `run_ask(question)` and
 returns `AskResponse` — `answer`, `url` (singular), `rows`, `moe`, `geoid`,
 `universe`, `table_id`, `alternatives[]`, `warnings[]`. Rows are dicts, not a
 per-row model. Start with `uv run uvicorn src.main:app --reload`.
@@ -112,15 +114,17 @@ response; `with_key()` is the httpx site. `langchain_core` supplies schema and
 ### Chat UI — `web/`
 
 Vite + React + TypeScript, one pane. `npm --prefix web run dev` proxies
-`POST /ask` to the API on `:8000`. `web/src/ask.ts` imports `AskResponse`
+`POST /ask` to the API on `:8000`. After `npm --prefix web run build`, FastAPI
+serves `web/dist` at `GET /` from the same origin as `POST /ask`. The Census URL
+is visible and has a copy control; the copied text is the redacted URL.
+`web/src/ask.ts` imports `AskResponse`
 from `packages/client/schema.d.ts`, which `scripts/generate_client.py`
 writes from `app.openapi()` via `openapi-typescript`. `make check` and CI
 regenerate and fail on drift. Census-fetch failure is `url`
 set and `rows` empty — there is no `http_ok` on the contract. An empty `url`
 (loop aborted before `build_url`) is a status notice, not a `—` standing in for
 the URL. Census missing sentinels (`-555555555` and the rest) render as `—`.
-The pane uses `data-state` `idle` / `loading` / `error` / `result`. FastAPI does
-not serve `web/dist` yet, and there is no CORS middleware.
+The pane uses `data-state` `idle` / `loading` / `error` / `result`.
 
 ### Data and artifacts
 
@@ -169,7 +173,7 @@ futures.
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
 | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
-| 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI static serving still open. |
+| 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32). |
 | 3 | fan-out over years and geographies; the guard evaluation point |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
