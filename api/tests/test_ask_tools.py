@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 from src.census_url import CensusURL
-from src.contract import GeoSpec
+from src.contract import GeoSpec, clause_codes
 from src.fetch import FetchDataTool
 from src.geo import (
     ResolveGeographyTool,
@@ -1213,6 +1213,22 @@ async def test_query_prose_cannot_override_resolved_clauses() -> None:
     assert spec.codes == {"county": "201", "state": "48"}
     assert message.content != spec.for_spec
     assert "county:999" not in spec.for_spec
+
+
+def test_codes_keep_multi_word_geography_names() -> None:
+    zcta = GeoSpec(for_spec="zip code tabulation area:80202")
+    assert zcta.codes == {"zip code tabulation area": "80202"}
+    nested = GeoSpec(
+        for_spec="block group:1",
+        in_spec="state:08 county:001 tract:000100",
+    )
+    assert nested.codes == {
+        "block group": "1",
+        "state": "08",
+        "county": "001",
+        "tract": "000100",
+    }
+    assert clause_codes("county:201", "state:48") == {"county": "201", "state": "48"}
 
 
 def test_geo_entries_keeps_every_county_row(

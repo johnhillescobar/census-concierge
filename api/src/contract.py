@@ -8,7 +8,19 @@ this schema; `urls[]` is one redacted Census URL per attempted vintage.
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+_CLAUSE = re.compile(r"(.+?):(\S+)")
+
+
+def clause_codes(*clauses: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for clause in clauses:
+        for match in _CLAUSE.finditer(clause):
+            parsed[match.group(1).strip()] = match.group(2)
+    return parsed
 
 
 class AskRequest(BaseModel):
@@ -40,12 +52,7 @@ class GeoSpec(BaseModel):
 
     @model_validator(mode="after")
     def fill_codes(self) -> GeoSpec:
-        parsed: dict[str, str] = {}
-        for token in (*self.in_spec.split(), *self.for_spec.split()):
-            if ":" in token:
-                key, value = token.split(":", 1)
-                parsed[key] = value
-        self.codes = parsed
+        self.codes = clause_codes(self.in_spec, self.for_spec)
         return self
 
 
