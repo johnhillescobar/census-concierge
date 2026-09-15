@@ -139,6 +139,17 @@ def test_ambiguous_place_with_empty_url_is_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=body) is True
 
 
+def test_geography_not_nested_with_empty_url_is_answered() -> None:
+    entry = {"id": "t16", "expect_table": "B17001", "expect_warning": "geography_not_nested"}
+    body = _body(
+        table_id="",
+        url="",
+        rows=[],
+        warnings=[{"code": "geography_not_nested", "detail": "tract does not nest in place"}],
+    )
+    assert run_demo.is_answered(entry, status_code=200, body=body) is True
+
+
 def test_warning_only_without_url_is_not_answered() -> None:
     entry = {"id": "t03", "expect_warning": "moe_not_significant"}
     body = _body(

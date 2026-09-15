@@ -99,6 +99,11 @@ _WILDCARD = re.compile(
     r"zctas|zcta|zip codes|zips)\s+in\s+(.+)",
     re.IGNORECASE,
 )
+_WITHIN = re.compile(
+    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|"
+    r"counties|county|places?|cities|city)\s+(?:within|inside)\s+(?:the\s+)?(.+)",
+    re.IGNORECASE,
+)
 _COUNTY = re.compile(
     r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
     re.IGNORECASE,
@@ -118,6 +123,7 @@ class ResolveGeographyResult(ToolResult):
     wildcard: bool
     legal: bool
     detail: str
+    nested: bool = True
 
 
 ListGeographies = Callable[[str, dict[str, str]], list[dict[str, str]]]
@@ -151,6 +157,21 @@ def legal_predicate(
     if not hits:
         return None
     return min(hits, key=lambda entry: (len(entry.requires), entry.code))
+
+
+def nests_in(child: str, parent: str, entries: list[GeoLevel]) -> bool:
+    return any(
+        e.name == child and (parent in e.requires or parent == e.wildcard_for) for e in entries
+    )
+
+
+def _blocked(
+    detail: str, nested: bool, wildcard: bool = True
+) -> tuple[str, ResolveGeographyResult]:
+    hit = ResolveGeographyResult(
+        matches=[], wildcard=wildcard, legal=False, nested=nested, detail=detail
+    )
+    return hit.detail, hit
 
 
 def find_state(text: str) -> tuple[str, str] | None:
@@ -293,7 +314,8 @@ class ResolveGeographyTool(BaseTool):
     async def _arun(
         self, query: str, level: str | None = None
     ) -> tuple[str, ResolveGeographyResult]:
-        wildcard_match = _WILDCARD.search(query)
+        within = _WITHIN.search(query)
+        wildcard_match = _WILDCARD.search(query) or within
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query
         state = find_state(parent_text)
@@ -303,13 +325,7 @@ class ResolveGeographyTool(BaseTool):
             if for_level is None:
                 for_level = level if level in known else None
             if for_level is None:
-                result = ResolveGeographyResult(
-                    matches=[],
-                    wildcard=False,
-                    legal=False,
-                    detail=f"unknown geography level {level!r}",
-                )
-                return result.detail, result
+                return _blocked(f"unknown geography level {level!r}", nested=True, wildcard=False)
         else:
             for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
         if for_level is None:
@@ -343,18 +359,26 @@ class ResolveGeographyTool(BaseTool):
             else set()
         )
         if extra:
-            result = ResolveGeographyResult(
-                matches=[],
-                wildcard=wildcard,
-                legal=False,
-                detail=f"{for_level} nested in unresolved {', '.join(sorted(extra))}",
+            allowed = all(nests_in(for_level, parent, self.entries) for parent in extra)
+            parents = ", ".join(sorted(extra))
+            detail = (
+                f"{for_level} nested in unresolved {parents}"
+                if allowed
+                else f"{for_level} does not nest in {parents} ({parent_text.strip()})"
             )
-            return result.detail, result
+            return _blocked(detail, nested=allowed, wildcard=wildcard)
         in_names = frozenset(in_parts) | extra
         predicate = legal_predicate(
             for_level, in_names, wildcard=wildcard or not in_parts, entries=self.entries
         )
-        # National listing uses state:* when the level needs a state and none was named.
+        if (
+            wildcard
+            and not extra
+            and not in_parts
+            and parent_text.strip()
+            and not re.search(r"\b(?:the\s+)?(?:u\.?s\.?a?\.?|united states)\b", parent_text, re.I)
+        ):
+            return _blocked(f"{for_level} does not nest in ({parent_text.strip()})", nested=False)
         list_in = dict(in_parts)
         state_wildcard = legal_predicate(
             for_level, frozenset({"state"}), wildcard=True, entries=self.entries
@@ -370,13 +394,14 @@ class ResolveGeographyTool(BaseTool):
 
         if wildcard:
             if predicate is None:
-                result = ResolveGeographyResult(
-                    matches=[],
-                    wildcard=True,
-                    legal=False,
-                    detail=f"{for_level} with in={dict(in_parts)} is not a legal combination",
+                in_parents = frozenset(in_parts)
+                nested = not in_parents or all(
+                    nests_in(for_level, parent, self.entries) for parent in in_parents
                 )
-                return result.detail, result
+                return _blocked(
+                    f"{for_level} with in={dict(in_parts)} is not a legal combination",
+                    nested=nested,
+                )
             parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
             match = {
                 "name": query.strip(),
@@ -392,7 +417,6 @@ class ResolveGeographyTool(BaseTool):
         token = place_token(query, state[0] if state else None)
         matched = rank_matches(filter_rows(token, rows))
         if not matched and token:
-            # Whole-question queries still contain the place as a substring.
             matched = rank_matches(filter_rows(token.split()[-1], rows) if token.split() else [])
         legal = predicate is not None
         if not legal:

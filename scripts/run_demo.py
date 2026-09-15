@@ -114,6 +114,10 @@ def census_urls(body: dict[str, Any]) -> list[str]:
     return [str(item) for item in items if item]
 
 
+# These traps have no legal Census URL; requiring one would score a silent substitution.
+_WARNING_WITHOUT_FETCH = frozenset({"ambiguous_place", "geography_not_nested"})
+
+
 def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]) -> bool:
     if not http_ok(status_code):
         return False
@@ -125,7 +129,7 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     rows = body.get("rows") or []
     expected_table = entry.get("expect_table")
     expected_warning = entry.get("expect_warning")
-    if expected_warning == "ambiguous_place":
+    if expected_warning in _WARNING_WITHOUT_FETCH:
         return expected_warning in warnings
     if expected_warning and expected_warning not in warnings:
         return False
@@ -151,7 +155,7 @@ def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     table_id = str(body.get("table_id") or "")
     if expected_table and table_id != expected_table:
         return f"wrong table {table_id or '(none)'}"
-    if expected_warning != "ambiguous_place" and not census_urls(body):
+    if expected_warning not in _WARNING_WITHOUT_FETCH and not census_urls(body):
         return "empty url"
     if expected_table and not body.get("rows"):
         return "no rows"

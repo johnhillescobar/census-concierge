@@ -47,6 +47,8 @@ _DERIVED = re.compile(
     r"\b(?:mean|average|percent(?:age)?|rate|per capita)\b",
     re.IGNORECASE,
 )
+_ZIP = re.compile(r"\bzip codes?\b(?!\s+tabulation)|\bzip\b(?!\s+code)", re.IGNORECASE)
+_ZCTA_CODE = re.compile(r"\b(\d{5})\b")
 
 
 class GuardRecord(Protocol):
@@ -120,12 +122,43 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
 
 def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
-    if not status or status.get("legal") is not False:
+    if not status or status.get("legal") is not False or status.get("nested") is False:
         return None
     detail = str(status.get("detail") or "").strip()
     return AskWarning(
         code="geography_unsupported",
         detail=detail or "requested geography is not a legal combination for this dataset",
+    )
+
+
+def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
+    if not _ZIP.search(record.question):
+        return None
+    match = _ZCTA_CODE.search(record.question)
+    code = match.group(1) if match else ""
+    named = f"ZIP {code} / ZCTA {code}" if code else "ZIP / ZCTA"
+    return AskWarning(
+        code="zcta_not_zip",
+        detail=(
+            f"{named} is a USPS delivery route versus a block-built Census approximation "
+            "(~10% of ZIPs have no ZCTA); ZCTAs nest in nothing, ACS1 does not publish them, "
+            "and 2020 ZCTA definitions differ from 2010"
+        ),
+    )
+
+
+def geography_not_nested(record: GuardRecord) -> AskWarning | None:
+    status = record.geo_status
+    if not status or status.get("nested") is not False:
+        return None
+    detail = str(status.get("detail") or "").strip()
+    if not detail:
+        detail = "requested containment is not expressible in Census for/in grammar"
+    return AskWarning(
+        code="geography_not_nested",
+        detail=(
+            f"{detail}; splitting it needs block-level areal allocation, which is out of scope"
+        ),
     )
 
 
@@ -328,6 +361,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         universe_mismatch,
         median_not_aggregatable,
         moe_aggregation_degraded,
+        zcta_not_zip,
+        geography_not_nested,
     ):
         warning = guard(record)
         if warning is not None:

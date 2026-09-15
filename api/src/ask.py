@@ -79,7 +79,12 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         record.geographies = [dict(match) for match in matches]
         legal = artifact.legal if hasattr(artifact, "legal") else artifact.get("legal", True)
         detail = artifact.detail if hasattr(artifact, "detail") else artifact.get("detail", "")
-        record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
+        nested = artifact.nested if hasattr(artifact, "nested") else artifact.get("nested", True)
+        record.geo_status = {
+            "legal": bool(legal),
+            "detail": str(detail or ""),
+            "nested": nested is not False,
+        }
         record.geography = dict(matches[0]) if matches else None
         if record.geography != previous:
             clear_series(record)
@@ -99,11 +104,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
 
 
 def _allowed(record: ExecutionRecord) -> set[str]:
-    allowed: set[str] = set()
-    for hit in record.pool:
-        allowed.add(str(hit["table_id"]))
-        allowed.update(str(member) for member in hit.get("members") or [])
-    return allowed
+    ids = {str(hit["table_id"]) for hit in record.pool}
+    return ids | {str(m) for hit in record.pool for m in hit.get("members") or []}
 
 
 # A-I race/ethnicity iteration, optional Puerto Rico suffix. Not a PR-only table.

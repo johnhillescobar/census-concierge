@@ -6,7 +6,7 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 from __future__ import annotations
 
 from ask_fixtures import ENTRIES, _list_geographies, _tools
-from src.ask import ExecutionRecord, assemble, dispatch
+from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.geo import ResolveGeographyTool
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
@@ -16,6 +16,9 @@ T03 = "Is the poverty rate in tract 1201 higher than tract 1305?"
 T06 = "What share of households are Black families earning over $75k?"
 T17 = "What is the median household income across these five tracts combined?"
 T18 = "Total population without health insurance across every tract in Wayne County"
+T15 = "Median household income for ZIP code 10001 every year since 2018"
+T16 = "Compare poverty by census tract within the city of Denver"
+Q24 = "Median household income for ZCTA 90210"
 
 
 def _codes(record: ExecutionRecord) -> list[str]:
@@ -507,3 +510,134 @@ def test_a_rate_is_not_summed_across_areas() -> None:
     response = assemble("listed", record)
     assert response.warnings == []
     assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c"]
+
+
+def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
+    record = ExecutionRecord(question=T15)
+    record.rows = [
+        {
+            "GEO_ID": "860Z200US10001",
+            "NAME": "ZCTA5 10001",
+            "B19013_001E": "99000",
+            "B19013_001M": "5000",
+        }
+    ]
+    assert _codes(record) == ["zcta_not_zip"]
+    response = assemble("ZCTA, not ZIP", record)
+    assert response.answer == "ZCTA, not ZIP"
+    assert [item.code for item in response.warnings] == ["zcta_not_zip"]
+    assert "10001" in response.warnings[0].detail
+    assert "ACS1" in response.warnings[0].detail
+    assert "nest" in response.warnings[0].detail
+    assert "2020" in response.warnings[0].detail
+    assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US10001"]
+
+
+def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
+    record = ExecutionRecord(question=Q24)
+    record.geographies = [
+        {
+            "name": "ZCTA5 90210",
+            "level": "zip code tabulation area",
+            "for": "zip code tabulation area:90210",
+            "in": "",
+            "geoid": "860Z200US90210",
+        }
+    ]
+    record.rows = [{"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"}]
+    response = assemble("single vintage", record)
+    assert response.warnings == []
+    assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US90210"]
+
+
+async def test_tract_within_a_place_does_not_invent_a_fetch() -> None:
+    record = ExecutionRecord(question=T16)
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": T16}}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["legal"] is False
+    assert record.geo_status["nested"] is False
+    assert record.geographies == []
+    assert record.geography is None
+    response = assemble("containment is not expressible", record)
+    assert [item.code for item in response.warnings] == ["geography_not_nested"]
+    assert "tract" in response.warnings[0].detail
+    assert "place" in response.warnings[0].detail
+    assert "Denver" in response.warnings[0].detail
+    assert response.rows == []
+    assert response.urls == []
+    assert response.answer == "containment is not expressible"
+
+
+async def test_zcta_inside_a_county_is_not_nested() -> None:
+    record = ExecutionRecord(question="all zctas in Harris County")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"query": "all zctas in Harris County"}},
+        record,
+    )
+    response = assemble("ZCTAs nest in nothing", record)
+    assert record.geographies == []
+    assert [item.code for item in response.warnings] == ["geography_not_nested"]
+
+
+async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    for query in (
+        "zctas inside Denver",
+        "zip codes inside Denver",
+        "census tract within Denver",
+        "places inside Denver",
+        "cities inside Denver",
+        "all zip codes in Denver",
+        "every zcta in Denver",
+        "all places in Denver",
+        "all counties in Denver",
+    ):
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": query},
+                "id": "c1",
+            }
+        )
+        assert message.artifact.matches == [], query
+        assert message.artifact.legal is False, query
+        assert message.artifact.nested is False, query
+
+
+def test_dict_geo_artifact_preserves_nested_false() -> None:
+    record = ExecutionRecord(question=T16)
+    _absorb(
+        record,
+        "resolve_geography",
+        {
+            "matches": [],
+            "legal": False,
+            "detail": "tract does not nest in place (Denver)",
+            "nested": False,
+        },
+    )
+    assert record.geo_status is not None
+    assert record.geo_status["nested"] is False
+    assert [item.code for item in assemble("no fetch", record).warnings] == ["geography_not_nested"]
+
+
+def test_published_zcta_name_is_not_zip_language() -> None:
+    record = ExecutionRecord(question="Median household income for zip code tabulation area 90210")
+    assert _codes(record) == []
+
+
+async def test_tract_within_a_county_is_not_a_nesting_warning() -> None:
+    record = ExecutionRecord(question="poverty by census tract within Wayne County")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"query": "poverty by census tract within Wayne County"}},
+        record,
+    )
+    assert record.geo_status is not None
+    assert record.geo_status["nested"] is not False
+    assert "geography_not_nested" not in _codes(record)

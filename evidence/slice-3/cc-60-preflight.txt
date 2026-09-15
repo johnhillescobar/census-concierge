@@ -1,0 +1,39 @@
+﻿verify_golden
+  ok    t15  B19013  Median Household Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars)
+  ok    t16  B17001  Poverty Status in the Past 12 Months by Sex by Age
+  ok    q24  B19013  Median Household Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars)
+0 problem(s).
+
+grep warning codes in api/src
+zcta_not_zip False
+geography_not_nested False
+
+check_budgets --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2614 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           397 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+legal_predicate zcta in county
+None
+
+ACS geography.json 2023
+acs5 zcta: name=zip code tabulation area code=860 requires=None
+acs5 tract: code=140 requires=['state','county'] wildcard=['county'] optionalWithWCFor=county
+acs1 zcta_rows=0
+ZCTA 90210 GEO_ID=860Z200US90210 NAME=ZCTA5 90210
+
+ask.py loc=397 geo.py loc=374 guards.py loc=280 largest=397 doc_lines=1800/1800

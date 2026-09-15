@@ -31,6 +31,7 @@ ENTRIES = [
         "",
     ),
     GeoLevel("place", "160", ("state",), ("state",), "state"),
+    GeoLevel("tract", "140", ("state", "county"), ("county",), "county"),
     GeoLevel("zip code tabulation area", "860", (), (), ""),
 ]
 
@@ -184,6 +185,25 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
         if state and state != "*":
             return [row for row in places if row["in"] == f"state:{state}"]
         return places
+    if level == "zip code tabulation area":
+        return [
+            {
+                "name": "ZCTA5 90210",
+                "level": "zip code tabulation area",
+                "for": "zip code tabulation area:90210",
+                "in": "",
+                "geoid": "860Z200US90210",
+                "population": "19316",
+            },
+            {
+                "name": "ZCTA5 10001",
+                "level": "zip code tabulation area",
+                "for": "zip code tabulation area:10001",
+                "in": "",
+                "geoid": "860Z200US10001",
+                "population": "24117",
+            },
+        ]
     if level != "county":
         return []
     state = in_parts.get("state")

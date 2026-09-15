@@ -20,6 +20,7 @@ from src.geo import (
     find_state,
     legal_predicate,
     list_census_names,
+    nests_in,
     place_token,
     rank_matches,
 )
@@ -210,7 +211,32 @@ async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
     )
     assert message.artifact.legal is False
     assert message.artifact.wildcard is True
+    assert message.artifact.nested is False
     assert message.artifact.matches == []
+
+
+def test_tract_nests_in_county_not_place() -> None:
+    assert nests_in("tract", "county", ENTRIES)
+    assert not nests_in("tract", "place", ENTRIES)
+    assert not nests_in("zip code tabulation area", "county", ENTRIES)
+    assert not nests_in("zip code tabulation area", "place", ENTRIES)
+
+
+async def test_named_zcta_resolves_without_a_parent() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Median household income for ZCTA 90210"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is True
+    assert message.artifact.nested is True
+    assert [row["for"] for row in message.artifact.matches] == ["zip code tabulation area:90210"]
+    assert message.artifact.matches[0]["in"] == ""
+    assert message.artifact.matches[0]["geoid"] == "860Z200US90210"
 
 
 def test_harris_does_not_match_harrison() -> None:
@@ -683,8 +709,10 @@ async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
         }
     )
     assert message.artifact.legal is False
+    assert message.artifact.nested is False
     assert message.artifact.matches == []
-    assert "unresolved" in message.artifact.detail
+    assert "does not nest" in message.artifact.detail
+    assert "state:*" not in message.content
 
 
 async def test_unknown_level_does_not_list_census_names() -> None:
