@@ -7,7 +7,9 @@ from the same FastAPI process when `web/dist` exists; slice 3 has started:
 `fetch_data` fans `years` out concurrently (cap 5) and `AskResponse` carries
 `urls[]` plus per-leg year buckets; combining published medians is declined
 (`median_not_aggregatable`, with `B19001` offered for B19013) and additive areas combine
-via `sqrt(sum(MOE_i^2))`, warning past five (`moe_aggregation_degraded`).** Retrieval runs
+via `sqrt(sum(MOE_i^2))`, warning past five (`moe_aggregation_degraded`); ZIP language
+emits `zcta_not_zip` without refusing a valid ACS5 ZCTA, and non-expressible
+containment emits `geography_not_nested` with no invented fetch.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and
@@ -116,7 +118,8 @@ published geography). Top-level `geoid` names one geography or is empty.
 `evaluate()` in `guards.py` then attaches DESIGN §4 warnings from the execution
 record: overlapping ACS5 vintages, MOE-indistinguishable differences, illegal
 geography combinations, several matching places, questions that cross
-universes, combined published medians, and RSS MOE over more than five areas.
+universes, combined published medians, RSS MOE over more than five areas,
+ZIP-vs-ZCTA requests, and containment Census `for`/`in` grammar cannot express.
 None of them blocks. Additive combine appends one summed row per vintage; a
 median combine does not. `CensusURL` redacts `&key=` in `__str__` / the
 response; `with_key()` is the httpx site. `langchain_core` supplies schema and
@@ -185,7 +188,7 @@ futures.
 | ~~0~~ | ~~the index~~ — done, above |
 | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
 | 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32). |
-| 3 | fan-out over years (`fetch_data.years`, `urls[]`); median/MOE aggregation guards (CC-61); geography fan-out and remaining series guards still open |
+| 3 | fan-out over years (`fetch_data.years`, `urls[]`); median/MOE aggregation guards (CC-61); ZCTA and non-nesting warnings (CC-60); geography fan-out and remaining series guards still open |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |

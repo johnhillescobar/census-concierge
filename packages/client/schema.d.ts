@@ -124,7 +124,7 @@ export interface components {
             urls: string[];
             /**
              * Warnings
-             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded.
+             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested.
              */
             warnings: components["schemas"]["AskWarning"][];
         };

@@ -80,6 +80,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         legal = artifact.legal if hasattr(artifact, "legal") else artifact.get("legal", True)
         detail = artifact.detail if hasattr(artifact, "detail") else artifact.get("detail", "")
         record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
+        record.geo_status["nested"] = getattr(artifact, "nested", True) is not False
         record.geography = dict(matches[0]) if matches else None
         if record.geography != previous:
             clear_series(record)
