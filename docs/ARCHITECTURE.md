@@ -111,13 +111,14 @@ and keeps each URL on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),
 and puts AFFGEOID
-`GEO_ID` on every row. Top-level `geoid` names one geography or is empty.
+`GEO_ID` on every fetched row (empty on a combined total, which is not a
+published geography). Top-level `geoid` names one geography or is empty.
 `evaluate()` in `guards.py` then attaches DESIGN §4 warnings from the execution
 record: overlapping ACS5 vintages, MOE-indistinguishable differences, illegal
 geography combinations, several matching places, questions that cross
 universes, combined published medians, and RSS MOE over more than five areas.
-None of them blocks. Additive combine appends one summed row; a median combine
-does not. `CensusURL` redacts `&key=` in `__str__` / the
+None of them blocks. Additive combine appends one summed row per vintage; a
+median combine does not. `CensusURL` redacts `&key=` in `__str__` / the
 response; `with_key()` is the httpx site. `langchain_core` supplies schema and
 `ainvoke`; control flow is ours. `make demo` is `scripts/run_demo.py --repeat 3`.
 

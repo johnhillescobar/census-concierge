@@ -38,9 +38,13 @@ MOE_COMBINE_FORMULA = "sqrt(sum(MOE_i^2))"
 _BRACKET_TABLE = "B19001"
 _DEGRADED_AFTER = 5
 _COMBINE = re.compile(
-    r"\bcombined\b|\baggregat(?:e|ed|ion|ing)\b|"
+    r"\baggregat(?:e|ed|ion|ing)\b|"
     r"\bacross every\b|\bacross these\b|"
     r"\btotal\b.{0,80}\bacross\b|\bacross\b.{0,80}\btotal\b",
+    re.IGNORECASE,
+)
+_DERIVED = re.compile(
+    r"\b(?:mean|average|percent(?:age)?|rate|per capita)\b",
     re.IGNORECASE,
 )
 
@@ -163,18 +167,26 @@ def _wants_combination(question: str) -> bool:
     return _COMBINE.search(question) is not None
 
 
+def _selected_title(record: GuardRecord) -> str:
+    table_id = getattr(record, "table_id", "") or ""
+    for hit in getattr(record, "pool", []) or []:
+        if isinstance(hit, dict) and str(hit.get("table_id") or "") == table_id:
+            return str(hit.get("title") or "")
+    return ""
+
+
 def _median_measure(record: GuardRecord) -> bool:
     if re.search(r"\bmedian\b", record.question, re.IGNORECASE):
         return True
-    table_id = getattr(record, "table_id", "") or ""
-    for hit in getattr(record, "pool", []) or []:
-        if not isinstance(hit, dict):
-            continue
-        if table_id and str(hit.get("table_id") or "") != table_id:
-            continue
-        if "median" in str(hit.get("title") or "").casefold():
-            return True
-    return False
+    return "median" in _selected_title(record).casefold()
+
+
+def _additive_measure(record: GuardRecord) -> bool:
+    if _median_measure(record):
+        return False
+    if _DERIVED.search(record.question):
+        return False
+    return _DERIVED.search(_selected_title(record)) is None
 
 
 def _format_number(value: float) -> str:
@@ -184,55 +196,99 @@ def _format_number(value: float) -> str:
     return f"{value:.10g}"
 
 
-def combine_additive(rows: list[dict[str, str | None]]) -> tuple[int, dict[str, str | None] | None]:
-    """Sum additive estimates; RSS the matching MOEs. Sentinels are dropped, not zero."""
+def _year_key(row: dict[str, str | None]) -> str:
+    return str(row.get("year") or "")
+
+
+def _area_id(row: dict[str, str | None], index: int) -> str:
+    return str(row.get("GEO_ID") or "") or f"#{index}"
+
+
+def _combine_group(
+    rows: list[dict[str, str | None]],
+) -> tuple[int, dict[str, str | None] | None]:
     estimate_keys: list[str] = []
     for row in rows:
         for key in row:
             if key.endswith("E") and "_" in key and key not in estimate_keys:
                 estimate_keys.append(key)
     combined: dict[str, str | None] = {}
-    contributing: set[int] = set()
+    contributing: set[str] = set()
     for estimate in estimate_keys:
         margin = f"{estimate[:-1]}M"
-        pairs: list[tuple[float, float, int]] = []
+        pairs: list[tuple[float, float, str]] = []
         for index, row in enumerate(rows):
             value, error = _numeric(row, estimate), _numeric(row, margin)
             if value is None or error is None:
                 continue
-            pairs.append((value, error, index))
+            pairs.append((value, error, _area_id(row, index)))
         if len(pairs) < 2:
             continue
-        for _value, _error, index in pairs:
-            contributing.add(index)
-        combined[estimate] = _format_number(sum(value for value, _error, _index in pairs))
+        for _value, _error, area in pairs:
+            contributing.add(area)
+        combined[estimate] = _format_number(sum(value for value, _error, _area in pairs))
         combined[margin] = _format_number(
-            math.sqrt(sum(error * error for _value, error, _index in pairs))
+            math.sqrt(sum(error * error for _value, error, _area in pairs))
         )
     count = len(contributing)
     if count < 2 or not combined:
         return count, None
+    combined["GEO_ID"] = ""
     combined["NAME"] = f"combined ({count} areas)"
     combined["MOE_formula"] = MOE_COMBINE_FORMULA
     combined["component_count"] = str(count)
     return count, combined
 
 
+def combine_additive(
+    rows: list[dict[str, str | None]],
+) -> tuple[int, list[dict[str, str | None]]]:
+    """Sum additive estimates within a vintage; RSS the matching MOEs.
+
+    Year-tagged series rows are separate vintages, not extra areas. Sentinels
+    are dropped, not treated as zero.
+    """
+    groups: dict[str, list[dict[str, str | None]]] = {}
+    order: list[str] = []
+    for row in rows:
+        key = _year_key(row)
+        if key not in groups:
+            order.append(key)
+            groups[key] = []
+        groups[key].append(row)
+    combined_rows: list[dict[str, str | None]] = []
+    max_count = 0
+    for key in order:
+        count, combined = _combine_group(groups[key])
+        max_count = max(max_count, count)
+        if combined is None:
+            continue
+        if key:
+            combined["year"] = key
+        combined_rows.append(combined)
+    return max_count, combined_rows
+
+
+def _household_income_median(record: GuardRecord) -> bool:
+    return (getattr(record, "table_id", "") or "").startswith("B19013")
+
+
 def median_not_aggregatable(record: GuardRecord) -> AskWarning | None:
     if not _wants_combination(record.question) or not _median_measure(record):
         return None
-    return AskWarning(
-        code="median_not_aggregatable",
-        detail="published medians cannot be averaged or population-weighted; "
-        "B19001 household income brackets summed across areas approximate a combined median",
-    )
+    detail = "published medians cannot be averaged or population-weighted"
+    if _household_income_median(record):
+        detail += (
+            "; B19001 household income brackets summed across areas approximate a combined median"
+        )
+    return AskWarning(code="median_not_aggregatable", detail=detail)
 
 
 def moe_aggregation_degraded(record: GuardRecord) -> AskWarning | None:
-    if not _wants_combination(record.question) or _median_measure(record):
+    if not _wants_combination(record.question) or not _additive_measure(record):
         return None
-    count, combined = combine_additive(record.rows)
-    if combined is None or count <= _DEGRADED_AFTER:
+    count, combined_rows = combine_additive(record.rows)
+    if not combined_rows or count <= _DEGRADED_AFTER:
         return None
     return AskWarning(
         code="moe_aggregation_degraded",
@@ -251,15 +307,15 @@ def finish_aggregation(
     warnings = evaluate(record)
     extra: list[Alternative] = []
     if any(item.code == "median_not_aggregatable" for item in warnings):
-        if _BRACKET_TABLE not in already:
+        if _household_income_median(record) and _BRACKET_TABLE not in already:
             extra.append(Alternative(table_id=_BRACKET_TABLE, reason="distribution versus median"))
         return warnings, rows, extra
-    if not _wants_combination(record.question):
+    if not _wants_combination(record.question) or not _additive_measure(record):
         return warnings, rows, extra
-    _count, combined = combine_additive(rows)
-    if combined is None:
+    _count, combined_rows = combine_additive(rows)
+    if not combined_rows:
         return warnings, rows, extra
-    return warnings, [*rows, combined], extra
+    return warnings, [*rows, *combined_rows], extra
 
 
 def evaluate(record: GuardRecord) -> list[AskWarning]:

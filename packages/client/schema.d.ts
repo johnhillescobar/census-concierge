@@ -97,7 +97,7 @@ export interface components {
             requested_years: number[];
             /**
              * Rows
-             * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID).
+             * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID); empty when the row is a combined total rather than a published area.
              */
             rows: {
                 [key: string]: string | null;

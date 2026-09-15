@@ -5,12 +5,11 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 
 from __future__ import annotations
 
+from ask_fixtures import ENTRIES, _list_geographies, _tools
 from src.ask import ExecutionRecord, assemble, dispatch
 from src.geo import ResolveGeographyTool
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
-from test_ask_loop import _tools
-from test_ask_tools import ENTRIES, _list_geographies
 
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
 T03 = "Is the poverty rate in tract 1201 higher than tract 1305?"
@@ -373,7 +372,7 @@ def test_combined_margin_is_rss_not_linear() -> None:
     assert combined["B27001_001M"] == "13"
     assert combined["MOE_formula"] == MOE_COMBINE_FORMULA
     assert combined["component_count"] == "3"
-    assert "GEO_ID" not in combined
+    assert combined["GEO_ID"] == ""
     assert response.moe[-1]["B27001_001M"] == "13"
 
 
@@ -446,3 +445,65 @@ def test_wildcard_listing_is_not_combined() -> None:
     response = assemble("listed", record)
     assert response.warnings == []
     assert len(response.rows) == 6
+
+
+def test_year_tagged_rows_combine_within_vintage_not_across() -> None:
+    record = ExecutionRecord(question=T18, table_id="B01003")
+    rows: list[dict[str, str | None]] = []
+    for year in ("2019", "2022"):
+        for i, margin in enumerate(("3", "4", "12")):
+            rows.append(
+                {
+                    "GEO_ID": f"g{i}",
+                    "year": year,
+                    "B01003_001E": "10",
+                    "B01003_001M": margin,
+                }
+            )
+    record.rows = rows
+    response = assemble("summed", record)
+    assert response.warnings == []
+    combined = [row for row in response.rows if row.get("component_count")]
+    assert len(combined) == 2
+    assert {row.get("year") for row in combined} == {"2019", "2022"}
+    for row in combined:
+        assert row["B01003_001E"] == "30"
+        assert row["B01003_001M"] == "13"
+        assert row["component_count"] == "3"
+        assert row["GEO_ID"] == ""
+
+
+def test_combined_statistical_area_is_not_a_sum() -> None:
+    record = ExecutionRecord(
+        question="Population of the Dallas combined statistical area by county",
+        table_id="B01003",
+    )
+    record.rows = _count_rows(6)
+    response = assemble("listed", record)
+    assert response.warnings == []
+    assert len(response.rows) == 6
+
+
+def test_rent_median_combine_does_not_offer_income_brackets() -> None:
+    record = ExecutionRecord(
+        question="What is the median gross rent across these five tracts combined?",
+        table_id="B25064",
+    )
+    response = assemble("declined", record)
+    assert [item.code for item in response.warnings] == ["median_not_aggregatable"]
+    assert all(item.table_id != "B19001" for item in response.alternatives)
+    assert "B19001" not in response.warnings[0].detail
+
+
+def test_a_rate_is_not_summed_across_areas() -> None:
+    record = ExecutionRecord(
+        question="Unemployment rate across every tract in Wayne County", table_id="B23025"
+    )
+    record.rows = [
+        {"GEO_ID": "a", "B23025_005E": "10", "B23025_005M": "3"},
+        {"GEO_ID": "b", "B23025_005E": "20", "B23025_005M": "4"},
+        {"GEO_ID": "c", "B23025_005E": "30", "B23025_005M": "12"},
+    ]
+    response = assemble("listed", record)
+    assert response.warnings == []
+    assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c"]
