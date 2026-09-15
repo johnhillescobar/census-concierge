@@ -308,7 +308,7 @@ class ResolveGeographyTool(BaseTool):
     ) -> tuple[str, ResolveGeographyResult]:
         year = vintage if vintage is not None else self.latest_vintage(dataset)
         try:
-            entries = self.geo_table(dataset, year)
+            entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
         wildcard_match = _WILDCARD.search(query)

@@ -42,7 +42,7 @@ class ResolveGeographyInput(ToolInput):
     level: str | None = Field(
         default=None, description="geography.json name if already known, else omit."
     )
-    dataset: str = Field(default="acs5", description="acs5 or acs1.")
+    dataset: Literal["acs5", "acs1"] = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(
         default=None, description="End year. Empty means latest for the dataset."
     )
@@ -54,7 +54,7 @@ class BuildUrlInput(ToolInput):
         default_factory=list,
         description="Estimate variable IDs (E). Empty means the table total (001E).",
     )
-    dataset: str = Field(default="acs5", description="acs5 or acs1.")
+    dataset: Literal["acs5", "acs1"] = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(default=None, description="End year. Empty means latest ACS5.")
     for_spec: str | None = Field(default=None, description="Census for=, e.g. county:201")
     in_spec: str | None = Field(default=None, description="Census in=, e.g. state:48")
@@ -75,7 +75,7 @@ DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
 SelectFn = Callable[[str, list[dict[str, Any]]], str]
 AllowedTables = Callable[[], set[str]]
-AllowedGeographies = Callable[[], set[tuple[str, str]]]
+AllowedGeographies = Callable[[], set[tuple[str, str, str]]]
 LatestVintage = Callable[[str], int]
 TableFacts = Callable[[str, int, str], dict[str, Any] | None]
 LastGeography = Callable[[], GeoSpec | None]
@@ -273,7 +273,7 @@ class BuildUrlTool(BaseTool):
         for_clause = (for_spec or "").strip() or (geography.for_spec if geography else "")
         in_clause = (in_spec or "").strip() or (geography.in_spec if geography else "")
         allowed_geo = self.allowed_geographies()
-        if not for_clause or (for_clause, in_clause) not in allowed_geo:
+        if not for_clause or (for_clause, in_clause, dataset) not in allowed_geo:
             result = BuildUrlResult(
                 ok=False,
                 url="",

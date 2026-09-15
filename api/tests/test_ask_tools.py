@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from src.census_url import CensusURL
 from src.contract import GeoSpec, clause_codes
 from src.fetch import FetchDataTool
@@ -27,6 +28,7 @@ from src.geo import (
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
     BuildUrlTool,
+    ResolveGeographyInput,
     SearchTablesTool,
     pair_margins,
 )
@@ -628,7 +630,7 @@ def _url_tool() -> BuildUrlTool:
     allowed = {"B01003", "B19013", "B19013A"}
     return BuildUrlTool(
         allowed_tables=lambda: allowed,
-        allowed_geographies=lambda: {("county:201", "state:48")},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
         latest_vintage=lambda dataset: 2024,
         table_facts=lambda dataset, year, table_id: (
             facts.get(dataset, {}).get(year, {}).get(table_id)
@@ -689,6 +691,37 @@ async def test_build_url_rejects_a_geography_that_was_not_resolved() -> None:
             "type": "tool_call",
             "name": "build_url",
             "args": {"table_id": "B01003", "for_spec": "county:999", "in_spec": "state:48"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.url == ""
+
+
+async def test_build_url_rejects_geography_resolved_for_a_different_dataset() -> None:
+    facts = {
+        "acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}},
+        "acs1": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}},
+    }
+    tool = BuildUrlTool(
+        allowed_tables=lambda: {"B01003"},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
+        latest_vintage=lambda dataset: 2024,
+        table_facts=lambda dataset, year, table_id: (
+            facts.get(dataset, {}).get(year, {}).get(table_id)
+        ),
+        last_geography=lambda: _harris(),
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {
+                "table_id": "B01003",
+                "dataset": "acs1",
+                "for_spec": "county:201",
+                "in_spec": "state:48",
+            },
             "id": "c1",
         }
     )
@@ -790,7 +823,7 @@ def _wide_url_tool(*, include_total: bool = True) -> BuildUrlTool:
     facts = {"acs5": {2024: {"B99999": {"universe": "Synthetic universe", "variables": suffixes}}}}
     return BuildUrlTool(
         allowed_tables=lambda: {"B99999"},
-        allowed_geographies=lambda: {("county:201", "state:48")},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
         latest_vintage=lambda dataset: 2024,
         table_facts=lambda dataset, year, table_id: (
             facts.get(dataset, {}).get(year, {}).get(table_id)
@@ -1213,6 +1246,12 @@ async def test_query_prose_cannot_override_resolved_clauses() -> None:
     assert spec.codes == {"county": "201", "state": "48"}
     assert message.content != spec.for_spec
     assert "county:999" not in spec.for_spec
+
+
+def test_resolve_geography_dataset_rejects_a_path() -> None:
+    with pytest.raises(ValidationError):
+        ResolveGeographyInput(query="Texas", dataset="../acs5")
+    ResolveGeographyInput(query="Texas", dataset="acs1")
 
 
 def test_codes_keep_multi_word_geography_names() -> None:

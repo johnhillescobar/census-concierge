@@ -31,7 +31,9 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 facts.get(dataset, {}).get(year, {}).get(table_id)
             ),
             last_geography=lambda: record.geography,
-            allowed_geographies=lambda: {(geo.for_spec, geo.in_spec) for geo in record.geographies},
+            allowed_geographies=lambda: {
+                (geo.for_spec, geo.in_spec, geo.dataset) for geo in record.geographies
+            },
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
@@ -137,7 +139,9 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
             latest_vintage=lambda dataset: 2024,
             table_facts=lambda dataset, year, table_id: facts["acs5"][year][table_id],
             last_geography=lambda: record.geography,
-            allowed_geographies=lambda: {(geo.for_spec, geo.in_spec) for geo in record.geographies},
+            allowed_geographies=lambda: {
+                (geo.for_spec, geo.in_spec, geo.dataset) for geo in record.geographies
+            },
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
@@ -526,7 +530,7 @@ async def test_universe_comes_from_the_requested_vintage() -> None:
             facts.get(dataset, {}).get(year, {}).get(table_id)
         ),
         last_geography=lambda: record.geography,
-        allowed_geographies=lambda: {("county:201", "state:48")},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
     )
     queue = [
         {

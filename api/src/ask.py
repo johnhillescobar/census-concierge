@@ -365,7 +365,9 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         ),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: _allowed(record),
-            allowed_geographies=lambda: {(geo.for_spec, geo.in_spec) for geo in record.geographies},
+            allowed_geographies=lambda: {
+                (geo.for_spec, geo.in_spec, geo.dataset) for geo in record.geographies
+            },
             latest_vintage=latest,
             table_facts=facts,
             last_geography=lambda: record.geography,
