@@ -6,7 +6,7 @@ UI that POSTs `/ask` through types generated from the OpenAPI schema, served
 from the same FastAPI process when `web/dist` exists; slice 3 has started:
 `fetch_data` fans `years` out concurrently (cap 5) and `AskResponse` carries
 `urls[]` plus per-leg year buckets; combining published medians is declined
-(`median_not_aggregatable`, with `B19001` offered) and additive areas combine
+(`median_not_aggregatable`, with `B19001` offered for B19013) and additive areas combine
 via `sqrt(sum(MOE_i^2))`, warning past five (`moe_aggregation_degraded`).** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
