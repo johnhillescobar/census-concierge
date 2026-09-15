@@ -5,7 +5,8 @@ five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
 UI that POSTs `/ask` through types generated from the OpenAPI schema, served
 from the same FastAPI process when `web/dist` exists; slice 3 has started:
 `fetch_data` fans `years` out concurrently (cap 5) and `AskResponse` carries
-`urls[]` plus per-leg year buckets.** Retrieval runs
+`urls[]` plus per-leg year buckets; `resolve_geography` returns ordered
+`GeoSpec` values authorized by that dataset/vintage `geography.json`.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and
@@ -52,7 +53,7 @@ api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
 api/src/guards.py            DESIGN §4 slice-1 guards; evaluated at assemble
 api/src/tools.py             search_tables, build_url
 api/src/fetch.py             fetch_data; years fan-out, cap 5 in flight
-api/src/geo.py               resolve_geography; legality over all fips rows
+api/src/geo.py               resolve_geography; GeoSpec list, legality per vintage
 api/src/census_url.py        CensusURL — default form never carries `&key=`
 api/src/prompts.py           one system prompt; date and vintages injected
 .github/workflows/check.yml  the gate, on every PR
@@ -99,10 +100,12 @@ per-row model. Start with `uv run uvicorn src.main:app --reload`.
 
 `run_ask` is a hand-rolled loop (`complete` then `dispatch`), not a graph and
 not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index, then `rerank.choose`),
-`resolve_geography` (every `geography.json` fips row — `geo_levels()` last-wins
-is 324 and is the wrong county predicate; NAME listing includes `B01003_001E` and
-ranks filtered matches by place class, population, then GEO_ID — `matches[0]` is
-selected, the rest stay on `geographies` so `ambiguous_place` still warns), `build_url` (availability matrix;
+`resolve_geography` (every `geography.json` fips row for the selected dataset
+and vintage — `geo_levels()` last-wins is 324 and is the wrong county predicate;
+NAME listing includes `B01003_001E` and ranks filtered matches by place class,
+population, then GEO_ID — `specs[0]` is selected, the rest stay on `geographies`
+so `ambiguous_place` still warns; emitted `GeoSpec` values are metadata-backed
+`for`/`in` clauses, not model prose), `build_url` (availability matrix;
 empty `variables` is the table total `001E`, then E paired with M),
 `fetch_data` (live Census; `years` fans out under a 5-in-flight / 12-year cap
 and keeps each URL on failure). `assemble()`
@@ -180,7 +183,7 @@ futures.
 | ~~0~~ | ~~the index~~ — done, above |
 | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
 | 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32). |
-| 3 | fan-out over years (`fetch_data.years`, `urls[]`); geography fan-out and series guards still open |
+| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; geography fan-out and series guards still open |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |

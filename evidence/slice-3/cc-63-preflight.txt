@@ -1,0 +1,47 @@
+﻿=== git ===
+918304c08982a664eee0777baff60441cc9f8a6d
+918304c Merge pull request #32 from johnhillescobar:evidence/cc-28-e2e-post
+
+=== ResolveGeographyInput / Result ===
+ResolveGeographyInput ['query', 'level']
+ResolveGeographyResult ['matches', 'wildcard', 'legal', 'detail']
+ExecutionRecord.geography dict[str, str] | None
+ExecutionRecord.geographies list[dict[str, str]]
+AskResponse fields ['answer', 'urls', 'requested_years', 'attempted_years', 'succeeded_years', 'failed_years', 'omitted_years', 'legs', 'rows', 'moe', 'geoid', 'universe', 'table_id', 'alternatives', 'warnings']
+LastGeography collections.abc.Callable[[], dict[str, str] | None]
+GeoSpec exists: False
+
+=== ACS geography.json authority ===
+acs5 2024 names 43 tract True zcta True
+acs1 2024 names 19 tract False zcta False
+acs1 2020 geography.json exists False
+county-in-state acs5 True
+tract-in-county acs1 False
+tract-in-county acs5 True
+
+=== default_tools legality source ===
+hardcoded geo_entries acs5 True
+resolve input has dataset False
+resolve input has vintage False
+build_url reads geography.get True
+build_url checks allowed_geographies True
+
+=== budgets ===
+
+BUDGETS
+
+  ok    api src LOC               2464 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           393 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+

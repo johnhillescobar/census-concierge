@@ -1,0 +1,15 @@
+# GOOD = test fails against the broken implementation (the check works).
+
+===== MUTATION split-token-codes =====
+uv run pytest -q api/tests/test_ask_tools.py::test_codes_keep_multi_word_geography_names
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_codes_keep_multi_word_geography_names __________________
+
+    def test_codes_keep_multi_word_geography_names() -> None:
+        zcta = GeoSpec(for_spec="zip code tabulation area:80202")
+>       assert zcta.codes == {"zip code tabulation area": "80202"}
+E       AssertionError: assert {'area': '80202'} == {'zip code ta...rea': '80202'}
+
+failed=True  VERDICT GOOD

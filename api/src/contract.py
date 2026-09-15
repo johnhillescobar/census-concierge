@@ -8,7 +8,19 @@ this schema; `urls[]` is one redacted Census URL per attempted vintage.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator
+import re
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+_CLAUSE = re.compile(r"(.+?):(\S+)")
+
+
+def clause_codes(*clauses: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for clause in clauses:
+        for match in _CLAUSE.finditer(clause):
+            parsed[match.group(1).strip()] = match.group(2)
+    return parsed
 
 
 class AskRequest(BaseModel):
@@ -24,6 +36,24 @@ class AskRequest(BaseModel):
         if not stripped:
             raise ValueError("question must not be blank")
         return stripped
+
+
+class GeoSpec(BaseModel):
+    """Executable geography. `for`/`in` come from metadata, not from prose."""
+
+    level: str = ""
+    name: str = ""
+    geoid: str = ""
+    for_spec: str = ""
+    in_spec: str = ""
+    dataset: str = "acs5"
+    vintage: int = 0
+    codes: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def fill_codes(self) -> GeoSpec:
+        self.codes = clause_codes(self.in_spec, self.for_spec)
+        return self
 
 
 class Alternative(BaseModel):

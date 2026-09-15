@@ -6,11 +6,11 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 from __future__ import annotations
 
 from src.ask import ExecutionRecord, assemble, dispatch
-from src.geo import ResolveGeographyTool
+from src.contract import GeoSpec
 from src.guards import evaluate
 from src.retrieval.metadata import GeoLevel
 from test_ask_loop import _tools
-from test_ask_tools import ENTRIES, _list_geographies
+from test_ask_tools import ENTRIES, _geo_tool, _harris
 
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
 T03 = "Is the poverty rate in tract 1201 higher than tract 1305?"
@@ -51,8 +51,8 @@ async def test_fetched_years_replace_the_built_template_vintage() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     await dispatch(tools["build_url"], {"id": "1", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "2", "args": {"years": [2022]}}, record)
     assert record.vintages == [("acs5", 2022)]
@@ -63,8 +63,8 @@ async def test_overlapping_fetched_years_still_warn() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     await dispatch(tools["build_url"], {"id": "1", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "2", "args": {"years": [2019, 2022]}}, record)
     assert record.vintages == [("acs5", 2019), ("acs5", 2022)]
@@ -161,7 +161,7 @@ def test_illegal_geography_combination_warns() -> None:
 
 def test_several_matching_places_are_the_result() -> None:
     record = ExecutionRecord(question="Population of Springfield")
-    record.geographies = [{"name": f"Springfield {i}"} for i in range(15)]
+    record.geographies = [GeoSpec(name=f"Springfield {i}") for i in range(15)]
     warnings = evaluate(record)
     assert [item.code for item in warnings] == ["ambiguous_place"]
     assert "Springfield 0" in warnings[0].detail
@@ -175,7 +175,7 @@ def test_several_matching_places_are_the_result() -> None:
 
 def test_one_geography_is_not_ambiguous() -> None:
     record = ExecutionRecord()
-    record.geographies = [{"name": "Harris County, Texas", "for": "county:201", "in": "state:48"}]
+    record.geographies = [_harris()]
     assert _codes(record) == []
 
 
@@ -198,7 +198,7 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
         GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
     ]
     record = ExecutionRecord(question="Median household income for every block group in Wyoming")
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=entries)
+    tool = _geo_tool(table=entries)
     await dispatch(tool, {"id": "bg1", "args": {"query": "every block group in Wyoming"}}, record)
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
@@ -275,6 +275,6 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     response = assemble("three Cook Counties", record)
     assert len(record.geographies) == 3
     assert record.geography is not None
-    assert record.geography["in"] == "state:17"
+    assert record.geography.in_spec == "state:17"
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert response.answer == "three Cook Counties"

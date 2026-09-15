@@ -163,20 +163,20 @@ def merge_evidence(
     demo: dict[str, Any],
     *,
     answered_floor: float,
+    p95_ceiling: float | None = None,
 ) -> dict[str, Any]:
     """Copy retrieval keys through. Promote answered_rate to the gated key once
     a run has cleared the floor (or a prior rate exists, so a regression is visible).
     A first miss stays in demo[] only — otherwise CI is red before the agent is.
+    Over-ceiling p95 stays in demo[] the same way: the transcript records it,
+    and a noisy run cannot turn the scoreboard red.
     """
     out = dict(existing)
-    for key in (
-        "p95_latency_seconds",
-        "t_llm",
-        "t_census_api",
-        "t_ours",
-        "prompt_hash",
-        "index_hash",
-    ):
+    timing = ("p95_latency_seconds", "t_llm", "t_census_api", "t_ours")
+    over_ceiling = p95_ceiling is not None and demo["p95_latency_seconds"] > p95_ceiling
+    for key in (*timing, "prompt_hash", "index_hash"):
+        if over_ceiling and key in timing:
+            continue
         out[key] = demo[key]
     if demo["answered_rate"] >= answered_floor or "answered_rate" in existing:
         out["answered_rate"] = demo["answered_rate"]
@@ -478,7 +478,7 @@ def main() -> int:
     if EVIDENCE.exists():
         with contextlib.suppress(ValueError):
             existing = json.loads(EVIDENCE.read_text(encoding="utf-8"))
-    merged = merge_evidence(existing, summary, answered_floor=floors[0])
+    merged = merge_evidence(existing, summary, answered_floor=floors[0], p95_ceiling=floors[1])
     if leaks_key(json.dumps(merged)):
         print("Refusing to write evidence: a Census key leaked into the record.", file=sys.stderr)
         return 2

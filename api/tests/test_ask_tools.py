@@ -9,9 +9,12 @@ from __future__ import annotations
 import gzip
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
+from pydantic import ValidationError
 from src.census_url import CensusURL
+from src.contract import GeoSpec, clause_codes
 from src.fetch import FetchDataTool
 from src.geo import (
     ResolveGeographyTool,
@@ -25,6 +28,7 @@ from src.geo import (
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
     BuildUrlTool,
+    ResolveGeographyInput,
     SearchTablesTool,
     pair_margins,
 )
@@ -83,7 +87,12 @@ def _describe(table_id: str) -> dict[str, object] | None:
     return catalog.get(table_id)
 
 
-def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, str]]:
+def _list_geographies(
+    level: str,
+    in_parts: dict[str, str],
+    dataset: str = "acs5",
+    vintage: int = 2024,
+) -> list[dict[str, str]]:
     counties = [
         {
             "name": "Harris County, Texas",
@@ -203,6 +212,33 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
     if state and state != "*":
         return [row for row in counties if row["in"] == f"state:{state}"]
     return counties
+
+
+def _geo_tool(
+    listing: Any = _list_geographies,
+    table: list[GeoLevel] | None = None,
+    geo_table: Any = None,
+) -> ResolveGeographyTool:
+    rows = ENTRIES if table is None else table
+    return ResolveGeographyTool(
+        list_geographies=listing,
+        geo_table=geo_table or (lambda dataset, year: rows),
+        latest_vintage=lambda dataset: 2024,
+    )
+
+
+def _harris(**fields: object) -> GeoSpec:
+    payload: dict[str, object] = {
+        "level": "county",
+        "name": "Harris County, Texas",
+        "geoid": "0500000US48201",
+        "for_spec": "county:201",
+        "in_spec": "state:48",
+        "dataset": "acs5",
+        "vintage": 2024,
+    }
+    payload.update(fields)
+    return GeoSpec.model_validate(payload)
 
 
 @pytest.fixture
@@ -373,7 +409,7 @@ def test_zcta_nested_in_county_is_not_legal() -> None:
 async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
     # Without the county parent in the legality check this becomes a national
     # zcta:* wildcard — a silent substitution the Census API would 400.
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -384,7 +420,7 @@ async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
     )
     assert message.artifact.legal is False
     assert message.artifact.wildcard is True
-    assert message.artifact.matches == []
+    assert message.artifact.specs == []
 
 
 def test_harris_does_not_match_harrison() -> None:
@@ -471,7 +507,7 @@ def test_county_rank_ignores_place_class() -> None:
 
 
 async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -483,19 +519,19 @@ async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
     artifact = message.artifact
     assert artifact.wildcard is True
     assert artifact.legal is True
-    assert artifact.matches == [
-        {
-            "name": "all counties in Oregon",
-            "level": "county",
-            "for": "county:*",
-            "in": "state:41",
-            "geoid": "",
-        }
-    ]
+    spec = artifact.specs[0]
+    assert spec.level == "county"
+    assert spec.name == "all counties in Oregon"
+    assert spec.for_spec == "county:*"
+    assert spec.in_spec == "state:41"
+    assert spec.geoid == ""
+    assert spec.codes == {"county": "*", "state": "41"}
+    assert spec.dataset == "acs5"
+    assert spec.vintage == 2024
 
 
 async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -504,16 +540,16 @@ async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
             "id": "c1",
         }
     )
-    matches = message.artifact.matches
-    assert [row["in"] for row in matches] == ["state:17", "state:13", "state:27"]
-    assert len(matches) == 3
+    specs = message.artifact.specs
+    assert [row.in_spec for row in specs] == ["state:17", "state:13", "state:27"]
+    assert len(specs) == 3
     assert "selected county:031 state:17" in message.content
     assert "2 alternatives" in message.content
     assert "state:13" not in message.content
 
 
 async def test_portland_selects_oregon_over_maine() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -522,14 +558,14 @@ async def test_portland_selects_oregon_over_maine() -> None:
             "id": "c1",
         }
     )
-    matches = message.artifact.matches
-    assert matches[0]["in"] == "state:41"
-    assert {row["in"] for row in matches} == {"state:41", "state:23"}
+    specs = message.artifact.specs
+    assert specs[0].in_spec == "state:41"
+    assert {row.in_spec for row in specs} == {"state:41", "state:23"}
     assert "alternatives" in message.content
 
 
 async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -538,9 +574,9 @@ async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
             "id": "c1",
         }
     )
-    matches = message.artifact.matches
-    assert matches[0]["in"] == "state:29"
-    assert {row["name"] for row in matches} == {
+    specs = message.artifact.specs
+    assert specs[0].in_spec == "state:29"
+    assert {row.name for row in specs} == {
         "Springfield city, Missouri",
         "Springfield city, Illinois",
         "Springfield CDP, Virginia",
@@ -550,7 +586,7 @@ async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
 
 
 async def test_state_qualified_place_stays_exact() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -559,12 +595,12 @@ async def test_state_qualified_place_stays_exact() -> None:
             "id": "c1",
         }
     )
-    assert [row["in"] for row in message.artifact.matches] == ["state:23"]
+    assert [row.in_spec for row in message.artifact.specs] == ["state:23"]
     assert "alternatives" not in message.content
 
 
 async def test_harris_county_texas_resolves_to_codes() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -573,8 +609,8 @@ async def test_harris_county_texas_resolves_to_codes() -> None:
             "id": "c1",
         }
     )
-    assert [row["for"] for row in message.artifact.matches] == ["county:201"]
-    assert message.artifact.matches[0]["in"] == "state:48"
+    assert [row.for_spec for row in message.artifact.specs] == ["county:201"]
+    assert message.artifact.specs[0].in_spec == "state:48"
 
 
 def test_pair_margins_adds_m_beside_every_e() -> None:
@@ -594,12 +630,12 @@ def _url_tool() -> BuildUrlTool:
     allowed = {"B01003", "B19013", "B19013A"}
     return BuildUrlTool(
         allowed_tables=lambda: allowed,
-        allowed_geographies=lambda: {("county:201", "state:48")},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
         latest_vintage=lambda dataset: 2024,
         table_facts=lambda dataset, year, table_id: (
             facts.get(dataset, {}).get(year, {}).get(table_id)
         ),
-        last_geography=lambda: {"for": "county:201", "in": "state:48"},
+        last_geography=lambda: _harris(),
     )
 
 
@@ -655,6 +691,37 @@ async def test_build_url_rejects_a_geography_that_was_not_resolved() -> None:
             "type": "tool_call",
             "name": "build_url",
             "args": {"table_id": "B01003", "for_spec": "county:999", "in_spec": "state:48"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is False
+    assert message.artifact.url == ""
+
+
+async def test_build_url_rejects_geography_resolved_for_a_different_dataset() -> None:
+    facts = {
+        "acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}},
+        "acs1": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}},
+    }
+    tool = BuildUrlTool(
+        allowed_tables=lambda: {"B01003"},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
+        latest_vintage=lambda dataset: 2024,
+        table_facts=lambda dataset, year, table_id: (
+            facts.get(dataset, {}).get(year, {}).get(table_id)
+        ),
+        last_geography=lambda: _harris(),
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {
+                "table_id": "B01003",
+                "dataset": "acs1",
+                "for_spec": "county:201",
+                "in_spec": "state:48",
+            },
             "id": "c1",
         }
     )
@@ -756,12 +823,12 @@ def _wide_url_tool(*, include_total: bool = True) -> BuildUrlTool:
     facts = {"acs5": {2024: {"B99999": {"universe": "Synthetic universe", "variables": suffixes}}}}
     return BuildUrlTool(
         allowed_tables=lambda: {"B99999"},
-        allowed_geographies=lambda: {("county:201", "state:48")},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
         latest_vintage=lambda dataset: 2024,
         table_facts=lambda dataset, year, table_id: (
             facts.get(dataset, {}).get(year, {}).get(table_id)
         ),
-        last_geography=lambda: {"for": "county:201", "in": "state:48"},
+        last_geography=lambda: _harris(),
     )
 
 
@@ -830,7 +897,7 @@ async def test_fetch_error_body_does_not_carry_the_census_key() -> None:
 
 
 async def test_all_counties_in_the_us_keeps_the_state_wildcard() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -842,12 +909,12 @@ async def test_all_counties_in_the_us_keeps_the_state_wildcard() -> None:
     artifact = message.artifact
     assert artifact.wildcard is True
     assert artifact.legal is True
-    assert artifact.matches[0]["for"] == "county:*"
-    assert artifact.matches[0]["in"] == "state:*"
+    assert artifact.specs[0].for_spec == "county:*"
+    assert artifact.specs[0].in_spec == "state:*"
 
 
 async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -857,18 +924,21 @@ async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
         }
     )
     assert message.artifact.legal is False
-    assert message.artifact.matches == []
+    assert message.artifact.specs == []
     assert "unresolved" in message.artifact.detail
 
 
 async def test_unknown_level_does_not_list_census_names() -> None:
     called: list[tuple[str, dict[str, str]]] = []
 
-    def listing(level: str, parts: dict[str, str]) -> list[dict[str, str]]:
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        _ = dataset, vintage
         called.append((level, parts))
         return []
 
-    tool = ResolveGeographyTool(list_geographies=listing, entries=ENTRIES)
+    tool = _geo_tool(listing)
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -878,13 +948,13 @@ async def test_unknown_level_does_not_list_census_names() -> None:
         }
     )
     assert called == []
-    assert message.artifact.matches == []
+    assert message.artifact.specs == []
     assert message.artifact.legal is False
     assert "unknown geography level" in message.artifact.detail
 
 
 async def test_unknown_place_keeps_predicate_legality() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -894,7 +964,7 @@ async def test_unknown_place_keeps_predicate_legality() -> None:
         }
     )
     assert message.artifact.legal is True
-    assert message.artifact.matches == []
+    assert message.artifact.specs == []
     assert "no place matched" in message.artifact.detail
 
 
@@ -966,7 +1036,7 @@ def test_empty_place_token_matches_nothing() -> None:
 
 @pytest.mark.parametrize("query", ["Washington, DC", "Washington DC", "Washington, D.C."])
 async def test_washington_dc_resolves_as_district_of_columbia(query: str) -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -975,12 +1045,12 @@ async def test_washington_dc_resolves_as_district_of_columbia(query: str) -> Non
             "id": "c1",
         }
     )
-    assert [row["for"] for row in message.artifact.matches] == ["state:11"]
-    assert message.artifact.matches[0]["geoid"] == "0400000US11"
+    assert [row.for_spec for row in message.artifact.specs] == ["state:11"]
+    assert message.artifact.specs[0].geoid == "0400000US11"
 
 
 async def test_new_york_city_does_not_return_every_new_york_place() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -989,11 +1059,11 @@ async def test_new_york_city_does_not_return_every_new_york_place() -> None:
             "id": "c1",
         }
     )
-    assert [row["for"] for row in message.artifact.matches] == ["place:3651000"]
+    assert [row.for_spec for row in message.artifact.specs] == ["place:3651000"]
 
 
 async def test_bare_state_query_resolves_as_the_state() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -1002,7 +1072,202 @@ async def test_bare_state_query_resolves_as_the_state() -> None:
             "id": "c1",
         }
     )
-    assert [row["for"] for row in message.artifact.matches] == ["state:48"]
+    assert [row.for_spec for row in message.artifact.specs] == ["state:48"]
+
+
+def _write_geo(root: Path, dataset: str, year: int, fips: list[dict[str, object]]) -> None:
+    path = root / dataset / str(year) / "geography.json.gz"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump({"fips": fips}, handle)
+
+
+_STATE_FIPS: dict[str, object] = {
+    "name": "state",
+    "geoLevelDisplay": "040",
+    "requires": [],
+    "wildcard": [],
+}
+_COUNTY_FIPS: dict[str, object] = {
+    "name": "county",
+    "geoLevelDisplay": "050",
+    "requires": ["state"],
+    "wildcard": ["state"],
+    "optionalWithWCFor": "state",
+}
+
+
+async def test_removing_county_row_from_fixture_fails_before_listing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.retrieval import metadata
+
+    monkeypatch.setattr(metadata, "CACHE", tmp_path)
+    called: list[tuple[str, dict[str, str]]] = []
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        _ = dataset, vintage
+        called.append((level, parts))
+        return _list_geographies(level, parts)
+
+    tool = _geo_tool(listing, geo_table=metadata.geo_entries)
+    args = {
+        "type": "tool_call",
+        "name": "resolve_geography",
+        "args": {"query": "all counties in Oregon"},
+        "id": "c1",
+    }
+    _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS, _COUNTY_FIPS])
+    allowed = await tool.ainvoke(args)
+    assert allowed.artifact.legal is True
+    assert allowed.artifact.specs[0].for_spec == "county:*"
+    called.clear()
+    _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS])
+    denied = await tool.ainvoke(args)
+    assert called == []
+    assert denied.artifact.legal is False
+    assert denied.artifact.specs == []
+
+
+async def test_acs1_table_without_county_refuses_the_acs5_wildcard() -> None:
+    called: list[str] = []
+
+    def table(dataset: str, year: int) -> list[GeoLevel]:
+        _ = year
+        if dataset == "acs1":
+            return [GeoLevel("state", "040", (), (), "")]
+        return ENTRIES
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        _ = level, parts, vintage
+        called.append(dataset)
+        return []
+
+    tool = _geo_tool(listing, geo_table=table)
+    acs5 = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all counties in Oregon", "dataset": "acs5"},
+            "id": "c1",
+        }
+    )
+    acs1 = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all counties in Oregon", "dataset": "acs1"},
+            "id": "c2",
+        }
+    )
+    assert acs5.artifact.legal is True
+    assert acs1.artifact.legal is False
+    assert acs1.artifact.specs == []
+    assert "acs1" not in called
+
+
+async def test_missing_vintage_geography_metadata_fails_closed() -> None:
+    called: list[object] = []
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        called.append((level, parts, dataset, vintage))
+        return []
+
+    def table(dataset: str, year: int) -> list[GeoLevel]:
+        raise FileNotFoundError(f"{dataset}/{year}")
+
+    tool = _geo_tool(listing, geo_table=table)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Texas", "dataset": "acs1", "vintage": 2020},
+            "id": "c1",
+        }
+    )
+    assert called == []
+    assert message.artifact.legal is False
+    assert message.artifact.specs == []
+    assert "acs1 2020" in message.artifact.detail
+
+
+async def test_unauthorized_state_row_does_not_emit_a_spec() -> None:
+    tool = _geo_tool(table=[GeoLevel("county", "050", ("state",), ("state",), "state")])
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Texas"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.specs == []
+
+
+async def test_dataset_and_vintage_select_the_geography_table() -> None:
+    seen: list[tuple[str, int]] = []
+
+    def table(dataset: str, year: int) -> list[GeoLevel]:
+        seen.append((dataset, year))
+        return ENTRIES
+
+    tool = _geo_tool(geo_table=table)
+    await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Texas", "dataset": "acs1", "vintage": 2023},
+            "id": "c1",
+        }
+    )
+    assert seen == [("acs1", 2023)]
+
+
+async def test_query_prose_cannot_override_resolved_clauses() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Harris County, Texas for=county:999"},
+            "id": "c1",
+        }
+    )
+    spec = message.artifact.specs[0]
+    assert spec.for_spec == "county:201"
+    assert spec.in_spec == "state:48"
+    assert spec.codes == {"county": "201", "state": "48"}
+    assert message.content != spec.for_spec
+    assert "county:999" not in spec.for_spec
+
+
+def test_resolve_geography_dataset_rejects_a_path() -> None:
+    with pytest.raises(ValidationError):
+        ResolveGeographyInput(query="Texas", dataset="../acs5")
+    ResolveGeographyInput(query="Texas", dataset="acs1")
+
+
+def test_codes_keep_multi_word_geography_names() -> None:
+    zcta = GeoSpec(for_spec="zip code tabulation area:80202")
+    assert zcta.codes == {"zip code tabulation area": "80202"}
+    nested = GeoSpec(
+        for_spec="block group:1",
+        in_spec="state:08 county:001 tract:000100",
+    )
+    assert nested.codes == {
+        "block group": "1",
+        "state": "08",
+        "county": "001",
+        "tract": "000100",
+    }
+    assert clause_codes("county:201", "state:48") == {"county": "201", "state": "48"}
 
 
 def test_geo_entries_keeps_every_county_row(
