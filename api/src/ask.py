@@ -19,7 +19,7 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.census_url import CensusURL, redact_text
-from src.contract import Alternative, AskResponse
+from src.contract import Alternative, AskResponse, GeoSpec
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.geo import ResolveGeographyTool, list_census_names
 from src.guards import evaluate
@@ -42,8 +42,8 @@ CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[di
 @dataclass
 class ExecutionRecord:
     pool: list[dict[str, Any]] = field(default_factory=list)
-    geography: dict[str, str] | None = None
-    geographies: list[dict[str, str]] = field(default_factory=list)
+    geography: GeoSpec | None = None
+    geographies: list[GeoSpec] = field(default_factory=list)
     url: CensusURL | None = None
     table_id: str = ""
     universe: str = ""
@@ -74,13 +74,13 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         )
         record.pool = list(hits)
     elif name == "resolve_geography":
-        matches = artifact.matches if hasattr(artifact, "matches") else artifact.get("matches", [])
         previous = record.geography
-        record.geographies = [dict(match) for match in matches]
-        legal = artifact.legal if hasattr(artifact, "legal") else artifact.get("legal", True)
-        detail = artifact.detail if hasattr(artifact, "detail") else artifact.get("detail", "")
-        record.geo_status = {"legal": bool(legal), "detail": str(detail or "")}
-        record.geography = dict(matches[0]) if matches else None
+        record.geographies = list(getattr(artifact, "specs", None) or [])
+        record.geo_status = {
+            "legal": bool(getattr(artifact, "legal", True)),
+            "detail": str(getattr(artifact, "detail", "") or ""),
+        }
+        record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
             clear_series(record)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
@@ -240,7 +240,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                         ),
                     )
                 )
-    fallback = (record.geography or {}).get("geoid") or ""
+    fallback = record.geography.geoid if record.geography else ""
     rows = _rows_with_geoid(record.rows, fallback)
     return AskResponse(
         answer=answer,
@@ -354,20 +354,18 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         return table if isinstance(table, dict) else None
 
     key = os.environ.get("CENSUS_API_KEY", "")
-    entries = metadata.geo_entries("acs5", acs5)
     return {
         "search_tables": SearchTablesTool(search=search, describe=describe),
         "resolve_geography": ResolveGeographyTool(
-            list_geographies=lambda level, parts: list_census_names(
-                level, parts, vintage=acs5, key=key
+            list_geographies=lambda level, parts, dataset="acs5", vintage=2024: list_census_names(
+                level, parts, dataset=dataset, vintage=vintage, key=key
             ),
-            entries=entries,
+            geo_table=metadata.geo_entries,
+            latest_vintage=latest,
         ),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: _allowed(record),
-            allowed_geographies=lambda: {
-                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
-            },
+            allowed_geographies=lambda: {(geo.for_spec, geo.in_spec) for geo in record.geographies},
             latest_vintage=latest,
             table_facts=facts,
             last_geography=lambda: record.geography,

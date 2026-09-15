@@ -16,6 +16,7 @@ from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
 from src.census_url import CENSUS_API, CensusURL
+from src.contract import GeoSpec
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput, ToolResult
 
@@ -114,13 +115,20 @@ _NOISE = frozenset(
 
 
 class ResolveGeographyResult(ToolResult):
-    matches: list[dict[str, str]]
+    specs: list[GeoSpec]
     wildcard: bool
     legal: bool
     detail: str
 
 
-ListGeographies = Callable[[str, dict[str, str]], list[dict[str, str]]]
+ListGeographies = Callable[..., list[dict[str, str]]]
+GeoTable = Callable[[str, int], list[GeoLevel]]
+LatestVintage = Callable[[str], int]
+
+
+def _fail(detail: str, *, wildcard: bool = False) -> tuple[str, ResolveGeographyResult]:
+    result = ResolveGeographyResult(specs=[], wildcard=wildcard, legal=False, detail=detail)
+    return detail, result
 
 
 def legal_predicate(
@@ -285,31 +293,35 @@ class ResolveGeographyTool(BaseTool):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     list_geographies: ListGeographies
-    entries: list[GeoLevel]
+    geo_table: GeoTable
+    latest_vintage: LatestVintage
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("resolve_geography is async-only")
 
     async def _arun(
-        self, query: str, level: str | None = None
+        self,
+        query: str,
+        level: str | None = None,
+        dataset: str = "acs5",
+        vintage: int | None = None,
     ) -> tuple[str, ResolveGeographyResult]:
+        year = vintage if vintage is not None else self.latest_vintage(dataset)
+        try:
+            entries = self.geo_table(dataset, year)
+        except (OSError, ValueError, TypeError, KeyError):
+            return _fail(f"no geography metadata for {dataset} {year}")
         wildcard_match = _WILDCARD.search(query)
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query
         state = find_state(parent_text)
-        known = {entry.name for entry in self.entries}
+        known = {entry.name for entry in entries}
         if level:
             for_level = _LEVELS.get(level.casefold())
             if for_level is None:
                 for_level = level if level in known else None
             if for_level is None:
-                result = ResolveGeographyResult(
-                    matches=[],
-                    wildcard=False,
-                    legal=False,
-                    detail=f"unknown geography level {level!r}",
-                )
-                return result.detail, result
+                return _fail(f"unknown geography level {level!r}")
         else:
             for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
         if for_level is None:
@@ -323,18 +335,18 @@ class ResolveGeographyTool(BaseTool):
         if for_level != "state" and state is not None:
             in_parts["state"] = state[1]
         if for_level == "state" and state is not None:
-            predicate = legal_predicate("state", frozenset(), wildcard=False, entries=self.entries)
-            match = {
-                "name": state[0].title(),
-                "level": "state",
-                "for": f"state:{state[1]}",
-                "in": "",
-                "geoid": f"0400000US{state[1]}",
-            }
-            result = ResolveGeographyResult(
-                matches=[match], wildcard=False, legal=predicate is not None, detail=""
+            if legal_predicate("state", frozenset(), wildcard=False, entries=entries) is None:
+                return _fail("state with in={} is not a legal combination")
+            spec = GeoSpec(
+                level="state",
+                name=state[0].title(),
+                for_spec=f"state:{state[1]}",
+                geoid=f"0400000US{state[1]}",
+                dataset=dataset,
+                vintage=year,
             )
-            return f"1 geography: {match['for']}", result
+            result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
+            return f"1 geography: {spec.for_spec}", result
 
         parent_level = detect_level(parent_text) if wildcard else None
         extra = (
@@ -343,21 +355,17 @@ class ResolveGeographyTool(BaseTool):
             else set()
         )
         if extra:
-            result = ResolveGeographyResult(
-                matches=[],
+            return _fail(
+                f"{for_level} nested in unresolved {', '.join(sorted(extra))}",
                 wildcard=wildcard,
-                legal=False,
-                detail=f"{for_level} nested in unresolved {', '.join(sorted(extra))}",
             )
-            return result.detail, result
         in_names = frozenset(in_parts) | extra
         predicate = legal_predicate(
-            for_level, in_names, wildcard=wildcard or not in_parts, entries=self.entries
+            for_level, in_names, wildcard=wildcard or not in_parts, entries=entries
         )
-        # National listing uses state:* when the level needs a state and none was named.
         list_in = dict(in_parts)
         state_wildcard = legal_predicate(
-            for_level, frozenset({"state"}), wildcard=True, entries=self.entries
+            for_level, frozenset({"state"}), wildcard=True, entries=entries
         )
         if (
             not list_in
@@ -367,50 +375,52 @@ class ResolveGeographyTool(BaseTool):
             list_in = {"state": "*"}
             if predicate is None:
                 predicate = state_wildcard
-
+        if predicate is None:
+            return _fail(
+                f"{for_level} with in={dict(in_parts)} is not a legal combination",
+                wildcard=wildcard,
+            )
         if wildcard:
-            if predicate is None:
-                result = ResolveGeographyResult(
-                    matches=[],
-                    wildcard=True,
-                    legal=False,
-                    detail=f"{for_level} with in={dict(in_parts)} is not a legal combination",
-                )
-                return result.detail, result
             parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
-            match = {
-                "name": query.strip(),
-                "level": for_level,
-                "for": f"{for_level}:*",
-                "in": parent,
-                "geoid": "",
-            }
-            result = ResolveGeographyResult(matches=[match], wildcard=True, legal=True, detail="")
-            return f"wildcard {match['for']} {match['in']}".strip(), result
+            spec = GeoSpec(
+                level=for_level,
+                name=query.strip(),
+                for_spec=f"{for_level}:*",
+                in_spec=parent,
+                dataset=dataset,
+                vintage=year,
+            )
+            result = ResolveGeographyResult(specs=[spec], wildcard=True, legal=True, detail="")
+            return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
 
-        rows = await asyncio.to_thread(self.list_geographies, for_level, list_in)
+        rows = await asyncio.to_thread(
+            self.list_geographies, for_level, list_in, dataset=dataset, vintage=year
+        )
         token = place_token(query, state[0] if state else None)
         matched = rank_matches(filter_rows(token, rows))
         if not matched and token:
-            # Whole-question queries still contain the place as a substring.
             matched = rank_matches(filter_rows(token.split()[-1], rows) if token.split() else [])
-        legal = predicate is not None
-        if not legal:
-            detail = f"{for_level} with in={dict(in_parts)} is not a legal combination"
-        elif not matched:
-            detail = f"no {for_level} matched {query!r}"
-        else:
-            detail = ""
-        result = ResolveGeographyResult(matches=matched, wildcard=False, legal=legal, detail=detail)
-        if len(matched) > 1:
-            pick = matched[0]
+        specs = [
+            GeoSpec(
+                level=row["level"],
+                name=row["name"],
+                for_spec=row["for"],
+                in_spec=row.get("in", ""),
+                geoid=row.get("geoid", ""),
+                dataset=dataset,
+                vintage=year,
+            )
+            for row in matched
+        ]
+        detail = f"no {for_level} matched {query!r}" if not specs else ""
+        result = ResolveGeographyResult(specs=specs, wildcard=False, legal=True, detail=detail)
+        if len(specs) > 1:
+            pick = specs[0]
             summary = (
-                f"selected {pick['for']} {pick.get('in', '')}; {len(matched) - 1} alternatives"
+                f"selected {pick.for_spec} {pick.in_spec}; {len(specs) - 1} alternatives"
             ).strip()
-        elif matched:
-            summary = f"1 geography: {matched[0]['for']} {matched[0].get('in', '')}".strip()
+        elif specs:
+            summary = f"1 geography: {specs[0].for_spec} {specs[0].in_spec}".strip()
         else:
             summary = f"0 {for_level} candidates"
-        if detail:
-            summary = detail
-        return summary, result
+        return (detail or summary), result
