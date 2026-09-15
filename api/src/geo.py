@@ -337,7 +337,9 @@ class ResolveGeographyTool(BaseTool):
                 for_level = "place"
         in_parts: dict[str, str] = {}
         if for_level != "state" and state is not None:
-            in_parts["state"] = state[1]
+            host = place_token(parent_text, state[0]) if wildcard else state[0]
+            if not host or host == state[0]:
+                in_parts["state"] = state[1]
         if for_level == "state" and state is not None:
             predicate = legal_predicate("state", frozenset(), wildcard=False, entries=self.entries)
             match = {
