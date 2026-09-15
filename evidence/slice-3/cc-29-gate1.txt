@@ -1,0 +1,47 @@
+# Gate 1 — CC-29 combined (CC-60 + CC-61 on feat/cc-29-series-guards)
+# commit: 32749b2
+
+Child mutation transcripts (already exist; not re-run on this umbrella):
+- evidence/slice-3/cc-61-gate1.txt
+- evidence/slice-3/cc-61-gate1-fix.txt
+- evidence/slice-3/cc-60-gate1.txt
+- evidence/slice-3/cc-60-gate1-fix.txt
+
+This run is the combined suite only. No new tests added; no new mutations invented.
+
+## GOOD — uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2670 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+
+exit=0
+
+## GOOD — uv run pytest -q -m "not integration" --tb=line
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+242 passed in 3.94s
+
+exit=0
+
+## GOOD — uv run pytest -q api/tests/test_guards.py --tb=short
+.............................................                            [100%]
+45 passed in 0.29s
+
+exit=0
