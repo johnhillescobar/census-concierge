@@ -1,0 +1,239 @@
+CC-61 Gate 2 — cold review
+branch: feat/cc-61-aggregation
+HEAD: 409fd70
+base: origin/main
+diff: git diff origin/main...HEAD
+
+Files touched (10):
+  api/src/ask.py
+  api/src/contract.py
+  api/src/guards.py
+  api/tests/test_guards.py
+  docs/ARCHITECTURE.md
+  evidence/slice-3/cc-61-gate1.txt
+  evidence/slice-3/cc-61-preflight-claims.md
+  evidence/slice-3/cc-61-preflight.txt
+  packages/client/openapi.json
+  packages/client/schema.d.ts
+
+Working tree during machines: uncommitted test-fixture extraction
+(api/tests/ask_fixtures.py and imports in test_ask_tools.py /
+test_ask_loop.py / test_guards.py) was stashed so pytest ran against HEAD,
+then restored. Not part of this diff.
+
+==============================================================================
+Pass 1 — generic bugs
+code only; no knowledge of intent
+==============================================================================
+
+1. combine_additive sums every row as an area, including year copies
+   fetch_data already concatenates year-tagged rows (`item["year"] = str(year)`).
+   combine_additive walks the whole list and RSS-sums any E/M pair with no
+   partition on `year` or GEO_ID. A combine-intent question whose fetch also
+   fanned years (N areas × Y vintages) reports `combined (N*Y areas)` and a
+   total that is the sum of vintages, not of areas. The appended row looks
+   like a correct combined estimate.
+
+2. combined row has no GEO_ID
+   assemble runs _rows_with_geoid, then finish_aggregation appends the
+   combined dict. That dict sets NAME / MOE_formula / component_count and
+   the E/M totals; it never sets GEO_ID. _moe_rows therefore emits a last
+   moe object without GEO_ID either. contract.py still says each row carries
+   GEO_ID. ARCHITECTURE.md still says assemble "puts AFFGEOID GEO_ID on
+   every row." Tests assert "GEO_ID" not in combined.
+
+3. component_count is a union across variables
+   contributing is a set of row indexes that had a valid E+M pair for any
+   estimate key. Each key's sum/RSS uses only that key's pairs. One variable
+   can be summed over 2 rows while NAME says combined (6 areas).
+
+4. any non-median E/M pair is treated as additive
+   _median_measure is the only skip. Rate, percent, mean, per-capita, and
+   other derived measures that match _COMBINE are summed and RSS-combined
+   the same way as counts.
+
+5. _COMBINE matches the word "combined" anywhere
+   `\bcombined\b` fires on "combined statistical area" (and similar). A
+   multi-row fetch for that question gets a combined row it did not ask for.
+   Single-row fetches are unaffected (len(pairs) < 2).
+
+6. B19001 is hardcoded on every median-combine warning
+   median_not_aggregatable.detail always names B19001 household-income
+   brackets. finish_aggregation always injects Alternative(B19001) when that
+   warning fires and the pool did not already list it. Selected table can be
+   some other median (age, rent, …).
+
+Nothing else on this pass. No crash, no uncaught None on the new path, no
+double-append of the combined row, no numbers routed through the model.
+
+==============================================================================
+Pass 2 — docs/playbooks/review-pr.md
+==============================================================================
+
+Machines first (Python gates all exit 0). Web tests also ran; they did not
+hit EBUSY on this machine.
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2570 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           397 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . && uv run ruff format --check . ==========
+
+uv run ruff check .
+All checks passed!
+exit: 0
+
+uv run ruff format --check .
+94 files already formatted
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 20 source files
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 95%]
+...........                                                              [100%]
+227 passed in 4.47s
+exit: 0
+
+========== npm --prefix web ci && npm --prefix web test && npm --prefix web run typecheck ==========
+
+npm --prefix web ci
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 177 packages, and audited 178 packages in 9s
+
+33 packages are looking for funding
+  run `npm fund` for details
+
+2 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+exit: 0
+
+npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 7ms
+ ✓ src/display.test.ts (14 tests) 15ms
+ ✓ src/App.test.tsx (15 tests) 889ms
+
+ Test Files  3 passed (3)
+      Tests  32 passed (32)
+   Start at  21:41:28
+   Duration  5.69s (transform 171ms, setup 911ms, collect 644ms, tests 911ms, environment 3.11s, prepare 597ms)
+
+exit: 0
+
+npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+
+exit: 0
+
+========== machines summary ==========
+any_nonzero: 0
+check_invariants --base: no violations (budget not weakened)
+
+The claim
+What a user can do now: ask for a total across several areas and get either
+a declined median (component rows kept, B19001 offered) or an appended row
+whose estimates are sums and whose margins are sqrt(sum(MOE_i^2)), with
+moe_aggregation_degraded when more than five areas contribute.
+
+Evidence: Gate 1 mutation transcript is in evidence/slice-3/cc-61-gate1.txt.
+This gate did not run make eval / make demo; those are the next pipeline
+phase. latest.json numbers are unchanged (answered_rate 0.803, p95 14.164s).
+
+Scope
+Belongs to slice 3 aggregation (PLAN.md: estimates sum, MOEs RSS, medians
+declined, warn past a handful of areas). Not in this slice: charts, memory,
+PDF, auth, new tool, new route, graph node — none of those appear.
+10 files, under ~15. No drive-by: contract description, generated client,
+and ARCHITECTURE.md track the two new warning codes.
+
+Silent-wrong-answer review
+- URL: still series_from_record / CensusURL. No new URL formatter. &key=
+  redaction unchanged.
+- MOE: combined row carries matching M via RSS; _moe_rows runs on the
+  post-combine list. Component rows unchanged.
+- GEOID: component rows still get GEO_ID; the combined row does not
+  (pass 1 #2). Top-level geoid still uses the selected-geography fallback.
+- Universe: still selected table universe. Unchanged.
+- Numbers do not pass back through the model; combine happens in assemble.
+- Guards warn and ship. median_not_aggregatable does not block; it skips
+  the combined row and returns the fetched rows.
+- No silent geography or vintage substitution.
+- Pass 1 #1 is a silent wrong number: series rows are summed as extra areas.
+  That blocks this pass.
+
+Shape
+No new tool, route, Pydantic model, or .add_node(). Two guards on the
+existing evaluate() loop; finish_aggregation is the assemble hook.
+ARCHITECTURE.md updated in the same commit, but still claims GEO_ID on
+every row (pass 1 #2).
+
+Tests
+Behavior, not wording. No prompt/LLM prose asserts. New cases live in
+test_guards.py and build ExecutionRecord directly (no search fake that
+returns one table for every input). A new test file is not claimed as
+evidence. make demo is not in this gate.
+
+==============================================================================
+Verdict: not yet
+==============================================================================
+
+Most important reason first: combine_additive sums fetch_data's year-tagged
+row list as if every row were a distinct area, so a combine-intent series
+fetch silently reports a multi-vintage total as a combined-area estimate.
+
+Other findings (do not ship around the one above):
+- combined row omits GEO_ID while the contract and ARCHITECTURE.md say
+  every row carries it
+- component_count can overstate how many areas entered a given variable
+- non-median derived measures (rates, percentages, means) are summed
+- `\bcombined\b` matches "combined statistical area"
+- B19001 is injected for every median-combine, not only household income

@@ -6,6 +6,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from ask_fixtures import ENTRIES, _describe, _list_geographies, _search, _tools
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse
@@ -13,42 +14,6 @@ from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
 from src.tools import BuildUrlTool, SearchTablesTool
 from test_ask_route import CONTRACT_FIELDS
-from test_ask_tools import ENTRIES, _describe, _list_geographies, _search
-
-
-def _tools(record: ExecutionRecord) -> dict[str, Any]:
-    facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
-    return {
-        "search_tables": SearchTablesTool(search=_search, describe=_describe),
-        "resolve_geography": ResolveGeographyTool(
-            list_geographies=_list_geographies, entries=ENTRIES
-        ),
-        "build_url": BuildUrlTool(
-            allowed_tables=lambda: (
-                {hit["table_id"] for hit in record.pool}
-                | {member for hit in record.pool for member in hit.get("members") or []}
-            ),
-            latest_vintage=lambda dataset: 2024,
-            table_facts=lambda dataset, year, table_id: (
-                facts.get(dataset, {}).get(year, {}).get(table_id)
-            ),
-            last_geography=lambda: record.geography,
-            allowed_geographies=lambda: {
-                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
-            },
-        ),
-        "fetch_data": FetchDataTool(
-            last_url=lambda: record.url,
-            census_key=lambda: "secret",
-            http_get=lambda url: (
-                200,
-                [
-                    ["NAME", "B01003_001E", "B01003_001M", "GEO_ID", "state", "county"],
-                    ["Harris County, Texas", "4838303", "123", "0500000US48201", "48", "201"],
-                ],
-            ),
-        ),
-    }
 
 
 async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:

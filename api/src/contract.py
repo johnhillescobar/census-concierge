@@ -63,7 +63,8 @@ class AskResponse(BaseModel):
         description="Per-year outcome in requested order, including failed legs."
     )
     rows: list[dict[str, str | None]] = Field(
-        description="Census rows as returned. Each row carries GEO_ID (AFFGEOID)."
+        description="Census rows as returned. Each row carries GEO_ID (AFFGEOID); "
+        "empty when the row is a combined total rather than a published area."
     )
     moe: list[dict[str, str | None]] = Field(
         description="Per-row 90% margins, keyed to each estimate's matching M variable."
@@ -78,5 +79,6 @@ class AskResponse(BaseModel):
     )
     warnings: list[AskWarning] = Field(
         description="Non-blocking guards: overlapping_vintage, moe_not_significant, "
-        "geography_unsupported, ambiguous_place, universe_mismatch."
+        "geography_unsupported, ambiguous_place, universe_mismatch, "
+        "median_not_aggregatable, moe_aggregation_degraded."
     )

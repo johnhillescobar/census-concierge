@@ -1,0 +1,131 @@
+# Gate 1 — CC-61
+
+## GOOD — new tests against the implementation
+..........                                                               [100%]
+10 passed in 0.41s
+exit=0
+
+## BAD — one behaviour reverted at a time
+
+### omit median_not_aggregatable from evaluate
+Test: test_median_combine_warns_without_fetched_rows
+Verdict: BAD  exit=1
+E         
+E         Right contains one more item: 'median_not_aggregatable'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:292: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_median_combine_warns_without_fetched_rows
+1 failed in 0.54s
+
+### still combine after a median warning (do not decline the row)
+Test: test_combined_median_is_not_invented
+Verdict: BAD  exit=1
+E         
+E         Left contains one more item: None
+E         Use -v to get more diff
+
+api\tests\test_guards.py:336: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_combined_median_is_not_invented - Asser...
+1 failed in 0.52s
+
+### inject B19001 even when the pool already offered it
+Test: test_bracket_alternative_is_not_duplicated
+Verdict: BAD  exit=1
+E       AssertionError: assert 2 == 1
+E        +  where 2 = <built-in method count of list object at 0x000001B279341300>('B19001')
+E        +    where <built-in method count of list object at 0x000001B279341300> = ['B19001', 'B19001'].count
+
+api\tests\test_guards.py:359: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_bracket_alternative_is_not_duplicated
+1 failed in 0.60s
+
+### linear sum of MOEs instead of RSS
+Test: test_combined_margin_is_rss_not_linear
+Verdict: BAD  exit=1
+E         
+E         - 13
+E         + 19
+
+api\tests\test_guards.py:373: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_combined_margin_is_rss_not_linear - Ass...
+1 failed in 0.58s
+
+### degraded warning fires at five areas (n >= 5)
+Test: test_five_areas_combine_without_degraded_warning
+Verdict: BAD  exit=1
+E         
+E         Left contains one more item: AskWarning(code='moe_aggregation_degraded', detail='combined MOE uses sqrt(sum(MOE_i^2)) over 5 component areas; the approximation degrades past a handful of areas')
+E         Use -v to get more diff
+
+api\tests\test_guards.py:384: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_five_areas_combine_without_degraded_warning
+1 failed in 0.62s
+
+### omit moe_aggregation_degraded from evaluate
+Test: test_six_areas_warn_and_keep_the_rss_total
+Verdict: BAD  exit=1
+E         
+E         Right contains one more item: 'moe_aggregation_degraded'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:395: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_six_areas_warn_and_keep_the_rss_total
+1 failed in 0.53s
+
+### treat sentinel E/M as zero
+Test: test_sentinel_area_is_dropped_not_zeroed
+Verdict: BAD  exit=1
+E         
+E         Left contains one more item: AskWarning(code='moe_aggregation_degraded', detail='combined MOE uses sqrt(sum(MOE_i^2)) over 6 component areas; the approximation degrades past a handful of areas')
+E         Use -v to get more diff
+
+api\tests\test_guards.py:411: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_sentinel_area_is_dropped_not_zeroed - A...
+1 failed in 0.39s
+
+### treat a missing margin as zero
+Test: test_area_without_a_margin_is_not_a_component
+Verdict: BAD  exit=1
+E         
+E         - 20
+E         + 30
+
+api\tests\test_guards.py:425: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_area_without_a_margin_is_not_a_component
+1 failed in 0.46s
+
+### emit a zero combined row when every input is a sentinel
+Test: test_all_sentinel_inputs_produce_no_combined_row
+Verdict: BAD  exit=1
+E         
+E         Left contains one more item: None
+E         Use -v to get more diff
+
+api\tests\test_guards.py:438: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_all_sentinel_inputs_produce_no_combined_row
+1 failed in 0.44s
+
+### combine every multi-row fetch, ignoring question intent
+Test: test_wildcard_listing_is_not_combined
+Verdict: BAD  exit=1
+E       AssertionError: assert 7 == 6
+E        +  where 7 = len([{'GEO_ID': 'g0', 'B01003_001E': '10', 'B01003_001M': '3'}, {'GEO_ID': 'g1', 'B01003_001E': '10', 'B01003_001M': '4'},...EO_ID': 'g4', 'B01003_001E': '10', 'B01003_001M': '0'}, {'GEO_ID': 'g5', 'B01003_001E': '10', 'B01003_001M': '0'}, ...])
+E        +    where [{'GEO_ID': 'g0', 'B01003_001E': '10', 'B01003_001M': '3'}, {'GEO_ID': 'g1', 'B01003_001E': '10', 'B01003_001M': '4'},...EO_ID': 'g4', 'B01003_001E': '10', 'B01003_001M': '0'}, {'GEO_ID': 'g5', 'B01003_001E': '10', 'B01003_001M': '0'}, ...] = AskResponse(answer='listed', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[], omi...': 'combined (6 areas)', 'B01003_001M': '13'}], geoid='', universe='', table_id='B01003', alternatives=[], warnings=[]).rows
+
+api\tests\test_guards.py:448: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_wildcard_listing_is_not_combined - Asse...
+1 failed in 0.50s
+
+## restore
+guards.py restored; rss test exit=0

@@ -1,0 +1,273 @@
+CC-61 Gate 2 rerun — cold review of CURRENT HEAD
+branch: feat/cc-61-aggregation
+HEAD: 56a3a9e0c4b88e19380e948ab07e7249b4e571bc
+base: origin/main
+prior Gate 2 HEAD: 409fd70
+fix commit: 56a3a9e fix(api): combine additive totals within each vintage (CC-61)
+diff: git diff origin/main...HEAD
+working tree: clean
+
+Files touched (15):
+  api/src/ask.py
+  api/src/contract.py
+  api/src/guards.py
+  api/tests/ask_fixtures.py
+  api/tests/test_ask_loop.py
+  api/tests/test_ask_tools.py
+  api/tests/test_guards.py
+  docs/ARCHITECTURE.md
+  evidence/slice-3/cc-61-gate1-fix.txt
+  evidence/slice-3/cc-61-gate1.txt
+  evidence/slice-3/cc-61-gate2.txt
+  evidence/slice-3/cc-61-preflight-claims.md
+  evidence/slice-3/cc-61-preflight.txt
+  packages/client/openapi.json
+  packages/client/schema.d.ts
+
+This is the one allowed re-run after a non-trivial fix. No E2E. No PR.
+
+==============================================================================
+Pass 1 — generic bugs
+code only; no knowledge of intent
+==============================================================================
+
+Prior finding 1 (year-tagged rows summed as extra areas): GONE.
+combine_additive groups by row["year"] and _combine_group runs per vintage.
+A 3-area × 2-year list appends two combined rows (one per year), each
+summing 3 areas. Untagged rows share the empty year key (single-vintage
+path). Tests: test_year_tagged_rows_combine_within_vintage_not_across.
+
+Prior finding 2 (combined row omits GEO_ID; contract claimed every row
+has one): GONE.
+_combine_group sets GEO_ID to "". contract.py, openapi.json, schema.d.ts,
+and ARCHITECTURE.md say empty on a combined total. Tests assert
+combined["GEO_ID"] == "". _moe_rows copies the empty GEO_ID because the
+key is present.
+
+Prior finding 3 (component_count is a union across variables): REMAINS.
+contributing is still one set of area ids over every estimate key. A
+variable present on 2 of 6 rows is still labelled combined (6 areas)
+while its sum/RSS used only those 2 pairs.
+
+Prior finding 4 (any non-median E/M pair treated as additive): PARTLY.
+_additive_measure skips median and _DERIVED (mean|average|percent|rate|
+per capita) on the question or selected title. Unemployment-rate
+"across every" no longer sums. Ratio / index / share / density, and
+hyphenated "per-capita", are not in _DERIVED; those E/M pairs still
+sum if _COMBINE matches. Skipping derived emits no warning (unlike
+median_not_aggregatable) — component rows only.
+
+Prior finding 5 (_COMBINE matches "combined" anywhere, including
+combined statistical area): GONE.
+\bcombined\b removed. "Population of the Dallas combined statistical
+area by county" does not append a total.
+Cost: a question that only says "combined" (no aggregat* / across every
+/ across these / total…across) never combines.
+
+Prior finding 6 (B19001 on every median-combine): GONE.
+Alternative and the B19001 sentence fire only when table_id startswith
+B19013. Rent median (B25064) declines without offering income brackets.
+
+New on the fix commit (nothing that invents a number):
+
+7. evaluate(moe_aggregation_degraded) walks record.rows; finish_aggregation
+   combines the _rows_with_geoid copy. If GEO_ID were missing and a
+   selected-geography fallback were set, every row would share that
+   GEO_ID, contributing would collapse to 1, and the combined row would
+   be dropped while the warning could still fire. build_url always
+   requests GEO_ID; not the live path.
+
+Nothing else on this pass. No crash, no uncaught None, no double-append,
+no numbers routed through the model. The prior blocker (multi-vintage
+sum reported as a combined-area estimate) is gone.
+
+==============================================================================
+Pass 2 — docs/playbooks/review-pr.md
+==============================================================================
+
+Machines first. All Python gates exit 0. Web tests ran; npm ci did not
+hit EBUSY.
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2614 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           397 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . && uv run ruff format --check . ==========
+
+uv run ruff check .
+All checks passed!
+exit: 0
+
+uv run ruff format --check .
+95 files already formatted
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 20 source files
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 93%]
+...............                                                          [100%]
+231 passed in 5.85s
+exit: 0
+
+========== npm --prefix web ci && npm --prefix web test && npm --prefix web run typecheck ==========
+
+npm --prefix web ci
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 177 packages, and audited 178 packages in 20s
+
+33 packages are looking for funding
+  run `npm fund` for details
+
+2 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+exit: 0
+
+npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 42ms
+ ✓ src/display.test.ts (14 tests) 53ms
+ ✓ src/App.test.tsx (15 tests) 2358ms
+   ✓ App pane states > starts idle, with no Census URL  329ms
+
+ Test Files  3 passed (3)
+      Tests  32 passed (32)
+   Start at  21:53:33
+   Duration  8.21s (transform 268ms, setup 2.26s, collect 1.29s, tests 2.45s, environment 3.43s, prepare 413ms)
+
+exit: 0
+
+npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+(not in the playbook list; run because contract.py / openapi descriptions changed)
+
+packages/client is up to date.
+exit: 0
+
+========== machines summary ==========
+any_nonzero: 0
+check_invariants --base: no violations (budget not weakened)
+
+The claim
+What a user can do now: ask for a total across several areas and get
+either a declined median (component rows kept; B19001 offered only for
+B19013) or one appended row per vintage whose estimates are sums and
+whose margins are sqrt(sum(MOE_i^2)), with moe_aggregation_degraded
+when more than five areas contribute in a vintage.
+
+Evidence: Gate 1 mutation transcript is in evidence/slice-3/cc-61-gate1.txt;
+fix mutations in evidence/slice-3/cc-61-gate1-fix.txt. This gate did not
+run make eval / make demo; those are the next pipeline phase.
+latest.json numbers are unchanged (answered_rate 0.803, p95 14.164s).
+
+Scope
+Belongs to slice 3 aggregation (PLAN.md: estimates sum, MOEs RSS, medians
+declined, warn past a handful of areas). Not in this slice: charts, memory,
+PDF, auth, new tool, new route, graph node — none of those appear.
+15 files, at the ~15 guideline. Extra vs the first Gate 2's 10: shared
+test fixtures (ask_fixtures.py + two import rewires) and two evidence
+files (prior gate2 + gate1-fix). No drive-by product code.
+
+Silent-wrong-answer review
+- URL: still series_from_record / CensusURL. No new URL formatter. &key=
+  redaction unchanged.
+- MOE: each combined row carries matching M via RSS; _moe_rows runs on
+  the post-combine list. Component rows unchanged. Sentinels dropped,
+  not zeroed.
+- GEOID: fetched rows still get GEO_ID; combined row carries empty
+  GEO_ID, now stated in the contract. Top-level geoid still uses the
+  selected-geography fallback.
+- Universe: still selected table universe. Unchanged.
+- Numbers do not pass back through the model; combine happens in assemble.
+- Guards warn and ship. median_not_aggregatable does not block; it skips
+  the combined row and returns the fetched rows. Derived skip is silent
+  (no warning) — not a substituted number.
+- No silent geography or vintage substitution.
+- Prior blocker (series rows summed as extra areas): gone.
+
+Shape
+No new tool, route, Pydantic model, or .add_node(). Two guards on the
+existing evaluate() loop; finish_aggregation is the assemble hook.
+ARCHITECTURE.md updated in the same commits. Status line still says
+B19001 is offered without limiting it to B19013; the code is narrower.
+generate_client --check clean.
+
+Tests
+Behavior, not wording. No prompt/LLM prose asserts. New cases live in
+test_guards.py and build ExecutionRecord directly. The shared search
+fake still returns different tables by keyword, not one table for every
+input. A new test file is not claimed as evidence. make demo is not in
+this gate.
+
+==============================================================================
+Verdict: ship it with follow-ups
+==============================================================================
+
+Most important remaining: component_count is still a union across
+variables, so NAME can overstate how many areas entered a given
+estimate. That is a misleading label, not a multi-vintage total.
+
+Follow-ups (none is a silent-wrong-answer block):
+- component_count / NAME union across variables (prior #3)
+- derived skip is keyword-only (ratio/index/share/density still sum) and
+  silent — no warning when a rate/percent is declined (prior #4 residual)
+- bare "combined" no longer triggers; "combined population of A and B"
+  without across/aggregate ships component rows only (cost of prior #5)
+- ARCHITECTURE status line still says B19001 is offered, unqualified
+- 15 files at the ~15 guideline; PR body needs the sentence (fixtures +
+  evidence, not a fifth tool)
+
+Prior Gate 2 blocker (year copies summed as areas) is gone. GEO_ID,
+CSA false-positive, and B19001-on-every-median are gone.
