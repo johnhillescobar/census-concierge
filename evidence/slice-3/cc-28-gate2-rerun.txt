@@ -1,0 +1,164 @@
+CC-28 Gate 2 rerun - machine gates
+branch: feat/cc-28-year-fanout
+HEAD: 92c7939
+base: origin/main
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               2443 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           393 <= 400
+  ok    web src LOC                818 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+[1;32mAll checks passed![0m
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+93 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+
+exit: 0
+
+========== uv run pytest -q -m not integration ==========
+
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+.......................................................................  [100%]
+215 passed in 3.87s
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmphc005mgl\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmphc005mgl\schema.d.ts [43ms]
+packages/client is up to date.
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+
+
+========== npm frontend ==========
+skipped: npm --prefix web ci (Dropbox EBUSY on web/node_modules)
+note: frontend tests already passed in a temp copy (evidence/slice-3/cc-28-gate1-fix.txt); not a gate failure
+
+========== Gate 2 cold review (rerun) ==========
+diff: origin/main...HEAD (92c7939)
+base HEAD of prior Gate 2: e26c98a
+fix commit: 92c7939 drop leftover build_url vintage from fetch years
+passes: generic bugs, then review-pr.md invariants
+code only; ticket text not used as intent in pass 1
+
+Pass 1 - generic bugs
+
+Prior finding 1 (leftover build_url vintage mixed into fetch years): GONE.
+_absorb now assigns record.vintages from artifact.attempted_years when that
+list is non-empty. build_url 2024 then fetch_data(years=[2022]) leaves
+vintages as [("acs5", 2022)] only. Tests:
+test_fetched_years_replace_the_built_template_vintage
+test_overlapping_fetched_years_still_warn
+A later build_url still appends without clearing vintages; a rebuild that
+is not followed by another fetch can keep prior attempted years on the
+record. That is not the happy path this fix targeted.
+
+Prior finding 2 (years list unbounded): REMAINS.
+MAX_IN_FLIGHT=5 is an asyncio.Semaphore. FetchDataInput.years has no
+max_length. test_three_legs_overlap_and_eight_never_exceed_five asserts
+eight years are all attempted. A long years list is N Census GETs
+(60s timeout each).
+
+Prior finding 3 (partial HTTP failure looks complete in the pane): PARTLY FIXED.
+Year column now shows when attempted_years.length > 1 (or distinct row years
+> 1), including one successful row plus a failed sibling year.
+censusFetchFailed is still urls.length>0 && rows.length===0, so any
+successful leg suppresses the fetch-failed notice. Failed/omitted years
+are not named in the pane; they remain on urls[] and legs[].
+
+Prior finding 4 (CensusURL.with_year no-op without /data/<digits>/): REMAINS.
+Fan-out would GET the same URL for every year. build_url always emits
+/data/<year>/acs/<dataset>, so this needs a non-build_url last_url to bite.
+
+Pass 2 - project invariants (docs/playbooks/review-pr.md)
+
+Machines: all seven commands exit 0 (output above). check_invariants --base
+origin/main reports no violations. Budgets not weakened. No new tool, route,
+or graph node. ARCHITECTURE.md updated. generate_client --check clean.
+Redaction stays on CensusURL; exception text goes through redact_text; the
+UI maps urls through redactCensusUrl. MOE/GEOID/universe still assemble on
+success and failure. Numbers stay in the fetch artifact; the model sees row
+counts and URLs. No blocking clarification. No silent geography repair.
+omitted_years OpenAPI description is "Requested years that were not
+attempted." It no longer names CC-31 (openapi.json and schema.d.ts).
+
+Claim: a user can pass years to fetch_data and get one redacted Census URL
+per attempted vintage on urls[], with per-leg year buckets, instead of a
+single url.
+
+Scope: slice 3 years fan-out. Vintage policy and omission reasons stay
+later (CC-31). Geography fan-out is still open in this slice. 28 files vs
+the ~15 guideline; implementation is fetch.py + url->urls[] + client + pane.
+The rest is tests, generated OpenAPI/TS, ARCHITECTURE.md, and evidence/.
+
+Evidence: this gate did not run make demo. p95 in latest.json is still
+14.164s.
+
+Findings for the PR body:
+
+1. Leftover build_url vintage on the build-then-fetch path: fixed in 92c7939.
+2. omitted_years OpenAPI no longer names CC-31: fixed.
+3. FetchDataInput.years has no upper bound (in-flight cap only). Follow-up.
+4. Mixed HTTP success still looks like a complete answer in the pane except
+   for the Year column and the extra URLs. Failed/omitted years are not
+   explained in the UI. Follow-up, not a missing-URL failure.
+5. CensusURL.with_year is a no-op if the path has no /data/<digits>/ segment.
+   Latent; build_url output does not hit it.
+6. 28 files vs ~15. PR body needs the sentence; extra year buckets are the
+   fan-out contract, not a fifth tool.
+
+Verdict: ship it with follow-ups
+Most important remaining: years list is unbounded; partial-failure copy in
+the pane is still incomplete. Neither is a silent-wrong-answer block.
+The prior Gate 2 blocker (false overlapping_vintage from the template year)
+is gone.
