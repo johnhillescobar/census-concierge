@@ -16,13 +16,17 @@ from src.contract import RequestLeg
 from src.tools import ToolInput, ToolResult
 
 MAX_IN_FLIGHT = 5
+MAX_YEARS = 12
 LastUrl = Callable[[], CensusURL | None]
 
 
 class FetchDataInput(ToolInput):
     years: list[int] = Field(
         default_factory=list,
-        description="Vintage end years to fetch, in order. Empty uses the URL already built.",
+        description=(
+            "Vintage end years to fetch, in order. Empty uses the URL already built. "
+            f"At most {MAX_YEARS}; extras are omitted."
+        ),
     )
 
 
@@ -159,6 +163,25 @@ def _pack(
     )
 
 
+def _tool_content(result: FetchDataResult) -> str:
+    joined = ", ".join(result.urls)
+    n_ok = len(result.succeeded_years)
+    n_legs = len(result.legs)
+    bits: list[str] = []
+    if result.ok:
+        bits.append(f"{len(result.rows)} rows; {n_ok}/{n_legs} years")
+    else:
+        bits.append("fetch failed")
+    if result.failed_years:
+        years = ",".join(str(year) for year in result.failed_years)
+        bits.append(f"failed {years} HTTP {result.status_code}")
+        if result.detail and not result.ok:
+            bits.append(result.detail)
+    if joined:
+        bits.append(f"URLs {joined}")
+    return "; ".join(bits)
+
+
 class FetchDataTool(BaseTool):
     name: str = "fetch_data"
     description: str = (
@@ -250,13 +273,15 @@ class FetchDataTool(BaseTool):
                 detail="call build_url before fetch_data",
             )
             return result.detail, result
+        attempted = requested[:MAX_YEARS]
+        omitted = requested[MAX_YEARS:]
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
 
         async def one(year: int) -> tuple[RequestLeg, list[dict[str, str | None]]]:
             async with sem:
                 return await asyncio.to_thread(self._fetch_one, built, year)
 
-        gathered = await asyncio.gather(*(one(year) for year in requested))
+        gathered = await asyncio.gather(*(one(year) for year in attempted))
         legs = [item[0] for item in gathered]
         rows: list[dict[str, str | None]] = []
         for leg, part in gathered:
@@ -264,9 +289,7 @@ class FetchDataTool(BaseTool):
                 rows.extend(part)
         ok = any(leg.ok for leg in legs)
         detail = next((leg.detail for leg in legs if not leg.ok), "")
-        result = _pack(ok=ok, legs=legs, rows=rows, requested=requested, omitted=[], detail=detail)
-        n_ok = len(result.succeeded_years)
-        joined = ", ".join(result.urls)
-        if ok:
-            return f"{len(rows)} rows; {n_ok}/{len(legs)} years; URLs {joined}", result
-        return f"fetch failed; URLs {joined}", result
+        result = _pack(
+            ok=ok, legs=legs, rows=rows, requested=requested, omitted=omitted, detail=detail
+        )
+        return _tool_content(result), result

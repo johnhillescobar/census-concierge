@@ -104,8 +104,8 @@ is 324 and is the wrong county predicate; NAME listing includes `B01003_001E` an
 ranks filtered matches by place class, population, then GEO_ID — `matches[0]` is
 selected, the rest stay on `geographies` so `ambiguous_place` still warns), `build_url` (availability matrix;
 empty `variables` is the table total `001E`, then E paired with M),
-`fetch_data` (live Census; `years` fans out under a 5-request cap and keeps
-each URL on failure). `assemble()`
+`fetch_data` (live Census; `years` fans out under a 5-in-flight / 12-year cap
+and keeps each URL on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),
 and puts AFFGEOID

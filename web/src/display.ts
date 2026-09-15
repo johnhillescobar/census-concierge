@@ -60,6 +60,13 @@ export function censusFetchFailed(response: AskResponse): boolean {
   return censusUrls(response).length > 0 && response.rows.length === 0;
 }
 
+export function censusYearsIncomplete(response: AskResponse): boolean {
+  if (censusFetchFailed(response) || censusUrls(response).length === 0) {
+    return false;
+  }
+  return response.failed_years.length > 0 || response.omitted_years.length > 0;
+}
+
 export function estimatePairs(
   row: Record<string, string | null> | undefined,
   moe: Record<string, string | null> | undefined,

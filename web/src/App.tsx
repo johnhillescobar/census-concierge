@@ -3,6 +3,7 @@ import { ask, type AskResponse } from "./ask";
 import {
   censusFetchFailed,
   censusUrls,
+  censusYearsIncomplete,
   estimatesByGeography,
   formatCensusValue,
   type PaneState,
@@ -43,6 +44,7 @@ export function App({ askFn = ask }: AppProps) {
   const urls = result ? censusUrls(result) : [];
   const urlText = urls.join("\n");
   const failed = result ? censusFetchFailed(result) : false;
+  const incomplete = result ? censusYearsIncomplete(result) : false;
   const geoidLabel =
     result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
   const series = (result?.attempted_years.length ?? 0) > 1;
@@ -85,6 +87,11 @@ export function App({ askFn = ask }: AppProps) {
             {failed ? (
               <p className="notice" role="status">
                 Census fetch failed. The URL and table metadata are still shown.
+              </p>
+            ) : null}
+            {incomplete ? (
+              <p className="notice" role="status">
+                Some requested years were not fetched. Every attempted URL is still shown.
               </p>
             ) : null}
             {result.answer ? <p className="answer">{result.answer}</p> : null}

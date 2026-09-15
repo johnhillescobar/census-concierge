@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AskResponse } from "./ask";
 import {
   censusFetchFailed,
+  censusYearsIncomplete,
   estimatePairs,
   estimatesByGeography,
   formatCensusValue,
@@ -63,6 +64,54 @@ describe("censusFetchFailed", () => {
 
   it("is false when rows arrived", () => {
     expect(censusFetchFailed(harris)).toBe(false);
+  });
+
+  it("is false when some years succeeded and others failed", () => {
+    expect(
+      censusFetchFailed({
+        ...harris,
+        urls: [
+          harris.urls[0],
+          harris.urls[0].replace("/2024/", "/2019/"),
+        ],
+        attempted_years: [2019, 2024],
+        succeeded_years: [2024],
+        failed_years: [2019],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("censusYearsIncomplete", () => {
+  it("is true when a year failed but rows arrived", () => {
+    expect(
+      censusYearsIncomplete({
+        ...harris,
+        urls: [
+          harris.urls[0],
+          harris.urls[0].replace("/2024/", "/2019/"),
+        ],
+        attempted_years: [2019, 2024],
+        succeeded_years: [2024],
+        failed_years: [2019],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false on a complete one-year fetch", () => {
+    expect(censusYearsIncomplete(harris)).toBe(false);
+  });
+
+  it("is false when every attempted year failed", () => {
+    expect(
+      censusYearsIncomplete({
+        ...harris,
+        rows: [],
+        moe: [],
+        succeeded_years: [],
+        failed_years: [2024],
+      }),
+    ).toBe(false);
   });
 });
 

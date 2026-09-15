@@ -7,7 +7,7 @@ import time
 
 import httpx
 from src.census_url import CensusURL
-from src.fetch import MAX_IN_FLIGHT, FetchDataTool, unique_years
+from src.fetch import MAX_IN_FLIGHT, MAX_YEARS, FetchDataTool, unique_years
 
 TEMPLATE = CensusURL(
     "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
@@ -174,6 +174,7 @@ async def test_partial_failure_keeps_successful_rows_and_failed_url() -> None:
     assert "key=" not in artifact.legs[1].url
     assert "secret" not in artifact.legs[1].detail
     assert "key=secret" not in artifact.legs[1].detail
+    assert "failed 2022 HTTP 400" in message.content
     assert all("key=" not in url for url in artifact.urls)
 
 
@@ -220,3 +221,50 @@ async def test_years_without_a_built_url_are_omitted() -> None:
     assert artifact.attempted_years == []
     assert artifact.omitted_years == [2019, 2022]
     assert artifact.rows == []
+
+
+async def test_years_beyond_the_cap_are_omitted() -> None:
+    seen: list[int] = []
+    years = list(range(2012, 2025))
+
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        seen.append(year)
+        return 200, _ok_payload(year)
+
+    tool = FetchDataTool(last_url=lambda: TEMPLATE, census_key=lambda: "secret", http_get=http_get)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert MAX_YEARS == 12
+    assert seen == list(range(2012, 2024))
+    assert artifact.requested_years == years
+    assert artifact.attempted_years == list(range(2012, 2024))
+    assert artifact.omitted_years == [2024]
+    assert artifact.ok is True
+
+
+async def test_all_legs_failed_content_names_year_and_status() -> None:
+    def http_get(url: str) -> tuple[int, object]:
+        return 400, f"unknown vintage for {url}"
+
+    tool = FetchDataTool(last_url=lambda: TEMPLATE, census_key=lambda: "secret", http_get=http_get)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2022]},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.ok is False
+    assert "failed 2022 HTTP 400" in message.content
+    assert "secret" not in message.content
+    assert "key=secret" not in message.content
+    assert "/2022/acs/acs5" in message.content

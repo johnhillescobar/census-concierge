@@ -339,6 +339,32 @@ describe("App result", () => {
     expect(screen.getByRole("cell", { name: "2024" })).toBeTruthy();
   });
 
+  it("notices when some requested years were not fetched", async () => {
+    const user = userEvent.setup({ delay: null });
+    const first = harris.urls[0];
+    const second = first.replace("/2024/", "/2019/");
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            urls: [first, second],
+            requested_years: [2019, 2024],
+            attempted_years: [2019, 2024],
+            succeeded_years: [2024],
+            failed_years: [2019],
+            rows: [{ ...harris.rows[0], year: "2024" }],
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population since 2019");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByRole("status").textContent).toMatch(/some requested years were not fetched/i);
+    expect(screen.queryByText(/census fetch failed/i)).toBeNull();
+  });
+
   it("does not label an HTTP failure as unreachable", async () => {
     const user = userEvent.setup({ delay: null });
     render(<App askFn={() => Promise.reject(new Error("ask failed (500)"))} />);
