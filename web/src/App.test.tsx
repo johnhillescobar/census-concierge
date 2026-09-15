@@ -6,7 +6,15 @@ import type { AskResponse } from "./ask";
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
-  url: "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  urls: [
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  ],
+  requested_years: [2024],
+  attempted_years: [2024],
+  succeeded_years: [2024],
+  failed_years: [],
+  omitted_years: [],
+  legs: [],
   rows: [
     {
       NAME: "Harris County, Texas",
@@ -25,7 +33,15 @@ const harris: AskResponse = {
 
 const rentFailure: AskResponse = {
   answer: "Census returned HTTP 400.",
-  url: "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:99999&in=state:48",
+  urls: [
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:99999&in=state:48",
+  ],
+  requested_years: [2024],
+  attempted_years: [2024],
+  succeeded_years: [],
+  failed_years: [2024],
+  omitted_years: [],
+  legs: [],
   rows: [],
   moe: [],
   geoid: "1600000US4805000",
@@ -102,7 +118,7 @@ describe("App result", () => {
         askFn={() =>
           Promise.resolve({
             ...harris,
-            url: `${harris.url}&key=secret`,
+            urls: [`${harris.urls[0]}&key=secret`],
           })
         }
       />,
@@ -247,7 +263,7 @@ describe("App result", () => {
         askFn={() =>
           Promise.resolve({
             ...harris,
-            url: "",
+            urls: [],
             rows: [],
             moe: [],
             answer: "stopped before build_url",
@@ -261,6 +277,92 @@ describe("App result", () => {
     expect(document.querySelector(".census-url")).toBeNull();
     expect(screen.queryByRole("button", { name: "Copy URL" })).toBeNull();
     expect(screen.getByRole("status").textContent).toMatch(/no census url was built/i);
+  });
+
+  it("shows every attempted URL and copies them without a key", async () => {
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+    const user = userEvent.setup({ delay: null });
+    const first = harris.urls[0];
+    const second = first.replace("/2024/", "/2019/");
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            urls: [`${first}&key=secret`, `${second}&key=secret`],
+            requested_years: [2019, 2024],
+            attempted_years: [2019, 2024],
+            succeeded_years: [2019, 2024],
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population since 2019");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    const shown = [...document.querySelectorAll(".census-url")].map((node) => node.textContent || "");
+    expect(shown).toHaveLength(2);
+    expect(shown.some((text) => text.includes("/2019/"))).toBe(true);
+    expect(shown.some((text) => text.includes("/2024/"))).toBe(true);
+    expect(shown.every((text) => !/key=/i.test(text))).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Copy URLs" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copied = writeText.mock.calls[0][0] as string;
+    expect(copied).toContain("/2019/");
+    expect(copied).toContain("/2024/");
+    expect(copied).not.toMatch(/key=/i);
+  });
+
+  it("labels the year when more than one vintage was attempted", async () => {
+    const user = userEvent.setup({ delay: null });
+    const first = harris.urls[0];
+    const second = first.replace("/2024/", "/2019/");
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            urls: [first, second],
+            requested_years: [2019, 2024],
+            attempted_years: [2019, 2024],
+            succeeded_years: [2024],
+            failed_years: [2019],
+            rows: [{ ...harris.rows[0], year: "2024" }],
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population since 2019");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByRole("columnheader", { name: "Year" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "2024" })).toBeTruthy();
+  });
+
+  it("notices when some requested years were not fetched", async () => {
+    const user = userEvent.setup({ delay: null });
+    const first = harris.urls[0];
+    const second = first.replace("/2024/", "/2019/");
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            urls: [first, second],
+            requested_years: [2019, 2024],
+            attempted_years: [2019, 2024],
+            succeeded_years: [2024],
+            failed_years: [2019],
+            rows: [{ ...harris.rows[0], year: "2024" }],
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population since 2019");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByRole("status").textContent).toMatch(/some requested years were not fetched/i);
+    expect(screen.queryByText(/census fetch failed/i)).toBeNull();
   });
 
   it("does not label an HTTP failure as unreachable", async () => {

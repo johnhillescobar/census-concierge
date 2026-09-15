@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AskResponse } from "./ask";
 import {
   censusFetchFailed,
+  censusYearsIncomplete,
   estimatePairs,
   estimatesByGeography,
   formatCensusValue,
@@ -10,7 +11,15 @@ import {
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
-  url: "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  urls: [
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48",
+  ],
+  requested_years: [2024],
+  attempted_years: [2024],
+  succeeded_years: [2024],
+  failed_years: [],
+  omitted_years: [],
+  legs: [],
   rows: [
     {
       NAME: "Harris County, Texas",
@@ -56,11 +65,59 @@ describe("censusFetchFailed", () => {
   it("is false when rows arrived", () => {
     expect(censusFetchFailed(harris)).toBe(false);
   });
+
+  it("is false when some years succeeded and others failed", () => {
+    expect(
+      censusFetchFailed({
+        ...harris,
+        urls: [
+          harris.urls[0],
+          harris.urls[0].replace("/2024/", "/2019/"),
+        ],
+        attempted_years: [2019, 2024],
+        succeeded_years: [2024],
+        failed_years: [2019],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("censusYearsIncomplete", () => {
+  it("is true when a year failed but rows arrived", () => {
+    expect(
+      censusYearsIncomplete({
+        ...harris,
+        urls: [
+          harris.urls[0],
+          harris.urls[0].replace("/2024/", "/2019/"),
+        ],
+        attempted_years: [2019, 2024],
+        succeeded_years: [2024],
+        failed_years: [2019],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false on a complete one-year fetch", () => {
+    expect(censusYearsIncomplete(harris)).toBe(false);
+  });
+
+  it("is false when every attempted year failed", () => {
+    expect(
+      censusYearsIncomplete({
+        ...harris,
+        rows: [],
+        moe: [],
+        succeeded_years: [],
+        failed_years: [2024],
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("redactCensusUrl", () => {
   it("strips key= from a Census URL", () => {
-    const raw = `${harris.url}&key=secret`;
+    const raw = `${harris.urls[0]}&key=secret`;
     expect(redactCensusUrl(raw)).not.toContain("key=");
     expect(redactCensusUrl(raw)).toContain("get=NAME");
   });
@@ -96,6 +153,7 @@ describe("estimatesByGeography", () => {
       {
         geoid: "0500000US48201",
         name: "Harris County, Texas",
+        year: "",
         pairs: [{ variable: "B01003_001E", estimate: "4838303", moe: "123" }],
       },
     ]);

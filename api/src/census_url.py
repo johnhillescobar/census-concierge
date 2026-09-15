@@ -1,6 +1,6 @@
 """Census API URLs. Redaction is the type, not a step someone has to remember.
 
-`__str__`, `__repr__` and the value we put on `AskResponse.url` are the form
+`__str__`, `__repr__` and the values we put on `AskResponse.urls` are the form
 without `&key=`. The key is reattached only at the httpx call site, via
 `with_key`.
 """
@@ -53,4 +53,32 @@ class CensusURL:
         query.append(("key", key))
         return urlunsplit(
             (parts.scheme, parts.netloc, parts.path, urlencode(query, safe=":,"), parts.fragment)
+        )
+
+    @property
+    def year(self) -> int | None:
+        bits = urlsplit(self._redacted).path.split("/")
+        for index, bit in enumerate(bits):
+            if bit == "data" and index + 1 < len(bits) and bits[index + 1].isdigit():
+                return int(bits[index + 1])
+        return None
+
+    @property
+    def dataset(self) -> str:
+        bits = urlsplit(self._redacted).path.split("/")
+        try:
+            acs = bits.index("acs")
+        except ValueError:
+            return ""
+        return bits[acs + 1] if acs + 1 < len(bits) else ""
+
+    def with_year(self, year: int) -> CensusURL:
+        parts = urlsplit(self._redacted)
+        bits = parts.path.split("/")
+        for index, bit in enumerate(bits):
+            if bit == "data" and index + 1 < len(bits) and bits[index + 1].isdigit():
+                bits[index + 1] = str(year)
+                break
+        return CensusURL(
+            urlunsplit((parts.scheme, parts.netloc, "/".join(bits), parts.query, parts.fragment))
         )

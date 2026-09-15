@@ -3,8 +3,7 @@
 One boundary, one pair of models. Rows stay untyped dicts — a census row that
 becomes five models through five layers is how the predecessor grew. Alternatives
 and warnings are typed because the TypeScript client (slice 2) generates from
-this schema; `url` is singular so slice 3 can grow `urls[]` without redesigning
-rows.
+this schema; `urls[]` is one redacted Census URL per attempted vintage.
 """
 
 from __future__ import annotations
@@ -40,9 +39,29 @@ class AskWarning(BaseModel):
     detail: str = Field(description="What was raised, in one sentence.")
 
 
+class RequestLeg(BaseModel):
+    year: int = Field(description="Vintage end year for this Census request.")
+    url: str = Field(description="Key-redacted Census API URL for this year.")
+    ok: bool = Field(description="Whether this HTTP call returned parseable rows.")
+    status_code: int = Field(description="Census HTTP status; 0 on timeout or transport failure.")
+    detail: str = Field(description="Redacted reason when ok is false; empty on success.")
+
+
 class AskResponse(BaseModel):
     answer: str = Field(description="Natural-language answer.")
-    url: str = Field(description="Census API URL for this answer. Singular; slice 3 grows urls[].")
+    urls: list[str] = Field(
+        description="Key-redacted Census API URLs, one per attempted year, in requested order."
+    )
+    requested_years: list[int] = Field(
+        description="Years asked of fetch_data, de-duplicated in first-requested order."
+    )
+    attempted_years: list[int] = Field(description="Years for which a Census request was issued.")
+    succeeded_years: list[int] = Field(description="Attempted years whose HTTP call succeeded.")
+    failed_years: list[int] = Field(description="Attempted years that failed or timed out.")
+    omitted_years: list[int] = Field(description="Requested years that were not attempted.")
+    legs: list[RequestLeg] = Field(
+        description="Per-year outcome in requested order, including failed legs."
+    )
     rows: list[dict[str, str | None]] = Field(
         description="Census rows as returned. Each row carries GEO_ID (AFFGEOID)."
     )

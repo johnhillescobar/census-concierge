@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from src.census_url import CensusURL
+from src.fetch import FetchDataTool
 from src.geo import (
     ResolveGeographyTool,
     filter_rows,
@@ -24,7 +25,6 @@ from src.geo import (
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
     BuildUrlTool,
-    FetchDataTool,
     SearchTablesTool,
     pair_margins,
 )

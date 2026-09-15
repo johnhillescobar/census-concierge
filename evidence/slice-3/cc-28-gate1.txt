@@ -1,0 +1,405 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 10 items
+
+api/tests/test_fetch_years.py::test_unique_years_keeps_first_requested_order PASSED [ 10%]
+api/tests/test_fetch_years.py::test_with_year_rewrites_the_path_and_keeps_the_query PASSED [ 20%]
+api/tests/test_fetch_years.py::test_ordered_success_tags_year_and_pairs_margins PASSED [ 30%]
+api/tests/test_fetch_years.py::test_duplicate_years_are_fetched_once_in_first_order PASSED [ 40%]
+api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five PASSED [ 50%]
+api/tests/test_fetch_years.py::test_partial_failure_keeps_successful_rows_and_failed_url PASSED [ 60%]
+api/tests/test_fetch_years.py::test_timeout_keeps_the_url_and_does_not_drop_other_years PASSED [ 70%]
+api/tests/test_fetch_years.py::test_years_without_a_built_url_are_omitted PASSED [ 80%]
+api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url PASSED [ 90%]
+api/tests/test_ask_route.py::test_openapi_documents_post_ask PASSED      [100%]
+
+============================= 10 passed in 0.86s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+api/tests/test_fetch_years.py::test_unique_years_keeps_first_requested_order FAILED [ 50%]
+api/tests/test_fetch_years.py::test_duplicate_years_are_fetched_once_in_first_order FAILED [100%]
+
+================================== FAILURES ===================================
+________________ test_unique_years_keeps_first_requested_order ________________
+api\tests\test_fetch_years.py:31: in test_unique_years_keeps_first_requested_order
+    assert unique_years([2019, 2022, 2019, 2024, 2022]) == [2019, 2022, 2024]
+E   assert [2019, 2022, 2019, 2024, 2022] == [2019, 2022, 2024]
+E     
+E     At index 2 diff: 2019 != 2024
+E     Left contains 2 more items, first extra item: 2024
+E     
+E     Full diff:
+E       [
+E           2019,
+E           2022,
+E     +     2019,
+E           2024,
+E     +     2022,
+E       ]
+____________ test_duplicate_years_are_fetched_once_in_first_order _____________
+api\tests\test_fetch_years.py:97: in test_duplicate_years_are_fetched_once_in_first_order
+    assert seen == [2019, 2022]
+E   assert [2019, 2022, 2019] == [2019, 2022]
+E     
+E     Left contains one more item: 2019
+E     
+E     Full diff:
+E       [
+E           2019,
+E           2022,
+E     +     2019,
+E       ]
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_unique_years_keeps_first_requested_order - assert [2019, 2022, 2019, 2024, 2022] == [2019, 2022, 2024]
+  
+  At index 2 diff: 2019 != 2024
+  Left contains 2 more items, first extra item: 2024
+  
+  Full diff:
+    [
+        2019,
+        2022,
+  +     2019,
+        2024,
+  +     2022,
+    ]
+FAILED api/tests/test_fetch_years.py::test_duplicate_years_are_fetched_once_in_first_order - assert [2019, 2022, 2019] == [2019, 2022]
+  
+  Left contains one more item: 2019
+  
+  Full diff:
+    [
+        2019,
+        2022,
+  +     2019,
+    ]
+============================== 2 failed in 0.30s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_with_year_rewrites_the_path_and_keeps_the_query FAILED [100%]
+
+================================== FAILURES ===================================
+____________ test_with_year_rewrites_the_path_and_keeps_the_query _____________
+api\tests\test_fetch_years.py:37: in test_with_year_rewrites_the_path_and_keeps_the_query
+    assert rewritten.year == 2019
+E   AssertionError: assert 2024 == 2019
+E    +  where 2024 = CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48').year
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_with_year_rewrites_the_path_and_keeps_the_query - AssertionError: assert 2024 == 2019
+ +  where 2024 = CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48').year
+============================== 1 failed in 0.24s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five FAILED [100%]
+
+================================== FAILURES ===================================
+_____________ test_three_legs_overlap_and_eight_never_exceed_five _____________
+api\tests\test_fetch_years.py:130: in test_three_legs_overlap_and_eight_never_exceed_five
+    assert peak > 1
+E   assert 1 > 1
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five - assert 1 > 1
+============================== 1 failed in 0.75s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five FAILED [100%]
+
+================================== FAILURES ===================================
+_____________ test_three_legs_overlap_and_eight_never_exceed_five _____________
+api\tests\test_fetch_years.py:147: in test_three_legs_overlap_and_eight_never_exceed_five
+    assert peak == MAX_IN_FLIGHT
+E   assert 8 == 5
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five - assert 8 == 5
+============================== 1 failed in 0.63s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_ordered_success_tags_year_and_pairs_margins FAILED [100%]
+
+================================== FAILURES ===================================
+______________ test_ordered_success_tags_year_and_pairs_margins _______________
+api\tests\test_fetch_years.py:69: in test_ordered_success_tags_year_and_pairs_margins
+    assert artifact.attempted_years == [2019, 2022, 2024]
+E   assert [2024, 2022, 2019] == [2019, 2022, 2024]
+E     
+E     At index 0 diff: 2024 != 2019
+E     
+E     Full diff:
+E       [
+E     +     2024,
+E     +     2022,
+E           2019,
+E     -     2022,
+E     -     2024,
+E       ]
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_ordered_success_tags_year_and_pairs_margins - assert [2024, 2022, 2019] == [2019, 2022, 2024]
+  
+  At index 0 diff: 2024 != 2019
+  
+  Full diff:
+    [
+  +     2024,
+  +     2022,
+        2019,
+  -     2022,
+  -     2024,
+    ]
+============================== 1 failed in 0.26s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_partial_failure_keeps_successful_rows_and_failed_url FAILED [100%]
+
+================================== FAILURES ===================================
+__________ test_partial_failure_keeps_successful_rows_and_failed_url __________
+api\tests\test_fetch_years.py:169: in test_partial_failure_keeps_successful_rows_and_failed_url
+    assert artifact.failed_years == [2022]
+E   assert [] == [2022]
+E     
+E     Right contains one more item: 2022
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     2022,
+E     - ]
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_partial_failure_keeps_successful_rows_and_failed_url - assert [] == [2022]
+  
+  Right contains one more item: 2022
+  
+  Full diff:
+  + []
+  - [
+  -     2022,
+  - ]
+============================== 1 failed in 0.26s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_timeout_keeps_the_url_and_does_not_drop_other_years FAILED [100%]
+
+================================== FAILURES ===================================
+__________ test_timeout_keeps_the_url_and_does_not_drop_other_years ___________
+api\tests\test_fetch_years.py:188: in test_timeout_keeps_the_url_and_does_not_drop_other_years
+    message = await tool.ainvoke(
+.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
+    raise error_to_raise
+.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\fetch.py:259: in _arun
+    gathered = await asyncio.gather(*(one(year) for year in requested))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\fetch.py:257: in one
+    return await asyncio.to_thread(self._fetch_one, built, year)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\fetch.py:187: in _fetch_one
+    status, payload = self.http_get(live)
+                      ^^^^^^^^^^^^^^^^^^^
+api\tests\test_fetch_years.py:184: in http_get
+    raise httpx.TimeoutException(f"timed out for {url}")
+E   httpx.TimeoutException: timed out for https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_timeout_keeps_the_url_and_does_not_drop_other_years - httpx.TimeoutException: timed out for https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret
+============================== 1 failed in 0.29s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_fetch_years.py::test_years_without_a_built_url_are_omitted FAILED [100%]
+
+================================== FAILURES ===================================
+_________________ test_years_without_a_built_url_are_omitted __________________
+api\tests\test_fetch_years.py:221: in test_years_without_a_built_url_are_omitted
+    assert artifact.omitted_years == [2019, 2022]
+E   assert [] == [2019, 2022]
+E     
+E     Right contains 2 more items, first extra item: 2019
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     2019,
+E     -     2022,
+E     - ]
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_years_without_a_built_url_are_omitted - assert [] == [2019, 2022]
+  
+  Right contains 2 more items, first extra item: 2019
+  
+  Full diff:
+  + []
+  - [
+  -     2019,
+  -     2022,
+  - ]
+============================== 1 failed in 0.28s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url FAILED [100%]
+
+================================== FAILURES ===================================
+__________________ test_urls_array_scores_as_the_product_url __________________
+api\tests\test_demo_harness.py:125: in test_urls_array_scores_as_the_product_url
+    assert run_demo.is_answered(entry, status_code=200, body=body) is True
+E   AssertionError: assert False is True
+E    +  where False = <function is_answered at 0x000001F43955AAC0>({'id': 'q01', 'expect_table': 'B01003'}, status_code=200, body={'answer': 'ok', 'urls': ['https://api.census.gov/data/2019/acs/acs5?get=B01003_001E'], 'requested_years': [], 'attempted_years': [], 'succeeded_years': [], 'failed_years': [], 'omitted_years': [], 'legs': [], 'rows': [{'B01003_001E': '1'}], 'moe': [], 'geoid': '0500000US48201', 'universe': 'Total population', 'table_id': 'B01003', 'alternatives': [], 'warnings': []})
+E    +    where <function is_answered at 0x000001F43955AAC0> = run_demo.is_answered
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url - AssertionError: assert False is True
+ +  where False = <function is_answered at 0x000001F43955AAC0>({'id': 'q01', 'expect_table': 'B01003'}, status_code=200, body={'answer': 'ok', 'urls': ['https://api.census.gov/data/2019/acs/acs5?get=B01003_001E'], 'requested_years': [], 'attempted_years': [], 'succeeded_years': [], 'failed_years': [], 'omitted_years': [], 'legs': [], 'rows': [{'B01003_001E': '1'}], 'moe': [], 'geoid': '0500000US48201', 'universe': 'Total population', 'table_id': 'B01003', 'alternatives': [], 'warnings': []})
+ +    where <function is_answered at 0x000001F43955AAC0> = run_demo.is_answered
+============================== 1 failed in 0.15s ==============================
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+api/tests/test_fetch_years.py::test_unique_years_keeps_first_requested_order PASSED [ 11%]
+api/tests/test_fetch_years.py::test_with_year_rewrites_the_path_and_keeps_the_query PASSED [ 22%]
+api/tests/test_fetch_years.py::test_ordered_success_tags_year_and_pairs_margins PASSED [ 33%]
+api/tests/test_fetch_years.py::test_duplicate_years_are_fetched_once_in_first_order PASSED [ 44%]
+api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five PASSED [ 55%]
+api/tests/test_fetch_years.py::test_partial_failure_keeps_successful_rows_and_failed_url PASSED [ 66%]
+api/tests/test_fetch_years.py::test_timeout_keeps_the_url_and_does_not_drop_other_years PASSED [ 77%]
+api/tests/test_fetch_years.py::test_years_without_a_built_url_are_omitted PASSED [ 88%]
+api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url PASSED [100%]
+
+============================== 9 passed in 0.68s ==============================
+# Gate 1 ù CC-28
+# Mutations named for the behaviour they revert, not a review index.
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== baseline =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url api/tests/test_ask_route.py::test_openapi_documents_post_ask
+exit 0
+VERDICT baseline GREEN
+
+===== MUTATION no-year-dedup =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_unique_years_keeps_first_requested_order api/tests/test_fetch_years.py::test_duplicate_years_are_fetched_once_in_first_order
+exit 1
+VERDICT GOOD
+
+===== MUTATION with-year-is-a-no-op =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_with_year_rewrites_the_path_and_keeps_the_query
+exit 1
+VERDICT GOOD
+
+===== MUTATION serial-fetch-cap-one =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five
+exit 1
+VERDICT GOOD
+
+===== MUTATION unbounded-in-flight =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_three_legs_overlap_and_eight_never_exceed_five
+exit 1
+VERDICT GOOD
+
+===== MUTATION reverse-leg-order =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_ordered_success_tags_year_and_pairs_margins
+exit 1
+VERDICT GOOD
+
+===== MUTATION drop-failed-legs =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_partial_failure_keeps_successful_rows_and_failed_url
+exit 1
+VERDICT GOOD
+
+===== MUTATION timeout-is-uncaught =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_timeout_keeps_the_url_and_does_not_drop_other_years
+exit 1
+VERDICT GOOD
+
+===== MUTATION omit-nothing-without-a-url =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py::test_years_without_a_built_url_are_omitted
+exit 1
+VERDICT GOOD
+
+===== MUTATION score-legacy-url-field =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url
+exit 1
+VERDICT GOOD
+
+===== restore check =====
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -vv --tb=short api/tests/test_fetch_years.py api/tests/test_demo_harness.py::test_urls_array_scores_as_the_product_url
+exit 0

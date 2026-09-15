@@ -9,8 +9,9 @@ import pytest
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse
+from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
-from src.tools import BuildUrlTool, FetchDataTool, SearchTablesTool
+from src.tools import BuildUrlTool, SearchTablesTool
 from test_ask_route import CONTRACT_FIELDS
 from test_ask_tools import ENTRIES, _describe, _list_geographies, _search
 
@@ -94,8 +95,8 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
     assert response.table_id == "B01003"
     assert response.universe == "Total population"
     assert response.geoid == "0500000US48201"
-    assert "key=" not in response.url
-    parts = urlsplit(response.url)
+    assert "key=" not in response.urls[0]
+    parts = urlsplit(response.urls[0])
     assert parts.path == "/data/2024/acs/acs5"
     query = parse_qs(parts.query)
     assert "B01003_001E" in query["get"][0]
@@ -168,10 +169,10 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
         return queue.pop(0)
 
     response = await run_ask("population", complete=complete, tools=tools, record=record)
-    assert response.url
-    assert "key=" not in response.url
+    assert response.urls
+    assert "key=" not in response.urls[0]
     assert response.rows == []
-    assert str(record.url) == response.url
+    assert str(record.url) == response.urls[0]
     assert response.geoid == "0500000US48201"
 
 
@@ -531,7 +532,7 @@ async def test_universe_comes_from_the_requested_vintage() -> None:
 
     response = await run_ask("population", complete=complete, tools=tools, record=record)
     assert response.universe == "Total population (2019)"
-    assert "/2019/acs/acs5" in response.url
+    assert "/2019/acs/acs5" in response.urls[0]
 
 
 async def test_fetch_with_no_rows_still_returns_the_url() -> None:
@@ -561,9 +562,9 @@ async def test_fetch_with_no_rows_still_returns_the_url() -> None:
         return queue.pop(0)
 
     response = await run_ask("population", complete=complete, tools=tools, record=record)
-    assert response.url
-    assert "key=" not in response.url
-    assert "/2024/acs/acs5" in response.url
+    assert response.urls
+    assert "key=" not in response.urls[0]
+    assert "/2024/acs/acs5" in response.urls[0]
     assert response.rows == []
     assert response.moe == []
     assert response.geoid == "0500000US48201"
@@ -590,6 +591,6 @@ async def test_aborted_loop_still_returns_every_contract_field() -> None:
 
     response = await run_ask("population", complete=complete, tools=tools, record=record)
     assert list(response.model_dump()) == list(CONTRACT_FIELDS)
-    assert response.url == ""
+    assert response.urls == []
     assert "secret" not in response.answer
     assert "key=" not in response.answer

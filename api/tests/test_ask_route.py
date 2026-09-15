@@ -17,7 +17,13 @@ client = TestClient(app)
 
 CONTRACT_FIELDS = (
     "answer",
-    "url",
+    "urls",
+    "requested_years",
+    "attempted_years",
+    "succeeded_years",
+    "failed_years",
+    "omitted_years",
+    "legs",
     "rows",
     "moe",
     "geoid",
@@ -50,13 +56,17 @@ def test_openapi_documents_post_ask() -> None:
     assert response["properties"]["warnings"]["items"] == {
         "$ref": "#/components/schemas/AskWarning"
     }
-    assert response["properties"]["url"]["type"] == "string"
-    assert "items" not in response["properties"]["url"]
-    assert "description" in response["properties"]["url"]
+    assert response["properties"]["urls"]["type"] == "array"
+    assert response["properties"]["urls"]["items"]["type"] == "string"
+    assert "url" not in response["properties"]
+    assert "description" in response["properties"]["urls"]
+    assert response["properties"]["legs"]["items"] == {"$ref": "#/components/schemas/RequestLeg"}
     alternative = schema["components"]["schemas"]["Alternative"]
     assert alternative["required"] == ["table_id", "reason"]
     warning = schema["components"]["schemas"]["AskWarning"]
     assert warning["required"] == ["code", "detail"]
+    leg = schema["components"]["schemas"]["RequestLeg"]
+    assert leg["required"] == ["year", "url", "ok", "status_code", "detail"]
 
 
 def test_empty_question_is_a_validation_error() -> None:
@@ -76,7 +86,13 @@ def test_missing_question_is_a_validation_error() -> None:
 
 EMPTY_CONTRACT = {
     "answer": "",
-    "url": "",
+    "urls": [],
+    "requested_years": [],
+    "attempted_years": [],
+    "succeeded_years": [],
+    "failed_years": [],
+    "omitted_years": [],
+    "legs": [],
     "rows": [],
     "moe": [],
     "geoid": "",
@@ -107,7 +123,13 @@ def test_valid_question_reaches_the_ask_loop(monkeypatch: Any) -> None:
         seen.append(question)
         return AskResponse(
             answer="from-loop",
-            url="",
+            urls=[],
+            requested_years=[],
+            attempted_years=[],
+            succeeded_years=[],
+            failed_years=[],
+            omitted_years=[],
+            legs=[],
             rows=[],
             moe=[],
             geoid="",

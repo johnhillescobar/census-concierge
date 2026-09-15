@@ -1,0 +1,35 @@
+CC-28 E2E retrieval (make eval) — feat/cc-28-year-fanout @ 92c7939
+LANGCHAIN_TRACING_V2=false LANGCHAIN_TRACING=false
+
+===== uv run python scripts/eval_retrieval.py --verbose =====
+
+RETRIEVAL
+
+  core       n=4    @1=75%   @3=75%   @5=75%   @10=100%   mrr=0.78
+  long_tail  n=40   @1=48%   @3=70%   @5=82%   @10=90%   mrr=0.61
+  trap       n=14   @1=21%   @3=36%   @5=36%   @10=57%   mrr=0.32
+
+  OVERALL    n=58   @1=43%
+
+Wrote evidence\latest.json
+
+===== uv run python scripts/eval_retrieval.py --tier long_tail --rerank =====
+
+RETRIEVAL
+
+  long_tail  n=40   @1=88%   @3=90%   @5=90%   @10=90%   mrr=0.89
+
+  OVERALL    n=40   @1=88%
+
+Wrote evidence\latest.json
+
+===== uv run python scripts/score_synthetic.py =====
+
+SYNTHETIC QUESTION QUALITY
+
+  sampled              600 of 8748 questions
+  alignment (gated)    0.544   mean cosine to own document
+  self-retrieval @1    45%   diagnostic
+  self-retrieval @5    82%   diagnostic
+
+Retrieval floors unchanged from budgets.toml (retrieval_at_10 0.9, selector_at_1 0.85, synthetic_alignment 0.544). CC-28 does not change the retriever.
