@@ -22,7 +22,7 @@ from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.geo import ResolveGeographyTool, list_census_names
-from src.guards import evaluate
+from src.guards import finish_aggregation
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import (
@@ -242,6 +242,10 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                 )
     fallback = (record.geography or {}).get("geoid") or ""
     rows = _rows_with_geoid(record.rows, fallback)
+    warnings, rows, extra = finish_aggregation(
+        record, rows, {item.table_id for item in alternatives}
+    )
+    alternatives.extend(extra)
     return AskResponse(
         answer=answer,
         **series_from_record(record),
@@ -251,7 +255,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         universe=selected_universe,
         table_id=record.table_id,
         alternatives=alternatives,
-        warnings=evaluate(record),
+        warnings=warnings,
     )
 
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from src.ask import ExecutionRecord, assemble, dispatch
 from src.geo import ResolveGeographyTool
-from src.guards import evaluate
+from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
 from test_ask_loop import _tools
 from test_ask_tools import ENTRIES, _list_geographies
@@ -15,6 +15,8 @@ from test_ask_tools import ENTRIES, _list_geographies
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
 T03 = "Is the poverty rate in tract 1201 higher than tract 1305?"
 T06 = "What share of households are Black families earning over $75k?"
+T17 = "What is the median household income across these five tracts combined?"
+T18 = "Total population without health insurance across every tract in Wayne County"
 
 
 def _codes(record: ExecutionRecord) -> list[str]:
@@ -278,3 +280,169 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     assert record.geography["in"] == "state:17"
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert response.answer == "three Cook Counties"
+
+
+def _count_rows(n: int) -> list[dict[str, str | None]]:
+    margins = ("3", "4", "12", "0", "0", "0")
+    return [{"GEO_ID": f"g{i}", "B01003_001E": "10", "B01003_001M": margins[i]} for i in range(n)]
+
+
+def test_median_combine_warns_without_fetched_rows() -> None:
+    record = ExecutionRecord(question=T17, table_id="B19013")
+    assert _codes(record) == ["median_not_aggregatable"]
+
+
+def test_combined_median_is_not_invented() -> None:
+    record = ExecutionRecord(question=T17, table_id="B19013")
+    record.rows = [
+        {
+            "GEO_ID": "a",
+            "B19013_001E": "40000",
+            "B19013_001M": "200",
+            "B01003_001E": "100",
+            "B01003_001M": "10",
+        },
+        {
+            "GEO_ID": "b",
+            "B19013_001E": "80000",
+            "B19013_001M": "200",
+            "B01003_001E": "300",
+            "B01003_001M": "10",
+        },
+        {
+            "GEO_ID": "c",
+            "B19013_001E": "50000",
+            "B19013_001M": "200",
+            "B01003_001E": "100",
+            "B01003_001M": "10",
+        },
+        {
+            "GEO_ID": "d",
+            "B19013_001E": "50000",
+            "B19013_001M": "200",
+            "B01003_001E": "100",
+            "B01003_001M": "10",
+        },
+        {
+            "GEO_ID": "e",
+            "B19013_001E": "50000",
+            "B19013_001M": "200",
+            "B01003_001E": "100",
+            "B01003_001M": "10",
+        },
+    ]
+    response = assemble("declined", record)
+    assert [item.code for item in response.warnings] == ["median_not_aggregatable"]
+    assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c", "d", "e"]
+    values = {row.get("B19013_001E") for row in response.rows}
+    assert values == {"40000", "80000", "50000"}
+    assert any(item.table_id == "B19001" for item in response.alternatives)
+
+
+def test_bracket_alternative_is_not_duplicated() -> None:
+    record = ExecutionRecord(question=T17, table_id="B19013")
+    record.pool = [
+        {
+            "table_id": "B19013",
+            "title": "Median Household Income",
+            "universe": "Households",
+            "members": [],
+        },
+        {
+            "table_id": "B19001",
+            "title": "Household Income",
+            "universe": "Households",
+            "members": [],
+        },
+    ]
+    response = assemble("declined", record)
+    assert [item.table_id for item in response.alternatives].count("B19001") == 1
+
+
+def test_combined_margin_is_rss_not_linear() -> None:
+    record = ExecutionRecord(question=T18, table_id="B27001")
+    record.rows = [
+        {"GEO_ID": "a", "B27001_001E": "10", "B27001_001M": "3"},
+        {"GEO_ID": "b", "B27001_001E": "20", "B27001_001M": "4"},
+        {"GEO_ID": "c", "B27001_001E": "30", "B27001_001M": "12"},
+    ]
+    response = assemble("summed", record)
+    assert response.warnings == []
+    combined = response.rows[-1]
+    assert combined["B27001_001E"] == "60"
+    assert combined["B27001_001M"] == "13"
+    assert combined["MOE_formula"] == MOE_COMBINE_FORMULA
+    assert combined["component_count"] == "3"
+    assert "GEO_ID" not in combined
+    assert response.moe[-1]["B27001_001M"] == "13"
+
+
+def test_five_areas_combine_without_degraded_warning() -> None:
+    record = ExecutionRecord(question=T18, table_id="B01003")
+    record.rows = _count_rows(5)
+    response = assemble("summed", record)
+    assert response.warnings == []
+    combined = response.rows[-1]
+    assert combined["B01003_001E"] == "50"
+    assert combined["B01003_001M"] == "13"
+    assert combined["component_count"] == "5"
+
+
+def test_six_areas_warn_and_keep_the_rss_total() -> None:
+    record = ExecutionRecord(question=T18, table_id="B01003")
+    record.rows = _count_rows(6)
+    response = assemble("summed", record)
+    assert [item.code for item in response.warnings] == ["moe_aggregation_degraded"]
+    assert "6" in response.warnings[0].detail
+    assert MOE_COMBINE_FORMULA in response.warnings[0].detail
+    combined = response.rows[-1]
+    assert combined["B01003_001E"] == "60"
+    assert combined["B01003_001M"] == "13"
+    assert len(response.rows) == 7
+
+
+def test_sentinel_area_is_dropped_not_zeroed() -> None:
+    record = ExecutionRecord(question=T18, table_id="B01003")
+    rows = _count_rows(6)
+    rows[5]["B01003_001E"] = "-555555555"
+    rows[5]["B01003_001M"] = "-555555555"
+    record.rows = rows
+    response = assemble("summed", record)
+    assert response.warnings == []
+    combined = response.rows[-1]
+    assert combined["B01003_001E"] == "50"
+    assert combined["B01003_001M"] == "13"
+    assert combined["component_count"] == "5"
+
+
+def test_area_without_a_margin_is_not_a_component() -> None:
+    record = ExecutionRecord(question=T18, table_id="B01003")
+    rows = _count_rows(3)
+    rows[2]["B01003_001M"] = "-555555555"
+    record.rows = rows
+    response = assemble("summed", record)
+    combined = response.rows[-1]
+    assert combined["B01003_001E"] == "20"
+    assert combined["B01003_001M"] == "5"
+    assert combined["component_count"] == "2"
+
+
+def test_all_sentinel_inputs_produce_no_combined_row() -> None:
+    record = ExecutionRecord(question=T18, table_id="B01003")
+    record.rows = [
+        {"GEO_ID": "a", "B01003_001E": "-555555555", "B01003_001M": "-555555555"},
+        {"GEO_ID": "b", "B01003_001E": "-888888888", "B01003_001M": "3"},
+    ]
+    response = assemble("nothing to add", record)
+    assert response.warnings == []
+    assert [row.get("GEO_ID") for row in response.rows] == ["a", "b"]
+
+
+def test_wildcard_listing_is_not_combined() -> None:
+    record = ExecutionRecord(
+        question="Total population by tract in Wayne County", table_id="B01003"
+    )
+    record.rows = _count_rows(6)
+    response = assemble("listed", record)
+    assert response.warnings == []
+    assert len(response.rows) == 6
