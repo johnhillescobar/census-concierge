@@ -588,6 +588,10 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
         "zctas inside Denver",
         "zip codes inside Denver",
         "census tract within Denver",
+        "places inside Denver",
+        "cities inside Denver",
+        "all zip codes in Denver",
+        "every zcta in Denver",
     ):
         message = await tool.ainvoke(
             {
