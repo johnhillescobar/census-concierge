@@ -223,6 +223,29 @@ def test_a_first_miss_is_not_promoted_to_the_gated_key() -> None:
     assert merged["retrieval_at_10"] == 0.9
 
 
+def test_over_ceiling_p95_stays_in_demo_only() -> None:
+    existing = {
+        "p95_latency_seconds": 14.164,
+        "t_llm": 3.941,
+        "t_census_api": 2.755,
+        "t_ours": 2.84,
+        "retrieval_at_10": 0.9,
+    }
+    demo = {
+        "answered_rate": 0.80,
+        "p95_latency_seconds": 31.013,
+        "t_llm": 6.048,
+        "t_census_api": 4.56,
+        "t_ours": 4.013,
+        "prompt_hash": "abc",
+        "index_hash": "def",
+    }
+    merged = run_demo.merge_evidence(existing, demo, answered_floor=0.70, p95_ceiling=20.0)
+    assert merged["p95_latency_seconds"] == 14.164
+    assert merged["t_llm"] == 3.941
+    assert merged["demo"]["p95_latency_seconds"] == 31.013
+
+
 def test_a_regression_from_a_prior_rate_stays_on_the_gated_key() -> None:
     existing = {"answered_rate": 0.80, "retrieval_at_10": 0.9}
     demo = {
