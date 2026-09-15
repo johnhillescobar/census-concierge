@@ -9,7 +9,7 @@ import math
 import re
 from typing import Protocol
 
-from src.contract import Alternative, AskWarning
+from src.contract import Alternative, AskWarning, GeoSpec
 
 _ACS5_SPAN = 5
 _RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
@@ -55,7 +55,7 @@ class GuardRecord(Protocol):
     question: str
     vintages: list[tuple[str, int]]
     geo_status: dict[str, str | bool] | None
-    geographies: list[dict[str, str]]
+    geographies: list[GeoSpec]
     rows: list[dict[str, str | None]]
     table_id: str
 
@@ -166,10 +166,7 @@ def ambiguous_place(record: GuardRecord) -> AskWarning | None:
     matches = record.geographies
     if len(matches) <= 1:
         return None
-    names = [
-        str(row.get("name") or f"{row.get('for', '')} {row.get('in', '')}".strip())
-        for row in matches
-    ]
+    names = [row.name or f"{row.for_spec} {row.in_spec}".strip() for row in matches]
     listing = "; ".join(names)
     return AskWarning(
         code="ambiguous_place",

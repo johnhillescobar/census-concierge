@@ -14,6 +14,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL
+from src.contract import GeoSpec
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -41,6 +42,10 @@ class ResolveGeographyInput(ToolInput):
     level: str | None = Field(
         default=None, description="geography.json name if already known, else omit."
     )
+    dataset: Literal["acs5", "acs1"] = Field(default="acs5", description="acs5 or acs1.")
+    vintage: int | None = Field(
+        default=None, description="End year. Empty means latest for the dataset."
+    )
 
 
 class BuildUrlInput(ToolInput):
@@ -49,7 +54,7 @@ class BuildUrlInput(ToolInput):
         default_factory=list,
         description="Estimate variable IDs (E). Empty means the table total (001E).",
     )
-    dataset: str = Field(default="acs5", description="acs5 or acs1.")
+    dataset: Literal["acs5", "acs1"] = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(default=None, description="End year. Empty means latest ACS5.")
     for_spec: str | None = Field(default=None, description="Census for=, e.g. county:201")
     in_spec: str | None = Field(default=None, description="Census in=, e.g. state:48")
@@ -70,10 +75,10 @@ DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
 SelectFn = Callable[[str, list[dict[str, Any]]], str]
 AllowedTables = Callable[[], set[str]]
-AllowedGeographies = Callable[[], set[tuple[str, str]]]
+AllowedGeographies = Callable[[], set[tuple[str, str, str]]]
 LatestVintage = Callable[[str], int]
 TableFacts = Callable[[str, int, str], dict[str, Any] | None]
-LastGeography = Callable[[], dict[str, str] | None]
+LastGeography = Callable[[], GeoSpec | None]
 
 
 def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
@@ -264,11 +269,11 @@ class BuildUrlTool(BaseTool):
             )
             return result.detail, result
         paired = pair_margins(variables)
-        geography = self.last_geography() or {}
-        for_clause = (for_spec or "").strip() or geography.get("for") or ""
-        in_clause = (in_spec or "").strip() or geography.get("in") or ""
+        geography = self.last_geography()
+        for_clause = (for_spec or "").strip() or (geography.for_spec if geography else "")
+        in_clause = (in_spec or "").strip() or (geography.in_spec if geography else "")
         allowed_geo = self.allowed_geographies()
-        if not for_clause or (for_clause, in_clause) not in allowed_geo:
+        if not for_clause or (for_clause, in_clause, dataset) not in allowed_geo:
             result = BuildUrlResult(
                 ok=False,
                 url="",

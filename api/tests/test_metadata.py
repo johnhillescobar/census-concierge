@@ -139,3 +139,10 @@ def test_only_estimate_variables_reach_the_index(
     variables = metadata.variables("acs5", 2023)
     assert set(variables) == {"B19013_001E"}
     assert variables["B19013_001E"].table_id == "B19013"
+
+
+def test_cache_path_cannot_leave_the_cache_root() -> None:
+    with pytest.raises(ValueError):
+        metadata.cache_path("..", 2024, "geography")
+    path = metadata.cache_path("acs5", 2024, "geography")
+    assert path.is_relative_to(metadata.CACHE.resolve())

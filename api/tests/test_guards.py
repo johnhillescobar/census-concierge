@@ -5,9 +5,9 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 
 from __future__ import annotations
 
-from ask_fixtures import ENTRIES, _list_geographies, _tools
+from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
-from src.geo import ResolveGeographyTool
+from src.contract import GeoSpec
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
 
@@ -55,8 +55,8 @@ async def test_fetched_years_replace_the_built_template_vintage() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     await dispatch(tools["build_url"], {"id": "1", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "2", "args": {"years": [2022]}}, record)
     assert record.vintages == [("acs5", 2022)]
@@ -67,8 +67,8 @@ async def test_overlapping_fetched_years_still_warn() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     await dispatch(tools["build_url"], {"id": "1", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "2", "args": {"years": [2019, 2022]}}, record)
     assert record.vintages == [("acs5", 2019), ("acs5", 2022)]
@@ -165,7 +165,7 @@ def test_illegal_geography_combination_warns() -> None:
 
 def test_several_matching_places_are_the_result() -> None:
     record = ExecutionRecord(question="Population of Springfield")
-    record.geographies = [{"name": f"Springfield {i}"} for i in range(15)]
+    record.geographies = [GeoSpec(name=f"Springfield {i}") for i in range(15)]
     warnings = evaluate(record)
     assert [item.code for item in warnings] == ["ambiguous_place"]
     assert "Springfield 0" in warnings[0].detail
@@ -179,7 +179,7 @@ def test_several_matching_places_are_the_result() -> None:
 
 def test_one_geography_is_not_ambiguous() -> None:
     record = ExecutionRecord()
-    record.geographies = [{"name": "Harris County, Texas", "for": "county:201", "in": "state:48"}]
+    record.geographies = [_harris()]
     assert _codes(record) == []
 
 
@@ -202,7 +202,7 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
         GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
     ]
     record = ExecutionRecord(question="Median household income for every block group in Wyoming")
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=entries)
+    tool = _geo_tool(table=entries)
     await dispatch(tool, {"id": "bg1", "args": {"query": "every block group in Wyoming"}}, record)
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
@@ -279,7 +279,7 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     response = assemble("three Cook Counties", record)
     assert len(record.geographies) == 3
     assert record.geography is not None
-    assert record.geography["in"] == "state:17"
+    assert record.geography.in_spec == "state:17"
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert response.answer == "three Cook Counties"
 
@@ -536,13 +536,12 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
 def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
     record = ExecutionRecord(question=Q24)
     record.geographies = [
-        {
-            "name": "ZCTA5 90210",
-            "level": "zip code tabulation area",
-            "for": "zip code tabulation area:90210",
-            "in": "",
-            "geoid": "860Z200US90210",
-        }
+        GeoSpec(
+            name="ZCTA5 90210",
+            level="zip code tabulation area",
+            for_spec="zip code tabulation area:90210",
+            geoid="860Z200US90210",
+        )
     ]
     record.rows = [{"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"}]
     response = assemble("single vintage", record)
@@ -583,7 +582,7 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
 
 
 async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
-    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    tool = _geo_tool()
     for query in (
         "zctas inside Denver",
         "zip codes inside Denver",
@@ -606,7 +605,7 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
                 "id": "c1",
             }
         )
-        assert message.artifact.matches == [], query
+        assert message.artifact.specs == [], query
         assert message.artifact.legal is False, query
         assert message.artifact.nested is False, query
 

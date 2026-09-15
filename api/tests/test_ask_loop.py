@@ -6,12 +6,12 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from ask_fixtures import ENTRIES, _describe, _list_geographies, _search, _tools
+from ask_fixtures import _describe, _geo_tool, _harris, _search, _tools
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse
 from src.fetch import FetchDataTool
-from src.geo import ResolveGeographyTool
+from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
 from test_ask_route import CONTRACT_FIELDS
 
@@ -95,21 +95,19 @@ async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
 async def test_failed_fetch_still_returns_the_built_url() -> None:
     record = ExecutionRecord()
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
     tools = {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
-        "resolve_geography": ResolveGeographyTool(
-            list_geographies=_list_geographies, entries=ENTRIES
-        ),
+        "resolve_geography": _geo_tool(),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: {"B01003"},
             latest_vintage=lambda dataset: 2024,
             table_facts=lambda dataset, year, table_id: facts["acs5"][year][table_id],
             last_geography=lambda: record.geography,
             allowed_geographies=lambda: {
-                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+                (geo.for_spec, geo.in_spec, geo.dataset) for geo in record.geographies
             },
         ),
         "fetch_data": FetchDataTool(
@@ -176,8 +174,8 @@ async def test_failed_rebuild_clears_the_previous_url_and_rows() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     record.url = CensusURL(
         "https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:201&in=state:48"
     )
@@ -195,8 +193,8 @@ async def test_successful_rebuild_drops_previous_rows() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}]
     await dispatch(tools["build_url"], {"id": "x", "args": {"table_id": "B01003"}}, record)
     assert record.rows == []
@@ -213,7 +211,7 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     )
     assert len(record.geographies) == 3
     assert record.geography is not None
-    assert record.geography["in"] == "state:17"
+    assert record.geography.in_spec == "state:17"
     await dispatch(tools["build_url"], {"id": "3", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "4", "args": {}}, record)
     response = assemble("Cook County, Illinois", record)
@@ -228,6 +226,28 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     assert "Cook County, Minnesota" in response.warnings[0].detail
 
 
+async def test_unauthorized_geography_cannot_reach_fetch() -> None:
+    record = ExecutionRecord()
+    record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+    tools = _tools(record)
+    tools["resolve_geography"] = _geo_tool(table=[GeoLevel("state", "040", (), (), "")])
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "1", "args": {"query": "all counties in Oregon"}},
+        record,
+    )
+    assert record.geographies == []
+    content = await dispatch(
+        tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record
+    )
+    assert record.url is None
+    assert "resolve_geography" in content
+    await dispatch(tools["fetch_data"], {"id": "3", "args": {}}, record)
+    assert record.rows == []
+    assert record.fetch is not None
+    assert record.fetch.ok is False
+
+
 def test_assemble_emits_every_declared_field() -> None:
     response = assemble("", ExecutionRecord())
     assert list(response.model_dump()) == list(CONTRACT_FIELDS)
@@ -237,7 +257,7 @@ def test_assemble_emits_every_declared_field() -> None:
 
 def test_each_estimate_is_returned_with_its_matching_margin() -> None:
     record = ExecutionRecord()
-    record.geography = {"geoid": "0500000US48201"}
+    record.geography = _harris()
     record.rows = [
         {
             "NAME": "Harris County, Texas",
@@ -268,7 +288,7 @@ def test_missing_margin_stays_visible_as_none() -> None:
 
 def test_every_row_carries_an_affgeoid() -> None:
     record = ExecutionRecord()
-    record.geography = {"geoid": "0500000US48201", "for": "county:201", "in": "state:48"}
+    record.geography = _harris()
     record.rows = [{"NAME": "Harris County, Texas", "B01003_001E": "1", "B01003_001M": "2"}]
     response = assemble("x", record)
     assert response.rows[0]["GEO_ID"] == "0500000US48201"
@@ -277,7 +297,7 @@ def test_every_row_carries_an_affgeoid() -> None:
 
 def test_many_rows_do_not_name_one_geoid() -> None:
     record = ExecutionRecord()
-    record.geography = {"for": "county:*", "in": "state:41", "geoid": ""}
+    record.geography = _harris(for_spec="county:*", in_spec="state:41", geoid="")
     record.rows = [
         {"GEO_ID": "0500000US41001", "B01003_001E": "1", "B01003_001M": "2"},
         {"GEO_ID": "0500000US41003", "B01003_001E": "3", "B01003_001M": "4"},
@@ -461,8 +481,8 @@ async def test_universe_comes_from_the_requested_vintage() -> None:
             "members": [],
         }
     ]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     facts = {
         "acs5": {
             2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}},
@@ -477,7 +497,7 @@ async def test_universe_comes_from_the_requested_vintage() -> None:
             facts.get(dataset, {}).get(year, {}).get(table_id)
         ),
         last_geography=lambda: record.geography,
-        allowed_geographies=lambda: {("county:201", "state:48")},
+        allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
     )
     queue = [
         {
@@ -503,8 +523,8 @@ async def test_universe_comes_from_the_requested_vintage() -> None:
 async def test_fetch_with_no_rows_still_returns_the_url() -> None:
     record = ExecutionRecord()
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
-    record.geography = {"for": "county:201", "in": "state:48", "geoid": "0500000US48201"}
-    record.geographies = [dict(record.geography)]
+    record.geography = _harris()
+    record.geographies = [_harris()]
     tools = _tools(record)
     tools["fetch_data"] = FetchDataTool(
         last_url=lambda: record.url,

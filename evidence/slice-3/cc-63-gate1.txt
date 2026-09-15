@@ -1,0 +1,277 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== BASELINE new tests =====
+.......                                                                  [100%]
+7 passed in 0.60s
+exit 0
+
+===== MUTATION emit-illegal-state-spec =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_unauthorized_state_row_does_not_emit_a_spec _______________
+
+    async def test_unauthorized_state_row_does_not_emit_a_spec() -> None:
+        tool = _geo_tool(table=[GeoLevel("county", "050", ("state",), ("state",), "state")])
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Texas"},
+                "id": "c1",
+            }
+        )
+>       assert message.artifact.legal is False
+E       AssertionError: assert True is False
+E        +  where True = ResolveGeographyResult(specs=[GeoSpec(level='state', name='Texas', geoid='0400000US48', for_spec='state:48', in_spec='', dataset='acs5', vintage=2024, codes={'state': '48'})], wildcard=False, legal=True, detail='').legal
+E        +    where ResolveGeographyResult(specs=[GeoSpec(level='state', name='Texas', geoid='0400000US48', for_spec='state:48', in_spec='', dataset='acs5', vintage=2024, codes={'state': '48'})], wildcard=False, legal=True, detail='') = ToolMessage(content='1 geography: state:48', name='resolve_geography', tool_call_id='c1', artifact=ResolveGeographyRes...='state:48', in_spec='', dataset='acs5', vintage=2024, codes={'state': '48'})], wildcard=False, legal=True, detail='')).artifact
+
+api\tests\test_ask_tools.py:1177: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_unauthorized_state_row_does_not_emit_a_spec
+1 failed in 0.53s
+failed=True  VERDICT GOOD
+
+===== MUTATION keep-illegal-wildcard =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_removing_county_row_from_fixture_fails_before_listing __________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-906/test_removing_county_row_from_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002CB7EA52180>
+
+    async def test_removing_county_row_from_fixture_fails_before_listing(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.retrieval import metadata
+    
+        monkeypatch.setattr(metadata, "CACHE", tmp_path)
+        called: list[tuple[str, dict[str, str]]] = []
+    
+        def listing(
+            level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+        ) -> list[dict[str, str]]:
+            _ = dataset, vintage
+            called.append((level, parts))
+            return _list_geographies(level, parts)
+    
+        tool = _geo_tool(listing, geo_table=metadata.geo_entries)
+        args = {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all counties in Oregon"},
+            "id": "c1",
+        }
+        _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS, _COUNTY_FIPS])
+        allowed = await tool.ainvoke(args)
+        assert allowed.artifact.legal is True
+        assert allowed.artifact.specs[0].for_spec == "county:*"
+        called.clear()
+        _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS])
+        denied = await tool.ainvoke(args)
+        assert called == []
+>       assert denied.artifact.legal is False
+E       AssertionError: assert True is False
+E        +  where True = ResolveGeographyResult(specs=[GeoSpec(level='county', name='all counties in Oregon', geoid='', for_spec='county:*', in...'state:41', dataset='acs5', vintage=2024, codes={'state': '41', 'county': '*'})], wildcard=True, legal=True, detail='').legal
+E        +    where ResolveGeographyResult(specs=[GeoSpec(level='county', name='all counties in Oregon', geoid='', for_spec='county:*', in...'state:41', dataset='acs5', vintage=2024, codes={'state': '41', 'county': '*'})], wildcard=True, legal=True, detail='') = ToolMessage(content='wildcard county:* state:41', name='resolve_geography', tool_call_id='c1', artifact=ResolveGeograp...state:41', dataset='acs5', vintage=2024, codes={'state': '41', 'county': '*'})], wildcard=True, legal=True, detail='')).artifact
+
+api\tests\test_ask_tools.py:1097: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_removing_county_row_from_fixture_fails_before_listing
+1 failed in 0.62s
+failed=True  VERDICT GOOD
+
+===== MUTATION ignore-dataset-table =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_acs1_table_without_county_refuses_the_acs5_wildcard ___________
+
+    async def test_acs1_table_without_county_refuses_the_acs5_wildcard() -> None:
+        called: list[str] = []
+    
+        def table(dataset: str, year: int) -> list[GeoLevel]:
+            _ = year
+            if dataset == "acs1":
+                return [GeoLevel("state", "040", (), (), "")]
+            return ENTRIES
+    
+        def listing(
+            level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+        ) -> list[dict[str, str]]:
+            _ = level, parts, vintage
+            called.append(dataset)
+            return []
+    
+        tool = _geo_tool(listing, geo_table=table)
+        acs5 = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "all counties in Oregon", "dataset": "acs5"},
+                "id": "c1",
+            }
+        )
+        acs1 = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "all counties in Oregon", "dataset": "acs1"},
+                "id": "c2",
+            }
+        )
+        assert acs5.artifact.legal is True
+>       assert acs1.artifact.legal is False
+E       AssertionError: assert True is False
+E        +  where True = ResolveGeographyResult(specs=[GeoSpec(level='county', name='all counties in Oregon', geoid='', for_spec='county:*', in...'state:41', dataset='acs1', vintage=2024, codes={'state': '41', 'county': '*'})], wildcard=True, legal=True, detail='').legal
+E        +    where ResolveGeographyResult(specs=[GeoSpec(level='county', name='all counties in Oregon', geoid='', for_spec='county:*', in...'state:41', dataset='acs1', vintage=2024, codes={'state': '41', 'county': '*'})], wildcard=True, legal=True, detail='') = ToolMessage(content='wildcard county:* state:41', name='resolve_geography', tool_call_id='c2', artifact=ResolveGeograp...state:41', dataset='acs1', vintage=2024, codes={'state': '41', 'county': '*'})], wildcard=True, legal=True, detail='')).artifact
+
+api\tests\test_ask_tools.py:1135: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_acs1_table_without_county_refuses_the_acs5_wildcard
+1 failed in 0.50s
+failed=True  VERDICT GOOD
+
+===== MUTATION ignore-requested-vintage =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_dataset_and_vintage_select_the_geography_table _____________
+
+    async def test_dataset_and_vintage_select_the_geography_table() -> None:
+        seen: list[tuple[str, int]] = []
+    
+        def table(dataset: str, year: int) -> list[GeoLevel]:
+            seen.append((dataset, year))
+            return ENTRIES
+    
+        tool = _geo_tool(geo_table=table)
+        await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Texas", "dataset": "acs1", "vintage": 2023},
+                "id": "c1",
+            }
+        )
+>       assert seen == [("acs1", 2023)]
+E       AssertionError: assert [('acs1', 2024)] == [('acs1', 2023)]
+E         
+E         At index 0 diff: ('acs1', 2024) != ('acs1', 2023)
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:1197: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_dataset_and_vintage_select_the_geography_table
+1 failed in 0.51s
+failed=True  VERDICT GOOD
+
+===== MUTATION missing-metadata-raises =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_missing_vintage_geography_metadata_fails_closed _____________
+
+    async def test_missing_vintage_geography_metadata_fails_closed() -> None:
+        called: list[object] = []
+    
+        def listing(
+            level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+        ) -> list[dict[str, str]]:
+            called.append((level, parts, dataset, vintage))
+            return []
+    
+        def table(dataset: str, year: int) -> list[GeoLevel]:
+            raise FileNotFoundError(f"{dataset}/{year}")
+    
+        tool = _geo_tool(listing, geo_table=table)
+>       message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Texas", "dataset": "acs1", "vintage": 2020},
+                "id": "c1",
+            }
+        )
+
+api\tests\test_ask_tools.py:1153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
+    raise error_to_raise
+.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\geo.py:310: in _arun
+    entries = self.geo_table(dataset, year)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+dataset = 'acs1', year = 2020
+
+    def table(dataset: str, year: int) -> list[GeoLevel]:
+>       raise FileNotFoundError(f"{dataset}/{year}")
+E       FileNotFoundError: acs1/2020
+
+api\tests\test_ask_tools.py:1150: FileNotFoundError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_missing_vintage_geography_metadata_fails_closed
+1 failed in 0.58s
+failed=True  VERDICT GOOD
+
+===== MUTATION query-prose-sets-for-spec =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_query_prose_cannot_override_resolved_clauses ______________
+
+    async def test_query_prose_cannot_override_resolved_clauses() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Harris County, Texas for=county:999"},
+                "id": "c1",
+            }
+        )
+        spec = message.artifact.specs[0]
+>       assert spec.for_spec == "county:201"
+E       AssertionError: assert 'county:999' == 'county:201'
+E         
+E         - county:201
+E         + county:999
+
+api\tests\test_ask_tools.py:1211: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_query_prose_cannot_override_resolved_clauses
+1 failed in 0.53s
+failed=True  VERDICT GOOD
+
+===== MUTATION invent-unresolved-geography =====
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_unauthorized_geography_cannot_reach_fetch ________________
+
+    async def test_unauthorized_geography_cannot_reach_fetch() -> None:
+        record = ExecutionRecord()
+        record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
+        tools = _tools(record)
+        tools["resolve_geography"] = _geo_tool(table=[GeoLevel("state", "040", (), (), "")])
+        await dispatch(
+            tools["resolve_geography"],
+            {"id": "1", "args": {"query": "all counties in Oregon"}},
+            record,
+        )
+        assert record.geographies == []
+        content = await dispatch(
+            tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record
+        )
+>       assert record.url is None
+E       assert CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:%2A&in=state:41') is None
+E        +  where CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:%2A&in=state:41') = ExecutionRecord(pool=[{'table_id': 'B01003', 'universe': 'Total population', 'members': []}], geography=None, geograph...2024)], geo_status={'legal': False, 'detail': "county with in={'state': '41'} is not a legal combination"}, fetch=None).url
+
+api\tests\test_ask_loop.py:272: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_unauthorized_geography_cannot_reach_fetch
+1 failed in 0.64s
+failed=True  VERDICT GOOD
+

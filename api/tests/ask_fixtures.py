@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from src.ask import ExecutionRecord
+from src.contract import GeoSpec
 from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
 from src.retrieval.metadata import GeoLevel
@@ -71,7 +72,12 @@ def _describe(table_id: str) -> dict[str, object] | None:
     return catalog.get(table_id)
 
 
-def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, str]]:
+def _list_geographies(
+    level: str,
+    in_parts: dict[str, str],
+    dataset: str = "acs5",
+    vintage: int = 2024,
+) -> list[dict[str, str]]:
     counties = [
         {
             "name": "Harris County, Texas",
@@ -212,13 +218,38 @@ def _list_geographies(level: str, in_parts: dict[str, str]) -> list[dict[str, st
     return counties
 
 
+def _geo_tool(
+    listing: Any = _list_geographies,
+    table: list[GeoLevel] | None = None,
+    geo_table: Any = None,
+) -> ResolveGeographyTool:
+    rows = ENTRIES if table is None else table
+    return ResolveGeographyTool(
+        list_geographies=listing,
+        geo_table=geo_table or (lambda dataset, year: rows),
+        latest_vintage=lambda dataset: 2024,
+    )
+
+
+def _harris(**fields: object) -> GeoSpec:
+    payload: dict[str, object] = {
+        "level": "county",
+        "name": "Harris County, Texas",
+        "geoid": "0500000US48201",
+        "for_spec": "county:201",
+        "in_spec": "state:48",
+        "dataset": "acs5",
+        "vintage": 2024,
+    }
+    payload.update(fields)
+    return GeoSpec.model_validate(payload)
+
+
 def _tools(record: ExecutionRecord) -> dict[str, Any]:
     facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
     return {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
-        "resolve_geography": ResolveGeographyTool(
-            list_geographies=_list_geographies, entries=ENTRIES
-        ),
+        "resolve_geography": _geo_tool(),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: (
                 {hit["table_id"] for hit in record.pool}
@@ -230,7 +261,7 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
             ),
             last_geography=lambda: record.geography,
             allowed_geographies=lambda: {
-                (str(geo.get("for") or ""), str(geo.get("in") or "")) for geo in record.geographies
+                (geo.for_spec, geo.in_spec, geo.dataset) for geo in record.geographies
             },
         ),
         "fetch_data": FetchDataTool(

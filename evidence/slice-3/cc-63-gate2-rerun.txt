@@ -1,0 +1,128 @@
+CC-63 Gate 2 rerun — machine gates
+branch: feat/cc-63-geo-specs
+HEAD: cb7d72fdaaaf1026209e242f3b4cb27e58f40058
+base: origin/main
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               2497 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           391 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+[1;32mAll checks passed![0m
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+94 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 32%]
+........................................................................ [ 64%]
+........................................................................ [ 96%]
+.........                                                                [100%]
+225 passed in 6.23s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+
+========== Gate 2 cold review (rerun) ==========
+diff: origin/main...HEAD (0279d89 implementation + a17d8f2 gate1 + 47f5e03 gate2 + cb7d72f codes fix)
+prior Gate 2: evidence/slice-3/cc-63-gate2.txt (HEAD a17d8f2)
+fix commit: cb7d72f clause_codes regex keeps multi-word Census level names
+passes: generic bugs, then review-pr.md invariants
+code only; ticket text not used as intent in pass 1
+
+Pass 1 -- generic bugs
+
+Prior finding 1 (GeoSpec.codes splits for/in tokens on whitespace): GONE.
+clause_codes uses r'(.+?):(\S+)' over in_spec then for_spec. Spaced Census
+level names stay the key: 'zip code tabulation area:80202' stores
+{'zip code tabulation area': '80202'}; 'block group:1' with
+'state:08 county:001 tract:000100' stores all four keys. county/place/state/tract
+still parse. build_url and fetch still read for_spec/in_spec, not codes.
+Test: test_codes_keep_multi_word_geography_names.
+
+New generic bugs on origin/main...HEAD: nothing.
+
+Pass 2 -- project invariants (docs/playbooks/review-pr.md)
+
+Machines: all six commands exit 0 (output above). check_invariants --base
+origin/main reports no violations. Budgets not weakened. domain_models 6/15
+(GeoSpec added). No new tool, route, or graph node. ARCHITECTURE.md updated
+in the implementation commit. AskResponse is unchanged, so the generated
+client is not required. Redaction stays on CensusURL; listing errors raise
+with the redacted URL. assemble still emits urls, moe, GEOID, universe on
+success and failure. Numbers stay in the fetch artifact. Guards still warn
+and ship. Illegal combinations return empty specs and do not rewrite into a
+legal parent. No blocking clarification.
+
+Claim: resolve_geography now returns an ordered list of metadata-backed GeoSpec
+values for the requested dataset/vintage instead of untyped match dicts.
+Unauthorized or missing geography tables fail closed before NAME listing.
+
+Scope: slice 3 geography specs. 14 files (src + tests + ARCHITECTURE +
+evidence). Did not add geography fan-out, ZCTA policy, warning prose, UI,
+or an AskResponse geography array.
+
+Tests: behavior on ranking, fail-closed metadata, dataset/vintage table
+selection, for/in clauses, and spaced level names in codes. Fakes still vary
+by input. No assertions on LLM prose.
+
+Evidence: this gate did not run make demo. p95 in latest.json is still
+14.164s.
+
+Findings for the PR body:
+
+1. GeoSpec.codes whitespace split for spaced Census level names: fixed in cb7d72f.
+2. nothing else.
+
+Verdict: ship it
+Most important: the prior Gate 2 follow-up is gone. codes now keep multi-word
+Census level names; for_spec/in_spec remain the executable clauses.

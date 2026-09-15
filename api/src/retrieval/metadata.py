@@ -106,7 +106,11 @@ def family_id(table_id: str) -> str:
 
 
 def cache_path(dataset: str, year: int, name: str) -> Path:
-    return CACHE / dataset / str(year) / f"{name}.json.gz"
+    root = CACHE.resolve()
+    path = (CACHE / dataset / str(year) / f"{name}.json.gz").resolve()
+    if not path.is_relative_to(root):
+        raise ValueError(f"dataset {dataset!r} is not a cache path")
+    return path
 
 
 def _read(path: Path) -> dict[str, Any]:
