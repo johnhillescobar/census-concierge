@@ -582,6 +582,31 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
     assert [item.code for item in response.warnings] == ["geography_not_nested"]
 
 
+async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
+    tool = ResolveGeographyTool(list_geographies=_list_geographies, entries=ENTRIES)
+    for query in (
+        "zctas inside Denver",
+        "zip codes inside Denver",
+        "census tract within Denver",
+    ):
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": query},
+                "id": "c1",
+            }
+        )
+        assert message.artifact.matches == [], query
+        assert message.artifact.legal is False, query
+        assert message.artifact.nested is False, query
+
+
+def test_published_zcta_name_is_not_zip_language() -> None:
+    record = ExecutionRecord(question="Median household income for zip code tabulation area 90210")
+    assert _codes(record) == []
+
+
 async def test_tract_within_a_county_is_not_a_nesting_warning() -> None:
     record = ExecutionRecord(question="poverty by census tract within Wayne County")
     tools = _tools(record)

@@ -47,7 +47,7 @@ _DERIVED = re.compile(
     r"\b(?:mean|average|percent(?:age)?|rate|per capita)\b",
     re.IGNORECASE,
 )
-_ZIP = re.compile(r"\bzip(?:\s*codes?)?\b", re.IGNORECASE)
+_ZIP = re.compile(r"\bzip codes?\b(?!\s+tabulation)|\bzip\b(?!\s+code)", re.IGNORECASE)
 _ZCTA_CODE = re.compile(r"\b(\d{5})\b")
 
 

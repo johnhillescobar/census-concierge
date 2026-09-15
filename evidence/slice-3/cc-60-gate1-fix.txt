@@ -1,0 +1,19 @@
+# Gate 1 fix — CC-60 (after Gate 2)
+
+## GOOD — new tests against the implementation
+uv run pytest -q api/tests/test_guards.py::test_zcta_inside_a_place_is_not_a_national_wildcard api/tests/test_guards.py::test_published_zcta_name_is_not_zip_language
+..                                                                       [100%]
+2 passed in 0.20s
+
+## BAD — one behaviour reverted at a time
+
+### skip assume-place for _WITHIN unknown parents
+Test: test_zcta_inside_a_place_is_not_a_national_wildcard
+Verdict: BAD  exit=1
+AssertionError: zctas inside Denver
+  Left contains one more item: {'for': 'zip code tabulation area:*', 'in': ''}
+
+### treat published ZCTA name as ZIP language
+Test: test_published_zcta_name_is_not_zip_language
+Verdict: BAD  exit=1
+AssertionError: assert ['zcta_not_zip'] == []

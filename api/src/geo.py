@@ -160,10 +160,8 @@ def legal_predicate(
 
 
 def nests_in(child: str, parent: str, entries: list[GeoLevel]) -> bool:
-    """True when geography.json ever places `child` inside `parent`."""
     return any(
-        entry.name == child and (parent in entry.requires or parent == entry.wildcard_for)
-        for entry in entries
+        e.name == child and (parent in e.requires or parent == e.wildcard_for) for e in entries
     )
 
 
@@ -307,7 +305,8 @@ class ResolveGeographyTool(BaseTool):
     async def _arun(
         self, query: str, level: str | None = None
     ) -> tuple[str, ResolveGeographyResult]:
-        wildcard_match = _WILDCARD.search(query) or _WITHIN.search(query)
+        within = _WITHIN.search(query)
+        wildcard_match = _WILDCARD.search(query) or within
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query
         state = find_state(parent_text)
@@ -351,6 +350,8 @@ class ResolveGeographyTool(BaseTool):
             return f"1 geography: {match['for']}", result
 
         parent_level = detect_level(parent_text) if wildcard else None
+        if within and not parent_level and not state and for_level != "place":
+            parent_level = "place"
         extra = (
             {parent_level}
             if parent_level and parent_level != for_level and parent_level not in in_parts
