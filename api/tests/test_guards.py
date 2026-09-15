@@ -6,7 +6,7 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 from __future__ import annotations
 
 from ask_fixtures import ENTRIES, _list_geographies, _tools
-from src.ask import ExecutionRecord, assemble, dispatch
+from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.geo import ResolveGeographyTool
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
@@ -592,6 +592,8 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
         "cities inside Denver",
         "all zip codes in Denver",
         "every zcta in Denver",
+        "all places in Denver",
+        "all counties in Denver",
     ):
         message = await tool.ainvoke(
             {
@@ -604,6 +606,23 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
         assert message.artifact.matches == [], query
         assert message.artifact.legal is False, query
         assert message.artifact.nested is False, query
+
+
+def test_dict_geo_artifact_preserves_nested_false() -> None:
+    record = ExecutionRecord(question=T16)
+    _absorb(
+        record,
+        "resolve_geography",
+        {
+            "matches": [],
+            "legal": False,
+            "detail": "tract does not nest in place (Denver)",
+            "nested": False,
+        },
+    )
+    assert record.geo_status is not None
+    assert record.geo_status["nested"] is False
+    assert [item.code for item in assemble("no fetch", record).warnings] == ["geography_not_nested"]
 
 
 def test_published_zcta_name_is_not_zip_language() -> None:

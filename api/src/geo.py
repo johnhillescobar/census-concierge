@@ -376,7 +376,6 @@ class ResolveGeographyTool(BaseTool):
             and not extra
             and not in_parts
             and parent_text.strip()
-            and (within or for_level == "zip code tabulation area")
             and not re.search(r"\b(?:the\s+)?(?:u\.?s\.?a?\.?|united states)\b", parent_text, re.I)
         ):
             return _blocked(f"{for_level} does not nest in ({parent_text.strip()})", nested=False)
