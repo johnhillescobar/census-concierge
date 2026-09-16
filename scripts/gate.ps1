@@ -35,8 +35,8 @@ $out = Join-Path $root "evidence/slice-$Slice/$Phase.txt"
 $task = switch ($Phase) {
   'gate1' { 'run Gate 1 for the current slice per docs/playbooks/run-slice.md: tests for the adversarial matrix, and mutation-check every new test. Paste the mutation transcript with GOOD/BAD labels.' }
   'gate2' { 'review the current branch diff for bugs, code only, no knowledge of intent; then run docs/playbooks/review-pr.md. State what each pass found, including nothing.' }
-  'e2e-pre' { 'run the slice acceptance commands against the real system (make eval; make demo --repeat 3 once it exists), before the PR, and print every command with its verbatim output.' }
-  'e2e-post' { 'run the slice acceptance commands against the real system (make eval; make demo --repeat 3 once it exists) against merged main, after the merge, and print every command with its verbatim output.' }
+  'e2e-pre' { 'run the slice acceptance commands against the real system (make eval; make demo --repeat 3 once it exists), before the PR. Tee raw output to the evidence path. Do not Read that file. Report the printed DEMO/MISSES scoreboard only.' }
+  'e2e-post' { 'run the slice acceptance commands against the real system (make eval; make demo --repeat 3 once it exists) against merged main, after the merge. Tee raw output to the evidence path. Do not Read that file. Report the printed DEMO/MISSES scoreboard only.' }
 }
 
 @"

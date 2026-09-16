@@ -27,10 +27,10 @@ Everything below is what the machines *cannot* check.
 description. If it cannot be written, the PR is refactoring or scaffolding — say
 so plainly rather than dressing it as a feature.
 
-**Is the evidence real?** `make eval` and `make demo` output pasted, not
-summarised. A pass rate at a stated `--repeat`, not a single run. This pipeline
-is nondeterministic; one green run is not evidence, and "it works now" is not a
-number.
+**Is the evidence real?** `make eval` and `make demo` scoreboard quoted, not
+paraphrased. Link the teed transcript; do not paste or Read it. A pass rate at
+a stated `--repeat`, not a single run. This pipeline is nondeterministic; one
+green run is not evidence, and "it works now" is not a number.
 
 **At n=40, a move of under ~10 points in `retrieval@1` is noise.** A PR claiming
 improvement on a delta smaller than that is claiming something the data does not

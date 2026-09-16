@@ -12,8 +12,8 @@ handful of tables and lost in the other thousand. The product is *discovery*.
 make demo        # real questions, real API, prints pass rate and p95 latency
 ```
 
-Done means a user got an answer. Paste the output in the PR. A passing pytest
-run is not done. A new test file is not done. A closed ticket is not done.
+Done means a user got an answer. Quote the scoreboard in the PR; never Read the
+teed transcript. A passing pytest run, new test file, or closed ticket is not done.
 
 **This pipeline is nondeterministic.** One run tells you nothing — compare rates
 at the same `--repeat`. Current numbers live in `evidence/latest.json` and at
@@ -81,7 +81,7 @@ Name `CC-N` in commits/PRs; Jira comments link to the PR or `evidence/`.
 One pipeline per slice: **pre-flight** (run every technical claim before coding) ->
 implement -> **Gate 1** (matrix tests, every new test mutation-checked) -> **Gate
 2** (cold review: `/code-review` then `docs/playbooks/review-pr.md`) -> fix ->
-**E2E** (`make eval` / `make demo`, transcript in the PR) -> merge -> **E2E again**
+**E2E** (`make eval` / `make demo`, scoreboard in the PR) -> merge -> **E2E again**
 against merged `main`. Every phase persists to git / the PR / `evidence/slice-<N>/`
 and **Jira** before the next; a fresh context rebuilds from those, never from chat
 history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;

@@ -4,7 +4,8 @@
 
 ## Evidence
 
-<!-- Paste real output. "Tests pass" is not evidence. -->
+<!-- Quote the printed DEMO/MISSES scoreboard. Link the teed transcript path.
+     Do not paste the transcript. "Tests pass" is not evidence. -->
 
 ```
 $ make eval
@@ -12,6 +13,8 @@ $ make eval
 
 ```
 $ make demo --repeat 3
+# paste the DEMO / MISSES block only
+# transcript: evidence/slice-N/cc-NN-e2e-pre.txt
 ```
 
 ## Checklist

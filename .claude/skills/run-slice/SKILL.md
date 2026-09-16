@@ -21,9 +21,9 @@ The subagent prompt, every time:
    `.claude/PLAN.md` first. You have no context from the caller.
 2. Do exactly this phase, nothing downstream.
 3. Capture raw output: `<cmd> 2>&1 | tee evidence/slice-<N>/<phase>.txt`. No model
-   edits that file.
+   edits that file. For E2E, do not Read the teed file afterward.
 4. Report back only: the path, a one-line verdict, and for Gate 2 the findings for
-   the PR body.
+   the PR body. For E2E, the printed DEMO/MISSES scoreboard — not the transcript.
 
 ## Between phases
 
