@@ -1,0 +1,150 @@
+CC-70 Gate 2 -- machine gates
+branch: feat/cc-70-geo-warnings
+HEAD: 7a244ffeaecc49415c0bd079c1199405bdd1ff72
+base: origin/main
+diff: git diff origin/main...HEAD
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2695 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)           14.1 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.795 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+99 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 27%]
+........................................................................ [ 54%]
+........................................................................ [ 81%]
+.................................................                        [100%]
+265 passed in 7.12s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+
+========== Gate 2 cold review ==========
+passes: generic bugs, then review-pr.md invariants
+code only for pass 1; ticket text not used as intent
+
+Pass 1 -- generic bugs
+
+1. nests_in is applied on the non-wildcard path, so a named geography that
+   mentions a state and does not nest in state no longer copies in=state and
+   no longer fail-closes.
+   api/src/geo.py:335-338. Non-wildcard sets host = state[0], so
+   host in {"", state[0], "state"} is always true whenever a state was found.
+   The old `if not host or host == state[0]` therefore always copied the FIPS.
+   The new conjunct `nests_in(for_level, "state", entries)` skips that copy
+   for zip code tabulation area. Execution then hits legal_predicate with
+   empty in_parts and `wildcard or not in_parts` True, lists nationally, and
+   token-matches. Measured with the test fixture:
+
+   "ZCTA 90210 Oregon" -> legal=True nested=True specs=[(zip code tabulation
+   area:90210, "")]
+   "Median household income for ZCTA 90210 in Oregon" -> same
+
+   Before this line, those queries copied in={'state': '41'} and failed as
+   an illegal combination. After it, Oregon is dropped and 90210 ships.
+   Tests only cover wildcard ZCTAs and named 90210 with no state, so this
+   path cannot fail.
+
+2. Leftover host is the literal token "state" only. "all counties in the
+   Commonwealth of Pennsylvania" still fails nested=False with
+   "county does not nest in (the Commonwealth of Pennsylvania)". Pre-existing
+   for that phrasing; the new set does not generalize past one leftover word.
+
+3. test_all_places_in_oregon_is_a_state_wildcard does not exercise the changed
+   predicate. It is a lock of already-green Oregon place wildcards.
+
+Pass 2 -- project invariants (docs/playbooks/review-pr.md)
+
+Machines: all six commands exit 0 (output above). check_invariants --base
+origin/main reports no violations. Budgets not weakened. largest file 398/400.
+No new tool, route, graph node, or Pydantic model. ARCHITECTURE.md unchanged;
+shape did not change, so that is correct. Redaction stays on CensusURL; this
+diff does not format a URL any other way. Numbers still never pass back
+through the model. No blocking clarification. No new fake that returns one
+table for every input. No assertions on prompt wording or LLM prose.
+
+Claim: a user who writes "all counties in Washington state" (or "the state of
+Washington") now gets the legal county:* in=state:53 wildcard instead of an
+unsupported-geography miss; "all ZCTAs in Oregon" / "ZCTAs within Oregon"
+now warn geography_not_nested with empty specs instead of geography_unsupported.
+
+Evidence: not this phase (no make eval / make demo). Unit tests only.
+
+Scope: slice 3 geography warnings (ZCTA nest-in-nothing; leftover parent
+misclassified as unresolved). 6 files: 1 src line, two test modules, three
+evidence files. Under 15. Did not take the optional combine_additive dedup,
+raise a budget, add a tool/route/node, or touch ask.py / PLAN / DESIGN.
+
+Silent-wrong-answer:
+1. Same as Pass 1 #1. A state on a named ZCTA is now an invisible omission:
+   legal=True, nested=True, no warning, GEOID of a ZCTA that may not lie in
+   that state. Guards warn and ship; they cannot warn about a parent the tool
+   already dropped. Wildcard ZCTA-in-state is correct (nested=False,
+   geography_not_nested, urls=[]). URL/MOE/GEOID/universe on other paths
+   unchanged.
+
+Shape: nothing.
+
+Tests: wildcard acceptance queries assert for/in/legal/nested and the
+assemble warning code. Named ZCTA plus a state is untested. Oregon places
+lock does not pin this diff.
+
+Findings:
+1. (block) named non-wildcard ZCTA + state silently drops the state and
+   returns a national match. Silent repair of geography.
+2. leftover host "state" only; "commonwealth of ..." still fail-nests.
+3. test_all_places_in_oregon_is_a_state_wildcard does not cover the change.
+
+Verdict: Not yet
+Most important: non-wildcard ZCTA queries that mention a state now omit
+in=state and ship a national ZCTA match with no warning.

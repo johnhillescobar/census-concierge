@@ -1,0 +1,16 @@
+# Gate 1 (fix) — CC-70 named ZCTA plus a state
+
+# GOOD = test fails against the broken implementation.
+
+===== MUTATION named ZCTA with a state fail-closes as not nested =====
+# Reverted the else: return _fail(..., nested=False) so parentless
+# non-wildcard queries fall through to a national listing.
+GOOD
+3 failed, 2 passed
+FAILED test_named_zcta_with_a_state_is_not_nested[ZCTA 90210 Oregon]
+FAILED test_named_zcta_with_a_state_is_not_nested[Median household income for ZCTA 90210 in Oregon]
+FAILED test_named_zcta_with_a_state_warns_as_not_nested
+PASSED test_zctas_in_a_state_are_not_nested (wildcard path still fail-closes)
+
+===== RESTORED =====
+268 passed

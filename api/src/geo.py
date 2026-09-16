@@ -334,8 +334,15 @@ class ResolveGeographyTool(BaseTool):
         in_parts: dict[str, str] = {}
         if for_level != "state" and state is not None:
             host = place_token(parent_text, state[0]) if wildcard else state[0]
-            if not host or host == state[0]:
-                in_parts["state"] = state[1]
+            if host in {"", state[0], "state"}:
+                if nests_in(for_level, "state", entries):
+                    in_parts["state"] = state[1]
+                else:
+                    return _fail(
+                        f"{for_level} does not nest in state ({parent_text.strip()})",
+                        wildcard=wildcard,
+                        nested=False,
+                    )
         if for_level == "state" and state is not None:
             if legal_predicate("state", frozenset(), wildcard=False, entries=entries) is None:
                 return _fail("state with in={} is not a legal combination")
