@@ -512,6 +512,89 @@ def test_a_rate_is_not_summed_across_areas() -> None:
     assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c"]
 
 
+def test_derived_measures_are_not_summed_across_areas() -> None:
+    for question in (
+        "share of households across every tract",
+        "poverty ratio across these counties",
+        "gini index across every tract",
+        "population density across these counties",
+        "income per-capita across every tract",
+    ):
+        record = ExecutionRecord(question=question, table_id="B01003")
+        record.rows = _count_rows(3)
+        response = assemble("listed", record)
+        assert [row.get("GEO_ID") for row in response.rows] == ["g0", "g1", "g2"], question
+        assert all(not row.get("component_count") for row in response.rows), question
+
+
+def test_combine_wording_sums_additive_counts() -> None:
+    for question in (
+        "combine these counties",
+        "total population of these counties combined",
+    ):
+        record = ExecutionRecord(question=question, table_id="B01003")
+        record.rows = _count_rows(3)
+        response = assemble("summed", record)
+        combined = response.rows[-1]
+        assert combined["B01003_001E"] == "30", question
+        assert combined["component_count"] == "3", question
+
+
+def test_race_iteration_median_does_not_use_overall_brackets() -> None:
+    record = ExecutionRecord(
+        question="aggregate household income across every tract",
+        table_id="B19013A",
+    )
+    record.pool = [
+        {
+            "table_id": "B19013",
+            "title": "Median Household Income",
+            "universe": "Households",
+            "members": ["B19013A"],
+        }
+    ]
+    record.rows = [
+        {"GEO_ID": "a", "B19013A_001E": "40000", "B19013A_001M": "200"},
+        {"GEO_ID": "b", "B19013A_001E": "80000", "B19013A_001M": "200"},
+        {"GEO_ID": "c", "B19013A_001E": "50000", "B19013A_001M": "200"},
+    ]
+    response = assemble("declined", record)
+    assert [item.code for item in response.warnings] == ["median_not_aggregatable"]
+    assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c"]
+    assert all(item.table_id != "B19001" for item in response.alternatives)
+    assert "B19001" not in response.warnings[0].detail
+
+
+def test_combined_row_requires_the_same_areas_per_variable() -> None:
+    record = ExecutionRecord(question=T18, table_id="B27001")
+    record.rows = [
+        {
+            "GEO_ID": "a",
+            "B27001_001E": "10",
+            "B27001_001M": "3",
+            "B27001_002E": "1",
+            "B27001_002M": "1",
+        },
+        {
+            "GEO_ID": "b",
+            "B27001_001E": "20",
+            "B27001_001M": "4",
+            "B27001_002E": "-555555555",
+            "B27001_002M": "-555555555",
+        },
+        {
+            "GEO_ID": "c",
+            "B27001_001E": "30",
+            "B27001_001M": "12",
+            "B27001_002E": "2",
+            "B27001_002M": "1",
+        },
+    ]
+    response = assemble("listed", record)
+    assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c"]
+    assert all(not row.get("component_count") for row in response.rows)
+
+
 def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
     record = ExecutionRecord(question=T15)
     record.rows = [

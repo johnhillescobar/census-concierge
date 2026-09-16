@@ -40,11 +40,13 @@ _DEGRADED_AFTER = 5
 _COMBINE = re.compile(
     r"\baggregat(?:e|ed|ion|ing)\b|"
     r"\bacross every\b|\bacross these\b|"
-    r"\btotal\b.{0,80}\bacross\b|\bacross\b.{0,80}\btotal\b",
+    r"\btotal\b.{0,80}\bacross\b|\bacross\b.{0,80}\btotal\b|"
+    r"\bcombin(?:e|ed|ing)\b(?!\s+statistical\s+area)",
     re.IGNORECASE,
 )
 _DERIVED = re.compile(
-    r"\b(?:mean|average|percent(?:age)?|rate|per capita)\b",
+    r"\b(?:mean|average|percent(?:age)?|rate|share|ratio|"
+    r"index(?:es)?|densit(?:y|ies)|per[\s-]?capita)\b",
     re.IGNORECASE,
 )
 _ZIP = re.compile(r"\bzip codes?\b(?!\s+tabulation)|\bzip\b(?!\s+code)", re.IGNORECASE)
@@ -199,10 +201,16 @@ def _wants_combination(question: str) -> bool:
 
 def _selected_title(record: GuardRecord) -> str:
     table_id = getattr(record, "table_id", "") or ""
+    member_title = ""
     for hit in getattr(record, "pool", []) or []:
-        if isinstance(hit, dict) and str(hit.get("table_id") or "") == table_id:
-            return str(hit.get("title") or "")
-    return ""
+        if not isinstance(hit, dict):
+            continue
+        title = str(hit.get("title") or "")
+        if str(hit.get("table_id") or "") == table_id:
+            return title
+        if table_id in {str(member) for member in (hit.get("members") or [])}:
+            member_title = title
+    return member_title
 
 
 def _median_measure(record: GuardRecord) -> bool:
@@ -244,6 +252,7 @@ def _combine_group(
                 estimate_keys.append(key)
     combined: dict[str, str | None] = {}
     contributing: set[str] = set()
+    pair_counts: list[int] = []
     for estimate in estimate_keys:
         margin = f"{estimate[:-1]}M"
         pairs: list[tuple[float, float, str]] = []
@@ -254,6 +263,7 @@ def _combine_group(
             pairs.append((value, error, _area_id(row, index)))
         if len(pairs) < 2:
             continue
+        pair_counts.append(len(pairs))
         for _value, _error, area in pairs:
             contributing.add(area)
         combined[estimate] = _format_number(sum(value for value, _error, _area in pairs))
@@ -261,7 +271,7 @@ def _combine_group(
             math.sqrt(sum(error * error for _value, error, _area in pairs))
         )
     count = len(contributing)
-    if count < 2 or not combined:
+    if count < 2 or not combined or any(n != count for n in pair_counts):
         return count, None
     combined["GEO_ID"] = ""
     combined["NAME"] = f"combined ({count} areas)"
@@ -300,7 +310,7 @@ def combine_additive(
 
 
 def _household_income_median(record: GuardRecord) -> bool:
-    return (getattr(record, "table_id", "") or "").startswith("B19013")
+    return (getattr(record, "table_id", "") or "") == "B19013"
 
 
 def median_not_aggregatable(record: GuardRecord) -> AskWarning | None:
