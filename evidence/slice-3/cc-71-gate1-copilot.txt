@@ -1,0 +1,20 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION first-five-digit-as-zcta =====
+GOOD
+.F                                                                       [100%]
+================================== FAILURES ===================================
+_ test_named_zcta_resolves_without_a_parent[population above 10000 for ZCTA 90210] _
+E   AssertionError: assert 'zip code tabulation area:10000' == 'zip code tabulation area:90210'
+api\tests\test_ask_tools.py:255: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_named_zcta_resolves_without_a_parent[population above 10000 for ZCTA 90210]
+1 failed, 1 passed in 0.49s
+exit 1
+
+Restored ZIP/ZCTA-adjacent five-digit extraction.
+
+===== RESTORE =====
+10 passed in 0.36s
+largest file LOC 400 <= 400

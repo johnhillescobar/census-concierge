@@ -11,10 +11,10 @@ get the table you did not know existed, the data, and the API URL to reuse.
 | metric | current | floor |
 |---|---|---|
 | retriever @10 — long tail | 0.90 | 0.90 |
-| selector @1 — long tail | 0.85 | 0.70 |
+| selector @1 — long tail | 0.88 | 0.70 |
 | synthetic alignment | 0.54 | 0.50 |
-| answered rate | 0.80 | 0.70 |
-| p95 latency | 14.2s | 20s |
+| answered rate | 0.75 | 0.70 |
+| p95 latency | 14.6s | 20s |
 | api src LOC | 0 | 4000 |
 
 ## Slices

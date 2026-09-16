@@ -388,7 +388,7 @@ class ResolveGeographyTool(BaseTool):
             )
         # fmt: off
         zcta = for_level == "zip code tabulation area" and not wildcard
-        hit = re.search(r"\b(\d{5})\b", query) if zcta else None
+        hit = re.search(r"(?i)\b(?:zcta5?s?|zips?|zip codes?)\s+(\d{5})\b", query) if zcta else None
         if hit:
             code = hit.group(1)
             after = query[hit.end():]

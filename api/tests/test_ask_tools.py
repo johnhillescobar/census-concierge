@@ -224,7 +224,14 @@ def test_tract_nests_in_county_not_place() -> None:
     assert not nests_in("zip code tabulation area", "place", ENTRIES)
 
 
-async def test_named_zcta_resolves_without_a_parent() -> None:
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Median household income for ZCTA 90210",
+        "population above 10000 for ZCTA 90210",
+    ],
+)
+async def test_named_zcta_resolves_without_a_parent(query: str) -> None:
     called: list[object] = []
 
     def listing(
@@ -238,7 +245,7 @@ async def test_named_zcta_resolves_without_a_parent() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Median household income for ZCTA 90210"},
+            "args": {"query": query},
             "id": "c1",
         }
     )
