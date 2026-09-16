@@ -623,12 +623,13 @@ def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
             name="ZCTA5 90210",
             level="zip code tabulation area",
             for_spec="zip code tabulation area:90210",
-            geoid="860Z200US90210",
         )
     ]
+    record.geography = record.geographies[0]
     record.rows = [{"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"}]
     response = assemble("single vintage", record)
     assert response.warnings == []
+    assert response.geoid == "860Z200US90210"
     assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US90210"]
 
 
@@ -701,6 +702,11 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
         "cities inside Denver, Colorado",
         "places inside Denver, CO",
         "counties inside Denver, Colorado",
+        "the part of ZIP 80202 inside Denver",
+        "ZCTA 80202 inside Denver",
+        "ZIP 80202 inside Denver",
+        "ZIP 80202 in Denver",
+        "ZCTA 80202 in Denver",
     ):
         message = await tool.ainvoke(
             {

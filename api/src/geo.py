@@ -1,8 +1,4 @@
-"""resolve_geography: names to Census `for`/`in`, legality from geography.json.
-
-`geo_levels()[name]` is last-wins and is the wrong table for nesting. Scan
-`geo_entries()` and pick the predicate whose `requires` match the `in` clause.
-"""
+"""resolve_geography: names to Census `for`/`in`, legality from geography.json."""
 
 from __future__ import annotations
 
@@ -101,8 +97,8 @@ _WILDCARD = re.compile(
     re.IGNORECASE,
 )
 _WITHIN = re.compile(
-    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|"
-    r"counties|county|places?|cities|city)\s+(?:within|inside)\s+(?:the\s+)?(.+)",
+    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|zip|"
+    r"counties|county|places?|cities|city)(?:\s+\d{5})?\s+(?:within|inside)\s+(?:the\s+)?(.+)",
     re.IGNORECASE,
 )
 _COUNTY = re.compile(
@@ -390,6 +386,20 @@ class ResolveGeographyTool(BaseTool):
                 f"{for_level} with in={dict(in_parts)} is not a legal combination",
                 wildcard=wildcard,
             )
+        # fmt: off
+        zcta = for_level == "zip code tabulation area" and not wildcard
+        hit = re.search(r"(?i)\b(?:zcta5?s?|zips?|zip codes?)\s+(\d{5})\b", query) if zcta else None
+        if hit:
+            code = hit.group(1)
+            after = query[hit.end():]
+            if re.search(r"\b(?:inside|within|in)\s+[A-Za-z]", after, re.I):
+                return _fail(f"{for_level} does not nest in ({after.strip()})", nested=False)
+            spec = GeoSpec(
+                level=for_level, name=f"ZCTA5 {code}",
+                for_spec=f"{for_level}:{code}", dataset=dataset, vintage=year)
+            return f"1 geography: {spec.for_spec}", ResolveGeographyResult(
+                specs=[spec], wildcard=False, legal=True, detail="")
+        # fmt: on
         if wildcard:
             parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
             spec = GeoSpec(

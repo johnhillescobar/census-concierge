@@ -1,0 +1,248 @@
+CC-71 Gate 2 rerun -- machine gates
+branch: feat/cc-71-zcta-resolution
+HEAD: 95bba25febdeac5c1400fed6a16280bdd0c23f8c
+base: origin/main (3d883238fe42db978c66732162d2da813fe33127)
+diff: git diff origin/main...HEAD
+prior Gate 2: evidence/slice-3/cc-71-gate2.txt
+fix commit: 95bba25 fail closed when a named ZCTA is scoped with in-place
+
+========== git rev-parse --abbrev-ref HEAD ==========
+
+feat/cc-71-zcta-resolution
+
+exit: 0
+
+========== git log --oneline origin/main..HEAD ==========
+
+95bba25 fix(api): fail closed when a named ZCTA is scoped with in-place (CC-71)
+fe85609 feat(api): resolve named ACS5 ZCTAs without a national listing (CC-71)
+
+exit: 0
+
+========== git rev-parse HEAD ==========
+
+95bba25febdeac5c1400fed6a16280bdd0c23f8c
+
+exit: 0
+
+========== git rev-parse origin/main ==========
+
+3d883238fe42db978c66732162d2da813fe33127
+
+exit: 0
+
+========== git diff --stat origin/main...HEAD ==========
+
+ api/src/geo.py                             |  24 +++--
+ api/tests/test_ask_tools.py                | 157 ++++++++++++++++++++++++++++-
+ api/tests/test_guards.py                   |   8 +-
+ docs/ARCHITECTURE.md                       |  10 +-
+ evidence/slice-3/cc-71-gate1-fix.txt       |  15 +++
+ evidence/slice-3/cc-71-gate1.txt           |  68 +++++++++++++
+ evidence/slice-3/cc-71-preflight-claims.md |  23 +++++
+ evidence/slice-3/cc-71-preflight.txt       | Bin 0 -> 4448 bytes
+ 8 files changed, 290 insertions(+), 15 deletions(-)
+
+exit: 0
+
+========== git diff --name-only origin/main...HEAD ==========
+
+api/src/geo.py
+api/tests/test_ask_tools.py
+api/tests/test_guards.py
+docs/ARCHITECTURE.md
+evidence/slice-3/cc-71-gate1-fix.txt
+evidence/slice-3/cc-71-gate1.txt
+evidence/slice-3/cc-71-preflight-claims.md
+evidence/slice-3/cc-71-preflight.txt
+
+exit: 0
+
+========== git show 95bba25 --stat ==========
+
+commit 95bba25febdeac5c1400fed6a16280bdd0c23f8c
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Wed Sep 16 14:26:20 2026 -0500
+
+    fix(api): fail closed when a named ZCTA is scoped with in-place (CC-71)
+
+    ZIP 80202 in Denver was shipping a parentless ZCTA. Containment after the five-digit code now returns nested=False before any listing.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ api/src/geo.py                       |  9 ++++-----
+ api/tests/test_ask_tools.py          |  3 +++
+ api/tests/test_guards.py             |  2 ++
+ evidence/slice-3/cc-71-gate1-fix.txt | 15 +++++++++++++++
+ 4 files changed, 24 insertions(+), 5 deletions(-)
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2711 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         15.043 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.778 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+101 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 26%]
+........................................................................ [ 52%]
+........................................................................ [ 78%]
+............................................................             [100%]
+276 passed in 4.33s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+
+========== Gate 2 cold review (rerun) ==========
+diff: origin/main...HEAD (fe85609 named ACS5 ZCTA without listing, 95bba25 named-ZCTA in-place fail-closed)
+prior Gate 2: evidence/slice-3/cc-71-gate2.txt
+fix commit: 95bba25 after=query[hit.end():]; if re.search(r"\b(?:inside|within|in)\s+[A-Za-z]", after) return _fail(..., nested=False)
+passes: generic bugs, then review-pr.md invariants
+code only for pass 1; ticket text and preflight claims not read
+code files reviewed: api/src/geo.py, api/tests/test_ask_tools.py, api/tests/test_guards.py, docs/ARCHITECTURE.md
+
+Pass 1 -- generic bugs
+
+Prior finding (named ZCTA + "in <place>" silently ships a parentless ZCTA): GONE.
+"ZIP 80202 in Denver" / "ZCTA 80202 in Denver" / "the part of ZIP 80202 in Denver"
+are not _WILDCARD/_WITHIN matches (those require all|every|each ... in, or
+within|inside). They reach the named-ZCTA block with wildcard=False. after the
+first \d{5} is " in Denver"; \bin\s+[A-Za-z] matches; _fail(..., nested=False)
+returns before GeoSpec construction and before list_geographies. Tests pin
+legal=False nested=False specs=[] called==[].
+
+"ZIP 80202 inside Denver" still miss-classifies as wildcard via _WITHIN
+(?:\s+\d{5})? and fail-closes at the existing "wildcard and not in_parts"
+branch (nested=False), never entering the named block. Same artifact.
+
+Named ACS5 ZCTA without a parent still early-returns
+for_spec=zip code tabulation area:<code> in_spec="" with listing uncalled.
+ACS1 still dies at predicate is None (no ZCTA row) before that block.
+
+New generic bugs on origin/main...HEAD:
+
+1. The named-ZCTA block binds re.search(r"\b(\d{5})\b", query) -- the first
+   five-digit token in the whole question, not the token next to ZIP/ZCTA. A
+   leading five-digit that is not the ZCTA and is not followed by
+   in/inside/within ships for=zip code tabulation area:<that code> with no
+   listing (e.g. "12345 residents of ZIP 90210"). The queries under test put
+   the code next to ZIP/ZCTA.
+
+2. The new after-code check is \bin\s+[A-Za-z], so any letter after "in"
+   fail-closes, including "ZIP 90210 in the ACS" / "ZIP 90210 in ACS5". False
+   refusal, not a silent geography. "in 2023" is a digit and still ships.
+
+3. Named-ZCTA GeoSpec omits geoid (the state branch sets 0400000US<fips>; the
+   listing branch copies GEO_ID). Default "". Assemble still takes GEO_ID from
+   a fetched row; fetch-failure leaves response.geoid empty with the URL still
+   present.
+
+Pass 2 -- project invariants (docs/playbooks/review-pr.md)
+
+Machines: all six commands exit 0 (output above). check_invariants --base
+origin/main reports no violations. Budgets not weakened. largest file 400/400
+(geo.py; module docstring shortened in 95bba25 to fit the three-line
+fail-closed path). doc lines 1800/1800. No new tool, route, graph node, or
+Pydantic model. ARCHITECTURE.md updated in the same commits for the named-ZCTA
+no-listing path and ACS1 fail-close; shape of resolve_geography changed, so
+that is required. Redaction stays on CensusURL; this diff does not format a URL
+any other way. Numbers still never pass back through the model. No blocking
+clarification. No new fake that returns one table for every input. Listing
+fakes append (level, parts, dataset, vintage) and vary by input. No assertions
+on prompt wording or LLM prose. Test names are behavioral. geography_unsupported
+skips when nested is False, so the in-place fail-closed path emits
+geography_not_nested only. Guards warn and ship; urls=[] on this path is the
+existing empty-spec geography_not_nested contract, not a missing-URL regression.
+
+Claim: a user who names an ACS5 ZCTA gets for=zip code tabulation area:<code>
+with no in= and no national listing GET; ACS1 ZCTA fail-closes from that
+vintage's geography.json before any listing; "ZIP 80202 in Denver" /
+"ZCTA 80202 in Denver" warn geography_not_nested with empty specs instead of
+shipping a parentless national ZCTA.
+
+Evidence: not this phase (no make eval / make demo). Unit tests only.
+
+Scope: slice 3 geographies -- ZCTAs nest in nothing; no ACS1; non-nesting
+containment is not computable from published ACS. 8 files vs origin/main:
+1 src, two test modules, ARCHITECTURE.md, four evidence files. Under 15.
+Did not raise a budget, add a tool/route/node, or touch PLAN / DESIGN.
+# fmt: off around the new block is a squeeze against the 400-line file cap,
+not extra scope.
+
+Silent-wrong-answer: prior named-ZCTA + "in <place>" omission is gone (code
+path and tests). No substituted vintage or corrected geography on the remaining
+paths. Named ZCTA without a parent still ships. Illegal ZCTA-in-place does not
+rewrite into a national listing. Empty spec.geoid is a gap on fetch failure,
+not a wrong GEOID. Pass-1 items 1-2 are parser edges on uncommon phrasing, not
+the Denver silent-ship.
+
+Shape: resolve_geography gained a named-ZCTA early return; ARCHITECTURE.md
+records it. No fifth tool, no new route, no .add_node().
+
+Tests: named ZCTA asserts for/in/name and listing uncalled. ACS1 vs ACS5 pins
+legal/specs and listing uncalled, including a geography.json fixture that
+authorizes ACS5 only. in-place queries assert legal=False nested=False specs=[]
+called==[]. Guard loop for ZIP/ZCTA 80202 in/inside Denver asserts empty specs
+and nested=False. Fakes still vary by input.
+
+Findings:
+1. named ZCTA + "in <place>" silent national match: fixed in 95bba25.
+2. first \d{5} in the query is the ZCTA code (follow-up; uncommon phrasing).
+3. \bin\s+[A-Za-z] can false-refuse "in the ACS" after a named ZCTA (follow-up).
+4. named-ZCTA GeoSpec.geoid is empty until fetch (follow-up).
+
+Verdict: Ship it with follow-ups
+Most important: "ZIP 80202 in Denver" and "ZCTA 80202 in Denver" now return
+nested=False with empty specs and no listing; ACS5 "ZCTA 90210" still ships
+zip code tabulation area:90210 with in='' and listing uncalled. Follow-ups
+above are not silent-wrong-answer on those paths.

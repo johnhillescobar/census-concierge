@@ -1,0 +1,68 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION named-zcta-code-extraction =====
+GOOD
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [('zip code t...'acs5', 2024)] == []
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:251: AssertionError: assert [('zip code t...'acs5', 2024)] == []
+E   IndexError: list index out of range
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:291: IndexError: list index out of range
+E   AssertionError: assert [('zip code t...on area', {})] == []
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:1174: AssertionError: assert [('zip code t...on area', {})] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_named_zcta_resolves_without_a_parent
+FAILED api/tests/test_ask_tools.py::test_acs1_zcta_is_rejected_before_listing
+FAILED api/tests/test_ask_tools.py::test_zcta_row_in_geography_json_authorizes_acs5_not_acs1
+3 failed, 124 deselected in 0.25s
+exit 1
+
+Restored named-zcta short-circuit after legal_predicate.
+
+===== MUTATION within-optional-zcta-code =====
+GOOD
+FFF.F.                                                                   [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert True is False
+     +  where True = ResolveGeographyResult(..., legal=True, ..., nested=True).legal
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:322: AssertionError: assert True is False
+E   AssertionError: assert True is False
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:322: AssertionError: assert True is False
+E   AssertionError: assert True is False
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:322: AssertionError: assert True is False
+E   AssertionError: the part of ZIP 80202 inside Denver
+    assert [GeoSpec(...for_spec='zip code tabulation area:80202'...)] == []
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:717: AssertionError: the part of ZIP 80202 inside Denver
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_named_zcta_inside_a_place_is_not_nested[the part of ZIP 80202 inside Denver]
+FAILED api/tests/test_ask_tools.py::test_named_zcta_inside_a_place_is_not_nested[ZCTA 80202 inside Denver]
+FAILED api/tests/test_ask_tools.py::test_named_zcta_inside_a_place_is_not_nested[ZIP 80202 inside Denver]
+FAILED api/tests/test_guards.py::test_zcta_inside_a_place_is_not_a_national_wildcard
+4 failed, 2 passed, 121 deselected in 0.34s
+exit 1
+
+Restored _WITHIN optional 5-digit code and bare zip.
+
+===== MUTATION named-zcta-before-legality =====
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert True is False
+     +  where True = ResolveGeographyResult(..., dataset='acs1', ..., legal=True).legal
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:288: AssertionError: assert True is False
+E   AssertionError: assert True is False
+     +  where True = ResolveGeographyResult(..., dataset='acs1', vintage=2023, ..., legal=True).legal
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:1172: AssertionError: assert True is False
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_acs1_zcta_is_rejected_before_listing
+FAILED api/tests/test_ask_tools.py::test_zcta_row_in_geography_json_authorizes_acs5_not_acs1
+2 failed, 74 deselected in 0.23s
+exit 1
+
+Restored short-circuit to after legal_predicate.
+
+===== RESTORE =====
+273 passed in 4.62s
+largest file LOC 400 <= 400
+invariants: no violations

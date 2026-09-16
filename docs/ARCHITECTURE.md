@@ -10,7 +10,9 @@ from the same FastAPI process when `web/dist` exists; slice 3 has started:
 published medians is declined (`median_not_aggregatable`, with `B19001` offered
 for B19013) and additive areas combine via `sqrt(sum(MOE_i^2))`, warning past
 five (`moe_aggregation_degraded`); ZIP language emits `zcta_not_zip` without
-refusing a valid ACS5 ZCTA, and non-expressible containment emits
+refusing a valid ACS5 ZCTA; a named ACS5 ZCTA is `for=zip code tabulation area:<code>`
+with no `in=` and no national listing, ACS1 ZCTA fail-closes from that vintage's
+`geography.json` before any listing, and non-expressible containment emits
 `geography_not_nested` with no invented fetch.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
@@ -109,7 +111,9 @@ not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index, then `rera
 and vintage — `geo_levels()` last-wins is 324 and is the wrong county predicate;
 NAME listing includes `B01003_001E` and ranks filtered matches by place class,
 population, then GEO_ID — `specs[0]` is selected, the rest stay on `geographies`
-so `ambiguous_place` still warns; emitted `GeoSpec` values are metadata-backed
+so `ambiguous_place` still warns; a named ACS5 ZCTA is emitted from the 5-digit
+code without listing; ACS1 has no ZCTA row so that path fail-closes before any
+GET; emitted `GeoSpec` values are metadata-backed
 `for`/`in` clauses, not model prose), `build_url` (availability matrix;
 empty `variables` is the table total `001E`, then E paired with M),
 `fetch_data` (live Census; `years` fans out under a 5-in-flight / 12-year cap
@@ -192,7 +196,7 @@ futures.
 | ~~0~~ | ~~the index~~ — done, above |
 | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
 | 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32). |
-| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); remaining series guards still open |
+| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); remaining series guards still open |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |
