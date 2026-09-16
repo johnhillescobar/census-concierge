@@ -1,0 +1,175 @@
+CC-70 Gate 2 rerun -- machine gates
+branch: feat/cc-70-geo-warnings
+HEAD: 3e2d4ab9d9ee74480a1571844982aa880ae741f9
+base: origin/main
+diff: git diff origin/main...HEAD
+prior Gate 2: evidence/slice-3/cc-70-gate2.txt (HEAD 7a244ff)
+fix commit: 3e2d4ab fail closed when a named ZCTA is scoped to a state
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2702 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)           14.1 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.795 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+99 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 26%]
+........................................................................ [ 53%]
+........................................................................ [ 80%]
+....................................................                     [100%]
+268 passed in 7.12s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+
+========== Gate 2 cold review (rerun) ==========
+diff: origin/main...HEAD (e7aa73b leftover-state + ZCTA nest, 7a244ff gate1, 548107f gate2, 3e2d4ab named-ZCTA fail-closed)
+prior Gate 2: evidence/slice-3/cc-70-gate2.txt (HEAD 7a244ff)
+fix commit: 3e2d4ab else: return _fail(..., nested=False) when a named/non-nesting level is scoped to a state
+passes: generic bugs, then review-pr.md invariants
+code only for pass 1; ticket text not used as intent
+geo.py not mutated this pass; measured with api/tests ENTRIES fixture via ResolveGeographyTool + assemble()
+
+Pass 1 -- generic bugs
+
+Prior finding 1 (named ZCTA + state silently ships a national match): GONE.
+Non-wildcard host is still state[0], so the host set is always true when a
+state was found; nests_in(zcta, state) is False and the new else returns
+_fail(wildcard=wildcard, nested=False) before legal_predicate / NAME listing.
+Re-measured (same fixture as tests):
+
+"ZCTA 90210 Oregon" -> legal=False nested=False wildcard=False specs=[]
+  warnings=[geography_not_nested] urls=[]
+  detail="zip code tabulation area does not nest in state (ZCTA 90210 Oregon)"
+"Median household income for ZCTA 90210 in Oregon" -> legal=False nested=False
+  wildcard=False specs=[] warnings=[geography_not_nested] urls=[]
+  detail="zip code tabulation area does not nest in state (Median household income for ZCTA 90210 in Oregon)"
+"Median household income for ZCTA 90210" (no state) stays legal=True nested=True
+  specs=[(zip code tabulation area:90210, in='')] warnings=[]
+
+Wildcard ZCTA / Washington-state cases, re-measured:
+
+"all ZCTAs in Oregon" -> legal=False nested=False wildcard=True specs=[]
+  warnings=[geography_not_nested] urls=[]
+"ZCTAs within Oregon" -> legal=False nested=False wildcard=True specs=[]
+  warnings=[geography_not_nested] urls=[]
+"all ZCTAs in Washington state" -> legal=False nested=False wildcard=True specs=[]
+  warnings=[geography_not_nested] urls=[]
+"all counties in Washington state" -> legal=True nested=True wildcard=True
+  specs=[(county:*, in='state:53')] warnings=[]
+"all counties in the state of Washington" -> legal=True nested=True wildcard=True
+  specs=[(county:*, in='state:53')] warnings=[]
+"all places in Washington state" -> legal=True nested=True wildcard=True
+  specs=[(place:*, in='state:53')] warnings=[]
+"all places in Oregon" -> legal=True nested=True wildcard=True
+  specs=[(place:*, in='state:41')] warnings=[]
+
+Prior finding 2 (leftover host is the literal token "state" only): still true,
+pre-existing, not this fix. Re-measured "all counties in the Commonwealth of
+Pennsylvania" -> legal=False nested=False wildcard=False specs=[]
+warnings=[geography_not_nested] detail="county does not nest in (the Commonwealth
+of Pennsylvania)". False refusal, not a silent geography repair. Out of CC-70
+acceptance (Washington state / the state of Washington). Not a blocker.
+
+Prior finding 3 (test_all_places_in_oregon_is_a_state_wildcard does not pin
+leftover "state"): still a lock of already-green Oregon places. Washington-state
+wildcard tests and named-ZCTA-with-state tests now cover the changed predicate.
+
+New generic bugs on origin/main...HEAD: nothing.
+
+Pass 2 -- project invariants (docs/playbooks/review-pr.md)
+
+Machines: all six commands exit 0 (output above). check_invariants --base
+origin/main reports no violations. Budgets not weakened. largest file 398/400
+(ask.py; geo.py grew but is not the largest). No new tool, route, graph node,
+or Pydantic model. ARCHITECTURE.md unchanged; shape did not change, so that is
+correct. Redaction stays on CensusURL; this diff does not format a URL any
+other way. Numbers still never pass back through the model. No blocking
+clarification. No new fake that returns one table for every input. No
+assertions on prompt wording or LLM prose. geography_unsupported skips when
+nested is False, so the fail-closed path emits geography_not_nested only.
+Guards warn and ship; urls=[] on this path is the existing empty-spec
+geography_not_nested contract, not a missing-URL regression. Optional
+combine_additive dedup was not taken.
+
+Claim: a user who writes "all counties in Washington state" (or "the state of
+Washington") now gets the legal county:* in=state:53 wildcard instead of an
+unsupported-geography miss; "all ZCTAs in Oregon" / "ZCTAs within Oregon" /
+named ZCTA plus a state now warn geography_not_nested with empty specs instead
+of geography_unsupported or a silent national ZCTA match.
+
+Evidence: not this phase (no make eval / make demo). Unit tests only.
+
+Scope: slice 3 geography warnings (ZCTA nest-in-nothing; leftover parent
+misclassified as unresolved). 8 files vs origin/main: 1 src, two test modules,
+five evidence files. Under 15. Did not raise a budget, add a tool/route/node,
+or touch ask.py / PLAN / DESIGN.
+
+Silent-wrong-answer: prior named-ZCTA + state omission is gone (measured).
+No substituted vintage or corrected geography on the remaining paths. Named
+ZCTA without a parent still ships. Illegal ZCTA-in-state does not rewrite
+into a national listing.
+
+Shape: nothing.
+
+Tests: wildcard acceptance queries assert for/in/legal/nested and the assemble
+warning code. Named ZCTA plus a state now asserts legal=False nested=False
+specs=[] and geography_not_nested with urls=[]. Fakes still vary by input.
+
+Findings:
+1. named non-wildcard ZCTA + state silent national match: fixed in 3e2d4ab.
+2. nothing else.
+
+Verdict: Ship it
+Most important: "ZCTA 90210 Oregon" and "Median household income for ZCTA 90210
+in Oregon" now return nested=False with empty specs and geography_not_nested;
+Washington-state county/place wildcards still ship county:*/place:* in=state:53.
