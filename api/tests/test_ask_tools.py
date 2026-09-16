@@ -225,7 +225,15 @@ def test_tract_nests_in_county_not_place() -> None:
 
 
 async def test_named_zcta_resolves_without_a_parent() -> None:
-    tool = _geo_tool()
+    called: list[object] = []
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        called.append((level, parts, dataset, vintage))
+        return _list_geographies(level, parts)
+
+    tool = _geo_tool(listing)
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -234,11 +242,87 @@ async def test_named_zcta_resolves_without_a_parent() -> None:
             "id": "c1",
         }
     )
+    spec = message.artifact.specs[0]
     assert message.artifact.legal is True
     assert message.artifact.nested is True
-    assert [row.for_spec for row in message.artifact.specs] == ["zip code tabulation area:90210"]
-    assert message.artifact.specs[0].in_spec == ""
-    assert message.artifact.specs[0].geoid == "860Z200US90210"
+    assert spec.for_spec == "zip code tabulation area:90210"
+    assert spec.in_spec == ""
+    assert spec.name == "ZCTA5 90210"
+    assert called == []
+
+
+async def test_acs1_zcta_is_rejected_before_listing() -> None:
+    called: list[str] = []
+
+    def table(dataset: str, year: int) -> list[GeoLevel]:
+        _ = year
+        if dataset == "acs1":
+            return [GeoLevel("state", "040", (), (), "")]
+        return ENTRIES
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        _ = level, parts, vintage
+        called.append(dataset)
+        return []
+
+    tool = _geo_tool(listing, geo_table=table)
+    query = "Median household income for ZCTA 90210"
+    acs1 = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query, "dataset": "acs1"},
+            "id": "c1",
+        }
+    )
+    acs5 = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query, "dataset": "acs5"},
+            "id": "c2",
+        }
+    )
+    assert acs1.artifact.legal is False
+    assert acs1.artifact.specs == []
+    assert acs5.artifact.legal is True
+    assert acs5.artifact.specs[0].for_spec == "zip code tabulation area:90210"
+    assert acs5.artifact.specs[0].in_spec == ""
+    assert called == []
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "the part of ZIP 80202 inside Denver",
+        "ZCTA 80202 inside Denver",
+        "ZIP 80202 inside Denver",
+    ],
+)
+async def test_named_zcta_inside_a_place_is_not_nested(query: str) -> None:
+    called: list[object] = []
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        called.append((level, parts, dataset, vintage))
+        return _list_geographies(level, parts)
+
+    tool = _geo_tool(listing)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.nested is False
+    assert message.artifact.specs == []
+    assert called == []
 
 
 @pytest.mark.parametrize(
@@ -998,6 +1082,12 @@ _STATE_FIPS: dict[str, object] = {
     "requires": [],
     "wildcard": [],
 }
+_ZCTA_FIPS: dict[str, object] = {
+    "name": "zip code tabulation area",
+    "geoLevelDisplay": "860",
+    "requires": [],
+    "wildcard": [],
+}
 _COUNTY_FIPS: dict[str, object] = {
     "name": "county",
     "geoLevelDisplay": "050",
@@ -1036,6 +1126,62 @@ async def test_removing_county_row_from_fixture_fails_before_listing(
     called.clear()
     _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS])
     denied = await tool.ainvoke(args)
+    assert called == []
+    assert denied.artifact.legal is False
+    assert denied.artifact.specs == []
+
+
+async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.retrieval import metadata
+
+    monkeypatch.setattr(metadata, "CACHE", tmp_path)
+    called: list[tuple[str, dict[str, str]]] = []
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        _ = dataset, vintage
+        called.append((level, parts))
+        return _list_geographies(level, parts)
+
+    tool = _geo_tool(listing, geo_table=metadata.geo_entries)
+    query = "Median household income for ZCTA 90210"
+    _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS, _ZCTA_FIPS])
+    _write_geo(tmp_path, "acs1", 2023, [_STATE_FIPS])
+    acs5 = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query, "dataset": "acs5", "vintage": 2024},
+            "id": "c1",
+        }
+    )
+    acs1 = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query, "dataset": "acs1", "vintage": 2023},
+            "id": "c2",
+        }
+    )
+    assert acs5.artifact.legal is True
+    assert acs5.artifact.specs[0].for_spec == "zip code tabulation area:90210"
+    assert acs5.artifact.specs[0].in_spec == ""
+    assert acs1.artifact.legal is False
+    assert acs1.artifact.specs == []
+    assert called == []
+    called.clear()
+    _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS])
+    denied = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query, "dataset": "acs5", "vintage": 2024},
+            "id": "c3",
+        }
+    )
     assert called == []
     assert denied.artifact.legal is False
     assert denied.artifact.specs == []

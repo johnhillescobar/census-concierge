@@ -101,8 +101,8 @@ _WILDCARD = re.compile(
     re.IGNORECASE,
 )
 _WITHIN = re.compile(
-    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|"
-    r"counties|county|places?|cities|city)\s+(?:within|inside)\s+(?:the\s+)?(.+)",
+    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|zip|"
+    r"counties|county|places?|cities|city)(?:\s+\d{5})?\s+(?:within|inside)\s+(?:the\s+)?(.+)",
     re.IGNORECASE,
 )
 _COUNTY = re.compile(
@@ -390,6 +390,17 @@ class ResolveGeographyTool(BaseTool):
                 f"{for_level} with in={dict(in_parts)} is not a legal combination",
                 wildcard=wildcard,
             )
+        # fmt: off
+        zcta = for_level == "zip code tabulation area" and not wildcard
+        hit = re.search(r"\b(\d{5})\b", query) if zcta else None
+        if hit:
+            code = hit.group(1)
+            spec = GeoSpec(
+                level=for_level, name=f"ZCTA5 {code}",
+                for_spec=f"{for_level}:{code}", dataset=dataset, vintage=year)
+            return f"1 geography: {spec.for_spec}", ResolveGeographyResult(
+                specs=[spec], wildcard=False, legal=True, detail="")
+        # fmt: on
         if wildcard:
             parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
             spec = GeoSpec(
