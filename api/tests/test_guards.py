@@ -705,6 +705,8 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
         "the part of ZIP 80202 inside Denver",
         "ZCTA 80202 inside Denver",
         "ZIP 80202 inside Denver",
+        "ZIP 80202 in Denver",
+        "ZCTA 80202 in Denver",
     ):
         message = await tool.ainvoke(
             {

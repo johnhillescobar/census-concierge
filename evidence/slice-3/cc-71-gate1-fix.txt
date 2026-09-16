@@ -1,0 +1,15 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION named-zcta-in-place-after-code =====
+GOOD
+...FFFF                                                                  [100%]
+FAILED api/tests/test_ask_tools.py::test_named_zcta_inside_a_place_is_not_nested[the part of ZIP 80202 in Denver]
+FAILED api/tests/test_ask_tools.py::test_named_zcta_inside_a_place_is_not_nested[ZCTA 80202 in Denver]
+FAILED api/tests/test_ask_tools.py::test_named_zcta_inside_a_place_is_not_nested[ZIP 80202 in Denver]
+FAILED api/tests/test_guards.py::test_zcta_inside_a_place_is_not_a_national_wildcard
+4 failed, 3 passed, 123 deselected in 0.27s
+exit 1
+
+The three `inside` cases still passed (caught by _WITHIN). Restored the
+`in <place>` check after the 5-digit code.

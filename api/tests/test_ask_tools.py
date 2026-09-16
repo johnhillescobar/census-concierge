@@ -299,6 +299,9 @@ async def test_acs1_zcta_is_rejected_before_listing() -> None:
         "the part of ZIP 80202 inside Denver",
         "ZCTA 80202 inside Denver",
         "ZIP 80202 inside Denver",
+        "the part of ZIP 80202 in Denver",
+        "ZCTA 80202 in Denver",
+        "ZIP 80202 in Denver",
     ],
 )
 async def test_named_zcta_inside_a_place_is_not_nested(query: str) -> None:

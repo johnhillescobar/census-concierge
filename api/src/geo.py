@@ -1,8 +1,4 @@
-"""resolve_geography: names to Census `for`/`in`, legality from geography.json.
-
-`geo_levels()[name]` is last-wins and is the wrong table for nesting. Scan
-`geo_entries()` and pick the predicate whose `requires` match the `in` clause.
-"""
+"""resolve_geography: names to Census `for`/`in`, legality from geography.json."""
 
 from __future__ import annotations
 
@@ -395,6 +391,9 @@ class ResolveGeographyTool(BaseTool):
         hit = re.search(r"\b(\d{5})\b", query) if zcta else None
         if hit:
             code = hit.group(1)
+            after = query[hit.end():]
+            if re.search(r"\b(?:inside|within|in)\s+[A-Za-z]", after, re.I):
+                return _fail(f"{for_level} does not nest in ({after.strip()})", nested=False)
             spec = GeoSpec(
                 level=for_level, name=f"ZCTA5 {code}",
                 for_spec=f"{for_level}:{code}", dataset=dataset, vintage=year)
