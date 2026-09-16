@@ -662,6 +662,17 @@ async def test_zctas_in_a_state_warn_as_not_nested() -> None:
         assert response.urls == []
 
 
+async def test_named_zcta_with_a_state_warns_as_not_nested() -> None:
+    query = "Median household income for ZCTA 90210 in Oregon"
+    record = ExecutionRecord(question=query)
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": query}}, record)
+    response = assemble("ZCTAs nest in nothing", record)
+    assert record.geographies == []
+    assert [item.code for item in response.warnings] == ["geography_not_nested"]
+    assert response.urls == []
+
+
 async def test_zcta_inside_a_county_is_not_nested() -> None:
     record = ExecutionRecord(question="all zctas in Harris County")
     tools = _tools(record)

@@ -241,6 +241,25 @@ async def test_named_zcta_resolves_without_a_parent() -> None:
     assert message.artifact.specs[0].geoid == "860Z200US90210"
 
 
+@pytest.mark.parametrize(
+    "query",
+    ["ZCTA 90210 Oregon", "Median household income for ZCTA 90210 in Oregon"],
+)
+async def test_named_zcta_with_a_state_is_not_nested(query: str) -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.nested is False
+    assert message.artifact.specs == []
+
+
 def test_harris_does_not_match_harrison() -> None:
     rows = _list_geographies("county", {"state": "48"})
     hits = filter_rows("harris", rows)
