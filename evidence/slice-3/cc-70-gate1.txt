@@ -1,0 +1,158 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION state-descriptor leftover =====
+GOOD
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_ test_state_descriptor_is_still_a_county_wildcard[all counties in Washington state] _
+
+query = 'all counties in Washington state'
+
+    @pytest.mark.parametrize(
+        "query",
+        ["all counties in Washington state", "all counties in the state of Washington"],
+    )
+    async def test_state_descriptor_is_still_a_county_wildcard(query: str) -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": query},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.wildcard is True
+>       assert artifact.legal is True
+E       AssertionError: assert False is True
+E        +  where False = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail='county nested in unresolved state', nested=True).legal
+
+api\tests\test_ask_tools.py:343: AssertionError
+_ test_state_descriptor_is_still_a_county_wildcard[all counties in the state of Washington] _
+
+query = 'all counties in the state of Washington'
+
+    @pytest.mark.parametrize(
+        "query",
+        ["all counties in Washington state", "all counties in the state of Washington"],
+    )
+    async def test_state_descriptor_is_still_a_county_wildcard(query: str) -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": query},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.wildcard is True
+>       assert artifact.legal is True
+E       AssertionError: assert False is True
+E        +  where False = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail='county nested in unresolved state', nested=True).legal
+
+api\tests\test_ask_tools.py:343: AssertionError
+___________ test_all_places_in_washington_state_is_a_state_wildcard ___________
+
+    async def test_all_places_in_washington_state_is_a_state_wildcard() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "all places in Washington state"},
+                "id": "c1",
+            }
+        )
+>       spec = message.artifact.specs[0]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+api\tests\test_ask_tools.py:375: IndexError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_state_descriptor_is_still_a_county_wildcard[all counties in Washington state]
+FAILED api/tests/test_ask_tools.py::test_state_descriptor_is_still_a_county_wildcard[all counties in the state of Washington]
+FAILED api/tests/test_ask_tools.py::test_all_places_in_washington_state_is_a_state_wildcard
+3 failed in 0.54s
+exit 1
+
+===== MUTATION parentless ZCTA must not copy in=state =====
+GOOD
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+__________ test_zctas_in_a_state_are_not_nested[all ZCTAs in Oregon] __________
+
+query = 'all ZCTAs in Oregon'
+
+    @pytest.mark.parametrize("query", ["all ZCTAs in Oregon", "ZCTAs within Oregon"])
+    async def test_zctas_in_a_state_are_not_nested(query: str) -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": query},
+                "id": "c1",
+            }
+        )
+        assert message.artifact.legal is False
+>       assert message.artifact.nested is False
+E       assert True is False
+E        +  where True = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail="zip code tabulation area with in={'state': '41'} is not a legal combination", nested=True).nested
+E        +    where ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail="zip code tabulation area with in={'state': '41'} is not a legal combination", nested=True) = ToolMessage(content="zip code tabulation area with in={'state': '41'} is not a legal combination", name='resolve_geogr...=True, legal=False, detail="zip code tabulation area with in={'state': '41'} is not a legal combination", nested=True)).artifact
+
+api\tests\test_ask_tools.py:393: AssertionError
+__________ test_zctas_in_a_state_are_not_nested[ZCTAs within Oregon] __________
+
+query = 'ZCTAs within Oregon'
+
+    @pytest.mark.parametrize("query", ["all ZCTAs in Oregon", "ZCTAs within Oregon"])
+    async def test_zctas_in_a_state_are_not_nested(query: str) -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": query},
+                "id": "c1",
+            }
+        )
+        assert message.artifact.legal is False
+>       assert message.artifact.nested is False
+E       assert True is False
+E        +  where True = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail="zip code tabulation area with in={'state': '41'} is not a legal combination", nested=True).nested
+E        +    where ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail="zip code tabulation area with in={'state': '41'} is not a legal combination", nested=True) = ToolMessage(content="zip code tabulation area with in={'state': '41'} is not a legal combination", name='resolve_geogr...=True, legal=False, detail="zip code tabulation area with in={'state': '41'} is not a legal combination", nested=True)).artifact
+
+api\tests\test_ask_tools.py:393: AssertionError
+__________________ test_zctas_in_a_state_warn_as_not_nested ___________________
+
+    async def test_zctas_in_a_state_warn_as_not_nested() -> None:
+        for query in ("all ZCTAs in Oregon", "ZCTAs within Oregon"):
+            record = ExecutionRecord(question=query)
+            tools = _tools(record)
+            await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": query}}, record)
+            response = assemble("ZCTAs nest in nothing", record)
+            assert record.geographies == []
+>           assert [item.code for item in response.warnings] == ["geography_not_nested"], query
+E           AssertionError: all ZCTAs in Oregon
+E           assert ['geography_unsupported'] == ['geography_not_nested']
+E             
+E             At index 0 diff: 'geography_unsupported' != 'geography_not_nested'
+E             Use -v to get more diff
+
+api\tests\test_guards.py:661: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_zctas_in_a_state_are_not_nested[all ZCTAs in Oregon]
+FAILED api/tests/test_ask_tools.py::test_zctas_in_a_state_are_not_nested[ZCTAs within Oregon]
+FAILED api/tests/test_guards.py::test_zctas_in_a_state_warn_as_not_nested - A...
+3 failed in 0.63s
+exit 1
+
+===== RESTORED + LOCKS =====
+GOOD
+..........                                                               [100%]
+10 passed in 0.26s
+exit 0
