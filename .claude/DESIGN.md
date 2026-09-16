@@ -320,8 +320,8 @@ Because the signal is what gets optimized, the signal is a user-value number.
    the bottom of that file. This turns invisible growth across fifty PRs into
    about ten decisions a human made and can read back.
 2. **`make demo` is the definition of done.** Real questions, real APIs, pass
-   rate and p95 latency. The PR template requires pasting the output. Green
-   tests are not done; a closed ticket is not done.
+   rate and p95 latency. Quote the scoreboard in the PR; link the transcript.
+   Green tests are not done; a closed ticket is not done.
 3. **Behavior tests only.** Question in, table and URL out. No assertions on
    prompt wording or LLM prose. No test named after a ticket. No fake that
    returns the same table for every input.

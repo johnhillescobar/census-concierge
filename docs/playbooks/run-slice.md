@@ -18,7 +18,7 @@ PR that has not been demonstrated is not finished, however good the diff looks.
 4  Gate 2       cold review of the diff: `/code-review`, then review-pr.md
 5  fix          each fix is new code: tests + mutation check. Re-run Gate 2 once
                 if the fixes were non-trivial, then stop.
-6  E2E pre-PR   run the real thing, transcript verbatim in the PR
+6  E2E pre-PR   run the real thing, scoreboard in the PR, transcript on disk
 7  PR           body states what each gate found, including "nothing"
 8  merge        the repo owner merges
 9  E2E post     re-run step 6 against merged `main`
@@ -78,15 +78,15 @@ one-line correction does not. Stop after one re-run; still fix what it finds.
 
 ## 6. E2E, before the PR and after the merge
 
-`make eval` today; `make demo --repeat 3` once `scripts/run_demo.py` exists (slice
-1). Real system, real keys. Paste the command and its actual output into the PR -
-verbatim, never reflowed - and save to `evidence/slice-<N>/e2e-pre.txt`. A failing
-criterion keeps the PR open with that output in the body; reporting a red result is
-the correct outcome. After the merge, re-run against merged `main` into
-`evidence/slice-<N>/e2e-post.txt` and comment the numbers on the Jira ticket
-and the slice epic. PLAN.md STATUS stays a one-line close pointer (floors met,
-`evidence/slice-<N>/`, epic URL). Do not append eval novels into PLAN — the
-merge itself is an unverified change.
+`make eval` today; `make demo` once `scripts/run_demo.py` exists (slice 1; `--repeat
+3` is in the recipe). Real system, real keys. Redirect stdout to
+`evidence/slice-<N>/e2e-pre.txt` (no tee) and link it in the PR. Never Read the
+transcript. Quote gated keys plus `demo.misses` from `evidence/latest.json` —
+never `demo.trials`. A failing criterion keeps the PR open with that scoreboard;
+reporting a red result is the correct outcome. After the merge, re-run against
+merged `main` into `evidence/slice-<N>/e2e-post.txt` and comment the numbers on
+the Jira ticket and the slice epic. PLAN.md STATUS stays a one-line close pointer
+(floors met, `evidence/slice-<N>/`, epic URL). Do not append eval novels into PLAN.
 
 ## The handoff rule
 

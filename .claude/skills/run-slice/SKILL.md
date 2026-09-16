@@ -20,10 +20,10 @@ The subagent prompt, every time:
 1. Read `CLAUDE.md`, `docs/playbooks/run-slice.md`, and the current slice in
    `.claude/PLAN.md` first. You have no context from the caller.
 2. Do exactly this phase, nothing downstream.
-3. Capture raw output: `<cmd> 2>&1 | tee evidence/slice-<N>/<phase>.txt`. No model
-   edits that file.
-4. Report back only: the path, a one-line verdict, and for Gate 2 the findings for
-   the PR body.
+3. Capture raw output to `evidence/slice-<N>/<phase>.txt` (no model edits). Gate 1/2
+   may tee; E2E redirects to the file so heartbeats never enter the session.
+4. Report back only: the path, a one-line verdict, Gate 2 findings, and for E2E the
+   DEMO/MISSES scoreboard from `evidence/latest.json` (never the transcript).
 
 ## Between phases
 

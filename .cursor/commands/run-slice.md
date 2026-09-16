@@ -17,8 +17,8 @@ Launch a fresh Task subagent (or New Chat) with the prompt from:
 scripts/gate.ps1 <phase> <slice>
 ```
 
-The subagent captures raw output to `evidence/slice-<N>/<phase>.txt`. Start a New
-Chat between phases — that is the context boundary.
+The subagent writes `evidence/slice-<N>/<phase>.txt`. For E2E redirect (no tee)
+and quote the scoreboard; do not Read the transcript. New Chat between phases.
 
 ## State carries through the repo, not the chat
 

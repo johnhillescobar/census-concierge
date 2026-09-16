@@ -9,7 +9,7 @@ Execution order. `DESIGN.md` holds the what and why.
 2. Each slice has a **Not in this slice** list. That list is the point. When a
    coding agent proposes something on it, the answer is "not yet" — say which
    slice it belongs to.
-3. **Done means a user got an answer.** Paste `make demo` output. A passing
+3. **Done means a user got an answer.** Quote the `make demo` scoreboard. A passing
    pytest run is not done. A new test file is not done. A closed ticket is not
    done.
 4. If a slice needs a budget raised, stop and ask. That is a separate human
