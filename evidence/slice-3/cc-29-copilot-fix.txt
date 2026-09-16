@@ -1,0 +1,36 @@
+CC-29 Copilot review follow-up — Gate 1 mutation check
+Date: 2026-09-15
+Branch: feat/cc-29-series-guards
+PR: https://github.com/johnhillescobar/census-concierge/pull/36
+
+Each new test: revert the behaviour, run only that test, confirm FAIL, restore.
+
+GOOD restored derived classifier
+uv run pytest api/tests/test_guards.py::test_derived_measures_are_not_summed_across_areas -q --tb=line
+FAILED 1
+E   AssertionError: share of households across every tract
+    assert ['g0', 'g1', 'g2', ''] == ['g0', 'g1', 'g2']
+
+GOOD restored combine/combined detector
+uv run pytest api/tests/test_guards.py::test_combine_wording_sums_additive_counts -q --tb=line
+FAILED 1
+E   AssertionError: combine these counties
+    assert '10' == '30'
+
+GOOD restored exact table_id title lookup (no family members)
+uv run pytest api/tests/test_guards.py::test_race_iteration_median_does_not_use_overall_brackets -q --tb=line
+FAILED 1
+E   AssertionError: assert [] == ['median_not_aggregatable']
+
+GOOD restored startswith("B19013")
+uv run pytest api/tests/test_guards.py::test_race_iteration_median_does_not_use_overall_brackets -q --tb=line
+FAILED 1
+E   assert False
+    test_guards.py:564 (B19001 offered as alternative)
+
+GOOD restored union component_count
+uv run pytest api/tests/test_guards.py::test_combined_row_requires_the_same_areas_per_variable -q --tb=line
+FAILED 1
+E   AssertionError: assert ['a', 'b', 'c', ''] == ['a', 'b', 'c']
+
+Restored all five behaviours. New tests fail against the pre-fix code.

@@ -1,0 +1,175 @@
+# Gate 2 — CC-29 combined
+# commit: 32749b2
+# diff: origin/main...HEAD
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2670 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.656 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.863 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+EXIT: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+EXIT: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+EXIT: 0
+
+========== uv run ruff format --check . ==========
+
+97 files already formatted
+EXIT: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+EXIT: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+242 passed in 4.02s
+EXIT: 0
+
+==============================================================================
+Pass B — cold review of origin/main...HEAD
+code only; no Jira/chat intent
+==============================================================================
+
+Reviewed: api/src/ask.py, contract.py, geo.py, guards.py, docs/ARCHITECTURE.md,
+packages/client/openapi.json, schema.d.ts, scripts/run_demo.py, api/tests
+(guards/ask_tools/ask_loop/demo_harness/ask_fixtures).
+HEAD 32749b2 = CC-61 + CC-60 on this umbrella (do not merge main).
+Child Gate 2 transcripts already exist (cc-60-gate2.txt, cc-60-gate2-rerun.txt,
+cc-61-gate2.txt, cc-61-gate2-rerun.txt). CC-62 has no code on this branch.
+t09+ traps are excluded from make demo by the slice-1 filter. p95 has
+previously closed red on this slice. Those are already-true, not new findings.
+
+Pass B1 — generic bugs
+
+1. city+state containment is rewritten as a statewide wildcard
+   Fail-closed in geo.py runs only when extra and in_parts are both empty.
+   _WITHIN ("cities/places/counties inside|within") plus a parent that
+   find_state can parse fills in_parts and skips that gate. legal_predicate
+   then authorizes the state wildcard. No warning. Traced:
+
+   cities inside Denver, Colorado
+     legal=True nested=True matches=[{for: place:*, in: state:08}]
+   places inside Denver, CO
+     legal=True nested=True matches=[{for: place:*, in: state:08}]
+   counties inside Denver, Colorado
+     legal=True nested=True matches=[{for: county:*, in: state:08}]
+
+   Tests close "cities inside Denver" / "all places in Denver" without a
+   state suffix. "all counties in Oregon" remains the legal state wildcard.
+   zip codes inside Denver, Colorado fail closed (nested=False).
+   tracts inside Denver, Colorado return nested=True legal=False (unsupported
+   combination, no fetch) — wrong warning code, not a dump.
+
+2. component_count / NAME is a union across variables (CC-61 residual)
+   _combine_group contributing is one set of area ids over every estimate
+   key. A variable present on 2 of 6 rows is still labelled combined (6 areas)
+   while its sum/RSS used only those 2 pairs. Misleading label, not a
+   multi-vintage total. Prior cc-61-gate2-rerun #3; still in the code.
+
+3. derived skip is keyword-only and silent (CC-61 residual)
+   _additive_measure skips median and _DERIVED (mean|average|percent|rate|
+   per capita) on the question or title. ratio / index / share / density
+   and hyphenated per-capita still sum if _COMBINE matches. Skipping derived
+   emits no warning (component rows only). Prior rerun #4 residual.
+
+Gone since the child Gate 2 / rerun transcripts (not re-filed):
+year-tagged rows summed as extra areas; combined row omitting GEO_ID;
+\bcombined\b on CSA names; B19001 on every median; empty-requires ZCTA
+nationwide dump for "zctas inside Denver"; nested True on unresolved
+Denver phrasing; _ZIP matching "zip code tabulation area"; getattr-only
+nested on dict artifacts; "places inside Denver" / "every zcta in Denver"
+nationwide dump (no state suffix).
+
+No second URL formatter. No numbers routed through the model. No blocking
+clarification prompt. Combined GEO_ID is "" as the contract now says.
+finish_aggregation does not append a median total.
+
+Pass B2 — docs/playbooks/review-pr.md
+
+Machines: all six commands exit 0. check_invariants --base origin/main:
+no violations (budget not weakened). p95 19.656 <= 20 on the scoreboard.
+
+The claim
+A user can ask for a total across areas and get either a declined median
+(component rows kept; B19001 offered only for B19013) or one appended row
+per vintage (sums + RSS MOEs, moe_aggregation_degraded past five); ZIP
+language ships zcta_not_zip without dropping a valid ACS5 ZCTA; containment
+that nested=False ships geography_not_nested and an empty match list.
+This gate did not run make eval / make demo.
+
+Scope
+Belongs to slice 3 (aggregation + ZCTA/non-nesting). No new tool, route, or
+graph node. 30 files vs ~15: most are slice-3 evidence transcripts and
+latest.json; product code is ask/contract/geo/guards, tests, generated
+client, run_demo scoring, ARCHITECTURE.md. CC-62 overlapping-ACS5 override
+persistence is not on this branch (already-true).
+
+Silent-wrong-answer review
+- URL: still series_from_record / CensusURL. &key= redaction unchanged.
+  geography_not_nested is scored like ambiguous_place (no legal Census URL).
+- MOE: combined rows carry matching M via RSS; _moe_rows runs after combine.
+  Sentinels dropped, not zeroed. Median combine does not invent a number.
+- GEOID: fetched rows keep GEO_ID; combined row carries empty GEO_ID.
+- Universe: still the selected table. Unchanged.
+- Finding 1 is a silent wrong geography: statewide place:* / county:* with
+  nested still True, so neither geography_not_nested nor geography_unsupported
+  fires. That blocks.
+
+Shape
+No new tool, route, Pydantic domain model, or .add_node(). nested is a field
+on ResolveGeographyResult. Guards stay on evaluate(); finish_aggregation is
+the assemble hook. ARCHITECTURE.md updated in the same commits (B19001 now
+qualified to B19013).
+
+Tests
+Behavior, not prompt wording. Search fake still returns different tables by
+keyword. test_zcta_inside_a_place_is_not_a_national_wildcard covers the
+no-state Denver phrases, not city+state.
+
+==============================================================================
+Verdict: Not yet
+==============================================================================
+
+Most important reason first: _WITHIN containment of a city that also names
+a state is returned as for=place:* or for=county:* in=state:NN (every place
+or county in that state) with no warning.
+
+Other findings (do not ship around the one above):
+- component_count / NAME union across variables
+- derived skip is keyword-only and silent
+- tracts inside Denver, Colorado is geography_unsupported (nested=True)
+  rather than geography_not_nested

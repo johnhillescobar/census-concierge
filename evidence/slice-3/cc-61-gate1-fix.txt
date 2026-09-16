@@ -1,0 +1,49 @@
+# Gate 1 (fix) — CC-61 year partition and related Gate 2 findings
+
+## GOOD
+.....                                                                    [100%]
+5 passed in 0.18s
+exit=0
+
+## BAD — one behaviour reverted at a time
+
+### sum year-tagged rows as extra areas
+Test: test_year_tagged_rows_combine_within_vintage_not_across
+Verdict: BAD  exit=1
+E        +  where 1 = len([{'B01003_001E': '60', 'B01003_001M': '18.38477631', 'GEO_ID': '', 'NAME': 'combined (3 areas)', ...}])
+
+api\tests\test_guards.py:467: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_year_tagged_rows_combine_within_vintage_not_across
+1 failed in 0.31s
+
+### bare combined matches combined statistical area
+Test: test_combined_statistical_area_is_not_a_sum
+Verdict: BAD  exit=1
+E         Use -v to get more diff
+
+api\tests\test_guards.py:483: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_combined_statistical_area_is_not_a_sum
+1 failed in 0.34s
+
+### inject B19001 for every median combine
+Test: test_rent_median_combine_does_not_offer_income_brackets
+Verdict: BAD  exit=1
+E        +  where False = all(<generator object test_rent_median_combine_does_not_offer_income_brackets.<locals>.<genexpr> at 0x000001FC7C745080>)
+
+api\tests\test_guards.py:494: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_rent_median_combine_does_not_offer_income_brackets
+1 failed in 0.35s
+
+### sum rates the same as counts
+Test: test_a_rate_is_not_summed_across_areas
+Verdict: BAD  exit=1
+E         Use -v to get more diff
+
+api\tests\test_guards.py:509: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_a_rate_is_not_summed_across_areas - Ass...
+1 failed in 0.32s
+

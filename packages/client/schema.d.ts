@@ -97,7 +97,7 @@ export interface components {
             requested_years: number[];
             /**
              * Rows
-             * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID).
+             * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID); empty when the row is a combined total rather than a published area.
              */
             rows: {
                 [key: string]: string | null;
@@ -124,7 +124,7 @@ export interface components {
             urls: string[];
             /**
              * Warnings
-             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch.
+             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested.
              */
             warnings: components["schemas"]["AskWarning"][];
         };

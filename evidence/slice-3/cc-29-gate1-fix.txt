@@ -1,0 +1,16 @@
+# Gate 1 (fix) — CC-29 city+state containment
+# mutation: revert host check so a state suffix fills in_parts on _WITHIN
+
+=== BAD: city+state _WITHIN is a statewide wildcard (mutation: always copy state into in_parts) ===
+$ uv run pytest -q api/tests/test_guards.py::test_zcta_inside_a_place_is_not_a_national_wildcard --tb=line
+F                                                                        [100%]
+E   AssertionError: cities inside Denver, Colorado
+    assert [{'name': 'ci...ate:08', ...}] == []
+      Left contains one more item: {'name': 'cities inside Denver, Colorado', 'level': 'place', 'for': 'place:*', 'in': 'state:08', ...}
+FAILED api/tests/test_guards.py::test_zcta_inside_a_place_is_not_a_national_wildcard
+1 failed in 0.20s
+
+=== GOOD: restore host check ===
+$ uv run pytest -q api/tests/test_guards.py::test_zcta_inside_a_place_is_not_a_national_wildcard api/tests/test_ask_tools.py::test_all_counties_in_oregon_is_one_wildcard_request --tb=short
+..                                                                       [100%]
+2 passed in 0.23s

@@ -1,0 +1,239 @@
+CC-60 Gate 2 rerun — cold review of CURRENT HEAD
+branch: feat/cc-60-zcta-nesting
+HEAD: 29289de5664e4c6549f9c89f20e5e6c4bb2dcad3
+base: origin/feat/cc-29-series-guards
+prior Gate 2 HEAD: 92c83957105664b06fac62633ecfb41e3cf856b3
+fix commit: 29289de fix(api): reject ZCTA-inside-place as non-nesting (CC-60)
+diff: git diff origin/feat/cc-29-series-guards...HEAD
+working tree: untracked evidence/slice-3/cc-60-gate2.txt (not edited)
+
+Files touched (17):
+  api/src/ask.py
+  api/src/contract.py
+  api/src/geo.py
+  api/src/guards.py
+  api/tests/ask_fixtures.py
+  api/tests/test_ask_tools.py
+  api/tests/test_demo_harness.py
+  api/tests/test_guards.py
+  docs/ARCHITECTURE.md
+  evidence/slice-3/cc-60-gate1-fix.txt
+  evidence/slice-3/cc-60-gate1.txt
+  evidence/slice-3/cc-60-preflight-claims.md
+  evidence/slice-3/cc-60-preflight.txt
+  evidence/slice-3/cc-61-e2e-post.txt
+  packages/client/openapi.json
+  packages/client/schema.d.ts
+  scripts/run_demo.py
+
+This is the one allowed re-run after a non-trivial fix. No E2E. No PR.
+cc-60-gate2.txt was not edited.
+
+==============================================================================
+Pass 1 — generic bugs
+code only; no knowledge of intent
+==============================================================================
+
+Prior finding 1 (_WITHIN empty-requires ZCTA is a legal nationwide wildcard):
+GONE for the named phrases.
+"zctas inside Denver" / "zip codes inside Denver" / "zctas within Denver" /
+"zip codes within Denver": within is set, Denver has no level word and no
+state, for_level is zip code tabulation area, so parent_level is forced to
+place. extra={place}. nests_in(zcta, place) is False. Result: matches=[],
+legal=False, nested=False, detail "zip code tabulation area does not nest in
+place (Denver)". Not zcta:*.
+
+Prior finding 2 (nested True when the parent never made it into in_parts):
+GONE for the Denver phrasing.
+"tracts within Denver" / "census tract within Denver": same assume-place
+path. nests_in(tract, place) is False. matches=[], nested=False, detail
+"tract does not nest in place (Denver)". Not geography_unsupported.
+
+Prior finding 3 (_ZIP matches the official Census geography name): GONE.
+_ZIP is now r"\\bzip codes?\\b(?!\\s+tabulation)|\\bzip\\b(?!\\s+code)".
+"zip code tabulation area 90210" does not match. "ZIP 90210" and
+"zip codes inside Denver" still match.
+
+Prior finding 4 (_absorb reads nested only via getattr): REMAINS.
+legal and detail still use hasattr / dict.get. nested is still
+getattr(artifact, "nested", True) is not False. A dict artifact with
+nested=False is stored as nested=True, so geography_not_nested would not
+fire. ainvoke currently returns ResolveGeographyResult, so this is latent
+on the live path.
+
+New on the fix commit:
+
+1. assume-place is skipped when for_level == "place", so _WITHIN still
+   invents a nationwide place wildcard.
+   "places inside Denver" / "cities inside Denver": within matches,
+   detect_level("Denver") is None, state is None, for_level is place, so
+   the new if does not set parent_level. extra stays empty. legal_predicate
+   for place with in={} fails, then the empty-in fill sets list_in to
+   state:* and reuses that predicate. Result: legal=True, nested=True,
+   matches=[(place:*, state:*)]. Every US place. Test
+   test_all_places_in_a_county_is_rejected_not_broadened guards the county
+   parent; this path is untested.
+
+2. assume-place is _WITHIN-only. _WILDCARD "all|every|each … in Denver"
+   still hits the empty-requires ZCTA success.
+   "every zcta in Denver" / "all zip codes in Denver": within is None
+   (needs within|inside). extra stays empty. legal_predicate(zcta, in={},
+   wildcard=True) succeeds because that level requires nothing. Result:
+   legal=True, nested=True, matches=[(zip code tabulation area:*, "")].
+   This is the same nationwide dump as prior finding 1, different trigger.
+   "all zctas in Harris County" is still nested=False (county word).
+
+"all counties in the US" is not broken: _WILDCARD matches, within does
+not, assume-place does not fire, empty-in fill sets state:*, result
+legal=True nested=True matches=[(county:*, state:*)]. "all counties in
+Oregon" remains county:* in=state:41.
+
+"all zctas in the US" remains a legal nationwide ZCTA wildcard
+(for=zip code tabulation area:* in=""). "zctas inside the US" is now
+nested=False (US treated as a place). That is a refusal, not a fetch.
+
+Nothing else on this pass. No crash, no second URL formatter, no numbers
+routed through the model, no blocking prompt. t16 "census tract within
+the city of Denver" still nested=False matches=[].
+
+==============================================================================
+Pass 2 — docs/playbooks/review-pr.md
+==============================================================================
+
+Machines first (Python gates all exit 0). This gate did not run web tests
+or make demo / make eval.
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2673 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                5 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.656 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.795 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . && uv run ruff format --check . ==========
+
+uv run ruff check .
+All checks passed!
+exit: 0
+
+uv run ruff format --check .
+96 files already formatted
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 20 source files
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+.........................                                                [100%]
+241 passed in 4.13s
+exit: 0
+
+========== machines summary ==========
+any_nonzero: 0
+check_invariants --base: no violations (budget not weakened)
+
+The claim
+What a user can do now: a question that says ZIP rather than ZCTA ships
+zcta_not_zip without dropping a resolved ACS5 ZCTA row; containment that
+resolve_geography tags nested=False ships geography_not_nested and an
+empty match list instead of geography_unsupported.
+
+Evidence: Gate 1 mutation transcript is in evidence/slice-3/cc-60-gate1.txt;
+fix mutation transcript in evidence/slice-3/cc-60-gate1-fix.txt. This gate
+did not run make eval / make demo; those are the next pipeline phase.
+latest.json numbers are unchanged (answered_rate 0.795, p95 19.656s).
+
+Scope
+Belongs to slice 3 geographies (PLAN.md: ZCTAs are not ZIP codes and nest
+in nothing; non-nesting containment is not computable from published ACS).
+Not in this slice: charts, memory, PDF, auth, new tool, new route, graph
+node — none of those appear. ACS1-before-fetch and ZCTA code extraction
+are named as CC-65; not claimed here.
+17 files versus the ~15 cap: two extras are evidence
+(cc-60-gate1-fix.txt on the fix commit; cc-61-e2e-post.txt from 01d3b2e
+on this branch, not this ticket). No drive-by in the code: contract
+description, generated client, run_demo scoring, and ARCHITECTURE.md
+track the two new warning codes. largest file LOC sits on the 400 cap.
+
+Silent-wrong-answer review
+- URL: still series_from_record / CensusURL. No new URL formatter. &key=
+  redaction unchanged. geography_not_nested is scored like ambiguous_place
+  (no legal Census URL); zcta_not_zip still requires a URL.
+- MOE / GEOID / universe: unchanged on the fetch path. Empty rows when
+  nested=False, which is the non-fetch path.
+- Numbers do not pass back through the model.
+- Guards warn and ship. Neither new code blocks. geography_unsupported
+  skips when nested is False so the two codes do not double-fire.
+- Prior pass 1 #1 ("zctas inside Denver" / "zip codes inside Denver"
+  as zcta:*) is gone.
+- Pass 1 new #1 is a silent wrong geography: "cities inside Denver" /
+  "places inside Denver" is returned as for=place:* in=state:*, which
+  is every US place, with nested still True. That blocks this pass.
+- Pass 1 new #2 is the same class on _WILDCARD: "every zcta in Denver"
+  / "all zip codes in Denver" is still for=zcta:* with empty in.
+- ZIP language still maps to the ZCTA level via existing _LEVELS["zip"];
+  zcta_not_zip is attached. That is a warning on the answer, not a new
+  silent repair.
+
+Shape
+No new tool, route, Pydantic domain model, or .add_node(). nested is a
+field on the existing ResolveGeographyResult. Two guards on the existing
+evaluate() loop. ARCHITECTURE.md updated in the same commit.
+
+Tests
+New cases live in test_guards.py / test_ask_tools.py and go through
+dispatch + assemble (no search fake that returns one table for every
+input). test_zcta_inside_a_place_is_not_a_national_wildcard covers the
+inside/within Denver phrases and census tract within Denver; it does not
+cover places/cities inside Denver or all/every zcta in Denver.
+test_zip_language_warns_without_blocking_a_zcta_row plants rows and never
+calls resolve_geography on T15. Several asserts bind to warning detail
+substrings (ACS1, nest, 2020) rather than only the code. A new test file
+is not claimed as evidence. make demo is not in this gate.
+is_answered treats geography_not_nested like ambiguous_place and does
+not check expect_table; same pattern as the existing empty-URL trap.
+
+==============================================================================
+Verdict: FAIL
+==============================================================================
+
+Most important reason first: _WITHIN still routes "places inside Denver"
+and "cities inside Denver" onto the empty-in place fill, which becomes
+for=place:* in=state:* (every US place), and geography_not_nested never
+fires.
+
+Other findings (do not ship around the one above):
+- "every zcta in Denver" / "all zip codes in Denver" still become
+  zip code tabulation area:* with empty in (_WILDCARD, not _WITHIN)
+- _absorb drops nested=False on dict artifacts

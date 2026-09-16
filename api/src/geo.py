@@ -100,6 +100,11 @@ _WILDCARD = re.compile(
     r"zctas|zcta|zip codes|zips)\s+in\s+(.+)",
     re.IGNORECASE,
 )
+_WITHIN = re.compile(
+    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|"
+    r"counties|county|places?|cities|city)\s+(?:within|inside)\s+(?:the\s+)?(.+)",
+    re.IGNORECASE,
+)
 _COUNTY = re.compile(
     r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
     re.IGNORECASE,
@@ -119,6 +124,7 @@ class ResolveGeographyResult(ToolResult):
     wildcard: bool
     legal: bool
     detail: str
+    nested: bool = True
 
 
 ListGeographies = Callable[..., list[dict[str, str]]]
@@ -126,9 +132,13 @@ GeoTable = Callable[[str, int], list[GeoLevel]]
 LatestVintage = Callable[[str], int]
 
 
-def _fail(detail: str, *, wildcard: bool = False) -> tuple[str, ResolveGeographyResult]:
-    result = ResolveGeographyResult(specs=[], wildcard=wildcard, legal=False, detail=detail)
-    return detail, result
+def _fail(
+    detail: str, *, wildcard: bool = False, nested: bool = True
+) -> tuple[str, ResolveGeographyResult]:
+    hit = ResolveGeographyResult(
+        specs=[], wildcard=wildcard, legal=False, detail=detail, nested=nested
+    )
+    return detail, hit
 
 
 def legal_predicate(
@@ -144,21 +154,20 @@ def legal_predicate(
         if entry.name != for_level:
             continue
         required = frozenset(entry.requires)
-        if wildcard:
-            parent = entry.wildcard_for
-            allowed = required | ({parent} if parent else frozenset())
-            if (
-                parent
-                and parent in in_names
-                and in_names <= allowed
-                and required <= in_names | {parent}
-            ) or (not required and not in_names):
-                hits.append(entry)
-        elif required == in_names:
+        parent = entry.wildcard_for
+        allowed = required | ({parent} if parent else frozenset())
+        nested = bool(parent) and parent in in_names and in_names <= allowed
+        nested = nested and required <= in_names | {parent}
+        wild_ok = wildcard and (nested or (not required and not in_names))
+        if wild_ok or (not wildcard and required == in_names):
             hits.append(entry)
-    if not hits:
-        return None
-    return min(hits, key=lambda entry: (len(entry.requires), entry.code))
+    return min(hits, key=lambda e: (len(e.requires), e.code)) if hits else None
+
+
+def nests_in(child: str, parent: str, entries: list[GeoLevel]) -> bool:
+    return any(
+        e.name == child and (parent in e.requires or parent == e.wildcard_for) for e in entries
+    )
 
 
 def find_state(text: str) -> tuple[str, str] | None:
@@ -172,11 +181,7 @@ def find_state(text: str) -> tuple[str, str] | None:
     for name, _usps, fips in STATES:
         for match in re.finditer(rf"\b{re.escape(name)}\b", folded):
             candidate = (match.end(), len(name), name, fips)
-            if (
-                last is None
-                or candidate[0] > last[0]
-                or (candidate[0] == last[0] and candidate[1] > last[1])
-            ):
+            if last is None or candidate[:2] > last[:2]:
                 last = candidate
     return None if last is None else (last[2], last[3])
 
@@ -220,11 +225,8 @@ def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
     hits: list[dict[str, str]] = []
     for row in rows:
         head = row["name"].casefold().split(",", 1)[0]
-        if (
-            head == token
-            or head.startswith(f"{token} ")
-            or re.search(rf"\b{re.escape(token)}\b", head)
-        ):
+        named = head == token or head.startswith(f"{token} ")
+        if named or re.search(rf"\b{re.escape(token)}\b", head):
             hits.append(row)
     return hits
 
@@ -311,15 +313,13 @@ class ResolveGeographyTool(BaseTool):
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
-        wildcard_match = _WILDCARD.search(query)
+        wildcard_match = _WILDCARD.search(query) or _WITHIN.search(query)
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query
         state = find_state(parent_text)
         known = {entry.name for entry in entries}
         if level:
-            for_level = _LEVELS.get(level.casefold())
-            if for_level is None:
-                for_level = level if level in known else None
+            for_level = _LEVELS.get(level.casefold()) or (level if level in known else None)
             if for_level is None:
                 return _fail(f"unknown geography level {level!r}")
         else:
@@ -333,7 +333,9 @@ class ResolveGeographyTool(BaseTool):
                 for_level = "place"
         in_parts: dict[str, str] = {}
         if for_level != "state" and state is not None:
-            in_parts["state"] = state[1]
+            host = place_token(parent_text, state[0]) if wildcard else state[0]
+            if not host or host == state[0]:
+                in_parts["state"] = state[1]
         if for_level == "state" and state is not None:
             if legal_predicate("state", frozenset(), wildcard=False, entries=entries) is None:
                 return _fail("state with in={} is not a legal combination")
@@ -349,16 +351,21 @@ class ResolveGeographyTool(BaseTool):
             return f"1 geography: {spec.for_spec}", result
 
         parent_level = detect_level(parent_text) if wildcard else None
-        extra = (
-            {parent_level}
-            if parent_level and parent_level != for_level and parent_level not in in_parts
-            else set()
-        )
+        extra: set[str] = set()
+        if parent_level and parent_level != for_level and parent_level not in in_parts:
+            extra.add(parent_level)
         if extra:
-            return _fail(
-                f"{for_level} nested in unresolved {', '.join(sorted(extra))}",
-                wildcard=wildcard,
+            allowed = all(nests_in(for_level, parent, entries) for parent in extra)
+            parents = ", ".join(sorted(extra))
+            nest = (
+                f" nested in unresolved {parents}"
+                if allowed
+                else (f" does not nest in {parents} ({parent_text.strip()})")
             )
+            return _fail(f"{for_level}{nest}", wildcard=wildcard, nested=allowed)
+        us = re.search(r"\b(?:u\.?s\.?a?\.?|united states)\b", parent_text, re.I)
+        if wildcard and not extra and not in_parts and parent_text.strip() and not us:
+            return _fail(f"{for_level} does not nest in ({parent_text.strip()})", nested=False)
         in_names = frozenset(in_parts) | extra
         predicate = legal_predicate(
             for_level, in_names, wildcard=wildcard or not in_parts, entries=entries
@@ -367,14 +374,10 @@ class ResolveGeographyTool(BaseTool):
         state_wildcard = legal_predicate(
             for_level, frozenset({"state"}), wildcard=True, entries=entries
         )
-        if (
-            not list_in
-            and for_level not in {"state", "zip code tabulation area", "us"}
-            and state_wildcard
-        ):
+        skip_star = for_level in {"state", "zip code tabulation area", "us"}
+        if not list_in and not skip_star and state_wildcard:
             list_in = {"state": "*"}
-            if predicate is None:
-                predicate = state_wildcard
+            predicate = predicate or state_wildcard
         if predicate is None:
             return _fail(
                 f"{for_level} with in={dict(in_parts)} is not a legal combination",
@@ -414,13 +417,11 @@ class ResolveGeographyTool(BaseTool):
         ]
         detail = f"no {for_level} matched {query!r}" if not specs else ""
         result = ResolveGeographyResult(specs=specs, wildcard=False, legal=True, detail=detail)
-        if len(specs) > 1:
-            pick = specs[0]
-            summary = (
-                f"selected {pick.for_spec} {pick.in_spec}; {len(specs) - 1} alternatives"
-            ).strip()
-        elif specs:
-            summary = f"1 geography: {specs[0].for_spec} {specs[0].in_spec}".strip()
-        else:
-            summary = f"0 {for_level} candidates"
+        n = len(specs)
+        pick = specs[0] if specs else None
+        one = (
+            f"1 geography: {pick.for_spec} {pick.in_spec}" if pick else f"0 {for_level} candidates"
+        )
+        many = f"selected {pick.for_spec} {pick.in_spec}; {n - 1} alternatives" if pick else one
+        summary = (many if n > 1 else one).strip()
         return (detail or summary), result

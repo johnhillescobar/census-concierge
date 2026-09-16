@@ -22,7 +22,7 @@ from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse, GeoSpec
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.geo import ResolveGeographyTool, list_census_names
-from src.guards import evaluate
+from src.guards import finish_aggregation
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import (
@@ -75,10 +75,14 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         record.pool = list(hits)
     elif name == "resolve_geography":
         previous = record.geography
-        record.geographies = list(getattr(artifact, "specs", None) or [])
+        pull = artifact.get if isinstance(artifact, dict) else None
+        get = pull or (lambda k, d=None: getattr(artifact, k, d))
+        specs = get("specs")
+        record.geographies = list(specs if specs is not None else get("matches") or [])
         record.geo_status = {
-            "legal": bool(getattr(artifact, "legal", True)),
-            "detail": str(getattr(artifact, "detail", "") or ""),
+            "legal": bool(get("legal", True)),
+            "detail": str(get("detail", "") or ""),
+            "nested": get("nested", True) is not False,
         }
         record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
@@ -99,11 +103,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
 
 
 def _allowed(record: ExecutionRecord) -> set[str]:
-    allowed: set[str] = set()
-    for hit in record.pool:
-        allowed.add(str(hit["table_id"]))
-        allowed.update(str(member) for member in hit.get("members") or [])
-    return allowed
+    ids = {str(hit["table_id"]) for hit in record.pool}
+    return ids | {str(m) for hit in record.pool for m in hit.get("members") or []}
 
 
 # A-I race/ethnicity iteration, optional Puerto Rico suffix. Not a PR-only table.
@@ -242,6 +243,10 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                 )
     fallback = record.geography.geoid if record.geography else ""
     rows = _rows_with_geoid(record.rows, fallback)
+    warnings, rows, extra = finish_aggregation(
+        record, rows, {item.table_id for item in alternatives}
+    )
+    alternatives.extend(extra)
     return AskResponse(
         answer=answer,
         **series_from_record(record),
@@ -251,7 +256,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         universe=selected_universe,
         table_id=record.table_id,
         alternatives=alternatives,
-        warnings=evaluate(record),
+        warnings=warnings,
     )
 
 

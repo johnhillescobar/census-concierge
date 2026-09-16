@@ -1,0 +1,223 @@
+# E2E post-merge -- slice 3 / CC-61 vs merged feat/cc-29-series-guards
+# ticket: CC-61
+# GitHub PR: #33
+# branch: feat/cc-29-series-guards
+# HEAD: c790a5ce9f422d100ddff1d24c728493978fff67
+# captured: 2026-09-15T06:51:12-05:00
+# This is playbook step 9 (E2E post). PR #33 merged into feat/cc-29-series-guards, not main.
+# Do NOT overwrite evidence/slice-3/cc-61-e2e-pre.txt, evidence/slice-3/cc-61-gate1.txt, evidence/slice-3/cc-61-gate1-fix.txt, evidence/slice-3/cc-61-gate2.txt, evidence/slice-3/cc-61-gate2-rerun.txt, evidence/slice-3/cc-61-preflight.txt, evidence/slice-3/cc-61-preflight-claims.md, evidence/latest.json (demo/eval scripts will write it; leave dirty; do not revert or commit)
+#
+# Predecessor: evidence/slice-3/cc-61-e2e-pre.txt
+# Note: make is often missing on Windows; run the Makefile recipes as the underlying commands
+# make eval == uv run python scripts/eval_retrieval.py --verbose && uv run python scripts/eval_retrieval.py --tier long_tail --rerank && uv run python scripts/score_synthetic.py
+# make demo == npm --prefix web ci && npm --prefix web run build && uv run python -u scripts/run_demo.py --repeat 3
+# LANGCHAIN_TRACING_V2=false LANGCHAIN_TRACING=false
+# PATH prepend C:\nvm4w\nodejs (nvm Node; Test-Path first = True)
+# PYTHONUNBUFFERED=1
+
+===== git rev-parse --abbrev-ref HEAD =====
+COMMAND: git rev-parse --abbrev-ref HEAD
+feat/cc-29-series-guards
+exit: 0
+
+===== git rev-parse HEAD =====
+COMMAND: git rev-parse HEAD
+c790a5ce9f422d100ddff1d24c728493978fff67
+exit: 0
+
+===== git log -1 --oneline =====
+COMMAND: git log -1 --oneline
+c790a5c Merge pull request #33 from johnhillescobar:feat/cc-61-aggregation
+exit: 0
+
+===== uv run python scripts/eval_retrieval.py --verbose =====
+COMMAND: uv run python scripts/eval_retrieval.py --verbose
+RETRIEVAL
+
+  core       n=4    @1=75%   @3=75%   @5=75%   @10=100%   mrr=0.78
+  long_tail  n=40   @1=48%   @3=70%   @5=82%   @10=90%   mrr=0.61
+  trap       n=14   @1=21%   @3=36%   @5=36%   @10=57%   mrr=0.32
+
+  OVERALL    n=58   @1=43%
+
+MISSES
+
+  q04  expected B17001   got B06012, B17101, B17025
+      Poverty rate by census tract in Detroit
+  q06  expected B28002   got B28003, B28008, B28012
+      Which counties in Mississippi have the worst broadband access?
+  q07  expected B25070   got B25071, B25074, B25070
+      Renters spending more than 30% of income on rent, by county in Arizona
+  q08  expected B18101   got B18108, B18101, C18121
+      Disability rates among adults in rural Vermont counties
+  q09  expected B21001   got B26107, B26207, C21005
+      Veteran population by county in North Carolina
+  q11  expected B08303   got B08536, B08136, B08135
+      How long is the average commute in the Atlanta metro?
+  q12  expected B27001   got B27010, C27016, B27016
+      Health insurance coverage for children in New Mexico
+  q13  expected B25034   got B25035, B25107, B25034
+      When were the homes in Providence built?
+  q15  expected B05002   got B05007, B05015, C05006
+      Foreign-born population by county in Minnesota
+  q17  expected B24010   got B08007, B08604, B24060
+      Occupation breakdown for workers in Silicon Valley counties
+  q18  expected B25003   got B25072, B25095, C25055
+      Renter versus owner households in Milwaukee
+  q20  expected B07001   got B07101, B25039, B07413
+      People who moved into Boise from another state last year
+  q21  expected B19058   got C22001, B22001, B22003
+      Households receiving SNAP benefits in the Rio Grande Valley
+  q22  expected B25024   got B11011, B25024, B25127
+      Housing units by number of units in the structure, Somerville MA
+  q31  expected B25081   got B25027, B25096, B25081
+      How many homeowners in Nassau County are still paying off a loan on the house?
+  q33  expected B16002   got C16002, B16002, B16005
+      Households in Santa Ana where nobody over 14 speaks English well
+  q34  expected B24080   got B08018, B08604, B08017
+      Workers in Bozeman who run their own business instead of working for someone else
+  q35  expected B25091   got B25095, B25140, B25101
+      Homeowners in Miami-Dade spending more than a third of their income on housing
+  q37  expected B01002   got B07402, B07002, B09020
+      Which county in Florida has the oldest population?
+  q39  expected B25004   got B25005, B25004, B25085
+      Why are so many homes in Detroit sitting empty?
+  q41  expected B15012   got C15010, B15010, B15012
+      What did people in Ann Arbor study in college?
+  q43  expected B08302   got B08132, B08302, B08532
+      What time do commuters in Suffolk County leave the house?
+  t07  expected B01003   got B07201, B19301, B07101
+      Population of Phoenix in 2024 from the 1-year ACS
+  t08  expected B19001   got B19082, B19301, B19081
+      Give me the income distribution, not just the median, for Travis County
+  t09  expected B28001   got B25046, B25083, B28011
+      Number of cell phones in Denver since 2017
+  t10  expected B19013   got B19202, B19013, B25119
+      Plot median household income for Cuyahoga County every year from 2017 to 2023
+  t11  expected B23025   got B25109, B23027, B08009
+      Unemployment in Middlebury, Vermont each year since 2017
+  t12  expected B17001   got B17024, B17002, B17026
+      1-year ACS poverty for Fresno County, 2018 through 2022
+  t13  expected B28002   got B28011, B28002, B28004
+      Broadband subscription trend by census tract in Wayne County, 2018 to 2022
+  t14  expected B28001   got B28010, B28003, B28005
+      How has the share of households with a computer changed since 2013?
+  t16  expected B17001   got B06012, B17025, B17101
+      Compare poverty by census tract within the city of Denver
+  t17  expected B19013   got B19202, B19081, B25119
+      What is the median household income across these five tracts combined?
+  t18  expected B27001   got C27014, B27003, C27021
+      Total population without health insurance across every tract in Wayne County
+
+Wrote evidence\latest.json
+
+exit: 0
+
+===== uv run python scripts/eval_retrieval.py --tier long_tail --rerank =====
+COMMAND: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+RETRIEVAL
+
+  long_tail  n=40   @1=88%   @3=90%   @5=90%   @10=90%   mrr=0.89
+
+  OVERALL    n=40   @1=88%
+
+Wrote evidence\latest.json
+
+exit: 0
+
+===== uv run python scripts/score_synthetic.py =====
+COMMAND: uv run python scripts/score_synthetic.py
+
+SYNTHETIC QUESTION QUALITY
+
+  sampled              600 of 8748 questions
+  alignment (gated)    0.544   mean cosine to own document
+  self-retrieval @1    45%   diagnostic — same ranking problem as golden set
+  self-retrieval @5    82%   diagnostic
+
+  weakest alignment (question far from its own document):
+    B25130   0.244  Other Vacancy Status
+             What is the number of homes that are preparing to be rented or sold?
+    B02023   0.263  Black or African American Alone by Selected Grou
+             I'm researching the number of Kenyans in the U.S.; can you help with tha
+    B11012   0.287  Households by Type
+             How many single moms live alone in the U.S.?
+    B11014   0.292  Population in Subfamilies by Subfamily Type by R
+             How many children are part of married couples with kids?
+    B25024   0.295  Units in Structure
+             Can you tell me how many mobile homes are located here?
+    B24010   0.308  Sex by Occupation for the Civilian Employed Popu
+             Can you provide data on the number of female teachers in secondary educa
+    B14002   0.313  Sex by School Enrollment by Level of School by T
+             How many students are enrolled in graduate programs at private instituti
+    B08126   0.315  Means of Transportation to Work by Industry
+             How many workers in education and healthcare are working from home?
+
+  worst self-retrieval (own question does not rank first):
+    B09005   4 miss(es)  Household Type for Children Under 18 Years in Househ
+    B26203   3 miss(es)  Group Quarters Type (5 Types)
+    B08136   3 miss(es)  Aggregate Travel Time to Work (in Minutes) of Worker
+    B08501   3 miss(es)  Means of Transportation to Work by Age for Workplace
+    B08528   3 miss(es)  Means of Transportation to Work by Class of Worker f
+    B07411   3 miss(es)  Median Income in the Past 12 Months (in 2024 Inflati
+    B25086   3 miss(es)  Aggregate Price Asked (Dollars)
+    C18121   3 miss(es)  Work Experience by Disability Status
+
+Wrote evidence\latest.json
+
+exit: 0
+
+===== npm --prefix web ci =====
+COMMAND: npm --prefix web ci
+npm error code EBUSY
+npm error syscall rmdir
+npm error path C:\Users\johnh\Dropbox\Python\census-concierge\web\node_modules\@redocly\config\lib
+npm error errno -4082
+npm error EBUSY: resource busy or locked, rmdir 'C:\Users\johnh\Dropbox\Python\census-concierge\web\node_modules\@redocly\config\lib'
+npm error A complete log of this run can be found in: C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-09-15T11_53_39_802Z-debug-0.log
+exit: 4294963214
+
+# npm ci failed (4294963214); waiting 8s before retry
+
+===== npm --prefix web ci (retry 2) =====
+COMMAND: npm --prefix web ci
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 177 packages, and audited 178 packages in 7s
+
+33 packages are looking for funding
+  run `npm fund` for details
+
+2 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+exit: 0
+
+===== npm --prefix web run build =====
+COMMAND: npm --prefix web run build
+
+> build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 31 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB │ gzip:  0.27 kB
+dist/assets/index-CMQ8RH-_.css    2.01 kB │ gzip:  0.78 kB
+dist/assets/index-C7Kvn_Qq.js   227.82 kB │ gzip: 71.29 kB
+✓ built in 1.96s
+exit: 0
+
+===== uv run python -u scripts/run_demo.py --repeat 3 =====
+COMMAND: uv run python -u scripts/run_demo.py --repeat 3
+
+# ABORTED. CC-61 is a subtask of CC-29; PR #33 merged to feat/cc-29-series-guards, not main.
+# Full demo vs main is the parent-story close-out. Gated demo remains evidence/slice-3/cc-61-e2e-pre.txt
+# (repeat=3, long_tail answered_rate=0.795, p95=19.656s).
+# Post-merge eval on c790a5c completed: long_tail @10=90%, selector @1=88%, synthetic_alignment=0.544.

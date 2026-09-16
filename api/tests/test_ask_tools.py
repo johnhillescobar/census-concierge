@@ -9,19 +9,19 @@ from __future__ import annotations
 import gzip
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
+from ask_fixtures import ENTRIES, _describe, _geo_tool, _harris, _list_geographies, _search
 from pydantic import ValidationError
 from src.census_url import CensusURL
 from src.contract import GeoSpec, clause_codes
 from src.fetch import FetchDataTool
 from src.geo import (
-    ResolveGeographyTool,
     filter_rows,
     find_state,
     legal_predicate,
     list_census_names,
+    nests_in,
     place_token,
     rank_matches,
 )
@@ -32,213 +32,6 @@ from src.tools import (
     SearchTablesTool,
     pair_margins,
 )
-
-ENTRIES = [
-    GeoLevel("state", "040", (), (), ""),
-    GeoLevel("county", "050", ("state",), ("state",), "state"),
-    GeoLevel(
-        "county",
-        "324",
-        (
-            "state",
-            "metropolitan statistical area/micropolitan statistical area (or part)",
-            "metropolitan division (or part)",
-        ),
-        (),
-        "",
-    ),
-    GeoLevel("place", "160", ("state",), ("state",), "state"),
-    GeoLevel("zip code tabulation area", "860", (), (), ""),
-]
-
-
-def _search(question: str, k: int = 10) -> list[str]:
-    q = question.casefold()
-    if "bike" in q or "bicycle" in q:
-        return ["B08301"][:k]
-    if "broadband" in q:
-        return ["B28002"][:k]
-    if "income" in q:
-        return ["B19013"][:k]
-    if "population" in q:
-        return ["B01003"][:k]
-    return []
-
-
-def _describe(table_id: str) -> dict[str, object] | None:
-    catalog = {
-        "B01003": {"title": "Total Population", "universe": "Total population", "members": []},
-        "B08301": {
-            "title": "Means of Transportation to Work",
-            "universe": "Workers 16 years and over",
-            "members": [],
-        },
-        "B19013": {
-            "title": "Median Household Income",
-            "universe": "Households",
-            "members": ["B19013A", "B19013B"],
-        },
-        "B28002": {
-            "title": "Internet Subscriptions",
-            "universe": "Households",
-            "members": [],
-        },
-    }
-    return catalog.get(table_id)
-
-
-def _list_geographies(
-    level: str,
-    in_parts: dict[str, str],
-    dataset: str = "acs5",
-    vintage: int = 2024,
-) -> list[dict[str, str]]:
-    counties = [
-        {
-            "name": "Harris County, Texas",
-            "level": "county",
-            "for": "county:201",
-            "in": "state:48",
-            "geoid": "0500000US48201",
-            "population": "4731145",
-        },
-        {
-            "name": "Harrison County, Texas",
-            "level": "county",
-            "for": "county:203",
-            "in": "state:48",
-            "geoid": "0500000US48203",
-            "population": "69091",
-        },
-        {
-            "name": "Cook County, Georgia",
-            "level": "county",
-            "for": "county:075",
-            "in": "state:13",
-            "geoid": "0500000US13075",
-            "population": "17532",
-        },
-        {
-            "name": "Cook County, Illinois",
-            "level": "county",
-            "for": "county:031",
-            "in": "state:17",
-            "geoid": "0500000US17031",
-            "population": "5182090",
-        },
-        {
-            "name": "Cook County, Minnesota",
-            "level": "county",
-            "for": "county:031",
-            "in": "state:27",
-            "geoid": "0500000US27031",
-            "population": "5635",
-        },
-    ]
-    if level == "place":
-        places = [
-            {
-                "name": "New York city, New York",
-                "level": "place",
-                "for": "place:3651000",
-                "in": "state:36",
-                "geoid": "1600000US3651000",
-                "population": "8336817",
-            },
-            {
-                "name": "Albany city, New York",
-                "level": "place",
-                "for": "place:3601000",
-                "in": "state:36",
-                "geoid": "1600000US3601000",
-                "population": "99224",
-            },
-            {
-                "name": "Austin city, Texas",
-                "level": "place",
-                "for": "place:4805000",
-                "in": "state:48",
-                "geoid": "1600000US4805000",
-                "population": "974447",
-            },
-            {
-                "name": "Portland city, Maine",
-                "level": "place",
-                "for": "place:60545",
-                "in": "state:23",
-                "geoid": "1600000US2360545",
-                "population": "68854",
-            },
-            {
-                "name": "Portland city, Oregon",
-                "level": "place",
-                "for": "place:59000",
-                "in": "state:41",
-                "geoid": "1600000US4159000",
-                "population": "641165",
-            },
-            {
-                "name": "Springfield CDP, Virginia",
-                "level": "place",
-                "for": "place:75344",
-                "in": "state:51",
-                "geoid": "1600000US5175344",
-                "population": "31882",
-            },
-            {
-                "name": "Springfield city, Illinois",
-                "level": "place",
-                "for": "place:72000",
-                "in": "state:17",
-                "geoid": "1600000US1772000",
-                "population": "114394",
-            },
-            {
-                "name": "Springfield city, Missouri",
-                "level": "place",
-                "for": "place:70000",
-                "in": "state:29",
-                "geoid": "1600000US2970000",
-                "population": "169954",
-            },
-        ]
-        state = in_parts.get("state")
-        if state and state != "*":
-            return [row for row in places if row["in"] == f"state:{state}"]
-        return places
-    if level != "county":
-        return []
-    state = in_parts.get("state")
-    if state and state != "*":
-        return [row for row in counties if row["in"] == f"state:{state}"]
-    return counties
-
-
-def _geo_tool(
-    listing: Any = _list_geographies,
-    table: list[GeoLevel] | None = None,
-    geo_table: Any = None,
-) -> ResolveGeographyTool:
-    rows = ENTRIES if table is None else table
-    return ResolveGeographyTool(
-        list_geographies=listing,
-        geo_table=geo_table or (lambda dataset, year: rows),
-        latest_vintage=lambda dataset: 2024,
-    )
-
-
-def _harris(**fields: object) -> GeoSpec:
-    payload: dict[str, object] = {
-        "level": "county",
-        "name": "Harris County, Texas",
-        "geoid": "0500000US48201",
-        "for_spec": "county:201",
-        "in_spec": "state:48",
-        "dataset": "acs5",
-        "vintage": 2024,
-    }
-    payload.update(fields)
-    return GeoSpec.model_validate(payload)
 
 
 @pytest.fixture
@@ -420,7 +213,32 @@ async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
     )
     assert message.artifact.legal is False
     assert message.artifact.wildcard is True
+    assert message.artifact.nested is False
     assert message.artifact.specs == []
+
+
+def test_tract_nests_in_county_not_place() -> None:
+    assert nests_in("tract", "county", ENTRIES)
+    assert not nests_in("tract", "place", ENTRIES)
+    assert not nests_in("zip code tabulation area", "county", ENTRIES)
+    assert not nests_in("zip code tabulation area", "place", ENTRIES)
+
+
+async def test_named_zcta_resolves_without_a_parent() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Median household income for ZCTA 90210"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is True
+    assert message.artifact.nested is True
+    assert [row.for_spec for row in message.artifact.specs] == ["zip code tabulation area:90210"]
+    assert message.artifact.specs[0].in_spec == ""
+    assert message.artifact.specs[0].geoid == "860Z200US90210"
 
 
 def test_harris_does_not_match_harrison() -> None:
@@ -924,8 +742,10 @@ async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
         }
     )
     assert message.artifact.legal is False
+    assert message.artifact.nested is False
     assert message.artifact.specs == []
-    assert "unresolved" in message.artifact.detail
+    assert "does not nest" in message.artifact.detail
+    assert "state:*" not in message.content
 
 
 async def test_unknown_level_does_not_list_census_names() -> None:

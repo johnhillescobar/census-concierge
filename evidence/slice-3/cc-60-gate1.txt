@@ -1,0 +1,155 @@
+# Gate 1 — CC-60
+
+## GOOD — new tests against the implementation
+.........                                                                [100%]
+9 passed in 0.27s
+exit=0
+
+## BAD — one behaviour reverted at a time
+
+### omit zcta_not_zip from evaluate
+Test: test_zip_language_warns_without_blocking_a_zcta_row
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['zcta_not_zip']
+      
+      Right contains one more item: 'zcta_not_zip'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:525: AssertionError: assert [] == ['zcta_not_zip']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+1 failed in 0.16s
+
+### treat ZCTA wording as ZIP language
+Test: test_zcta_wording_does_not_emit_zcta_not_zip
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [AskWarning(c...r from 2010')] == []
+      
+      Left contains one more item: AskWarning(code='zcta_not_zip', detail='ZIP 90210 / ZCTA 90210 is a USPS delivery route versus a block-built Census ap... of ZIPs have no ZCTA); ZCTAs nest in nothing, ACS1 does not publish them, and 2020 ZCTA definitions differ from 2010')
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:549: AssertionError: assert [AskWarning(c...r from 2010')] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_zcta_wording_does_not_emit_zcta_not_zip
+1 failed in 0.17s
+
+### omit geography_not_nested from evaluate
+Test: test_tract_within_a_place_does_not_invent_a_fetch
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['geography_not_nested']
+      
+      Right contains one more item: 'geography_not_nested'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:563: AssertionError: assert [] == ['geography_not_nested']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_tract_within_a_place_does_not_invent_a_fetch
+1 failed in 0.18s
+
+### keep nested=True on illegal containment
+Test: test_tract_within_a_place_does_not_invent_a_fetch
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert True is False
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:559: assert True is False
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_tract_within_a_place_does_not_invent_a_fetch
+1 failed in 0.20s
+
+### label legal tract-in-county containment as not nested
+Test: test_tract_within_a_county_is_not_a_nesting_warning
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False is not False
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:594: assert False is not False
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_tract_within_a_county_is_not_a_nesting_warning
+1 failed in 0.17s
+
+### nests_in always true
+Test: test_tract_nests_in_county_not_place
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert not True
+     +  where True = nests_in('tract', 'place', [GeoLevel(name='state', code='040', requires=(), wildcard=(), wildcard_for=''), GeoLevel(name='county', code='050', re...ldcard_for='county'), GeoLevel(name='zip code tabulation area', code='860', requires=(), wildcard=(), wildcard_for='')])
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:220: AssertionError: assert not True
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_tract_nests_in_county_not_place - As...
+1 failed in 0.17s
+
+### empty ZCTA listing
+Test: test_named_zcta_resolves_without_a_parent
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['zip code ta...n area:90210']
+      
+      Right contains one more item: 'zip code tabulation area:90210'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:237: AssertionError: assert [] == ['zip code ta...n area:90210']
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_named_zcta_resolves_without_a_parent
+1 failed in 0.28s
+
+### still fire geography_unsupported on nested=False
+Test: test_tract_within_a_place_does_not_invent_a_fetch
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['geography_u...y_not_nested'] == ['geography_not_nested']
+      
+      At index 0 diff: 'geography_unsupported' != 'geography_not_nested'
+      Left contains one more item: 'geography_not_nested'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:563: AssertionError: assert ['geography_u...y_not_nested'] == ['geography_not_nested']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_tract_within_a_place_does_not_invent_a_fetch
+1 failed in 0.17s
+
+### require a Census URL for geography_not_nested
+Test: test_geography_not_nested_with_empty_url_is_answered
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert False is True
+     +  where False = <function is_answered at 0x00000195EBC8AAC0>({'id': 't16', 'expect_table': 'B17001', 'expect_warning': 'geography_not_nested'}, status_code=200, body={'answer': 'ok', 'urls': [], 'requested_years': [], 'attempted_years': [], ...})
+     +    where <function is_answered at 0x00000195EBC8AAC0> = run_demo.is_answered
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_demo_harness.py:150: AssertionError: assert False is True
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_geography_not_nested_with_empty_url_is_answered
+1 failed in 0.03s
+
+### call illegal place-in-county unresolved, not non-nesting
+Test: test_all_places_in_a_county_is_rejected_not_broadened
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'does not nest' in 'place nested in unresolved county'
+     +  where 'place nested in unresolved county' = ResolveGeographyResult(matches=[], wildcard=True, legal=False, detail='place nested in unresolved county', nested=False).detail
+     +    where ResolveGeographyResult(matches=[], wildcard=True, legal=False, detail='place nested in unresolved county', nested=False) = ToolMessage(content='place nested in unresolved county', name='resolve_geography', tool_call_id='c1', artifact=ResolveGeographyResult(matches=[], wildcard=True, legal=False, detail='place nested in unresolved county', nested=False)).artifact
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:714: AssertionError: assert 'does not nest' in 'place nested in unresolved county'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_all_places_in_a_county_is_rejected_not_broadened
+1 failed in 0.18s
+
+### omit geography_not_nested from evaluate (zcta in county)
+Test: test_zcta_inside_a_county_is_not_nested
+Verdict: BAD  exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['geography_not_nested']
+      
+      Right contains one more item: 'geography_not_nested'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:582: AssertionError: assert [] == ['geography_not_nested']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_zcta_inside_a_county_is_not_nested - As...
+1 failed in 0.24s
+
+mutations that failed to break their test: 0

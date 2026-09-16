@@ -1,0 +1,141 @@
+# Gate 2 rerun — CC-29 after merge origin/main
+# commit: 1f0c21a
+# diff: origin/main...HEAD
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               2685 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.164 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+EXIT: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    no violations
+
+EXIT: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+EXIT: 0
+
+========== uv run ruff format --check . ==========
+
+99 files already formatted
+EXIT: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 20 source files
+EXIT: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 28%]
+........................................................................ [ 56%]
+........................................................................ [ 85%]
+......................................                                   [100%]
+254 passed in 4.16s
+EXIT: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+
+openapi-typescript 7.9.1
+packages/client is up to date.
+EXIT: 0
+
+==============================================================================
+Pass B — cold review of origin/main...HEAD
+code only; first Gate 2 (cc-29-gate2.txt) found city+state statewide wildcard;
+acb1a08 fixed it; this re-run is the mergeable tree (GeoSpec from main + guards)
+==============================================================================
+
+Reviewed: api/src/geo.py, guards.py, ask.py, contract.py, docs/ARCHITECTURE.md,
+scripts/run_demo.py, api/tests/test_guards.py, test_ask_tools.py, ask_fixtures.py.
+HEAD 1f0c21a = CC-61 + CC-60 + city+state host check + merge of CC-63 GeoSpec.
+CC-62 has no code on this branch.
+
+Pass B1 — generic bugs
+
+1. city+state containment (prior FAIL) — gone
+   Wildcard parents copy state into in_parts only when place_token(host) is
+   empty or the state itself. "cities inside Denver, Colorado" keeps in_parts
+   empty, then fail-closes nested=False with specs=[]. Covered by
+   test_zcta_inside_a_place_is_not_a_national_wildcard. "all counties in Oregon"
+   still gets in=state because the host is the state.
+
+2. _absorb nested on dict artifacts — gone
+   Dict and object getters both read nested; empty specs=[] is kept (not
+   swapped for matches). test_dict_geo_artifact_preserves_nested_false holds.
+
+3. Combining published medians still declines; B19001 is offered only for
+   B19013. Additive combine appends a row with empty GEO_ID and RSS MOE;
+   n>5 emits moe_aggregation_degraded. ZIP language warns without refusing a
+   valid ACS5 ZCTA.
+
+nothing else in the mergeable diff.
+
+Pass B2 — project invariants (review-pr.md)
+
+- URL / MOE / GEOID / universe: assemble still fills AskResponse on every
+  path. Combined totals use empty GEO_ID (documented). Non-nesting leaves
+  urls=[] and rows=[] with the warning.
+- CensusURL still redacts &key=. No new URL formatter.
+- Numbers do not pass back through the model.
+- Guards warn; none became a blocking clarification.
+- Fail-closed nesting does not invent a statewide or nationwide fetch.
+- No budget raise. largest file LOC 398 <= 400. invariants --base origin/main
+  clean.
+- No *_manager / *_orchestrator / *_factory / *_policy / *_strategy / *_service.
+  No new graph node, tool, or route.
+- ARCHITECTURE.md updated in the same change: GeoSpec, CC-61, CC-60.
+- Tests assert codes, specs, nested, rows — not prompt wording.
+- 33 files vs ~15 guideline: implementation is geo.py + guards.py + ask.py
+  absorb/assemble + contract. The rest is tests, generated client,
+  ARCHITECTURE.md, run_demo.py, and evidence/slice-3/ child-ticket transcripts.
+
+==============================================================================
+Pass C — review-pr.md claim / verdict
+==============================================================================
+
+Claim: a user asking to combine medians, add areas, treat ZIP as ZCTA, or
+request containment Census for/in cannot express, now gets the matching
+DESIGN §4 warning on the answer instead of a silent wrong number or an
+invented geography.
+
+Evidence: Gate 2 machines green on 1f0c21a. E2E (make eval / make demo
+--repeat 3) is the next phase; this file is not that transcript.
+
+Follow-ups (not blocking this Gate 2):
+- CC-62 overlapping-ACS5 override persistence is still a gap. overlapping_vintage
+  already warns; there is no AskRequest override field. Vintage-policy default
+  remains CC-31.
+- t09-t18 (and q23) stay out of make demo via is_slice1; t10/t15-t18 are Gate 1
+  unit tests.
+- p95 has previously closed red on this slice; latest.json currently 14.164s
+  (from main's CC-63 scoreboard) until this branch re-runs demo.
+- Slice 3 PLAN "remaining series guards still open" is the CC-62 gap above.
+
+Verdict: Ship it with follow-ups. No silent-wrong-answer finding on the
+mergeable tree. Do not merge until E2E pre-PR is pasted.
