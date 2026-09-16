@@ -324,6 +324,76 @@ def test_county_rank_ignores_place_class() -> None:
     assert rank_matches(rows)[0]["for"] == "county:031"
 
 
+@pytest.mark.parametrize(
+    "query",
+    ["all counties in Washington state", "all counties in the state of Washington"],
+)
+async def test_state_descriptor_is_still_a_county_wildcard(query: str) -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.wildcard is True
+    assert artifact.legal is True
+    spec = artifact.specs[0]
+    assert spec.for_spec == "county:*"
+    assert spec.in_spec == "state:53"
+
+
+async def test_all_places_in_oregon_is_a_state_wildcard() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all places in Oregon"},
+            "id": "c1",
+        }
+    )
+    spec = message.artifact.specs[0]
+    assert message.artifact.legal is True
+    assert spec.for_spec == "place:*"
+    assert spec.in_spec == "state:41"
+
+
+async def test_all_places_in_washington_state_is_a_state_wildcard() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all places in Washington state"},
+            "id": "c1",
+        }
+    )
+    spec = message.artifact.specs[0]
+    assert message.artifact.legal is True
+    assert spec.for_spec == "place:*"
+    assert spec.in_spec == "state:53"
+
+
+@pytest.mark.parametrize("query", ["all ZCTAs in Oregon", "ZCTAs within Oregon"])
+async def test_zctas_in_a_state_are_not_nested(query: str) -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.nested is False
+    assert message.artifact.specs == []
+
+
 async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
@@ -846,6 +916,7 @@ def test_washington_dc_is_not_washington_state() -> None:
 def test_new_york_city_token_keeps_new_york() -> None:
     assert place_token("New York City", "new york") == "new york"
     assert place_token("Austin, Texas", "texas") == "austin"
+    assert place_token("State College, Pennsylvania", "pennsylvania") == "state college"
 
 
 def test_empty_place_token_matches_nothing() -> None:

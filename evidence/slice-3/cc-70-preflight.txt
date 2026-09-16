@@ -1,0 +1,95 @@
+COMMAND: git rev-parse HEAD; git log -1 --oneline
+d45618e40887d713c05f55edb725de9617eb98ce
+d45618e Merge pull request #37 from johnhillescobar:docs/e2e-scoreboard-not-transcript
+
+COMMAND: uv run python scripts/jira_transition.py CC-70 --status
+CC-70  To Do  Story
+Correct leftover state-descriptor and ZCTA-in-state geography warnings
+
+COMMAND: gh api .../pulls/36/reviews  (Copilot suppressed comments)
+api/src/geo.py:338  host check treats a state descriptor as an unresolved parent
+api/src/geo.py:338  state suffix copied into in_parts before nesting is checked
+api/src/guards.py:321  moe_aggregation_degraded and finish_aggregation both call combine_additive
+
+COMMAND: uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2695 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC                901 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+file LOC (budget _loc)
+ask.py               398
+geo.py               384
+guards.py            318
+largest              398
+
+COMMAND: resolve_geography against api/tests ENTRIES fixture + assemble()
+
+place_token leftovers
+place_token('Washington state', 'washington') -> 'state'
+  find_state=('washington', '53') detect_level='state'
+place_token('the state of Washington', 'washington') -> 'state'
+  find_state=('washington', '53') detect_level='state'
+place_token('Oregon', 'oregon') -> 'oregon'
+  find_state=('oregon', '41') detect_level=None
+place_token('Washington', 'washington') -> 'washington'
+  find_state=('washington', '53') detect_level=None
+place_token('State College, Pennsylvania', 'pennsylvania') -> 'state college'
+  find_state=('pennsylvania', '42') detect_level='state'
+
+resolve_geography
+all counties in Oregon                  legal=True  nested=True  county:* in=state:41
+all counties in Washington              legal=True  nested=True  county:* in=state:53
+all counties in Washington state        legal=False nested=True  detail='county nested in unresolved state' specs=[]
+all counties in the state of Washington legal=False nested=True  detail='county nested in unresolved state' specs=[]
+all places in Oregon                    legal=True  nested=True  place:* in=state:41
+all places in Washington state          legal=False nested=True  detail='place nested in unresolved state' specs=[]
+all ZCTAs in Oregon                     legal=False nested=True  detail="zip code tabulation area with in={'state': '41'} is not a legal combination" specs=[]
+ZCTAs within Oregon                     legal=False nested=True  detail="zip code tabulation area with in={'state': '41'} is not a legal combination" specs=[]
+all zctas in Harris County              legal=False nested=False detail='zip code tabulation area does not nest in county (Harris County)' specs=[]
+Median household income for ZCTA 90210  legal=True  nested=True  zip code tabulation area:90210 in=''
+all counties in the US                  legal=True  nested=True  county:* in=state:*
+
+assemble warning codes
+all counties in Washington state        geography_unsupported
+all counties in the state of Washington geography_unsupported
+all ZCTAs in Oregon                     geography_unsupported
+ZCTAs within Oregon                     geography_unsupported
+all counties in Oregon                  []
+all places in Oregon                    []
+all zctas in Harris County              geography_not_nested
+
+nests_in (ENTRIES + live acs5 2024 geography.json)
+zcta in state  False  (code=860 requires=() wildcard='')
+county in state True
+place in state  True
+
+existing tests
+'Washington state'           False
+'the state of Washington'    False
+'all ZCTAs in Oregon'        False
+'ZCTAs within Oregon'        False
+'all counties in Oregon'     True
+'all zctas in Harris County' True
+
+combine_additive call sites in api/src/guards.py
+283:def combine_additive(
+330:    count, combined_rows = combine_additive(record.rows)   # moe_aggregation_degraded
+355:    _count, combined_rows = combine_additive(rows)         # finish_aggregation after evaluate()
+
+golden q02
+id = "q02"
+text = "Median household income for all counties in Oregon"
