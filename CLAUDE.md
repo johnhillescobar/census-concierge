@@ -13,7 +13,7 @@ make demo        # real questions, real API, prints pass rate and p95 latency
 ```
 
 Done means a user got an answer. Quote the scoreboard in the PR; never Read the
-teed transcript. A passing pytest run, new test file, or closed ticket is not done.
+transcript. A passing pytest run, new test file, or closed ticket is not done.
 
 **This pipeline is nondeterministic.** One run tells you nothing — compare rates
 at the same `--repeat`. Current numbers live in `evidence/latest.json` and at

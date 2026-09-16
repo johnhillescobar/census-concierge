@@ -78,11 +78,11 @@ one-line correction does not. Stop after one re-run; still fix what it finds.
 
 ## 6. E2E, before the PR and after the merge
 
-`make eval` today; `make demo --repeat 3` once `scripts/run_demo.py` exists (slice
-1). Real system, real keys. Tee to `evidence/slice-<N>/e2e-pre.txt` and link it
-in the PR. Never paste or Read the transcript. Quote the printed DEMO/MISSES
-scoreboard, or gated keys plus `demo.misses` from `evidence/latest.json` — never
-`demo.trials`. A failing criterion keeps the PR open with that scoreboard;
+`make eval` today; `make demo` once `scripts/run_demo.py` exists (slice 1; `--repeat
+3` is in the recipe). Real system, real keys. Redirect stdout to
+`evidence/slice-<N>/e2e-pre.txt` (no tee) and link it in the PR. Never Read the
+transcript. Quote gated keys plus `demo.misses` from `evidence/latest.json` —
+never `demo.trials`. A failing criterion keeps the PR open with that scoreboard;
 reporting a red result is the correct outcome. After the merge, re-run against
 merged `main` into `evidence/slice-<N>/e2e-post.txt` and comment the numbers on
 the Jira ticket and the slice epic. PLAN.md STATUS stays a one-line close pointer

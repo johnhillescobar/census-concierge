@@ -30,8 +30,23 @@ out="$root/evidence/slice-$slice/$phase.txt"
 case "$phase" in
   gate1) task="run Gate 1 for the current slice per docs/playbooks/run-slice.md: tests for the adversarial matrix, and mutation-check every new test. Paste the mutation transcript with GOOD/BAD labels." ;;
   gate2) task="review the current branch diff for bugs, code only, no knowledge of intent; then run docs/playbooks/review-pr.md. State what each pass found, including nothing." ;;
-  e2e-pre)  task="run the slice acceptance commands against the real system (make eval; make demo --repeat 3 once it exists), before the PR. Tee raw output to the evidence path. Do not Read that file. Report the printed DEMO/MISSES scoreboard only." ;;
-  e2e-post) task="run the slice acceptance commands against the real system (make eval; make demo --repeat 3 once it exists) against merged main, after the merge. Tee raw output to the evidence path. Do not Read that file. Report the printed DEMO/MISSES scoreboard only." ;;
+  e2e-pre)  task="run make eval and make demo against the real system, before the PR. Repeat 3 is already in the make demo recipe." ;;
+  e2e-post) task="run make eval and make demo against merged main, after the merge. Repeat 3 is already in the make demo recipe." ;;
+esac
+
+case "$phase" in
+  e2e-pre|e2e-post)
+    capture="Redirect every command's output to $out (no tee). Do not Read that file."
+    report="Report back only: the path $out, a one-line verdict, and the DEMO/MISSES scoreboard from evidence/latest.json (gated keys plus demo.misses, never demo.trials)."
+    ;;
+  gate2)
+    capture="Capture every command's raw output to:  $out"
+    report="Report back only: the path $out, a one-line verdict, and the findings."
+    ;;
+  *)
+    capture="Capture every command's raw output to:  $out"
+    report="Report back only: the path $out and a one-line verdict."
+    ;;
 esac
 
 cat <<EOF
@@ -41,6 +56,6 @@ Hand this to a fresh general-purpose subagent (not fork), isolation: worktree wh
   .claude/PLAN.md first. You have no context from the caller.
   Do exactly this phase, nothing downstream:
   $task
-  Capture every command's raw output to:  $out
-  Report back only: the path $out, a one-line verdict, and (gate2) the findings.
+  $capture
+  $report
 EOF

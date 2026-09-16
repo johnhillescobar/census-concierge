@@ -28,7 +28,7 @@ description. If it cannot be written, the PR is refactoring or scaffolding — s
 so plainly rather than dressing it as a feature.
 
 **Is the evidence real?** `make eval` and `make demo` scoreboard quoted, not
-paraphrased. Link the teed transcript; do not paste or Read it. A pass rate at
+paraphrased. Link the transcript; do not paste or Read it. A pass rate at
 a stated `--repeat`, not a single run. This pipeline is nondeterministic; one
 green run is not evidence, and "it works now" is not a number.
 
