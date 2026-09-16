@@ -45,6 +45,7 @@ scripts/verify_golden.py     every expect_table checked against that metadata
 scripts/build_index.py       builds index_store/ (needs OPENAI_API_KEY)
 scripts/eval_retrieval.py    the scoreboard; --rerank, --holdout
 scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
+scripts/e2e_capture.py       eval + demo transcript into evidence/slice-<N>/
 scripts/score_synthetic.py   generated-question quality, on a 600 sample
 scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
 scripts/generate_client.py   OpenAPI → packages/client; `--check` is the drift gate

@@ -42,7 +42,7 @@ api/          FastAPI + agent (Python 3.12)
 web/          React + TypeScript
 packages/client/   generated from the OpenAPI schema; CI fails if stale
 evals/        golden_questions.toml — the specification
-scripts/      check_budgets.py, eval_retrieval.py, run_demo.py
+scripts/      check_budgets.py, eval_retrieval.py, run_demo.py, e2e_capture.py
 evidence/     latest.json — what the last run actually measured
 budgets.toml  complexity limits, enforced in CI
 ```
@@ -53,6 +53,7 @@ budgets.toml  complexity limits, enforced in CI
 make check   # budgets, lint, types, tests — under 60s
 make eval    # retrieval scoreboard
 make demo    # npm ci + build web/dist, then end-to-end against that same process; needs live keys
+uv run python scripts/e2e_capture.py --slice 3 --ticket CC-N --phase pre   # eval+demo transcript
 uv run uvicorn src.main:app --reload   # POST /ask; GET / is the UI after `npm --prefix web run build`
 npm --prefix web install && npm --prefix web run dev   # Vite; proxies /ask
 uv run python scripts/generate_client.py   # regenerate packages/client; --check in make check
