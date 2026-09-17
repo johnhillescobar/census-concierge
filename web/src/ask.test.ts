@@ -11,6 +11,7 @@ const harris: AskResponse = {
   succeeded_years: [2024],
   failed_years: [],
   omitted_years: [],
+  omission_reasons: [],
   legs: [],
   rows: [{ NAME: "Harris County, Texas", GEO_ID: "0500000US48201", B01003_001E: "4838303" }],
   moe: [{ B01003_001M: "123" }],

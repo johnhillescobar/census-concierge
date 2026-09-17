@@ -13,6 +13,10 @@ TEMPLATE = CensusURL(
     "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
     "&for=county:201&in=state:48"
 )
+PUBLISHED = {
+    "acs5": set(range(2016, 2025)),
+    "acs1": {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024},
+}
 
 
 def _ok_payload(year: int) -> list[list[str]]:
@@ -44,6 +48,15 @@ def test_with_year_rewrites_the_path_and_keeps_the_query() -> None:
     assert TEMPLATE.dataset == "acs5"
 
 
+def test_with_dataset_rewrites_acs5_to_acs1() -> None:
+    switched = TEMPLATE.with_dataset("acs1").with_year(2019)
+    assert switched.dataset == "acs1"
+    assert switched.year == 2019
+    assert "/2019/acs/acs1" in str(switched)
+    assert "for=county:201" in str(switched)
+    assert TEMPLATE.dataset == "acs5"
+
+
 async def test_ordered_success_tags_year_and_pairs_margins() -> None:
     seen: list[int] = []
 
@@ -70,6 +83,7 @@ async def test_ordered_success_tags_year_and_pairs_margins() -> None:
     assert artifact.succeeded_years == [2019, 2022, 2024]
     assert artifact.failed_years == []
     assert artifact.omitted_years == []
+    assert artifact.omission_reasons == []
     assert [leg.year for leg in artifact.legs] == [2019, 2022, 2024]
     assert [url.split("/")[4] for url in artifact.urls] == ["2019", "2022", "2024"]
     assert [row["year"] for row in artifact.rows] == ["2019", "2022", "2024"]
@@ -220,6 +234,7 @@ async def test_years_without_a_built_url_are_omitted() -> None:
     assert artifact.requested_years == [2019, 2022]
     assert artifact.attempted_years == []
     assert artifact.omitted_years == [2019, 2022]
+    assert artifact.omission_reasons == ["no_url", "no_url"]
     assert artifact.rows == []
 
 
@@ -232,7 +247,12 @@ async def test_years_beyond_the_cap_are_omitted() -> None:
         seen.append(year)
         return 200, _ok_payload(year)
 
-    tool = FetchDataTool(last_url=lambda: TEMPLATE, census_key=lambda: "secret", http_get=http_get)
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        allow_overlapping_acs5=True,
+    )
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -247,6 +267,7 @@ async def test_years_beyond_the_cap_are_omitted() -> None:
     assert artifact.requested_years == years
     assert artifact.attempted_years == list(range(2012, 2024))
     assert artifact.omitted_years == [2024]
+    assert artifact.omission_reasons == ["max_years"]
     assert artifact.ok is True
 
 
@@ -268,3 +289,113 @@ async def test_all_legs_failed_content_names_year_and_status() -> None:
     assert "secret" not in message.content
     assert "key=secret" not in message.content
     assert "/2022/acs/acs5" in message.content
+
+
+def _published(dataset: str) -> set[int]:
+    return PUBLISHED[dataset]
+
+
+async def test_consecutive_acs5_destaggers_when_acs1_is_ineligible() -> None:
+    seen: list[tuple[str, int]] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        year = _year_from(url)
+        seen.append((dataset, year))
+        if dataset == "acs1":
+            return 204, ""
+        return 200, _ok_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2017, 2024))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert ("acs1", 2024) in seen
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is True
+    assert artifact.requested_years == years
+    assert artifact.attempted_years == [2017, 2022]
+    assert artifact.omitted_years == [2018, 2019, 2020, 2021, 2023]
+    assert artifact.omission_reasons == ["overlapping_vintage"] * 5
+    assert all("/acs/acs5" in url for url in artifact.urls)
+    assert 2020 not in {year for dataset, year in seen if dataset == "acs5"}
+
+
+async def test_consecutive_acs1_eligible_omits_2020_and_does_not_fetch_it() -> None:
+    seen: list[tuple[str, int]] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        year = _year_from(url)
+        seen.append((dataset, year))
+        return 200, _ok_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2018, 2023))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs1"
+    assert artifact.acs1_ineligible is False
+    assert artifact.attempted_years == [2018, 2019, 2021, 2022]
+    assert artifact.omitted_years == [2020]
+    assert artifact.omission_reasons == ["vintage_gap_2020"]
+    assert 2020 not in {year for _dataset, year in seen}
+    assert {dataset for dataset, year in seen if year in artifact.attempted_years} == {"acs1"}
+    assert all("/acs/acs1" in url for url in artifact.urls)
+    assert "omitted 2020:vintage_gap_2020" in message.content
+
+
+async def test_overlapping_acs5_override_fetches_consecutive_years() -> None:
+    seen: list[int] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        seen.append(_year_from(url))
+        assert "/acs/acs5" in url
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        allow_overlapping_acs5=True,
+    )
+    years = list(range(2017, 2024))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is False
+    assert artifact.attempted_years == years
+    assert artifact.omitted_years == []
+    assert seen == years

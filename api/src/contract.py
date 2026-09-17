@@ -89,6 +89,9 @@ class AskResponse(BaseModel):
     succeeded_years: list[int] = Field(description="Attempted years whose HTTP call succeeded.")
     failed_years: list[int] = Field(description="Attempted years that failed or timed out.")
     omitted_years: list[int] = Field(description="Requested years that were not attempted.")
+    omission_reasons: list[str] = Field(
+        description="Reason code per omitted year, same order as omitted_years."
+    )
     legs: list[RequestLeg] = Field(
         description="Per-year outcome in requested order, including failed legs."
     )
@@ -111,5 +114,5 @@ class AskResponse(BaseModel):
         description="Non-blocking guards: overlapping_vintage, moe_not_significant, "
         "geography_unsupported, ambiguous_place, universe_mismatch, "
         "median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, "
-        "geography_not_nested."
+        "geography_not_nested, acs1_geography_ineligible, vintage_gap_2020."
     )

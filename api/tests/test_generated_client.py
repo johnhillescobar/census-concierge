@@ -24,6 +24,7 @@ CONTRACT_FIELDS = (
     "succeeded_years",
     "failed_years",
     "omitted_years",
+    "omission_reasons",
     "legs",
     "rows",
     "moe",

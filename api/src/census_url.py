@@ -82,3 +82,16 @@ class CensusURL:
         return CensusURL(
             urlunsplit((parts.scheme, parts.netloc, "/".join(bits), parts.query, parts.fragment))
         )
+
+    def with_dataset(self, dataset: str) -> CensusURL:
+        parts = urlsplit(self._redacted)
+        bits = parts.path.split("/")
+        try:
+            acs = bits.index("acs")
+        except ValueError:
+            return self
+        if acs + 1 < len(bits):
+            bits[acs + 1] = dataset
+        return CensusURL(
+            urlunsplit((parts.scheme, parts.netloc, "/".join(bits), parts.query, parts.fragment))
+        )

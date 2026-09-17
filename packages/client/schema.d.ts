@@ -86,6 +86,11 @@ export interface components {
                 [key: string]: string | null;
             }[];
             /**
+             * Omission Reasons
+             * @description Reason code per omitted year, same order as omitted_years.
+             */
+            omission_reasons: string[];
+            /**
              * Omitted Years
              * @description Requested years that were not attempted.
              */
@@ -124,7 +129,7 @@ export interface components {
             urls: string[];
             /**
              * Warnings
-             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested.
+             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020.
              */
             warnings: components["schemas"]["AskWarning"][];
         };
