@@ -1,0 +1,251 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== BASELINE new tests =====
+.................                                                        [100%]
+17 passed in 0.62s
+exit 0
+
+===== MUTATION destagger-consecutive-acs5 =====
+GOOD
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+E   assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+      
+      At index 1 diff: 2018 != 2022
+      Left contains 5 more items, first extra item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:30: assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+E   assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+      
+      At index 1 diff: 2018 != 2022
+      Left contains 5 more items, first extra item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:45: assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+E   assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+      
+      At index 1 diff: 2018 != 2022
+      Left contains 5 more items, first extra item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_fetch_years.py:329: assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_nonoverlapping_acs5_keeps_2017_and_2022
+FAILED api/tests/test_vintages.py::test_consecutive_acs5_without_acs1_destaggers
+FAILED api/tests/test_fetch_years.py::test_consecutive_acs5_destaggers_when_acs1_is_ineligible
+3 failed in 0.66s
+exit 1
+
+Restored nonoverlapping ACS5 destagger (keep years >=5 apart).
+
+===== MUTATION omit-acs1-2020 =====
+GOOD
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+E   assert [2018, 2019, 2020, 2021, 2022] == [2018, 2019, 2021, 2022]
+      
+      At index 2 diff: 2020 != 2021
+      Left contains one more item: 2022
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:55: assert [2018, 2019, 2020, 2021, 2022] == [2018, 2019, 2021, 2022]
+E   AssertionError: assert 2020 not in [2018, 2019, 2020, 2021, 2022]
+     +  where [2018, 2019, 2020, 2021, 2022] = VintagePlan(dataset='acs1', attempted=[2018, 2019, 2020, 2021, 2022], omitted=[], reasons=[], acs1_ineligible=False).attempted
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:65: AssertionError: assert 2020 not in [2018, 2019, 2020, 2021, 2022]
+E   assert [2018, 2019, 2020, 2021, 2022] == [2018, 2019, 2021, 2022]
+      
+      At index 2 diff: 2020 != 2021
+      Left contains one more item: 2022
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_fetch_years.py:363: assert [2018, 2019, 2020, 2021, 2022] == [2018, 2019, 2021, 2022]
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_consecutive_acs1_eligible_omits_2020
+FAILED api/tests/test_vintages.py::test_acs1_template_omits_2020_even_without_a_probe
+FAILED api/tests/test_fetch_years.py::test_consecutive_acs1_eligible_omits_2020_and_does_not_fetch_it
+3 failed in 0.82s
+exit 1
+
+Restored unpublished drop for ACS1 2020.
+
+===== MUTATION acs1-ineligible-warning =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['acs1_geography_ineligible']
+      
+      Right contains one more item: 'acs1_geography_ineligible'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:94: AssertionError: assert [] == ['acs1_geography_ineligible']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_small_place_series_warns_acs1_ineligible
+1 failed in 0.57s
+exit 1
+
+Restored acs1_geography_ineligible guard.
+
+===== MUTATION vintage-gap-2020-warning =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['vintage_gap_2020']
+      
+      Right contains one more item: 'vintage_gap_2020'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:119: AssertionError: assert [] == ['vintage_gap_2020']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_acs1_span_crossing_2020_warns_and_keeps_the_gap
+1 failed in 0.71s
+exit 1
+
+Restored vintage_gap_2020 guard.
+
+===== MUTATION with-dataset-rewrite =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'acs5' == 'acs1'
+      
+      - acs1
+      ?    ^
+      + acs5
+      ?    ^
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_fetch_years.py:53: AssertionError: assert 'acs5' == 'acs1'
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_with_dataset_rewrites_acs5_to_acs1
+1 failed in 0.44s
+exit 1
+
+Restored CensusURL.with_dataset path rewrite.
+
+===== MUTATION overlapping-override-keeps-years =====
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   assert [2017, 2022] == [2017, 2018, ...21, 2022, ...]
+      
+      At index 1 diff: 2022 != 2018
+      Right contains 5 more items, first extra item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:80: assert [2017, 2022] == [2017, 2018, ...21, 2022, ...]
+E   AssertionError: assert True is False
+     +  where True = FetchDataResult(ok=True, url='https://api.census.gov/data/2017/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=co...g_vintage', 'overlapping_vintage', 'overlapping_vintage', 'overlapping_vintage'], dataset='acs5', acs1_ineligible=True).acs1_ineligible
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_fetch_years.py:398: AssertionError: assert True is False
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_overlapping_override_keeps_consecutive_acs5
+FAILED api/tests/test_fetch_years.py::test_overlapping_acs5_override_fetches_consecutive_years
+2 failed in 0.46s
+exit 1
+
+Restored allow_overlapping_acs5 skip of destagger.
+
+===== MUTATION consecutive-requires-dense-span =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert True is False
+     +  where True = consecutive([2019, 2022])
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:22: assert True is False
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_consecutive_requires_a_dense_span - a...
+1 failed in 0.07s
+exit 1
+
+Restored consecutive() density check.
+
+===== MUTATION gapped-acs5-fetched-as-requested =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert [2019] == [2019, 2022]
+      
+      Right contains one more item: 2022
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:36: assert [2019] == [2019, 2022]
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_gapped_acs5_years_are_fetched_as_requested
+1 failed in 0.07s
+exit 1
+
+Restored destagger only for consecutive ACS5 series.
+
+===== MUTATION unpublished-year-flagged =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert [2015, 2019] == [2019]
+      
+      At index 0 diff: 2015 != 2019
+      Left contains one more item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:87: assert [2015, 2019] == [2019]
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_unpublished_year_outside_2020_is_flagged
+1 failed in 0.11s
+exit 1
+
+Restored unpublished-vintage drop in _drop_unpublished.
+
+===== MUTATION cap-omits-max-years =====
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   assert [2016, 2017, ...20, 2021, ...] == [2016, 2017, 2018]
+      
+      Left contains 6 more items, first extra item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_vintages.py:101: assert [2016, 2017, ...20, 2021, ...] == [2016, 2017, 2018]
+E   assert [2012, 2013, ...16, 2017, ...] == [2012, 2013, ...16, 2017, ...]
+      
+      Left contains one more item: 2024
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_fetch_years.py:266: assert [2012, 2013, ...16, 2017, ...] == [2012, 2013, ...16, 2017, ...]
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_cap_omits_with_max_years_after_policy
+FAILED api/tests/test_fetch_years.py::test_years_beyond_the_cap_are_omitted
+2 failed in 0.46s
+exit 1
+
+Restored max-years cap after policy.
+
+===== MUTATION no-url-omission-reasons =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['no_url', 'no_url']
+      
+      Right contains 2 more items, first extra item: 'no_url'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_fetch_years.py:237: AssertionError: assert [] == ['no_url', 'no_url']
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_years_without_a_built_url_are_omitted
+1 failed in 0.44s
+exit 1
+
+Restored no_url omission_reasons when build_url was skipped.
+
+===== RESTORE =====
+80f6b87 feat(api): select ACS1 where published, else non-overlapping ACS5 (CC-72)
+80f6b8766c91b669da9472da43e8c1628341bff8
+git status --porcelain
+?? evidence/slice-3/_run_cc72_gate1.py
+
+.................                                                        [100%]
+17 passed in 0.61s
+exit 0
+
+
+BUDGETS
+
+  ok    api src LOC               2884 <= 4000
+  ok    api src files               21 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+exit 0
