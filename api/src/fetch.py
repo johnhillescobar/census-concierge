@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.census_url import CensusURL, redact_text
 from src.contract import RequestLeg
 from src.tools import ToolInput, ToolResult
-from src.vintages import REASON_NO_URL, is_series, plan_years, span_years
+from src.vintages import REASON_NO_URL, VintagePlan, is_series, plan_years, span_years
 
 MAX_IN_FLIGHT = 5
 MAX_YEARS = 12
@@ -118,13 +118,19 @@ def _rows_from_payload(payload: Any) -> list[dict[str, str | None]] | None:
     if not isinstance(payload, list) or not payload:
         return None
     header, *body = payload
-    return [
-        {
-            str(key): (None if value is None else str(value))
-            for key, value in zip(header, row, strict=False)
-        }
-        for row in body
-    ]
+    if not isinstance(header, list):
+        return None
+    rows: list[dict[str, str | None]] = []
+    for row in body:
+        if not isinstance(row, list):
+            return None
+        rows.append(
+            {
+                str(key): (None if value is None else str(value))
+                for key, value in zip(header, row, strict=False)
+            }
+        )
+    return rows
 
 
 def _tag_year(rows: list[dict[str, str | None]], year: int) -> list[dict[str, str | None]]:
@@ -239,11 +245,11 @@ class FetchDataTool(BaseTool):
         probe = template.with_dataset("acs1").with_year(max(years))
         try:
             status, payload = self._get(probe.with_key(self.census_key()))
+            parsed = _rows_from_payload(payload)
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError):
             return None
-        parsed = _rows_from_payload(payload)
         if status == 200:
-            return bool(parsed)
+            return None if parsed is None else bool(parsed)
         if status in {204, 404}:
             return False
         return None
@@ -310,6 +316,8 @@ class FetchDataTool(BaseTool):
             return result.detail, result
         published = self._published()
         series = is_series(requested, published) and not self.allow_overlapping_acs5
+        if series:
+            requested = span_years(requested)
         acs1_ok: bool | None = None
         if series and built.dataset != "acs1":
             acs1_ok = await asyncio.to_thread(self._acs1_ok, built, published)
@@ -321,16 +329,35 @@ class FetchDataTool(BaseTool):
             allow_overlapping_acs5=self.allow_overlapping_acs5,
             cap=MAX_YEARS,
         )
-        if series:
-            requested = span_years(requested)
-        template = built.with_dataset(plan.dataset)
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
 
-        async def one(year: int) -> tuple[RequestLeg, list[dict[str, str | None]]]:
-            async with sem:
-                return await asyncio.to_thread(self._fetch_one, template, year)
+        async def fanout(
+            planned: VintagePlan,
+        ) -> list[tuple[RequestLeg, list[dict[str, str | None]]]]:
+            template = built.with_dataset(planned.dataset)
 
-        gathered = await asyncio.gather(*(one(year) for year in plan.attempted))
+            async def one(year: int) -> tuple[RequestLeg, list[dict[str, str | None]]]:
+                async with sem:
+                    return await asyncio.to_thread(self._fetch_one, template, year)
+
+            if not planned.attempted:
+                return []
+            return list(await asyncio.gather(*(one(year) for year in planned.attempted)))
+
+        gathered = await fanout(plan)
+        unpublished = {204, 404}
+        if plan.dataset == "acs1" and any(
+            (not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered
+        ):
+            plan = plan_years(
+                dataset="acs5",
+                years=requested,
+                published=published,
+                acs1_ok=False,
+                allow_overlapping_acs5=self.allow_overlapping_acs5,
+                cap=MAX_YEARS,
+            )
+            gathered = await fanout(plan)
         legs = [item[0] for item in gathered]
         rows: list[dict[str, str | None]] = []
         for leg, part in gathered:

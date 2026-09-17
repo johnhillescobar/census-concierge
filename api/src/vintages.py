@@ -129,11 +129,23 @@ def plan_years(
         plan = VintagePlan(dataset=use, attempted=attempted, omitted=omitted, reasons=reasons)
     if cap is None or len(plan.attempted) <= cap:
         return plan
-    extra = plan.attempted[cap:]
+    kept = plan.attempted[:cap]
+    kept_set = set(kept)
+    reason_map = dict(zip(plan.omitted, plan.reasons, strict=True))
+    extra_set = set(plan.attempted[cap:])
+    capped: list[int] = []
+    capped_reasons: list[str] = []
+    for year in list(dict.fromkeys([*years, *plan.omitted, *plan.attempted])):
+        if year in kept_set:
+            continue
+        if year not in extra_set and year not in reason_map:
+            continue
+        capped.append(year)
+        capped_reasons.append(reason_map.get(year, REASON_MAX))
     return VintagePlan(
         dataset=plan.dataset,
-        attempted=plan.attempted[:cap],
-        omitted=[*plan.omitted, *extra],
-        reasons=[*plan.reasons, *([REASON_MAX] * len(extra))],
+        attempted=kept,
+        omitted=capped,
+        reasons=capped_reasons,
         acs1_ineligible=plan.acs1_ineligible,
     )

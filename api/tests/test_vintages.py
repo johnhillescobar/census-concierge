@@ -153,3 +153,11 @@ def test_cap_omits_with_max_years_after_policy() -> None:
     assert plan.attempted == [2016, 2017, 2018]
     assert plan.omitted == [2019, 2020, 2021, 2022, 2023, 2024]
     assert plan.reasons == [REASON_MAX] * 6
+
+
+def test_cap_keeps_omitted_years_in_requested_order() -> None:
+    years = list(range(2018, 2023))
+    plan = plan_years(dataset="acs5", years=years, published=PUBLISHED, acs1_ok=True, cap=1)
+    assert plan.attempted == [2018]
+    assert plan.omitted == [2019, 2020, 2021, 2022]
+    assert plan.reasons == [REASON_MAX, REASON_GAP_2020, REASON_MAX, REASON_MAX]

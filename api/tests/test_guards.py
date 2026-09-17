@@ -125,6 +125,28 @@ def test_acs1_span_crossing_2020_warns_and_keeps_the_gap() -> None:
     assert "2020" not in [row.get("year") for row in response.rows]
 
 
+def test_sparse_acs1_years_do_not_infer_a_2020_gap() -> None:
+    record = ExecutionRecord()
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=[2018, 2022],
+        attempted_years=[2018, 2022],
+        succeeded_years=[2018, 2022],
+    )
+    assert "vintage_gap_2020" not in _codes(record)
+
+
+def test_acs1_2020_gap_inferred_from_requested_years() -> None:
+    record = ExecutionRecord()
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018, 2019, 2021, 2022],
+        succeeded_years=[2018, 2019, 2021, 2022],
+    )
+    assert _codes(record) == ["vintage_gap_2020"]
+
+
 async def test_fetched_years_replace_the_built_template_vintage() -> None:
     record = ExecutionRecord()
     tools = _tools(record)

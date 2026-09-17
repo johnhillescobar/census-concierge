@@ -92,13 +92,13 @@ def acs1_geography_ineligible(record: GuardRecord) -> AskWarning | None:
 def vintage_gap_2020(record: GuardRecord) -> AskWarning | None:
     artifact = getattr(record, "fetch", None)
     reasons = list(getattr(artifact, "omission_reasons", []) or [])
-    years = list(getattr(artifact, "attempted_years", []) or [])
+    requested = list(getattr(artifact, "requested_years", []) or [])
+    attempted = list(getattr(artifact, "attempted_years", []) or [])
     dataset = str(getattr(artifact, "dataset", "") or "")
-    if "vintage_gap_2020" not in reasons:
-        if dataset != "acs1" or not years:
-            return None
-        if not (min(years) <= 2020 <= max(years) and 2020 not in years):
-            return None
+    if "vintage_gap_2020" not in reasons and (
+        dataset != "acs1" or 2020 not in requested or 2020 in attempted
+    ):
+        return None
     return AskWarning(
         code="vintage_gap_2020",
         detail="the standard 2020 ACS1 release was never issued; 2020 is a gap, not interpolated",
