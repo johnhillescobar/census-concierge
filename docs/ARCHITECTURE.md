@@ -5,8 +5,8 @@ five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
 UI that POSTs `/ask` through types generated from the OpenAPI schema, served
 from the same FastAPI process when `web/dist` exists; slice 3 has started:
 `fetch_data` fans `years` out concurrently (cap 5) and `AskResponse` carries
-`urls[]` plus per-leg year buckets; consecutive years pick ACS1 when Census
-publishes the geography (HTTP 200), otherwise non-overlapping ACS5 end years,
+`urls[]` plus per-leg year buckets; a year series picks ACS1 when Census
+publishes the geography (200 with rows), else non-overlapping ACS5 end years,
 omitting unpublished points (`omission_reasons[]`, `vintage_gap_2020`,
 `acs1_geography_ineligible`); `resolve_geography` returns ordered
 `GeoSpec` values authorized by that dataset/vintage `geography.json`; combining

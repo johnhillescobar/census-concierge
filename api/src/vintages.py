@@ -29,12 +29,12 @@ def consecutive(years: list[int]) -> bool:
 
 def is_series(years: list[int], published: dict[str, set[int]] | None = None) -> bool:
     """A year list is a series if it is dense, or the only holes are unpublished ACS1 years."""
+    if consecutive(years):
+        return True
     ordered = sorted(set(years))
     if len(ordered) < 2:
         return False
     missing = [year for year in range(ordered[0], ordered[-1] + 1) if year not in set(ordered)]
-    if not missing:
-        return True
     acs1 = None if published is None else published.get("acs1")
     if acs1 is None:
         return False
