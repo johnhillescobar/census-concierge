@@ -17,13 +17,13 @@ spike before slice 5, not assumed. Never for routing —
 routing branches are how the predecessor reached 14 nodes and 10 conditional
 edge blocks.
 
-Slice 1 tools: `search_tables`, `resolve_geography`, `build_url`, `fetch_data`,
-plus `finish`. Five of the six-tool budget.
+Slice 1 tools: `search_tables`, `resolve_geography`, `build_url`, `fetch_data`.
+The model stops by emitting text — there is no `finish` tool.
 
 ## The loop is ours
 
 `langchain_core.tools` is allowed. **`langchain.agents`, `create_agent` and
-`AgentExecutor` are not.** At five tools the loop is ~120 lines you can read in
+`AgentExecutor` are not.** At four tools the loop is ~120 lines you can read in
 one screen, and the predecessor's central problem was that nobody could see what
 the agent did.
 
@@ -45,7 +45,7 @@ Every cross-cutting concern belongs in one of two functions:
 | `dispatch(tool_call)` | tool call | arg validation, span, timing, contained failure, artifact capture |
 
 That is the middleware. Do not build a hook registry, a pipeline, or an
-`AgentMiddleware` layer — with one loop and five tools it adds a registration
+`AgentMiddleware` layer — with one loop and four tools it adds a registration
 step, an ordering problem, and a debugging problem around 120 lines of code.
 
 Explicit ordering is the point, because the order is load-bearing: the budget
@@ -62,10 +62,10 @@ conditionally per user or per tool. Neither exists through slice 8.
 
 ## Guards are pure functions, not hooks
 
-The fourteen guards in `.claude/DESIGN.md` §4 are **not** `after_tool`
-middleware. Tools record what they did — table chosen, vintages fetched,
-geography levels, MOEs returned — into an execution record, and the response
-assembler evaluates every guard against that record **once, at the end**.
+The DESIGN §4 guards are **not** `after_tool` middleware. Tools record what they
+did — table chosen, vintages fetched, geography levels, MOEs returned — into an
+execution record, and the response assembler evaluates every guard against that
+record **once, at the end**.
 
 Two reasons this matters more than it looks:
 
@@ -73,7 +73,7 @@ Two reasons this matters more than it looks:
   not an event in the loop. Nothing depends on the model calling a hook or on a
   middleware being registered.
 - **Guards test with no LLM at all.** Build an execution record, assert which
-  warnings fire. Fourteen guards, fourteen fast unit tests, zero fakes — and
+  warnings fire. Each guard is a fast unit test, zero fakes — and
   given what fakes did to the predecessor, that is worth a great deal.
 
 The one exception: a guard that should prevent a doomed call, like

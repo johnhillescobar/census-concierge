@@ -77,14 +77,14 @@ Both are corpus structure, not ranking:
 
 ## Where it stands
 
-`retrieval_at_1` = **0.475** against a floor of **0.70**. Slice 0 is not done.
+Slice 0 closed. The gate is retriever `@10` (0.90) and selector `@1` (0.70+);
+raw `retrieval_at_1` = **0.475** is diagnostic only.
 
 The shape of the gap is unambiguous and consistent across every configuration:
-`@10` is 88–90% while `@1` is 45%. The index finds the right table and cannot
+`@10` is 88–90% while raw `@1` is 45%. The index finds the right table and cannot
 put it first, because what separates `B25091` from `B25095` is a universe
-string, which is reading, not vector distance. PLAN authorizes a reranker under
-exactly this condition, and one takes `@1` to 70% — the floor exactly, which
-at n=40 means 28 of 40 and one question either way.
+string, which is reading, not vector distance. PLAN authorized a reranker under
+exactly this condition, and one takes selector `@1` over the floor.
 
 `synthetic_self_retrieval` = **0.45** — diagnostic only. That number assumed
 questions would be *in* the embedded document; with them out it duplicates the

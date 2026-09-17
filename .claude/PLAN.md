@@ -50,8 +50,8 @@ week one instead of month four.
 
 - [x] Grow to **~40 `long_tail` questions**. That tier alone is the target —
       `core` and `trap` sit on top of it and **do not count toward it.** The
-      scoreboard is `retrieval@1` on long-tail, so a file that grows by adding
-      traps looks fuller while the metric stays half-built. *Currently 20.*
+      gated metric is long-tail retriever `@10` / selector `@1`, so a file that
+      grows by adding traps looks fuller while the metric stays half-built.
 - [x] Source them without leaning on memory — hand-picking biases toward tables
       you already know, which is the bias the product exists to fix. Ask real
       census nerds for the last ten questions they struggled with; sample
@@ -92,12 +92,12 @@ loaded at startup. Revisit only if decennial or PUMS are added.
 - [x] **Split the two indexes by strength, do not feed both everything:**
       BM25 gets title + universe + concept + *all* variable labels — length
       normalization handles long documents, and this carries jargon and exact
-      IDs. Embeddings get title + universe + concept + synthetic questions —
-      short and dense; a 500-label blob makes everything weakly similar to
-      everything.
-- [x] Fuse with **reciprocal rank fusion**, not weighted scores. The two score
-      scales are incompatible and any weight you pick is tuned against 40
-      questions.
+      IDs. Embeddings get title + universe + concept — synthetics are generated
+      and committed, not embedded. A 500-label blob makes everything weakly
+      similar to everything.
+- [x] Tried **reciprocal rank fusion**; embeddings alone scored higher. BM25
+      stays built for verbatim table-ID queries. Any weight would be tuned
+      against 40 questions.
 - [x] Expose `search(question, k) -> [table_id, ...]` at
       `api/src/retrieval/index.py`. `scripts/eval_retrieval.py` picks it up
       automatically.
@@ -119,18 +119,16 @@ Expect the largest jump at synthetic questions. Add a reranker **only if `@5` is
 high and `@1` is low** — the diagnostic already tells you.
 
 - [x] At the embeddings step, **compare at least two embedding models** before
-      settling. `text-embedding-3-small` is the documented default, not a
-      finding: swapping the model and re-running the eval is an afternoon, and
-      Census jargon is unusual enough that the ranking may not match the general
-      benchmarks. Record which models were compared and their `@1` — otherwise
-      the next person re-litigates it from scratch.
+      settling. `text-embedding-3-large` beat `3-small` by 8 points `@1` (see
+      `evidence/retrieval_steps.md`). Recorded so the next person does not
+      re-litigate it from scratch.
 
 **Done when:** `make eval` clears the long-tail floors — retriever `@10 >= 0.90`,
 selector `@1 >= 0.70`, `synthetic_alignment >= 0.50` — and
 `python scripts/check_budgets.py` exits 0.
 
 Two prescriptions were measured wrong and reversed: RRF fusion and synthetic
-questions both *lowered* `@1`. Corpus fold (1,458 → 756) plus a generative
+questions both *lowered* `@1`. Corpus fold (1,458 → 636) plus a generative
 selector cleared the gate. Ladder: `evidence/retrieval_steps.md`.
 
 > **STATUS 2026-09-12.** Slice 0 closed. Floors met. Evidence: `evidence/slice-0/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-8.
@@ -174,11 +172,9 @@ resolution, MOE handling, the UI.
 **Done when:** you `curl` it, paste a working Census URL into a browser, and get
 the data back. `make demo` clears both floors.
 
-**Not in this slice:** conversation memory, auth, database, frontend, charts,
-PDF, clarification, series and cross-geography comparison (slice 3 — keep `url`
-singular for now, but do not hard-code a shape that fights `urls[]`).
-Within-level wildcards (`all counties in Oregon`) **are** in this slice: q02 is
-a core question.
+**Not in this slice:** conversation memory, auth, database, frontend, charts, PDF,
+clarification, series and comparison (slice 3 grew `urls[]`). Within-level
+wildcards (`all counties in Oregon`) **are** in this slice: q02 is a core question.
 
 ---
 
@@ -211,19 +207,21 @@ exactly like a right one.
 Backend only. It lands before the canvas so the chart pane is built once,
 against the final shape.
 
+> **STATUS 2026-09-16.** Slice 3 in progress. Demo still `is_slice1()`. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
+
 ### Years
 
-- [ ] `fetch_data` accepts `years: list[int]` and fans out concurrently, bounded.
+- [x] `fetch_data` accepts `years: list[int]` and fans out concurrently, bounded.
       **A parameter, not a fifth tool.** The Census API takes one vintage per
       request; N years is N calls, and sequential calls blow the p95 budget.
-- [ ] `build_url` returns one URL per year. Contract `url` → `urls[]` — breaking,
+- [x] `fetch_data` returns one URL per year. Contract `url` → `urls[]` — breaking,
       so regenerate the TS client in the same commit. That is slice 2 earning its
       keep.
-- [ ] Vintage policy, stated in every series response: ACS1 where the geography
+- [x] Vintage policy, stated in every series response: ACS1 where the geography
       qualifies, otherwise **non-overlapping** ACS5 end years. Never consecutive
       ACS5 — 2017 means 2013–2017 and 2018 means 2014–2018, four of five sample
       years shared.
-- [ ] **Say what is not available, and why.** ACS1 is published only for places
+- [x] **Say what is not available, and why.** ACS1 is published only for places
       of 65,000+, and the standard 2020 release was never issued. A missing year
       is a sentence in the answer and a gap in the data — never interpolated,
       never bridged, never silently dropped. A silently short series is the same
@@ -234,32 +232,32 @@ against the final shape.
       do not clear it are reported as **not distinguishable**, not as change.
 - [ ] Tract and block-group series crossing 2020 carry a boundary-change warning:
       the geometry was redrawn, so the polygons differ.
-- [ ] Plan strip carries vintage and year list. Overriding to a consecutive ACS5
-      series is **allowed** — some users have a reason and know the caveat. The
-      warning stays attached.
+- [ ] Plan strip (slice 4) carries vintage and year list. Overriding to a
+      consecutive ACS5 series is **allowed** as a fetch flag — some users have a
+      reason and know the caveat. The warning stays attached.
 
 ### Geographies
 
-- [ ] `resolve_geography` returns a **list of specs** — level, codes, and the
+- [x] `resolve_geography` returns a **list of specs** — level, codes, and the
       legal `for`/`in` form for that dataset and vintage. Legality comes from
       the indexed `geography.json`, never from the model.
 - [ ] `fetch_data` takes the list and fans out. A wildcard
       (`for=tract:*&in=state:26 county:163`) stays **one** call — within-level
       comparison is not N calls.
-- [ ] **ZCTAs.** Not ZIP codes: ZIPs are USPS delivery routes, ZCTAs are
+- [x] **ZCTAs.** Not ZIP codes: ZIPs are USPS delivery routes, ZCTAs are
       block-built approximations. Roughly a tenth of ZIPs have no ZCTA. They
       nest in nothing. **No ACS1**, so no annual ZCTA series exists. 2020
       definitions differ from 2010.
-- [ ] **Aggregation.** Estimates sum; MOEs do not. `MOE_total = sqrt(Σ MOEᵢ²)`,
+- [x] **Aggregation.** Estimates sum; MOEs do not. `MOE_total = sqrt(Σ MOEᵢ²)`,
       and the approximation degrades past a handful of areas — warn when it
       does. **Medians cannot be aggregated at all**; decline the computation and
       say why rather than producing a plausible wrong number.
-- [ ] Non-nesting containment — *"the part of ZIP 80202 inside Denver"* — is not
+- [x] Non-nesting containment — *"the part of ZIP 80202 inside Denver"* — is not
       computable from published ACS. It needs block-level areal allocation. Say
       so; do not approximate.
 - [ ] Place-vs-parent comparisons (Denver against Colorado) share samples, so
       the independent difference-of-MOE formula overstates variance. Note it.
-- [ ] Trap questions `t09`–`t18`, and long-tail `q23`–`q24` for the comparisons
+- [x] Trap questions `t09`–`t18`, and long-tail `q23`–`q24` for the comparisons
       that must **succeed** — a guard-only eval measures refusals, not capability.
 
 **Done when:** *"number of cell phones in Denver since 2017"* returns the

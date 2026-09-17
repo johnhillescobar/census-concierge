@@ -205,13 +205,12 @@ Zero lexical overlap in either case. Four requirements:
 2. **Index at variable level as well as table level.** Users want one line
    inside a large cross-tab they would never find by table name.
 3. **Generate synthetic questions at index time.** For each table, have an LLM
-   write 5–10 questions it answers, and embed those alongside the metadata.
-   Matching a user question against *other natural questions* works far better
-   than matching against Census title-case. Highest-leverage item in the stack.
+   write 5–10 questions it answers. Generated and committed; **not** embedded —
+   folding them in hurt golden `@1`. Alignment scoring catches off-topic generation.
 4. **Hybrid search.** Lexical (BM25) for exact IDs and jargon, embeddings for
    semantics. Users will type both `B19013` and "gross rent as a percentage of
-   income". Fuse with reciprocal rank fusion — the score scales are
-   incompatible, and any weight is tuned against 40 questions.
+   income". `search()` ranks on embeddings; BM25 is built and unused except
+   verbatim table-ID queries. Equal-weight RRF scored below embeddings alone.
 
 ### Two layers, because questions span 2016 → latest
 
@@ -262,23 +261,15 @@ contact with the corpus:
 
 ### The metric
 
-`retrieval@1` — the fraction of eval questions where the correct table is ranked
-**first**. The agent acts on the top hit; a right answer at rank 4 is a wrong
-answer to the user.
-
-**`@1` is a proxy, and should be treated as one.** The number that matters is
-`answered_rate`, which cannot be measured until an agent exists in slice 1. `@1`
-is the best stand-in available before then — but it assumes the agent takes the
-top hit rather than weighing two or three candidates on universe and vintage. If
-it turns out to do the latter, `@3` is the honest gate and `@1` is needlessly
-punishing. So `@3` is recorded from the first eval run onward, ungated, and the
-choice gets revisited on that data rather than on argument. Do not over-optimize
-a proxy without knowing it is one.
+The slice-0 gate is two-stage on `long_tail`: retriever `@10` (expected table in
+the raw pool) and selector `@1` (generative pick from that pool). Raw cosine
+`@1` is recorded, not gated — the agent does not take the top hit. The number
+that matters once an agent exists is `answered_rate`.
 
 `@5` and MRR are diagnostics, and the gap between them is informative:
 
-- **@5 low** → the index is broken; the table is not findable at all.
-- **@5 high, @1 low** → ranking problem; a reranker fixes it. Much cheaper.
+- **@10 low** → the index is broken; the table is not findable at all.
+- **@10 high, selector `@1` low** → selection problem. Cheaper than a new encoder.
 
 ### Why the eval set is deliberately long-tail
 
@@ -330,9 +321,8 @@ Because the signal is what gets optimized, the signal is a user-value number.
 5. **Diff-size tripwire.** A PR touching more than ~15 files is a redesign
    wearing a feature's clothes. CI says so loudly.
 
-The scaffold starts **red**: with nothing built, every structural budget passes
-and `retrieval_at_1` fails. You cannot reach green by writing code, only by
-making retrieval work.
+The scaffold started **red**: structural budgets passed and retrieval floors
+failed. You could not reach green by writing code, only by making retrieval work.
 
 ## 9. Open decisions
 
@@ -341,19 +331,14 @@ making retrieval work.
   income"* → *"only counties over 100k"*. That is one dataset being iterated,
   not four cards. Leaning workspace. Affects the state model, so decide before
   slice 4.
-- **Table IDs in `evals/golden_questions.toml` are unverified.** Written from
-  memory as a starting point; each must be checked against the live groups
-  endpoint before it is trusted. A wrong fixture trains you to "fix" correct
-  behavior.
-- ~~**Embedding model and vector store**~~ — **decided 2026-08-13.** No vector
-  store: numpy `.npz` + BM25, fused with RRF, baked into the image. See §6.
-  Embedding model **provisionally** `text-embedding-3-small`; at least two
-  models get compared at slice 0's embedding step, since Census jargon is
-  unusual enough that general benchmarks may not carry over.
+- ~~**Embedding model and vector store**~~ — **decided 2026-08-14.** No vector
+  store: numpy `.npz` + BM25, baked into the image. `search()` is embeddings
+  only (`text-embedding-3-large`); BM25 unused except verbatim table IDs. See §6.
 - ~~**StateGraph for the agent loop**~~ — **decided 2026-09-12.** The agent is
   a hand-rolled loop (`call_model()` then `dispatch(tool_call)`), not
   `create_agent` and not a `StateGraph`. Graph nodes for routing stay banned
   (§5, §7). Still open, spiked before slice 5 (PLAN): whether LangGraph's
   Postgres checkpointer can sit under that loop without reintroducing a graph.
   If it cannot, persist with ~30 lines.
-- **Which ACS vintages and datasets** ship first (acs5 only? acs1 too?).
+- ~~**ACS vintages and golden table IDs**~~ — **decided slice 0.** ACS5 and ACS1,
+  2016 through latest (no ACS1 2020). Table IDs verified 2026-08-14.

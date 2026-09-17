@@ -5,17 +5,17 @@ get the table you did not know existed, the data, and the API URL to reuse.
 
 ## Scoreboard
 
-<!-- Updated by `make eval` and `make demo`. This is the first thing anyone
-     working on this repo should see, human or agent. -->
+<!-- Copied from evidence/latest.json after `make eval` / `make demo`.
+     Those commands write the JSON; this table is not auto-updated. -->
 
 | metric | current | floor |
 |---|---|---|
 | retriever @10 — long tail | 0.90 | 0.90 |
-| selector @1 — long tail | 0.88 | 0.70 |
+| selector @1 — long tail | 0.85 | 0.70 |
 | synthetic alignment | 0.54 | 0.50 |
-| answered rate | 0.81 | 0.70 |
-| p95 latency | 15.0s | 20s |
-| api src LOC | 0 | 4000 |
+| answered rate | 0.74 | 0.70 |
+| p95 latency | 16.8s | 20s |
+| api src LOC | 2965 | 4000 |
 
 ## Slices
 
@@ -23,17 +23,20 @@ Each ends in a demo. Nothing in slice N+1 starts until N is demoed.
 
 | # | slice | done when |
 |---|---|---|
-| 0 | Table index + retrieval eval | `make eval` clears the long-tail floor |
+| 0 | Table index + retrieval eval | `make eval` clears the long-tail floors |
 | 1 | `POST /ask` → answer, URL, rows, MOE, GEOID | you `curl` it and get a working URL |
 | 2 | Chat UI, one pane | you type in a browser and get an answer |
-| 3 | Canvas: table, ChartSpec, editable plan strip, CSV | two panes, and you can fix a wrong table |
-| 4 | Memory: thread_id, Postgres checkpointer, follow-ups | "what about Texas?" resolves against the prior turn |
-| 5 | PDF export as a background job | you download a real document |
-| 6 | Auth + hosted | someone else logs in and uses it |
+| 3 | Series and comparisons | a defensible year series and a cross-geography compare |
+| 4 | Canvas: table, ChartSpec, editable plan strip, CSV | two panes, and you can fix a wrong table |
+| — | Spike: LangGraph checkpointer | dated decision in DESIGN §9, not merged code |
+| 5 | Conversation persistence | restart the server; the canvas is still there |
+| 6 | Follow-ups and reference resolution | "what about Texas?" resolves against the prior turn |
+| 7 | PDF export as a background job | you download a real document |
+| 8 | Auth + hosted | someone else logs in and uses it |
 
-Slice 0 has no agent, no server and no frontend. If retrieval on long-tail
-questions cannot clear the floor, nothing downstream can rescue it — and you
-find out in week one instead of month four.
+Slice 0 had no agent, no server and no frontend. If retrieval on long-tail
+questions cannot clear the floor, nothing downstream can rescue it — and that
+is why it shipped first.
 
 ## Layout
 
