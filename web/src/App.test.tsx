@@ -14,6 +14,7 @@ const harris: AskResponse = {
   succeeded_years: [2024],
   failed_years: [],
   omitted_years: [],
+  omission_reasons: [],
   legs: [],
   rows: [
     {
@@ -41,6 +42,7 @@ const rentFailure: AskResponse = {
   succeeded_years: [],
   failed_years: [2024],
   omitted_years: [],
+  omission_reasons: [],
   legs: [],
   rows: [],
   moe: [],

@@ -98,6 +98,14 @@
             "title": "Moe",
             "type": "array"
           },
+          "omission_reasons": {
+            "description": "Reason code per omitted year, same order as omitted_years.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Omission Reasons",
+            "type": "array"
+          },
           "omitted_years": {
             "description": "Requested years that were not attempted.",
             "items": {
@@ -159,7 +167,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested.",
+            "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020.",
             "items": {
               "$ref": "#/components/schemas/AskWarning"
             },
@@ -175,6 +183,7 @@
           "succeeded_years",
           "failed_years",
           "omitted_years",
+          "omission_reasons",
           "legs",
           "rows",
           "moe",

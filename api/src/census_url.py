@@ -82,3 +82,22 @@ class CensusURL:
         return CensusURL(
             urlunsplit((parts.scheme, parts.netloc, "/".join(bits), parts.query, parts.fragment))
         )
+
+    def for_is_wildcard(self) -> bool:
+        for key, value in parse_qsl(urlsplit(self._redacted).query, keep_blank_values=True):
+            if key == "for" and value.endswith(":*"):
+                return True
+        return False
+
+    def with_dataset(self, dataset: str) -> CensusURL:
+        parts = urlsplit(self._redacted)
+        bits = parts.path.split("/")
+        try:
+            acs = bits.index("acs")
+        except ValueError:
+            return self
+        if acs + 1 < len(bits):
+            bits[acs + 1] = dataset
+        return CensusURL(
+            urlunsplit((parts.scheme, parts.netloc, "/".join(bits), parts.query, parts.fragment))
+        )

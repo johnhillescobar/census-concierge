@@ -19,6 +19,7 @@ const harris: AskResponse = {
   succeeded_years: [2024],
   failed_years: [],
   omitted_years: [],
+  omission_reasons: [],
   legs: [],
   rows: [
     {

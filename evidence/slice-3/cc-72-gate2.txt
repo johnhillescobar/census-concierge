@@ -1,0 +1,212 @@
+CC-72 Gate 2 -- cold review
+branch: feat/cc-72-vintages
+HEAD: d48bf8983ddc498b3b370045887f1533dc672295
+implementation: 80f6b87 feat(api): select ACS1 where published, else non-overlapping ACS5 (CC-72)
+gate1 evidence: d48bf89 evidence(slice-3): CC-72 Gate 1 mutation transcript
+base: origin/main (6d415accbbfa38e14c77b6f02d8cd0707ee45fd0)
+diff: git diff origin/main...HEAD
+
+========== git rev-parse HEAD ==========
+
+d48bf8983ddc498b3b370045887f1533dc672295
+
+========== git rev-parse origin/main ==========
+
+6d415accbbfa38e14c77b6f02d8cd0707ee45fd0
+
+========== git log --oneline origin/main..HEAD ==========
+
+d48bf89 evidence(slice-3): CC-72 Gate 1 mutation transcript
+80f6b87 feat(api): select ACS1 where published, else non-overlapping ACS5 (CC-72)
+
+========== git diff --stat origin/main...HEAD ==========
+
+ api/src/ask.py                             |  24 ++-
+ api/src/census_url.py                      |  13 ++
+ api/src/contract.py                        |   5 +-
+ api/src/fetch.py                           |  92 ++++++++---
+ api/src/guards.py                          |  31 ++++
+ api/src/vintages.py                        | 107 ++++++++++++
+ api/tests/test_ask_route.py                |   3 +
+ api/tests/test_demo_harness.py             |   1 +
+ api/tests/test_fetch_years.py              | 133 ++++++++++++++-
+ api/tests/test_generated_client.py         |   1 +
+ api/tests/test_guards.py                   |  72 +++++++++
+ api/tests/test_static_frontend.py          |   1 +
+ api/tests/test_vintages.py                 | 103 ++++++++++++
+ docs/ARCHITECTURE.md                       |  12 +-
+ evidence/slice-3/cc-72-gate1.txt           | 251 +++++++++++++++++++++++++++++
+ evidence/slice-3/cc-72-preflight-claims.md |  24 +++
+ evidence/slice-3/cc-72-preflight.txt       |  76 +++++++++
+ packages/client/openapi.json               |  11 +-
+ packages/client/schema.d.ts                |   7 +-
+ web/src/App.test.tsx                       |   2 +
+ web/src/ask.test.ts                        |   1 +
+ web/src/display.test.ts                    |   1 +
+ 22 files changed, 925 insertions(+), 46 deletions(-)
+
+========== Gate 2 Pass 1 -- generic bugs ==========
+cold read of origin/main...HEAD; no ticket/PLAN intent
+
+Code under review: vintages.py (new), fetch.py plan/probe/dataset switch,
+census_url.with_dataset, guards acs1_geography_ineligible + vintage_gap_2020,
+ask.py latest_vintages move + url.with_dataset on fetch absorb,
+AskResponse.omission_reasons, tests.
+
+Pass 1 findings:
+
+1. Dataset/year policy is gated on consecutive() -- a dense span
+   (max-min+1 == n, n>=2). Any hole in the years list skips the ACS1 probe
+   and skips destagger. fetch then issues every requested ACS5 year, including
+   overlapping end years. Example: [2018,2019,2021,2022] is not consecutive,
+   so 2020 already absent does not select ACS1 and does not destagger.
+
+2. plan_years destagger branch (consecutive, dataset != acs1, not acs1_ok)
+   never calls _drop_unpublished. Unpublished ACS5 years in the requested
+   list can be attempted and fail HTTP instead of being omitted with
+   unpublished_vintage.
+
+3. FetchDataTool._acs1_ok treats probe timeout, HTTPError, non-200, or
+   unparseable payload as geography ineligible. plan_years then destaggers
+   ACS5 and sets acs1_ineligible=True. The user-facing warning text says
+   ACS1 is not published for this geography (places of 65,000+), which is
+   false when the probe failed for transport or 5xx.
+
+4. FetchDataTool.allow_overlapping_acs5 is a constructor bool copied from
+   ExecutionRecord at default_tools() time. AskRequest is still question-only;
+   POST /ask never sets the flag. The override path exists only if a caller
+   builds the tool itself.
+
+5. _tool_content zips omitted_years with omission_reasons using strict=False,
+   so a length mismatch is truncated in the model-visible summary rather than
+   raising.
+
+6. Race: none found. CensusURL is immutable; fan-out shares a template and
+   a bound semaphore; probe is synchronous before gather. Redaction: with_dataset
+   rewrites the redacted path; with_key is only at _get; probe exceptions are
+   discarded; legs store str(CensusURL). No new unredacted URL path.
+
+7. Tests: new vintages/fetch assertions bind attempted years, dataset path,
+   and HTTP URLs seen -- they can fail. Guard tests plant FetchDataResult
+   flags rather than driving fetch; they can still fail on evaluate() codes.
+   No same-table-for-any-input fake. No prompt-wording asserts.
+
+========== Gate 2 Pass 2 -- review-pr.md (machines first) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               2884 <= 4000
+  ok    api src files               21 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.955 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.812 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+warning: Failed to write cache file `C:\Users\johnh\Dropbox\Python\census-concierge\.ruff_cache\0.16.3\12328025558248554802`: Access is denied. (os error 5)
+104 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 21 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 24%]
+........................................................................ [ 49%]
+........................................................................ [ 73%]
+........................................................................ [ 98%]
+....                                                                     [100%]
+292 passed in 5.40s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+
+---------- claim ----------
+A consecutive year series now comes back as ACS1 when a probe GET against that
+geography returns 200, otherwise as non-overlapping ACS5 end years, with each
+omitted year labeled (vintage_gap_2020, overlapping_vintage, unpublished_vintage,
+max_years) rather than interpolated. E2E scoreboard is not in this phase.
+
+---------- scope ----------
+Slice 3 years: ACS1-where-published else non-overlapping ACS5; say what is
+missing and why (2020 ACS1 gap, ACS1 geography). No new tool, route, or graph
+node. ARCHITECTURE.md updated. 22 files vs ~15: OpenAPI/TS client regen for
+omission_reasons, contract/web field lists, Gate 1 evidence. Not-in-this-slice
+items (charts, memory, PDF, auth) untouched.
+
+---------- silent-wrong-answer ----------
+URL/MOE/GEOID/universe still assembled from the fetch artifact, including
+failed legs. CensusURL remains the redaction type; with_dataset does not
+reattach &key=. Rows stay in the artifact; tool content names years, omission
+codes, and URLs, not estimates. Guards warn and ship; no blocking question.
+Dataset switch ACS5->ACS1 is visible on urls[]. Destagger of overlapping ACS5
+emits acs1_geography_ineligible plus omission_reasons. Gapped year lists still
+fetch overlapping ACS5; overlapping_vintage still warns -- not silent, but the
+new policy does not apply (Pass 1 #1). Probe-fail labeled as geography
+ineligible is a wrong *why*, not a substituted number (Pass 1 #3).
+
+---------- shape ----------
+No new tool (parameter on fetch_data). No new route. VintagePlan is a
+dataclass, not a domain Pydantic model. AskResponse gained omission_reasons;
+client regenerated. No add_node. ARCHITECTURE.md matches.
+
+---------- tests ----------
+Behaviour on attempted years, dataset path, omitted 2020 not fetched, destagger
+2017/2022, override keeps consecutive ACS5. Guard tests do not assert prompt
+text. Gate 1 mutation transcript is on the branch (cc-72-gate1.txt). A new
+test file is not demo evidence; E2E is next.
+
+---------- verdict ----------
+Ship it with follow-ups.
+
+Follow-ups (none are silent-wrong-answer blockers):
+- Pass 1 #1: dense consecutive() only; a hole skips ACS1/destagger.
+- Pass 1 #2: destagger skips unpublished filtering.
+- Pass 1 #3: ACS1 probe transport/5xx reported as acs1_geography_ineligible.
+- Pass 1 #4: overlapping ACS5 override is not on POST /ask (plan strip is later).
+- Pass 1 #5: zip(..., strict=False) on omission pairs.
+
+User-facing claim restated: consecutive series select ACS1 when Census
+publishes the geography, else non-overlapping ACS5, and 2020 ACS1 is a gap
+with a warning, not a filled value.

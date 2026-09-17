@@ -1,0 +1,76 @@
+HEAD 6d415ac
+6d415ac Merge pull request #43 from johnhillescobar:feat/e2e-capture
+
+COMMAND: uv run python scripts/check_budgets.py --structural-only
+  ok    api src LOC               2711 <= 4000
+  ok    api src files               20 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    doc lines                 1800 <= 1800
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+
+loc ask.py           398
+loc geo.py           400
+loc guards.py        318
+loc tools.py         262
+loc fetch.py         262
+loc contract.py      93
+
+COMMAND: cached_vintages
+cached vintages acs5 [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+cached vintages acs1 [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024]
+2020 in acs1 False
+2020 in acs5 True
+
+COMMAND: geography.json levels
+  acs5 2024 'place' n=1 code='160' requires=('state',)
+  acs5 2024 'tract' n=1
+  acs5 2024 'block group' n=1
+  acs5 2024 'zip code tabulation area' n=1
+  acs1 2023 'place' n=1
+  acs1 2023 'county' n=1
+  acs1 2023 'tract' n=0
+  acs1 2023 'block group' n=0
+  acs1 2023 'zip code tabulation area' n=0
+  acs1 2024 same as 2023 for those names
+
+legal_predicate ACS1 2023
+  place in={'state'} wild=False/True -> GeoLevel place 160
+  county in={'state'} -> GeoLevel county 050
+  tract in={'county','state'} wild=True -> None
+  zip code tabulation area in=set() wild=False -> None
+
+COMMAND: uv run python scripts/jira_transition.py CC-72 --status
+CC-72  To Do  Story
+Select defensible ACS vintages and account for gaps
+
+has acs1_geography_ineligible False
+has vintage_gap_2020 False
+AskRequest ['question']
+AskResponse has omission_reasons False
+CensusURL with_dataset False
+FetchDataInput ['years']
+prompt: Prefer ACS5. (no 2020 ACS1).
+
+COMMAND: live Census API (CENSUS_API_KEY set)
+ACS1 2020 groups.json HTTP 404
+ACS1 2020 Fresno county B17001 HTTP 404
+ACS1 2019 Fresno HTTP 200 GEO_ID=0500000US06019 B17001_001E=981920 B17001_001M=2079
+ACS1 2021 Fresno HTTP 200 B17001_001E=996291
+ACS5 2020 Fresno HTTP 200 B17001_001E=973165
+
+Vermont ACS5 2024 place listing n=180
+  East Middlebury CDP place:21700 pop=332
+  Middlebury CDP place:44275 pop=7220 geoid=1600000US5044275
+Vermont ACS5 places >=65000: none
+ACS1 2023/2024 place:*&in=state:50 HTTP 204
+ACS1 2023 place:44275 (Middlebury) HTTP 204
+ACS1 2023 place:10675 (Burlington) HTTP 204
+
+ACS1 2023 CA place:* HTTP 200 n=142 pop min=63223 max=3820963 under 65k=1
+ACS1 2023 CA counties n=42 under 65k=1 smallest Tehama 64896
+ACS1 2023 Cuyahoga County, Ohio county:035 pop=1233088
+
+evaluate() guards: overlapping_vintage, moe_not_significant, geography_unsupported,
+  ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded,
+  zcta_not_zip, geography_not_nested

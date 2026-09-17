@@ -1,0 +1,37 @@
+# Gate 1 (fix) — CC-72 Gate 2 follow-ups
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION acs1-unpublished-hole-is-series =====
+GOOD
+FF                                                                       [100%]
+FAILED api/tests/test_vintages.py::test_acs1_unpublished_hole_is_filled_as_a_gap
+FAILED api/tests/test_fetch_years.py::test_acs1_series_with_a_2020_hole_still_omits_the_gap
+2 failed in 0.24s
+exit 1
+
+Restored is_series holes that are unpublished ACS1 years.
+
+===== MUTATION destagger-drops-unpublished-acs5 =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_vintages.py::test_destagger_omits_unpublished_acs5_years
+E   AssertionError: assert 2012 not in [2012, 2017, 2022]
+1 failed in 0.04s
+exit 1
+
+Restored destagger _drop_unpublished on ACS5.
+
+===== MUTATION probe-5xx-not-ineligible =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_fetch_years.py::test_acs1_probe_server_error_destaggers_without_ineligible_warning
+E   AssertionError: assert True is False
+     +  where True = FetchDataResult(...).acs1_ineligible
+1 failed in 0.23s
+exit 1
+
+Restored probe 5xx -> None (destagger without acs1_geography_ineligible).
+
+===== RESTORE =====
+81 passed in 1.08s

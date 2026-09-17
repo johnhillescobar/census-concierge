@@ -5,7 +5,10 @@ five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
 UI that POSTs `/ask` through types generated from the OpenAPI schema, served
 from the same FastAPI process when `web/dist` exists; slice 3 has started:
 `fetch_data` fans `years` out concurrently (cap 5) and `AskResponse` carries
-`urls[]` plus per-leg year buckets; `resolve_geography` returns ordered
+`urls[]` plus per-leg year buckets; a year series picks ACS1 when Census
+publishes every listed member (200 with rows), else non-overlapping ACS5 end years,
+omitting unpublished points (`omission_reasons[]`, `vintage_gap_2020`,
+`acs1_geography_ineligible`); `resolve_geography` returns ordered
 `GeoSpec` values authorized by that dataset/vintage `geography.json`; combining
 published medians is declined (`median_not_aggregatable`, with `B19001` offered
 for B19013) and additive areas combine via `sqrt(sum(MOE_i^2))`, warning past
@@ -58,9 +61,10 @@ pyproject.toml               uv workspace root; ruff + mypy + pytest config
 api/pyproject.toml           the app's dependencies
 api/src/main.py              FastAPI app; `POST /ask` → `run_ask`; serves `web/dist`
 api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
-api/src/guards.py            DESIGN §4 slice-1 guards; evaluated at assemble
+api/src/guards.py            DESIGN §4 guards; evaluated at assemble
+api/src/vintages.py          ACS1 vs non-overlapping ACS5 year plan
 api/src/tools.py             search_tables, build_url
-api/src/fetch.py             fetch_data; years fan-out, cap 5 in flight
+api/src/fetch.py             fetch_data; years fan-out, vintage plan, cap 5 in flight
 api/src/geo.py               resolve_geography; GeoSpec list, legality per vintage
 api/src/census_url.py        CensusURL — default form never carries `&key=`
 api/src/prompts.py           one system prompt; date and vintages injected
@@ -197,7 +201,7 @@ futures.
 | ~~0~~ | ~~the index~~ — done, above |
 | 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
 | 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32). |
-| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); remaining series guards still open |
+| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); ACS1 where published else non-overlapping ACS5 (CC-72); remaining series guards still open |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |

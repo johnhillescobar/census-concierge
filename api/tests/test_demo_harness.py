@@ -23,6 +23,7 @@ def _body(**fields: Any) -> dict[str, Any]:
         "succeeded_years": [],
         "failed_years": [],
         "omitted_years": [],
+        "omission_reasons": [],
         "legs": [],
         "rows": [{"B01003_001E": "1"}],
         "moe": [],

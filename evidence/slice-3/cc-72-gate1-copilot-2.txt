@@ -1,0 +1,45 @@
+# Gate 1 (Copilot follow-ups 2) — CC-72
+# GOOD = test fails against the broken implementation.
+
+===== MUTATION acs1-204-retries-acs5 =====
+GOOD
+FAILED test_acs1_unpublished_earlier_year_destaggers_to_acs5
+E   AssertionError: assert 'acs1' == 'acs5'
+exit 1
+
+Restored ACS5 destagger when an ACS1 fetch year is 204/404.
+
+===== MUTATION plan-the-same-span-as-requested =====
+GOOD
+FAILED test_ineligible_series_with_a_2020_hole_accounts_for_the_span
+E   AssertionError: assert 2020 in [2019, 2021, 2022]
+exit 1
+
+Restored span_years before plan_years so destagger accounts for 2020.
+
+===== MUTATION cap-omitted-in-requested-order =====
+GOOD
+FAILED test_cap_keeps_omitted_years_in_requested_order
+E   assert [2020, 2019, 2021, 2022] == [2019, 2020, 2021, 2022]
+exit 1
+
+Restored omitted rebuild in requested order after cap.
+
+===== MUTATION vintage-gap-from-requested-years =====
+GOOD
+FAILED test_sparse_acs1_years_do_not_infer_a_2020_gap
+E   AssertionError: assert 'vintage_gap_2020' not in ['vintage_gap_2020']
+exit 1
+
+Restored inference from requested_years, not attempted min/max.
+
+===== MUTATION malformed-probe-inside-try =====
+GOOD
+FAILED test_acs1_malformed_probe_destaggers_without_ineligible_warning
+E   TypeError: 'NoneType' object is not iterable
+exit 1
+
+Restored row-type check and parse inside the probe exception boundary.
+
+===== RESTORE =====
+93 passed in 1.13s

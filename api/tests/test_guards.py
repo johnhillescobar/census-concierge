@@ -8,6 +8,7 @@ from __future__ import annotations
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.contract import GeoSpec
+from src.fetch import FetchDataResult
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
 
@@ -18,6 +19,8 @@ T17 = "What is the median household income across these five tracts combined?"
 T18 = "Total population without health insurance across every tract in Wayne County"
 T15 = "Median household income for ZIP code 10001 every year since 2018"
 T16 = "Compare poverty by census tract within the city of Denver"
+T11 = "Unemployment in Middlebury, Vermont each year since 2017"
+T12 = "1-year ACS poverty for Fresno County, 2018 through 2022"
 Q24 = "Median household income for ZCTA 90210"
 
 
@@ -49,6 +52,99 @@ def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
     record = ExecutionRecord()
     record.vintages = [("acs5", 2017), ("acs5", 2022)]
     assert _codes(record) == []
+
+
+def _fetch(**fields: object) -> FetchDataResult:
+    payload: dict[str, object] = {
+        "ok": True,
+        "url": "",
+        "urls": [],
+        "rows": [],
+        "status_code": 200,
+        "detail": "",
+        "legs": [],
+        "requested_years": [],
+        "attempted_years": [],
+        "succeeded_years": [],
+        "failed_years": [],
+        "omitted_years": [],
+        "omission_reasons": [],
+        "dataset": "acs5",
+        "acs1_ineligible": False,
+    }
+    payload.update(fields)
+    return FetchDataResult.model_validate(payload)
+
+
+def test_small_place_series_warns_acs1_ineligible() -> None:
+    record = ExecutionRecord(question=T11)
+    record.vintages = [("acs5", 2017), ("acs5", 2022)]
+    record.fetch = _fetch(
+        acs1_ineligible=True,
+        requested_years=list(range(2017, 2024)),
+        attempted_years=[2017, 2022],
+        succeeded_years=[2017, 2022],
+        omitted_years=[2018, 2019, 2020, 2021, 2023],
+        omission_reasons=["overlapping_vintage"] * 5,
+        urls=[
+            "https://api.census.gov/data/2017/acs/acs5?get=NAME",
+            "https://api.census.gov/data/2022/acs/acs5?get=NAME",
+        ],
+    )
+    assert _codes(record) == ["acs1_geography_ineligible"]
+    response = assemble("two ACS5 points", record)
+    assert response.warnings[0].code == "acs1_geography_ineligible"
+    assert "65,000" not in response.warnings[0].detail
+    assert "not published" in response.warnings[0].detail.casefold()
+    assert response.attempted_years == [2017, 2022]
+    assert response.omission_reasons == ["overlapping_vintage"] * 5
+
+
+def test_acs1_span_crossing_2020_warns_and_keeps_the_gap() -> None:
+    record = ExecutionRecord(question=T12)
+    record.vintages = [("acs1", year) for year in (2018, 2019, 2021, 2022)]
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018, 2019, 2021, 2022],
+        succeeded_years=[2018, 2019, 2021, 2022],
+        omitted_years=[2020],
+        omission_reasons=["vintage_gap_2020"],
+        urls=["https://api.census.gov/data/2018/acs/acs1?get=NAME"],
+        rows=[
+            {"year": "2018", "B17001_001E": "1", "B17001_001M": "1"},
+            {"year": "2019", "B17001_001E": "1", "B17001_001M": "1"},
+            {"year": "2021", "B17001_001E": "1", "B17001_001M": "1"},
+            {"year": "2022", "B17001_001E": "1", "B17001_001M": "1"},
+        ],
+    )
+    assert _codes(record) == ["vintage_gap_2020"]
+    response = assemble("four years, 2020 absent", record)
+    assert response.warnings[0].code == "vintage_gap_2020"
+    assert response.omitted_years == [2020]
+    assert "2020" not in [row.get("year") for row in response.rows]
+
+
+def test_sparse_acs1_years_do_not_infer_a_2020_gap() -> None:
+    record = ExecutionRecord()
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=[2018, 2022],
+        attempted_years=[2018, 2022],
+        succeeded_years=[2018, 2022],
+    )
+    assert "vintage_gap_2020" not in _codes(record)
+
+
+def test_acs1_2020_gap_inferred_from_requested_years() -> None:
+    record = ExecutionRecord()
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018, 2019, 2021, 2022],
+        succeeded_years=[2018, 2019, 2021, 2022],
+    )
+    assert _codes(record) == ["vintage_gap_2020"]
 
 
 async def test_fetched_years_replace_the_built_template_vintage() -> None:

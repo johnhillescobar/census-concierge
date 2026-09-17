@@ -31,6 +31,7 @@ from src.tools import (
     SearchTablesResult,
     SearchTablesTool,
 )
+from src.vintages import latest_vintages
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
@@ -54,6 +55,7 @@ class ExecutionRecord:
     vintages: list[tuple[str, int]] = field(default_factory=list)
     geo_status: dict[str, str | bool] | None = None
     fetch: FetchDataResult | None = None
+    allow_overlapping_acs5: bool = False
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -97,7 +99,9 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
         record.rows = artifact.rows
         record.fetch = artifact
-        dataset = record.url.dataset if record.url else "acs5"
+        dataset = artifact.dataset or (record.url.dataset if record.url else "acs5")
+        if record.url is not None and artifact.dataset:
+            record.url = record.url.with_dataset(artifact.dataset)
         if artifact.attempted_years:
             record.vintages = [(dataset, year) for year in artifact.attempted_years]
 
@@ -317,24 +321,12 @@ async def _openai_complete(
     return {"content": choice.content or "", "tool_calls": calls}
 
 
-def _latest_vintages() -> tuple[int, int | None]:
-    from src.retrieval import availability
-
-    try:
-        matrix = availability.load()
-    except (OSError, ValueError, KeyError):
-        return 2024, None
-    acs5 = max(int(year) for year in matrix["datasets"]["acs5"])
-    acs1_years = [int(year) for year in matrix["datasets"].get("acs1", {})]
-    return acs5, max(acs1_years) if acs1_years else None
-
-
 def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
     from src.retrieval import availability, index, metadata
 
     idx = index.load()
     matrix = availability.load()
-    acs5, _acs1 = _latest_vintages()
+    acs5, _acs1 = latest_vintages(matrix)
     by_id = {table_id: i for i, table_id in enumerate(idx.tables)}
 
     def search(question: str, k: int) -> list[str]:
@@ -380,6 +372,8 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
             census_key=lambda: os.environ.get("CENSUS_API_KEY", ""),
+            published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
+            allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }
 
@@ -395,7 +389,7 @@ async def run_ask(
     record.question = record.question or question
     tools = tools or default_tools(record)
     openai_tools = [convert_to_openai_tool(tool) for tool in tools.values()]
-    acs5, acs1 = _latest_vintages()
+    acs5, acs1 = latest_vintages()
     messages: list[dict[str, Any]] = [
         {
             "role": "system",

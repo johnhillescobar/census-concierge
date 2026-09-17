@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.census_url import CensusURL, redact_text
 from src.contract import RequestLeg
 from src.tools import ToolInput, ToolResult
+from src.vintages import REASON_NO_URL, VintagePlan, is_series, plan_years, span_years
 
 MAX_IN_FLIGHT = 5
 MAX_YEARS = 12
@@ -43,6 +44,9 @@ class FetchDataResult(ToolResult):
     succeeded_years: list[int]
     failed_years: list[int]
     omitted_years: list[int]
+    omission_reasons: list[str]
+    dataset: str = ""
+    acs1_ineligible: bool = False
 
 
 def unique_years(years: list[int]) -> list[int]:
@@ -74,6 +78,7 @@ def series_from_record(record: Any) -> dict[str, Any]:
             "succeeded_years": list(artifact.succeeded_years),
             "failed_years": list(artifact.failed_years),
             "omitted_years": list(artifact.omitted_years),
+            "omission_reasons": list(artifact.omission_reasons),
             "legs": list(artifact.legs),
         }
     built = getattr(record, "url", None)
@@ -85,6 +90,7 @@ def series_from_record(record: Any) -> dict[str, Any]:
             "succeeded_years": [],
             "failed_years": [],
             "omitted_years": [],
+            "omission_reasons": [],
             "legs": [],
         }
     return {
@@ -94,6 +100,7 @@ def series_from_record(record: Any) -> dict[str, Any]:
         "succeeded_years": [],
         "failed_years": [],
         "omitted_years": [],
+        "omission_reasons": [],
         "legs": [],
     }
 
@@ -111,13 +118,19 @@ def _rows_from_payload(payload: Any) -> list[dict[str, str | None]] | None:
     if not isinstance(payload, list) or not payload:
         return None
     header, *body = payload
-    return [
-        {
-            str(key): (None if value is None else str(value))
-            for key, value in zip(header, row, strict=False)
-        }
-        for row in body
-    ]
+    if not isinstance(header, list):
+        return None
+    rows: list[dict[str, str | None]] = []
+    for row in body:
+        if not isinstance(row, list):
+            return None
+        rows.append(
+            {
+                str(key): (None if value is None else str(value))
+                for key, value in zip(header, row, strict=False)
+            }
+        )
+    return rows
 
 
 def _tag_year(rows: list[dict[str, str | None]], year: int) -> list[dict[str, str | None]]:
@@ -136,7 +149,10 @@ def _pack(
     rows: list[dict[str, str | None]],
     requested: list[int],
     omitted: list[int],
+    reasons: list[str],
     detail: str,
+    dataset: str = "",
+    acs1_ineligible: bool = False,
 ) -> FetchDataResult:
     urls = [leg.url for leg in legs]
     attempted = [leg.year for leg in legs]
@@ -160,6 +176,9 @@ def _pack(
         succeeded_years=succeeded,
         failed_years=failed,
         omitted_years=omitted,
+        omission_reasons=reasons,
+        dataset=dataset,
+        acs1_ineligible=acs1_ineligible,
     )
 
 
@@ -177,6 +196,12 @@ def _tool_content(result: FetchDataResult) -> str:
         bits.append(f"failed {years} HTTP {result.status_code}")
         if result.detail and not result.ok:
             bits.append(result.detail)
+    if result.omitted_years:
+        pairs = ",".join(
+            f"{year}:{reason}"
+            for year, reason in zip(result.omitted_years, result.omission_reasons, strict=True)
+        )
+        bits.append(f"omitted {pairs}")
     if joined:
         bits.append(f"URLs {joined}")
     return "; ".join(bits)
@@ -195,21 +220,47 @@ class FetchDataTool(BaseTool):
     last_url: LastUrl
     census_key: Callable[[], str]
     http_get: Callable[[str], tuple[int, Any]] | None = None
+    published: Callable[[str], set[int]] | None = None
+    allow_overlapping_acs5: bool = False
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("fetch_data is async-only")
+
+    def _get(self, live: str) -> tuple[int, Any]:
+        if self.http_get is not None:
+            return self.http_get(live)
+        return _census_get(live)
+
+    def _published(self) -> dict[str, set[int]] | None:
+        if self.published is None:
+            return None
+        return {"acs5": self.published("acs5"), "acs1": self.published("acs1")}
+
+    def _acs1_ok(self, template: CensusURL, published: dict[str, set[int]] | None) -> bool | None:
+        if template.for_is_wildcard():
+            return False
+        years = (published or {}).get("acs1") or set()
+        if not years:
+            return None
+        probe = template.with_dataset("acs1").with_year(max(years))
+        try:
+            status, payload = self._get(probe.with_key(self.census_key()))
+            parsed = _rows_from_payload(payload)
+        except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError):
+            return None
+        if status == 200:
+            return None if parsed is None else bool(parsed)
+        if status in {204, 404}:
+            return False
+        return None
 
     def _fetch_one(
         self, template: CensusURL, year: int
     ) -> tuple[RequestLeg, list[dict[str, str | None]]]:
         census_url = template.with_year(year)
         redacted = str(census_url)
-        live = census_url.with_key(self.census_key())
         try:
-            if self.http_get is not None:
-                status, payload = self.http_get(live)
-            else:
-                status, payload = _census_get(live)
+            status, payload = self._get(census_url.with_key(self.census_key()))
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError) as exc:
             return (
                 RequestLeg(
@@ -217,19 +268,7 @@ class FetchDataTool(BaseTool):
                 ),
                 [],
             )
-        if status != 200:
-            raw = payload if isinstance(payload, str) else f"HTTP {status}"
-            return (
-                RequestLeg(
-                    year=year,
-                    url=redacted,
-                    ok=False,
-                    status_code=status,
-                    detail=redact_text(str(raw)[:300]),
-                ),
-                [],
-            )
-        parsed = _rows_from_payload(payload)
+        parsed = _rows_from_payload(payload) if status == 200 else None
         if parsed is None:
             raw = payload if isinstance(payload, str) else f"HTTP {status}"
             return (
@@ -257,6 +296,7 @@ class FetchDataTool(BaseTool):
                 rows=[],
                 requested=requested,
                 omitted=requested,
+                reasons=[REASON_NO_URL] * len(requested),
                 detail="call build_url before fetch_data",
             )
             return result.detail, result
@@ -270,18 +310,54 @@ class FetchDataTool(BaseTool):
                 rows=[],
                 requested=[],
                 omitted=[],
+                reasons=[],
                 detail="call build_url before fetch_data",
             )
             return result.detail, result
-        attempted = requested[:MAX_YEARS]
-        omitted = requested[MAX_YEARS:]
+        published = self._published()
+        series = is_series(requested, published) and not self.allow_overlapping_acs5
+        if series:
+            requested = span_years(requested)
+        acs1_ok: bool | None = None
+        if series and built.dataset != "acs1":
+            acs1_ok = await asyncio.to_thread(self._acs1_ok, built, published)
+        plan = plan_years(
+            dataset=built.dataset or "acs5",
+            years=requested,
+            published=published,
+            acs1_ok=acs1_ok,
+            allow_overlapping_acs5=self.allow_overlapping_acs5,
+            cap=MAX_YEARS,
+        )
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
 
-        async def one(year: int) -> tuple[RequestLeg, list[dict[str, str | None]]]:
-            async with sem:
-                return await asyncio.to_thread(self._fetch_one, built, year)
+        async def fanout(
+            planned: VintagePlan,
+        ) -> list[tuple[RequestLeg, list[dict[str, str | None]]]]:
+            template = built.with_dataset(planned.dataset)
 
-        gathered = await asyncio.gather(*(one(year) for year in attempted))
+            async def one(year: int) -> tuple[RequestLeg, list[dict[str, str | None]]]:
+                async with sem:
+                    return await asyncio.to_thread(self._fetch_one, template, year)
+
+            if not planned.attempted:
+                return []
+            return list(await asyncio.gather(*(one(year) for year in planned.attempted)))
+
+        gathered = await fanout(plan)
+        unpublished = {204, 404}
+        if plan.dataset == "acs1" and any(
+            (not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered
+        ):
+            plan = plan_years(
+                dataset="acs5",
+                years=requested,
+                published=published,
+                acs1_ok=False,
+                allow_overlapping_acs5=self.allow_overlapping_acs5,
+                cap=MAX_YEARS,
+            )
+            gathered = await fanout(plan)
         legs = [item[0] for item in gathered]
         rows: list[dict[str, str | None]] = []
         for leg, part in gathered:
@@ -290,6 +366,14 @@ class FetchDataTool(BaseTool):
         ok = any(leg.ok for leg in legs)
         detail = next((leg.detail for leg in legs if not leg.ok), "")
         result = _pack(
-            ok=ok, legs=legs, rows=rows, requested=requested, omitted=omitted, detail=detail
+            ok=ok,
+            legs=legs,
+            rows=rows,
+            requested=requested,
+            omitted=plan.omitted,
+            reasons=plan.reasons,
+            detail=detail,
+            dataset=plan.dataset,
+            acs1_ineligible=plan.acs1_ineligible,
         )
         return _tool_content(result), result

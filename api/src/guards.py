@@ -76,6 +76,35 @@ def _overlaps(years: list[int]) -> bool:
     return any(b - a < _ACS5_SPAN for a, b in zip(ordered, ordered[1:], strict=False))
 
 
+def acs1_geography_ineligible(record: GuardRecord) -> AskWarning | None:
+    artifact = getattr(record, "fetch", None)
+    if not getattr(artifact, "acs1_ineligible", False):
+        return None
+    return AskWarning(
+        code="acs1_geography_ineligible",
+        detail=(
+            "ACS1 is not published for this geography, or not for every member "
+            "of this listing; non-overlapping ACS5 end years are returned instead"
+        ),
+    )
+
+
+def vintage_gap_2020(record: GuardRecord) -> AskWarning | None:
+    artifact = getattr(record, "fetch", None)
+    reasons = list(getattr(artifact, "omission_reasons", []) or [])
+    requested = list(getattr(artifact, "requested_years", []) or [])
+    attempted = list(getattr(artifact, "attempted_years", []) or [])
+    dataset = str(getattr(artifact, "dataset", "") or "")
+    if "vintage_gap_2020" not in reasons and (
+        dataset != "acs1" or 2020 not in requested or 2020 in attempted
+    ):
+        return None
+    return AskWarning(
+        code="vintage_gap_2020",
+        detail="the standard 2020 ACS1 release was never issued; 2020 is a gap, not interpolated",
+    )
+
+
 def overlapping_vintage(record: GuardRecord) -> AskWarning | None:
     years = _acs5_end_years(record.question)
     years.extend(year for dataset, year in record.vintages if dataset == "acs5")
@@ -362,6 +391,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
     warnings: list[AskWarning] = []
     for guard in (
         overlapping_vintage,
+        acs1_geography_ineligible,
+        vintage_gap_2020,
         moe_not_significant,
         geography_unsupported,
         ambiguous_place,
