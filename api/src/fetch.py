@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.census_url import CensusURL, redact_text
 from src.contract import RequestLeg
 from src.tools import ToolInput, ToolResult
-from src.vintages import REASON_NO_URL, is_series, plan_years
+from src.vintages import REASON_NO_URL, is_series, plan_years, span_years
 
 MAX_IN_FLIGHT = 5
 MAX_YEARS = 12
@@ -231,6 +231,8 @@ class FetchDataTool(BaseTool):
         return {"acs5": self.published("acs5"), "acs1": self.published("acs1")}
 
     def _acs1_ok(self, template: CensusURL, published: dict[str, set[int]] | None) -> bool | None:
+        if template.for_is_wildcard():
+            return False
         years = (published or {}).get("acs1") or set()
         if not years:
             return None
@@ -239,9 +241,10 @@ class FetchDataTool(BaseTool):
             status, payload = self._get(probe.with_key(self.census_key()))
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError):
             return None
-        if status == 200 and _rows_from_payload(payload) is not None:
-            return True
-        if status in {204, 400, 404}:
+        parsed = _rows_from_payload(payload)
+        if status == 200:
+            return bool(parsed)
+        if status in {204, 404}:
             return False
         return None
 
@@ -309,7 +312,7 @@ class FetchDataTool(BaseTool):
         series = is_series(requested, published) and not self.allow_overlapping_acs5
         acs1_ok: bool | None = None
         if series and built.dataset != "acs1":
-            acs1_ok = self._acs1_ok(built, published)
+            acs1_ok = await asyncio.to_thread(self._acs1_ok, built, published)
         plan = plan_years(
             dataset=built.dataset or "acs5",
             years=requested,
@@ -318,6 +321,8 @@ class FetchDataTool(BaseTool):
             allow_overlapping_acs5=self.allow_overlapping_acs5,
             cap=MAX_YEARS,
         )
+        if series:
+            requested = span_years(requested)
         template = built.with_dataset(plan.dataset)
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
 

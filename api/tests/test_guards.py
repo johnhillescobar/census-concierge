@@ -94,6 +94,8 @@ def test_small_place_series_warns_acs1_ineligible() -> None:
     assert _codes(record) == ["acs1_geography_ineligible"]
     response = assemble("two ACS5 points", record)
     assert response.warnings[0].code == "acs1_geography_ineligible"
+    assert "65,000" not in response.warnings[0].detail
+    assert "not published" in response.warnings[0].detail.casefold()
     assert response.attempted_years == [2017, 2022]
     assert response.omission_reasons == ["overlapping_vintage"] * 5
 

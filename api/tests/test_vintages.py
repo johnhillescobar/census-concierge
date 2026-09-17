@@ -11,6 +11,7 @@ from src.vintages import (
     is_series,
     nonoverlapping_acs5,
     plan_years,
+    span_years,
 )
 
 ACS1 = {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024}
@@ -69,6 +70,28 @@ def test_acs1_unpublished_hole_is_filled_as_a_gap() -> None:
     assert plan.attempted == [2018, 2019, 2021, 2022]
     assert plan.omitted == [2020]
     assert plan.reasons == [REASON_GAP_2020]
+
+
+def test_span_years_is_the_inclusive_range() -> None:
+    assert span_years([2018, 2019, 2021, 2022]) == [2018, 2019, 2020, 2021, 2022]
+    assert span_years([2022, 2018]) == [2018, 2019, 2020, 2021, 2022]
+    assert span_years([]) == []
+
+
+def test_destagger_omitted_years_follow_requested_order() -> None:
+    published = {"acs1": ACS1, "acs5": ACS5 - {2020}}
+    years = list(range(2016, 2024))
+    plan = plan_years(dataset="acs5", years=years, published=published, acs1_ok=False)
+    assert plan.attempted == [2016, 2021]
+    assert plan.omitted == [2017, 2018, 2019, 2020, 2022, 2023]
+    assert plan.reasons == [
+        REASON_OVERLAP,
+        REASON_OVERLAP,
+        REASON_OVERLAP,
+        REASON_UNPUBLISHED,
+        REASON_OVERLAP,
+        REASON_OVERLAP,
+    ]
 
 
 def test_destagger_omits_unpublished_acs5_years() -> None:

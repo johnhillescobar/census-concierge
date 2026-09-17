@@ -83,8 +83,8 @@ def acs1_geography_ineligible(record: GuardRecord) -> AskWarning | None:
     return AskWarning(
         code="acs1_geography_ineligible",
         detail=(
-            "ACS1 is not published for this geography (places of 65,000+); "
-            "non-overlapping ACS5 end years are returned instead"
+            "ACS1 is not published for this geography, or not for every member "
+            "of this listing; non-overlapping ACS5 end years are returned instead"
         ),
     )
 

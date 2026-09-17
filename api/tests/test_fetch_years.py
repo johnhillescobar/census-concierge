@@ -13,6 +13,10 @@ TEMPLATE = CensusURL(
     "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
     "&for=county:201&in=state:48"
 )
+WILDCARD = CensusURL(
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
+    "&for=county:*&in=state:50"
+)
 PUBLISHED = {
     "acs5": set(range(2016, 2025)),
     "acs1": {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024},
@@ -55,6 +59,12 @@ def test_with_dataset_rewrites_acs5_to_acs1() -> None:
     assert "/2019/acs/acs1" in str(switched)
     assert "for=county:201" in str(switched)
     assert TEMPLATE.dataset == "acs5"
+
+
+def test_for_is_wildcard_detects_star_listings() -> None:
+    listing = CensusURL(str(TEMPLATE).replace("county:201", "county:*"))
+    assert listing.for_is_wildcard() is True
+    assert TEMPLATE.for_is_wildcard() is False
 
 
 async def test_ordered_success_tags_year_and_pairs_margins() -> None:
@@ -427,6 +437,7 @@ async def test_acs1_series_with_a_2020_hole_still_omits_the_gap() -> None:
     )
     artifact = message.artifact
     assert artifact.dataset == "acs1"
+    assert artifact.requested_years == [2018, 2019, 2020, 2021, 2022]
     assert artifact.attempted_years == years
     assert artifact.omitted_years == [2020]
     assert artifact.omission_reasons == ["vintage_gap_2020"]
@@ -437,6 +448,96 @@ async def test_acs1_probe_server_error_destaggers_without_ineligible_warning() -
     def http_get(url: str) -> tuple[int, object]:
         if "/acs/acs1" in url:
             return 500, "upstream"
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2017, 2024))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is False
+    assert artifact.attempted_years == [2017, 2022]
+
+
+async def test_acs1_wildcard_listing_stays_on_acs5() -> None:
+    seen: list[str] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        seen.append(dataset)
+        if dataset == "acs1":
+            return 200, [
+                ["NAME", "GEO_ID", "B01003_001E", "B01003_001M"],
+                ["Chittenden County, Vermont", "0500000US50007", "1", "1"],
+            ]
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: WILDCARD,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2017, 2024))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert "acs1" not in seen
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is True
+    assert artifact.attempted_years == [2017, 2022]
+    assert all("/acs/acs5" in url for url in artifact.urls)
+
+
+async def test_acs1_header_only_probe_is_ineligible() -> None:
+    def http_get(url: str) -> tuple[int, object]:
+        if "/acs/acs1" in url:
+            return 200, [["NAME", "GEO_ID", "B01003_001E", "B01003_001M"]]
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2017, 2024))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is True
+    assert artifact.attempted_years == [2017, 2022]
+
+
+async def test_acs1_probe_bad_request_destaggers_without_ineligible_warning() -> None:
+    def http_get(url: str) -> tuple[int, object]:
+        if "/acs/acs1" in url:
+            return 400, "unknown variable"
         return 200, _ok_payload(_year_from(url))
 
     tool = FetchDataTool(

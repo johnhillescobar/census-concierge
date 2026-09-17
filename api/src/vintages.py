@@ -42,13 +42,11 @@ def is_series(years: list[int], published: dict[str, set[int]] | None = None) ->
 
 
 def span_years(years: list[int]) -> list[int]:
-    """First-requested order, then any holes in the inclusive span."""
+    """Inclusive end-year span covering the requested years."""
     unique = list(dict.fromkeys(years))
     if not unique:
         return []
-    present = set(unique)
-    holes = [year for year in range(min(unique), max(unique) + 1) if year not in present]
-    return unique + holes
+    return list(range(min(unique), max(unique) + 1))
 
 
 def nonoverlapping_acs5(years: list[int]) -> list[int]:
@@ -108,12 +106,20 @@ def plan_years(
     if series and dataset != "acs1" and acs1_ok is not True:
         kept, unpub, unpub_reasons = _drop_unpublished("acs5", years, published)
         destaggered = nonoverlapping_acs5(kept)
-        overlap = [year for year in kept if year not in set(destaggered)]
+        unpub_map = dict(zip(unpub, unpub_reasons, strict=True))
+        kept_set = set(destaggered)
+        omitted: list[int] = []
+        reasons: list[str] = []
+        for year in list(dict.fromkeys(years)):
+            if year in kept_set:
+                continue
+            omitted.append(year)
+            reasons.append(unpub_map.get(year, REASON_OVERLAP))
         plan = VintagePlan(
             dataset="acs5",
             attempted=destaggered,
-            omitted=[*unpub, *overlap],
-            reasons=[*unpub_reasons, *([REASON_OVERLAP] * len(overlap))],
+            omitted=omitted,
+            reasons=reasons,
             acs1_ineligible=acs1_ok is False,
         )
     else:
