@@ -8,6 +8,7 @@ from src.vintages import (
     REASON_OVERLAP,
     REASON_UNPUBLISHED,
     consecutive,
+    is_series,
     nonoverlapping_acs5,
     plan_years,
 )
@@ -23,6 +24,9 @@ def test_consecutive_requires_a_dense_span() -> None:
     assert consecutive([2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024]) is False
     assert consecutive([2022]) is False
     assert consecutive([]) is False
+    assert is_series([2018, 2019, 2021, 2022], PUBLISHED) is True
+    assert is_series([2018, 2019, 2021, 2022]) is False
+    assert is_series([2019, 2022], PUBLISHED) is False
 
 
 def test_nonoverlapping_acs5_keeps_2017_and_2022() -> None:
@@ -55,6 +59,31 @@ def test_consecutive_acs1_eligible_omits_2020() -> None:
     assert plan.attempted == [2018, 2019, 2021, 2022]
     assert plan.omitted == [2020]
     assert plan.reasons == [REASON_GAP_2020]
+    assert plan.acs1_ineligible is False
+
+
+def test_acs1_unpublished_hole_is_filled_as_a_gap() -> None:
+    years = [2018, 2019, 2021, 2022]
+    plan = plan_years(dataset="acs5", years=years, published=PUBLISHED, acs1_ok=True)
+    assert plan.dataset == "acs1"
+    assert plan.attempted == [2018, 2019, 2021, 2022]
+    assert plan.omitted == [2020]
+    assert plan.reasons == [REASON_GAP_2020]
+
+
+def test_destagger_omits_unpublished_acs5_years() -> None:
+    years = list(range(2012, 2024))
+    plan = plan_years(dataset="acs5", years=years, published=PUBLISHED, acs1_ok=False)
+    assert 2012 not in plan.attempted
+    assert plan.attempted == nonoverlapping_acs5([year for year in years if year in ACS5])
+    assert REASON_UNPUBLISHED in plan.reasons
+    assert plan.acs1_ineligible is True
+
+
+def test_unknown_acs1_eligibility_destaggers_without_the_ineligible_warning() -> None:
+    years = list(range(2017, 2024))
+    plan = plan_years(dataset="acs5", years=years, published=PUBLISHED, acs1_ok=None)
+    assert plan.attempted == [2017, 2022]
     assert plan.acs1_ineligible is False
 
 

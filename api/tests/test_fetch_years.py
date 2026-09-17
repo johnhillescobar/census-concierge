@@ -399,3 +399,62 @@ async def test_overlapping_acs5_override_fetches_consecutive_years() -> None:
     assert artifact.attempted_years == years
     assert artifact.omitted_years == []
     assert seen == years
+
+
+async def test_acs1_series_with_a_2020_hole_still_omits_the_gap() -> None:
+    seen: list[tuple[str, int]] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        year = _year_from(url)
+        seen.append((dataset, year))
+        return 200, _ok_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = [2018, 2019, 2021, 2022]
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs1"
+    assert artifact.attempted_years == years
+    assert artifact.omitted_years == [2020]
+    assert artifact.omission_reasons == ["vintage_gap_2020"]
+    assert 2020 not in {year for _dataset, year in seen}
+
+
+async def test_acs1_probe_server_error_destaggers_without_ineligible_warning() -> None:
+    def http_get(url: str) -> tuple[int, object]:
+        if "/acs/acs1" in url:
+            return 500, "upstream"
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2017, 2024))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is False
+    assert artifact.attempted_years == [2017, 2022]

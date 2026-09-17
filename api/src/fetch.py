@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.census_url import CensusURL, redact_text
 from src.contract import RequestLeg
 from src.tools import ToolInput, ToolResult
-from src.vintages import REASON_NO_URL, consecutive, plan_years
+from src.vintages import REASON_NO_URL, is_series, plan_years
 
 MAX_IN_FLIGHT = 5
 MAX_YEARS = 12
@@ -193,7 +193,7 @@ def _tool_content(result: FetchDataResult) -> str:
     if result.omitted_years:
         pairs = ",".join(
             f"{year}:{reason}"
-            for year, reason in zip(result.omitted_years, result.omission_reasons, strict=False)
+            for year, reason in zip(result.omitted_years, result.omission_reasons, strict=True)
         )
         bits.append(f"omitted {pairs}")
     if joined:
@@ -230,16 +230,20 @@ class FetchDataTool(BaseTool):
             return None
         return {"acs5": self.published("acs5"), "acs1": self.published("acs1")}
 
-    def _acs1_ok(self, template: CensusURL, published: dict[str, set[int]] | None) -> bool:
+    def _acs1_ok(self, template: CensusURL, published: dict[str, set[int]] | None) -> bool | None:
         years = (published or {}).get("acs1") or set()
         if not years:
-            return False
+            return None
         probe = template.with_dataset("acs1").with_year(max(years))
         try:
             status, payload = self._get(probe.with_key(self.census_key()))
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError):
+            return None
+        if status == 200 and _rows_from_payload(payload) is not None:
+            return True
+        if status in {204, 400, 404}:
             return False
-        return status == 200 and _rows_from_payload(payload) is not None
+        return None
 
     def _fetch_one(
         self, template: CensusURL, year: int
@@ -302,8 +306,10 @@ class FetchDataTool(BaseTool):
             )
             return result.detail, result
         published = self._published()
-        series = consecutive(requested) and not self.allow_overlapping_acs5
-        acs1_ok = series and built.dataset != "acs1" and self._acs1_ok(built, published)
+        series = is_series(requested, published) and not self.allow_overlapping_acs5
+        acs1_ok: bool | None = None
+        if series and built.dataset != "acs1":
+            acs1_ok = self._acs1_ok(built, published)
         plan = plan_years(
             dataset=built.dataset or "acs5",
             years=requested,

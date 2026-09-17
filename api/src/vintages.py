@@ -27,6 +27,30 @@ def consecutive(years: list[int]) -> bool:
     return len(ordered) >= 2 and ordered[-1] - ordered[0] + 1 == len(ordered)
 
 
+def is_series(years: list[int], published: dict[str, set[int]] | None = None) -> bool:
+    """A year list is a series if it is dense, or the only holes are unpublished ACS1 years."""
+    ordered = sorted(set(years))
+    if len(ordered) < 2:
+        return False
+    missing = [year for year in range(ordered[0], ordered[-1] + 1) if year not in set(ordered)]
+    if not missing:
+        return True
+    acs1 = None if published is None else published.get("acs1")
+    if acs1 is None:
+        return False
+    return all(year not in acs1 for year in missing)
+
+
+def span_years(years: list[int]) -> list[int]:
+    """First-requested order, then any holes in the inclusive span."""
+    unique = list(dict.fromkeys(years))
+    if not unique:
+        return []
+    present = set(unique)
+    holes = [year for year in range(min(unique), max(unique) + 1) if year not in present]
+    return unique + holes
+
+
 def nonoverlapping_acs5(years: list[int]) -> list[int]:
     """Keep first-requested order; drop any year within four of a kept year."""
     kept: list[int] = []
@@ -73,27 +97,29 @@ def plan_years(
     dataset: str,
     years: list[int],
     published: dict[str, set[int]] | None = None,
-    acs1_ok: bool = False,
+    acs1_ok: bool | None = False,
     allow_overlapping_acs5: bool = False,
     cap: int | None = None,
 ) -> VintagePlan:
     """Choose dataset and attempted years. Does not invent values for gaps."""
     if not years:
         return VintagePlan(dataset=dataset, attempted=[], omitted=[], reasons=[])
-    series = consecutive(years) and not allow_overlapping_acs5
-    if series and dataset != "acs1" and not acs1_ok:
-        kept = nonoverlapping_acs5(years)
-        omitted = [year for year in years if year not in set(kept)]
+    series = is_series(years, published) and not allow_overlapping_acs5
+    if series and dataset != "acs1" and acs1_ok is not True:
+        kept, unpub, unpub_reasons = _drop_unpublished("acs5", years, published)
+        destaggered = nonoverlapping_acs5(kept)
+        overlap = [year for year in kept if year not in set(destaggered)]
         plan = VintagePlan(
             dataset="acs5",
-            attempted=kept,
-            omitted=omitted,
-            reasons=[REASON_OVERLAP] * len(omitted),
-            acs1_ineligible=True,
+            attempted=destaggered,
+            omitted=[*unpub, *overlap],
+            reasons=[*unpub_reasons, *([REASON_OVERLAP] * len(overlap))],
+            acs1_ineligible=acs1_ok is False,
         )
     else:
         use = "acs1" if series or dataset == "acs1" else dataset
-        attempted, omitted, reasons = _drop_unpublished(use, years, published)
+        planned = span_years(years) if series else years
+        attempted, omitted, reasons = _drop_unpublished(use, planned, published)
         plan = VintagePlan(dataset=use, attempted=attempted, omitted=omitted, reasons=reasons)
     if cap is None or len(plan.attempted) <= cap:
         return plan
