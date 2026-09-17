@@ -133,14 +133,16 @@ GET; emitted `GeoSpec` values are metadata-backed
 empty `variables` is the table total `001E`, then E paired with M),
 `fetch_data` (live Census; `years` fans out under a 5-in-flight / 12-year cap
 and the two comparison specs rewrite `for`/`in` on the built URL the same way; a `:*`
-wildcard stays one GET; each URL is kept on failure). `assemble()`
+wildcard stays one GET; each URL is kept on failure; an ACS1 204/404 on any
+comparison leg destaggers every leg to non-overlapping ACS5). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),
 and puts AFFGEOID
 `GEO_ID` on every fetched row (empty on a combined total, which is not a
 published geography). Top-level `geoid` names one geography or is empty.
 `evaluate()` in `guards.py` then attaches DESIGN §4 warnings from the execution
-record: overlapping ACS5 vintages, MOE-indistinguishable differences, illegal
+record: overlapping ACS5 vintages, MOE-indistinguishable differences (same-year
+geography legs on a versus series, not same-place years), illegal
 geography combinations, several matching places, questions that cross
 universes, combined published medians, RSS MOE over more than five areas,
 ZIP-vs-ZCTA requests, and containment Census `for`/`in` grammar cannot express.

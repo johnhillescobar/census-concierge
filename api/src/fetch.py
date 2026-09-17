@@ -374,10 +374,8 @@ class FetchDataTool(BaseTool):
 
         gathered = await fanout(plan)
         unpublished = {204, 404}
-        if (
-            plan.dataset == "acs1"
-            and geos == [None]
-            and any((not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered)
+        if plan.dataset == "acs1" and any(
+            (not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered
         ):
             plan = plan_years(
                 dataset="acs5",

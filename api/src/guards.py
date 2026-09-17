@@ -134,10 +134,18 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
     if not _COMPARE.search(record.question) or len(record.rows) < 2:
         return None
     keys = [key for key in record.rows[0] if key.endswith("E") and "_" in key]
+    years = {str(row.get("year") or "") for row in record.rows} - {""}
+    geos = {str(row.get("GEO_ID") or "") for row in record.rows} - {""}
+    same_year = len(years) > 1 and len(geos) > 1
     for estimate in keys:
         margin = f"{estimate[:-1]}M"
         for i, left in enumerate(record.rows):
             for right in record.rows[i + 1 :]:
+                if same_year and (
+                    (left.get("year") or "") != (right.get("year") or "")
+                    or (left.get("GEO_ID") or "") == (right.get("GEO_ID") or "")
+                ):
+                    continue
                 e1, e2 = _numeric(left, estimate), _numeric(right, estimate)
                 m1, m2 = _numeric(left, margin), _numeric(right, margin)
                 if e1 is None or e2 is None or m1 is None or m2 is None:

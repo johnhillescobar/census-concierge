@@ -821,7 +821,7 @@ async def test_one_failed_geography_keeps_its_url_and_the_other_rows() -> None:
     assert len(artifact.urls) == 2
 
 
-async def test_acs1_comparison_404_does_not_destagger_the_other_leg() -> None:
+async def test_acs1_ineligible_comparison_leg_destaggers_all_legs() -> None:
     seen: list[tuple[str, str]] = []
 
     def http_get(url: str) -> tuple[int, object]:
@@ -839,7 +839,7 @@ async def test_acs1_comparison_404_does_not_destagger_the_other_leg() -> None:
         http_get=http_get,
         published=_published,
     )
-    years = list(range(2018, 2023))
+    years = list(range(2017, 2024))
     message = await tool.ainvoke(
         {
             "type": "tool_call",
@@ -849,9 +849,10 @@ async def test_acs1_comparison_404_does_not_destagger_the_other_leg() -> None:
         }
     )
     artifact = message.artifact
-    assert artifact.dataset == "acs1"
-    assert artifact.acs1_ineligible is False
-    assert any(dataset == "acs1" and clause.startswith("state:") for dataset, clause in seen)
-    assert not any(dataset == "acs5" and clause.startswith("state:") for dataset, clause in seen)
-    assert any(not leg.ok and leg.for_spec.startswith("place:") for leg in artifact.legs)
-    assert any(leg.ok and leg.for_spec.startswith("state:") for leg in artifact.legs)
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is True
+    assert artifact.attempted_years == [2017, 2022]
+    assert any(dataset == "acs5" and clause.startswith("place:") for dataset, clause in seen)
+    assert any(dataset == "acs5" and clause.startswith("state:") for dataset, clause in seen)
+    assert all(leg.ok for leg in artifact.legs)
+    assert {leg.for_spec for leg in artifact.legs} == {"place:4805000", "state:48"}

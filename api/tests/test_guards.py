@@ -239,6 +239,28 @@ def test_unavailable_margins_are_not_compared() -> None:
     assert _codes(record) == []
 
 
+def test_versus_series_does_not_warn_on_same_place_years() -> None:
+    record = ExecutionRecord(question="Median rent in Austin versus the Texas average")
+    record.rows = [
+        {"GEO_ID": "a", "year": "2017", "B25064_001E": "100", "B25064_001M": "50"},
+        {"GEO_ID": "a", "year": "2022", "B25064_001E": "110", "B25064_001M": "50"},
+        {"GEO_ID": "b", "year": "2017", "B25064_001E": "1000", "B25064_001M": "10"},
+        {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
+    ]
+    assert _codes(record) == []
+
+
+def test_versus_series_warns_when_same_year_legs_are_indistinguishable() -> None:
+    record = ExecutionRecord(question="Median rent in Austin versus the Texas average")
+    record.rows = [
+        {"GEO_ID": "a", "year": "2017", "B25064_001E": "100", "B25064_001M": "50"},
+        {"GEO_ID": "b", "year": "2017", "B25064_001E": "110", "B25064_001M": "50"},
+        {"GEO_ID": "a", "year": "2022", "B25064_001E": "1000", "B25064_001M": "10"},
+        {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
+    ]
+    assert _codes(record) == ["moe_not_significant"]
+
+
 def test_overlapping_vintages_do_not_compare_leftover_rows() -> None:
     record = ExecutionRecord(question=T01)
     record.vintages = [("acs5", 2019), ("acs5", 2022)]
