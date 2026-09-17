@@ -146,11 +146,10 @@ def _rows_with_geoid(
 
 
 def _response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
-    if fallback:
-        return fallback
-    if len(rows) == 1:
-        return rows[0].get("GEO_ID") or ""
-    return ""
+    ids = {(row.get("GEO_ID") or fallback) for row in rows} - {""}
+    if len(ids) == 1:
+        return next(iter(ids))
+    return fallback if not rows else ""
 
 
 def _how_differs(
@@ -374,7 +373,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
             last_geographies=lambda: (
-                record.geographies if (record.geo_status or {}).get("compare") else []
+                record.geographies[:2] if (record.geo_status or {}).get("compare") else []
             ),
             census_key=lambda: os.environ.get("CENSUS_API_KEY", ""),
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},

@@ -12,7 +12,7 @@ points (`omission_reasons[]`, `vintage_gap_2020`, `acs1_geography_ineligible`);
 `resolve_geography` returns ordered `GeoSpec` values authorized by that
 dataset/vintage `geography.json`; a named-county parent becomes `for=tract:*`
 without listing tracts; `versus` / `compared to` / `compare … to` emits two
-executable specs (`compare`, not `ambiguous_place`); combining
+executable specs plus leftovers (`compare` skips `ambiguous_place` only at two); combining
 published medians is declined (`median_not_aggregatable`, with `B19001` offered
 for B19013) and additive areas combine via `sqrt(sum(MOE_i^2))`, warning past
 five (`moe_aggregation_degraded`); ZIP language emits `zcta_not_zip` without
@@ -122,7 +122,9 @@ and vintage — `geo_levels()` last-wins is 324 and is the wrong county predicat
 NAME listing includes `B01003_001E` and ranks filtered matches by place class,
 population, then GEO_ID — `specs[0]` is selected, the rest stay on `geographies`
 so `ambiguous_place` still warns; a `versus` / `compared to` / `compare … to`
-split emits one spec per side with `compare` set so that warning does not fire;
+split emits one executable spec per side plus leftovers, and `compare` skips
+that warning only when there are two; a versus that is not two places keeps
+the side that resolved;
 a named-county parent of a tract wildcard is resolved from that state's county
 listing and emitted as `for=tract:*` without listing tracts; a named ACS5 ZCTA is emitted from the 5-digit
 code without listing; ACS1 has no ZCTA row so that path fail-closes before any
@@ -130,7 +132,7 @@ GET; emitted `GeoSpec` values are metadata-backed
 `for`/`in` clauses, not model prose), `build_url` (availability matrix;
 empty `variables` is the table total `001E`, then E paired with M),
 `fetch_data` (live Census; `years` fans out under a 5-in-flight / 12-year cap
-and comparison specs rewrite `for`/`in` on the built URL the same way; a `:*`
+and the two comparison specs rewrite `for`/`in` on the built URL the same way; a `:*`
 wildcard stays one GET; each URL is kept on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),

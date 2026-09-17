@@ -289,6 +289,17 @@ def test_comparison_legs_are_not_ambiguous_places() -> None:
     assert _codes(record) == []
 
 
+def test_comparison_with_leftover_matches_still_warns() -> None:
+    record = ExecutionRecord(question="Springfield versus the Texas average")
+    record.geographies = [
+        GeoSpec(name="Springfield city, Missouri", level="place"),
+        GeoSpec(name="Texas", level="state", for_spec="state:48"),
+        GeoSpec(name="Springfield city, Illinois", level="place"),
+    ]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    assert _codes(record) == ["ambiguous_place"]
+
+
 def test_question_crossing_households_and_families_warns() -> None:
     record = ExecutionRecord(question=T06)
     warnings = evaluate(record)

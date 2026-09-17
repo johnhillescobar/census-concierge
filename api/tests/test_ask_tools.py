@@ -577,6 +577,7 @@ async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
     assert message.artifact.legal is True
     assert spec.for_spec == "tract:*"
     assert spec.in_spec == "state:26 county:163"
+    assert [row.name for row in message.artifact.specs[1:]] == ["Wayne County, North Carolina"]
 
 
 async def test_all_tracts_in_michigan_stay_illegal() -> None:
@@ -621,6 +622,55 @@ async def test_versus_emits_austin_then_texas_as_comparison_legs(query: str) -> 
     assert artifact.specs[0].in_spec == "state:48"
     assert artifact.specs[1].for_spec == "state:48"
     assert artifact.specs[1].in_spec == ""
+
+
+async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Springfield versus the Texas average"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is True
+    assert artifact.specs[0].for_spec == "place:70000"
+    assert artifact.specs[1].for_spec == "state:48"
+    assert {row.in_spec for row in artifact.specs[2:]} == {"state:17", "state:51"}
+
+
+async def test_tenure_versus_still_resolves_the_place() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Renter versus owner households in Springfield"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is False
+    assert artifact.legal is True
+    assert artifact.specs[0].name == "Springfield city, Missouri"
+
+
+async def test_compared_to_a_year_still_resolves_the_place() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "population of Austin compared to 2017"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is False
+    assert artifact.legal is True
+    assert artifact.specs[0].for_spec == "place:4805000"
 
 
 async def test_springfield_alternatives_are_not_comparison_legs() -> None:

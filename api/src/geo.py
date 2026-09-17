@@ -179,18 +179,17 @@ class ResolveGeographyTool(BaseTool):
             return _fail(f"no geography metadata for {dataset} {year}")
         sides = split_versus(query) if level is None else None
         if sides:
-            specs: list[GeoSpec] = []
-            leftovers: list[GeoSpec] = []
-            for side in sides:
-                _text, hit = await self._resolve(side, None, dataset, year, entries)
-                if not hit.legal or not hit.specs:
-                    return _text, hit
-                specs.append(hit.specs[0])
-                leftovers.extend(hit.specs[1:])
-            result = ResolveGeographyResult(
-                specs=specs + leftovers, wildcard=False, legal=True, detail="", compare=True
-            )
-            return f"2 geographies: {specs[0].for_spec} vs {specs[1].for_spec}", result
+            hits = [(await self._resolve(side, None, dataset, year, entries))[1] for side in sides]
+            if all(hit.legal and hit.specs for hit in hits):
+                specs = [hit.specs[0] for hit in hits]
+                extra = [row for hit in hits for row in hit.specs[1:]]
+                result = ResolveGeographyResult(
+                    specs=specs + extra, wildcard=False, legal=True, detail="", compare=True
+                )
+                return f"2 geographies: {specs[0].for_spec} vs {specs[1].for_spec}", result
+            for hit in hits:
+                if hit.legal and hit.specs:
+                    return f"1 geography: {hit.specs[0].for_spec}", hit
         return await self._resolve(query, level, dataset, year, entries)
 
     async def _resolve(

@@ -819,3 +819,39 @@ async def test_one_failed_geography_keeps_its_url_and_the_other_rows() -> None:
     assert "key=" not in artifact.legs[1].url
     assert "secret" not in artifact.legs[1].detail
     assert len(artifact.urls) == 2
+
+
+async def test_acs1_comparison_404_does_not_destagger_the_other_leg() -> None:
+    seen: list[tuple[str, str]] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        clause = _for_clause(url)
+        seen.append((dataset, clause))
+        if dataset == "acs1" and clause.startswith("place:"):
+            return 404, ""
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        last_geographies=lambda: [AUSTIN, TEXAS],
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    years = list(range(2018, 2023))
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": years},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs1"
+    assert artifact.acs1_ineligible is False
+    assert any(dataset == "acs1" and clause.startswith("state:") for dataset, clause in seen)
+    assert not any(dataset == "acs5" and clause.startswith("state:") for dataset, clause in seen)
+    assert any(not leg.ok and leg.for_spec.startswith("place:") for leg in artifact.legs)
+    assert any(leg.ok and leg.for_spec.startswith("state:") for leg in artifact.legs)

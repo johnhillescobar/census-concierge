@@ -244,6 +244,26 @@ async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
     assert [item.code for item in response.warnings] == []
 
 
+async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
+    record = ExecutionRecord(question="Springfield versus the Texas average")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"query": "Springfield versus the Texas average"}},
+        record,
+    )
+    assert record.geo_status is not None
+    assert record.geo_status["compare"] is True
+    assert record.geographies[0].for_spec == "place:70000"
+    assert record.geographies[1].for_spec == "state:48"
+    assert len(record.geographies) > 2
+    response = assemble("Springfield vs Texas", record)
+    assert [item.code for item in response.warnings] == ["ambiguous_place"]
+    fetch = tools["fetch_data"]
+    assert fetch.last_geographies is not None
+    assert [row.for_spec for row in fetch.last_geographies()] == ["place:70000", "state:48"]
+
+
 async def test_unauthorized_geography_cannot_reach_fetch() -> None:
     record = ExecutionRecord()
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
@@ -315,7 +335,7 @@ def test_every_row_carries_an_affgeoid() -> None:
 
 def test_many_rows_do_not_name_one_geoid() -> None:
     record = ExecutionRecord()
-    record.geography = _harris(for_spec="county:*", in_spec="state:41", geoid="")
+    record.geography = _harris()
     record.rows = [
         {"GEO_ID": "0500000US41001", "B01003_001E": "1", "B01003_001M": "2"},
         {"GEO_ID": "0500000US41003", "B01003_001E": "3", "B01003_001M": "4"},
@@ -323,6 +343,17 @@ def test_many_rows_do_not_name_one_geoid() -> None:
     response = assemble("x", record)
     assert response.geoid == ""
     assert [row["GEO_ID"] for row in response.rows] == ["0500000US41001", "0500000US41003"]
+
+
+def test_year_series_of_one_area_keeps_the_geoid() -> None:
+    record = ExecutionRecord()
+    record.geography = _harris()
+    record.rows = [
+        {"GEO_ID": "0500000US48201", "year": "2019", "B01003_001E": "1", "B01003_001M": "2"},
+        {"GEO_ID": "0500000US48201", "year": "2022", "B01003_001E": "3", "B01003_001M": "4"},
+    ]
+    response = assemble("x", record)
+    assert response.geoid == "0500000US48201"
 
 
 def test_empty_matrix_universe_falls_back_to_the_search_hit() -> None:

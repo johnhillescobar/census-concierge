@@ -283,7 +283,7 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
             last_geographies=lambda: (
-                record.geographies if (record.geo_status or {}).get("compare") else []
+                record.geographies[:2] if (record.geo_status or {}).get("compare") else []
             ),
             census_key=lambda: "secret",
             http_get=lambda url: (
