@@ -1,0 +1,87 @@
+# Gate 1 (Copilot follow-ups) — CC-72
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== MUTATION wildcard-star-for-skips-acs1 =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_fetch_years.py::test_acs1_wildcard_listing_stays_on_acs5
+E   AssertionError: assert 'acs1' not in ['acs1', 'acs1', ...]
+1 failed in 0.22s
+exit 1
+
+Restored for_is_wildcard short-circuit (ACS1 200 on county:* must not switch the listing).
+
+===== MUTATION header-only-200-is-ineligible =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_fetch_years.py::test_acs1_header_only_probe_is_ineligible
+E   AssertionError: assert 'acs1' == 'acs5'
+1 failed in 0.17s
+exit 1
+
+Restored bool(parsed) so a header-only 200 is not ACS1-eligible.
+
+===== MUTATION probe-400-not-ineligible =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_fetch_years.py::test_acs1_probe_bad_request_destaggers_without_ineligible_warning
+E   AssertionError: assert True is False
+     +  where True = FetchDataResult(...).acs1_ineligible
+1 failed in 0.22s
+exit 1
+
+Restored 400 -> None (destagger without claiming geography ineligibility).
+
+===== MUTATION destagger-omitted-in-requested-order =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_vintages.py::test_destagger_omitted_years_follow_requested_order
+E   assert [2020, 2017, ...] == [2017, 2018, ..., 2020, ...]
+1 failed in 0.03s
+exit 1
+
+Restored omitted_years walk in requested order.
+
+===== MUTATION acs1-ineligible-detail-not-65000 =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_guards.py::test_small_place_series_warns_acs1_ineligible
+E   AssertionError: assert '65,000' not in 'ACS1 is not...places of 65,000+...'
+1 failed in 0.19s
+exit 1
+
+Restored publication wording without a place-population cutoff.
+
+===== MUTATION series-requested-includes-span-holes =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_fetch_years.py::test_acs1_series_with_a_2020_hole_still_omits_the_gap
+E   assert [2018, 2019, 2021, 2022] == [2018, 2019, 2020, 2021, 2022]
+1 failed in 0.26s
+exit 1
+
+Restored requested_years = span_years(requested) on a series.
+
+===== MUTATION span-years-inclusive-range =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_vintages.py::test_span_years_is_the_inclusive_range
+E   assert [2018, 2019, 2021, 2022, 2020] == [2018, 2019, 2020, 2021, 2022]
+1 failed in 0.20s
+exit 1
+
+Restored inclusive range span_years.
+
+===== MUTATION for-is-wildcard-star =====
+GOOD
+F                                                                        [100%]
+FAILED api/tests/test_fetch_years.py::test_for_is_wildcard_detects_star_listings
+E   AssertionError: assert False is True
+1 failed in 0.20s
+exit 1
+
+Restored CensusURL.for_is_wildcard.
+
+===== RESTORE =====
+87 passed in 0.99s
