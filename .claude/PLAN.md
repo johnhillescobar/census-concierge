@@ -207,7 +207,7 @@ exactly like a right one.
 Backend only. It lands before the canvas so the chart pane is built once,
 against the final shape.
 
-> **STATUS 2026-09-16.** Slice 3 in progress. Demo still `is_slice1()`. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
+> **STATUS 2026-09-17.** Slice 3 in progress. Demo still `is_slice1()`. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
 
 ### Years
 
@@ -241,7 +241,7 @@ against the final shape.
 - [x] `resolve_geography` returns a **list of specs** — level, codes, and the
       legal `for`/`in` form for that dataset and vintage. Legality comes from
       the indexed `geography.json`, never from the model.
-- [ ] `fetch_data` takes the list and fans out. A wildcard
+- [x] `fetch_data` takes the list and fans out. A wildcard
       (`for=tract:*&in=state:26 county:163`) stays **one** call — within-level
       comparison is not N calls.
 - [x] **ZCTAs.** Not ZIP codes: ZIPs are USPS delivery routes, ZCTAs are
