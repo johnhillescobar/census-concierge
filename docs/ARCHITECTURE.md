@@ -4,12 +4,15 @@
 five DESIGN §4 guards, and `make demo`; slice 2 has a single-pane Vite chat
 UI that POSTs `/ask` through types generated from the OpenAPI schema, served
 from the same FastAPI process when `web/dist` exists; slice 3 has started:
-`fetch_data` fans `years` out concurrently (cap 5) and `AskResponse` carries
-`urls[]` plus per-leg year buckets; a year series picks ACS1 when Census
-publishes every listed member (200 with rows), else non-overlapping ACS5 end years,
-omitting unpublished points (`omission_reasons[]`, `vintage_gap_2020`,
-`acs1_geography_ineligible`); `resolve_geography` returns ordered
-`GeoSpec` values authorized by that dataset/vintage `geography.json`; combining
+`fetch_data` fans `years` and comparison `GeoSpec`s out concurrently (cap 5)
+and `AskResponse` carries `urls[]` plus per-leg `for_spec` and unique year
+buckets; a year series picks ACS1 when Census publishes every listed member
+(200 with rows), else non-overlapping ACS5 end years, omitting unpublished
+points (`omission_reasons[]`, `vintage_gap_2020`, `acs1_geography_ineligible`);
+`resolve_geography` returns ordered `GeoSpec` values authorized by that
+dataset/vintage `geography.json`; a named-county parent becomes `for=tract:*`
+without listing tracts; `versus` / `compared to` / `compare … to` emits two
+executable specs (`compare`, not `ambiguous_place`); combining
 published medians is declined (`median_not_aggregatable`, with `B19001` offered
 for B19013) and additive areas combine via `sqrt(sum(MOE_i^2))`, warning past
 five (`moe_aggregation_degraded`); ZIP language emits `zcta_not_zip` without
@@ -64,8 +67,9 @@ api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
 api/src/guards.py            DESIGN §4 guards; evaluated at assemble
 api/src/vintages.py          ACS1 vs non-overlapping ACS5 year plan
 api/src/tools.py             search_tables, build_url
-api/src/fetch.py             fetch_data; years fan-out, vintage plan, cap 5 in flight
+api/src/fetch.py             fetch_data; years and comparison-geo fan-out, vintage plan, cap 5 in flight
 api/src/geo.py               resolve_geography; GeoSpec list, legality per vintage
+api/src/geo_list.py          state FIPS lookup and Census NAME listings
 api/src/census_url.py        CensusURL — default form never carries `&key=`
 api/src/prompts.py           one system prompt; date and vintages injected
 .github/workflows/check.yml  the gate, on every PR
@@ -105,8 +109,9 @@ One FastAPI app, one question-answering route: `POST /ask`. `/docs` and
 mounts it at `/` (`StaticFiles`, directory index). There is no CORS middleware.
 The route calls `run_ask(question)` and
 returns `AskResponse` — `answer`, `urls[]` (one key-redacted Census URL per
-attempted vintage), per-leg `legs[]` and year buckets (`requested` /
-`attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`,
+attempted request), per-leg `legs[]` (`for_spec` identifies the geography) and
+unique year buckets (`requested` / `attempted` / `succeeded` / `failed` /
+`omitted`), `rows`, `moe`, `geoid`,
 `universe`, `table_id`, `alternatives[]`, `warnings[]`. Rows are dicts, not a
 per-row model. Start with `uv run uvicorn src.main:app --reload`.
 
@@ -116,13 +121,17 @@ not `create_agent`. Four `BaseTool`s: `search_tables` (Slice 0 index, then `rera
 and vintage — `geo_levels()` last-wins is 324 and is the wrong county predicate;
 NAME listing includes `B01003_001E` and ranks filtered matches by place class,
 population, then GEO_ID — `specs[0]` is selected, the rest stay on `geographies`
-so `ambiguous_place` still warns; a named ACS5 ZCTA is emitted from the 5-digit
+so `ambiguous_place` still warns; a `versus` / `compared to` / `compare … to`
+split emits one spec per side with `compare` set so that warning does not fire;
+a named-county parent of a tract wildcard is resolved from that state's county
+listing and emitted as `for=tract:*` without listing tracts; a named ACS5 ZCTA is emitted from the 5-digit
 code without listing; ACS1 has no ZCTA row so that path fail-closes before any
 GET; emitted `GeoSpec` values are metadata-backed
 `for`/`in` clauses, not model prose), `build_url` (availability matrix;
 empty `variables` is the table total `001E`, then E paired with M),
 `fetch_data` (live Census; `years` fans out under a 5-in-flight / 12-year cap
-and keeps each URL on failure). `assemble()`
+and comparison specs rewrite `for`/`in` on the built URL the same way; a `:*`
+wildcard stays one GET; each URL is kept on failure). `assemble()`
 pairs each estimate with its `M`, classifies `alternatives[].reason` (universe,
 distribution versus median, collapsed table, race iteration, or related table),
 and puts AFFGEOID
@@ -201,7 +210,7 @@ futures.
 | ~~0~~ | ~~the index~~ — done, above |
 | ~~1~~ | ~~`POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`~~ — done, above |
 | ~~2~~ | ~~`web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32)~~ — done, above |
-| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); ACS1 where published else non-overlapping ACS5 (CC-72); remaining series guards still open |
+| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); ACS1 where published else non-overlapping ACS5 (CC-72); wildcard tract parent + versus-split geo fan-out (CC-73); remaining series guards still open |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |

@@ -194,6 +194,8 @@ def geography_not_nested(record: GuardRecord) -> AskWarning | None:
 
 
 def ambiguous_place(record: GuardRecord) -> AskWarning | None:
+    if (record.geo_status or {}).get("compare"):
+        return None
     matches = record.geographies
     if len(matches) <= 1:
         return None

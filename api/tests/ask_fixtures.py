@@ -88,6 +88,22 @@ def _list_geographies(
             "population": "4731145",
         },
         {
+            "name": "Wayne County, North Carolina",
+            "level": "county",
+            "for": "county:191",
+            "in": "state:37",
+            "geoid": "0500000US37191",
+            "population": "117333",
+        },
+        {
+            "name": "Wayne County, Michigan",
+            "level": "county",
+            "for": "county:163",
+            "in": "state:26",
+            "geoid": "0500000US26163",
+            "population": "1770644",
+        },
+        {
             "name": "Harrison County, Texas",
             "level": "county",
             "for": "county:203",
@@ -266,6 +282,9 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
+            last_geographies=lambda: (
+                record.geographies if (record.geo_status or {}).get("compare") else []
+            ),
             census_key=lambda: "secret",
             http_get=lambda url: (
                 200,

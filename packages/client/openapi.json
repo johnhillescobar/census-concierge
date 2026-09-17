@@ -52,7 +52,7 @@
             "type": "string"
           },
           "attempted_years": {
-            "description": "Years for which a Census request was issued.",
+            "description": "Unique vintages for which a Census request was issued.",
             "items": {
               "type": "integer"
             },
@@ -60,7 +60,7 @@
             "type": "array"
           },
           "failed_years": {
-            "description": "Attempted years that failed or timed out.",
+            "description": "Unique attempted vintages with at least one failed or timed-out call.",
             "items": {
               "type": "integer"
             },
@@ -73,7 +73,7 @@
             "type": "string"
           },
           "legs": {
-            "description": "Per-year outcome in requested order, including failed legs.",
+            "description": "Per-request outcome in requested order, including failed legs.",
             "items": {
               "$ref": "#/components/schemas/RequestLeg"
             },
@@ -141,7 +141,7 @@
             "type": "array"
           },
           "succeeded_years": {
-            "description": "Attempted years whose HTTP call succeeded.",
+            "description": "Unique attempted vintages with at least one successful HTTP call.",
             "items": {
               "type": "integer"
             },
@@ -159,7 +159,7 @@
             "type": "string"
           },
           "urls": {
-            "description": "Key-redacted Census API URLs, one per attempted year, in requested order.",
+            "description": "Key-redacted Census API URLs, one per attempted request, in requested order.",
             "items": {
               "type": "string"
             },
@@ -234,6 +234,12 @@
           "detail": {
             "description": "Redacted reason when ok is false; empty on success.",
             "title": "Detail",
+            "type": "string"
+          },
+          "for_spec": {
+            "default": "",
+            "description": "Census for= clause for this geography leg; empty when the built URL is used.",
+            "title": "For Spec",
             "type": "string"
           },
           "ok": {

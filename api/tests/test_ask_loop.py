@@ -226,6 +226,24 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     assert "Cook County, Minnesota" in response.warnings[0].detail
 
 
+async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
+    record = ExecutionRecord(question="Median gross rent in Austin versus the Texas average")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"],
+        {
+            "id": "2",
+            "args": {"query": "Median gross rent in Austin versus the Texas average"},
+        },
+        record,
+    )
+    assert record.geo_status is not None
+    assert record.geo_status["compare"] is True
+    assert [row.level for row in record.geographies] == ["place", "state"]
+    response = assemble("Austin vs Texas", record)
+    assert [item.code for item in response.warnings] == []
+
+
 async def test_unauthorized_geography_cannot_reach_fetch() -> None:
     record = ExecutionRecord()
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]

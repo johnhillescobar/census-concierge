@@ -7,6 +7,7 @@ import time
 
 import httpx
 from src.census_url import CensusURL
+from src.contract import GeoSpec
 from src.fetch import MAX_IN_FLIGHT, MAX_YEARS, FetchDataTool, unique_years
 
 TEMPLATE = CensusURL(
@@ -59,6 +60,17 @@ def test_with_dataset_rewrites_acs5_to_acs1() -> None:
     assert "/2019/acs/acs1" in str(switched)
     assert "for=county:201" in str(switched)
     assert TEMPLATE.dataset == "acs5"
+
+
+def test_with_geography_rewrites_for_and_in() -> None:
+    rewritten = TEMPLATE.with_geography("tract:*", "state:26 county:163")
+    assert rewritten.for_is_wildcard() is True
+    assert "for=tract:*" in str(rewritten)
+    encoded = str(rewritten)
+    assert "in=state:26 county:163" in encoded or "in=state:26+county:163" in encoded
+    assert "county:201" not in encoded
+    assert TEMPLATE.for_is_wildcard() is False
+    assert "for=county:201" in str(TEMPLATE)
 
 
 def test_for_is_wildcard_detects_star_listings() -> None:
@@ -651,3 +663,159 @@ async def test_acs1_malformed_probe_destaggers_without_ineligible_warning() -> N
     assert artifact.dataset == "acs5"
     assert artifact.acs1_ineligible is False
     assert artifact.attempted_years == [2017, 2022]
+
+
+def _for_clause(url: str) -> str:
+    marker = "&for="
+    start = url.find(marker)
+    if start < 0:
+        marker = "?for="
+        start = url.find(marker)
+    if start < 0:
+        return ""
+    rest = url[start + len(marker) :]
+    amp = rest.find("&")
+    return rest if amp < 0 else rest[:amp]
+
+
+AUSTIN = GeoSpec(
+    level="place",
+    name="Austin city, Texas",
+    for_spec="place:4805000",
+    in_spec="state:48",
+    geoid="1600000US4805000",
+    dataset="acs5",
+    vintage=2024,
+)
+TEXAS = GeoSpec(
+    level="state",
+    name="Texas",
+    for_spec="state:48",
+    geoid="0400000US48",
+    dataset="acs5",
+    vintage=2024,
+)
+WAYNE_TRACTS = GeoSpec(
+    level="tract",
+    name="all tracts in Wayne County, Michigan",
+    for_spec="tract:*",
+    in_spec="state:26 county:163",
+    dataset="acs5",
+    vintage=2024,
+)
+
+
+def _geo_payload(name: str, geoid: str, year: int) -> list[list[str]]:
+    return [
+        ["NAME", "GEO_ID", "B01003_001E", "B01003_001M"],
+        [name, geoid, str(year), "4"],
+    ]
+
+
+async def test_wildcard_spec_is_one_request_even_when_many_rows_return() -> None:
+    seen: list[str] = []
+    rows = [
+        ["NAME", "GEO_ID", "B01003_001E", "B01003_001M"],
+        *[[f"Census Tract {i}", f"1400000US26163{i:06d}", "10", "1"] for i in range(627)],
+    ]
+
+    def http_get(url: str) -> tuple[int, object]:
+        seen.append(url)
+        assert _for_clause(url) == "tract:*"
+        assert "in=state:26 county:163" in url or "in=state:26+county:163" in url
+        return 200, rows
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        last_geographies=lambda: [WAYNE_TRACTS],
+        census_key=lambda: "secret",
+        http_get=http_get,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert len(seen) == 1
+    assert len(artifact.urls) == 1
+    assert len(artifact.legs) == 1
+    assert artifact.legs[0].for_spec == "tract:*"
+    assert len(artifact.rows) == 627
+    assert artifact.attempted_years == [2024]
+
+
+async def test_comparison_specs_are_two_successful_legs() -> None:
+    seen: list[str] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        clause = _for_clause(url)
+        seen.append(clause)
+        if clause.startswith("place:"):
+            return 200, _geo_payload("Austin city, Texas", "1600000US4805000", 2024)
+        return 200, _geo_payload("Texas", "0400000US48", 2024)
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        last_geographies=lambda: [AUSTIN, TEXAS],
+        census_key=lambda: "secret",
+        http_get=http_get,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert seen == ["place:4805000", "state:48"]
+    assert artifact.ok is True
+    assert artifact.attempted_years == [2024]
+    assert artifact.succeeded_years == [2024]
+    assert artifact.failed_years == []
+    assert [leg.for_spec for leg in artifact.legs] == ["place:4805000", "state:48"]
+    assert all(leg.ok for leg in artifact.legs)
+    assert [row["NAME"] for row in artifact.rows] == ["Austin city, Texas", "Texas"]
+    assert all("key=" not in url for url in artifact.urls)
+
+
+async def test_one_failed_geography_keeps_its_url_and_the_other_rows() -> None:
+    def http_get(url: str) -> tuple[int, object]:
+        clause = _for_clause(url)
+        if clause.startswith("state:"):
+            return 400, f"unknown geography for {url}"
+        return 200, _geo_payload("Austin city, Texas", "1600000US4805000", 2024)
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        last_geographies=lambda: [AUSTIN, TEXAS],
+        census_key=lambda: "secret",
+        http_get=http_get,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.ok is True
+    assert artifact.attempted_years == [2024]
+    assert artifact.succeeded_years == [2024]
+    assert artifact.failed_years == [2024]
+    assert [row["NAME"] for row in artifact.rows] == ["Austin city, Texas"]
+    assert artifact.legs[0].ok is True
+    assert artifact.legs[1].ok is False
+    assert artifact.legs[1].status_code == 400
+    assert artifact.legs[1].for_spec == "state:48"
+    assert "for=state:48" in artifact.legs[1].url
+    assert "key=" not in artifact.legs[1].url
+    assert "secret" not in artifact.legs[1].detail
+    assert len(artifact.urls) == 2

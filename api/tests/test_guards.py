@@ -279,6 +279,16 @@ def test_one_geography_is_not_ambiguous() -> None:
     assert _codes(record) == []
 
 
+def test_comparison_legs_are_not_ambiguous_places() -> None:
+    record = ExecutionRecord(question="Median gross rent in Austin versus the Texas average")
+    record.geographies = [
+        GeoSpec(name="Austin city, Texas", level="place", for_spec="place:4805000"),
+        GeoSpec(name="Texas", level="state", for_spec="state:48"),
+    ]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    assert _codes(record) == []
+
+
 def test_question_crossing_households_and_families_warns() -> None:
     record = ExecutionRecord(question=T06)
     warnings = evaluate(record)

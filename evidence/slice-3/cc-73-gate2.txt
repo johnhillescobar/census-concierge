@@ -1,0 +1,279 @@
+CC-73 Gate 2 -- cold review
+branch: feat/cc-73-geo-fanout
+HEAD: a7c65c97089254c399347dc09238bbd36b57a64f
+implementation: uncommitted working tree (HEAD == origin/main; no commits on the branch)
+gate1 evidence: untracked evidence/slice-3/cc-73-gate1.txt (not re-run)
+base: origin/main (a7c65c97089254c399347dc09238bbd36b57a64f)
+diff: git diff origin/main plus untracked api/src/geo_list.py
+E2E / make demo / make eval: not this phase; missing scoreboard expected
+
+========== git rev-parse HEAD ==========
+
+a7c65c97089254c399347dc09238bbd36b57a64f
+
+========== git rev-parse origin/main ==========
+
+a7c65c97089254c399347dc09238bbd36b57a64f
+
+========== git branch --show-current ==========
+
+feat/cc-73-geo-fanout
+
+========== git log --oneline origin/main..HEAD ==========
+
+(empty)
+
+========== git status ==========
+
+On branch feat/cc-73-geo-fanout
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in the working directory)
+	modified:   api/src/ask.py
+	modified:   api/src/census_url.py
+	modified:   api/src/contract.py
+	modified:   api/src/fetch.py
+	modified:   api/src/geo.py
+	modified:   api/src/guards.py
+	modified:   api/src/tools.py
+	modified:   api/tests/ask_fixtures.py
+	modified:   api/tests/test_ask_loop.py
+	modified:   api/tests/test_ask_route.py
+	modified:   api/tests/test_ask_tools.py
+	modified:   api/tests/test_fetch_years.py
+	modified:   api/tests/test_guards.py
+	modified:   docs/ARCHITECTURE.md
+	modified:   packages/client/openapi.json
+	modified:   packages/client/schema.d.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	api/src/geo_list.py
+	evidence/slice-3/cc-73-gate1.txt
+	evidence/slice-3/cc-73-preflight-claims.md
+	evidence/slice-3/cc-73-preflight.txt
+	evidence/slice-3/gate1.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+========== git diff --stat origin/main ==========
+
+warning: in the working copy of 'api/src/census_url.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'api/src/fetch.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'api/src/geo.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'api/src/guards.py', CRLF will be replaced by LF the next time Git touches it
+ api/src/ask.py                |   7 +-
+ api/src/census_url.py         |  27 ++++-
+ api/src/contract.py           |  22 +++-
+ api/src/fetch.py              |  54 ++++++---
+ api/src/geo.py                | 257 +++++++++++++++---------------------------
+ api/src/guards.py             |   2 +
+ api/src/tools.py              |   2 +-
+ api/tests/ask_fixtures.py     |  19 ++++
+ api/tests/test_ask_loop.py    |  18 +++
+ api/tests/test_ask_route.py   |   1 +
+ api/tests/test_ask_tools.py   | 112 +++++++++++++++++-
+ api/tests/test_fetch_years.py | 168 +++++++++++++++++++++++++++
+ api/tests/test_guards.py      |  10 ++
+ docs/ARCHITECTURE.md          |  33 ++++--
+ packages/client/openapi.json  |  16 ++-
+ packages/client/schema.d.ts   |  16 ++-
+ 16 files changed, 549 insertions(+), 215 deletions(-)
+
+Untracked product module not in that stat: api/src/geo_list.py
+
+Code under review: geo_list.py (new), geo.py versus-split + named-county parent
+listing, fetch.py last_geographies fan-out + unique year buckets +
+RequestLeg.for_spec, census_url.with_geography and urlencode safe=":,* ",
+ask.py compare absorb / last_geographies gate, guards.ambiguous_place skipped
+when compare, contract/OpenAPI RequestLeg.for_spec, ARCHITECTURE.md, tests.
+
+========== Gate 2 Pass 1 -- generic bugs ==========
+cold read of origin/main working-tree diff including untracked api/src/geo_list.py;
+no ticket / PLAN / preflight intent
+
+Pass 1 findings:
+
+1. Versus resolution keeps only specs[0] per side and sets compare=True.
+   ResolveGeographyTool._arun splits on versus / compared to / compare…to, then
+   appends hit.specs[0] from each side and drops the rest. guards.ambiguous_place
+   returns None whenever geo_status.compare is set. An ambiguous left or right
+   side (Springfield vs Illinois) is fetched as the ranked first match with no
+   leftover specs and no warning. Silent geography substitution.
+
+2. Named-county parent listing also ranks and keeps one row. "every tract in
+   Wayne County" with no state lists counties (state:* if needed),
+   rank_matches(filter_rows(...))[0], and emits one tract:* spec. Wayne NC is
+   discarded. geographies length is 1, so ambiguous_place cannot fire.
+   test_tracts_in_wayne_without_a_state_pick_michigan locks this in.
+
+3. Year/geo fan-out collides in the year buckets. _pack unique_years()s
+   attempted/succeeded/failed from legs. Two geos times one year that fails on
+   only one side puts that year in both succeeded_years and failed_years.
+   ok = any(leg.ok), so a one-sided comparison is a successful fetch. Failed
+   URL is kept on the leg. Consumers of the year lists cannot see which
+   geography failed; only legs[].for_spec can.
+
+4. ACS1 204/404 on any cartesian leg retries the entire plan as ACS5 and
+   discards the first gather, including legs that already returned 200.
+   _acs1_ok still probes only the built URL (build_url's last_geography =
+   specs[0]), then fetch rewrites for/in for every compare spec.
+
+5. Top-level AskResponse.geoid uses record.geography (always geographies[0])
+   as fallback in _response_geoid, which returns fallback whenever it is
+   non-empty. A two-area comparison therefore names the first side's AFFGEOID
+   even when rows contain two GEO_IDs. Contract text says empty when many
+   areas are returned. Wildcard specs empty geoid and escaped this; compare
+   specs carry geoids and do not.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Dropped URLs: nothing. Failed compare legs keep the redacted URL on
+  RequestLeg.url and on urls[].
+- Wildcard expanded into N requests: nothing. A :* spec is one GET; ask.py
+  only passes last_geographies when compare is set, so a tract:* resolve does
+  not fan out listed tracts.
+- Comparison legs tripping ambiguous_place as a false positive of two
+  executable specs: nothing. The compare flag skips that guard for the
+  two-leg case. The defect is the opposite (Pass 1 #1): real ambiguity on a
+  side is also skipped.
+- Key leakage: nothing. with_geography rewrites self._redacted; with_key is
+  only at _get; failed-leg detail uses redact_text; list_census_names
+  exception text is str(CensusURL).
+- Budget-busting: nothing from reading the diff. Machines report largest
+  file LOC 400 on the cap; no ceiling raised.
+- Race: nothing. CensusURL is immutable; fan-out shares a template and a
+  bound semaphore (MAX_IN_FLIGHT 5).
+
+========== Gate 2 Pass 2 -- review-pr.md (machines first) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3108 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)          16.82 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.744 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    no violations
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+106 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 22 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 89%]
+...................................                                      [100%]
+323 passed in 4.57s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+machines did not stop the rest of the playbook
+
+---------- claim ----------
+A versus / compared-to query now resolves to two GeoSpecs and fetch_data issues
+one Census GET per spec (wildcard still one GET), with each leg's redacted URL
+and for_spec on the contract. E2E scoreboard is not in this phase.
+
+---------- evidence ----------
+Not this phase. No make demo / make eval. Missing demo/eval numbers are
+expected; do not fail the review solely for no scoreboard.
+
+---------- scope ----------
+Slice 3: fetch_data fans the geography list; a :* wildcard stays one call;
+versus split. No new tool, route, or graph node. ARCHITECTURE.md updated.
+16 tracked files + untracked geo_list.py (17 product files vs ~15): OpenAPI/TS
+client regen for RequestLeg.for_spec, listing helpers split out of geo.py to
+hold the 400-line cap (largest file LOC is 400 on the nose). Not-in-this-slice
+items (charts, memory, PDF, auth) untouched. Place-vs-parent shared-sample
+MOE note is a later unchecked PLAN item and is absent here.
+
+---------- silent-wrong-answer ----------
+URL/MOE/universe still come from the fetch artifact; failed compare legs keep
+their redacted URL. CensusURL remains the redaction type; with_geography does
+not reattach &key=. Rows stay in the artifact; tool content names legs and
+URLs, not estimates. Guards still warn and ship; no blocking question.
+
+Blockers (silent geography repairs, not follow-ups):
+- Pass 1 #1: compare keeps specs[0] per side and disables ambiguous_place.
+- Pass 1 #2: unnamed-state county parent is silently the largest Wayne.
+
+Also (not dropped URLs, but contract/join hazards):
+- Pass 1 #3: year buckets are unique-by-year; one failed geo marks the year
+  failed and succeeded; ok is still true.
+- Pass 1 #5: top-level geoid is the first comparison member, not empty.
+
+---------- shape ----------
+No new tool (fan-out from last_geographies when compare). No new route.
+RequestLeg.for_spec is a contract field; client regenerated. geo_list.py is
+listing/FIPS helpers split from geo.py, not a second geography tool. No
+add_node. ARCHITECTURE.md matches the compare / tract-parent / fan-out shape,
+including the choice to skip ambiguous_place on compare.
+
+---------- tests ----------
+Behaviour on HTTP for= clauses, one wildcard GET, two compare legs, failed-leg
+URL. Guard tests do not assert prompt text. No same-table-for-any-input fake.
+A new test file is not demo evidence; E2E is next.
+test_tracts_in_wayne_without_a_state_pick_michigan and
+test_versus_geography_does_not_warn_ambiguous_place encode the silent-pick
+behaviour — they can fail, but they will not catch Pass 1 #1 / #2 as bugs.
+
+---------- verdict ----------
+Not yet.
+
+Single most important reason: versus and named-county-parent resolution silently
+substitute the ranked first geography and turn off ambiguous_place, so an
+ambiguous comparison or an unstated Wayne County is an invisible fix rather
+than candidates on the answer.
+
+Other Pass 1 items (year-bucket collision, ACS1 any-404 destagger, top-level
+geoid) stay listed above; they do not outrank the silent geography substitution.
+E2E numbers are absent because this phase does not run them.

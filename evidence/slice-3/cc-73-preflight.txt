@@ -1,0 +1,185 @@
+HEAD a0de68cd0c9451a17e37185f94d0ee9ab06e2c94
+a0de68c Merge pull request #44 from johnhillescobar:feat/cc-72-vintages
+CC-63 merged 8461870 Merge pull request #35 feat/cc-63-geo-specs
+
+loc ask.py           395
+loc geo.py           400
+loc guards.py        345
+loc tools.py         262
+loc fetch.py         341
+loc vintages.py      131
+loc census_url.py    83
+loc contract.py      96
+
+FetchDataInput fields ['years']
+FetchDataResult fields ['ok', 'url', 'urls', 'rows', 'status_code', 'detail', 'legs', 'requested_years', 'attempted_years', 'succeeded_years', 'failed_years', 'omitted_years', 'omission_reasons', 'dataset', 'acs1_ineligible']
+RequestLeg fields ['year', 'url', 'ok', 'status_code', 'detail']
+GeoSpec fields ['level', 'name', 'geoid', 'for_spec', 'in_spec', 'dataset', 'vintage', 'codes']
+BuildUrlInput fields ['table_id', 'variables', 'dataset', 'vintage', 'for_spec', 'in_spec']
+FetchDataTool._arun (self, years: 'list[int] | None' = None) -> 'tuple[str, FetchDataResult]'
+BuildUrlTool._arun (self, table_id: 'str', variables: 'list[str] | None' = None, dataset: 'str' = 'acs5', vintage: 'int | None' = None, for_spec: 'str | None' = None, in_spec: 'str | None' = None) -> 'tuple[str, BuildUrlResult]'
+CensusURL methods ['__init__', '__repr__', '__str__', 'for_is_wildcard', 'with_dataset', 'with_key', 'with_year']
+
+acs5 2024 tract rows:
+  name='tract' code='140' requires=('state', 'county') wildcard=('county',) wildcard_for='county'
+acs5 2024 county/place/state rows (first of each):
+  county n=5
+  name='county' code='050' requires=('state',) wildcard=('state',) wildcard_for='state'
+  name='county' code='313' requires=('metropolitan statistical area/micropolitan statistical area', 'state (or part)') wildcard=() wildcard_for=''
+  place n=1
+  name='place' code='160' requires=('state',) wildcard=('state',) wildcard_for='state'
+  state n=1
+  name='state' code='040' requires=() wildcard=() wildcard_for=''
+
+nests_in live acs5 2024
+  tract in county True
+  tract in state  True
+  tract in place  False
+  place in state  True
+  county in state  True
+legal_predicate tract
+  tract in {state,county} wild     GeoLevel(name='tract', code='140', requires=('state', 'county'), wildcard=('county',), wildcard_for='county')
+  tract in {state,county} named    GeoLevel(name='tract', code='140', requires=('state', 'county'), wildcard=('county',), wildcard_for='county')
+  tract in {state} wild            None
+  tract in {county} wild           None
+  tract in {} wild                 None
+
+parse
+  'All tracts in Wayne County, Michigan'
+    detect_level='county' state=('michigan', '26') place_token='all tracts in wayne'
+  'all tracts in Wayne County, Michigan'
+    detect_level='county' state=('michigan', '26') place_token='all tracts in wayne'
+  'poverty by census tract within Wayne County'
+    detect_level='county' state=None place_token='poverty by census tract within wayne'
+  'Total population without health insurance across every tract in Wayne County'
+    detect_level='county' state=None place_token='total population without health insurance across every tract in wayne'
+  'all tracts in Michigan'
+    detect_level='tract' state=('michigan', '26') place_token='all tracts'
+  'all counties in Oregon'
+    detect_level='county' state=('oregon', '41') place_token='all'
+  'Compare median gross rent in Austin to the Texas average'
+    detect_level=None state=('texas', '48') place_token='compare median gross rent austin to average'
+  'Median gross rent in Austin versus the Texas average'
+    detect_level=None state=('texas', '48') place_token='median gross rent austin versus average'
+  'Austin, Texas'
+    detect_level=None state=('texas', '48') place_token='austin'
+  'the Texas average'
+    detect_level=None state=('texas', '48') place_token='average'
+  'Texas'
+    detect_level=None state=('texas', '48') place_token='texas'
+  'median gross rent in Austin'
+    detect_level=None state=None place_token='median gross rent in austin'
+
+resolve_geography (live geography.json; national place:* listing skipped)
+'All tracts in Wayne County, Michigan'
+  legal=False nested=True wildcard=True n=0 listed=[]
+  specs=[]
+  detail='tract nested in unresolved county'
+  content='tract nested in unresolved county'
+'all tracts in Wayne County, Michigan'
+  legal=False nested=True wildcard=True n=0 listed=[]
+  specs=[]
+  detail='tract nested in unresolved county'
+  content='tract nested in unresolved county'
+'poverty by census tract within Wayne County'
+  legal=False nested=True wildcard=True n=0 listed=[]
+  specs=[]
+  detail='tract nested in unresolved county'
+  content='tract nested in unresolved county'
+'Total population without health insurance across every tract in Wayne County'
+  legal=False nested=True wildcard=True n=0 listed=[]
+  specs=[]
+  detail='tract nested in unresolved county'
+  content='tract nested in unresolved county'
+'all tracts in Michigan'
+  legal=False nested=True wildcard=True n=0 listed=[]
+  specs=[]
+  detail="tract with in={'state': '26'} is not a legal combination"
+  content="tract with in={'state': '26'} is not a legal combination"
+'all counties in Oregon'
+  legal=True nested=True wildcard=True n=1 listed=[]
+  specs=["'county:*' in='state:41' geoid='' lvl=county"]
+  detail=''
+  content='wildcard county:* state:41'
+'Compare median gross rent in Austin to the Texas average'
+  legal=True nested=True wildcard=False n=0 listed=[('place', {'state': '48'}, 'acs5', 2024)]
+  specs=[]
+  detail="no place matched 'Compare median gross rent in Austin to the Texas average'"
+  content="no place matched 'Compare median gross rent in Austin to the Texas average'"
+'Median gross rent in Austin versus the Texas average'
+  legal=True nested=True wildcard=False n=0 listed=[('place', {'state': '48'}, 'acs5', 2024)]
+  specs=[]
+  detail="no place matched 'Median gross rent in Austin versus the Texas average'"
+  content="no place matched 'Median gross rent in Austin versus the Texas average'"
+'Austin, Texas'
+  legal=True nested=True wildcard=False n=1 listed=[('place', {'state': '48'}, 'acs5', 2024)]
+  specs=["'place:05000' in='state:48' geoid='1600000US4805000' lvl=place"]
+  detail=''
+  content='1 geography: place:05000 state:48'
+'the Texas average'
+  legal=True nested=True wildcard=False n=0 listed=[('place', {'state': '48'}, 'acs5', 2024)]
+  specs=[]
+  detail="no place matched 'the Texas average'"
+  content="no place matched 'the Texas average'"
+'Texas'
+  legal=True nested=True wildcard=False n=1 listed=[]
+  specs=["'state:48' in='' geoid='0400000US48' lvl=state"]
+  detail=''
+  content='1 geography: state:48'
+'median gross rent in Austin'
+  legal=True nested=True wildcard=False n=0 listed=[('place', {'state': '*'}, 'acs5', 2024)]
+  specs=[]
+  detail="no place matched 'median gross rent in Austin'"
+  content="no place matched 'median gross rent in Austin'"
+
+absorb keeps specs[0] only
+  geographies n=1 geography=level='county' name='all counties in Oregon' geoid='' for_spec='county:*' in_spec='state:41' dataset='acs5' vintage=2024 codes={'state': '41', 'county': '*'}
+
+fixture resolve (api/tests/ask_fixtures.py)
+  'Austin, Texas' legal=True wild=False n=1 ["'place:4805000' in='state:48' geoid='1600000US4805000' lvl=place"] detail=''
+  'Compare median gross rent in Austin to the Texas average' legal=True wild=False n=0 [] detail="no place matched 'Compare median gross rent in Austin to the Texas average'"
+  'All tracts in Wayne County, Michigan' legal=False wild=True n=0 [] detail='tract nested in unresolved county'
+  'Texas' legal=True wild=False n=1 ["'state:48' in='' geoid='0400000US48' lvl=state"] detail=''
+
+live NAME listing (counties in MI)
+  MI counties n=83 wayne=[{'name': 'Wayne County, Michigan', 'level': 'county', 'for': 'county:163', 'in': 'state:26', 'geoid': '0500000US26163', 'population': '1772259'}]
+
+targeted Census GETs
+  wayne county           HTTP 200 rows=1 sample=['Wayne County, Michigan', '0500000US26163', '26', '163']
+    URL https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID&for=county:163&in=state:26
+  austin place 05000     HTTP 200 rows=1 sample=['Austin city, Texas', '1600000US4805000', '48', '05000']
+    URL https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID&for=place:05000&in=state:48
+  texas state            HTTP 200 rows=1 sample=['Texas', '0400000US48', '48']
+    URL https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID&for=state:48
+  tracts wayne           HTTP 200 rows=627 sample=['Census Tract 5001; Wayne County; Michigan', '1400000US26163500100', '26', '163', '500100']
+    URL https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID&for=tract:%2A&in=state:26+county:163
+  b25064 austin          HTTP 200 rows=1 sample=['Austin city, Texas', '1600000US4805000', '1729', '14', '48', '05000']
+    URL https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:05000&in=state:48
+  b25064 texas           HTTP 200 rows=1 sample=['Texas', '0400000US48', '1403', '4', '48']
+    URL https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=state:48
+
+check_budgets --structural-only
+
+BUDGETS
+
+  ok    api src LOC               2965 <= 4000
+  ok    api src files               21 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+
+CensusURL wildcard
+  str=https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=tract:%2A&in=state:26+county:163
+  for_is_wildcard=True
+  has with_geography=False
+

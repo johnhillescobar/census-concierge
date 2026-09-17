@@ -60,12 +60,12 @@ export interface components {
             answer: string;
             /**
              * Attempted Years
-             * @description Years for which a Census request was issued.
+             * @description Unique vintages for which a Census request was issued.
              */
             attempted_years: number[];
             /**
              * Failed Years
-             * @description Attempted years that failed or timed out.
+             * @description Unique attempted vintages with at least one failed or timed-out call.
              */
             failed_years: number[];
             /**
@@ -75,7 +75,7 @@ export interface components {
             geoid: string;
             /**
              * Legs
-             * @description Per-year outcome in requested order, including failed legs.
+             * @description Per-request outcome in requested order, including failed legs.
              */
             legs: components["schemas"]["RequestLeg"][];
             /**
@@ -109,7 +109,7 @@ export interface components {
             }[];
             /**
              * Succeeded Years
-             * @description Attempted years whose HTTP call succeeded.
+             * @description Unique attempted vintages with at least one successful HTTP call.
              */
             succeeded_years: number[];
             /**
@@ -124,7 +124,7 @@ export interface components {
             universe: string;
             /**
              * Urls
-             * @description Key-redacted Census API URLs, one per attempted year, in requested order.
+             * @description Key-redacted Census API URLs, one per attempted request, in requested order.
              */
             urls: string[];
             /**
@@ -158,6 +158,12 @@ export interface components {
              * @description Redacted reason when ok is false; empty on success.
              */
             detail: string;
+            /**
+             * For Spec
+             * @description Census for= clause for this geography leg; empty when the built URL is used.
+             * @default
+             */
+            for_spec: string;
             /**
              * Ok
              * @description Whether this HTTP call returned parseable rows.

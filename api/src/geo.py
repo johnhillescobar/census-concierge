@@ -7,70 +7,18 @@ import re
 from collections.abc import Callable
 from typing import Any, Literal
 
-import httpx
 from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
-from src.census_url import CENSUS_API, CensusURL
-from src.contract import GeoSpec
+from src.contract import GeoSpec, clause_codes
+from src.geo_list import (
+    filter_rows,
+    find_state,
+    rank_matches,
+    token_is_dc,
+)
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput, ToolResult
-
-# Name, USPS, FIPS. USPS is matched only after a comma so OR does not eat "for".
-STATES: tuple[tuple[str, str, str], ...] = (
-    ("alabama", "AL", "01"),
-    ("alaska", "AK", "02"),
-    ("arizona", "AZ", "04"),
-    ("arkansas", "AR", "05"),
-    ("california", "CA", "06"),
-    ("colorado", "CO", "08"),
-    ("connecticut", "CT", "09"),
-    ("delaware", "DE", "10"),
-    ("district of columbia", "DC", "11"),
-    ("florida", "FL", "12"),
-    ("georgia", "GA", "13"),
-    ("hawaii", "HI", "15"),
-    ("idaho", "ID", "16"),
-    ("illinois", "IL", "17"),
-    ("indiana", "IN", "18"),
-    ("iowa", "IA", "19"),
-    ("kansas", "KS", "20"),
-    ("kentucky", "KY", "21"),
-    ("louisiana", "LA", "22"),
-    ("maine", "ME", "23"),
-    ("maryland", "MD", "24"),
-    ("massachusetts", "MA", "25"),
-    ("michigan", "MI", "26"),
-    ("minnesota", "MN", "27"),
-    ("mississippi", "MS", "28"),
-    ("missouri", "MO", "29"),
-    ("montana", "MT", "30"),
-    ("nebraska", "NE", "31"),
-    ("nevada", "NV", "32"),
-    ("new hampshire", "NH", "33"),
-    ("new jersey", "NJ", "34"),
-    ("new mexico", "NM", "35"),
-    ("new york", "NY", "36"),
-    ("north carolina", "NC", "37"),
-    ("north dakota", "ND", "38"),
-    ("ohio", "OH", "39"),
-    ("oklahoma", "OK", "40"),
-    ("oregon", "OR", "41"),
-    ("pennsylvania", "PA", "42"),
-    ("rhode island", "RI", "44"),
-    ("south carolina", "SC", "45"),
-    ("south dakota", "SD", "46"),
-    ("tennessee", "TN", "47"),
-    ("texas", "TX", "48"),
-    ("utah", "UT", "49"),
-    ("vermont", "VT", "50"),
-    ("virginia", "VA", "51"),
-    ("washington", "WA", "53"),
-    ("west virginia", "WV", "54"),
-    ("wisconsin", "WI", "55"),
-    ("wyoming", "WY", "56"),
-    ("puerto rico", "PR", "72"),
-)
 
 _LEVELS = {
     "county": "county",
@@ -105,14 +53,12 @@ _COUNTY = re.compile(
     r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
     re.IGNORECASE,
 )
-# "Washington, DC" must win over the state named Washington.
-_DC = re.compile(
-    r"district of columbia|\bwashington,\s*d\.?c\.?\b|\bwashington\s+d\.?c\.?\b",
-    re.IGNORECASE,
-)
+_VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
+_COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
 _NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
 )
+_AVERAGE = frozenset({"average", "avg", "mean"})
 
 
 class ResolveGeographyResult(ToolResult):
@@ -121,6 +67,7 @@ class ResolveGeographyResult(ToolResult):
     legal: bool
     detail: str
     nested: bool = True
+    compare: bool = False
 
 
 ListGeographies = Callable[..., list[dict[str, str]]]
@@ -166,28 +113,6 @@ def nests_in(child: str, parent: str, entries: list[GeoLevel]) -> bool:
     )
 
 
-def find_state(text: str) -> tuple[str, str] | None:
-    if _DC.search(text):
-        return "district of columbia", "11"
-    for name, usps, fips in STATES:
-        if re.search(rf",\s*{usps}\b", text, re.IGNORECASE):
-            return name, fips
-    folded = text.casefold()
-    last: tuple[int, int, str, str] | None = None
-    for name, _usps, fips in STATES:
-        for match in re.finditer(rf"\b{re.escape(name)}\b", folded):
-            candidate = (match.end(), len(name), name, fips)
-            if last is None or candidate[:2] > last[:2]:
-                last = candidate
-    return None if last is None else (last[2], last[3])
-
-
-def _token_is_dc(token: str) -> bool:
-    """Washington / DC leftovers after place_token, including D.C. and 'Washington DC'."""
-    words = token.replace(".", "").replace(",", " ").split()
-    return bool(words) and all(word in {"washington", "dc", "d", "c"} for word in words)
-
-
 def detect_level(text: str) -> str | None:
     folded = text.casefold()
     for alias, level in sorted(_LEVELS.items(), key=lambda item: -len(item[0])):
@@ -214,73 +139,16 @@ def place_token(query: str, state_name: str | None) -> str:
     return state_name if state_name in leftover else leftover
 
 
-def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Match the place/county head (before the comma), never the state suffix."""
-    if not token:
-        return []
-    hits: list[dict[str, str]] = []
-    for row in rows:
-        head = row["name"].casefold().split(",", 1)[0]
-        named = head == token or head.startswith(f"{token} ")
-        if named or re.search(rf"\b{re.escape(token)}\b", head):
-            hits.append(row)
-    return hits
-
-
-def _rank_key(row: dict[str, str]) -> tuple[int, int, float, str]:
-    head = row.get("name", "").casefold().split(",", 1)[0]
-    if row.get("level") == "place":
-        klass = 2 if re.search(r"\bcdp\b", head) else 0 if re.search(r"\bcity\b", head) else 1
-    else:
-        klass = 0
-    try:
-        return (klass, 0, -float(row["population"]), row.get("geoid", ""))
-    except (KeyError, TypeError, ValueError):
-        return (klass, 1, 0.0, row.get("geoid", ""))
-
-
-def rank_matches(matches: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Place class, then population descending, then GEO_ID. Missing pop last."""
-    return sorted(matches, key=_rank_key)
-
-
-def list_census_names(
-    for_level: str,
-    in_parts: dict[str, str],
-    *,
-    dataset: str = "acs5",
-    vintage: int = 2024,
-    key: str = "",
-) -> list[dict[str, str]]:
-    """NAME listing from the Census API. One request; `in=state:*` is legal."""
-    query = f"get=NAME,GEO_ID,B01003_001E&for={for_level}:*"
-    if in_parts:
-        query += "&in=" + " ".join(f"{k}:{v}" for k, v in in_parts.items())
-    built = CensusURL(f"{CENSUS_API}/{vintage}/acs/{dataset}?{query}")
-    try:
-        response = httpx.get(built.with_key(key), timeout=60.0)
-        response.raise_for_status()
-        payload = response.json()
-    except (httpx.HTTPError, ValueError, TypeError):
-        raise RuntimeError(f"geography listing failed; URL {built}") from None
-    header, *body = payload
-    skip = {"NAME", "GEO_ID", "B01003_001E", for_level}
-    rows: list[dict[str, str]] = []
-    for raw in body:
-        rec = {str(k): str(v) for k, v in zip(header, raw, strict=False)}
-        code = rec.get(for_level, "*")
-        parents = {name: rec[name] for name in rec if name not in skip}
-        rows.append(
-            {
-                "name": rec.get("NAME", ""),
-                "level": for_level,
-                "for": f"{for_level}:{code}",
-                "in": " ".join(f"{k}:{v}" for k, v in parents.items()),
-                "geoid": rec.get("GEO_ID", ""),
-                "population": rec.get("B01003_001E", ""),
-            }
-        )
-    return rows
+def split_versus(query: str) -> tuple[str, str] | None:
+    parts = [part.strip() for part in _VERSUS.split(query, maxsplit=1)]
+    if len(parts) == 2 and all(parts):
+        return parts[0], parts[1]
+    match = _COMPARE_TO.match(query)
+    if match:
+        left, right = match.group(1).strip(), match.group(2).strip()
+        if left and right:
+            return left, right
+    return None
 
 
 class ResolveGeographyTool(BaseTool):
@@ -309,6 +177,30 @@ class ResolveGeographyTool(BaseTool):
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
+        sides = split_versus(query) if level is None else None
+        if sides:
+            specs: list[GeoSpec] = []
+            leftovers: list[GeoSpec] = []
+            for side in sides:
+                _text, hit = await self._resolve(side, None, dataset, year, entries)
+                if not hit.legal or not hit.specs:
+                    return _text, hit
+                specs.append(hit.specs[0])
+                leftovers.extend(hit.specs[1:])
+            result = ResolveGeographyResult(
+                specs=specs + leftovers, wildcard=False, legal=True, detail="", compare=True
+            )
+            return f"2 geographies: {specs[0].for_spec} vs {specs[1].for_spec}", result
+        return await self._resolve(query, level, dataset, year, entries)
+
+    async def _resolve(
+        self,
+        query: str,
+        level: str | None,
+        dataset: str,
+        year: int,
+        entries: list[GeoLevel],
+    ) -> tuple[str, ResolveGeographyResult]:
         wildcard_match = _WILDCARD.search(query) or _WITHIN.search(query)
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query
@@ -322,18 +214,21 @@ class ResolveGeographyTool(BaseTool):
             for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
         if for_level is None:
             token = place_token(query, state[0] if state else None)
-            dc_as_state = _token_is_dc(token) if state is not None and state[1] == "11" else False
-            if state is not None and (token in {"", state[0]} or dc_as_state):
+            dc_as_state = token_is_dc(token) if state is not None and state[1] == "11" else False
+            average = token in _AVERAGE
+            if state is not None and (token in {"", state[0]} or dc_as_state or average):
                 for_level = "state"
             else:
                 for_level = "place"
         in_parts: dict[str, str] = {}
+        parent_level = detect_level(parent_text) if wildcard else None
         if for_level != "state" and state is not None:
             host = place_token(parent_text, state[0]) if wildcard else state[0]
-            if host in {"", state[0], "state"}:
+            named_parent = bool(parent_level) and parent_level not in {for_level, "state"}
+            if host in {"", state[0], "state"} or named_parent:
                 if nests_in(for_level, "state", entries):
                     in_parts["state"] = state[1]
-                else:
+                elif host in {"", state[0], "state"}:
                     return _fail(
                         f"{for_level} does not nest in state ({parent_text.strip()})",
                         wildcard=wildcard,
@@ -353,19 +248,47 @@ class ResolveGeographyTool(BaseTool):
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
             return f"1 geography: {spec.for_spec}", result
 
-        parent_level = detect_level(parent_text) if wildcard else None
+        leftover_parents: list[dict[str, str]] = []
         extra: set[str] = set()
         if parent_level and parent_level != for_level and parent_level not in in_parts:
             extra.add(parent_level)
         if extra:
             allowed = all(nests_in(for_level, parent, entries) for parent in extra)
             parents = ", ".join(sorted(extra))
-            nest = (
-                f" nested in unresolved {parents}"
-                if allowed
-                else (f" does not nest in {parents} ({parent_text.strip()})")
-            )
-            return _fail(f"{for_level}{nest}", wildcard=wildcard, nested=allowed)
+            if not allowed:
+                return _fail(
+                    f"{for_level} does not nest in {parents} ({parent_text.strip()})",
+                    wildcard=wildcard,
+                    nested=False,
+                )
+            for parent in list(extra):
+                list_in = dict(in_parts)
+                if not list_in and parent == "county":
+                    list_in = {"state": "*"}
+                if not list_in:
+                    return _fail(
+                        f"{for_level} nested in unresolved {parents}",
+                        wildcard=wildcard,
+                        nested=True,
+                    )
+                rows = await asyncio.to_thread(
+                    self.list_geographies, parent, list_in, dataset=dataset, vintage=year
+                )
+                token = place_token(parent_text, state[0] if state else None)
+                matched = rank_matches(filter_rows(token, rows))
+                if not matched:
+                    return _fail(
+                        f"{for_level} nested in unresolved {parents}",
+                        wildcard=wildcard,
+                        nested=True,
+                    )
+                pick = matched[0]
+                leftover_parents.extend(matched[1:])
+                in_parts.update(clause_codes(pick.get("in", "")))
+                parsed = clause_codes(pick["for"])
+                if parent in parsed:
+                    in_parts[parent] = parsed[parent]
+                extra.discard(parent)
         us = re.search(r"\b(?:u\.?s\.?a?\.?|united states)\b", parent_text, re.I)
         if wildcard and not extra and not in_parts and parent_text.strip() and not us:
             return _fail(f"{for_level} does not nest in ({parent_text.strip()})", nested=False)
@@ -410,7 +333,21 @@ class ResolveGeographyTool(BaseTool):
                 dataset=dataset,
                 vintage=year,
             )
-            result = ResolveGeographyResult(specs=[spec], wildcard=True, legal=True, detail="")
+            others = [
+                GeoSpec(
+                    level=row["level"],
+                    name=row["name"],
+                    for_spec=row["for"],
+                    in_spec=row.get("in", ""),
+                    geoid=row.get("geoid", ""),
+                    dataset=dataset,
+                    vintage=year,
+                )
+                for row in leftover_parents
+            ]
+            result = ResolveGeographyResult(
+                specs=[spec, *others], wildcard=True, legal=True, detail=""
+            )
             return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
 
         rows = await asyncio.to_thread(
@@ -435,10 +372,14 @@ class ResolveGeographyTool(BaseTool):
         detail = f"no {for_level} matched {query!r}" if not specs else ""
         result = ResolveGeographyResult(specs=specs, wildcard=False, legal=True, detail=detail)
         n = len(specs)
-        pick = specs[0] if specs else None
+        chosen = specs[0] if specs else None
         one = (
-            f"1 geography: {pick.for_spec} {pick.in_spec}" if pick else f"0 {for_level} candidates"
+            f"1 geography: {chosen.for_spec} {chosen.in_spec}"
+            if chosen
+            else f"0 {for_level} candidates"
         )
-        many = f"selected {pick.for_spec} {pick.in_spec}; {n - 1} alternatives" if pick else one
+        many = (
+            f"selected {chosen.for_spec} {chosen.in_spec}; {n - 1} alternatives" if chosen else one
+        )
         summary = (many if n > 1 else one).strip()
         return (detail or summary), result

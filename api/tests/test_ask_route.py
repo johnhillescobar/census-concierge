@@ -68,6 +68,7 @@ def test_openapi_documents_post_ask() -> None:
     assert warning["required"] == ["code", "detail"]
     leg = schema["components"]["schemas"]["RequestLeg"]
     assert leg["required"] == ["year", "url", "ok", "status_code", "detail"]
+    assert "for_spec" in leg["properties"]
 
 
 def test_empty_question_is_a_validation_error() -> None:
