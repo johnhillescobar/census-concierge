@@ -1,0 +1,330 @@
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+===== BASELINE fix tests =====
+GOOD
+......                                                                   [100%]
+6 passed in 0.81s
+exit 0
+===== MUTATION drop-versus-leftovers =====
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+___________ test_springfield_versus_texas_keeps_place_alternatives ____________
+
+    async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Springfield versus the Texas average"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.compare is True
+        assert artifact.specs[0].for_spec == "place:70000"
+        assert artifact.specs[1].for_spec == "state:48"
+>       assert {row.in_spec for row in artifact.specs[2:]} == {"state:17", "state:51"}
+E       AssertionError: assert set() == {'state:17', 'state:51'}
+E         
+E         Extra items in the right set:
+E         'state:17'
+E         'state:51'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:641: AssertionError
+__________ test_versus_with_several_places_warns_and_keeps_both_legs __________
+
+    async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
+        record = ExecutionRecord(question="Springfield versus the Texas average")
+        tools = _tools(record)
+        await dispatch(
+            tools["resolve_geography"],
+            {"id": "2", "args": {"query": "Springfield versus the Texas average"}},
+            record,
+        )
+        assert record.geo_status is not None
+        assert record.geo_status["compare"] is True
+        assert record.geographies[0].for_spec == "place:70000"
+        assert record.geographies[1].for_spec == "state:48"
+>       assert len(record.geographies) > 2
+E       AssertionError: assert 2 > 2
+E        +  where 2 = len([GeoSpec(level='place', name='Springfield city, Missouri', geoid='1600000US2970000', for_spec='place:70000', in_spec='...me='Texas', geoid='0400000US48', for_spec='state:48', in_spec='', dataset='acs5', vintage=2024, codes={'state': '48'})])
+E        +    where [GeoSpec(level='place', name='Springfield city, Missouri', geoid='1600000US2970000', for_spec='place:70000', in_spec='...me='Texas', geoid='0400000US48', for_spec='state:48', in_spec='', dataset='acs5', vintage=2024, codes={'state': '48'})] = ExecutionRecord(pool=[], geography=GeoSpec(level='place', name='Springfield city, Missouri', geoid='1600000US2970000',...], geo_status={'legal': True, 'detail': '', 'nested': True, 'compare': True}, fetch=None, allow_overlapping_acs5=False).geographies
+
+api\tests\test_ask_loop.py:259: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_springfield_versus_texas_keeps_place_alternatives
+FAILED api/tests/test_ask_loop.py::test_versus_with_several_places_warns_and_keeps_both_legs
+2 failed in 0.88s
+exit 1
+Restored drop-versus-leftovers.
+
+===== MUTATION drop-parent-leftovers =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_tracts_in_wayne_without_a_state_pick_michigan ______________
+
+    async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "every tract in Wayne County"},
+                "id": "c1",
+            }
+        )
+        spec = message.artifact.specs[0]
+        assert message.artifact.legal is True
+        assert spec.for_spec == "tract:*"
+        assert spec.in_spec == "state:26 county:163"
+>       assert [row.name for row in message.artifact.specs[1:]] == ["Wayne County, North Carolina"]
+E       AssertionError: assert [] == ['Wayne Count...rth Carolina']
+E         
+E         Right contains one more item: 'Wayne County, North Carolina'
+E         Use -v to get more diff
+
+api\tests\test_ask_tools.py:580: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_tracts_in_wayne_without_a_state_pick_michigan
+1 failed in 0.37s
+exit 1
+Restored drop-parent-leftovers.
+
+===== MUTATION compare-skips-all-ambiguous =====
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+______________ test_comparison_with_leftover_matches_still_warns ______________
+
+    def test_comparison_with_leftover_matches_still_warns() -> None:
+        record = ExecutionRecord(question="Springfield versus the Texas average")
+        record.geographies = [
+            GeoSpec(name="Springfield city, Missouri", level="place"),
+            GeoSpec(name="Texas", level="state", for_spec="state:48"),
+            GeoSpec(name="Springfield city, Illinois", level="place"),
+        ]
+        record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+>       assert _codes(record) == ["ambiguous_place"]
+E       AssertionError: assert [] == ['ambiguous_place']
+E         
+E         Right contains one more item: 'ambiguous_place'
+E         Use -v to get more diff
+
+api\tests\test_guards.py:300: AssertionError
+__________ test_versus_with_several_places_warns_and_keeps_both_legs __________
+
+    async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
+        record = ExecutionRecord(question="Springfield versus the Texas average")
+        tools = _tools(record)
+        await dispatch(
+            tools["resolve_geography"],
+            {"id": "2", "args": {"query": "Springfield versus the Texas average"}},
+            record,
+        )
+        assert record.geo_status is not None
+        assert record.geo_status["compare"] is True
+        assert record.geographies[0].for_spec == "place:70000"
+        assert record.geographies[1].for_spec == "state:48"
+        assert len(record.geographies) > 2
+        response = assemble("Springfield vs Texas", record)
+>       assert [item.code for item in response.warnings] == ["ambiguous_place"]
+E       AssertionError: assert [] == ['ambiguous_place']
+E         
+E         Right contains one more item: 'ambiguous_place'
+E         Use -v to get more diff
+
+api\tests\test_ask_loop.py:261: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_comparison_with_leftover_matches_still_warns
+FAILED api/tests/test_ask_loop.py::test_versus_with_several_places_warns_and_keeps_both_legs
+2 failed in 0.58s
+exit 1
+Restored compare-skips-all-ambiguous.
+
+===== MUTATION fallback-geoid-on-many-rows =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_many_rows_do_not_name_one_geoid _____________________
+
+    def test_many_rows_do_not_name_one_geoid() -> None:
+        record = ExecutionRecord()
+        record.geography = _harris()
+        record.rows = [
+            {"GEO_ID": "0500000US41001", "B01003_001E": "1", "B01003_001M": "2"},
+            {"GEO_ID": "0500000US41003", "B01003_001E": "3", "B01003_001M": "4"},
+        ]
+        response = assemble("x", record)
+>       assert response.geoid == ""
+E       AssertionError: assert '0500000US48201' == ''
+E         
+E         + 0500000US48201
+
+api\tests\test_ask_loop.py:344: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_many_rows_do_not_name_one_geoid - Ass...
+1 failed in 0.71s
+exit 1
+Restored fallback-geoid-on-many-rows.
+
+===== MUTATION fan-all-compare-geographies =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_versus_with_several_places_warns_and_keeps_both_legs __________
+
+    async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
+        record = ExecutionRecord(question="Springfield versus the Texas average")
+        tools = _tools(record)
+        await dispatch(
+            tools["resolve_geography"],
+            {"id": "2", "args": {"query": "Springfield versus the Texas average"}},
+            record,
+        )
+        assert record.geo_status is not None
+        assert record.geo_status["compare"] is True
+        assert record.geographies[0].for_spec == "place:70000"
+        assert record.geographies[1].for_spec == "state:48"
+        assert len(record.geographies) > 2
+        response = assemble("Springfield vs Texas", record)
+        assert [item.code for item in response.warnings] == ["ambiguous_place"]
+        fetch = tools["fetch_data"]
+        assert fetch.last_geographies is not None
+>       assert [row.for_spec for row in fetch.last_geographies()] == ["place:70000", "state:48"]
+E       AssertionError: assert ['place:70000...'place:75344'] == ['place:70000', 'state:48']
+E         
+E         Left contains 2 more items, first extra item: 'place:72000'
+E         Use -v to get more diff
+
+api\tests\test_ask_loop.py:264: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_versus_with_several_places_warns_and_keeps_both_legs
+1 failed in 0.64s
+exit 1
+Restored fan-all-compare-geographies.
+
+===== MUTATION destagger-cartesian-geos =====
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_acs1_comparison_404_does_not_destagger_the_other_leg __________
+
+    async def test_acs1_comparison_404_does_not_destagger_the_other_leg() -> None:
+        seen: list[tuple[str, str]] = []
+    
+        def http_get(url: str) -> tuple[int, object]:
+            dataset = "acs1" if "/acs/acs1" in url else "acs5"
+            clause = _for_clause(url)
+            seen.append((dataset, clause))
+            if dataset == "acs1" and clause.startswith("place:"):
+                return 404, ""
+            return 200, _ok_payload(_year_from(url))
+    
+        tool = FetchDataTool(
+            last_url=lambda: TEMPLATE,
+            last_geographies=lambda: [AUSTIN, TEXAS],
+            census_key=lambda: "secret",
+            http_get=http_get,
+            published=_published,
+        )
+        years = list(range(2018, 2023))
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "fetch_data",
+                "args": {"years": years},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.dataset == "acs1"
+E       AssertionError: assert 'acs5' == 'acs1'
+E         
+E         - acs1
+E         ?    ^
+E         + acs5
+E         ?    ^
+
+api\tests\test_fetch_years.py:852: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_acs1_comparison_404_does_not_destagger_the_other_leg
+1 failed in 0.63s
+exit 1
+Restored destagger-cartesian-geos.
+
+===== RESTORED fix tests =====
+GOOD
+......                                                                   [100%]
+6 passed in 0.53s
+exit 0
+
+===== FOLLOW-UP after Gate 2 re-run =====
+# GOOD = test fails against the broken implementation.
+
+===== BASELINE follow-up tests =====
+GOOD
+....                                                                     [100%]
+4 passed in 0.36s
+exit 0
+===== MUTATION drop-one-sided-versus =====
+GOOD
+.F                                                                       [100%]
+================================== FAILURES ===================================
+______________ test_compared_to_a_year_still_resolves_the_place _______________
+
+    async def test_compared_to_a_year_still_resolves_the_place() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "population of Austin compared to 2017"},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.compare is False
+        assert artifact.legal is True
+>       assert artifact.specs[0].for_spec == "place:4805000"
+               ^^^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+api\tests\test_ask_tools.py:673: IndexError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_compared_to_a_year_still_resolves_the_place
+1 failed, 1 passed in 0.53s
+exit 1
+===== MUTATION blank-geoid-on-any-multi-row =====
+GOOD
+F.                                                                       [100%]
+================================== FAILURES ===================================
+________________ test_year_series_of_one_area_keeps_the_geoid _________________
+
+    def test_year_series_of_one_area_keeps_the_geoid() -> None:
+        record = ExecutionRecord()
+        record.geography = _harris()
+        record.rows = [
+            {"GEO_ID": "0500000US48201", "year": "2019", "B01003_001E": "1", "B01003_001M": "2"},
+            {"GEO_ID": "0500000US48201", "year": "2022", "B01003_001E": "3", "B01003_001M": "4"},
+        ]
+        response = assemble("x", record)
+>       assert response.geoid == "0500000US48201"
+E       AssertionError: assert '' == '0500000US48201'
+E         
+E         - 0500000US48201
+
+api\tests\test_ask_loop.py:356: AssertionError
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_year_series_of_one_area_keeps_the_geoid
+1 failed, 1 passed in 0.59s
+exit 1
+===== RESTORED follow-up tests =====
+GOOD
+....                                                                     [100%]
+4 passed in 0.49s
+exit 0

@@ -1,307 +1,74 @@
-# GOOD = test fails against the broken implementation (the check works).
-# BAD  = test still passes (delete or rewrite it).
+CC-73 Gate 1 -- tests + mutation check (includes Gate 2 follow-up fixes)
 
-===== BASELINE new tests =====
-..............                                                           [100%]
-14 passed in 0.53s
-exit 0
+========== uv run pytest -q -m not integration ==========
 
-===== MUTATION unresolved-county-parent =====
-GOOD
-FF                                                                       [100%]
-================================== FAILURES ===================================
-_________ test_tracts_in_wayne_county_are_one_wildcard_not_a_listing __________
-api\tests\test_ask_tools.py:554: in test_tracts_in_wayne_county_are_one_wildcard_not_a_listing
-    assert artifact.legal is True
-E   AssertionError: assert False is True
-E    +  where False = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail='tract nested in unresolved county', nested=True, compare=False).legal
-_____________ test_tracts_in_wayne_without_a_state_pick_michigan ______________
-api\tests\test_ask_tools.py:576: in test_tracts_in_wayne_without_a_state_pick_michigan
-    spec = message.artifact.specs[0]
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-E   IndexError: list index out of range
-=========================== short test summary info ===========================
-FAILED api/tests/test_ask_tools.py::test_tracts_in_wayne_county_are_one_wildcard_not_a_listing
-FAILED api/tests/test_ask_tools.py::test_tracts_in_wayne_without_a_state_pick_michigan
-2 failed in 0.39s
-exit 1
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+..........................................                               [100%]
+330 passed in 4.59s
 
-Restored unresolved-county-parent.
+exit: 0
 
-===== MUTATION no-versus-split =====
-GOOD
-FFFFF                                                                    [100%]
-================================== FAILURES ===================================
-_ test_versus_emits_austin_then_texas_as_comparison_legs[Median gross rent in Austin versus the Texas average] _
-api\tests\test_ask_tools.py:617: in test_versus_emits_austin_then_texas_as_comparison_legs
-    assert artifact.compare is True
-E   assert False is True
-E    +  where False = ResolveGeographyResult(specs=[], wildcard=False, legal=True, detail="no place matched 'Median gross rent in Austin versus the Texas average'", nested=True, compare=False).compare
-_ test_versus_emits_austin_then_texas_as_comparison_legs[Compare median gross rent in Austin to the Texas average] _
-api\tests\test_ask_tools.py:617: in test_versus_emits_austin_then_texas_as_comparison_legs
-    assert artifact.compare is True
-E   assert False is True
-E    +  where False = ResolveGeographyResult(specs=[], wildcard=False, legal=True, detail="no place matched 'Compare median gross rent in Austin to the Texas average'", nested=True, compare=False).compare
-_ test_versus_emits_austin_then_texas_as_comparison_legs[Austin compared to the Texas average] _
-api\tests\test_ask_tools.py:617: in test_versus_emits_austin_then_texas_as_comparison_legs
-    assert artifact.compare is True
-E   assert False is True
-E    +  where False = ResolveGeographyResult(specs=[], wildcard=False, legal=True, detail="no place matched 'Austin compared to the Texas average'", nested=True, compare=False).compare
-_ test_versus_emits_austin_then_texas_as_comparison_legs[Austin vs the Texas average] _
-api\tests\test_ask_tools.py:617: in test_versus_emits_austin_then_texas_as_comparison_legs
-    assert artifact.compare is True
-E   assert False is True
-E    +  where False = ResolveGeographyResult(specs=[], wildcard=False, legal=True, detail="no place matched 'Austin vs the Texas average'", nested=True, compare=False).compare
-_____________ test_versus_geography_does_not_warn_ambiguous_place _____________
-api\tests\test_ask_loop.py:241: in test_versus_geography_does_not_warn_ambiguous_place
-    assert record.geo_status["compare"] is True
-E   assert False is True
-=========================== short test summary info ===========================
-FAILED api/tests/test_ask_tools.py::test_versus_emits_austin_then_texas_as_comparison_legs[Median gross rent in Austin versus the Texas average]
-FAILED api/tests/test_ask_tools.py::test_versus_emits_austin_then_texas_as_comparison_legs[Compare median gross rent in Austin to the Texas average]
-FAILED api/tests/test_ask_tools.py::test_versus_emits_austin_then_texas_as_comparison_legs[Austin compared to the Texas average]
-FAILED api/tests/test_ask_tools.py::test_versus_emits_austin_then_texas_as_comparison_legs[Austin vs the Texas average]
-FAILED api/tests/test_ask_loop.py::test_versus_geography_does_not_warn_ambiguous_place
-5 failed in 0.61s
-exit 1
+========== uv run python scripts/check_budgets.py ==========
 
-Restored no-versus-split.
 
-===== MUTATION ignore-comparison-specs =====
-GOOD
-FFF                                                                      [100%]
-================================== FAILURES ===================================
-________________ test_comparison_specs_are_two_successful_legs ________________
-api\tests\test_fetch_years.py:776: in test_comparison_specs_are_two_successful_legs
-    assert seen == ["place:4805000", "state:48"]
-E   AssertionError: assert ['county:201'] == ['place:4805000', 'state:48']
-E     
-E     At index 0 diff: 'county:201' != 'place:4805000'
-E     Right contains one more item: 'state:48'
-E     Use -v to get more diff
-_________ test_one_failed_geography_keeps_its_url_and_the_other_rows __________
-api\tests\test_fetch_years.py:812: in test_one_failed_geography_keeps_its_url_and_the_other_rows
-    assert artifact.failed_years == [2024]
-E   assert [] == [2024]
-E     
-E     Right contains one more item: 2024
-E     Use -v to get more diff
-________ test_wildcard_spec_is_one_request_even_when_many_rows_return _________
-api\tests\test_fetch_years.py:734: in test_wildcard_spec_is_one_request_even_when_many_rows_return
-    message = await tool.ainvoke(
-.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
-    return await self.arun(tool_input, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
-    raise error_to_raise
-.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
-    response = await coro_with_context(coro, context)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:374: in _arun
-    gathered = await fanout(plan)
-               ^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:369: in fanout
-    await asyncio.gather(
-api\src\fetch.py:364: in one
-    return await asyncio.to_thread(self._fetch_one, url, year, clause)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
-    return await loop.run_in_executor(None, func_call)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
-    result = self.fn(*self.args, **self.kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:269: in _fetch_one
-    status, payload = self._get(census_url.with_key(self.census_key()))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:237: in _get
-    return self.http_get(live)
-           ^^^^^^^^^^^^^^^^^^^
-api\tests\test_fetch_years.py:724: in http_get
-    assert _for_clause(url) == "tract:*"
-E   AssertionError: assert 'county:201' == 'tract:*'
-E     
-E     - tract:*
-E     + county:201
-=========================== short test summary info ===========================
-FAILED api/tests/test_fetch_years.py::test_comparison_specs_are_two_successful_legs
-FAILED api/tests/test_fetch_years.py::test_one_failed_geography_keeps_its_url_and_the_other_rows
-FAILED api/tests/test_fetch_years.py::test_wildcard_spec_is_one_request_even_when_many_rows_return
-3 failed in 0.41s
-exit 1
+BUDGETS
 
-Restored ignore-comparison-specs.
+  ok    api src LOC               3126 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         12.682 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.812 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
 
-===== MUTATION duplicate-year-buckets =====
-GOOD
-FF                                                                       [100%]
-================================== FAILURES ===================================
-________________ test_comparison_specs_are_two_successful_legs ________________
-api\tests\test_fetch_years.py:778: in test_comparison_specs_are_two_successful_legs
-    assert artifact.attempted_years == [2024]
-E   assert [2024, 2024] == [2024]
-E     
-E     Left contains one more item: 2024
-E     Use -v to get more diff
-_________ test_one_failed_geography_keeps_its_url_and_the_other_rows __________
-api\tests\test_fetch_years.py:810: in test_one_failed_geography_keeps_its_url_and_the_other_rows
-    assert artifact.attempted_years == [2024]
-E   assert [2024, 2024] == [2024]
-E     
-E     Left contains one more item: 2024
-E     Use -v to get more diff
-=========================== short test summary info ===========================
-FAILED api/tests/test_fetch_years.py::test_comparison_specs_are_two_successful_legs
-FAILED api/tests/test_fetch_years.py::test_one_failed_geography_keeps_its_url_and_the_other_rows
-2 failed in 0.31s
-exit 1
+All budgets met.
 
-Restored duplicate-year-buckets.
 
-===== MUTATION compare-trips-ambiguous-place =====
-GOOD
-FF                                                                       [100%]
-================================== FAILURES ===================================
-________________ test_comparison_legs_are_not_ambiguous_places ________________
-api\tests\test_guards.py:289: in test_comparison_legs_are_not_ambiguous_places
-    assert _codes(record) == []
-E   AssertionError: assert ['ambiguous_place'] == []
-E     
-E     Left contains one more item: 'ambiguous_place'
-E     Use -v to get more diff
-_____________ test_versus_geography_does_not_warn_ambiguous_place _____________
-api\tests\test_ask_loop.py:244: in test_versus_geography_does_not_warn_ambiguous_place
-    assert [item.code for item in response.warnings] == []
-E   AssertionError: assert ['ambiguous_place'] == []
-E     
-E     Left contains one more item: 'ambiguous_place'
-E     Use -v to get more diff
-=========================== short test summary info ===========================
-FAILED api/tests/test_guards.py::test_comparison_legs_are_not_ambiguous_places
-FAILED api/tests/test_ask_loop.py::test_versus_geography_does_not_warn_ambiguous_place
-2 failed in 0.61s
-exit 1
+exit: 0
 
-Restored compare-trips-ambiguous-place.
+========== uv run python scripts/check_invariants.py --base origin/main ==========
 
-===== MUTATION with-geography-noop =====
-GOOD
-FF                                                                       [100%]
-================================== FAILURES ===================================
-___________________ test_with_geography_rewrites_for_and_in ___________________
-api\tests\test_fetch_years.py:67: in test_with_geography_rewrites_for_and_in
-    assert rewritten.for_is_wildcard() is True
-E   AssertionError: assert False is True
-E    +  where False = for_is_wildcard()
-E    +    where for_is_wildcard = CensusURL('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48').for_is_wildcard
-________ test_wildcard_spec_is_one_request_even_when_many_rows_return _________
-api\tests\test_fetch_years.py:734: in test_wildcard_spec_is_one_request_even_when_many_rows_return
-    message = await tool.ainvoke(
-.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
-    return await self.arun(tool_input, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
-    raise error_to_raise
-.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
-    response = await coro_with_context(coro, context)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:375: in _arun
-    gathered = await fanout(plan)
-               ^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:370: in fanout
-    await asyncio.gather(
-api\src\fetch.py:365: in one
-    return await asyncio.to_thread(self._fetch_one, url, year, clause)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
-    return await loop.run_in_executor(None, func_call)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
-    result = self.fn(*self.args, **self.kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:269: in _fetch_one
-    status, payload = self._get(census_url.with_key(self.census_key()))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-api\src\fetch.py:237: in _get
-    return self.http_get(live)
-           ^^^^^^^^^^^^^^^^^^^
-api\tests\test_fetch_years.py:724: in http_get
-    assert _for_clause(url) == "tract:*"
-E   AssertionError: assert 'county:201' == 'tract:*'
-E     
-E     - tract:*
-E     + county:201
-=========================== short test summary info ===========================
-FAILED api/tests/test_fetch_years.py::test_with_geography_rewrites_for_and_in
-FAILED api/tests/test_fetch_years.py::test_wildcard_spec_is_one_request_even_when_many_rows_return
-2 failed in 0.40s
-exit 1
 
-Restored with-geography-noop.
+INVARIANTS
 
-===== MUTATION wildcard-skips-legal-predicate =====
-GOOD
-F                                                                        [100%]
-================================== FAILURES ===================================
-__________________ test_all_tracts_in_michigan_stay_illegal ___________________
-api\tests\test_ask_tools.py:592: in test_all_tracts_in_michigan_stay_illegal
-    assert message.artifact.legal is False
-E   AssertionError: assert True is False
-E    +  where True = ResolveGeographyResult(specs=[GeoSpec(level='tract', name='all tracts in Michigan', geoid='', for_spec='tract:*', in_s... vintage=2024, codes={'state': '26', 'tract': '*'})], wildcard=True, legal=True, detail='', nested=True, compare=False).legal
-E    +    where ResolveGeographyResult(specs=[GeoSpec(level='tract', name='all tracts in Michigan', geoid='', for_spec='tract:*', in_s... vintage=2024, codes={'state': '26', 'tract': '*'})], wildcard=True, legal=True, detail='', nested=True, compare=False) = ToolMessage(content='wildcard tract:* state:26', name='resolve_geography', tool_call_id='c1', artifact=ResolveGeograph...vintage=2024, codes={'state': '26', 'tract': '*'})], wildcard=True, legal=True, detail='', nested=True, compare=False)).artifact
-=========================== short test summary info ===========================
-FAILED api/tests/test_ask_tools.py::test_all_tracts_in_michigan_stay_illegal
-1 failed in 0.34s
-exit 1
+  ok    no violations
 
-Restored wildcard-skips-legal-predicate.
 
-===== MUTATION multi-spec-is-compare =====
-GOOD
-F                                                                        [100%]
-================================== FAILURES ===================================
-____________ test_springfield_alternatives_are_not_comparison_legs ____________
-api\tests\test_ask_tools.py:636: in test_springfield_alternatives_are_not_comparison_legs
-    assert message.artifact.compare is False
-E   AssertionError: assert True is False
-E    +  where True = ResolveGeographyResult(specs=[GeoSpec(level='place', name='Springfield city, Missouri', geoid='1600000US2970000', for_...tage=2024, codes={'state': '51', 'place': '75344'})], wildcard=False, legal=True, detail='', nested=True, compare=True).compare
-E    +    where ResolveGeographyResult(specs=[GeoSpec(level='place', name='Springfield city, Missouri', geoid='1600000US2970000', for_...tage=2024, codes={'state': '51', 'place': '75344'})], wildcard=False, legal=True, detail='', nested=True, compare=True) = ToolMessage(content='selected place:70000 state:29; 2 alternatives', name='resolve_geography', tool_call_id='c1', arti...age=2024, codes={'state': '51', 'place': '75344'})], wildcard=False, legal=True, detail='', nested=True, compare=True)).artifact
-=========================== short test summary info ===========================
-FAILED api/tests/test_ask_tools.py::test_springfield_alternatives_are_not_comparison_legs
-1 failed in 0.31s
-exit 1
+exit: 0
 
-Restored multi-spec-is-compare.
+========== uv run ruff check . ==========
 
-===== RESTORE =====
-api/src/geo.py 8a7a1edd8a1d ok
-api/src/fetch.py 437502d3e065 ok
-api/src/guards.py 1d8bcb87b711 ok
-api/src/census_url.py 9b5bdef95b3b ok
-git status --porcelain
- M api/src/ask.py
- M api/src/census_url.py
- M api/src/contract.py
- M api/src/fetch.py
- M api/src/geo.py
- M api/src/guards.py
- M api/src/tools.py
- M api/tests/ask_fixtures.py
- M api/tests/test_ask_loop.py
- M api/tests/test_ask_route.py
- M api/tests/test_ask_tools.py
- M api/tests/test_fetch_years.py
- M api/tests/test_guards.py
- M docs/ARCHITECTURE.md
- M packages/client/openapi.json
- M packages/client/schema.d.ts
-?? api/src/geo_list.py
-?? evidence/slice-3/_run_cc73_gate1.py
-?? evidence/slice-3/cc-73-gate1.txt
-?? evidence/slice-3/cc-73-preflight-claims.md
-?? evidence/slice-3/cc-73-preflight.txt
-?? evidence/slice-3/gate1.txt
+[1;32mAll checks passed![0m
 
-..............                                                           [100%]
-14 passed in 0.51s
-exit 0
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+106 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 22 source files
+
+exit: 0
+
+========== mutation check ==========
+all GOOD in evidence/slice-3/cc-73-gate1-fix.txt (leftovers, parent leftovers, compare skip, geoid, fan-out, destagger, one-sided versus, series geoid)
+
+========== summary ==========
+machines any_nonzero: 0
