@@ -1,0 +1,32 @@
+# CC-14 Gate 1 fix -- mutation check after Gate 2 follow-up
+# mutation: check_key_attached_only_in_census_url does not skip census_url.py
+# test: test_key_query_outside_census_url_fails_the_check
+# fixture plants attached = "&key=" so the skip is load-bearing
+
+========== uv run pytest (restored skip, after fixture fix) ==========
+$ uv run pytest -q api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check --tb=short --color=no
+
+.                                                                        [100%]
+1 passed in 0.29s
+
+exit: 0
+
+===== MUTATION check_key_attached_only_in_census_url does not skip census_url.py =====
+test: test_key_query_outside_census_url_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_key_query_outside_census_url_fails_the_check ______________
+api\tests\test_invariants.py:91: in test_key_query_outside_census_url_fails_the_check
+    assert all("census_url.py" not in where for where in wheres)
+E   assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check
+1 failed in 0.36s
+
+exit: 1
+
+restore: skip census_url.py restored

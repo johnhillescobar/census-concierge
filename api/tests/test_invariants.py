@@ -81,14 +81,14 @@ def test_empty_secret_default_fails_the_check(tmp_path: Path, monkeypatch: Any) 
 def test_key_query_outside_census_url_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
     api_src = tmp_path / "api" / "src"
     api_src.mkdir(parents=True)
-    (api_src / "census_url.py").write_text('pattern = r"[?&]key="\n')
+    (api_src / "census_url.py").write_text('attached = "&key="\n')
     (api_src / "fetch.py").write_text('url = base + "&key=" + secret\n')
     monkeypatch.setattr(inv, "ROOT", tmp_path)
     monkeypatch.setattr(inv, "API_SRC", api_src)
     found = inv.check_key_attached_only_in_census_url()
-    assert found
-    assert "fetch.py" in found[0].where
-    assert all("census_url.py" not in item.where for item in found)
+    wheres = [item.where for item in found]
+    assert any("fetch.py" in where for where in wheres)
+    assert all("census_url.py" not in where for where in wheres)
 
 
 @pytest.mark.parametrize("value", [None, ""])

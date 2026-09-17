@@ -1,0 +1,229 @@
+CC-14 Gate 1 -- tests + mutation check
+commit: 93f84fb
+branch: feat/cc-14-invariants
+ticket: CC-14
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== uv run pytest -q api/tests/test_invariants.py (restored tree, pre-mutation) ==========
+$ uv run pytest -q api/tests/test_invariants.py --color=no
+
+.........                                                                [100%]
+9 passed in 0.89s
+
+exit: 0
+
+===== MUTATION CHECKS no longer name forbidden module / clarification / key / secret / budget patterns =====
+test: test_invariants_name_the_forbidden_patterns
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_invariants_name_the_forbidden_patterns --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_invariants_name_the_forbidden_patterns _________________
+api\tests\test_invariants.py:21: in test_invariants_name_the_forbidden_patterns
+    assert "forbidden module names" in blob
+E   AssertionError: assert 'forbidden module names' in 'banned agent frameworks sqlite contextvars ticket-named tests prompt assertions banned suffixes no clarif layer artifact key leak secret empty default key attached only via censusurl'
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_name_the_forbidden_patterns
+1 failed in 0.32s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION check_banned_module_names always returns [] =====
+test: test_manager_module_name_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_manager_module_name_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_manager_module_name_fails_the_check ___________________
+api\tests\test_invariants.py:36: in test_manager_module_name_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_manager_module_name_fails_the_check
+1 failed in 0.32s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION check_no_clarification_layer always returns [] =====
+test: test_clarification_module_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_clarification_module_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_clarification_module_fails_the_check __________________
+api\tests\test_invariants.py:48: in test_clarification_module_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_clarification_module_fails_the_check
+1 failed in 0.40s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION check_census_key_not_in_artifacts always returns [] =====
+test: test_leaked_census_key_in_evidence_json_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_leaked_census_key_in_evidence_json_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_leaked_census_key_in_evidence_json_fails_the_check ___________
+api\tests\test_invariants.py:63: in test_leaked_census_key_in_evidence_json_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_leaked_census_key_in_evidence_json_fails_the_check
+1 failed in 0.32s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION check_no_empty_secret_defaults always returns [] =====
+test: test_empty_secret_default_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_empty_secret_default_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_empty_secret_default_fails_the_check __________________
+api\tests\test_invariants.py:77: in test_empty_secret_default_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_empty_secret_default_fails_the_check
+1 failed in 0.42s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION check_key_attached_only_in_census_url always returns [] =====
+test: test_key_query_outside_census_url_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_key_query_outside_census_url_fails_the_check ______________
+api\tests\test_invariants.py:89: in test_key_query_outside_census_url_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check
+1 failed in 0.31s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION default_tools uses os.environ.get('CENSUS_API_KEY', '') and does not raise =====
+test: test_missing_census_key_fails_closed
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_missing_census_key_fails_closed --tb=short --color=no
+
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_________________ test_missing_census_key_fails_closed[None] __________________
+api\tests\test_invariants.py:100: in test_missing_census_key_fails_closed
+    with pytest.raises(ValueError, match="missing CENSUS_API_KEY"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValueError
+___________________ test_missing_census_key_fails_closed[] ____________________
+api\tests\test_invariants.py:100: in test_missing_census_key_fails_closed
+    with pytest.raises(ValueError, match="missing CENSUS_API_KEY"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValueError
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_missing_census_key_fails_closed[None]
+FAILED api/tests/test_invariants.py::test_missing_census_key_fails_closed[]
+2 failed in 0.81s
+
+exit: 1
+
+restore: clean
+
+===== MUTATION _openai_complete does not raise on missing OPENAI_API_KEY =====
+test: test_missing_openai_key_fails_closed
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_missing_openai_key_fails_closed --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_missing_openai_key_fails_closed _____________________
+api\tests\test_invariants.py:107: in test_missing_openai_key_fails_closed
+    await _openai_complete([], [])
+api\src\ask.py:303: in _openai_complete
+    response = await AsyncOpenAI().chat.completions.create(
+                     ^^^^^^^^^^^^^
+.venv\Lib\site-packages\openai\_client.py:837: in __init__
+    raise OpenAIError(
+E   openai.OpenAIError: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_missing_openai_key_fails_closed - o...
+1 failed in 1.07s
+
+exit: 1
+
+restore: clean
+
+========== uv run pytest -q api/tests/test_invariants.py (restored tree) ==========
+$ uv run pytest -q api/tests/test_invariants.py --color=no
+
+.........                                                                [100%]
+9 passed in 1.17s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    budget increases               
+
+All invariants held.
+
+exit: 0
+
+========== git status --short ==========
+$ git status --short
+
+exit: 0
+
+========== summary ==========
+mutations: 8 GOOD, 0 BAD (of 8)
+restored pytest: pass
+check_invariants --base origin/main: pass
+verdict: PASS — all 8 new tests failed under their mutations; restored suite and invariants hold
+
