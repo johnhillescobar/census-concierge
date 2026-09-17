@@ -3,7 +3,7 @@
 One boundary, one pair of models. Rows stay untyped dicts — a census row that
 becomes five models through five layers is how the predecessor grew. Alternatives
 and warnings are typed because the TypeScript client (slice 2) generates from
-this schema; `urls[]` is one redacted Census URL per attempted vintage.
+this schema; `urls[]` is one redacted Census URL per attempted request.
 """
 
 from __future__ import annotations
@@ -75,25 +75,35 @@ class RequestLeg(BaseModel):
     ok: bool = Field(description="Whether this HTTP call returned parseable rows.")
     status_code: int = Field(description="Census HTTP status; 0 on timeout or transport failure.")
     detail: str = Field(description="Redacted reason when ok is false; empty on success.")
+    for_spec: str = Field(
+        default="",
+        description="Census for= clause for this geography leg; empty when the built URL is used.",
+    )
 
 
 class AskResponse(BaseModel):
     answer: str = Field(description="Natural-language answer.")
     urls: list[str] = Field(
-        description="Key-redacted Census API URLs, one per attempted year, in requested order."
+        description="Key-redacted Census API URLs, one per attempted request, in requested order."
     )
     requested_years: list[int] = Field(
         description="Years asked of fetch_data, de-duplicated in first-requested order."
     )
-    attempted_years: list[int] = Field(description="Years for which a Census request was issued.")
-    succeeded_years: list[int] = Field(description="Attempted years whose HTTP call succeeded.")
-    failed_years: list[int] = Field(description="Attempted years that failed or timed out.")
+    attempted_years: list[int] = Field(
+        description="Unique vintages for which a Census request was issued."
+    )
+    succeeded_years: list[int] = Field(
+        description="Unique attempted vintages with at least one successful HTTP call."
+    )
+    failed_years: list[int] = Field(
+        description="Unique attempted vintages with at least one failed or timed-out call."
+    )
     omitted_years: list[int] = Field(description="Requested years that were not attempted.")
     omission_reasons: list[str] = Field(
         description="Reason code per omitted year, same order as omitted_years."
     )
     legs: list[RequestLeg] = Field(
-        description="Per-year outcome in requested order, including failed legs."
+        description="Per-request outcome in requested order, including failed legs."
     )
     rows: list[dict[str, str | None]] = Field(
         description="Census rows as returned. Each row carries GEO_ID (AFFGEOID); "

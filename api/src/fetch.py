@@ -1,4 +1,8 @@
-"""fetch_data: one tool, optional years, bounded concurrent Census GETs."""
+"""fetch_data: one tool, optional years, bounded concurrent Census GETs.
+
+Comparison GeoSpecs fan out the same way years do: rewrite for/in on the built
+URL. A wildcard spec stays one GET.
+"""
 
 from __future__ import annotations
 
@@ -12,13 +16,14 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.census_url import CensusURL, redact_text
-from src.contract import RequestLeg
+from src.contract import GeoSpec, RequestLeg
 from src.tools import ToolInput, ToolResult
 from src.vintages import REASON_NO_URL, VintagePlan, is_series, plan_years, span_years
 
 MAX_IN_FLIGHT = 5
 MAX_YEARS = 12
 LastUrl = Callable[[], CensusURL | None]
+LastGeographies = Callable[[], list[GeoSpec]]
 
 
 class FetchDataInput(ToolInput):
@@ -155,9 +160,9 @@ def _pack(
     acs1_ineligible: bool = False,
 ) -> FetchDataResult:
     urls = [leg.url for leg in legs]
-    attempted = [leg.year for leg in legs]
-    succeeded = [leg.year for leg in legs if leg.ok]
-    failed = [leg.year for leg in legs if not leg.ok]
+    attempted = unique_years([leg.year for leg in legs])
+    succeeded = unique_years([leg.year for leg in legs if leg.ok])
+    failed = unique_years([leg.year for leg in legs if not leg.ok])
     status = 0
     if failed:
         status = next(leg.status_code for leg in legs if not leg.ok)
@@ -184,11 +189,11 @@ def _pack(
 
 def _tool_content(result: FetchDataResult) -> str:
     joined = ", ".join(result.urls)
-    n_ok = len(result.succeeded_years)
+    n_ok = sum(1 for leg in result.legs if leg.ok)
     n_legs = len(result.legs)
     bits: list[str] = []
     if result.ok:
-        bits.append(f"{len(result.rows)} rows; {n_ok}/{n_legs} years")
+        bits.append(f"{len(result.rows)} rows; {n_ok}/{n_legs} legs")
     else:
         bits.append("fetch failed")
     if result.failed_years:
@@ -218,6 +223,7 @@ class FetchDataTool(BaseTool):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     last_url: LastUrl
+    last_geographies: LastGeographies | None = None
     census_key: Callable[[], str]
     http_get: Callable[[str], tuple[int, Any]] | None = None
     published: Callable[[str], set[int]] | None = None
@@ -255,7 +261,7 @@ class FetchDataTool(BaseTool):
         return None
 
     def _fetch_one(
-        self, template: CensusURL, year: int
+        self, template: CensusURL, year: int, for_spec: str = ""
     ) -> tuple[RequestLeg, list[dict[str, str | None]]]:
         census_url = template.with_year(year)
         redacted = str(census_url)
@@ -264,7 +270,12 @@ class FetchDataTool(BaseTool):
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError) as exc:
             return (
                 RequestLeg(
-                    year=year, url=redacted, ok=False, status_code=0, detail=redact_text(str(exc))
+                    year=year,
+                    url=redacted,
+                    ok=False,
+                    status_code=0,
+                    detail=redact_text(str(exc)),
+                    for_spec=for_spec,
                 ),
                 [],
             )
@@ -278,11 +289,14 @@ class FetchDataTool(BaseTool):
                     ok=False,
                     status_code=status,
                     detail=redact_text(str(raw)[:300]),
+                    for_spec=for_spec,
                 ),
                 [],
             )
         return (
-            RequestLeg(year=year, url=redacted, ok=True, status_code=status, detail=""),
+            RequestLeg(
+                year=year, url=redacted, ok=True, status_code=status, detail="", for_spec=for_spec
+            ),
             _tag_year(parsed, year),
         )
 
@@ -330,19 +344,33 @@ class FetchDataTool(BaseTool):
             cap=MAX_YEARS,
         )
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
+        specs = list(self.last_geographies() or []) if self.last_geographies else []
+        geos: list[GeoSpec | None] = list(specs) if specs else [None]
 
         async def fanout(
             planned: VintagePlan,
         ) -> list[tuple[RequestLeg, list[dict[str, str | None]]]]:
             template = built.with_dataset(planned.dataset)
 
-            async def one(year: int) -> tuple[RequestLeg, list[dict[str, str | None]]]:
+            async def one(
+                year: int, spec: GeoSpec | None
+            ) -> tuple[RequestLeg, list[dict[str, str | None]]]:
                 async with sem:
-                    return await asyncio.to_thread(self._fetch_one, template, year)
+                    url = (
+                        template
+                        if spec is None
+                        else template.with_geography(spec.for_spec, spec.in_spec)
+                    )
+                    clause = spec.for_spec if spec is not None else ""
+                    return await asyncio.to_thread(self._fetch_one, url, year, clause)
 
             if not planned.attempted:
                 return []
-            return list(await asyncio.gather(*(one(year) for year in planned.attempted)))
+            return list(
+                await asyncio.gather(
+                    *(one(year, spec) for spec in geos for year in planned.attempted)
+                )
+            )
 
         gathered = await fanout(plan)
         unpublished = {204, 404}

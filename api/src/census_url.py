@@ -28,7 +28,7 @@ def _strip_key(url: str) -> str:
         if key.casefold() != "key"
     ]
     return urlunsplit(
-        (parts.scheme, parts.netloc, parts.path, urlencode(kept, safe=":,"), parts.fragment)
+        (parts.scheme, parts.netloc, parts.path, urlencode(kept, safe=":,* "), parts.fragment)
     )
 
 
@@ -52,7 +52,7 @@ class CensusURL:
         query = [(name, value) for name, value in query if name.casefold() != "key"]
         query.append(("key", key))
         return urlunsplit(
-            (parts.scheme, parts.netloc, parts.path, urlencode(query, safe=":,"), parts.fragment)
+            (parts.scheme, parts.netloc, parts.path, urlencode(query, safe=":,* "), parts.fragment)
         )
 
     @property
@@ -100,4 +100,27 @@ class CensusURL:
             bits[acs + 1] = dataset
         return CensusURL(
             urlunsplit((parts.scheme, parts.netloc, "/".join(bits), parts.query, parts.fragment))
+        )
+
+    def with_geography(self, for_spec: str, in_spec: str = "") -> CensusURL:
+        parts = urlsplit(self._redacted)
+        query = [
+            (key, value)
+            for key, value in parse_qsl(parts.query, keep_blank_values=True)
+            if key not in {"for", "in"}
+        ]
+        if for_spec:
+            query.append(("for", for_spec))
+        if in_spec:
+            query.append(("in", in_spec))
+        return CensusURL(
+            urlunsplit(
+                (
+                    parts.scheme,
+                    parts.netloc,
+                    parts.path,
+                    urlencode(query, safe=":,* "),
+                    parts.fragment,
+                )
+            )
         )

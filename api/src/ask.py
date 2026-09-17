@@ -21,7 +21,8 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse, GeoSpec
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
-from src.geo import ResolveGeographyTool, list_census_names
+from src.geo import ResolveGeographyTool
+from src.geo_list import list_census_names
 from src.guards import finish_aggregation
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
@@ -85,6 +86,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
             "legal": bool(get("legal", True)),
             "detail": str(get("detail", "") or ""),
             "nested": get("nested", True) is not False,
+            "compare": bool(get("compare", False)),
         }
         record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
@@ -144,11 +146,10 @@ def _rows_with_geoid(
 
 
 def _response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
-    if fallback:
-        return fallback
-    if len(rows) == 1:
-        return rows[0].get("GEO_ID") or ""
-    return ""
+    ids = {(row.get("GEO_ID") or fallback) for row in rows} - {""}
+    if len(ids) == 1:
+        return next(iter(ids))
+    return fallback if not rows else ""
 
 
 def _how_differs(
@@ -371,6 +372,9 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         ),
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
+            last_geographies=lambda: (
+                record.geographies[:2] if (record.geo_status or {}).get("compare") else []
+            ),
             census_key=lambda: os.environ.get("CENSUS_API_KEY", ""),
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             allow_overlapping_acs5=record.allow_overlapping_acs5,

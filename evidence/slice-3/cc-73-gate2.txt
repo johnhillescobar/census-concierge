@@ -1,0 +1,325 @@
+CC-73 Gate 2 -- cold review of HEAD plus working tree
+branch: feat/cc-73-geo-fanout
+HEAD: 84c430be8d15e0706f753441f5b6280ec5bae48d
+base: origin/main (a7c65c97089254c399347dc09238bbd36b57a64f)
+review surface: git diff origin/main AND unstaged api/src + tests
+  (ask.py, fetch.py, guards.py, ask_fixtures.py, test_ask_loop.py,
+  test_ask_tools.py, test_fetch_years.py, test_guards.py). A read of
+  commit 84c430b alone is not this review.
+untracked (not in this review): evidence/slice-3/cc-73-e2e-pre.txt,
+  evidence/slice-3/cc-73-gate1-fix.txt, .cursor/mcp.json
+E2E / make demo / make eval: not this phase; missing scoreboard expected
+no commit; no product-source edits
+
+========== git rev-parse HEAD ==========
+
+84c430be8d15e0706f753441f5b6280ec5bae48d
+
+========== git rev-parse origin/main ==========
+
+a7c65c97089254c399347dc09238bbd36b57a64f
+
+========== git log -1 ==========
+
+commit 84c430be8d15e0706f753441f5b6280ec5bae48d
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Thu Sep 17 05:42:02 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Thu Sep 17 05:42:02 2026 -0500
+
+    feat(api): fan out wildcard and versus geographies (CC-73)
+
+    Named-county parents emit one tract:* GET; versus queries emit two GeoSpec legs; fetch_data rewrites for/in the way it already rewrites years.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+========== git log --oneline origin/main..HEAD ==========
+
+84c430b feat(api): fan out wildcard and versus geographies (CC-73)
+
+========== git status ==========
+
+On branch feat/cc-73-geo-fanout
+Your branch is up to date with 'origin/feat/cc-73-geo-fanout'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   api/src/ask.py
+	modified:   api/src/fetch.py
+	modified:   api/src/guards.py
+	modified:   api/tests/ask_fixtures.py
+	modified:   api/tests/test_ask_loop.py
+	modified:   api/tests/test_ask_tools.py
+	modified:   api/tests/test_fetch_years.py
+	modified:   api/tests/test_guards.py
+	modified:   docs/ARCHITECTURE.md
+	modified:   evidence/latest.json
+	modified:   evidence/slice-3/cc-73-gate1.txt
+	modified:   evidence/slice-3/cc-73-gate2.txt
+	modified:   evidence/slice-3/gate1.txt
+	modified:   evidence/slice-3/gate2.txt
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.cursor/mcp.json
+	evidence/slice-3/cc-73-e2e-pre.txt
+	evidence/slice-3/cc-73-gate1-fix.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+========== git diff --stat origin/main ==========
+
+ api/src/ask.py                             |   15 +-
+ api/src/census_url.py                      |   27 +-
+ api/src/contract.py                        |   22 +-
+ api/src/fetch.py                           |   60 +-
+ api/src/geo.py                             |  277 ++--
+ api/src/geo_list.py                        |  161 ++
+ api/src/guards.py                          |    2 +
+ api/src/tools.py                           |    2 +-
+ api/tests/ask_fixtures.py                  |   19 +
+ api/tests/test_ask_loop.py                 |   40 +-
+ api/tests/test_ask_route.py                |    1 +
+ api/tests/test_ask_tools.py                |  130 +-
+ api/tests/test_fetch_years.py              |  204 +++
+ api/tests/test_guards.py                   |   21 +
+ docs/ARCHITECTURE.md                       |   34 +-
+ evidence/latest.json                       | 2258 +++++++++++++---------------
+ evidence/slice-3/cc-73-gate1.txt           |  342 +++++
+ evidence/slice-3/cc-73-gate2.txt           |  263 ++++
+ evidence/slice-3/cc-73-preflight-claims.md |   26 +
+ evidence/slice-3/cc-73-preflight.txt       |  185 +++
+ evidence/slice-3/gate1.txt                 |  342 +++++
+ evidence/slice-3/gate2.txt                 |  263 ++++
+ packages/client/openapi.json               |   16 +-
+ packages/client/schema.d.ts                |   16 +-
+ 24 files changed, 3276 insertions(+), 1450 deletions(-)
+
+========== git diff --stat (unstaged; also review surface) ==========
+
+ api/src/ask.py                   |   10 +-
+ api/src/fetch.py                 |    6 +-
+ api/src/guards.py                |    4 +-
+ api/tests/ask_fixtures.py        |    2 +-
+ api/tests/test_ask_loop.py       |   22 +-
+ api/tests/test_ask_tools.py      |   18 +
+ api/tests/test_fetch_years.py    |   36 +
+ api/tests/test_guards.py         |   11 +
+ docs/ARCHITECTURE.md             |    7 +-
+ evidence/latest.json             | 2258 +++++++++++++++++---------------------
+ evidence/slice-3/cc-73-gate1.txt |  563 +++++-----
+ evidence/slice-3/cc-73-gate2.txt |  220 ++--
+ evidence/slice-3/gate1.txt       |  563 +++++-----
+ evidence/slice-3/gate2.txt       |  220 ++--
+ 14 files changed, 1935 insertions(+), 2005 deletions(-)
+
+Unstaged product behaviour vs HEAD:
+- ask.py last_geographies is geographies[:2] when compare, not the full list
+- ask.py _response_geoid returns "" when len(rows) > 1
+- fetch.py ACS1 204/404 destagger only when geos == [None]
+- guards.py ambiguous_place skips compare only when len(matches) <= 2
+- tests cover leftover Springfield warn + two fetch legs, ACS1 compare 404
+  not destaggering the other leg, many-rows geoid with a non-empty fallback
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3126 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         12.682 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.812 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    no violations
+
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+106 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 22 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 22%]
+........................................................................ [ 44%]
+........................................................................ [ 66%]
+........................................................................ [ 88%]
+.......................................                                  [100%]
+327 passed in 4.78s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+machines did not stop the rest of the playbook
+
+========== Gate 2 Pass 1 -- generic bugs / silent-wrong-answer ==========
+cold read of origin/main..HEAD plus unstaged api/src and tests; no
+implementer chat. Confirmed two behaviours with a local import (not eval/demo).
+
+Pass 1 findings:
+
+1. split_versus fires on every "versus" / "compared to" / "vs" / leading
+   "compare … to", with no check that both sides are places. ResolveGeographyTool
+   then requires each side to produce specs or the whole call returns that
+   side's empty/fail result and never sets compare.
+   Golden q18 "Renter versus owner households in Milwaukee" split to
+   ('Renter', 'owner households in Milwaukee') and resolved to compare=False,
+   legal=True, 0 specs, detail "no place matched 'Renter'". Milwaukee is not
+   looked up. The versus tests pass the full question into resolve_geography;
+   that is the calling convention the feature needs in order to see "versus".
+   "population of Denver compared to 2017" splits to ('population of Denver',
+   '2017'); a year on the right aborts the resolve. Slice 3 named both
+   "since 2017" and "compared to" as standard questions; the splitter cannot
+   tell a year from a parent geography.
+
+2. Unstaged _response_geoid returns "" whenever len(rows) > 1. That stops a
+   two-area comparison from being labelled with geographies[0].geoid (the
+   intended fix), but it also blanks a one-geography year series. Assemble of
+   two Harris County year-rows with fallback 0500000US48201 yields geoid ''.
+   Contract text: empty when many areas are returned, not when many rows are.
+   test_many_rows_do_not_name_one_geoid was changed to _harris() plus two
+   different county GEO_IDs; it does not distinguish many areas from many
+   vintages of one area.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Leftover same-name places fetched as extra compare GETs: nothing in the
+  working tree. last_geographies is geographies[:2] when compare; leftovers
+  stay on geographies; ambiguous_place warns when len > 2. Confirmed by
+  test_versus_with_several_places_warns_and_keeps_both_legs and
+  test_springfield_versus_texas_keeps_place_alternatives.
+- ACS1 404 on one compare leg destaggering the other to ACS5: nothing in the
+  working tree. destagger is gated on geos == [None].
+- Wildcard expanded to N GETs: nothing. compare is false; last_geographies
+  is []; fetch uses the built URL; a :* spec is one GET.
+- Dropped failed-leg URL: nothing. RequestLeg.url stays redacted; urls[]
+  keeps both legs.
+- Key leakage: nothing. with_geography rewrites the redacted form; with_key
+  only at _get; failed-leg detail uses redact_text.
+- Numbers through the model: nothing. _tool_content names row counts, years,
+  URLs; not estimates.
+- Blocking clarification: nothing. Guards still warn and ship.
+
+========== Gate 2 Pass 2 -- review-pr.md invariants ==========
+
+---------- claim ----------
+A versus / compared-to query now resolves to two executable GeoSpecs and
+fetch_data issues one Census GET per comparison spec (wildcard still one GET).
+Leftover same-name places stay on geographies and warn. E2E is not this phase.
+
+The first sentence is true for queries whose versus-sides both resolve as
+places (Austin vs Texas). It is false for a versus that is tenure or a year
+(q18; "compared to 2017"): those return zero specs, not two GeoSpecs.
+
+---------- evidence ----------
+Not this phase. No make demo / make eval. Missing demo/eval numbers are
+expected; do not fail the review solely for no scoreboard.
+evidence/latest.json is unstaged churn (answered_rate 0.812, p95 12.682);
+not scored here.
+
+---------- scope ----------
+Slice 3 geographies: fetch_data fans the list; a :* wildcard stays one call;
+versus split. No new tool, route, or graph node. ARCHITECTURE.md updated
+(unstaged sentence: compare skips ambiguous_place only at two).
+24 files vs origin/main, of which evidence + generated client are a large
+share; product is 8 api/src (geo_list.py extracted so geo.py stays under
+400), 6 test files, ARCHITECTURE, OpenAPI + TS client — ~15 plus evidence.
+Not-in-this-slice (charts, memory, PDF, auth) untouched. Place-vs-parent
+shared-sample MOE note remains an unchecked PLAN item and is absent here.
+Year-over-year significance and per-year variable existence are later in
+the same slice; not claimed.
+
+---------- silent-wrong-answer ----------
+URL/MOE/universe still come from the fetch artifact; failed compare legs
+keep their redacted URL. CensusURL remains the redaction type. Rows stay
+in the artifact. Guards still warn and ship.
+
+Blockers:
+- Pass 1 #1: versus/compared-to in the resolve query is treated as two
+  geographies. q18 and a year "compared to" drop the real place.
+- Pass 1 #2: top-level geoid is omitted for every multi-row payload,
+  including a one-area series. Row GEO_ID is still present.
+
+Also (not dropped URLs):
+- Unique year buckets: one year can sit in both succeeded_years and
+  failed_years when one geo fails and the other succeeds; ok = any(leg.ok).
+  Contract text now says "at least one". Partial compare ships as a
+  successful fetch.
+- _rows_with_geoid still stamps geographies[0].geoid onto any row missing
+  GEO_ID; a compare fetch that omitted GEO_ID would mislabel the other leg.
+  build_url always requests GEO_ID, so this is a residual.
+- ambiguous_place on a leftover compare lists the comparison legs and the
+  leftovers together (Texas appears as a "matching geography").
+
+---------- shape ----------
+No new tool (fan-out from last_geographies[:2] when compare). No new route.
+RequestLeg.for_spec is a contract field; client regenerated. geo_list.py is
+listing/FIPS helpers split from geo.py, not a second geography tool. No
+add_node. ARCHITECTURE.md matches the leftover-warn / two-leg fetch shape.
+
+---------- tests ----------
+Behaviour on HTTP for= clauses, one wildcard GET, two compare legs,
+failed-leg URL, leftover warn, ACS1 compare 404. Guard tests do not assert
+prompt text. No same-table-for-any-input fake.
+No test that "Renter versus owner …" or "compared to 2017" stays a single
+geography. No test that a one-area year series keeps top-level geoid.
+Ask-loop versus tests inspect last_geographies(); they do not invoke
+fetch_data. Fetch fan-out is covered in test_fetch_years.py.
+A new test file is not demo evidence; E2E is next.
+
+---------- verdict ----------
+Not yet.
+
+Single most important reason: split_versus treats any "versus" / "compared
+to" as two geographies, so a full-question resolve of golden q18 ("Renter
+versus owner households in Milwaukee") returns zero specs and never looks
+up Milwaukee.
+
+Working-tree leftover-fetch and ACS1 destagger fixes hold. They do not
+outrank the splitter. The unstaged geoid change still blanks a one-area
+series (Pass 1 #2) and should be fixed with distinct-area detection, not
+row count.
+E2E numbers are absent because this phase does not run them.

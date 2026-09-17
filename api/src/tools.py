@@ -1,7 +1,7 @@
 """Ask-loop tools: schemas plus search_tables and build_url.
 
 resolve_geography lives in `geo.py` so legality stays next to geography.json.
-fetch_data lives in `fetch.py` so year fan-out stays off this file's line cap.
+fetch_data lives in `fetch.py` so year and geography fan-out stay off this file's line cap.
 """
 
 from __future__ import annotations

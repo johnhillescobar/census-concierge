@@ -1,0 +1,47 @@
+# GOOD = test fails against the broken implementation (the check works).
+# Copilot review on PR 46: ACS1 comparison destagger + versus-series MOE pairs.
+
+===== BASELINE copilot tests =====
+GOOD
+...                                                                      [100%]
+3 passed in 0.22s
+exit 0
+
+===== MUTATION skip-compare-acs1-destagger =====
+GOOD
+FAILED test_acs1_ineligible_comparison_leg_destaggers_all_legs
+AssertionError: assert 'acs1' == 'acs5'
+exit 1
+Restored skip-compare-acs1-destagger.
+
+===== MUTATION cartesian-versus-series =====
+GOOD
+FAILED test_versus_series_does_not_warn_on_same_place_years
+AssertionError: assert ['moe_not_significant'] == []
+exit 1
+Restored cartesian-versus-series.
+
+===== MUTATION skip-same-year-geo-pairs =====
+GOOD
+FAILED test_versus_series_warns_when_same_year_legs_are_indistinguishable
+AssertionError: assert [] == ['moe_not_significant']
+exit 1
+Restored skip-same-year-geo-pairs.
+
+===== RESTORED copilot tests =====
+GOOD
+3 passed in 0.23s
+exit 0
+
+===== MACHINES =====
+check_budgets.py exit 0 (largest file LOC 399 <= 400)
+check_invariants.py --base origin/main exit 0
+ruff check / format --check exit 0
+mypy api/src exit 0
+pytest -q -m "not integration"  332 passed
+
+One-sided versus fallback was not changed: tenure/year "versus" is not two
+places (test_tenure_versus_still_resolves_the_place,
+test_compared_to_a_year_still_resolves_the_place). A user-facing warning
+would fire on those questions. No DESIGN §4 code exists for a dropped
+comparison side.

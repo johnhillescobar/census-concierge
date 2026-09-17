@@ -20,11 +20,11 @@ from src.geo import (
     filter_rows,
     find_state,
     legal_predicate,
-    list_census_names,
     nests_in,
     place_token,
     rank_matches,
 )
+from src.geo_list import list_census_names
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
     BuildUrlTool,
@@ -531,6 +531,162 @@ async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
     assert spec.vintage == 2024
 
 
+async def test_tracts_in_wayne_county_are_one_wildcard_not_a_listing() -> None:
+    called: list[tuple[str, dict[str, str]]] = []
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        _ = dataset, vintage
+        called.append((level, dict(parts)))
+        return _list_geographies(level, parts)
+
+    tool = _geo_tool(listing)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "All tracts in Wayne County, Michigan"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is True
+    assert artifact.wildcard is True
+    assert artifact.compare is False
+    assert len(artifact.specs) == 1
+    spec = artifact.specs[0]
+    assert spec.for_spec == "tract:*"
+    assert spec.in_spec == "state:26 county:163"
+    assert spec.codes == {"tract": "*", "state": "26", "county": "163"}
+    assert [level for level, _parts in called] == ["county"]
+    assert called[0][1] == {"state": "26"}
+
+
+async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "every tract in Wayne County"},
+            "id": "c1",
+        }
+    )
+    spec = message.artifact.specs[0]
+    assert message.artifact.legal is True
+    assert spec.for_spec == "tract:*"
+    assert spec.in_spec == "state:26 county:163"
+    assert [row.name for row in message.artifact.specs[1:]] == ["Wayne County, North Carolina"]
+
+
+async def test_all_tracts_in_michigan_stay_illegal() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all tracts in Michigan"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is False
+    assert message.artifact.specs == []
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Median gross rent in Austin versus the Texas average",
+        "Compare median gross rent in Austin to the Texas average",
+        "Austin compared to the Texas average",
+        "Austin vs the Texas average",
+    ],
+)
+async def test_versus_emits_austin_then_texas_as_comparison_legs(query: str) -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is True
+    assert artifact.compare is True
+    assert artifact.wildcard is False
+    assert [row.level for row in artifact.specs] == ["place", "state"]
+    assert artifact.specs[0].for_spec == "place:4805000"
+    assert artifact.specs[0].in_spec == "state:48"
+    assert artifact.specs[1].for_spec == "state:48"
+    assert artifact.specs[1].in_spec == ""
+
+
+async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Springfield versus the Texas average"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is True
+    assert artifact.specs[0].for_spec == "place:70000"
+    assert artifact.specs[1].for_spec == "state:48"
+    assert {row.in_spec for row in artifact.specs[2:]} == {"state:17", "state:51"}
+
+
+async def test_tenure_versus_still_resolves_the_place() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Renter versus owner households in Springfield"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is False
+    assert artifact.legal is True
+    assert artifact.specs[0].name == "Springfield city, Missouri"
+
+
+async def test_compared_to_a_year_still_resolves_the_place() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "population of Austin compared to 2017"},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is False
+    assert artifact.legal is True
+    assert artifact.specs[0].for_spec == "place:4805000"
+
+
+async def test_springfield_alternatives_are_not_comparison_legs() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Population of Springfield"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.compare is False
+    assert len(message.artifact.specs) == 3
+
+
 async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
@@ -989,7 +1145,7 @@ def test_listing_keeps_population_off_the_in_clause(monkeypatch: pytest.MonkeyPa
         captured["url"] = url
         return _Resp()
 
-    monkeypatch.setattr("src.geo.httpx.get", fake_get)
+    monkeypatch.setattr("src.geo_list.httpx.get", fake_get)
     rows = list_census_names("county", {"state": "*"}, key="")
     assert "B01003_001E" in captured["url"]
     assert rows[0]["population"] == "5182090"
@@ -1005,7 +1161,7 @@ def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyP
         _ = timeout
         raise httpx.HTTPError(f"boom {url}")
 
-    monkeypatch.setattr("src.geo.httpx.get", boom)
+    monkeypatch.setattr("src.geo_list.httpx.get", boom)
     with pytest.raises(RuntimeError, match="geography listing failed") as caught:
         list_census_names("county", {"state": "48"}, key="secret")
     assert "secret" not in str(caught.value)

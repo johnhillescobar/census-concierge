@@ -1,0 +1,184 @@
+Gate 2 re-run
+================
+
+branch: feat/cc-73-geo-fanout
+HEAD: 84c430be8d15e0706f753441f5b6280ec5bae48d
+origin/main: a7c65c97089254c399347dc09238bbd36b57a64f
+This is a Gate 2 re-run of HEAD plus unstaged product files (api/src/, api/tests/, docs/ARCHITECTURE.md). A read of 84c430b alone is not this review. .cursor/mcp.json was not reviewed. No e2e transcript was Read. make demo / make eval were not run. Missing demo/eval numbers are expected.
+
+git diff --stat origin/main
+---------------------------
+ api/src/ask.py                             |   16 +-
+ api/src/census_url.py                      |   27 +-
+ api/src/contract.py                        |   22 +-
+ api/src/fetch.py                           |   60 +-
+ api/src/geo.py                             |  276 ++--
+ api/src/geo_list.py                        |  161 ++
+ api/src/guards.py                          |    2 +
+ api/src/tools.py                           |    2 +-
+ api/tests/ask_fixtures.py                  |   19 +
+ api/tests/test_ask_loop.py                 |   51 +-
+ api/tests/test_ask_route.py                |    1 +
+ api/tests/test_ask_tools.py                |  162 +-
+ api/tests/test_fetch_years.py              |  204 +++
+ api/tests/test_guards.py                   |   21 +
+ docs/ARCHITECTURE.md                       |   35 +-
+ evidence/latest.json                       | 2258 +++++++++++++---------------
+ evidence/slice-3/cc-73-gate1.txt           |   74 +
+ evidence/slice-3/cc-73-gate2.txt           |  325 ++++
+ evidence/slice-3/cc-73-preflight-claims.md |   26 +
+ evidence/slice-3/cc-73-preflight.txt       |  185 +++
+ evidence/slice-3/gate1.txt                 |   74 +
+ evidence/slice-3/gate2.txt                 |  325 ++++
+ packages/client/openapi.json               |   16 +-
+ packages/client/schema.d.ts                |   16 +-
+ 24 files changed, 2908 insertions(+), 1450 deletions(-)
+
+git diff --stat -- api/src/ api/tests/ docs/ARCHITECTURE.md  (unstaged)
+----------------------------------------------------------------------
+ api/src/ask.py                | 11 +++++-----
+ api/src/fetch.py              |  6 ++++--
+ api/src/geo.py                | 23 ++++++++++----------
+ api/src/guards.py             |  4 ++--
+ api/tests/ask_fixtures.py     |  2 +-
+ api/tests/test_ask_loop.py    | 33 +++++++++++++++++++++++++++-
+ api/tests/test_ask_tools.py   | 50 +++++++++++++++++++++++++++++++++++++++++++
+ api/tests/test_fetch_years.py | 36 +++++++++++++++++++++++++++++++
+ api/tests/test_guards.py      | 11 ++++++++++
+ docs/ARCHITECTURE.md          |  8 ++++---
+ 10 files changed, 157 insertions(+), 27 deletions(-)
+
+Unstaged product files (working tree, not in HEAD):
+ M api/src/ask.py
+ M api/src/fetch.py
+ M api/src/geo.py
+ M api/src/guards.py
+ M api/tests/ask_fixtures.py
+ M api/tests/test_ask_loop.py
+ M api/tests/test_ask_tools.py
+ M api/tests/test_fetch_years.py
+ M api/tests/test_guards.py
+ M docs/ARCHITECTURE.md
+
+
+First: the machines
+===================
+
+$ uv run python scripts/check_budgets.py
+exit 0
+
+BUDGETS
+
+  ok    api src LOC               3126 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         12.682 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.812 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit 0
+
+INVARIANTS
+
+  ok    no violations
+
+$ uv run ruff check .
+exit 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit 0
+106 files already formatted
+
+$ uv run mypy api/src
+exit 0
+Success: no issues found in 22 source files
+
+$ uv run pytest -q -m "not integration"
+exit 0
+........................................................................ [ 21%]
+........................................................................ [ 43%]
+........................................................................ [ 65%]
+........................................................................ [ 87%]
+..........................................                               [100%]
+330 passed in 7.74s
+
+All machines exited 0. Review continues.
+
+
+Pass 1 — generic bugs (code only)
+=================================
+
+Cold read of git diff origin/main plus the unstaged working tree for api/src/, api/tests/, docs/ARCHITECTURE.md.
+
+Findings:
+
+1. ACS1 eligibility is probed on the built URL only (fetch.py _acs1_ok(built)), then comparison fan-out rewrites for/in per GeoSpec. Destagger to ACS5 is gated on geos == [None], so a comparison that planned ACS1 and then 404s one spec keeps ACS1 for the other spec and leaves the 404 leg failed. acs1_ineligible stays False, so acs1_geography_ineligible does not fire. urls[] still carries the failed ACS1 URL. Visible in fetch.py fanout + the destagger predicate; covered as intended by test_acs1_comparison_404_does_not_destagger_the_other_leg (that test probes TEMPLATE county:201, not the comparison specs).
+
+2. split_versus that resolves only one side returns that side with compare=False and no extra detail (geo.py _arun). A failed comparison place becomes a single-place answer. The same path is what keeps "compared to 2017" and "renter versus owner" from failing geography.
+
+3. moe_not_significant still compares every pair of rows. A versus year-series (2 geos x N years) can warn because two years of the same place are indistinguishable even when the cross-geography gap is not.
+
+No crash, off-by-one on [:2] extras (extras are appended after the two picks), key leak, or missing URL-on-failure found on the fan-out path. CensusURL.with_geography rewrites on _redacted; with_key remains the GET site. _response_geoid keeps a single-area year series and blanks a multi-GEOID comparison.
+
+
+Pass 2 — project invariants
+===========================
+
+The claim
+---------
+A user who asks a versus/compared-to geography question now gets two Census requests from the existing fetch_data tool (for/in rewritten per spec), and a named-county tract wildcard stays one GET. Failed legs still carry a redacted URL.
+
+Evidence: make demo / make eval were not run for this phase; missing scoreboard is expected and is not a fail.
+
+Scope
+-----
+Slice 3: fetch_data fans a list of GeoSpecs; a :* wildcard stays one call. No new tool, route, or graph node. No charts/memory/PDF/auth.
+
+Product files vs origin/main: 8 api/src (including new geo_list.py), 6 api/tests, docs/ARCHITECTURE.md, plus committed OpenAPI/TS client regen (2) = 17, over the ~15 guideline. geo_list.py is a line-cap split of listing helpers already used by resolve_geography; the client files follow the urls[] / RequestLeg contract change. Nothing from a later slice.
+
+Silent-wrong-answer
+-------------------
+- URL: each fan-out leg keeps a redacted URL on failure (test_one_failed_geography_keeps_its_url_and_the_other_rows).
+- MOE: assemble still pairs E with M via _moe_rows; fetch does not strip M.
+- GEOID: rows still get GEO_ID from the payload / fallback; top-level geoid is the unique id when all rows share one, else empty (comparison / wildcard listing).
+- Universe: still from build_url / search hit in assemble.
+- &key=: with_geography uses _redacted; listing errors raise CensusURL str; tests assert secret is absent.
+- Numbers do not pass back through the model (tool content is counts + URLs).
+- No new blocking clarification. ambiguous_place remains a warning; compare skips it only when there are two specs.
+- Versus one-sided fallback is an invisible geography repair (finding 2). Mixed ACS1 404 does not warn why (finding 1). Neither ships a substituted number.
+
+Shape
+-----
+Still four tools, one route, zero graph nodes. RequestLeg.for_spec is a field on the existing HTTP-boundary model, not a new per-row model. fetch_data.years/geographies remain parameters. docs/ARCHITECTURE.md matches the working tree (compare leftovers, [:2] fetch, destagger skip).
+
+Tests
+-----
+New tests assert tool artifacts (specs, for_spec, URL clauses, warning codes, geoid), not prompt wording or LLM prose. The listing fixture returns multiple counties/places, not one table for every input. A new test file is not the evidence; demo is later.
+
+largest file LOC 399 <= 400 and doc lines 1781 <= 1800 are inside the cap.
+
+
+Verdict
+=======
+
+Ship it with follow-ups — machines are green and comparison fan-out keeps a redacted URL per leg, including failures.
+
+Follow-ups (none is a substituted number):
+- Mixed ACS1 comparison: destagger skipped, acs1_geography_ineligible does not fire on a 404 leg.
+- One-sided versus split returns the resolved side with no warning.
+- moe_not_significant pairs every row, so a versus series can warn for same-place years.

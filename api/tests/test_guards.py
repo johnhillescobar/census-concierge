@@ -239,6 +239,28 @@ def test_unavailable_margins_are_not_compared() -> None:
     assert _codes(record) == []
 
 
+def test_versus_series_does_not_warn_on_same_place_years() -> None:
+    record = ExecutionRecord(question="Median rent in Austin versus the Texas average")
+    record.rows = [
+        {"GEO_ID": "a", "year": "2017", "B25064_001E": "100", "B25064_001M": "50"},
+        {"GEO_ID": "a", "year": "2022", "B25064_001E": "110", "B25064_001M": "50"},
+        {"GEO_ID": "b", "year": "2017", "B25064_001E": "1000", "B25064_001M": "10"},
+        {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
+    ]
+    assert _codes(record) == []
+
+
+def test_versus_series_warns_when_same_year_legs_are_indistinguishable() -> None:
+    record = ExecutionRecord(question="Median rent in Austin versus the Texas average")
+    record.rows = [
+        {"GEO_ID": "a", "year": "2017", "B25064_001E": "100", "B25064_001M": "50"},
+        {"GEO_ID": "b", "year": "2017", "B25064_001E": "110", "B25064_001M": "50"},
+        {"GEO_ID": "a", "year": "2022", "B25064_001E": "1000", "B25064_001M": "10"},
+        {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
+    ]
+    assert _codes(record) == ["moe_not_significant"]
+
+
 def test_overlapping_vintages_do_not_compare_leftover_rows() -> None:
     record = ExecutionRecord(question=T01)
     record.vintages = [("acs5", 2019), ("acs5", 2022)]
@@ -277,6 +299,27 @@ def test_one_geography_is_not_ambiguous() -> None:
     record = ExecutionRecord()
     record.geographies = [_harris()]
     assert _codes(record) == []
+
+
+def test_comparison_legs_are_not_ambiguous_places() -> None:
+    record = ExecutionRecord(question="Median gross rent in Austin versus the Texas average")
+    record.geographies = [
+        GeoSpec(name="Austin city, Texas", level="place", for_spec="place:4805000"),
+        GeoSpec(name="Texas", level="state", for_spec="state:48"),
+    ]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    assert _codes(record) == []
+
+
+def test_comparison_with_leftover_matches_still_warns() -> None:
+    record = ExecutionRecord(question="Springfield versus the Texas average")
+    record.geographies = [
+        GeoSpec(name="Springfield city, Missouri", level="place"),
+        GeoSpec(name="Texas", level="state", for_spec="state:48"),
+        GeoSpec(name="Springfield city, Illinois", level="place"),
+    ]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    assert _codes(record) == ["ambiguous_place"]
 
 
 def test_question_crossing_households_and_families_warns() -> None:
