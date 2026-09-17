@@ -37,9 +37,9 @@ jobs:
         run: uv run mypy api/src
 
       - name: tests
-        # Exit 5 is "no tests collected", the correct state until slice 1. Any
-        # other non-zero is a real failure. The `||` keeps `bash -e` from
-        # aborting before the code is inspected.
+        # Exit 5 is "no tests collected". Keep it so an empty selection is not a
+        # false red; any other non-zero is a real failure. The `||` keeps `bash -e`
+        # from aborting before the code is inspected.
         run: uv run pytest -q -m "not integration" || [ $? -eq 5 ]
 
       - uses: actions/setup-node@v4
@@ -74,12 +74,11 @@ jobs:
           fi
 
   scoreboard:
-    # The quality floors: retrieval@1, answered rate, p95 latency.
+    # The quality floors: retriever @10, selector @1, answered rate, p95 latency.
     #
-    # THIS JOB IS EXPECTED TO BE RED UNTIL SLICE 0 SHIPS. That is the design —
-    # the scaffold cannot be turned green by writing code, only by making
-    # retrieval work. It is a separate job so that `check` staying green means
-    # something day to day, and so this one turning green is an event.
+    # Slice 0 closed; this job is expected green. It is a separate job so that
+    # `check` staying green means something day to day, and a floor regression
+    # is an event rather than noise in lint.
     #
     # Do not add continue-on-error. Do not lower a floor to make it pass.
     runs-on: ubuntu-latest

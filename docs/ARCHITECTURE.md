@@ -52,7 +52,7 @@ scripts/e2e_capture.py       eval + demo transcript into evidence/slice-<N>/
 scripts/score_synthetic.py   generated-question quality, on a 600 sample
 scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
 scripts/generate_client.py   OpenAPI → packages/client; `--check` is the drift gate
-evals/golden_questions.toml  66 scorable: 4 core, 40 long-tail, 14 trap,
+evals/golden_questions.toml  70 scorable: 4 core, 40 long-tail, 18 trap,
                              8 held out. All verified 2026-08-14.
 evidence/latest.json         last measured run
 evidence/retrieval_steps.md  every step's number, and what the plan got wrong
@@ -199,8 +199,8 @@ futures.
 | slice | adds to this file |
 |---|---|
 | ~~0~~ | ~~the index~~ — done, above |
-| 1 | `POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`. |
-| 2 | `web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32). |
+| ~~1~~ | ~~`POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`~~ — done, above |
+| ~~2~~ | ~~`web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32)~~ — done, above |
 | 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); ACS1 where published else non-overlapping ACS5 (CC-72); remaining series guards still open |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |

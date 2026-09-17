@@ -5,8 +5,8 @@ globs: web/**/*.ts,web/**/*.tsx
 
 # web/ — React + TypeScript
 
-Budget: 3,000 lines. Two panes, chat and canvas. Nothing more until it exists
-and works.
+Budget: 3,000 lines. One chat pane today. Canvas, `ChartSpec`, and the plan
+strip are slice 4 — do not build them here.
 
 ## The API client is generated, never hand-written
 
@@ -18,17 +18,15 @@ Do not hand-edit generated files. Do not add a parallel fetch wrapper.
 
 ## Rendering rules
 
-- Charts render from a `ChartSpec` returned by the API (type, x, y, series,
-  title). The backend never sends chart code or SVG, and the frontend never asks
-  for any.
-- Tables always show **GEOID, estimate, and margin of error** columns. MOE is not
-  optional metadata — researchers cannot use an estimate without it.
 - The **API URL is visible and copyable on every answer**, including failed ones.
-- The editable plan strip (`ACS5 2019–2023 · B01003 · county · Texas [edit]`) is
-  how users correct a wrong table. There is no clarification dialog.
+- When a table is shown, it includes **GEOID, estimate, and margin of error**.
+  MOE is not optional metadata — researchers cannot use an estimate without it.
 
 ## Not yet
 
+Charts render from a `ChartSpec` (type, x, y, series, title) in slice 4. The
+backend never sends chart code or SVG. The editable plan strip
+(`ACS5 2019–2023 · B01003 · county · Texas [edit]`) is also slice 4.
 No component library, no state-management library, no design system, no routing
 abstraction — until the second real use appears. Check `.claude/PLAN.md` for
 which slice a feature belongs to before building it.

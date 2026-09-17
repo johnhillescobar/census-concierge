@@ -3,8 +3,8 @@
 A lookup, not a search. The semantic index is deliberately vintage-agnostic —
 a discontinued table must stay findable — so this is where the "does it exist
 in 2019?" question is answered. Slice 3's guards join on it rather than asking
-the model to remember: `variable_not_in_vintage`, `vintage_gap_2020` and the
-universe half of `universe_mismatch` are all reads from this file.
+the model to remember: `vintage_gap_2020` and the universe half of
+`universe_mismatch` are reads from this file.
 
 Variable IDs are stored as suffixes under their table (`B01003` + `001E`),
 which drops the table prefix from roughly half a million strings.
