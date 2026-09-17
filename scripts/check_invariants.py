@@ -8,7 +8,7 @@ judgment calls live in the review playbook, not in this file.
     python scripts/check_invariants.py
     python scripts/check_invariants.py --base origin/main   # adds the budget-diff check
 
-Exits non-zero on any violation.
+Exits non-zero on any violation. Every check is printed by name, pass or fail.
 """
 
 from __future__ import annotations
@@ -18,18 +18,29 @@ import re
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 API_SRC = ROOT / "api" / "src"
 API_TESTS = ROOT / "api" / "tests"
+WEB_SRC = ROOT / "web" / "src"
+SCRIPTS = ROOT / "scripts"
+EVIDENCE = ROOT / "evidence"
 
 SKIP_DIRS = {"__pycache__", ".venv", "node_modules", ".git", "dist", "build"}
 
 # Budget sections where a LARGER number is weaker, versus where a SMALLER one is.
 CEILING_SECTIONS = ("size", "shape", "performance")
 FLOOR_SECTIONS = ("quality",)
+
+BANNED_MODULE = re.compile(r"_(manager|orchestrator|factory|policy|strategy|service)\.(py|ts|tsx)$")
+EMPTY_SECRET = re.compile(
+    r"""(?:os\.environ\.get|os\.getenv)\(\s*["'](CENSUS_API_KEY|OPENAI_API_KEY|GEMINI_API_KEY)["']\s*,\s*["']{2}\s*\)"""
+)
+KEY_LEAK = re.compile(r"(?i)[?&]key=(?!REDACTED)[^&\s]+")
+KEY_IN_URL = re.compile(r"[?&]key=")
 
 
 @dataclass(frozen=True)
@@ -111,6 +122,86 @@ def check_tests_do_not_touch_prompts() -> list[Violation]:
     )
 
 
+def check_banned_module_names() -> list[Violation]:
+    """Those suffixes hid orchestration the predecessor could not delete."""
+    found: list[Violation] = []
+    for root in (API_SRC, WEB_SRC):
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or SKIP_DIRS & set(path.parts):
+                continue
+            if BANNED_MODULE.search(path.name):
+                rel = path.relative_to(ROOT).as_posix()
+                found.append(
+                    Violation(
+                        rel,
+                        "forbidden module suffix: *_manager, *_orchestrator, "
+                        "*_factory, *_policy, *_strategy, *_service",
+                    )
+                )
+    return found
+
+
+def check_no_clarification_layer() -> list[Violation]:
+    """A clarification subsystem is a blocking question wearing a directory."""
+    found: list[Violation] = []
+    for root in (API_SRC, WEB_SRC):
+        if not root.exists():
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file() or SKIP_DIRS & set(path.parts):
+                continue
+            if "clarif" in path.name.casefold():
+                rel = path.relative_to(ROOT).as_posix()
+                found.append(
+                    Violation(
+                        rel,
+                        "blocking clarification is forbidden - candidates are results, "
+                        "not a question the user cannot answer",
+                    )
+                )
+    return found
+
+
+def check_census_key_not_in_artifacts() -> list[Violation]:
+    """Committed evidence JSON is user-visible. A live Census key must not be in it."""
+    if not EVIDENCE.is_dir():
+        return []
+    found: list[Violation] = []
+    for path in EVIDENCE.rglob("*.json"):
+        if SKIP_DIRS & set(path.parts):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if KEY_LEAK.search(text):
+            rel = path.relative_to(ROOT).as_posix()
+            found.append(Violation(rel, "Census API key leaked into evidence JSON; redact &key="))
+    return found
+
+
+def check_no_empty_secret_defaults() -> list[Violation]:
+    """`.get("CENSUS_API_KEY", "")` turns a missing key into an unauthenticated call."""
+    return _scan(
+        [*_py_files(API_SRC), *_py_files(SCRIPTS)],
+        EMPTY_SECRET,
+        "missing CENSUS_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY must fail closed, "
+        "not default to empty",
+    )
+
+
+def check_key_attached_only_in_census_url() -> list[Violation]:
+    """`&key=` in api/src belongs on CensusURL, not on a second formatter."""
+    files = [path for path in _py_files(API_SRC) if path.name != "census_url.py"]
+    return _scan(
+        files,
+        KEY_IN_URL,
+        "&key= is attached only inside census_url.py (CensusURL.with_key / redact_text)",
+    )
+
+
 def _budgets_at(ref: str) -> dict[str, dict[str, float]] | None:
     try:
         blob = subprocess.run(
@@ -162,6 +253,29 @@ def check_budgets_not_weakened(base: str) -> list[Violation]:
     return found
 
 
+CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
+    ("banned agent frameworks", check_banned_agent_frameworks),
+    ("sqlite", check_no_sqlite),
+    ("contextvars", check_no_contextvars),
+    ("ticket-named tests", check_test_naming),
+    ("prompt assertions", check_tests_do_not_touch_prompts),
+    ("forbidden module names", check_banned_module_names),
+    ("blocking clarification", check_no_clarification_layer),
+    ("census key in artifacts", check_census_key_not_in_artifacts),
+    ("empty secret defaults", check_no_empty_secret_defaults),
+    ("key attached only via CensusURL", check_key_attached_only_in_census_url),
+)
+
+
+def collect(base: str | None) -> list[tuple[str, list[Violation]]]:
+    rows = [(name, check()) for name, check in CHECKS]
+    if base:
+        rows.append(("budget increases", check_budgets_not_weakened(base)))
+    else:
+        rows.append(("budget increases", []))
+    return rows
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -171,25 +285,27 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    violations: list[Violation] = [
-        *check_banned_agent_frameworks(),
-        *check_no_sqlite(),
-        *check_no_contextvars(),
-        *check_test_naming(),
-        *check_tests_do_not_touch_prompts(),
-    ]
-    if args.base:
-        violations.extend(check_budgets_not_weakened(args.base))
-
+    rows = collect(args.base)
+    width = max(len(name) for name, _ in rows)
     print("\nINVARIANTS\n")
-    if not violations:
-        print("  ok    no violations\n")
+    failed = 0
+    for name, violations in rows:
+        if name == "budget increases" and not args.base:
+            print(f"  skip  {name:<{width}}  pass --base to diff budgets.toml")
+            continue
+        if not violations:
+            print(f"  ok    {name:<{width}}")
+            continue
+        failed += len(violations)
+        print(f"  FAIL  {name:<{width}}")
+        for violation in violations:
+            print(f"        {violation.where}")
+            print(f"        {violation.message}")
+    print()
+    if not failed:
+        print("All invariants held.\n")
         return 0
-
-    for violation in violations:
-        print(f"  FAIL  {violation.where}")
-        print(f"        {violation.message}\n")
-    print(f"{len(violations)} violation(s).\n")
+    print(f"{failed} violation(s).\n")
     return 1
 
 
