@@ -44,8 +44,12 @@ data crosses one of those boundaries. Renaming a function is not a shape change.
 ```
 budgets.toml                 enforced complexity limits
 scripts/check_budgets.py     counts things — exits 1 on violation
-scripts/check_invariants.py  checks mistakes were not made; --base catches a
-                             weakened budget
+scripts/check_invariants.py  named anti-patterns (agent frameworks, sqlite,
+                             contextvars, ticket-named tests, prompt
+                             assertions, forbidden module suffixes,
+                             clarification files or directories, empty secret defaults,
+                             `&key=` outside CensusURL, leaked keys in
+                             evidence JSON); --base catches a weakened budget
 scripts/fetch_metadata.py    caches ACS metadata to data/raw/ (no key)
 scripts/verify_golden.py     every expect_table checked against that metadata
 scripts/build_index.py       builds index_store/ (needs OPENAI_API_KEY)
@@ -148,7 +152,9 @@ universes, combined published medians, RSS MOE over more than five areas,
 ZIP-vs-ZCTA requests, and containment Census `for`/`in` grammar cannot express.
 None of them blocks. Additive combine appends one summed row per vintage; a
 median combine does not. `CensusURL` redacts `&key=` in `__str__` / the
-response; `with_key()` is the httpx site. `langchain_core` supplies schema and
+response; `with_key()` is the httpx site. Missing or empty
+`CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError` rather than
+calling Census or OpenAI unauthenticated. `langchain_core` supplies schema and
 `ainvoke`; control flow is ours. `make demo` is `scripts/run_demo.py --repeat 3`.
 
 ### Chat UI — `web/`

@@ -289,12 +289,9 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
     record.timings.append(
         {"tool": name, "ms": round((time.perf_counter() - started) * 1000, 1), "ok": ok}
     )
-    if ok:
-        record.consecutive_failures[name] = 0
-    else:
-        record.consecutive_failures[name] = record.consecutive_failures.get(name, 0) + 1
-        if record.consecutive_failures[name] >= 2:
-            raise RuntimeError(f"{name} failed twice")
+    record.consecutive_failures[name] = 0 if ok else record.consecutive_failures.get(name, 0) + 1
+    if not ok and record.consecutive_failures[name] >= 2:
+        raise RuntimeError(f"{name} failed twice")
     return content
 
 
@@ -303,6 +300,8 @@ async def _openai_complete(
 ) -> dict[str, Any]:
     from openai import AsyncOpenAI
 
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise ValueError("missing OPENAI_API_KEY")
     response = await AsyncOpenAI().chat.completions.create(
         model=MODEL,
         messages=messages,  # type: ignore[arg-type]
@@ -323,6 +322,9 @@ async def _openai_complete(
 
 
 def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
+    key = os.environ.get("CENSUS_API_KEY")
+    if not key:
+        raise ValueError("missing CENSUS_API_KEY")
     from src.retrieval import availability, index, metadata
 
     idx = index.load()
@@ -351,7 +353,6 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
         return table if isinstance(table, dict) else None
 
-    key = os.environ.get("CENSUS_API_KEY", "")
     return {
         "search_tables": SearchTablesTool(search=search, describe=describe),
         "resolve_geography": ResolveGeographyTool(
@@ -375,7 +376,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             last_geographies=lambda: (
                 record.geographies[:2] if (record.geo_status or {}).get("compare") else []
             ),
-            census_key=lambda: os.environ.get("CENSUS_API_KEY", ""),
+            census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),

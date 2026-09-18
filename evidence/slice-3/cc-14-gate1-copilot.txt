@@ -1,0 +1,159 @@
+# Gate 1 (Copilot follow-ups) — CC-14
+
+# GOOD = test fails against the broken implementation (the check works).
+
+# BAD  = test still passes (delete or rewrite it).
+
+# Copilot review on PR 49: exact REDACTED sentinel, .js suffixes,
+
+# clarification directories, CLI print, empty OpenAI key, case-insensitive &key=.
+
+===== BASELINE copilot tests =====
+GOOD
+exit 0
+.................                                                        [100%]
+17 passed in 1.01s
+
+===== MUTATION main no longer prints check names =====
+# test: api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+api\tests\test_invariants.py:34: in test_invariants_print_every_named_pattern
+    assert re.search(rf"ok\s+{re.escape(name)}", out)
+E   AssertionError: assert None
+E    +  where None = <function search at 0x000002EB7A411440>('ok\\s+banned\\ agent\\ frameworks', '\nINVARIANTS\n\n  ok\n  ok\n  ok\n  ok\n  ok\n  ok\n  ok\n  ok\n  ok\n  ok\n  skip  budget increases                 pass --base to diff budgets.toml\n\nAll invariants held.\n\n')
+E    +    where <function search at 0x000002EB7A411440> = re.search
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed in 0.36s
+
+===== MUTATION drop js/jsx from banned module suffixes =====
+# test: api/tests/test_invariants.py::test_manager_module_name_fails_the_check[table_manager.js]
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_manager_module_name_fails_the_check[table_manager.js] __________
+api\tests\test_invariants.py:48: in test_manager_module_name_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_manager_module_name_fails_the_check[table_manager.js]
+1 failed in 0.31s
+
+===== MUTATION skip non-files in clarification scan =====
+# test: api/tests/test_invariants.py::test_clarification_directory_fails_the_check
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_clarification_directory_fails_the_check _________________
+api\tests\test_invariants.py:73: in test_clarification_directory_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_clarification_directory_fails_the_check
+1 failed in 0.37s
+
+===== MUTATION REDACTED prefix exempts leaked keys =====
+# test: api/tests/test_invariants.py::test_redacted_prefix_in_evidence_json_fails_the_check
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_redacted_prefix_in_evidence_json_fails_the_check ____________
+api\tests\test_invariants.py:101: in test_redacted_prefix_in_evidence_json_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_redacted_prefix_in_evidence_json_fails_the_check
+1 failed in 0.48s
+
+===== MUTATION exact REDACTED is treated as a leak =====
+# test: api/tests/test_invariants.py::test_exact_redacted_key_in_evidence_json_passes_the_check
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_exact_redacted_key_in_evidence_json_passes_the_check __________
+api\tests\test_invariants.py:115: in test_exact_redacted_key_in_evidence_json_passes_the_check
+    assert inv.check_census_key_not_in_artifacts() == []
+E   AssertionError: assert [Violation(wh...edact &key=')] == []
+E     
+E     Left contains one more item: Violation(where='evidence/latest.json', message='Census API key leaked into evidence JSON; redact &key=')
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_exact_redacted_key_in_evidence_json_passes_the_check
+1 failed in 0.29s
+
+===== MUTATION drop OPENAI_API_KEY from empty-secret regex =====
+# test: api/tests/test_invariants.py::test_empty_secret_default_fails_the_check[OPENAI_API_KEY]
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_empty_secret_default_fails_the_check[OPENAI_API_KEY] __________
+api\tests\test_invariants.py:131: in test_empty_secret_default_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_empty_secret_default_fails_the_check[OPENAI_API_KEY]
+1 failed in 0.39s
+
+===== MUTATION drop GEMINI_API_KEY from empty-secret regex =====
+# test: api/tests/test_invariants.py::test_empty_secret_default_fails_the_check[GEMINI_API_KEY]
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_empty_secret_default_fails_the_check[GEMINI_API_KEY] __________
+api\tests\test_invariants.py:131: in test_empty_secret_default_fails_the_check
+    assert found
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_empty_secret_default_fails_the_check[GEMINI_API_KEY]
+1 failed in 0.31s
+
+===== MUTATION KEY_IN_URL is case-sensitive =====
+# test: api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_key_query_outside_census_url_fails_the_check ______________
+api\tests\test_invariants.py:144: in test_key_query_outside_census_url_fails_the_check
+    assert any("fetch.py" in where for where in wheres)
+E   assert False
+E    +  where False = any(<generator object test_key_query_outside_census_url_fails_the_check.<locals>.<genexpr> at 0x0000022127AE29B0>)
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_key_query_outside_census_url_fails_the_check
+1 failed in 0.33s
+
+===== MUTATION empty OPENAI_API_KEY is not fail-closed =====
+# test: api/tests/test_invariants.py::test_missing_openai_key_fails_closed[]
+GOOD
+exit 1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_missing_openai_key_fails_closed[] ____________________
+api\tests\test_invariants.py:165: in test_missing_openai_key_fails_closed
+    await _openai_complete([], [])
+api\src\ask.py:305: in _openai_complete
+    response = await AsyncOpenAI().chat.completions.create(
+                     ^^^^^^^^^^^^^
+.venv\Lib\site-packages\openai\_client.py:837: in __init__
+    raise OpenAIError(
+E   openai.OpenAIError: Missing credentials. Please pass an `api_key`, `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment variable.
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_missing_openai_key_fails_closed[]
+1 failed in 1.28s
+
+===== RESTORED copilot tests =====
+GOOD
+exit 0
+.................                                                        [100%]
+17 passed in 1.12s
+

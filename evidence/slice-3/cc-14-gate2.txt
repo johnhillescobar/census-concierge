@@ -1,0 +1,296 @@
+CC-14 Gate 2 -- cold review of HEAD
+branch: feat/cc-14-invariants
+HEAD: 93f84fbceb4bfe95f4f3c662a93bc90dc3849435
+base: origin/main (8fe48f222c4f696d3d32793ee7b55419183c851b)
+review surface: git diff origin/main...HEAD
+  (ask.py, test_invariants.py, ARCHITECTURE.md, check_invariants.py,
+  evidence/slice-3/cc-14-preflight-claims.md, cc-14-preflight.txt)
+untracked (read, not product source): evidence/slice-3/cc-14-gate1.txt
+E2E / make demo / make eval: deferred by repo owner; missing DEMO/MISSES
+  is not a code defect; no scoreboard numbers invented
+no commit; no product-source edits
+
+========== git rev-parse --abbrev-ref HEAD ==========
+
+$ git rev-parse --abbrev-ref HEAD
+
+feat/cc-14-invariants
+
+exit_code=0
+
+========== git rev-parse HEAD ==========
+
+$ git rev-parse HEAD
+
+93f84fbceb4bfe95f4f3c662a93bc90dc3849435
+
+exit_code=0
+
+========== git rev-parse origin/main ==========
+
+$ git rev-parse origin/main
+
+8fe48f222c4f696d3d32793ee7b55419183c851b
+
+exit_code=0
+
+========== git log -1 ==========
+
+$ git log -1
+
+commit 93f84fbceb4bfe95f4f3c662a93bc90dc3849435
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Thu Sep 17 09:36:31 2026 -0500
+
+    feat(harness): name invariant anti-patterns and fail closed on missing keys (CC-14)
+    
+    Empty CENSUS_API_KEY was an unauthenticated Census call. The checker now prints each forbidden pattern and greps for the ones review kept rediscovering.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+exit_code=0
+
+========== git log --oneline origin/main..HEAD ==========
+
+$ git log --oneline origin/main..HEAD
+
+93f84fb feat(harness): name invariant anti-patterns and fail closed on missing keys (CC-14)
+
+exit_code=0
+
+========== git status ==========
+
+$ git status
+
+On branch feat/cc-14-invariants
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	evidence/slice-3/cc-14-gate1.txt
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+exit_code=0
+
+========== git diff --stat origin/main...HEAD ==========
+
+$ git diff --stat origin/main...HEAD
+
+ api/src/ask.py                             |  17 ++--
+ api/tests/test_invariants.py               | 107 ++++++++++++++++++++
+ docs/ARCHITECTURE.md                       |  12 ++-
+ evidence/slice-3/cc-14-preflight-claims.md |  22 +++++
+ evidence/slice-3/cc-14-preflight.txt       |  43 ++++++++
+ scripts/check_invariants.py                | 152 +++++++++++++++++++++++++----
+ 6 files changed, 324 insertions(+), 29 deletions(-)
+
+exit_code=0
+
+========== git diff --name-only origin/main...HEAD ==========
+
+$ git diff --name-only origin/main...HEAD
+
+api/src/ask.py
+api/tests/test_invariants.py
+docs/ARCHITECTURE.md
+evidence/slice-3/cc-14-preflight-claims.md
+evidence/slice-3/cc-14-preflight.txt
+scripts/check_invariants.py
+
+exit_code=0
+
+========== git status --short ==========
+
+$ git status --short
+
+?? evidence/slice-3/cc-14-gate1.txt
+
+exit_code=0
+
+========== uv run python scripts/check_budgets.py ==========
+
+$ uv run python scripts/check_budgets.py
+
+
+BUDGETS
+
+  ok    api src LOC               3133 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         16.921 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit_code=0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    budget increases               
+
+All invariants held.
+
+
+exit_code=0
+
+========== uv run ruff check . ==========
+
+$ uv run ruff check .
+
+[1;32mAll checks passed![0m
+
+exit_code=0
+
+========== uv run ruff format --check . ==========
+
+$ uv run ruff format --check .
+
+108 files already formatted
+
+exit_code=0
+
+========== uv run mypy api/src ==========
+
+$ uv run mypy api/src
+
+Success: no issues found in 22 source files
+
+exit_code=0
+
+========== uv run pytest -q -m "not integration" ==========
+
+$ uv run pytest -q -m "not integration"
+
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 63%]
+........................................................................ [ 84%]
+.....................................................                    [100%]
+341 passed in 10.01s
+
+exit_code=0
+
+========== Pass 1: generic bugs (cold diff, no intent) ==========
+
+Read: git diff origin/main...HEAD only. No ticket, no PLAN, no author intent.
+
+api/src/ask.py
+- consecutive_failures rewrite is equivalent: success resets to 0; failure
+  increments; second consecutive failure still raises RuntimeError.
+- missing/empty CENSUS_API_KEY raises ValueError before index.load().
+- missing/empty OPENAI_API_KEY raises ValueError before the OpenAI create call.
+- ValueError is not RuntimeError, so run_ask does not swallow it into HTTP 200.
+- census_key=lambda: key closes over the checked value; fetch still uses
+  CensusURL.with_key.
+
+scripts/check_invariants.py
+- new greps are path-scoped; CHECKS names are printed pass or fail.
+- collect(--base) still runs check_budgets_not_weakened.
+- KEY_IN_URL is the literal [?&]key=; no api/src file besides census_url.py
+  contains it on this tree.
+
+api/tests/test_invariants.py
+- fail-closed tests hit the raise before index/network.
+- asyncio_mode=auto collects the async OpenAI test.
+- test_key_query_outside_census_url_fails_the_check plants a regex literal
+  [?&]key= in census_url.py. That source line does not match KEY_IN_URL
+  (a ? or & followed immediately by key=). The assertion that census_url.py
+  is omitted is therefore true even without the filename skip. The fetch.py
+  '&key=' case still exercises the check.
+
+findings:
+- test_key_query_outside_census_url_fails_the_check does not exercise the
+  census_url.py skip (planted line does not match KEY_IN_URL). Not a runtime
+  defect; the fetch.py positive case holds.
+
+
+========== Pass 2: project invariants (docs/playbooks/review-pr.md) ==========
+
+Machines first (raw output above). All exit 0.
+  check_budgets.py                          exit_code=0
+  check_invariants.py --base origin/main    exit_code=0
+  ruff check .                              exit_code=0
+  ruff format --check .                     exit_code=0
+  mypy api/src                              exit_code=0
+  pytest -q -m "not integration"            exit_code=0  (341 passed)
+
+The claim
+  A missing or empty CENSUS_API_KEY / OPENAI_API_KEY fails closed instead of
+  an unauthenticated call, and check_invariants.py names each forbidden
+  pattern on success. That sentence can be written.
+
+Is the evidence real?
+  E2E deferred by the repo owner. make eval / make demo were not run.
+  Missing DEMO/MISSES is not a code defect. No scoreboard numbers invented.
+  check_budgets.py still reads the existing evidence/latest.json from prior
+  runs; those figures are not evidence this PR was demoed.
+
+Scope
+  Slice 3 is current. Not in this slice: charts, memory, PDF, auth, new tool,
+  new route, graph node. This diff adds none of those. 6 files. No drive-by
+  modules. ask.py at largest-file cap 400/400 after compressing dispatch.
+
+Silent-wrong-answer
+  URL, MOE, GEOID, universe paths unchanged.
+  &key= still attached only via CensusURL.with_key (fetch.py, geo_list.py).
+  Numbers do not pass back through the model.
+  No guard became a blocking question.
+  No silent vintage/geography repair.
+  Missing-key ValueError is not caught by run_ask except RuntimeError.
+
+Shape
+  No new tool, route, Pydantic model, or add_node().
+  ARCHITECTURE.md updated in the same commit.
+
+Tests
+  Behaviour of the greps and fail-closed raises. No prompt/LLM-prose asserts.
+  No unconditional-table fake. New test file is not demo evidence (E2E deferred).
+
+findings:
+- nothing that blocks. The Pass 1 census_url skip test is a follow-up, not
+  a silent-wrong-answer finding.
+
+========== Verdict ==========
+
+Ship it with follow-ups.
+
+User-facing claim: missing Census/OpenAI keys now raise instead of calling
+unauthenticated, and the invariant checker prints each named anti-pattern
+(including forbidden module suffixes, clarification files, empty secret
+defaults, and &key= outside CensusURL).
+
+Follow-up: plant an actual ?key= or &key= substring in the census_url.py
+fixture in test_key_query_outside_census_url_fails_the_check so the filename
+skip is what keeps it off the violation list.
+
+E2E pre/post remain deferred; not part of this verdict.

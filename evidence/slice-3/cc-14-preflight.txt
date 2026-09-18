@@ -1,0 +1,43 @@
+# CC-14 pre-flight — raw output
+# settled on origin/main 8fe48f2
+
+===== check_invariants.py (HEAD of feat/cc-14-invariants = origin/main) =====
+INVARIANTS
+
+  ok    no violations
+
+===== check_budgets.py --structural-only =====
+BUDGETS
+
+  ok    api src LOC               3132 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC                905 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+===== ask.py CENSUS_API_KEY defaults =====
+api/src/ask.py:354:    key = os.environ.get("CENSUS_API_KEY", "")
+api/src/ask.py:378:            census_key=lambda: os.environ.get("CENSUS_API_KEY", ""),
+
+===== forbidden module suffixes under api/src and web/src =====
+(none)
+
+===== clarification filenames under api/src =====
+(none)
+
+===== [?&]key= in evidence/*.json =====
+(none)
+
+===== validation path =====
+Makefile invariants: uv run python scripts/check_invariants.py --base origin/main
+.github/workflows/check.yml: uv run python scripts/check_invariants.py [--base]
+.pre-commit-config.yaml: python scripts/check_invariants.py
