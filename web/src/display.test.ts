@@ -49,6 +49,12 @@ describe("estimatePairs", () => {
       { variable: "B19013_001E", estimate: "1", moe: null },
     ]);
   });
+
+  it("treats a Census sentinel MOE as missing, not as a number", () => {
+    expect(
+      estimatePairs({ B01003_001E: "10", GEO_ID: "x" }, { GEO_ID: "x", B01003_001M: "-555555555" }),
+    ).toEqual([{ variable: "B01003_001E", estimate: "10", moe: null }]);
+  });
 });
 
 describe("censusFetchFailed", () => {
@@ -146,6 +152,10 @@ describe("formatCensusValue", () => {
     expect(formatCensusValue(null)).toBe("—");
     expect(formatCensusValue("4838303")).toBe("4838303");
   });
+
+  it("keeps a published MOE of zero", () => {
+    expect(formatCensusValue("0")).toBe("0");
+  });
 });
 
 describe("estimatesByGeography", () => {
@@ -155,6 +165,9 @@ describe("estimatesByGeography", () => {
         geoid: "0500000US48201",
         name: "Harris County, Texas",
         year: "",
+        dataset: "",
+        period: "",
+        tableId: "",
         pairs: [{ variable: "B01003_001E", estimate: "4838303", moe: "123" }],
       },
     ]);
@@ -187,5 +200,36 @@ describe("estimatesByGeography", () => {
     expect(areas).toHaveLength(2);
     expect(areas.map((area) => area.geoid)).toEqual(["0500000US41001", "0500000US41003"]);
     expect(areas.map((area) => area.pairs[0]?.estimate)).toEqual(["16668", "95184"]);
+  });
+
+  it("surfaces dataset, period, and table on each point", () => {
+    const series: AskResponse = {
+      ...harris,
+      rows: [
+        {
+          ...harris.rows[0],
+          year: "2018",
+          vintage: "2018",
+          dataset: "acs5",
+          period: "2014-2018",
+          table_id: "B01003",
+        },
+        {
+          ...harris.rows[0],
+          year: "2022",
+          vintage: "2022",
+          dataset: "acs5",
+          period: "2018-2022",
+          table_id: "B01003",
+        },
+      ],
+      moe: [harris.moe[0], harris.moe[0]],
+    };
+    expect(estimatesByGeography(series).map((area) => area.period)).toEqual([
+      "2014-2018",
+      "2018-2022",
+    ]);
+    expect(estimatesByGeography(series)[0]?.dataset).toBe("acs5");
+    expect(estimatesByGeography(series)[0]?.tableId).toBe("B01003");
   });
 });

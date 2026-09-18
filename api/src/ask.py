@@ -32,7 +32,7 @@ from src.tools import (
     SearchTablesResult,
     SearchTablesTool,
 )
-from src.vintages import latest_vintages
+from src.vintages import latest_vintages, moe_rows, stamp_provenance
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
@@ -115,22 +115,6 @@ def _allowed(record: ExecutionRecord) -> set[str]:
 
 # A-I race/ethnicity iteration, optional Puerto Rico suffix. Not a PR-only table.
 _RACE = re.compile(r"^[BC]\d{5}[A-I](?:PR)?$")
-
-
-def _moe_rows(rows: list[dict[str, str | None]]) -> list[dict[str, str | None]]:
-    """One dict per row: GEOID/NAME plus the M that belongs to each E."""
-    out: list[dict[str, str | None]] = []
-    for row in rows:
-        moe: dict[str, str | None] = {}
-        for key in ("GEO_ID", "NAME"):
-            if key in row:
-                moe[key] = row[key]
-        for key in row:
-            if key.endswith("E") and "_" in key:
-                margin = f"{key[:-1]}M"
-                moe[margin] = row.get(margin)
-        out.append(moe)
-    return out
 
 
 def _rows_with_geoid(
@@ -252,11 +236,16 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         record, rows, {item.table_id for item in alternatives}
     )
     alternatives.extend(extra)
+    dataset = str(getattr(record.fetch, "dataset", "") or "")
+    dataset = dataset or (record.url.dataset if record.url else "")
+    dataset = dataset or (record.vintages[0][0] if record.vintages else "acs5")
+    year = record.vintages[-1][1] if record.vintages else None
+    rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
     return AskResponse(
         answer=answer,
         **series_from_record(record),
         rows=rows,
-        moe=_moe_rows(rows),
+        moe=moe_rows(rows),
         geoid=_response_geoid(rows, fallback),
         universe=selected_universe,
         table_id=record.table_id,

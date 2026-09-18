@@ -11,6 +11,16 @@ REASON_OVERLAP = "overlapping_vintage"
 REASON_MAX = "max_years"
 REASON_NO_URL = "no_url"
 REASON_UNPUBLISHED = "unpublished_vintage"
+CENSUS_MISSING = {
+    None,
+    "",
+    "-999999999",
+    "-888888888",
+    "-666666666",
+    "-555555555",
+    "-333333333",
+    "-222222222",
+}
 
 
 @dataclass(frozen=True)
@@ -47,6 +57,55 @@ def span_years(years: list[int]) -> list[int]:
     if not unique:
         return []
     return list(range(min(unique), max(unique) + 1))
+
+
+def period_for(dataset: str, year: int) -> str:
+    """ACS release window for an end year: ACS1 is that year; ACS5 is year-4–year."""
+    if dataset == "acs1":
+        return str(year)
+    return f"{year - ACS5_SPAN + 1}-{year}"
+
+
+def stamp_provenance(
+    rows: list[dict[str, str | None]],
+    *,
+    dataset: str,
+    table_id: str = "",
+    fallback_year: int | None = None,
+) -> list[dict[str, str | None]]:
+    """Attach dataset, vintage, period, and table_id to each series point."""
+    tagged: list[dict[str, str | None]] = []
+    for row in rows:
+        item = dict(row)
+        raw = str(item.get("year") or item.get("vintage") or "")
+        year = int(raw) if raw.isdigit() else fallback_year
+        ds = str(item.get("dataset") or dataset or "acs5")
+        item["dataset"] = ds
+        table = table_id or next(
+            (key.split("_", 1)[0] for key in item if "_" in key and key.endswith("E")),
+            str(item.get("table_id") or ""),
+        )
+        if table:
+            item["table_id"] = str(item.get("table_id") or table)
+        if year is not None:
+            item["year"] = str(year)
+            item["vintage"] = str(year)
+            item["period"] = str(item.get("period") or period_for(ds, year))
+        tagged.append(item)
+    return tagged
+
+
+def moe_rows(rows: list[dict[str, str | None]]) -> list[dict[str, str | None]]:
+    """Per-row 90% MOE. Sentinels are None; a published 0 stays 0."""
+    out: list[dict[str, str | None]] = []
+    for row in rows:
+        moe: dict[str, str | None] = {key: row[key] for key in ("GEO_ID", "NAME") if key in row}
+        for key in row:
+            if key.endswith("E") and "_" in key:
+                raw = row.get(f"{key[:-1]}M")
+                moe[f"{key[:-1]}M"] = None if raw in CENSUS_MISSING else raw
+        out.append(moe)
+    return out
 
 
 def nonoverlapping_acs5(years: list[int]) -> list[int]:

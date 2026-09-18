@@ -367,6 +367,45 @@ describe("App result", () => {
     expect(screen.queryByText(/census fetch failed/i)).toBeNull();
   });
 
+  it("shows dataset and period on a series point", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(
+      <App
+        askFn={() =>
+          Promise.resolve({
+            ...harris,
+            attempted_years: [2018, 2022],
+            rows: [
+              {
+                ...harris.rows[0],
+                year: "2018",
+                dataset: "acs5",
+                period: "2014-2018",
+                table_id: "B01003",
+              },
+              {
+                ...harris.rows[0],
+                GEO_ID: "0500000US48201",
+                year: "2022",
+                dataset: "acs5",
+                period: "2018-2022",
+                table_id: "B01003",
+              },
+            ],
+            moe: [harris.moe[0], harris.moe[0]],
+          })
+        }
+      />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population since 2018");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByText("acs5")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Period" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "2014-2018" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "2018-2022" })).toBeTruthy();
+  });
+
   it("does not label an HTTP failure as unreachable", async () => {
     const user = userEvent.setup({ delay: null });
     render(<App askFn={() => Promise.reject(new Error("ask failed (500)"))} />);

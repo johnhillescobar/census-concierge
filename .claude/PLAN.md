@@ -230,7 +230,7 @@ against the final shape.
       A variable absent or redefined mid-range is a warning, not a silent join.
 - [ ] Year-over-year significance: `MOE_diff = sqrt(m₁² + m₂²)`. Differences that
       do not clear it are reported as **not distinguishable**, not as change.
-- [ ] Tract and block-group series crossing 2020 carry a boundary-change warning:
+- [x] Tract and block-group series crossing 2020 carry a boundary-change warning:
       the geometry was redrawn, so the polygons differ.
 - [ ] Plan strip (slice 4) carries vintage and year list. Overriding to a
       consecutive ACS5 series is **allowed** as a fetch flag — some users have a
