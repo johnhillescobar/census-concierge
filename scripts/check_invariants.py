@@ -35,12 +35,14 @@ SKIP_DIRS = {"__pycache__", ".venv", "node_modules", ".git", "dist", "build"}
 CEILING_SECTIONS = ("size", "shape", "performance")
 FLOOR_SECTIONS = ("quality",)
 
-BANNED_MODULE = re.compile(r"_(manager|orchestrator|factory|policy|strategy|service)\.(py|ts|tsx)$")
+BANNED_MODULE = re.compile(
+    r"_(manager|orchestrator|factory|policy|strategy|service)\.(py|ts|tsx|js|jsx)$"
+)
 EMPTY_SECRET = re.compile(
     r"""(?:os\.environ\.get|os\.getenv)\(\s*["'](CENSUS_API_KEY|OPENAI_API_KEY|GEMINI_API_KEY)["']\s*,\s*["']{2}\s*\)"""
 )
-KEY_LEAK = re.compile(r"(?i)[?&]key=(?!REDACTED)[^&\s]+")
-KEY_IN_URL = re.compile(r"[?&]key=")
+KEY_LEAK = re.compile(r"""(?i)[?&]key=(?!REDACTED(?:["'&\s]|$))[^&\s"']+""")
+KEY_IN_URL = re.compile(r"[?&]key=", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -150,7 +152,7 @@ def check_no_clarification_layer() -> list[Violation]:
         if not root.exists():
             continue
         for path in root.rglob("*"):
-            if not path.is_file() or SKIP_DIRS & set(path.parts):
+            if SKIP_DIRS & set(path.parts):
                 continue
             if "clarif" in path.name.casefold():
                 rel = path.relative_to(ROOT).as_posix()

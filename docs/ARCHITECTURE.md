@@ -47,7 +47,7 @@ scripts/check_budgets.py     counts things — exits 1 on violation
 scripts/check_invariants.py  named anti-patterns (agent frameworks, sqlite,
                              contextvars, ticket-named tests, prompt
                              assertions, forbidden module suffixes,
-                             clarification files, empty secret defaults,
+                             clarification files or directories, empty secret defaults,
                              `&key=` outside CensusURL, leaked keys in
                              evidence JSON); --base catches a weakened budget
 scripts/fetch_metadata.py    caches ACS metadata to data/raw/ (no key)
