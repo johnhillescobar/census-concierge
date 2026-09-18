@@ -1,0 +1,221 @@
+CC-74 Gate 2 -- cold review of origin/main...HEAD
+branch: feat/cc-74-series-provenance
+HEAD: f4a11cebe4905fef795be2b3aed872f44c7cf34e
+base: origin/main (452fd9014c0d6cfa0a9466d3ac3dc79a6c1928e2)
+review surface: git diff origin/main...HEAD (working tree clean)
+E2E / make demo / make eval: not this phase; missing scoreboard expected
+no commit; no product-source edits
+
+========== git rev-parse HEAD ==========
+
+f4a11cebe4905fef795be2b3aed872f44c7cf34e
+
+========== git rev-parse origin/main ==========
+
+452fd9014c0d6cfa0a9466d3ac3dc79a6c1928e2
+
+========== git log -1 ==========
+
+commit f4a11cebe4905fef795be2b3aed872f44c7cf34e
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Thu Sep 17 21:04:30 2026 -0500
+
+    feat(series): stamp provenance and warn on 2020 tract boundary change (CC-74)
+    
+    Series points now carry dataset, vintage, period, and table. Sentinel MOEs are null on moe[] rather than a usable zero. Tract and block-group series that cross 2020 emit localized boundary_change_2020 even when destagger leaves one year.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+========== git log --oneline origin/main..HEAD ==========
+
+f4a11ce feat(series): stamp provenance and warn on 2020 tract boundary change (CC-74)
+
+========== git status ==========
+
+On branch feat/cc-74-series-provenance
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+nothing to commit, working tree clean
+
+========== git diff --stat origin/main...HEAD ==========
+
+ .claude/PLAN.md                            |   2 +-
+ api/src/ask.py                             |  25 ++---
+ api/src/contract.py                        |   3 +-
+ api/src/guards.py                          |  56 +++++++++--
+ api/src/vintages.py                        |  59 +++++++++++
+ api/tests/test_guards.py                   | 152 +++++++++++++++++++++++++++++
+ api/tests/test_vintages.py                 |  20 ++++
+ docs/ARCHITECTURE.md                       |   7 +-
+ evidence/slice-3/cc-74-gate1.txt           |  31 ++++++
+ evidence/slice-3/cc-74-preflight-claims.md |  23 +++++
+ evidence/slice-3/cc-74-preflight.txt       |  43 ++++++++
+ packages/client/openapi.json               |   2 +-
+ packages/client/schema.d.ts                |   2 +-
+ web/src/App.test.tsx                       |  39 ++++++++
+ web/src/App.tsx                            |  19 +++-
+ web/src/display.test.ts                    |  44 +++++++++
+ web/src/display.ts                         |  21 ++--
+ 17 files changed, 507 insertions(+), 41 deletions(-)
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3212 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           391 <= 400
+  ok    web src LOC               1010 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.034 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.803 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    budget increases               
+
+All invariants held.
+
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+109 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 22 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 20%]
+........................................................................ [ 40%]
+........................................................................ [ 60%]
+........................................................................ [ 80%]
+.......................................................................  [100%]
+359 passed in 9.27s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+machines did not stop the rest of the playbook
+
+========== Gate 2 Pass 1 -- generic bugs / silent-wrong-answer ==========
+cold read of origin/main...HEAD; working tree clean; no implementer chat.
+
+Pass 1 findings: nothing.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Missing URL / MOE / GEOID / universe on a new branch: nothing. assemble still
+  ships series_from_record urls, moe_rows, _response_geoid, selected_universe.
+  Failed-leg URLs are untouched. boundary_change_2020 warns and ships.
+- Sentinel MOE becoming a usable 0: nothing. moe_rows maps CENSUS_MISSING to
+  None; a published "0" stays "0". estimatePairs / formatCensusValue match.
+- Silent vintage or geography repair: nothing. period_for labels the ACS
+  window; it does not swap the requested year. County series crossing 2020
+  do not get the tract warning.
+- Warning omitted when requested years cross 2020 but destagger leaves one
+  year: nothing. requested_years / attempted_years / vintages / row year all
+  feed the guard; test_tract_series_crossing_2020_warns_from_requested_years
+  covers the destagger case.
+- Entirely pre-2020 or entirely post-2020 tract series warning: nothing.
+- Key leakage: nothing. No new URL formatter; CensusURL unchanged.
+- Numbers through the model: nothing. stamp_provenance runs at assemble;
+  _tool_content still names row counts, years, URLs.
+- Blocking clarification: nothing. Guards remain warn-and-ship.
+- New tool / route / add_node: nothing.
+
+========== Gate 2 Pass 2 -- review-pr.md invariants ==========
+
+---------- claim ----------
+A series answer now carries dataset, vintage, period, and table on each row;
+Census sentinel MOEs are null on moe[] rather than a number; a tract or
+block-group series whose requested years cross 2020 emits non-blocking
+boundary_change_2020 naming the ACS periods. E2E is not this phase.
+
+---------- evidence ----------
+Not this phase. No make demo / make eval. Missing demo/eval numbers are
+expected; do not fail the review solely for no scoreboard.
+
+---------- scope ----------
+Slice 3: tract/block-group 2020 boundary warning; series provenance.
+PLAN checkbox for that warning is marked done. Still open in the same
+slice: per-year variable existence, year-over-year significance, plan
+strip, place-vs-parent shared-sample MOE. Not claimed here.
+Not-in-this-slice (charts, memory, PDF, auth) untouched. No new tool,
+route, or graph node. ARCHITECTURE.md updated in the same commit.
+17 files vs origin/main; 3 are evidence, 1 is a PLAN checkbox, 2 are
+generated client description text. Product surface is under ~15.
+
+---------- silent-wrong-answer ----------
+URL, MOE, GEOID, universe still present. CensusURL remains the redaction
+type. Rows stay in the artifact; the model does not retype estimates.
+Guards still warn and ship. Dataset default "acs5" is last-resort after
+fetch.dataset, url.dataset, and vintages[0]; production fetch packs
+plan.dataset. period_for is a label, not a substitution.
+
+---------- shape ----------
+No new tool, route, Pydantic boundary model, or add_node. moe_rows moved
+next to CENSUS_MISSING; stamp_provenance / period_for live in vintages.py.
+Client regenerated for the warning-code description. ARCHITECTURE.md
+matches the provenance + boundary_change_2020 shape.
+
+---------- tests ----------
+Behaviour: requested-year tract warn, block-group warn, county no-warn,
+pre/post no-warn, partial-fetch warn, GEOID-prefix warn, sentinel MOE
+None, published zero kept, period_for / stamp_provenance, UI period
+column. No prompt-text assertions. No same-table-for-any-input fake.
+A new test file is not demo evidence; E2E is next.
+
+---------- verdict ----------
+Ship it.
+
+A series point now names its dataset, vintage, period, and table; sentinel
+MOEs are null on moe[]; a tract or block-group request that crosses 2020
+warns that the polygons differ, and the answer still ships.
+E2E numbers are absent because this phase does not run them.
