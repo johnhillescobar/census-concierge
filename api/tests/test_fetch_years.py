@@ -856,3 +856,140 @@ async def test_acs1_ineligible_comparison_leg_destaggers_all_legs() -> None:
     assert any(dataset == "acs5" and clause.startswith("state:") for dataset, clause in seen)
     assert all(leg.ok for leg in artifact.legs)
     assert {leg.for_spec for leg in artifact.legs} == {"place:4805000", "state:48"}
+
+
+COMPUTERS = CensusURL(
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M"
+    "&for=place:20000&in=state:08"
+)
+
+
+def _computer_payload(year: int) -> list[list[str]]:
+    return [
+        ["NAME", "GEO_ID", "B28001_002E", "B28001_002M"],
+        ["Denver city, Colorado", "1600000US0820000", str(year), "12"],
+    ]
+
+
+def _computer_facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+    assert dataset == "acs5" and table_id == "B28001"
+    if year == 2016:
+        return None
+    if year == 2017:
+        return {
+            "title": "TYPES OF COMPUTERS IN HOUSEHOLD",
+            "universe": "",
+            "variables": ["001E"],
+        }
+    return {
+        "title": "Types of Computers in Household",
+        "universe": "Households",
+        "variables": ["001E", "002E"],
+    }
+
+
+def test_estimate_table_pairs_margins_to_the_table() -> None:
+    table_id, suffixes = COMPUTERS.estimate_table()
+    assert table_id == "B28001"
+    assert suffixes == ["002E"]
+    assert TEMPLATE.estimate_table() == ("B01003", ["001E"])
+
+
+async def test_absent_variable_year_is_not_fetched_or_joined() -> None:
+    seen: list[int] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        seen.append(year)
+        return 200, _computer_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: COMPUTERS,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        table_facts=_computer_facts,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2016, 2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert seen == [2024]
+    assert artifact.attempted_years == [2024]
+    assert artifact.omitted_years == [2016]
+    assert artifact.omission_reasons == ["variable_not_in_vintage"]
+    assert artifact.urls
+    assert all("/2016/" not in url for url in artifact.urls)
+    assert [row["year"] for row in artifact.rows] == ["2024"]
+
+
+async def test_missing_estimate_suffix_omits_that_year() -> None:
+    seen: list[int] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        seen.append(year)
+        return 200, _computer_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: COMPUTERS,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        table_facts=_computer_facts,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2017, 2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert seen == [2024]
+    assert artifact.omitted_years == [2017]
+    assert artifact.omission_reasons == ["variable_not_in_vintage"]
+    assert artifact.attempted_years == [2024]
+
+
+async def test_household_encoding_is_not_a_redefinition() -> None:
+    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        universe = "" if year == 2018 else "Households"
+        return {
+            "title": "Types of Computers in Household",
+            "universe": universe,
+            "variables": ["001E", "002E"],
+        }
+
+    seen: list[int] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        seen.append(year)
+        return 200, _computer_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: COMPUTERS,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        table_facts=facts,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2018, 2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert seen == [2018, 2024]
+    assert artifact.omitted_years == []
+    assert artifact.attempted_years == [2018, 2024]

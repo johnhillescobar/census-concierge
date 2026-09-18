@@ -69,7 +69,7 @@ def is_slice1(entry: dict[str, Any]) -> bool:
     ident = str(entry.get("id") or "")
     if ident == "q23":
         return False
-    return not (ident[:1] == "t" and ident[1:].isdigit() and int(ident[1:]) >= 9)
+    return not (ident[:1] == "t" and ident[1:].isdigit() and int(ident[1:]) >= 15)
 
 
 def select_questions(

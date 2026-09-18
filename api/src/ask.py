@@ -57,6 +57,7 @@ class ExecutionRecord:
     geo_status: dict[str, str | bool] | None = None
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
+    table_facts: Any = None
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -342,6 +343,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
         return table if isinstance(table, dict) else None
 
+    record.table_facts = facts
     return {
         "search_tables": SearchTablesTool(search=search, describe=describe),
         "resolve_geography": ResolveGeographyTool(
@@ -367,6 +369,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             ),
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
+            table_facts=facts,
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }

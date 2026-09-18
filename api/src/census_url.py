@@ -89,6 +89,27 @@ class CensusURL:
                 return True
         return False
 
+    def estimate_table(self) -> tuple[str, list[str]]:
+        """Table id and estimate suffixes from `get=`, pairing M back to E."""
+        columns: list[str] = []
+        for key, value in parse_qsl(urlsplit(self._redacted).query, keep_blank_values=True):
+            if key == "get":
+                columns.extend(value.split(","))
+        table_id = ""
+        suffixes: list[str] = []
+        for column in columns:
+            if "_" not in column or column in {"NAME", "GEO_ID"}:
+                continue
+            prefix, suffix = column.split("_", 1)
+            if suffix.endswith("M"):
+                suffix = f"{suffix[:-1]}E"
+            if not suffix.endswith("E"):
+                continue
+            table_id = table_id or prefix
+            if suffix not in suffixes:
+                suffixes.append(suffix)
+        return table_id, suffixes
+
     def with_dataset(self, dataset: str) -> CensusURL:
         parts = urlsplit(self._redacted)
         bits = parts.path.split("/")
