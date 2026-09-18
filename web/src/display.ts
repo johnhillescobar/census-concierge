@@ -12,6 +12,9 @@ export type GeographyEstimates = {
   geoid: string;
   name: string;
   year: string;
+  dataset: string;
+  period: string;
+  tableId: string;
   pairs: EstimateCell[];
 };
 
@@ -77,18 +80,24 @@ export function estimatePairs(
   const margins = moe ?? {};
   return Object.keys(row)
     .filter((key) => key.includes("_") && key.endsWith("E"))
-    .map((variable) => ({
-      variable,
-      estimate: row[variable] ?? null,
-      moe: margins[`${variable.slice(0, -1)}M`] ?? null,
-    }));
+    .map((variable) => {
+      const raw = margins[`${variable.slice(0, -1)}M`] ?? null;
+      return {
+        variable,
+        estimate: row[variable] ?? null,
+        moe: raw == null || CENSUS_MISSING.has(raw) ? null : raw,
+      };
+    });
 }
 
 export function estimatesByGeography(response: AskResponse): GeographyEstimates[] {
   return response.rows.map((row, index) => ({
     geoid: row.GEO_ID ?? "",
     name: row.NAME ?? "",
-    year: row.year ?? "",
+    year: row.year ?? row.vintage ?? "",
+    dataset: row.dataset ?? "",
+    period: row.period ?? "",
+    tableId: row.table_id ?? "",
     pairs: estimatePairs(row, response.moe[index]),
   }));
 }

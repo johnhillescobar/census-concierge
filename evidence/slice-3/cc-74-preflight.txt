@@ -1,0 +1,43 @@
+﻿# CC-74 pre-flight raw output
+# origin/main 452fd90
+# 2026-09-17T20:56:05.9920027-05:00
+
+ACS5_SPAN 5
+destagger 2018-2022 [2018]
+destagger 2017-2022 [2017, 2022]
+plan 2018-2022 acs5 VintagePlan(dataset='acs5', attempted=[2018], omitted=[2019, 2020, 2021, 2022], reasons=['overlapping_vintage', 'overlapping_vintage', 'overlapping_vintage', 'overlapping_vintage'], acs1_ineligible=True)
+plan 2017-2023 acs5 VintagePlan(dataset='acs5', attempted=[2017, 2022], omitted=[2018, 2019, 2020, 2021, 2023], reasons=['overlapping_vintage', 'overlapping_vintage', 'overlapping_vintage', 'overlapping_vintage', 'overlapping_vintage'], acs1_ineligible=True)
+evaluate names ['overlapping_vintage', 'acs1_geography_ineligible', 'vintage_gap_2020', 'moe_not_significant', 'geography_unsupported', 'ambiguous_place', 'universe_mismatch', 'median_not_aggregatable', 'moe_aggregation_degraded', 'zcta_not_zip', 'geography_not_nested']
+warnings desc: Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020.
+moe sentinel passthrough [{'GEO_ID': '1400000US26163500100', 'B28002_004M': '-555555555'}]
+GeoSpec fields ['level', 'name', 'geoid', 'for_spec', 'in_spec', 'dataset', 'vintage', 'codes']
+AskWarning fields ['code', 'detail']
+FetchDataResult fields ['ok', 'url', 'urls', 'rows', 'status_code', 'detail', 'legs', 'requested_years', 'attempted_years', 'succeeded_years', 'failed_years', 'omitted_years', 'omission_reasons', 'dataset', 'acs1_ineligible']
+
+--- t13 ---
+487:id = "t13"
+488:text = "Broadband subscription trend by census tract in Wayne County, 2018 to 2022"
+493:expect_warning = "boundary_change_2020"
+
+--- src boundary_change ---
+(no src matches expected)
+
+--- loc ---
+ 400 ask.py
+ 105 census_url.py
+ 106 contract.py
+ 368 fetch.py
+ 352 geo.py
+ 142 geo_list.py
+ 355 guards.py
+ 165 retrieval\build.py
+ 176 retrieval\metadata.py
+ 114 retrieval\synthetic.py
+ 262 tools.py
+ 131 vintages.py
+CC-74  To Do  Story
+Attach series provenance and boundary-change warnings
+CC-28  Done  Story
+Fan out across requested years and return one URL per request leg
+CC-72  Done  Story
+Select defensible ACS vintages and account for gaps

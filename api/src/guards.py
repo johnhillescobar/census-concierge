@@ -10,6 +10,8 @@ import re
 from typing import Protocol
 
 from src.contract import Alternative, AskWarning, GeoSpec
+from src.vintages import CENSUS_MISSING as _MISSING
+from src.vintages import period_for
 
 _ACS5_SPAN = 5
 _RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
@@ -24,16 +26,6 @@ _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("population", ("population",)),
     ("housing units", ("housing units", "housing unit")),
 )
-_MISSING = {
-    None,
-    "",
-    "-999999999",
-    "-888888888",
-    "-666666666",
-    "-555555555",
-    "-333333333",
-    "-222222222",
-}
 MOE_COMBINE_FORMULA = "sqrt(sum(MOE_i^2))"
 _BRACKET_TABLE = "B19001"
 _DEGRADED_AFTER = 5
@@ -102,6 +94,49 @@ def vintage_gap_2020(record: GuardRecord) -> AskWarning | None:
     return AskWarning(
         code="vintage_gap_2020",
         detail="the standard 2020 ACS1 release was never issued; 2020 is a gap, not interpolated",
+    )
+
+
+def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
+    level = ""
+    for spec in record.geographies:
+        if spec.level in {"tract", "block group"}:
+            level = spec.level
+            break
+        if spec.for_spec.startswith("tract:"):
+            level = "tract"
+            break
+        if spec.for_spec.startswith("block group:"):
+            level = "block group"
+            break
+    if not level:
+        prefixes = {str(row.get("GEO_ID") or "")[:3] for row in record.rows}
+        level = "tract" if "140" in prefixes else "block group" if "150" in prefixes else ""
+    if not level:
+        return None
+    artifact = getattr(record, "fetch", None)
+    years = [
+        int(year)
+        for attr in ("requested_years", "attempted_years")
+        for year in getattr(artifact, attr, None) or []
+    ]
+    years.extend(year for _dataset, year in record.vintages)
+    years.extend(int(raw) for row in record.rows if (raw := str(row.get("year") or "")).isdigit())
+    pre = list(dict.fromkeys(year for year in years if year < 2020))
+    post = list(dict.fromkeys(year for year in years if year >= 2020))
+    if not pre or not post:
+        return None
+    dataset = str(
+        getattr(artifact, "dataset", "") or (record.vintages[0][0] if record.vintages else "acs5")
+    )
+    geo = next((spec.name for spec in record.geographies if spec.name), level)
+    return AskWarning(
+        code="boundary_change_2020",
+        detail=(
+            f"{level} geometry was redrawn for the 2020 census; {geo} "
+            f"{', '.join(period_for(dataset, year) for year in pre)} versus "
+            f"{', '.join(period_for(dataset, year) for year in post)} compare different polygons"
+        ),
     )
 
 
@@ -403,6 +438,7 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         overlapping_vintage,
         acs1_geography_ineligible,
         vintage_gap_2020,
+        boundary_change_2020,
         moe_not_significant,
         geography_unsupported,
         ambiguous_place,

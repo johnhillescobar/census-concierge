@@ -47,8 +47,11 @@ export function App({ askFn = ask }: AppProps) {
   const incomplete = result ? censusYearsIncomplete(result) : false;
   const geoidLabel =
     result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
+  const datasetLabel = areas.find((area) => area.dataset)?.dataset;
+  const periods = [...new Set(areas.map((area) => area.period).filter(Boolean))];
   const series = (result?.attempted_years.length ?? 0) > 1;
   const showYear = series || new Set(areas.map((area) => area.year).filter(Boolean)).size > 1;
+  const showPeriod = periods.length > 1;
   const multi = areas.length > 1 || series;
 
   async function onCopyUrl() {
@@ -102,6 +105,18 @@ export function App({ askFn = ask }: AppProps) {
               <dd>{result.universe || "—"}</dd>
               <dt>GEOID</dt>
               <dd>{geoidLabel}</dd>
+              {datasetLabel ? (
+                <>
+                  <dt>Dataset</dt>
+                  <dd>{datasetLabel}</dd>
+                </>
+              ) : null}
+              {periods.length === 1 ? (
+                <>
+                  <dt>Period</dt>
+                  <dd>{periods[0]}</dd>
+                </>
+              ) : null}
             </dl>
             {areas.length === 1 && areas[0].pairs.length > 0 && !multi ? (
               <>
@@ -122,6 +137,7 @@ export function App({ askFn = ask }: AppProps) {
                   <thead>
                     <tr>
                       {showYear ? <th>Year</th> : null}
+                      {showPeriod ? <th>Period</th> : null}
                       <th>GEOID</th>
                       <th>Name</th>
                       <th>Variable</th>
@@ -133,8 +149,9 @@ export function App({ askFn = ask }: AppProps) {
                     {areas.flatMap((area) => {
                       const pairs = area.pairs.length > 0 ? area.pairs : [{ variable: "", estimate: null, moe: null }];
                       return pairs.map((pair) => (
-                        <tr key={`${area.year}:${area.geoid}:${area.name}:${pair.variable}`}>
+                        <tr key={`${area.year}:${area.period}:${area.geoid}:${area.name}:${pair.variable}`}>
                           {showYear ? <td>{area.year || "—"}</td> : null}
+                          {showPeriod ? <td>{area.period || "—"}</td> : null}
                           <td>{area.geoid || "—"}</td>
                           <td>{area.name || "—"}</td>
                           <td>{pair.variable || "—"}</td>

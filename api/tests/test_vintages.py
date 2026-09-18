@@ -10,8 +10,10 @@ from src.vintages import (
     consecutive,
     is_series,
     nonoverlapping_acs5,
+    period_for,
     plan_years,
     span_years,
+    stamp_provenance,
 )
 
 ACS1 = {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024}
@@ -161,3 +163,21 @@ def test_cap_keeps_omitted_years_in_requested_order() -> None:
     assert plan.attempted == [2018]
     assert plan.omitted == [2019, 2020, 2021, 2022]
     assert plan.reasons == [REASON_MAX, REASON_GAP_2020, REASON_MAX, REASON_MAX]
+
+
+def test_period_for_acs1_is_the_end_year() -> None:
+    assert period_for("acs1", 2019) == "2019"
+    assert period_for("acs5", 2022) == "2018-2022"
+    assert period_for("acs5", 2018) == "2014-2018"
+
+
+def test_stamp_provenance_fills_dataset_vintage_period_and_table() -> None:
+    rows = stamp_provenance(
+        [{"GEO_ID": "1400000US26163500100", "year": "2022", "B28002_004E": "1"}],
+        dataset="acs5",
+        table_id="B28002",
+    )
+    assert rows[0]["dataset"] == "acs5"
+    assert rows[0]["vintage"] == "2022"
+    assert rows[0]["period"] == "2018-2022"
+    assert rows[0]["table_id"] == "B28002"

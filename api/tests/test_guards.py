@@ -11,6 +11,7 @@ from src.contract import GeoSpec
 from src.fetch import FetchDataResult
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
+from src.vintages import moe_rows, period_for
 
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
 T03 = "Is the poverty rate in tract 1201 higher than tract 1305?"
@@ -21,6 +22,7 @@ T15 = "Median household income for ZIP code 10001 every year since 2018"
 T16 = "Compare poverty by census tract within the city of Denver"
 T11 = "Unemployment in Middlebury, Vermont each year since 2017"
 T12 = "1-year ACS poverty for Fresno County, 2018 through 2022"
+T13 = "Broadband subscription trend by census tract in Wayne County, 2018 to 2022"
 Q24 = "Median household income for ZCTA 90210"
 
 
@@ -893,3 +895,153 @@ async def test_tract_within_a_county_is_not_a_nesting_warning() -> None:
     assert record.geo_status is not None
     assert record.geo_status["nested"] is not False
     assert "geography_not_nested" not in _codes(record)
+
+
+def _wayne_tracts() -> GeoSpec:
+    return GeoSpec(
+        level="tract",
+        name="all tracts in Wayne County, Michigan",
+        for_spec="tract:*",
+        in_spec="state:26 county:163",
+        dataset="acs5",
+    )
+
+
+def test_tract_series_crossing_2020_warns_from_requested_years() -> None:
+    record = ExecutionRecord(question=T13, table_id="B28002")
+    record.geographies = [_wayne_tracts()]
+    record.fetch = _fetch(
+        dataset="acs5",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018],
+        succeeded_years=[2018],
+        omitted_years=[2019, 2020, 2021, 2022],
+        omission_reasons=["overlapping_vintage"] * 4,
+        rows=[
+            {
+                "GEO_ID": "1400000US26163500100",
+                "NAME": "Census Tract 5001",
+                "year": "2018",
+                "B28002_004E": "10",
+                "B28002_004M": "2",
+            }
+        ],
+    )
+    record.rows = list(record.fetch.rows)
+    assert _codes(record) == ["boundary_change_2020"]
+    response = assemble("still ships", record)
+    warning = response.warnings[0]
+    assert warning.code == "boundary_change_2020"
+    assert "tract" in warning.detail
+    assert "Wayne County" in warning.detail
+    assert period_for("acs5", 2018) in warning.detail
+    assert period_for("acs5", 2022) in warning.detail
+    row = response.rows[0]
+    assert row["dataset"] == "acs5"
+    assert row["vintage"] == "2018"
+    assert row["period"] == "2014-2018"
+    assert row["table_id"] == "B28002"
+    assert row["GEO_ID"] == "1400000US26163500100"
+    assert row["B28002_004E"] == "10"
+    assert response.moe[0]["B28002_004M"] == "2"
+
+
+def test_block_group_series_crossing_2020_warns() -> None:
+    record = ExecutionRecord()
+    record.geographies = [
+        GeoSpec(
+            level="block group",
+            name="block groups in tract 5001",
+            for_spec="block group:*",
+            in_spec="state:26 county:163 tract:500100",
+        )
+    ]
+    record.fetch = _fetch(
+        dataset="acs5",
+        requested_years=[2019, 2022],
+        attempted_years=[2019, 2022],
+        succeeded_years=[2019, 2022],
+    )
+    assert _codes(record) == ["boundary_change_2020"]
+    assert "block group" in evaluate(record)[0].detail
+    assert "2015-2019" in evaluate(record)[0].detail
+    assert "2018-2022" in evaluate(record)[0].detail
+
+
+def test_county_series_crossing_2020_does_not_warn_boundary() -> None:
+    record = ExecutionRecord()
+    record.geographies = [
+        GeoSpec(level="county", name="Wayne County", for_spec="county:163", in_spec="state:26")
+    ]
+    record.fetch = _fetch(
+        dataset="acs5",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018],
+        succeeded_years=[2018],
+    )
+    assert "boundary_change_2020" not in _codes(record)
+
+
+def test_tract_series_entirely_before_or_after_redraw_does_not_warn() -> None:
+    before = ExecutionRecord()
+    before.geographies = [_wayne_tracts()]
+    before.fetch = _fetch(requested_years=[2016, 2017, 2018, 2019], attempted_years=[2016])
+    after = ExecutionRecord()
+    after.geographies = [_wayne_tracts()]
+    after.fetch = _fetch(requested_years=[2021, 2022, 2023], attempted_years=[2021])
+    assert _codes(before) == []
+    assert _codes(after) == []
+
+
+def test_boundary_warning_survives_partial_fetch_failure() -> None:
+    record = ExecutionRecord(table_id="B28002")
+    record.geographies = [_wayne_tracts()]
+    record.fetch = _fetch(
+        dataset="acs5",
+        requested_years=[2017, 2022],
+        attempted_years=[2017, 2022],
+        succeeded_years=[2022],
+        failed_years=[2017],
+        rows=[
+            {
+                "GEO_ID": "1400000US26163500100",
+                "year": "2022",
+                "B28002_004E": "10",
+                "B28002_004M": "2",
+            }
+        ],
+    )
+    record.rows = list(record.fetch.rows)
+    response = assemble("one year failed", record)
+    assert [item.code for item in response.warnings] == ["boundary_change_2020"]
+    assert "2013-2017" in response.warnings[0].detail
+    assert "2018-2022" in response.warnings[0].detail
+    assert response.failed_years == [2017]
+    assert response.rows[0]["period"] == "2018-2022"
+
+
+def test_tract_geoid_without_a_spec_still_warns() -> None:
+    record = ExecutionRecord()
+    record.rows = [
+        {"GEO_ID": "1400000US26163500100", "year": "2018", "B28002_004E": "1", "B28002_004M": "1"},
+        {"GEO_ID": "1400000US26163500100", "year": "2022", "B28002_004E": "2", "B28002_004M": "1"},
+    ]
+    assert _codes(record) == ["boundary_change_2020"]
+
+
+def test_sentinel_moe_is_none_not_zero() -> None:
+    record = ExecutionRecord(table_id="B01003")
+    record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "10", "B01003_001M": "-555555555"}]
+    record.vintages = [("acs5", 2024)]
+    response = assemble("ships", record)
+    assert response.moe[0]["B01003_001M"] is None
+    assert response.rows[0]["B01003_001M"] == "-555555555"
+    assert moe_rows(record.rows)[0]["B01003_001M"] is None
+    assert response.rows[0]["period"] == "2020-2024"
+
+
+def test_published_zero_moe_is_kept() -> None:
+    record = ExecutionRecord(table_id="B01003")
+    record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "10", "B01003_001M": "0"}]
+    response = assemble("ships", record)
+    assert response.moe[0]["B01003_001M"] == "0"

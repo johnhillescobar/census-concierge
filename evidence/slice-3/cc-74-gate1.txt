@@ -1,0 +1,31 @@
+CC-74 Gate 1 mutation check
+2026-09-17
+
+MUTATION 1: omit boundary_change_2020 from evaluate
+BAD if tests pass. GOOD: 3 failed
+  test_tract_series_crossing_2020_warns_from_requested_years
+  test_block_group_series_crossing_2020_warns
+  test_tract_geoid_without_a_spec_still_warns
+  assert [] == [boundary_change_2020]
+Restored.
+
+MUTATION 2: moe_rows passes Census sentinel through (not None)
+BAD if test passes. GOOD: 1 failed
+  test_sentinel_moe_is_none_not_zero
+  assert -555555555 is None
+Restored.
+
+MUTATION 3: skip stamp_provenance in assemble
+BAD if tests pass. GOOD: 2 failed
+  test_tract_series_crossing_2020_warns_from_requested_years KeyError dataset
+  test_sentinel_moe_is_none_not_zero KeyError period
+  test_stamp_provenance_fills_* still passed (function itself intact)
+Restored.
+
+MUTATION 4: treat published MOE 0 as CENSUS_MISSING
+BAD if test passes. GOOD: 1 failed
+  test_published_zero_moe_is_kept
+  assert None == 0
+Restored.
+
+Verdict: new tests fail when the behaviour they cover is reverted. Gate 1 GOOD.

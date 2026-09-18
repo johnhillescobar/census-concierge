@@ -124,5 +124,6 @@ class AskResponse(BaseModel):
         description="Non-blocking guards: overlapping_vintage, moe_not_significant, "
         "geography_unsupported, ambiguous_place, universe_mismatch, "
         "median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, "
-        "geography_not_nested, acs1_geography_ineligible, vintage_gap_2020."
+        "geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, "
+        "boundary_change_2020."
     )
