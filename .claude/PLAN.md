@@ -207,7 +207,7 @@ exactly like a right one.
 Backend only. It lands before the canvas so the chart pane is built once,
 against the final shape.
 
-> **STATUS 2026-09-17.** Slice 3 in progress. Demo still `is_slice1()`. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
+> **STATUS 2026-09-18.** Slice 3 in progress (CC-74 Done). Demo still `is_slice1()`. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
 
 ### Years
 
