@@ -263,7 +263,9 @@ def test_versus_series_warns_when_same_year_legs_are_indistinguishable() -> None
         {"GEO_ID": "a", "year": "2022", "B25064_001E": "1000", "B25064_001M": "10"},
         {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
     ]
-    assert _codes(record) == ["moe_not_significant"]
+    response = assemble("versus series", record)
+    assert [item.code for item in response.warnings] == ["moe_not_significant"]
+    assert {item.year for item in response.comparisons} == {"2017", "2022"}
 
 
 def test_equal_threshold_is_not_distinguishable() -> None:
@@ -294,6 +296,7 @@ def test_year_over_year_indistinguishable_change() -> None:
     assert response.comparisons[0].distinguishable is False
     assert response.comparisons[0].geoid_a == "a"
     assert response.comparisons[0].geoid_b == "a"
+    assert response.comparisons[0].year == ""
 
 
 def test_parent_place_exposes_shared_sample_and_conclusion() -> None:

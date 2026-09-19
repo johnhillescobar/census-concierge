@@ -132,12 +132,14 @@ def comparison_rows(record: Any, rows: list[dict[str, str | None]]) -> list[Comp
                 if e1 is None or e2 is None or m1 is None or m2 is None:
                     continue
                 threshold = moe_diff(m1, m2)
+                left_year = str(left.get("year") or "")
+                right_year = str(right.get("year") or "")
                 out.append(
                     Comparison(
                         variable=estimate,
                         geoid_a=str(left.get("GEO_ID") or ""),
                         geoid_b=str(right.get("GEO_ID") or ""),
-                        year=str(left.get("year") or right.get("year") or ""),
+                        year=left_year if left_year and left_year == right_year else "",
                         estimate_a=_label(e1),
                         estimate_b=_label(e2),
                         moe_a=_label(m1),

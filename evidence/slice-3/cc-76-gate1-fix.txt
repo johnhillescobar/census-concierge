@@ -1,0 +1,43 @@
+CC-76 Gate 1 (fix) — mutation check
+
+Fixes Gate 2 pass 1: Comparison.year is the shared vintage, else empty.
+
+========== restored tree ==========
+$ uv run pytest -q --tb=short api/tests/test_guards.py::test_year_over_year_indistinguishable_change api/tests/test_guards.py::test_versus_series_warns_when_same_year_legs_are_indistinguishable
+..                                                                       [100%]
+2 passed in 0.31s
+
+===== MUTATION: year takes left.year or right.year (YoY stamps 2017) =====
+test: test_year_over_year_indistinguishable_change
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '2017' == ''
+      
+      + 2017
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:299: AssertionError: assert '2017' == ''
+FAILED api/tests/test_guards.py::test_year_over_year_indistinguishable_change
+1 failed in 0.21s
+restore: git checkout-equivalent year=left_year if left_year and left_year == right_year else ""
+
+===== MUTATION: year always empty =====
+test: test_versus_series_warns_when_same_year_legs_are_indistinguishable
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert {''} == {'2017', '2022'}
+      
+      Extra items in the left set:
+      ''
+      Extra items in the right set:
+      '2017'
+      '2022'
+FAILED api/tests/test_guards.py::test_versus_series_warns_when_same_year_legs_are_indistinguishable
+1 failed in 0.21s
+restore: year=left_year if left_year and left_year == right_year else ""
+
+===== summary =====
+mutations GOOD: 2
+mutations BAD: 0
