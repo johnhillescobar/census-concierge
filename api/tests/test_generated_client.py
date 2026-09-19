@@ -32,6 +32,7 @@ CONTRACT_FIELDS = (
     "universe",
     "table_id",
     "alternatives",
+    "comparisons",
     "warnings",
 )
 

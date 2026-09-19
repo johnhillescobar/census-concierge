@@ -1,0 +1,44 @@
+CC-76 Gate 1 (demo-miss fix) — mutation check
+
+Fixes live misses: finish the four-tool loop when the model stops; pin
+median gross rent / family income / income distribution; ship a candidate
+URL for illegal listings (t03/t04); parse "every year from X to Y" as
+overlapping ACS5; score median_not_aggregatable without inventing tracts.
+
+========== restored tree ==========
+$ uv run pytest -q -m "not integration"
+395 passed
+
+===== MUTATION: finish_tools skips search_tables =====
+test: test_austin_rent_finishes_when_the_model_stops
+
+GOOD
+assert '' == 'B25064'
+restore: dispatch search_tables when pool is empty
+
+===== MUTATION: overlapping_vintage ignores "every year from X to Y" =====
+test: test_from_to_consecutive_acs5_years_overlap
+
+GOOD
+assert [] == ['overlapping_vintage']
+restore: year_span when the question says every year
+
+===== MUTATION: illegal listing returns no specs =====
+test: test_block_group_state_listing_finishes_with_a_url
+test: test_block_group_wildcard_in_a_state_is_illegal
+
+GOOD
+assert urls == []
+assert [] == ['block group:*']
+restore: unsupported_wildcard candidate spec
+
+===== MUTATION: median_not_aggregatable requires a URL =====
+test: test_median_not_aggregatable_with_empty_url_is_answered
+
+GOOD
+assert False is True
+restore: median_not_aggregatable in _WARNING_WITHOUT_FETCH
+
+===== summary =====
+mutations GOOD: 4
+mutations BAD: 0

@@ -41,8 +41,16 @@ def _search(question: str, k: int = 10) -> list[str]:
     q = question.casefold()
     if "bike" in q or "bicycle" in q:
         return ["B08301"][:k]
+    if "poverty" in q:
+        return ["B17001"][:k]
+    if "rent" in q:
+        return ["B25064"][:k]
+    if "households" in q and "families" in q:
+        return ["B19013"][:k]
     if "broadband" in q:
         return ["B28002"][:k]
+    if "health insurance" in q:
+        return ["B27001"][:k]
     if "cell phone" in q or "mobile phone" in q or "households with a computer" in q:
         return ["B28010", "B28003"][:k]
     if "income" in q:
@@ -65,6 +73,26 @@ def _describe(table_id: str) -> dict[str, object] | None:
             "universe": "Households",
             "members": ["B19013A", "B19013B"],
         },
+        "B17001": {
+            "title": "Poverty Status in the Past 12 Months",
+            "universe": "Population for whom poverty status is determined",
+            "members": [],
+        },
+        "B25064": {
+            "title": "Median Gross Rent",
+            "universe": "Renter-occupied housing units paying cash rent",
+            "members": [],
+        },
+        "B19113": {
+            "title": "Median Family Income",
+            "universe": "Families",
+            "members": [],
+        },
+        "B19001": {
+            "title": "Household Income",
+            "universe": "Households",
+            "members": [],
+        },
         "B28002": {
             "title": "Internet Subscriptions",
             "universe": "Households",
@@ -83,6 +111,11 @@ def _describe(table_id: str) -> dict[str, object] | None:
         "B28010": {
             "title": "Computers in Household",
             "universe": "Households",
+            "members": [],
+        },
+        "B27001": {
+            "title": "Health Insurance Coverage Status by Sex by Age",
+            "universe": "Civilian noninstitutionalized population",
             "members": [],
         },
     }
@@ -151,6 +184,14 @@ def _list_geographies(
             "in": "state:27",
             "geoid": "0500000US27031",
             "population": "5635",
+        },
+        {
+            "name": "Fresno County, California",
+            "level": "county",
+            "for": "county:019",
+            "in": "state:06",
+            "geoid": "0500000US06019",
+            "population": "1017162",
         },
     ]
     if level == "place":
@@ -284,10 +325,26 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
             2024: {
                 "B01003": {"universe": "Total population", "variables": ["001E"]},
                 "B19013": {"universe": "Households", "variables": ["001E"]},
+                "B17001": {
+                    "universe": "Population for whom poverty status is determined",
+                    "variables": ["001E", "002E"],
+                },
+                "B25064": {
+                    "universe": "Renter-occupied housing units paying cash rent",
+                    "variables": ["001E"],
+                },
+                "B19113": {"universe": "Families", "variables": ["001E"]},
+                "B19001": {"universe": "Households", "variables": ["001E"]},
                 "B28001": {"universe": "Households", "variables": ["001E"]},
+                "B27001": {
+                    "universe": "Civilian noninstitutionalized population",
+                    "variables": ["001E"],
+                },
+                "B28002": {"universe": "Households", "variables": ["001E"]},
             }
         }
     }
+    facts["acs1"] = facts["acs5"]
 
     return {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),

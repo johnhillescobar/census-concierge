@@ -228,7 +228,7 @@ against the final shape.
       failure as a wrong one.
 - [x] Per-year variable existence check against that vintage's `variables.json`.
       A variable absent or redefined mid-range is a warning, not a silent join.
-- [ ] Year-over-year significance: `MOE_diff = sqrt(m₁² + m₂²)`. Differences that
+- [x] Year-over-year significance: `MOE_diff = sqrt(m₁² + m₂²)`. Differences that
       do not clear it are reported as **not distinguishable**, not as change.
 - [x] Tract and block-group series crossing 2020 carry a boundary-change warning:
       the geometry was redrawn, so the polygons differ.
@@ -255,7 +255,7 @@ against the final shape.
 - [x] Non-nesting containment — *"the part of ZIP 80202 inside Denver"* — is not
       computable from published ACS. It needs block-level areal allocation. Say
       so; do not approximate.
-- [ ] Place-vs-parent comparisons (Denver against Colorado) share samples, so
+- [x] Place-vs-parent comparisons (Denver against Colorado) share samples, so
       the independent difference-of-MOE formula overstates variance. Note it.
 - [x] Trap questions `t09`–`t18`, and long-tail `q23`–`q24` for the comparisons
       that must **succeed** — a guard-only eval measures refusals, not capability.

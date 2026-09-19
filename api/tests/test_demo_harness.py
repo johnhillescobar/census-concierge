@@ -151,6 +151,21 @@ def test_geography_not_nested_with_empty_url_is_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=body) is True
 
 
+def test_median_not_aggregatable_with_empty_url_is_answered() -> None:
+    entry = {
+        "id": "t17",
+        "expect_table": "B19013",
+        "expect_warning": "median_not_aggregatable",
+    }
+    body = _body(
+        table_id="",
+        url="",
+        rows=[],
+        warnings=[{"code": "median_not_aggregatable", "detail": "cannot combine medians"}],
+    )
+    assert run_demo.is_answered(entry, status_code=200, body=body) is True
+
+
 def test_warning_only_without_url_is_not_answered() -> None:
     entry = {"id": "t03", "expect_warning": "moe_not_significant"}
     body = _body(
@@ -273,7 +288,7 @@ def test_a_regression_from_a_prior_rate_stays_on_the_gated_key() -> None:
     assert merged["answered_rate"] == 0.256
 
 
-def test_slice3_and_holdout_are_out_of_scope() -> None:
+def test_holdout_is_out_of_scope() -> None:
     entries = [
         {"id": "q01", "tier": "core"},
         {"id": "q23", "tier": "long_tail"},
@@ -285,10 +300,10 @@ def test_slice3_and_holdout_are_out_of_scope() -> None:
         {"id": "h01", "tier": "long_tail", "holdout": True},
     ]
     ids = [entry["id"] for entry in run_demo.select_questions(entries)]
-    assert ids == ["q01", "q24", "t08", "t09", "t10"]
+    assert ids == ["q01", "q23", "q24", "t08", "t09", "t10", "t15"]
 
 
-def test_golden_file_scope_includes_year_series_traps() -> None:
+def test_golden_file_scope_includes_comparison_traps() -> None:
     import tomllib
 
     with (ROOT / "evals" / "golden_questions.toml").open("rb") as handle:
@@ -297,10 +312,10 @@ def test_golden_file_scope_includes_year_series_traps() -> None:
     ids = {entry["id"] for entry in picked}
     assert "h01" not in ids
     assert "t09" in ids and "t14" in ids
-    assert "t15" not in ids and "t18" not in ids
+    assert "t15" in ids and "t18" in ids
     assert "t01" in ids and "t08" in ids
-    assert "q23" not in ids and "q24" in ids
-    assert len(picked) == 57
+    assert "q23" in ids and "q24" in ids
+    assert len(picked) == 62
 
 
 def test_key_in_a_url_is_a_leak() -> None:

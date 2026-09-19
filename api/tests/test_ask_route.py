@@ -31,6 +31,7 @@ CONTRACT_FIELDS = (
     "universe",
     "table_id",
     "alternatives",
+    "comparisons",
     "warnings",
 )
 
@@ -66,6 +67,23 @@ def test_openapi_documents_post_ask() -> None:
     assert alternative["required"] == ["table_id", "reason"]
     warning = schema["components"]["schemas"]["AskWarning"]
     assert warning["required"] == ["code", "detail"]
+    comparison = schema["components"]["schemas"]["Comparison"]
+    assert comparison["required"] == [
+        "variable",
+        "geoid_a",
+        "geoid_b",
+        "year",
+        "estimate_a",
+        "estimate_b",
+        "moe_a",
+        "moe_b",
+        "threshold",
+        "distinguishable",
+        "shared_sample",
+    ]
+    assert response["properties"]["comparisons"]["items"] == {
+        "$ref": "#/components/schemas/Comparison"
+    }
     leg = schema["components"]["schemas"]["RequestLeg"]
     assert leg["required"] == ["year", "url", "ok", "status_code", "detail"]
     assert "for_spec" in leg["properties"]
@@ -102,6 +120,7 @@ EMPTY_CONTRACT = {
     "universe": "",
     "table_id": "",
     "alternatives": [],
+    "comparisons": [],
     "warnings": [],
 }
 
@@ -140,6 +159,7 @@ def test_valid_question_reaches_the_ask_loop(monkeypatch: Any) -> None:
             universe="",
             table_id="",
             alternatives=[],
+            comparisons=[],
             warnings=[],
         )
 

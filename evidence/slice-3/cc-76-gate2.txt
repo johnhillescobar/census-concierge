@@ -1,0 +1,265 @@
+CC-76 Gate 2 -- cold review of origin/main...HEAD
+branch: feat/cc-76-significance
+HEAD: 6a5f9f1da6f164063c4994423b44f1c304af4543
+implement: 166e701
+base: origin/main (4391323282a8fe39902f2a2bca0f8ca14cd351fd)
+review surface: git diff origin/main...HEAD (working tree clean at review start)
+Gate 1: evidence/slice-3/cc-76-gate1.txt (12 GOOD / 0 BAD)
+E2E / make demo / make eval: not this phase; missing scoreboard expected
+no commit; no product-source edits
+
+========== git rev-parse HEAD ==========
+
+6a5f9f1da6f164063c4994423b44f1c304af4543
+
+========== git rev-parse origin/main ==========
+
+4391323282a8fe39902f2a2bca0f8ca14cd351fd
+
+========== git log -1 ==========
+
+commit 6a5f9f1da6f164063c4994423b44f1c304af4543
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Sat Sep 19 00:05:13 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Sat Sep 19 00:05:13 2026 -0500
+
+    evidence(slice-3): record CC-76 Gate 1
+
+    12 mutations GOOD, 0 BAD. Transcript in evidence/slice-3/cc-76-gate1.txt.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+========== git log --oneline origin/main..HEAD ==========
+
+6a5f9f1 evidence(slice-3): record CC-76 Gate 1
+166e701 feat(compare): report MOE_diff significance for series and geography pairs (CC-76)
+
+========== git status ==========
+
+On branch feat/cc-76-significance
+nothing to commit, working tree clean
+
+========== git diff --stat origin/main...HEAD ==========
+
+ .claude/DESIGN.md                          |   1 +
+ .claude/PLAN.md                            |   4 +-
+ api/src/ask.py                             |   3 +-
+ api/src/compare.py                         | 174 ++++++++++++++++++
+ api/src/contract.py                        |  24 ++-
+ api/src/finish.py                          |  16 +-
+ api/src/geo.py                             |   8 +
+ api/src/guards.py                          |  47 +----
+ api/tests/ask_fixtures.py                  |  24 +++
+ api/tests/test_ask_loop.py                 |  47 ++++-
+ api/tests/test_ask_route.py                |  20 ++
+ api/tests/test_demo_harness.py             |  12 +-
+ api/tests/test_generated_client.py         |   1 +
+ api/tests/test_guards.py                   |  68 ++++++-
+ api/tests/test_static_frontend.py          |   1 +
+ docs/ARCHITECTURE.md                       |  21 ++-
+ evals/golden_questions.toml                |   6 +-
+ evidence/slice-3/cc-76-gate1.txt           | 281 +++++++++++++++++++++++++++++
+ evidence/slice-3/cc-76-preflight-claims.md |  25 +++
+ evidence/slice-3/cc-76-preflight.txt       |  38 ++++
+ packages/client/openapi.json               |  85 ++++++++-
+ packages/client/schema.d.ts                |  65 ++++++-
+ scripts/run_demo.py                        |   7 +-
+ web/src/App.test.tsx                       |   2 +
+ web/src/ask.test.ts                        |   1 +
+ web/src/display.test.ts                    |   1 +
+ 26 files changed, 912 insertions(+), 70 deletions(-)
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3654 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1782 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         14.737 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.769 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+114 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 18%]
+........................................................................ [ 37%]
+........................................................................ [ 55%]
+........................................................................ [ 74%]
+........................................................................ [ 92%]
+.............................                                            [100%]
+389 passed in 14.82s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+machines did not stop the rest of the playbook
+
+========== Gate 2 Pass 1 -- generic bugs / silent-wrong-answer ==========
+cold read of origin/main...HEAD; code only; no implementer chat; no ticket story.
+
+Pass 1 findings:
+
+1. Comparison.year contract drift on year-over-year pairs.
+   Field description: "Vintage end year when both legs share one; else empty."
+   comparison_rows always sets year=str(left.get("year") or right.get("year") or "").
+   Same-geo 2017 vs 2022 therefore ships year="2017" instead of "". A consumer of
+   comparisons[] that trusts year as a shared vintage will plot both estimates in
+   2017. distinguishable / threshold / estimates / MOEs are still computed from
+   the two rows. test_year_over_year_indistinguishable_change does not assert
+   year. Not an inverted significance test.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Wrong formula: nothing. moe_diff is sqrt(left^2 + right^2). distinguishable is
+  abs(e1 - e2) > threshold (strict). Equal threshold is not distinguishable.
+- Inverted predicates: nothing. overlapping_vintage skips pairing (leftover
+  last-fetch rows are not a vintage pair). cross-geo series pairs only
+  different-GEO_ID same-year legs; same-geo year-over-year is allowed when that
+  cross flag is off.
+- Missing restore paths: nothing. finish_tools still search / resolve / build /
+  fetch when the model stops with no URL on overlapping, universe_mismatch,
+  legal=False, tract "higher/lower than", and device-table traps. Geo-less
+  universe_mismatch then resolve_geography("nationwide") is the existing us:1
+  finish, not a swapped named place.
+- Silent substitutions: nothing. parentless tract specs are legal=False with a
+  detail that names the missing state and county. No vintage is rewritten here.
+- Broken fail-closed geography: nothing. parentless_tracts short-circuits
+  resolve with legal=False, two candidate for_specs, compare=True; nested stays
+  default True so geography_unsupported fires; URLs still built. Live Census
+  rejects tract without in=; this is not a successful substitute geography.
+- Circular imports: nothing. compare imports contract at module level and
+  lazy-imports geo_list / vintages. geo.py imports compare; compare does not
+  import geo or guards.
+- Tests that cannot fail: nothing. New tests assert warning codes, threshold 10
+  on 6/8, distinguishable False, shared_sample True, parentless for_specs and
+  urls. Gate 1: 12 GOOD / 0 BAD.
+- Key leak: nothing. No new URL formatter; CensusURL still redacts.
+- Numbers through the model: nothing. comparisons[] is built in assemble from
+  fetched rows. _tool_content is unchanged.
+- Blocking clarification: nothing. New shared_sample is a warning. parentless
+  tracts ship candidates plus URLs.
+
+========== Gate 2 Pass 2 -- docs/playbooks/review-pr.md ==========
+machines first (above). all exit 0, so the rest of the playbook ran.
+
+The claim
+  A user asking year-over-year or geography-versus now gets comparisons[] with
+  both estimates, both 90% MOEs, MOE_diff, and a per-pair 90% conclusion, plus
+  moe_not_significant when a pair does not clear the threshold; nested
+  place-vs-parent also warns shared_sample. Parentless tract-vs-tract fail-closes
+  with geography_unsupported and URLs instead of ranking empty rows.
+
+Evidence
+  Not this phase. No make demo / make eval scoreboard in this review. Do not
+  claim a rate move. latest.json used by check_budgets.py is still answered_rate
+  0.769 / p95 14.737s from before this branch's demo-set change. is_slice1() now
+  keeps every non-holdout golden row (t15-t18 and q23 enter the demo). That is a
+  gated-set change, not a measured one here. Gate 1 transcript:
+  evidence/slice-3/cc-76-gate1.txt (12 GOOD / 0 BAD).
+
+Scope
+  Belongs to slice 3 (YoY MOE_diff; place-vs-parent shared sample; comparison
+  traps must succeed). Not-in-slice (charts, memory, PDF, auth, new tool, new
+  route, graph node) was not built. 26 files vs ~15: compare.py + Comparison on
+  the HTTP contract (OpenAPI, generated TS client, empty-fixture updates), demo
+  scope, t03 expect_warning, PLAN/DESIGN/ARCHITECTURE, three evidence files.
+  Not drive-by canvas/PDF work. Demo-scope expansion is in-slice (PLAN t09-t18
+  and q23-q24) and is the one extra product change.
+
+Silent-wrong-answer
+  URL / MOE / GEOID / universe still present on the paths this change touches,
+  including parentless fail-closed (urls set; geography_unsupported). overlapping
+  ACS5 does not pair leftover rows. Redaction remains a CensusURL property.
+  Guards warn and ship. Numbers do not pass back through the model.
+  Comparison.year on year-over-year legs is Pass 1 #1: wrong shared-vintage
+  label on the new structured field, not a swapped estimate. Rows still carry
+  the true years. nationwide resolve only when geographies is still empty after
+  the real query — same geo-less finish as computer-share, not a corrected
+  named place.
+
+Shape
+  ARCHITECTURE.md updated in the same diff (comparisons[], shared_sample,
+  parentless tract-vs-tract, geo-less universe trap -> us:1). One new domain
+  model (Comparison) on the API-to-frontend boundary; domain_models 7 <= 15.
+  No new tool, route, or add_node. compare.py is pairing, not a fifth tool.
+
+Tests
+  Behavior: threshold, distinguishable, shared_sample, fail-closed urls,
+  versus not ambiguous_place. No ticket-named tests. _search still branches on
+  question text; it is not a constant B01003. No assertions on prompt wording
+  or LLM prose. A new test file is not claimed as demo evidence. Fixture
+  comparisons: [] updates are contract completeness, not a retrieval fake.
+
+The verdict
+  Ship it with follow-ups -- Comparison.year is the left row's vintage on
+  year-over-year pairs; the contract says empty when the legs do not share a
+  year. Fix that field (and assert it) before a client treats year as shared.
+  Not a silent-wrong-answer on the estimates, MOEs, or 90% conclusion.
+
+Follow-ups (none are silent-wrong-answer blockers):
+  1. Comparison.year: empty when left.year != right.year. Assert in
+     test_year_over_year_indistinguishable_change.
+  2. Demo now includes t15-t18 and q23; quote a new --repeat 3 scoreboard at
+     E2E. Do not reuse 0.769 / 14.737s as this PR's evidence.
+  3. comparisons[] is on the contract; the slice-2 pane does not render it
+     (canvas is slice 4).

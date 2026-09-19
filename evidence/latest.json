@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-19T03:31:27+00:00",
+  "generated_at": "2026-09-19T05:21:18+00:00",
   "retrieval_at_1": 0.475,
   "overall": {
     "n": 58,
@@ -420,10 +420,10 @@
       }
     ]
   },
-  "synthetic_self_retrieval": 0.452,
+  "synthetic_self_retrieval": 0.45,
   "retrieval_at_1_reranked": 0.875,
   "reranked": {
-    "generated_at": "2026-09-19T03:32:47+00:00",
+    "generated_at": "2026-09-19T05:22:41+00:00",
     "retrieval_at_1": 0.875,
     "retrieval_at_10": 0.9,
     "overall": {
@@ -501,38 +501,38 @@
   "selector_at_1": 0.875,
   "synthetic_alignment": 0.544,
   "synthetic_self_retrieval_at_5": 0.82,
-  "p95_latency_seconds": 14.737,
-  "t_llm": 4.438,
-  "t_census_api": 2.9,
-  "t_ours": 2.864,
+  "p95_latency_seconds": 13.583,
+  "t_llm": 4.03,
+  "t_census_api": 3.185,
+  "t_ours": 2.825,
   "prompt_hash": "e574ca4880c7",
   "index_hash": "377cd59fe62a",
   "demo": {
-    "generated_at": "2026-09-19T04:02:26+00:00",
+    "generated_at": "2026-09-19T21:09:49+00:00",
     "repeat": 3,
-    "n": 171,
-    "answered_rate": 0.769,
-    "overall_answered_rate": 0.678,
-    "p95_latency_seconds": 14.737,
-    "t_llm": 4.438,
-    "t_census_api": 2.9,
-    "t_ours": 2.864,
+    "n": 186,
+    "answered_rate": 0.808,
+    "overall_answered_rate": 0.839,
+    "p95_latency_seconds": 13.583,
+    "t_llm": 4.03,
+    "t_census_api": 3.185,
+    "t_ours": 2.825,
     "prompt_hash": "e574ca4880c7",
     "index_hash": "377cd59fe62a",
     "by_tier": {
       "core": {
         "n": 12,
-        "answered_rate": 0.75,
+        "answered_rate": 1.0,
         "http_ok_rate": 1.0
       },
       "long_tail": {
-        "n": 117,
-        "answered_rate": 0.769,
+        "n": 120,
+        "answered_rate": 0.808,
         "http_ok_rate": 1.0
       },
       "trap": {
-        "n": 42,
-        "answered_rate": 0.405,
+        "n": 54,
+        "answered_rate": 0.87,
         "http_ok_rate": 1.0
       }
     },
@@ -549,10 +549,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.854,
-        "t_llm": 5.821,
-        "t_census_api": 1.601,
-        "t_ours": 2.432,
+        "latency_s": 11.25,
+        "t_llm": 6.793,
+        "t_census_api": 1.934,
+        "t_ours": 2.522,
         "rows": 1
       },
       {
@@ -567,10 +567,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.062,
-        "t_llm": 3.833,
-        "t_census_api": 0.583,
-        "t_ours": 1.645,
+        "latency_s": 7.536,
+        "t_llm": 4.52,
+        "t_census_api": 0.942,
+        "t_ours": 2.074,
         "rows": 36
       },
       {
@@ -587,10 +587,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 7.619,
-        "t_llm": 3.716,
-        "t_census_api": 2.347,
-        "t_ours": 1.556,
+        "latency_s": 8.771,
+        "t_llm": 4.115,
+        "t_census_api": 2.095,
+        "t_ours": 2.561,
         "rows": 1
       },
       {
@@ -599,19 +599,19 @@
         "question": "Poverty rate by census tract in Detroit",
         "tier": "core",
         "expected": "B17001",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:22000&in=state:26",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.447,
-        "t_llm": 3.075,
-        "t_census_api": 3.557,
-        "t_ours": 1.816,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.121,
+        "t_llm": 5.695,
+        "t_census_api": 5.672,
+        "t_ours": 1.754,
+        "rows": 1
       },
       {
         "id": "q05",
@@ -620,17 +620,17 @@
         "tier": "long_tail",
         "expected": "B08301",
         "got": "B08301",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_005E,B08301_005M&for=place:59000&in=state:41",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_019E,B08301_019M&for=place:59000&in=state:41",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.712,
-        "t_llm": 3.879,
-        "t_census_api": 4.249,
-        "t_ours": 1.584,
+        "latency_s": 12.347,
+        "t_llm": 4.279,
+        "t_census_api": 5.962,
+        "t_ours": 2.107,
         "rows": 1
       },
       {
@@ -647,10 +647,10 @@
           "moe_not_significant"
         ],
         "detail": "",
-        "latency_s": 7.362,
-        "t_llm": 4.4,
-        "t_census_api": 0.726,
-        "t_ours": 2.236,
+        "latency_s": 7.599,
+        "t_llm": 4.751,
+        "t_census_api": 0.625,
+        "t_ours": 2.223,
         "rows": 82
       },
       {
@@ -665,10 +665,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.402,
-        "t_llm": 5.421,
-        "t_census_api": 0.96,
-        "t_ours": 2.02,
+        "latency_s": 7.642,
+        "t_llm": 5.02,
+        "t_census_api": 0.826,
+        "t_ours": 1.796,
         "rows": 15
       },
       {
@@ -683,10 +683,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.064,
-        "t_llm": 5.388,
-        "t_census_api": 1.769,
-        "t_ours": 1.907,
+        "latency_s": 6.184,
+        "t_llm": 3.527,
+        "t_census_api": 0.656,
+        "t_ours": 2.001,
         "rows": 14
       },
       {
@@ -701,10 +701,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.62,
-        "t_llm": 4.119,
-        "t_census_api": 0.621,
-        "t_ours": 1.879,
+        "latency_s": 6.64,
+        "t_llm": 3.884,
+        "t_census_api": 0.868,
+        "t_ours": 1.889,
         "rows": 100
       },
       {
@@ -719,10 +719,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 12.415,
-        "t_llm": 4.256,
-        "t_census_api": 5.107,
-        "t_ours": 3.052,
+        "latency_s": 11.242,
+        "t_llm": 4.265,
+        "t_census_api": 4.113,
+        "t_ours": 2.865,
         "rows": 1
       },
       {
@@ -739,10 +739,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.775,
-        "t_llm": 5.479,
-        "t_census_api": 4.688,
-        "t_ours": 2.609,
+        "latency_s": 10.44,
+        "t_llm": 4.89,
+        "t_census_api": 3.304,
+        "t_ours": 2.246,
         "rows": 1
       },
       {
@@ -757,10 +757,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.205,
-        "t_llm": 3.993,
-        "t_census_api": 1.033,
-        "t_ours": 3.179,
+        "latency_s": 7.628,
+        "t_llm": 4.267,
+        "t_census_api": 0.872,
+        "t_ours": 2.489,
         "rows": 1
       },
       {
@@ -777,10 +777,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.068,
-        "t_llm": 3.799,
-        "t_census_api": 5.133,
-        "t_ours": 3.136,
+        "latency_s": 11.033,
+        "t_llm": 4.425,
+        "t_census_api": 4.706,
+        "t_ours": 1.901,
         "rows": 1
       },
       {
@@ -790,17 +790,17 @@
         "tier": "long_tail",
         "expected": "B08201",
         "got": "B08201",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M,B08201_002E,B08201_002M&for=place:04000&in=state:24",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M,B08201_006E,B08201_006M&for=place:04000&in=state:24",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 13.054,
-        "t_llm": 4.288,
-        "t_census_api": 5.116,
-        "t_ours": 3.65,
+        "latency_s": 12.266,
+        "t_llm": 4.319,
+        "t_census_api": 4.708,
+        "t_ours": 3.239,
         "rows": 1
       },
       {
@@ -809,16 +809,16 @@
         "question": "Foreign-born population by county in Minnesota",
         "tier": "long_tail",
         "expected": "B05002",
-        "got": "B05002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05002_001E,B05002_001M&for=county:*&in=state:27",
+        "got": "B05006",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05006_001E,B05006_001M&for=county:*&in=state:27",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 8.326,
-        "t_llm": 3.732,
-        "t_census_api": 1.076,
-        "t_ours": 3.518,
+        "detail": "wrong table B05006",
+        "latency_s": 8.805,
+        "t_llm": 4.259,
+        "t_census_api": 1.269,
+        "t_ours": 3.278,
         "rows": 87
       },
       {
@@ -835,10 +835,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 14.737,
-        "t_llm": 6.259,
-        "t_census_api": 5.156,
-        "t_ours": 3.322,
+        "latency_s": 11.387,
+        "t_llm": 3.918,
+        "t_census_api": 4.376,
+        "t_ours": 3.093,
         "rows": 1
       },
       {
@@ -851,12 +851,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "wrong table (none)",
-        "latency_s": 13.796,
-        "t_llm": 5.993,
-        "t_census_api": 4.634,
-        "t_ours": 3.169,
+        "latency_s": 9.01,
+        "t_llm": 3.459,
+        "t_census_api": 1.57,
+        "t_ours": 3.982,
         "rows": 0
       },
       {
@@ -865,18 +867,18 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "B25009",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=place:53000&in=state:55",
+        "got": "B25106",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25106_001E,B25106_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B25009",
-        "latency_s": 19.714,
-        "t_llm": 6.246,
-        "t_census_api": 4.597,
-        "t_ours": 8.871,
+        "detail": "wrong table B25106",
+        "latency_s": 29.32,
+        "t_llm": 5.834,
+        "t_census_api": 12.552,
+        "t_ours": 10.934,
         "rows": 1
       },
       {
@@ -893,10 +895,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.616,
-        "t_llm": 4.482,
-        "t_census_api": 2.222,
-        "t_ours": 2.912,
+        "latency_s": 10.251,
+        "t_llm": 4.272,
+        "t_census_api": 2.941,
+        "t_ours": 3.038,
         "rows": 1
       },
       {
@@ -905,18 +907,18 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "B07013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07013_003E,B07013_003M&for=place:08830&in=state:16",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B07013",
-        "latency_s": 13.721,
-        "t_llm": 3.909,
-        "t_census_api": 5.999,
-        "t_ours": 3.812,
+        "detail": "wrong table B07201",
+        "latency_s": 12.65,
+        "t_llm": 5.172,
+        "t_census_api": 3.897,
+        "t_ours": 3.581,
         "rows": 1
       },
       {
@@ -926,15 +928,17 @@
         "tier": "long_tail",
         "expected": "B19058",
         "got": "B19058",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=state:48",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=place:49270&in=state:06",
         "http_ok": true,
         "answered": true,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "",
-        "latency_s": 11.587,
-        "t_llm": 4.986,
-        "t_census_api": 2.389,
-        "t_ours": 4.212,
+        "latency_s": 9.084,
+        "t_llm": 3.899,
+        "t_census_api": 3.272,
+        "t_ours": 1.913,
         "rows": 1
       },
       {
@@ -949,10 +953,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.879,
-        "t_llm": 3.948,
-        "t_census_api": 2.308,
-        "t_ours": 3.623,
+        "latency_s": 7.018,
+        "t_llm": 3.754,
+        "t_census_api": 1.299,
+        "t_ours": 1.965,
         "rows": 1
       },
       {
@@ -967,10 +971,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 14.065,
-        "t_llm": 3.98,
-        "t_census_api": 3.703,
-        "t_ours": 6.382,
+        "latency_s": 7.31,
+        "t_llm": 3.883,
+        "t_census_api": 1.621,
+        "t_ours": 1.805,
         "rows": 1
       },
       {
@@ -987,10 +991,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.892,
-        "t_llm": 5.334,
-        "t_census_api": 4.996,
-        "t_ours": 2.563,
+        "latency_s": 9.386,
+        "t_llm": 3.422,
+        "t_census_api": 4.215,
+        "t_ours": 1.749,
         "rows": 1
       },
       {
@@ -1005,10 +1009,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.636,
-        "t_llm": 3.801,
-        "t_census_api": 3.058,
-        "t_ours": 2.777,
+        "latency_s": 7.161,
+        "t_llm": 3.809,
+        "t_census_api": 1.672,
+        "t_ours": 1.681,
         "rows": 1
       },
       {
@@ -1017,17 +1021,17 @@
         "question": "Households in West Virginia getting food assistance where someone has a disability",
         "tier": "long_tail",
         "expected": "B22010",
-        "got": "",
-        "url": "",
+        "got": "B22010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M&for=state:54",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 5.932,
-        "t_llm": 3.092,
-        "t_census_api": 0.006,
-        "t_ours": 2.834,
-        "rows": 0
+        "detail": "",
+        "latency_s": 7.024,
+        "t_llm": 4.516,
+        "t_census_api": 0.825,
+        "t_ours": 1.683,
+        "rows": 1
       },
       {
         "id": "q29",
@@ -1041,10 +1045,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.777,
-        "t_llm": 3.834,
-        "t_census_api": 1.083,
-        "t_ours": 2.861,
+        "latency_s": 6.59,
+        "t_llm": 4.283,
+        "t_census_api": 0.63,
+        "t_ours": 1.677,
         "rows": 1
       },
       {
@@ -1061,10 +1065,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.73,
-        "t_llm": 3.866,
-        "t_census_api": 2.851,
-        "t_ours": 3.013,
+        "latency_s": 10.257,
+        "t_llm": 3.83,
+        "t_census_api": 4.826,
+        "t_ours": 1.601,
         "rows": 1
       },
       {
@@ -1074,17 +1078,17 @@
         "tier": "long_tail",
         "expected": "B25081",
         "got": "B25081",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M,B25081_006E,B25081_006M&for=county:059&in=state:36",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_003E,B25081_003M&for=county:059&in=state:36",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.02,
-        "t_llm": 4.197,
-        "t_census_api": 2.852,
-        "t_ours": 2.97,
+        "latency_s": 10.923,
+        "t_llm": 4.691,
+        "t_census_api": 4.251,
+        "t_ours": 1.981,
         "rows": 1
       },
       {
@@ -1099,10 +1103,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.234,
-        "t_llm": 4.876,
-        "t_census_api": 0.626,
-        "t_ours": 2.732,
+        "latency_s": 8.449,
+        "t_llm": 4.116,
+        "t_census_api": 1.154,
+        "t_ours": 3.18,
         "rows": 1
       },
       {
@@ -1112,17 +1116,17 @@
         "tier": "long_tail",
         "expected": "B16002",
         "got": "B16002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_002E,B16002_002M&for=place:69000&in=state:06",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_001E,B16002_001M,B16002_002E,B16002_002M&for=place:69000&in=state:06",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.374,
-        "t_llm": 3.868,
-        "t_census_api": 4.684,
-        "t_ours": 1.822,
+        "latency_s": 13.584,
+        "t_llm": 4.859,
+        "t_census_api": 4.202,
+        "t_ours": 4.523,
         "rows": 1
       },
       {
@@ -1137,10 +1141,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 13.356,
-        "t_llm": 4.275,
-        "t_census_api": 5.176,
-        "t_ours": 3.904,
+        "latency_s": 13.971,
+        "t_llm": 4.263,
+        "t_census_api": 6.225,
+        "t_ours": 3.482,
         "rows": 1
       },
       {
@@ -1155,10 +1159,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.282,
-        "t_llm": 4.572,
-        "t_census_api": 2.463,
-        "t_ours": 4.247,
+        "latency_s": 10.432,
+        "t_llm": 4.059,
+        "t_census_api": 2.874,
+        "t_ours": 3.499,
         "rows": 1
       },
       {
@@ -1175,10 +1179,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.791,
-        "t_llm": 3.963,
-        "t_census_api": 2.508,
-        "t_ours": 3.32,
+        "latency_s": 10.541,
+        "t_llm": 4.416,
+        "t_census_api": 2.991,
+        "t_ours": 3.134,
         "rows": 1
       },
       {
@@ -1193,10 +1197,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.443,
-        "t_llm": 5.176,
-        "t_census_api": 2.298,
-        "t_ours": 2.969,
+        "latency_s": 9.728,
+        "t_llm": 4.734,
+        "t_census_api": 2.032,
+        "t_ours": 2.962,
         "rows": 67
       },
       {
@@ -1209,12 +1213,14 @@
         "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B02015_001E,B02015_001M&for=place:26000&in=state:06",
         "http_ok": true,
         "answered": true,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "",
-        "latency_s": 9.844,
-        "t_llm": 4.179,
-        "t_census_api": 2.494,
-        "t_ours": 3.171,
+        "latency_s": 12.009,
+        "t_llm": 3.958,
+        "t_census_api": 5.038,
+        "t_ours": 3.014,
         "rows": 1
       },
       {
@@ -1229,10 +1235,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 3.651,
-        "t_llm": 3.253,
-        "t_census_api": 0.0,
-        "t_ours": 0.397,
+        "latency_s": 8.204,
+        "t_llm": 1.934,
+        "t_census_api": 3.245,
+        "t_ours": 3.025,
         "rows": 0
       },
       {
@@ -1249,10 +1255,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 13.752,
-        "t_llm": 5.735,
-        "t_census_api": 4.833,
-        "t_ours": 3.184,
+        "latency_s": 11.193,
+        "t_llm": 4.046,
+        "t_census_api": 4.39,
+        "t_ours": 2.757,
         "rows": 1
       },
       {
@@ -1261,17 +1267,17 @@
         "question": "What did people in Ann Arbor study in college?",
         "tier": "long_tail",
         "expected": "B15012",
-        "got": "B15012",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B15012_001E,B15012_001M&for=place:03000&in=state:26",
+        "got": "",
+        "url": "",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 12.477,
-        "t_llm": 4.416,
-        "t_census_api": 4.67,
-        "t_ours": 3.391,
-        "rows": 1
+        "detail": "wrong table (none)",
+        "latency_s": 10.886,
+        "t_llm": 2.972,
+        "t_census_api": 4.488,
+        "t_ours": 3.425,
+        "rows": 0
       },
       {
         "id": "q42",
@@ -1287,10 +1293,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.215,
-        "t_llm": 4.048,
-        "t_census_api": 3.502,
-        "t_ours": 1.665,
+        "latency_s": 12.01,
+        "t_llm": 4.11,
+        "t_census_api": 4.712,
+        "t_ours": 3.187,
         "rows": 1
       },
       {
@@ -1307,10 +1313,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 7.777,
-        "t_llm": 3.676,
-        "t_census_api": 2.166,
-        "t_ours": 1.935,
+        "latency_s": 10.068,
+        "t_llm": 4.235,
+        "t_census_api": 2.83,
+        "t_ours": 3.003,
         "rows": 1
       },
       {
@@ -1325,10 +1331,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.043,
-        "t_llm": 3.848,
-        "t_census_api": 2.25,
-        "t_ours": 1.945,
+        "latency_s": 9.345,
+        "t_llm": 3.942,
+        "t_census_api": 2.499,
+        "t_ours": 2.903,
         "rows": 1
       },
       {
@@ -1338,18 +1344,18 @@
         "tier": "trap",
         "expected": "B19013",
         "got": "B19013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1",
+        "url": "https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1 https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1 https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "overlapping_vintage"
         ],
         "detail": "",
-        "latency_s": 17.42,
-        "t_llm": 7.553,
-        "t_census_api": 7.735,
-        "t_ours": 2.132,
-        "rows": 1
+        "latency_s": 6.127,
+        "t_llm": 1.663,
+        "t_census_api": 1.466,
+        "t_ours": 2.999,
+        "rows": 3
       },
       {
         "id": "t02",
@@ -1363,10 +1369,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.816,
-        "t_llm": 4.956,
-        "t_census_api": 0.72,
-        "t_ours": 2.14,
+        "latency_s": 8.409,
+        "t_llm": 4.08,
+        "t_census_api": 1.164,
+        "t_ours": 3.165,
         "rows": 99
       },
       {
@@ -1375,16 +1381,18 @@
         "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:120100 https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:130500",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning moe_not_significant",
-        "latency_s": 10.067,
-        "t_llm": 8.332,
-        "t_census_api": 1.53,
-        "t_ours": 0.205,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "",
+        "latency_s": 9.922,
+        "t_llm": 5.731,
+        "t_census_api": 1.04,
+        "t_ours": 3.151,
         "rows": 0
       },
       {
@@ -1393,16 +1401,18 @@
         "question": "Median household income for every block group in Wyoming",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B25118",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25118_001E,B25118_001M&for=block+group:*&in=state:56",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 8.232,
-        "t_llm": 5.942,
-        "t_census_api": 0.01,
-        "t_ours": 2.28,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "",
+        "latency_s": 12.741,
+        "t_llm": 5.78,
+        "t_census_api": 0.881,
+        "t_ours": 6.08,
         "rows": 0
       },
       {
@@ -1419,10 +1429,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 8.733,
-        "t_llm": 3.798,
-        "t_census_api": 3.315,
-        "t_ours": 1.62,
+        "latency_s": 12.231,
+        "t_llm": 4.425,
+        "t_census_api": 4.753,
+        "t_ours": 3.054,
         "rows": 1
       },
       {
@@ -1431,19 +1441,19 @@
         "question": "What share of households are Black families earning over $75k?",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B25118",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25118_001E,B25118_001M,B25118_002E,B25118_002M,B25118_014E,B25118_014M&for=county:*&in=state:*",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "universe_mismatch"
         ],
-        "detail": "empty url",
-        "latency_s": 13.239,
-        "t_llm": 5.709,
-        "t_census_api": 4.484,
-        "t_ours": 3.046,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.368,
+        "t_llm": 5.928,
+        "t_census_api": 4.286,
+        "t_ours": 3.154,
+        "rows": 3222
       },
       {
         "id": "t07",
@@ -1451,16 +1461,16 @@
         "question": "Population of Phoenix in 2024 from the 1-year ACS",
         "tier": "trap",
         "expected": "B01003",
-        "got": "B01003",
-        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:55000&in=state:04",
+        "got": "B06001",
+        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B06001_001E,B06001_001M&for=place:55000&in=state:04",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 8.955,
-        "t_llm": 3.893,
-        "t_census_api": 2.186,
-        "t_ours": 2.876,
+        "detail": "wrong table B06001",
+        "latency_s": 9.875,
+        "t_llm": 4.08,
+        "t_census_api": 2.539,
+        "t_ours": 3.255,
         "rows": 1
       },
       {
@@ -1469,16 +1479,16 @@
         "question": "Give me the income distribution, not just the median, for Travis County",
         "tier": "trap",
         "expected": "B19001",
-        "got": "B19101",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19101_001E,B19101_001M&for=county:453&in=state:48",
+        "got": "B19001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19001_001E,B19001_001M&for=county:453&in=state:48",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table B19101",
-        "latency_s": 10.594,
-        "t_llm": 4.011,
-        "t_census_api": 2.616,
-        "t_ours": 3.966,
+        "detail": "",
+        "latency_s": 11.231,
+        "t_llm": 3.618,
+        "t_census_api": 3.284,
+        "t_ours": 4.329,
         "rows": 1
       },
       {
@@ -1496,10 +1506,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.862,
-        "t_llm": 3.985,
-        "t_census_api": 5.395,
-        "t_ours": 3.481,
+        "latency_s": 11.935,
+        "t_llm": 3.909,
+        "t_census_api": 4.716,
+        "t_ours": 3.309,
         "rows": 1
       },
       {
@@ -1511,13 +1521,15 @@
         "got": "B19013",
         "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning overlapping_vintage",
-        "latency_s": 13.348,
-        "t_llm": 6.68,
-        "t_census_api": 3.901,
-        "t_ours": 2.767,
+        "answered": true,
+        "warnings": [
+          "overlapping_vintage"
+        ],
+        "detail": "",
+        "latency_s": 9.845,
+        "t_llm": 5.768,
+        "t_census_api": 2.338,
+        "t_ours": 1.739,
         "rows": 1
       },
       {
@@ -1535,10 +1547,10 @@
           "ambiguous_place"
         ],
         "detail": "missing warning acs1_geography_ineligible",
-        "latency_s": 12.57,
-        "t_llm": 6.076,
-        "t_census_api": 2.643,
-        "t_ours": 3.852,
+        "latency_s": 7.94,
+        "t_llm": 4.701,
+        "t_census_api": 1.512,
+        "t_ours": 1.728,
         "rows": 1
       },
       {
@@ -1547,17 +1559,20 @@
         "question": "1-year ACS poverty for Fresno County, 2018 through 2022",
         "tier": "trap",
         "expected": "B17001",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning vintage_gap_2020",
-        "latency_s": 9.037,
-        "t_llm": 3.852,
-        "t_census_api": 2.119,
-        "t_ours": 3.066,
-        "rows": 0
+        "answered": true,
+        "warnings": [
+          "variable_not_in_vintage",
+          "vintage_gap_2020"
+        ],
+        "detail": "",
+        "latency_s": 8.266,
+        "t_llm": 3.364,
+        "t_census_api": 2.738,
+        "t_ours": 2.164,
+        "rows": 2
       },
       {
         "id": "t13",
@@ -1565,17 +1580,21 @@
         "question": "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
         "tier": "trap",
         "expected": "B28002",
-        "got": "",
-        "url": "",
+        "got": "B28002",
+        "url": "https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=tract:*&in=state:26+county:163",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning boundary_change_2020",
-        "latency_s": 8.28,
-        "t_llm": 3.657,
-        "t_census_api": 1.138,
-        "t_ours": 3.486,
-        "rows": 0
+        "answered": true,
+        "warnings": [
+          "acs1_geography_ineligible",
+          "boundary_change_2020",
+          "ambiguous_place"
+        ],
+        "detail": "",
+        "latency_s": 7.385,
+        "t_llm": 2.745,
+        "t_census_api": 2.385,
+        "t_ours": 2.256,
+        "rows": 611
       },
       {
         "id": "t14",
@@ -1584,18 +1603,122 @@
         "tier": "trap",
         "expected": "B28001",
         "got": "B28001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
+        "url": "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
+        "http_ok": true,
+        "answered": false,
+        "warnings": [
+          "vintage_gap_2020"
+        ],
+        "detail": "missing warning variable_not_in_vintage",
+        "latency_s": 19.042,
+        "t_llm": 6.298,
+        "t_census_api": 10.767,
+        "t_ours": 1.977,
+        "rows": 8
+      },
+      {
+        "id": "t15",
+        "repeat": 1,
+        "question": "Median household income for ZIP code 10001 every year since 2018",
+        "tier": "trap",
+        "expected": "B19013",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:061&in=state:36 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:061&in=state:36 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:061&in=state:36 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:061&in=state:36 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:061&in=state:36 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:061&in=state:36",
         "http_ok": true,
         "answered": true,
         "warnings": [
-          "variable_not_in_vintage"
+          "vintage_gap_2020",
+          "zcta_not_zip"
         ],
         "detail": "",
-        "latency_s": 7.062,
-        "t_llm": 2.215,
-        "t_census_api": 1.489,
-        "t_ours": 3.358,
-        "rows": 1
+        "latency_s": 17.776,
+        "t_llm": 5.35,
+        "t_census_api": 8.855,
+        "t_ours": 3.571,
+        "rows": 6
+      },
+      {
+        "id": "t16",
+        "repeat": 1,
+        "question": "Compare poverty by census tract within the city of Denver",
+        "tier": "trap",
+        "expected": "B17001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "geography_not_nested"
+        ],
+        "detail": "",
+        "latency_s": 7.416,
+        "t_llm": 3.147,
+        "t_census_api": 1.221,
+        "t_ours": 3.048,
+        "rows": 0
+      },
+      {
+        "id": "t17",
+        "repeat": 1,
+        "question": "What is the median household income across these five tracts combined?",
+        "tier": "trap",
+        "expected": "B19013",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported",
+          "median_not_aggregatable"
+        ],
+        "detail": "",
+        "latency_s": 3.527,
+        "t_llm": 0.643,
+        "t_census_api": 0.007,
+        "t_ours": 2.876,
+        "rows": 0
+      },
+      {
+        "id": "t18",
+        "repeat": 1,
+        "question": "Total population without health insurance across every tract in Wayne County",
+        "tier": "trap",
+        "expected": "B27001",
+        "got": "B27001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M&for=tract:*&in=state:26+county:163",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "ambiguous_place",
+          "moe_aggregation_degraded"
+        ],
+        "detail": "",
+        "latency_s": 10.737,
+        "t_llm": 3.019,
+        "t_census_api": 4.343,
+        "t_ours": 3.375,
+        "rows": 628
+      },
+      {
+        "id": "q23",
+        "repeat": 1,
+        "question": "Compare median gross rent in Austin to the Texas average",
+        "tier": "long_tail",
+        "expected": "B25064",
+        "got": "B25064",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:05000&in=state:48 https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=state:48",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "shared_sample",
+          "ambiguous_place"
+        ],
+        "detail": "",
+        "latency_s": 11.52,
+        "t_llm": 2.116,
+        "t_census_api": 6.503,
+        "t_ours": 2.9,
+        "rows": 2
       },
       {
         "id": "q24",
@@ -1609,10 +1732,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.315,
-        "t_llm": 4.98,
-        "t_census_api": 1.263,
-        "t_ours": 3.072,
+        "latency_s": 8.321,
+        "t_llm": 4.127,
+        "t_census_api": 1.264,
+        "t_ours": 2.931,
         "rows": 1
       },
       {
@@ -1627,10 +1750,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.065,
-        "t_llm": 4.676,
-        "t_census_api": 2.549,
-        "t_ours": 2.839,
+        "latency_s": 9.306,
+        "t_llm": 3.837,
+        "t_census_api": 2.476,
+        "t_ours": 2.993,
         "rows": 1
       },
       {
@@ -1645,10 +1768,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.228,
-        "t_llm": 3.822,
-        "t_census_api": 1.271,
-        "t_ours": 3.134,
+        "latency_s": 8.058,
+        "t_llm": 3.972,
+        "t_census_api": 1.204,
+        "t_ours": 2.882,
         "rows": 36
       },
       {
@@ -1665,10 +1788,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.921,
-        "t_llm": 3.933,
-        "t_census_api": 3.208,
-        "t_ours": 2.78,
+        "latency_s": 10.024,
+        "t_llm": 4.423,
+        "t_census_api": 2.619,
+        "t_ours": 2.982,
         "rows": 1
       },
       {
@@ -1677,19 +1800,19 @@
         "question": "Poverty rate by census tract in Detroit",
         "tier": "core",
         "expected": "B17001",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:22000&in=state:26",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
-          "geography_unsupported"
+          "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 15.041,
-        "t_llm": 6.566,
-        "t_census_api": 5.203,
-        "t_ours": 3.272,
-        "rows": 0
+        "detail": "",
+        "latency_s": 10.294,
+        "t_llm": 2.857,
+        "t_census_api": 4.361,
+        "t_ours": 3.075,
+        "rows": 1
       },
       {
         "id": "q05",
@@ -1698,15 +1821,17 @@
         "tier": "long_tail",
         "expected": "B08301",
         "got": "B08301",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_002E,B08301_002M&for=place:59000&in=state:41",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_001E,B08301_001M&for=place:59000&in=state:41",
         "http_ok": true,
         "answered": true,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "",
-        "latency_s": 10.601,
-        "t_llm": 4.96,
-        "t_census_api": 2.643,
-        "t_ours": 2.998,
+        "latency_s": 10.222,
+        "t_llm": 2.974,
+        "t_census_api": 4.568,
+        "t_ours": 2.68,
         "rows": 1
       },
       {
@@ -1723,10 +1848,10 @@
           "moe_not_significant"
         ],
         "detail": "",
-        "latency_s": 8.268,
-        "t_llm": 3.955,
-        "t_census_api": 1.324,
-        "t_ours": 2.988,
+        "latency_s": 8.638,
+        "t_llm": 3.959,
+        "t_census_api": 1.247,
+        "t_ours": 3.432,
         "rows": 82
       },
       {
@@ -1736,15 +1861,15 @@
         "tier": "long_tail",
         "expected": "B25070",
         "got": "B25070",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M&for=county:*&in=state:04",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_004E,B25070_004M&for=county:*&in=state:04",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.112,
-        "t_llm": 5.815,
-        "t_census_api": 1.928,
-        "t_ours": 3.369,
+        "latency_s": 8.194,
+        "t_llm": 3.929,
+        "t_census_api": 1.331,
+        "t_ours": 2.934,
         "rows": 15
       },
       {
@@ -1759,10 +1884,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 11.98,
-        "t_llm": 6.788,
-        "t_census_api": 2.233,
-        "t_ours": 2.96,
+        "latency_s": 9.361,
+        "t_llm": 4.355,
+        "t_census_api": 2.112,
+        "t_ours": 2.894,
         "rows": 14
       },
       {
@@ -1777,10 +1902,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.495,
-        "t_llm": 5.132,
-        "t_census_api": 1.216,
-        "t_ours": 3.146,
+        "latency_s": 8.286,
+        "t_llm": 3.732,
+        "t_census_api": 1.485,
+        "t_ours": 3.069,
         "rows": 100
       },
       {
@@ -1795,10 +1920,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 9.425,
-        "t_llm": 4.066,
-        "t_census_api": 2.291,
-        "t_ours": 3.068,
+        "latency_s": 9.591,
+        "t_llm": 3.938,
+        "t_census_api": 2.709,
+        "t_ours": 2.944,
         "rows": 1
       },
       {
@@ -1808,17 +1933,17 @@
         "tier": "long_tail",
         "expected": "B08303",
         "got": "B08013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:04000&in=state:13",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "wrong table B08013",
-        "latency_s": 13.704,
-        "t_llm": 3.835,
-        "t_census_api": 5.374,
-        "t_ours": 4.496,
+        "latency_s": 13.488,
+        "t_llm": 4.653,
+        "t_census_api": 4.64,
+        "t_ours": 4.195,
         "rows": 1
       },
       {
@@ -1833,10 +1958,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.076,
-        "t_llm": 3.754,
-        "t_census_api": 1.242,
-        "t_ours": 3.08,
+        "latency_s": 9.295,
+        "t_llm": 4.671,
+        "t_census_api": 1.171,
+        "t_ours": 3.453,
         "rows": 1
       },
       {
@@ -1853,10 +1978,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.012,
-        "t_llm": 4.094,
-        "t_census_api": 4.678,
-        "t_ours": 3.24,
+        "latency_s": 11.118,
+        "t_llm": 3.763,
+        "t_census_api": 4.397,
+        "t_ours": 2.958,
         "rows": 1
       },
       {
@@ -1873,10 +1998,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.278,
-        "t_llm": 4.142,
-        "t_census_api": 4.992,
-        "t_ours": 3.144,
+        "latency_s": 9.667,
+        "t_llm": 3.856,
+        "t_census_api": 3.291,
+        "t_ours": 2.52,
         "rows": 1
       },
       {
@@ -1891,10 +2016,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.82,
-        "t_llm": 4.523,
-        "t_census_api": 1.368,
-        "t_ours": 3.929,
+        "latency_s": 6.314,
+        "t_llm": 3.679,
+        "t_census_api": 0.668,
+        "t_ours": 1.966,
         "rows": 87
       },
       {
@@ -1911,10 +2036,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 13.521,
-        "t_llm": 4.193,
-        "t_census_api": 5.255,
-        "t_ours": 4.074,
+        "latency_s": 10.451,
+        "t_llm": 4.095,
+        "t_census_api": 3.682,
+        "t_ours": 2.674,
         "rows": 1
       },
       {
@@ -1923,19 +2048,19 @@
         "question": "Occupation breakdown for workers in Silicon Valley counties",
         "tier": "long_tail",
         "expected": "B24010",
-        "got": "",
-        "url": "",
+        "got": "B24114",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B24114_001E,B24114_001M&for=county:140&in=state:09",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.246,
-        "t_llm": 3.614,
-        "t_census_api": 1.391,
-        "t_ours": 3.24,
-        "rows": 0
+        "detail": "wrong table B24114",
+        "latency_s": 7.567,
+        "t_llm": 3.472,
+        "t_census_api": 2.327,
+        "t_ours": 1.767,
+        "rows": 1
       },
       {
         "id": "q18",
@@ -1943,17 +2068,19 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "",
-        "url": "",
+        "got": "B25009",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 21.987,
-        "t_llm": 4.291,
-        "t_census_api": 5.443,
-        "t_ours": 12.253,
-        "rows": 0
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table B25009",
+        "latency_s": 33.282,
+        "t_llm": 5.486,
+        "t_census_api": 18.313,
+        "t_ours": 9.482,
+        "rows": 1
       },
       {
         "id": "q19",
@@ -1969,10 +2096,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.975,
-        "t_llm": 5.303,
-        "t_census_api": 2.857,
-        "t_ours": 4.815,
+        "latency_s": 9.305,
+        "t_llm": 3.859,
+        "t_census_api": 2.53,
+        "t_ours": 2.917,
         "rows": 1
       },
       {
@@ -1989,10 +2116,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table B07201",
-        "latency_s": 13.306,
-        "t_llm": 4.909,
-        "t_census_api": 4.384,
-        "t_ours": 4.013,
+        "latency_s": 12.606,
+        "t_llm": 4.179,
+        "t_census_api": 5.151,
+        "t_ours": 3.276,
         "rows": 1
       },
       {
@@ -2001,19 +2128,19 @@
         "question": "Households receiving SNAP benefits in the Rio Grande Valley",
         "tier": "long_tail",
         "expected": "B19058",
-        "got": "",
-        "url": "",
+        "got": "B19058",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19058_001E,B19058_001M&for=place:49270&in=state:06",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.846,
-        "t_llm": 3.811,
-        "t_census_api": 1.895,
-        "t_ours": 3.14,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.788,
+        "t_llm": 4.062,
+        "t_census_api": 4.721,
+        "t_ours": 3.005,
+        "rows": 1
       },
       {
         "id": "q22",
@@ -2027,10 +2154,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.738,
-        "t_llm": 3.923,
-        "t_census_api": 2.143,
-        "t_ours": 2.672,
+        "latency_s": 9.604,
+        "t_llm": 4.272,
+        "t_census_api": 2.066,
+        "t_ours": 3.266,
         "rows": 1
       },
       {
@@ -2045,10 +2172,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.787,
-        "t_llm": 3.906,
-        "t_census_api": 2.015,
-        "t_ours": 2.865,
+        "latency_s": 9.337,
+        "t_llm": 3.669,
+        "t_census_api": 2.438,
+        "t_ours": 3.23,
         "rows": 1
       },
       {
@@ -2065,10 +2192,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.267,
-        "t_llm": 3.521,
-        "t_census_api": 4.619,
-        "t_ours": 2.127,
+        "latency_s": 11.54,
+        "t_llm": 4.35,
+        "t_census_api": 4.473,
+        "t_ours": 2.717,
         "rows": 1
       },
       {
@@ -2083,10 +2210,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.115,
-        "t_llm": 4.189,
-        "t_census_api": 2.248,
-        "t_ours": 1.678,
+        "latency_s": 9.191,
+        "t_llm": 3.79,
+        "t_census_api": 2.568,
+        "t_ours": 2.833,
         "rows": 1
       },
       {
@@ -2095,17 +2222,17 @@
         "question": "Households in West Virginia getting food assistance where someone has a disability",
         "tier": "long_tail",
         "expected": "B22010",
-        "got": "",
-        "url": "",
+        "got": "B22010",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M&for=state:54",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 4.894,
-        "t_llm": 2.842,
-        "t_census_api": 0.005,
-        "t_ours": 2.047,
-        "rows": 0
+        "detail": "",
+        "latency_s": 7.607,
+        "t_llm": 3.804,
+        "t_census_api": 1.015,
+        "t_ours": 2.789,
+        "rows": 1
       },
       {
         "id": "q29",
@@ -2119,10 +2246,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.897,
-        "t_llm": 4.335,
-        "t_census_api": 0.776,
-        "t_ours": 1.786,
+        "latency_s": 7.35,
+        "t_llm": 3.535,
+        "t_census_api": 0.913,
+        "t_ours": 2.902,
         "rows": 1
       },
       {
@@ -2139,10 +2266,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.788,
-        "t_llm": 3.711,
-        "t_census_api": 4.954,
-        "t_ours": 2.123,
+        "latency_s": 10.888,
+        "t_llm": 3.793,
+        "t_census_api": 4.2,
+        "t_ours": 2.895,
         "rows": 1
       },
       {
@@ -2152,17 +2279,17 @@
         "tier": "long_tail",
         "expected": "B25081",
         "got": "B25081",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M,B25081_002E,B25081_002M&for=county:059&in=state:36",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_002E,B25081_002M&for=county:059&in=state:36",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.13,
-        "t_llm": 3.871,
-        "t_census_api": 2.872,
-        "t_ours": 3.387,
+        "latency_s": 9.05,
+        "t_llm": 4.575,
+        "t_census_api": 2.357,
+        "t_ours": 2.118,
         "rows": 1
       },
       {
@@ -2177,10 +2304,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.23,
-        "t_llm": 3.951,
-        "t_census_api": 1.19,
-        "t_ours": 3.089,
+        "latency_s": 7.913,
+        "t_llm": 4.304,
+        "t_census_api": 1.07,
+        "t_ours": 2.538,
         "rows": 1
       },
       {
@@ -2190,17 +2317,17 @@
         "tier": "long_tail",
         "expected": "B16002",
         "got": "B16002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_001E,B16002_001M&for=place:69000&in=state:06",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_001E,B16002_001M,B16002_002E,B16002_002M&for=place:69000&in=state:06",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.152,
-        "t_llm": 3.539,
-        "t_census_api": 5.611,
-        "t_ours": 3.002,
+        "latency_s": 12.729,
+        "t_llm": 4.177,
+        "t_census_api": 5.506,
+        "t_ours": 3.046,
         "rows": 1
       },
       {
@@ -2215,10 +2342,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 13.002,
-        "t_llm": 4.369,
-        "t_census_api": 5.461,
-        "t_ours": 3.172,
+        "latency_s": 12.463,
+        "t_llm": 3.755,
+        "t_census_api": 4.782,
+        "t_ours": 3.926,
         "rows": 1
       },
       {
@@ -2233,10 +2360,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.655,
-        "t_llm": 4.062,
-        "t_census_api": 2.712,
-        "t_ours": 3.882,
+        "latency_s": 10.13,
+        "t_llm": 3.74,
+        "t_census_api": 3.403,
+        "t_ours": 2.987,
         "rows": 1
       },
       {
@@ -2253,10 +2380,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.28,
-        "t_llm": 3.934,
-        "t_census_api": 2.354,
-        "t_ours": 3.993,
+        "latency_s": 9.934,
+        "t_llm": 3.89,
+        "t_census_api": 2.49,
+        "t_ours": 3.554,
         "rows": 1
       },
       {
@@ -2265,16 +2392,16 @@
         "question": "Which county in Florida has the oldest population?",
         "tier": "long_tail",
         "expected": "B01002",
-        "got": "B01001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01001_001E,B01001_001M,B01001_013E,B01001_013M&for=county:*&in=state:12",
+        "got": "B01002",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01002_001E,B01002_001M&for=county:*&in=state:12",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table B01001",
-        "latency_s": 8.671,
-        "t_llm": 3.934,
-        "t_census_api": 1.177,
-        "t_ours": 3.56,
+        "detail": "",
+        "latency_s": 11.394,
+        "t_llm": 3.807,
+        "t_census_api": 4.665,
+        "t_ours": 2.922,
         "rows": 67
       },
       {
@@ -2291,10 +2418,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.315,
-        "t_llm": 3.563,
-        "t_census_api": 5.65,
-        "t_ours": 3.101,
+        "latency_s": 11.959,
+        "t_llm": 4.571,
+        "t_census_api": 4.225,
+        "t_ours": 3.163,
         "rows": 1
       },
       {
@@ -2309,10 +2436,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 3.978,
-        "t_llm": 3.279,
-        "t_census_api": 0.0,
-        "t_ours": 0.699,
+        "latency_s": 8.835,
+        "t_llm": 2.228,
+        "t_census_api": 3.776,
+        "t_ours": 2.831,
         "rows": 0
       },
       {
@@ -2329,10 +2456,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 11.474,
-        "t_llm": 4.451,
-        "t_census_api": 4.1,
-        "t_ours": 2.923,
+        "latency_s": 10.818,
+        "t_llm": 3.958,
+        "t_census_api": 4.058,
+        "t_ours": 2.802,
         "rows": 1
       },
       {
@@ -2347,10 +2474,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 9.919,
-        "t_llm": 2.71,
-        "t_census_api": 3.325,
-        "t_ours": 3.884,
+        "latency_s": 9.578,
+        "t_llm": 2.896,
+        "t_census_api": 3.25,
+        "t_ours": 3.432,
         "rows": 0
       },
       {
@@ -2367,10 +2494,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 11.929,
-        "t_llm": 4.729,
-        "t_census_api": 4.553,
-        "t_ours": 2.646,
+        "latency_s": 10.739,
+        "t_llm": 3.676,
+        "t_census_api": 4.447,
+        "t_ours": 2.616,
         "rows": 1
       },
       {
@@ -2387,10 +2514,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.566,
-        "t_llm": 4.324,
-        "t_census_api": 2.585,
-        "t_ours": 2.658,
+        "latency_s": 7.797,
+        "t_llm": 4.16,
+        "t_census_api": 1.599,
+        "t_ours": 2.038,
         "rows": 1
       },
       {
@@ -2405,10 +2532,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.174,
-        "t_llm": 3.72,
-        "t_census_api": 2.261,
-        "t_ours": 3.193,
+        "latency_s": 8.819,
+        "t_llm": 3.751,
+        "t_census_api": 2.534,
+        "t_ours": 2.534,
         "rows": 1
       },
       {
@@ -2418,18 +2545,18 @@
         "tier": "trap",
         "expected": "B19013",
         "got": "B19013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:*&in=state:*",
+        "url": "https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1 https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1 https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "overlapping_vintage"
         ],
         "detail": "",
-        "latency_s": 12.639,
-        "t_llm": 6.42,
-        "t_census_api": 4.078,
-        "t_ours": 2.141,
-        "rows": 3222
+        "latency_s": 18.848,
+        "t_llm": 5.59,
+        "t_census_api": 10.659,
+        "t_ours": 2.6,
+        "rows": 3
       },
       {
         "id": "t02",
@@ -2443,10 +2570,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.67,
-        "t_llm": 3.871,
-        "t_census_api": 0.703,
-        "t_ours": 2.097,
+        "latency_s": 7.636,
+        "t_llm": 3.782,
+        "t_census_api": 1.005,
+        "t_ours": 2.849,
         "rows": 99
       },
       {
@@ -2455,18 +2582,18 @@
         "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:120100 https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:130500",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "geography_unsupported"
         ],
-        "detail": "missing warning moe_not_significant",
-        "latency_s": 12.533,
-        "t_llm": 5.666,
-        "t_census_api": 6.683,
-        "t_ours": 0.184,
+        "detail": "",
+        "latency_s": 9.614,
+        "t_llm": 4.229,
+        "t_census_api": 0.901,
+        "t_ours": 4.484,
         "rows": 0
       },
       {
@@ -2475,16 +2602,18 @@
         "question": "Median household income for every block group in Wyoming",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=block+group:*&in=state:56",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 9.456,
-        "t_llm": 5.387,
-        "t_census_api": 0.63,
-        "t_ours": 3.44,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "",
+        "latency_s": 11.444,
+        "t_llm": 6.168,
+        "t_census_api": 2.46,
+        "t_ours": 2.816,
         "rows": 0
       },
       {
@@ -2501,10 +2630,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.152,
-        "t_llm": 3.467,
-        "t_census_api": 3.828,
-        "t_ours": 1.858,
+        "latency_s": 11.759,
+        "t_llm": 3.565,
+        "t_census_api": 5.418,
+        "t_ours": 2.776,
         "rows": 1
       },
       {
@@ -2513,19 +2642,19 @@
         "question": "What share of households are Black families earning over $75k?",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B19001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19001_001E,B19001_001M&for=county:*&in=state:*",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "universe_mismatch"
         ],
-        "detail": "empty url",
-        "latency_s": 8.947,
-        "t_llm": 5.32,
-        "t_census_api": 1.283,
-        "t_ours": 2.344,
-        "rows": 0
+        "detail": "",
+        "latency_s": 13.224,
+        "t_llm": 5.345,
+        "t_census_api": 4.767,
+        "t_ours": 3.112,
+        "rows": 3222
       },
       {
         "id": "t07",
@@ -2539,10 +2668,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.663,
-        "t_llm": 3.782,
-        "t_census_api": 2.354,
-        "t_ours": 1.527,
+        "latency_s": 8.765,
+        "t_llm": 3.75,
+        "t_census_api": 2.196,
+        "t_ours": 2.818,
         "rows": 1
       },
       {
@@ -2551,16 +2680,16 @@
         "question": "Give me the income distribution, not just the median, for Travis County",
         "tier": "trap",
         "expected": "B19001",
-        "got": "B19080",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19080_001E,B19080_001M&for=county:453&in=state:48",
+        "got": "B19001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19001_001E,B19001_001M&for=county:453&in=state:48",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table B19080",
-        "latency_s": 12.114,
-        "t_llm": 6.143,
-        "t_census_api": 3.187,
-        "t_ours": 2.784,
+        "detail": "",
+        "latency_s": 9.254,
+        "t_llm": 3.506,
+        "t_census_api": 2.456,
+        "t_ours": 3.293,
         "rows": 1
       },
       {
@@ -2570,7 +2699,7 @@
         "tier": "trap",
         "expected": "B28001",
         "got": "B28001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M&for=place:20000&in=state:08",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M,B28001_003E,B28001_003M&for=place:20000&in=state:08",
         "http_ok": true,
         "answered": true,
         "warnings": [
@@ -2578,10 +2707,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 8.923,
-        "t_llm": 4.035,
-        "t_census_api": 3.282,
-        "t_ours": 1.606,
+        "latency_s": 11.962,
+        "t_llm": 3.766,
+        "t_census_api": 4.705,
+        "t_ours": 3.491,
         "rows": 1
       },
       {
@@ -2591,15 +2720,17 @@
         "tier": "trap",
         "expected": "B19013",
         "got": "B19013",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
+        "url": "https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning overlapping_vintage",
-        "latency_s": 10.532,
-        "t_llm": 5.587,
-        "t_census_api": 3.306,
-        "t_ours": 1.639,
+        "answered": true,
+        "warnings": [
+          "overlapping_vintage"
+        ],
+        "detail": "",
+        "latency_s": 12.601,
+        "t_llm": 5.536,
+        "t_census_api": 4.516,
+        "t_ours": 2.549,
         "rows": 1
       },
       {
@@ -2609,18 +2740,19 @@
         "tier": "trap",
         "expected": "B23025",
         "got": "B23025",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M&for=place:44275&in=state:50",
+        "url": "https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M&for=place:44275&in=state:50",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "variable_not_in_vintage",
+          "acs1_geography_ineligible",
           "ambiguous_place"
         ],
-        "detail": "missing warning acs1_geography_ineligible",
-        "latency_s": 7.547,
-        "t_llm": 3.886,
-        "t_census_api": 1.859,
-        "t_ours": 1.802,
+        "detail": "",
+        "latency_s": 9.734,
+        "t_llm": 5.398,
+        "t_census_api": 2.542,
+        "t_ours": 1.794,
         "rows": 1
       },
       {
@@ -2629,17 +2761,20 @@
         "question": "1-year ACS poverty for Fresno County, 2018 through 2022",
         "tier": "trap",
         "expected": "B17001",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning vintage_gap_2020",
-        "latency_s": 6.902,
-        "t_llm": 4.206,
-        "t_census_api": 1.007,
-        "t_ours": 1.689,
-        "rows": 0
+        "answered": true,
+        "warnings": [
+          "variable_not_in_vintage",
+          "vintage_gap_2020"
+        ],
+        "detail": "",
+        "latency_s": 7.584,
+        "t_llm": 2.752,
+        "t_census_api": 2.882,
+        "t_ours": 1.951,
+        "rows": 2
       },
       {
         "id": "t13",
@@ -2648,18 +2783,20 @@
         "tier": "trap",
         "expected": "B28002",
         "got": "B28002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=county:163&in=state:26",
+        "url": "https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=tract:*&in=state:26+county:163",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
+          "acs1_geography_ineligible",
+          "boundary_change_2020",
           "ambiguous_place"
         ],
-        "detail": "missing warning boundary_change_2020",
-        "latency_s": 8.861,
-        "t_llm": 4.541,
-        "t_census_api": 1.678,
-        "t_ours": 2.641,
-        "rows": 1
+        "detail": "",
+        "latency_s": 10.053,
+        "t_llm": 2.858,
+        "t_census_api": 4.99,
+        "t_ours": 2.205,
+        "rows": 611
       },
       {
         "id": "t14",
@@ -2668,18 +2805,121 @@
         "tier": "trap",
         "expected": "B28001",
         "got": "B28001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
+        "url": "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
+        "http_ok": true,
+        "answered": false,
+        "warnings": [
+          "vintage_gap_2020"
+        ],
+        "detail": "missing warning variable_not_in_vintage",
+        "latency_s": 7.27,
+        "t_llm": 2.569,
+        "t_census_api": 2.644,
+        "t_ours": 2.058,
+        "rows": 8
+      },
+      {
+        "id": "t15",
+        "repeat": 2,
+        "question": "Median household income for ZIP code 10001 every year since 2018",
+        "tier": "trap",
+        "expected": "B19013",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=zip+code+tabulation+area:10001 https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=zip+code+tabulation+area:10001",
         "http_ok": true,
         "answered": true,
         "warnings": [
-          "variable_not_in_vintage"
+          "zcta_not_zip"
         ],
         "detail": "",
-        "latency_s": 14.092,
-        "t_llm": 6.72,
-        "t_census_api": 4.951,
-        "t_ours": 2.421,
+        "latency_s": 11.497,
+        "t_llm": 5.02,
+        "t_census_api": 4.726,
+        "t_ours": 1.751,
         "rows": 1
+      },
+      {
+        "id": "t16",
+        "repeat": 2,
+        "question": "Compare poverty by census tract within the city of Denver",
+        "tier": "trap",
+        "expected": "B17001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "geography_not_nested"
+        ],
+        "detail": "",
+        "latency_s": 8.937,
+        "t_llm": 3.49,
+        "t_census_api": 3.525,
+        "t_ours": 1.922,
+        "rows": 0
+      },
+      {
+        "id": "t17",
+        "repeat": 2,
+        "question": "What is the median household income across these five tracts combined?",
+        "tier": "trap",
+        "expected": "B19013",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=tract:*",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported",
+          "median_not_aggregatable"
+        ],
+        "detail": "",
+        "latency_s": 7.935,
+        "t_llm": 4.652,
+        "t_census_api": 1.565,
+        "t_ours": 1.718,
+        "rows": 0
+      },
+      {
+        "id": "t18",
+        "repeat": 2,
+        "question": "Total population without health insurance across every tract in Wayne County",
+        "tier": "trap",
+        "expected": "B27001",
+        "got": "B27001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M&for=tract:*&in=state:26+county:163",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "ambiguous_place",
+          "moe_aggregation_degraded"
+        ],
+        "detail": "",
+        "latency_s": 10.828,
+        "t_llm": 3.025,
+        "t_census_api": 4.233,
+        "t_ours": 3.569,
+        "rows": 628
+      },
+      {
+        "id": "q23",
+        "repeat": 2,
+        "question": "Compare median gross rent in Austin to the Texas average",
+        "tier": "long_tail",
+        "expected": "B25064",
+        "got": "B25064",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:05000&in=state:48 https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=state:48",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "shared_sample",
+          "ambiguous_place"
+        ],
+        "detail": "",
+        "latency_s": 12.654,
+        "t_llm": 2.213,
+        "t_census_api": 7.117,
+        "t_ours": 3.324,
+        "rows": 2
       },
       {
         "id": "q24",
@@ -2693,10 +2933,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.936,
-        "t_llm": 4.164,
-        "t_census_api": 0.852,
-        "t_ours": 1.92,
+        "latency_s": 8.798,
+        "t_llm": 4.387,
+        "t_census_api": 1.134,
+        "t_ours": 3.277,
         "rows": 1
       },
       {
@@ -2711,10 +2951,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.866,
-        "t_llm": 3.796,
-        "t_census_api": 1.503,
-        "t_ours": 1.568,
+        "latency_s": 9.196,
+        "t_llm": 3.723,
+        "t_census_api": 2.291,
+        "t_ours": 3.181,
         "rows": 1
       },
       {
@@ -2729,10 +2969,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.596,
-        "t_llm": 4.006,
-        "t_census_api": 0.603,
-        "t_ours": 1.986,
+        "latency_s": 8.575,
+        "t_llm": 4.056,
+        "t_census_api": 1.104,
+        "t_ours": 3.415,
         "rows": 36
       },
       {
@@ -2749,10 +2989,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 7.935,
-        "t_llm": 4.023,
-        "t_census_api": 2.251,
-        "t_ours": 1.661,
+        "latency_s": 11.173,
+        "t_llm": 4.681,
+        "t_census_api": 3.048,
+        "t_ours": 3.445,
         "rows": 1
       },
       {
@@ -2761,19 +3001,19 @@
         "question": "Poverty rate by census tract in Detroit",
         "tier": "core",
         "expected": "B17001",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:22000&in=state:26",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.8,
-        "t_llm": 3.941,
-        "t_census_api": 4.009,
-        "t_ours": 2.85,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.185,
+        "t_llm": 3.467,
+        "t_census_api": 4.452,
+        "t_ours": 3.266,
+        "rows": 1
       },
       {
         "id": "q05",
@@ -2781,19 +3021,19 @@
         "question": "How many people bike to work in Portland?",
         "tier": "long_tail",
         "expected": "B08301",
-        "got": "",
-        "url": "",
+        "got": "B08301",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08301_014E,B08301_014M&for=place:59000&in=state:41",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.198,
-        "t_llm": 3.109,
-        "t_census_api": 2.28,
-        "t_ours": 1.809,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.799,
+        "t_llm": 3.962,
+        "t_census_api": 4.708,
+        "t_ours": 3.13,
+        "rows": 1
       },
       {
         "id": "q06",
@@ -2809,10 +3049,10 @@
           "moe_not_significant"
         ],
         "detail": "",
-        "latency_s": 7.513,
-        "t_llm": 4.46,
-        "t_census_api": 0.638,
-        "t_ours": 2.415,
+        "latency_s": 9.022,
+        "t_llm": 4.212,
+        "t_census_api": 1.118,
+        "t_ours": 3.692,
         "rows": 82
       },
       {
@@ -2822,15 +3062,15 @@
         "tier": "long_tail",
         "expected": "B25070",
         "got": "B25070",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M&for=county:*&in=state:04",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25070_001E,B25070_001M,B25070_002E,B25070_002M&for=county:*&in=state:04",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.535,
-        "t_llm": 3.847,
-        "t_census_api": 0.817,
-        "t_ours": 1.87,
+        "latency_s": 9.402,
+        "t_llm": 4.15,
+        "t_census_api": 1.914,
+        "t_ours": 3.337,
         "rows": 15
       },
       {
@@ -2839,17 +3079,17 @@
         "question": "Disability rates among adults in rural Vermont counties",
         "tier": "long_tail",
         "expected": "B18101",
-        "got": "",
-        "url": "",
+        "got": "B18101",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18101_001E,B18101_001M&for=county:*&in=state:50",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 10.859,
-        "t_llm": 7.296,
-        "t_census_api": 1.693,
-        "t_ours": 1.87,
-        "rows": 0
+        "detail": "",
+        "latency_s": 11.671,
+        "t_llm": 5.881,
+        "t_census_api": 2.67,
+        "t_ours": 3.12,
+        "rows": 14
       },
       {
         "id": "q09",
@@ -2863,10 +3103,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 6.687,
-        "t_llm": 3.779,
-        "t_census_api": 0.661,
-        "t_ours": 2.247,
+        "latency_s": 6.336,
+        "t_llm": 3.519,
+        "t_census_api": 1.084,
+        "t_ours": 1.732,
         "rows": 100
       },
       {
@@ -2876,15 +3116,15 @@
         "tier": "long_tail",
         "expected": "C16001",
         "got": "B16001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=county:081&in=state:36",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=place:63116&in=state:42",
         "http_ok": true,
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 6.707,
-        "t_llm": 3.565,
-        "t_census_api": 1.559,
-        "t_ours": 1.583,
+        "latency_s": 9.835,
+        "t_llm": 4.36,
+        "t_census_api": 3.499,
+        "t_ours": 1.976,
         "rows": 1
       },
       {
@@ -2893,18 +3133,18 @@
         "question": "How long is the average commute in the Atlanta metro?",
         "tier": "long_tail",
         "expected": "B08303",
-        "got": "B08013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
+        "got": "B08303",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=place:04000&in=state:13",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B08013",
-        "latency_s": 11.745,
-        "t_llm": 3.82,
-        "t_census_api": 3.861,
-        "t_ours": 4.064,
+        "detail": "",
+        "latency_s": 10.688,
+        "t_llm": 5.082,
+        "t_census_api": 3.372,
+        "t_ours": 2.233,
         "rows": 1
       },
       {
@@ -2919,10 +3159,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.944,
-        "t_llm": 3.464,
-        "t_census_api": 0.609,
-        "t_ours": 3.871,
+        "latency_s": 6.638,
+        "t_llm": 3.669,
+        "t_census_api": 0.693,
+        "t_ours": 2.277,
         "rows": 1
       },
       {
@@ -2939,10 +3179,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.243,
-        "t_llm": 3.491,
-        "t_census_api": 4.029,
-        "t_ours": 1.723,
+        "latency_s": 9.32,
+        "t_llm": 4.022,
+        "t_census_api": 3.101,
+        "t_ours": 2.197,
         "rows": 1
       },
       {
@@ -2952,17 +3192,17 @@
         "tier": "long_tail",
         "expected": "B08201",
         "got": "B08201",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M&for=place:04000&in=state:24",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08201_001E,B08201_001M,B08201_002E,B08201_002M&for=place:04000&in=state:24",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.549,
-        "t_llm": 3.673,
-        "t_census_api": 3.416,
-        "t_ours": 2.46,
+        "latency_s": 10.705,
+        "t_llm": 3.825,
+        "t_census_api": 4.411,
+        "t_ours": 2.469,
         "rows": 1
       },
       {
@@ -2971,16 +3211,16 @@
         "question": "Foreign-born population by county in Minnesota",
         "tier": "long_tail",
         "expected": "B05002",
-        "got": "B05002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05002_001E,B05002_001M&for=county:*&in=state:27",
+        "got": "B05006",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05006_001E,B05006_001M&for=county:*&in=state:27",
         "http_ok": true,
-        "answered": true,
+        "answered": false,
         "warnings": [],
-        "detail": "",
-        "latency_s": 8.024,
-        "t_llm": 4.047,
-        "t_census_api": 0.821,
-        "t_ours": 3.156,
+        "detail": "wrong table B05006",
+        "latency_s": 8.482,
+        "t_llm": 3.893,
+        "t_census_api": 1.646,
+        "t_ours": 2.944,
         "rows": 87
       },
       {
@@ -2997,10 +3237,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.737,
-        "t_llm": 3.977,
-        "t_census_api": 5.044,
-        "t_ours": 1.716,
+        "latency_s": 13.583,
+        "t_llm": 3.995,
+        "t_census_api": 6.158,
+        "t_ours": 3.43,
         "rows": 1
       },
       {
@@ -3017,10 +3257,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 7.94,
-        "t_llm": 3.285,
-        "t_census_api": 2.837,
-        "t_ours": 1.818,
+        "latency_s": 8.952,
+        "t_llm": 3.399,
+        "t_census_api": 1.696,
+        "t_ours": 3.858,
         "rows": 0
       },
       {
@@ -3029,18 +3269,18 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "B25072",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25072_001E,B25072_001M&for=place:53000&in=state:55",
+        "got": "B25009",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B25072",
-        "latency_s": 17.42,
-        "t_llm": 5.652,
-        "t_census_api": 3.942,
-        "t_ours": 7.827,
+        "detail": "wrong table B25009",
+        "latency_s": 24.521,
+        "t_llm": 4.186,
+        "t_census_api": 12.204,
+        "t_ours": 8.131,
         "rows": 1
       },
       {
@@ -3057,10 +3297,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 8.271,
-        "t_llm": 3.653,
-        "t_census_api": 2.454,
-        "t_ours": 2.165,
+        "latency_s": 9.54,
+        "t_llm": 3.807,
+        "t_census_api": 2.562,
+        "t_ours": 3.171,
         "rows": 1
       },
       {
@@ -3073,12 +3313,14 @@
         "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "wrong table B07201",
-        "latency_s": 8.87,
-        "t_llm": 4.341,
-        "t_census_api": 1.463,
-        "t_ours": 3.065,
+        "latency_s": 12.611,
+        "t_llm": 3.734,
+        "t_census_api": 3.947,
+        "t_ours": 4.93,
         "rows": 1
       },
       {
@@ -3095,10 +3337,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.445,
-        "t_llm": 4.427,
-        "t_census_api": 4.124,
-        "t_ours": 1.894,
+        "latency_s": 9.167,
+        "t_llm": 3.492,
+        "t_census_api": 3.5,
+        "t_ours": 2.175,
         "rows": 1
       },
       {
@@ -3113,10 +3355,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.835,
-        "t_llm": 4.366,
-        "t_census_api": 3.481,
-        "t_ours": 1.988,
+        "latency_s": 8.678,
+        "t_llm": 4.454,
+        "t_census_api": 2.559,
+        "t_ours": 1.664,
         "rows": 1
       },
       {
@@ -3131,10 +3373,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.286,
-        "t_llm": 3.698,
-        "t_census_api": 2.377,
-        "t_ours": 2.212,
+        "latency_s": 9.568,
+        "t_llm": 4.081,
+        "t_census_api": 2.408,
+        "t_ours": 3.078,
         "rows": 1
       },
       {
@@ -3151,10 +3393,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 8.435,
-        "t_llm": 3.606,
-        "t_census_api": 3.049,
-        "t_ours": 1.78,
+        "latency_s": 11.644,
+        "t_llm": 4.199,
+        "t_census_api": 4.274,
+        "t_ours": 3.171,
         "rows": 1
       },
       {
@@ -3169,10 +3411,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.691,
-        "t_llm": 3.81,
-        "t_census_api": 1.96,
-        "t_ours": 1.922,
+        "latency_s": 9.196,
+        "t_llm": 3.816,
+        "t_census_api": 2.248,
+        "t_ours": 3.132,
         "rows": 1
       },
       {
@@ -3182,15 +3424,15 @@
         "tier": "long_tail",
         "expected": "B22010",
         "got": "B22010",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M,B22010_002E,B22010_002M&for=state:54",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B22010_001E,B22010_001M&for=state:54",
         "http_ok": true,
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.757,
-        "t_llm": 4.563,
-        "t_census_api": 1.024,
-        "t_ours": 2.17,
+        "latency_s": 6.402,
+        "t_llm": 3.592,
+        "t_census_api": 0.625,
+        "t_ours": 2.185,
         "rows": 1
       },
       {
@@ -3205,10 +3447,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.707,
-        "t_llm": 5.303,
-        "t_census_api": 1.527,
-        "t_ours": 1.876,
+        "latency_s": 7.026,
+        "t_llm": 4.724,
+        "t_census_api": 0.619,
+        "t_ours": 1.683,
         "rows": 1
       },
       {
@@ -3225,10 +3467,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 11.837,
-        "t_llm": 3.981,
-        "t_census_api": 4.694,
-        "t_ours": 3.162,
+        "latency_s": 8.829,
+        "t_llm": 3.937,
+        "t_census_api": 3.143,
+        "t_ours": 1.748,
         "rows": 1
       },
       {
@@ -3238,17 +3480,17 @@
         "tier": "long_tail",
         "expected": "B25081",
         "got": "B25081",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M,B25081_004E,B25081_004M&for=county:059&in=state:36",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25081_001E,B25081_001M,B25081_003E,B25081_003M&for=county:059&in=state:36",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.957,
-        "t_llm": 4.155,
-        "t_census_api": 2.878,
-        "t_ours": 2.925,
+        "latency_s": 8.903,
+        "t_llm": 3.997,
+        "t_census_api": 2.451,
+        "t_ours": 2.455,
         "rows": 1
       },
       {
@@ -3263,10 +3505,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.48,
+        "latency_s": 6.403,
         "t_llm": 3.644,
-        "t_census_api": 0.947,
-        "t_ours": 2.888,
+        "t_census_api": 0.618,
+        "t_ours": 2.141,
         "rows": 1
       },
       {
@@ -3276,17 +3518,17 @@
         "tier": "long_tail",
         "expected": "B16002",
         "got": "B16002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_001E,B16002_001M,B16002_002E,B16002_002M&for=place:69000&in=state:06",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16002_003E,B16002_003M&for=place:69000&in=state:06",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 11.458,
-        "t_llm": 3.87,
-        "t_census_api": 4.702,
-        "t_ours": 2.886,
+        "latency_s": 9.591,
+        "t_llm": 3.904,
+        "t_census_api": 3.429,
+        "t_ours": 2.258,
         "rows": 1
       },
       {
@@ -3301,10 +3543,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 12.905,
-        "t_llm": 3.736,
-        "t_census_api": 5.451,
-        "t_ours": 3.718,
+        "latency_s": 10.392,
+        "t_llm": 4.035,
+        "t_census_api": 3.493,
+        "t_ours": 2.864,
         "rows": 1
       },
       {
@@ -3319,10 +3561,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 10.75,
-        "t_llm": 4.714,
-        "t_census_api": 2.738,
-        "t_ours": 3.298,
+        "latency_s": 7.519,
+        "t_llm": 3.724,
+        "t_census_api": 1.57,
+        "t_ours": 2.225,
         "rows": 1
       },
       {
@@ -3339,10 +3581,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 9.957,
-        "t_llm": 3.933,
-        "t_census_api": 3.203,
-        "t_ours": 2.821,
+        "latency_s": 7.318,
+        "t_llm": 3.682,
+        "t_census_api": 1.491,
+        "t_ours": 2.144,
         "rows": 1
       },
       {
@@ -3357,10 +3599,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 7.939,
-        "t_llm": 3.945,
-        "t_census_api": 1.065,
-        "t_ours": 2.929,
+        "latency_s": 6.782,
+        "t_llm": 4.106,
+        "t_census_api": 0.648,
+        "t_ours": 2.028,
         "rows": 67
       },
       {
@@ -3377,10 +3619,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 12.403,
-        "t_llm": 3.958,
-        "t_census_api": 5.441,
-        "t_ours": 3.004,
+        "latency_s": 9.082,
+        "t_llm": 3.583,
+        "t_census_api": 3.51,
+        "t_ours": 1.989,
         "rows": 1
       },
       {
@@ -3395,10 +3637,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 3.174,
-        "t_llm": 2.781,
-        "t_census_api": 0.0,
-        "t_ours": 0.393,
+        "latency_s": 6.775,
+        "t_llm": 2.397,
+        "t_census_api": 2.585,
+        "t_ours": 1.793,
         "rows": 0
       },
       {
@@ -3408,17 +3650,17 @@
         "tier": "long_tail",
         "expected": "B25041",
         "got": "B25041",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25041_002E,B25041_002M,B25041_003E,B25041_003M&for=place:11000&in=state:25",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25041_001E,B25041_001M,B25041_002E,B25041_002M,B25041_003E,B25041_003M&for=place:11000&in=state:25",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 13.755,
-        "t_llm": 4.901,
-        "t_census_api": 5.224,
-        "t_ours": 3.631,
+        "latency_s": 9.252,
+        "t_llm": 4.216,
+        "t_census_api": 3.06,
+        "t_ours": 1.976,
         "rows": 1
       },
       {
@@ -3433,10 +3675,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 14.097,
-        "t_llm": 4.454,
-        "t_census_api": 6.152,
-        "t_ours": 3.491,
+        "latency_s": 10.228,
+        "t_llm": 4.002,
+        "t_census_api": 3.84,
+        "t_ours": 2.387,
         "rows": 1
       },
       {
@@ -3453,10 +3695,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 11.468,
-        "t_llm": 4.329,
-        "t_census_api": 4.156,
-        "t_ours": 2.982,
+        "latency_s": 10.863,
+        "t_llm": 3.957,
+        "t_census_api": 3.332,
+        "t_ours": 3.573,
         "rows": 1
       },
       {
@@ -3473,10 +3715,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 10.858,
-        "t_llm": 4.609,
-        "t_census_api": 2.941,
-        "t_ours": 3.307,
+        "latency_s": 9.341,
+        "t_llm": 3.478,
+        "t_census_api": 2.776,
+        "t_ours": 3.087,
         "rows": 1
       },
       {
@@ -3491,10 +3733,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 9.644,
-        "t_llm": 4.186,
-        "t_census_api": 2.722,
-        "t_ours": 2.736,
+        "latency_s": 9.815,
+        "t_llm": 3.812,
+        "t_census_api": 3.092,
+        "t_ours": 2.911,
         "rows": 1
       },
       {
@@ -3504,18 +3746,18 @@
         "tier": "trap",
         "expected": "B19013",
         "got": "B19013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1",
+        "url": "https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:*&in=state:* https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:*&in=state:* https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:*&in=state:*",
         "http_ok": true,
         "answered": true,
         "warnings": [
           "overlapping_vintage"
         ],
         "detail": "",
-        "latency_s": 5.835,
-        "t_llm": 1.819,
-        "t_census_api": 1.34,
-        "t_ours": 2.676,
-        "rows": 1
+        "latency_s": 15.857,
+        "t_llm": 5.574,
+        "t_census_api": 7.305,
+        "t_ours": 2.979,
+        "rows": 9662
       },
       {
         "id": "t02",
@@ -3529,10 +3771,10 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 8.808,
-        "t_llm": 4.51,
-        "t_census_api": 1.26,
-        "t_ours": 3.037,
+        "latency_s": 6.236,
+        "t_llm": 3.669,
+        "t_census_api": 0.66,
+        "t_ours": 1.907,
         "rows": 99
       },
       {
@@ -3541,18 +3783,18 @@
         "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:120100 https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:130500",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "geography_unsupported"
         ],
-        "detail": "missing warning moe_not_significant",
-        "latency_s": 6.091,
-        "t_llm": 5.623,
-        "t_census_api": 0.046,
-        "t_ours": 0.422,
+        "detail": "",
+        "latency_s": 11.337,
+        "t_llm": 6.424,
+        "t_census_api": 1.075,
+        "t_ours": 3.837,
         "rows": 0
       },
       {
@@ -3561,16 +3803,18 @@
         "question": "Median household income for every block group in Wyoming",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=block+group:*&in=state:56",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 9.552,
-        "t_llm": 6.033,
-        "t_census_api": 0.03,
-        "t_ours": 3.489,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported"
+        ],
+        "detail": "",
+        "latency_s": 6.949,
+        "t_llm": 4.968,
+        "t_census_api": 0.34,
+        "t_ours": 1.641,
         "rows": 0
       },
       {
@@ -3587,10 +3831,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 15.283,
-        "t_llm": 4.818,
-        "t_census_api": 7.441,
-        "t_ours": 3.025,
+        "latency_s": 9.16,
+        "t_llm": 3.8,
+        "t_census_api": 3.288,
+        "t_ours": 2.072,
         "rows": 1
       },
       {
@@ -3599,19 +3843,19 @@
         "question": "What share of households are Black families earning over $75k?",
         "tier": "trap",
         "expected": "",
-        "got": "",
-        "url": "",
+        "got": "B19001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19001_001E,B19001_001M&for=us:1",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
           "universe_mismatch"
         ],
-        "detail": "empty url",
-        "latency_s": 12.211,
-        "t_llm": 4.637,
-        "t_census_api": 3.985,
-        "t_ours": 3.589,
-        "rows": 0
+        "detail": "",
+        "latency_s": 8.908,
+        "t_llm": 4.658,
+        "t_census_api": 2.371,
+        "t_ours": 1.88,
+        "rows": 1
       },
       {
         "id": "t07",
@@ -3625,10 +3869,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B06001",
-        "latency_s": 11.075,
-        "t_llm": 5.078,
-        "t_census_api": 2.643,
-        "t_ours": 3.354,
+        "latency_s": 7.773,
+        "t_llm": 3.972,
+        "t_census_api": 1.9,
+        "t_ours": 1.902,
         "rows": 1
       },
       {
@@ -3637,16 +3881,16 @@
         "question": "Give me the income distribution, not just the median, for Travis County",
         "tier": "trap",
         "expected": "B19001",
-        "got": "B19101",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19101_001E,B19101_001M&for=county:453&in=state:48",
+        "got": "B19001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19001_001E,B19001_001M&for=county:453&in=state:48",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [],
-        "detail": "wrong table B19101",
-        "latency_s": 10.657,
-        "t_llm": 4.132,
-        "t_census_api": 2.745,
-        "t_ours": 3.78,
+        "detail": "",
+        "latency_s": 7.865,
+        "t_llm": 3.566,
+        "t_census_api": 1.678,
+        "t_ours": 2.62,
         "rows": 1
       },
       {
@@ -3656,7 +3900,7 @@
         "tier": "trap",
         "expected": "B28001",
         "got": "B28001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=place:20000&in=state:08",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M,B28001_005E,B28001_005M&for=place:20000&in=state:08",
         "http_ok": true,
         "answered": true,
         "warnings": [
@@ -3664,10 +3908,10 @@
           "ambiguous_place"
         ],
         "detail": "",
-        "latency_s": 13.623,
-        "t_llm": 4.862,
-        "t_census_api": 5.398,
-        "t_ours": 3.364,
+        "latency_s": 9.442,
+        "t_llm": 3.833,
+        "t_census_api": 3.409,
+        "t_ours": 2.2,
         "rows": 1
       },
       {
@@ -3677,16 +3921,19 @@
         "tier": "trap",
         "expected": "B19013",
         "got": "B19013",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
+        "url": "https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning overlapping_vintage",
-        "latency_s": 17.513,
-        "t_llm": 8.736,
-        "t_census_api": 5.27,
-        "t_ours": 3.506,
-        "rows": 1
+        "answered": true,
+        "warnings": [
+          "overlapping_vintage",
+          "vintage_gap_2020"
+        ],
+        "detail": "",
+        "latency_s": 10.946,
+        "t_llm": 5.924,
+        "t_census_api": 3.388,
+        "t_ours": 1.635,
+        "rows": 6
       },
       {
         "id": "t11",
@@ -3695,7 +3942,7 @@
         "tier": "trap",
         "expected": "B23025",
         "got": "B23025",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M,B23025_002E,B23025_002M&for=place:44275&in=state:50",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M&for=place:44275&in=state:50",
         "http_ok": true,
         "answered": false,
         "warnings": [
@@ -3703,10 +3950,10 @@
           "ambiguous_place"
         ],
         "detail": "missing warning acs1_geography_ineligible",
-        "latency_s": 9.724,
-        "t_llm": 4.346,
-        "t_census_api": 2.607,
-        "t_ours": 2.771,
+        "latency_s": 7.63,
+        "t_llm": 4.199,
+        "t_census_api": 1.357,
+        "t_ours": 2.074,
         "rows": 1
       },
       {
@@ -3715,17 +3962,20 @@
         "question": "1-year ACS poverty for Fresno County, 2018 through 2022",
         "tier": "trap",
         "expected": "B17001",
-        "got": "",
-        "url": "",
+        "got": "B17001",
+        "url": "https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06",
         "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning vintage_gap_2020",
-        "latency_s": 9.491,
-        "t_llm": 3.528,
-        "t_census_api": 2.803,
-        "t_ours": 3.161,
-        "rows": 0
+        "answered": true,
+        "warnings": [
+          "variable_not_in_vintage",
+          "vintage_gap_2020"
+        ],
+        "detail": "",
+        "latency_s": 7.818,
+        "t_llm": 2.668,
+        "t_census_api": 3.082,
+        "t_ours": 2.068,
+        "rows": 2
       },
       {
         "id": "t13",
@@ -3733,19 +3983,21 @@
         "question": "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
         "tier": "trap",
         "expected": "B28002",
-        "got": "",
-        "url": "",
+        "got": "B28002",
+        "url": "https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=tract:*&in=state:26+county:163",
         "http_ok": true,
-        "answered": false,
+        "answered": true,
         "warnings": [
+          "acs1_geography_ineligible",
+          "boundary_change_2020",
           "ambiguous_place"
         ],
-        "detail": "missing warning boundary_change_2020",
-        "latency_s": 9.962,
-        "t_llm": 5.135,
-        "t_census_api": 1.631,
-        "t_ours": 3.195,
-        "rows": 0
+        "detail": "",
+        "latency_s": 9.812,
+        "t_llm": 2.502,
+        "t_census_api": 5.103,
+        "t_ours": 2.208,
+        "rows": 611
       },
       {
         "id": "t14",
@@ -3754,18 +4006,122 @@
         "tier": "trap",
         "expected": "B28001",
         "got": "B28001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
+        "url": "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
+        "http_ok": true,
+        "answered": false,
+        "warnings": [
+          "vintage_gap_2020"
+        ],
+        "detail": "missing warning variable_not_in_vintage",
+        "latency_s": 7.881,
+        "t_llm": 1.741,
+        "t_census_api": 2.587,
+        "t_ours": 3.553,
+        "rows": 8
+      },
+      {
+        "id": "t15",
+        "repeat": 3,
+        "question": "Median household income for ZIP code 10001 every year since 2018",
+        "tier": "trap",
+        "expected": "B19013",
+        "got": "B19013",
+        "url": "https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=state:36 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=state:36 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=state:36 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=state:36 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=state:36 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=state:36",
         "http_ok": true,
         "answered": true,
         "warnings": [
-          "variable_not_in_vintage"
+          "vintage_gap_2020",
+          "zcta_not_zip"
         ],
         "detail": "",
-        "latency_s": 23.194,
-        "t_llm": 6.666,
-        "t_census_api": 13.104,
-        "t_ours": 3.424,
-        "rows": 1
+        "latency_s": 12.836,
+        "t_llm": 5.425,
+        "t_census_api": 5.807,
+        "t_ours": 1.603,
+        "rows": 6
+      },
+      {
+        "id": "t16",
+        "repeat": 3,
+        "question": "Compare poverty by census tract within the city of Denver",
+        "tier": "trap",
+        "expected": "B17001",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "geography_not_nested"
+        ],
+        "detail": "",
+        "latency_s": 12.785,
+        "t_llm": 5.125,
+        "t_census_api": 5.869,
+        "t_ours": 1.79,
+        "rows": 0
+      },
+      {
+        "id": "t17",
+        "repeat": 3,
+        "question": "What is the median household income across these five tracts combined?",
+        "tier": "trap",
+        "expected": "B19013",
+        "got": "",
+        "url": "",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "geography_unsupported",
+          "median_not_aggregatable"
+        ],
+        "detail": "",
+        "latency_s": 2.707,
+        "t_llm": 0.643,
+        "t_census_api": 0.004,
+        "t_ours": 2.06,
+        "rows": 0
+      },
+      {
+        "id": "t18",
+        "repeat": 3,
+        "question": "Total population without health insurance across every tract in Wayne County",
+        "tier": "trap",
+        "expected": "B27001",
+        "got": "B27001",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M&for=tract:*&in=state:26+county:163",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "ambiguous_place",
+          "moe_aggregation_degraded"
+        ],
+        "detail": "",
+        "latency_s": 7.963,
+        "t_llm": 2.971,
+        "t_census_api": 2.821,
+        "t_ours": 2.171,
+        "rows": 628
+      },
+      {
+        "id": "q23",
+        "repeat": 3,
+        "question": "Compare median gross rent in Austin to the Texas average",
+        "tier": "long_tail",
+        "expected": "B25064",
+        "got": "B25064",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=place:05000&in=state:48 https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25064_001E,B25064_001M&for=state:48",
+        "http_ok": true,
+        "answered": true,
+        "warnings": [
+          "shared_sample",
+          "ambiguous_place"
+        ],
+        "detail": "",
+        "latency_s": 8.838,
+        "t_llm": 2.131,
+        "t_census_api": 4.222,
+        "t_ours": 2.485,
+        "rows": 2
       },
       {
         "id": "q24",
@@ -3779,34 +4135,14 @@
         "answered": true,
         "warnings": [],
         "detail": "",
-        "latency_s": 14.491,
-        "t_llm": 5.822,
-        "t_census_api": 5.537,
-        "t_ours": 3.132,
+        "latency_s": 5.874,
+        "t_llm": 3.489,
+        "t_census_api": 0.677,
+        "t_ours": 1.708,
         "rows": 1
       }
     ],
     "misses": [
-      {
-        "id": "q04",
-        "repeat": 1,
-        "question": "Poverty rate by census tract in Detroit",
-        "tier": "core",
-        "expected": "B17001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.447,
-        "t_llm": 3.075,
-        "t_census_api": 3.557,
-        "t_ours": 1.816,
-        "rows": 0
-      },
       {
         "id": "q10",
         "repeat": 1,
@@ -3819,11 +4155,29 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 12.415,
-        "t_llm": 4.256,
-        "t_census_api": 5.107,
-        "t_ours": 3.052,
+        "latency_s": 11.242,
+        "t_llm": 4.265,
+        "t_census_api": 4.113,
+        "t_ours": 2.865,
         "rows": 1
+      },
+      {
+        "id": "q15",
+        "repeat": 1,
+        "question": "Foreign-born population by county in Minnesota",
+        "tier": "long_tail",
+        "expected": "B05002",
+        "got": "B05006",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05006_001E,B05006_001M&for=county:*&in=state:27",
+        "http_ok": true,
+        "answered": false,
+        "warnings": [],
+        "detail": "wrong table B05006",
+        "latency_s": 8.805,
+        "t_llm": 4.259,
+        "t_census_api": 1.269,
+        "t_ours": 3.278,
+        "rows": 87
       },
       {
         "id": "q17",
@@ -3835,12 +4189,14 @@
         "url": "",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "wrong table (none)",
-        "latency_s": 13.796,
-        "t_llm": 5.993,
-        "t_census_api": 4.634,
-        "t_ours": 3.169,
+        "latency_s": 9.01,
+        "t_llm": 3.459,
+        "t_census_api": 1.57,
+        "t_ours": 3.982,
         "rows": 0
       },
       {
@@ -3849,18 +4205,18 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "B25009",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=place:53000&in=state:55",
+        "got": "B25106",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25106_001E,B25106_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B25009",
-        "latency_s": 19.714,
-        "t_llm": 6.246,
-        "t_census_api": 4.597,
-        "t_ours": 8.871,
+        "detail": "wrong table B25106",
+        "latency_s": 29.32,
+        "t_llm": 5.834,
+        "t_census_api": 12.552,
+        "t_ours": 10.934,
         "rows": 1
       },
       {
@@ -3869,37 +4225,19 @@
         "question": "People who moved into Boise from another state last year",
         "tier": "long_tail",
         "expected": "B07001",
-        "got": "B07013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07013_003E,B07013_003M&for=place:08830&in=state:16",
+        "got": "B07201",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B07013",
-        "latency_s": 13.721,
-        "t_llm": 3.909,
-        "t_census_api": 5.999,
-        "t_ours": 3.812,
+        "detail": "wrong table B07201",
+        "latency_s": 12.65,
+        "t_llm": 5.172,
+        "t_census_api": 3.897,
+        "t_ours": 3.581,
         "rows": 1
-      },
-      {
-        "id": "q28",
-        "repeat": 1,
-        "question": "Households in West Virginia getting food assistance where someone has a disability",
-        "tier": "long_tail",
-        "expected": "B22010",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 5.932,
-        "t_llm": 3.092,
-        "t_census_api": 0.006,
-        "t_ours": 2.834,
-        "rows": 0
       },
       {
         "id": "q34",
@@ -3913,10 +4251,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 13.356,
-        "t_llm": 4.275,
-        "t_census_api": 5.176,
-        "t_ours": 3.904,
+        "latency_s": 13.971,
+        "t_llm": 4.263,
+        "t_census_api": 6.225,
+        "t_ours": 3.482,
         "rows": 1
       },
       {
@@ -3931,102 +4269,46 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 3.651,
-        "t_llm": 3.253,
-        "t_census_api": 0.0,
-        "t_ours": 0.397,
+        "latency_s": 8.204,
+        "t_llm": 1.934,
+        "t_census_api": 3.245,
+        "t_ours": 3.025,
         "rows": 0
       },
       {
-        "id": "t03",
+        "id": "q41",
         "repeat": 1,
-        "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
-        "tier": "trap",
-        "expected": "",
+        "question": "What did people in Ann Arbor study in college?",
+        "tier": "long_tail",
+        "expected": "B15012",
         "got": "",
         "url": "",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "missing warning moe_not_significant",
-        "latency_s": 10.067,
-        "t_llm": 8.332,
-        "t_census_api": 1.53,
-        "t_ours": 0.205,
+        "detail": "wrong table (none)",
+        "latency_s": 10.886,
+        "t_llm": 2.972,
+        "t_census_api": 4.488,
+        "t_ours": 3.425,
         "rows": 0
       },
       {
-        "id": "t04",
+        "id": "t07",
         "repeat": 1,
-        "question": "Median household income for every block group in Wyoming",
+        "question": "Population of Phoenix in 2024 from the 1-year ACS",
         "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
+        "expected": "B01003",
+        "got": "B06001",
+        "url": "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B06001_001E,B06001_001M&for=place:55000&in=state:04",
         "http_ok": true,
         "answered": false,
         "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 8.232,
-        "t_llm": 5.942,
-        "t_census_api": 0.01,
-        "t_ours": 2.28,
-        "rows": 0
-      },
-      {
-        "id": "t06",
-        "repeat": 1,
-        "question": "What share of households are Black families earning over $75k?",
-        "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "universe_mismatch"
-        ],
-        "detail": "empty url",
-        "latency_s": 13.239,
-        "t_llm": 5.709,
-        "t_census_api": 4.484,
-        "t_ours": 3.046,
-        "rows": 0
-      },
-      {
-        "id": "t08",
-        "repeat": 1,
-        "question": "Give me the income distribution, not just the median, for Travis County",
-        "tier": "trap",
-        "expected": "B19001",
-        "got": "B19101",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19101_001E,B19101_001M&for=county:453&in=state:48",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table B19101",
-        "latency_s": 10.594,
-        "t_llm": 4.011,
-        "t_census_api": 2.616,
-        "t_ours": 3.966,
-        "rows": 1
-      },
-      {
-        "id": "t10",
-        "repeat": 1,
-        "question": "Plot median household income for Cuyahoga County every year from 2017 to 2023",
-        "tier": "trap",
-        "expected": "B19013",
-        "got": "B19013",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning overlapping_vintage",
-        "latency_s": 13.348,
-        "t_llm": 6.68,
-        "t_census_api": 3.901,
-        "t_ours": 2.767,
+        "detail": "wrong table B06001",
+        "latency_s": 9.875,
+        "t_llm": 4.08,
+        "t_census_api": 2.539,
+        "t_ours": 3.255,
         "rows": 1
       },
       {
@@ -4044,67 +4326,31 @@
           "ambiguous_place"
         ],
         "detail": "missing warning acs1_geography_ineligible",
-        "latency_s": 12.57,
-        "t_llm": 6.076,
-        "t_census_api": 2.643,
-        "t_ours": 3.852,
+        "latency_s": 7.94,
+        "t_llm": 4.701,
+        "t_census_api": 1.512,
+        "t_ours": 1.728,
         "rows": 1
       },
       {
-        "id": "t12",
+        "id": "t14",
         "repeat": 1,
-        "question": "1-year ACS poverty for Fresno County, 2018 through 2022",
+        "question": "How has the share of households with a computer changed since 2013?",
         "tier": "trap",
-        "expected": "B17001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning vintage_gap_2020",
-        "latency_s": 9.037,
-        "t_llm": 3.852,
-        "t_census_api": 2.119,
-        "t_ours": 3.066,
-        "rows": 0
-      },
-      {
-        "id": "t13",
-        "repeat": 1,
-        "question": "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
-        "tier": "trap",
-        "expected": "B28002",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning boundary_change_2020",
-        "latency_s": 8.28,
-        "t_llm": 3.657,
-        "t_census_api": 1.138,
-        "t_ours": 3.486,
-        "rows": 0
-      },
-      {
-        "id": "q04",
-        "repeat": 2,
-        "question": "Poverty rate by census tract in Detroit",
-        "tier": "core",
-        "expected": "B17001",
-        "got": "",
-        "url": "",
+        "expected": "B28001",
+        "got": "B28001",
+        "url": "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
         "http_ok": true,
         "answered": false,
         "warnings": [
-          "geography_unsupported"
+          "vintage_gap_2020"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 15.041,
-        "t_llm": 6.566,
-        "t_census_api": 5.203,
-        "t_ours": 3.272,
-        "rows": 0
+        "detail": "missing warning variable_not_in_vintage",
+        "latency_s": 19.042,
+        "t_llm": 6.298,
+        "t_census_api": 10.767,
+        "t_ours": 1.977,
+        "rows": 8
       },
       {
         "id": "q10",
@@ -4118,10 +4364,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 9.425,
-        "t_llm": 4.066,
-        "t_census_api": 2.291,
-        "t_ours": 3.068,
+        "latency_s": 9.591,
+        "t_llm": 3.938,
+        "t_census_api": 2.709,
+        "t_ours": 2.944,
         "rows": 1
       },
       {
@@ -4131,17 +4377,17 @@
         "tier": "long_tail",
         "expected": "B08303",
         "got": "B08013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:04000&in=state:13",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
         "detail": "wrong table B08013",
-        "latency_s": 13.704,
-        "t_llm": 3.835,
-        "t_census_api": 5.374,
-        "t_ours": 4.496,
+        "latency_s": 13.488,
+        "t_llm": 4.653,
+        "t_census_api": 4.64,
+        "t_ours": 4.195,
         "rows": 1
       },
       {
@@ -4150,19 +4396,19 @@
         "question": "Occupation breakdown for workers in Silicon Valley counties",
         "tier": "long_tail",
         "expected": "B24010",
-        "got": "",
-        "url": "",
+        "got": "B24114",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B24114_001E,B24114_001M&for=county:140&in=state:09",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.246,
-        "t_llm": 3.614,
-        "t_census_api": 1.391,
-        "t_ours": 3.24,
-        "rows": 0
+        "detail": "wrong table B24114",
+        "latency_s": 7.567,
+        "t_llm": 3.472,
+        "t_census_api": 2.327,
+        "t_ours": 1.767,
+        "rows": 1
       },
       {
         "id": "q18",
@@ -4170,17 +4416,19 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "",
-        "url": "",
+        "got": "B25009",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 21.987,
-        "t_llm": 4.291,
-        "t_census_api": 5.443,
-        "t_ours": 12.253,
-        "rows": 0
+        "warnings": [
+          "ambiguous_place"
+        ],
+        "detail": "wrong table B25009",
+        "latency_s": 33.282,
+        "t_llm": 5.486,
+        "t_census_api": 18.313,
+        "t_ours": 9.482,
+        "rows": 1
       },
       {
         "id": "q20",
@@ -4196,49 +4444,11 @@
           "ambiguous_place"
         ],
         "detail": "wrong table B07201",
-        "latency_s": 13.306,
-        "t_llm": 4.909,
-        "t_census_api": 4.384,
-        "t_ours": 4.013,
+        "latency_s": 12.606,
+        "t_llm": 4.179,
+        "t_census_api": 5.151,
+        "t_ours": 3.276,
         "rows": 1
-      },
-      {
-        "id": "q21",
-        "repeat": 2,
-        "question": "Households receiving SNAP benefits in the Rio Grande Valley",
-        "tier": "long_tail",
-        "expected": "B19058",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 8.846,
-        "t_llm": 3.811,
-        "t_census_api": 1.895,
-        "t_ours": 3.14,
-        "rows": 0
-      },
-      {
-        "id": "q28",
-        "repeat": 2,
-        "question": "Households in West Virginia getting food assistance where someone has a disability",
-        "tier": "long_tail",
-        "expected": "B22010",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 4.894,
-        "t_llm": 2.842,
-        "t_census_api": 0.005,
-        "t_ours": 2.047,
-        "rows": 0
       },
       {
         "id": "q34",
@@ -4252,29 +4462,11 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 13.002,
-        "t_llm": 4.369,
-        "t_census_api": 5.461,
-        "t_ours": 3.172,
+        "latency_s": 12.463,
+        "t_llm": 3.755,
+        "t_census_api": 4.782,
+        "t_ours": 3.926,
         "rows": 1
-      },
-      {
-        "id": "q37",
-        "repeat": 2,
-        "question": "Which county in Florida has the oldest population?",
-        "tier": "long_tail",
-        "expected": "B01002",
-        "got": "B01001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01001_001E,B01001_001M,B01001_013E,B01001_013M&for=county:*&in=state:12",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table B01001",
-        "latency_s": 8.671,
-        "t_llm": 3.934,
-        "t_census_api": 1.177,
-        "t_ours": 3.56,
-        "rows": 67
       },
       {
         "id": "q39",
@@ -4288,10 +4480,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 3.978,
-        "t_llm": 3.279,
-        "t_census_api": 0.0,
-        "t_ours": 0.699,
+        "latency_s": 8.835,
+        "t_llm": 2.228,
+        "t_census_api": 3.776,
+        "t_ours": 2.831,
         "rows": 0
       },
       {
@@ -4306,222 +4498,31 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 9.919,
-        "t_llm": 2.71,
-        "t_census_api": 3.325,
-        "t_ours": 3.884,
+        "latency_s": 9.578,
+        "t_llm": 2.896,
+        "t_census_api": 3.25,
+        "t_ours": 3.432,
         "rows": 0
       },
       {
-        "id": "t03",
+        "id": "t14",
         "repeat": 2,
-        "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
+        "question": "How has the share of households with a computer changed since 2013?",
         "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
+        "expected": "B28001",
+        "got": "B28001",
+        "url": "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
         "http_ok": true,
         "answered": false,
         "warnings": [
-          "geography_unsupported"
+          "vintage_gap_2020"
         ],
-        "detail": "missing warning moe_not_significant",
-        "latency_s": 12.533,
-        "t_llm": 5.666,
-        "t_census_api": 6.683,
-        "t_ours": 0.184,
-        "rows": 0
-      },
-      {
-        "id": "t04",
-        "repeat": 2,
-        "question": "Median household income for every block group in Wyoming",
-        "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 9.456,
-        "t_llm": 5.387,
-        "t_census_api": 0.63,
-        "t_ours": 3.44,
-        "rows": 0
-      },
-      {
-        "id": "t06",
-        "repeat": 2,
-        "question": "What share of households are Black families earning over $75k?",
-        "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "universe_mismatch"
-        ],
-        "detail": "empty url",
-        "latency_s": 8.947,
-        "t_llm": 5.32,
-        "t_census_api": 1.283,
-        "t_ours": 2.344,
-        "rows": 0
-      },
-      {
-        "id": "t08",
-        "repeat": 2,
-        "question": "Give me the income distribution, not just the median, for Travis County",
-        "tier": "trap",
-        "expected": "B19001",
-        "got": "B19080",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19080_001E,B19080_001M&for=county:453&in=state:48",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table B19080",
-        "latency_s": 12.114,
-        "t_llm": 6.143,
-        "t_census_api": 3.187,
-        "t_ours": 2.784,
-        "rows": 1
-      },
-      {
-        "id": "t10",
-        "repeat": 2,
-        "question": "Plot median household income for Cuyahoga County every year from 2017 to 2023",
-        "tier": "trap",
-        "expected": "B19013",
-        "got": "B19013",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning overlapping_vintage",
-        "latency_s": 10.532,
-        "t_llm": 5.587,
-        "t_census_api": 3.306,
-        "t_ours": 1.639,
-        "rows": 1
-      },
-      {
-        "id": "t11",
-        "repeat": 2,
-        "question": "Unemployment in Middlebury, Vermont each year since 2017",
-        "tier": "trap",
-        "expected": "B23025",
-        "got": "B23025",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M&for=place:44275&in=state:50",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "variable_not_in_vintage",
-          "ambiguous_place"
-        ],
-        "detail": "missing warning acs1_geography_ineligible",
-        "latency_s": 7.547,
-        "t_llm": 3.886,
-        "t_census_api": 1.859,
-        "t_ours": 1.802,
-        "rows": 1
-      },
-      {
-        "id": "t12",
-        "repeat": 2,
-        "question": "1-year ACS poverty for Fresno County, 2018 through 2022",
-        "tier": "trap",
-        "expected": "B17001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning vintage_gap_2020",
-        "latency_s": 6.902,
-        "t_llm": 4.206,
-        "t_census_api": 1.007,
-        "t_ours": 1.689,
-        "rows": 0
-      },
-      {
-        "id": "t13",
-        "repeat": 2,
-        "question": "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
-        "tier": "trap",
-        "expected": "B28002",
-        "got": "B28002",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=county:163&in=state:26",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "missing warning boundary_change_2020",
-        "latency_s": 8.861,
-        "t_llm": 4.541,
-        "t_census_api": 1.678,
-        "t_ours": 2.641,
-        "rows": 1
-      },
-      {
-        "id": "q04",
-        "repeat": 3,
-        "question": "Poverty rate by census tract in Detroit",
-        "tier": "core",
-        "expected": "B17001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 10.8,
-        "t_llm": 3.941,
-        "t_census_api": 4.009,
-        "t_ours": 2.85,
-        "rows": 0
-      },
-      {
-        "id": "q05",
-        "repeat": 3,
-        "question": "How many people bike to work in Portland?",
-        "tier": "long_tail",
-        "expected": "B08301",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table (none)",
-        "latency_s": 7.198,
-        "t_llm": 3.109,
-        "t_census_api": 2.28,
-        "t_ours": 1.809,
-        "rows": 0
-      },
-      {
-        "id": "q08",
-        "repeat": 3,
-        "question": "Disability rates among adults in rural Vermont counties",
-        "tier": "long_tail",
-        "expected": "B18101",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table (none)",
-        "latency_s": 10.859,
-        "t_llm": 7.296,
-        "t_census_api": 1.693,
-        "t_ours": 1.87,
-        "rows": 0
+        "detail": "missing warning variable_not_in_vintage",
+        "latency_s": 7.27,
+        "t_llm": 2.569,
+        "t_census_api": 2.644,
+        "t_ours": 2.058,
+        "rows": 8
       },
       {
         "id": "q10",
@@ -4530,36 +4531,34 @@
         "tier": "long_tail",
         "expected": "C16001",
         "got": "B16001",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=county:081&in=state:36",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=place:63116&in=state:42",
         "http_ok": true,
         "answered": false,
         "warnings": [],
         "detail": "wrong table B16001",
-        "latency_s": 6.707,
-        "t_llm": 3.565,
-        "t_census_api": 1.559,
-        "t_ours": 1.583,
+        "latency_s": 9.835,
+        "t_llm": 4.36,
+        "t_census_api": 3.499,
+        "t_ours": 1.976,
         "rows": 1
       },
       {
-        "id": "q11",
+        "id": "q15",
         "repeat": 3,
-        "question": "How long is the average commute in the Atlanta metro?",
+        "question": "Foreign-born population by county in Minnesota",
         "tier": "long_tail",
-        "expected": "B08303",
-        "got": "B08013",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08013_001E,B08013_001M&for=place:84050&in=state:49",
+        "expected": "B05002",
+        "got": "B05006",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B05006_001E,B05006_001M&for=county:*&in=state:27",
         "http_ok": true,
         "answered": false,
-        "warnings": [
-          "ambiguous_place"
-        ],
-        "detail": "wrong table B08013",
-        "latency_s": 11.745,
-        "t_llm": 3.82,
-        "t_census_api": 3.861,
-        "t_ours": 4.064,
-        "rows": 1
+        "warnings": [],
+        "detail": "wrong table B05006",
+        "latency_s": 8.482,
+        "t_llm": 3.893,
+        "t_census_api": 1.646,
+        "t_ours": 2.944,
+        "rows": 87
       },
       {
         "id": "q17",
@@ -4575,10 +4574,10 @@
           "ambiguous_place"
         ],
         "detail": "wrong table (none)",
-        "latency_s": 7.94,
-        "t_llm": 3.285,
-        "t_census_api": 2.837,
-        "t_ours": 1.818,
+        "latency_s": 8.952,
+        "t_llm": 3.399,
+        "t_census_api": 1.696,
+        "t_ours": 3.858,
         "rows": 0
       },
       {
@@ -4587,18 +4586,18 @@
         "question": "Renter versus owner households in Milwaukee",
         "tier": "long_tail",
         "expected": "B25003",
-        "got": "B25072",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25072_001E,B25072_001M&for=place:53000&in=state:55",
+        "got": "B25009",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25009_001E,B25009_001M&for=place:53000&in=state:55",
         "http_ok": true,
         "answered": false,
         "warnings": [
           "ambiguous_place"
         ],
-        "detail": "wrong table B25072",
-        "latency_s": 17.42,
-        "t_llm": 5.652,
-        "t_census_api": 3.942,
-        "t_ours": 7.827,
+        "detail": "wrong table B25009",
+        "latency_s": 24.521,
+        "t_llm": 4.186,
+        "t_census_api": 12.204,
+        "t_ours": 8.131,
         "rows": 1
       },
       {
@@ -4611,12 +4610,14 @@
         "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16",
         "http_ok": true,
         "answered": false,
-        "warnings": [],
+        "warnings": [
+          "ambiguous_place"
+        ],
         "detail": "wrong table B07201",
-        "latency_s": 8.87,
-        "t_llm": 4.341,
-        "t_census_api": 1.463,
-        "t_ours": 3.065,
+        "latency_s": 12.611,
+        "t_llm": 3.734,
+        "t_census_api": 3.947,
+        "t_ours": 4.93,
         "rows": 1
       },
       {
@@ -4631,10 +4632,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B19053",
-        "latency_s": 12.905,
-        "t_llm": 3.736,
-        "t_census_api": 5.451,
-        "t_ours": 3.718,
+        "latency_s": 10.392,
+        "t_llm": 4.035,
+        "t_census_api": 3.493,
+        "t_ours": 2.864,
         "rows": 1
       },
       {
@@ -4649,68 +4650,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table (none)",
-        "latency_s": 3.174,
-        "t_llm": 2.781,
-        "t_census_api": 0.0,
-        "t_ours": 0.393,
-        "rows": 0
-      },
-      {
-        "id": "t03",
-        "repeat": 3,
-        "question": "Is the poverty rate in tract 1201 higher than tract 1305?",
-        "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "geography_unsupported"
-        ],
-        "detail": "missing warning moe_not_significant",
-        "latency_s": 6.091,
-        "t_llm": 5.623,
-        "t_census_api": 0.046,
-        "t_ours": 0.422,
-        "rows": 0
-      },
-      {
-        "id": "t04",
-        "repeat": 3,
-        "question": "Median household income for every block group in Wyoming",
-        "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning geography_unsupported",
-        "latency_s": 9.552,
-        "t_llm": 6.033,
-        "t_census_api": 0.03,
-        "t_ours": 3.489,
-        "rows": 0
-      },
-      {
-        "id": "t06",
-        "repeat": 3,
-        "question": "What share of households are Black families earning over $75k?",
-        "tier": "trap",
-        "expected": "",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [
-          "universe_mismatch"
-        ],
-        "detail": "empty url",
-        "latency_s": 12.211,
-        "t_llm": 4.637,
-        "t_census_api": 3.985,
-        "t_ours": 3.589,
+        "latency_s": 6.775,
+        "t_llm": 2.397,
+        "t_census_api": 2.585,
+        "t_ours": 1.793,
         "rows": 0
       },
       {
@@ -4725,46 +4668,10 @@
         "answered": false,
         "warnings": [],
         "detail": "wrong table B06001",
-        "latency_s": 11.075,
-        "t_llm": 5.078,
-        "t_census_api": 2.643,
-        "t_ours": 3.354,
-        "rows": 1
-      },
-      {
-        "id": "t08",
-        "repeat": 3,
-        "question": "Give me the income distribution, not just the median, for Travis County",
-        "tier": "trap",
-        "expected": "B19001",
-        "got": "B19101",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19101_001E,B19101_001M&for=county:453&in=state:48",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "wrong table B19101",
-        "latency_s": 10.657,
-        "t_llm": 4.132,
-        "t_census_api": 2.745,
-        "t_ours": 3.78,
-        "rows": 1
-      },
-      {
-        "id": "t10",
-        "repeat": 3,
-        "question": "Plot median household income for Cuyahoga County every year from 2017 to 2023",
-        "tier": "trap",
-        "expected": "B19013",
-        "got": "B19013",
-        "url": "https://api.census.gov/data/2023/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=county:035&in=state:39",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning overlapping_vintage",
-        "latency_s": 17.513,
-        "t_llm": 8.736,
-        "t_census_api": 5.27,
-        "t_ours": 3.506,
+        "latency_s": 7.773,
+        "t_llm": 3.972,
+        "t_census_api": 1.9,
+        "t_ours": 1.902,
         "rows": 1
       },
       {
@@ -4774,7 +4681,7 @@
         "tier": "trap",
         "expected": "B23025",
         "got": "B23025",
-        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M,B23025_002E,B23025_002M&for=place:44275&in=state:50",
+        "url": "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M&for=place:44275&in=state:50",
         "http_ok": true,
         "answered": false,
         "warnings": [
@@ -4782,51 +4689,33 @@
           "ambiguous_place"
         ],
         "detail": "missing warning acs1_geography_ineligible",
-        "latency_s": 9.724,
-        "t_llm": 4.346,
-        "t_census_api": 2.607,
-        "t_ours": 2.771,
+        "latency_s": 7.63,
+        "t_llm": 4.199,
+        "t_census_api": 1.357,
+        "t_ours": 2.074,
         "rows": 1
       },
       {
-        "id": "t12",
+        "id": "t14",
         "repeat": 3,
-        "question": "1-year ACS poverty for Fresno County, 2018 through 2022",
+        "question": "How has the share of households with a computer changed since 2013?",
         "tier": "trap",
-        "expected": "B17001",
-        "got": "",
-        "url": "",
-        "http_ok": true,
-        "answered": false,
-        "warnings": [],
-        "detail": "missing warning vintage_gap_2020",
-        "latency_s": 9.491,
-        "t_llm": 3.528,
-        "t_census_api": 2.803,
-        "t_ours": 3.161,
-        "rows": 0
-      },
-      {
-        "id": "t13",
-        "repeat": 3,
-        "question": "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
-        "tier": "trap",
-        "expected": "B28002",
-        "got": "",
-        "url": "",
+        "expected": "B28001",
+        "got": "B28001",
+        "url": "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2017/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2019/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2021/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2022/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1 https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1",
         "http_ok": true,
         "answered": false,
         "warnings": [
-          "ambiguous_place"
+          "vintage_gap_2020"
         ],
-        "detail": "missing warning boundary_change_2020",
-        "latency_s": 9.962,
-        "t_llm": 5.135,
-        "t_census_api": 1.631,
-        "t_ours": 3.195,
-        "rows": 0
+        "detail": "missing warning variable_not_in_vintage",
+        "latency_s": 7.881,
+        "t_llm": 1.741,
+        "t_census_api": 2.587,
+        "t_ours": 3.553,
+        "rows": 8
       }
     ]
   },
-  "answered_rate": 0.769
+  "answered_rate": 0.808
 }

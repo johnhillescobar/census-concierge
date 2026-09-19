@@ -59,6 +59,14 @@
             "title": "Attempted Years",
             "type": "array"
           },
+          "comparisons": {
+            "description": "Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.",
+            "items": {
+              "$ref": "#/components/schemas/Comparison"
+            },
+            "title": "Comparisons",
+            "type": "array"
+          },
           "failed_years": {
             "description": "Unique attempted vintages with at least one failed or timed-out call.",
             "items": {
@@ -167,7 +175,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage.",
+            "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage, shared_sample.",
             "items": {
               "$ref": "#/components/schemas/AskWarning"
             },
@@ -191,6 +199,7 @@
           "universe",
           "table_id",
           "alternatives",
+          "comparisons",
           "warnings"
         ],
         "title": "AskResponse",
@@ -214,6 +223,80 @@
           "detail"
         ],
         "title": "AskWarning",
+        "type": "object"
+      },
+      "Comparison": {
+        "properties": {
+          "distinguishable": {
+            "description": "True when abs(estimate_a - estimate_b) exceeds threshold.",
+            "title": "Distinguishable",
+            "type": "boolean"
+          },
+          "estimate_a": {
+            "description": "Published estimate for geoid_a.",
+            "title": "Estimate A",
+            "type": "string"
+          },
+          "estimate_b": {
+            "description": "Published estimate for geoid_b.",
+            "title": "Estimate B",
+            "type": "string"
+          },
+          "geoid_a": {
+            "description": "AFFGEOID of the first leg.",
+            "title": "Geoid A",
+            "type": "string"
+          },
+          "geoid_b": {
+            "description": "AFFGEOID of the second leg.",
+            "title": "Geoid B",
+            "type": "string"
+          },
+          "moe_a": {
+            "description": "90% margin for estimate_a.",
+            "title": "Moe A",
+            "type": "string"
+          },
+          "moe_b": {
+            "description": "90% margin for estimate_b.",
+            "title": "Moe B",
+            "type": "string"
+          },
+          "shared_sample": {
+            "description": "True when the compared geographies nest and share ACS sample.",
+            "title": "Shared Sample",
+            "type": "boolean"
+          },
+          "threshold": {
+            "description": "MOE_diff = sqrt(moe_a^2 + moe_b^2).",
+            "title": "Threshold",
+            "type": "string"
+          },
+          "variable": {
+            "description": "Estimate variable compared.",
+            "title": "Variable",
+            "type": "string"
+          },
+          "year": {
+            "description": "Vintage end year when both legs share one; else empty.",
+            "title": "Year",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variable",
+          "geoid_a",
+          "geoid_b",
+          "year",
+          "estimate_a",
+          "estimate_b",
+          "moe_a",
+          "moe_b",
+          "threshold",
+          "distinguishable",
+          "shared_sample"
+        ],
+        "title": "Comparison",
         "type": "object"
       },
       "HTTPValidationError": {

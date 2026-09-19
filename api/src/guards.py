@@ -9,17 +9,15 @@ import math
 import re
 from typing import Protocol
 
-from src.contract import Alternative, AskWarning, GeoSpec
-from src.vintages import CENSUS_MISSING as _MISSING
-from src.vintages import measure_unavailable, period_for, variable_not_in_vintage
+from src.compare import comparison_rows, shared_sample, significance_warning
+from src.contract import Alternative, AskWarning, Comparison, GeoSpec
+from src.vintages import (
+    CENSUS_MISSING as _MISSING,
+)
+from src.vintages import measure_unavailable, period_for, variable_not_in_vintage, year_span
 
 _ACS5_SPAN = 5
 _RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
-_COMPARE = re.compile(
-    r"\b(?:higher|lower|compare[d]?|versus|difference|ranked?|worst|best)\b|"
-    r"\bvs\.?\b",
-    re.IGNORECASE,
-)
 _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("households", ("households", "household")),
     ("families", ("families", "family")),
@@ -142,6 +140,8 @@ def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
 
 def overlapping_vintage(record: GuardRecord) -> AskWarning | None:
     years = _acs5_end_years(record.question)
+    if re.search(r"\bevery year\b", record.question, re.IGNORECASE):
+        years.extend(year_span(record.question))
     years.extend(year for dataset, year in record.vintages if dataset == "acs5")
     if not _overlaps(years):
         return None
@@ -166,32 +166,7 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
     # Leftover last-fetch rows are not a vintage pair. Slice 3 keeps series.
     if overlapping_vintage(record) is not None:
         return None
-    if not _COMPARE.search(record.question) or len(record.rows) < 2:
-        return None
-    keys = [key for key in record.rows[0] if key.endswith("E") and "_" in key]
-    years = {str(row.get("year") or "") for row in record.rows} - {""}
-    geos = {str(row.get("GEO_ID") or "") for row in record.rows} - {""}
-    same_year = len(years) > 1 and len(geos) > 1
-    for estimate in keys:
-        margin = f"{estimate[:-1]}M"
-        for i, left in enumerate(record.rows):
-            for right in record.rows[i + 1 :]:
-                if same_year and (
-                    (left.get("year") or "") != (right.get("year") or "")
-                    or (left.get("GEO_ID") or "") == (right.get("GEO_ID") or "")
-                ):
-                    continue
-                e1, e2 = _numeric(left, estimate), _numeric(right, estimate)
-                m1, m2 = _numeric(left, margin), _numeric(right, margin)
-                if e1 is None or e2 is None or m1 is None or m2 is None:
-                    continue
-                if abs(e1 - e2) <= math.sqrt(m1 * m1 + m2 * m2):
-                    return AskWarning(
-                        code="moe_not_significant",
-                        detail="difference is within the 90% margin of error "
-                        "and is not distinguishable",
-                    )
-    return None
+    return significance_warning(record)
 
 
 def geography_unsupported(record: GuardRecord) -> AskWarning | None:
@@ -417,19 +392,20 @@ def finish_aggregation(
     record: GuardRecord,
     rows: list[dict[str, str | None]],
     already: set[str],
-) -> tuple[list[AskWarning], list[dict[str, str | None]], list[Alternative]]:
+) -> tuple[list[AskWarning], list[dict[str, str | None]], list[Alternative], list[Comparison]]:
     warnings = evaluate(record)
+    compared = [] if overlapping_vintage(record) is not None else comparison_rows(record, rows)
     extra: list[Alternative] = []
     if any(item.code == "median_not_aggregatable" for item in warnings):
         if _household_income_median(record) and _BRACKET_TABLE not in already:
             extra.append(Alternative(table_id=_BRACKET_TABLE, reason="distribution versus median"))
-        return warnings, rows, extra
+        return warnings, rows, extra, compared
     if not _wants_combination(record.question) or not _additive_measure(record):
-        return warnings, rows, extra
+        return warnings, rows, extra, compared
     _count, combined_rows = combine_additive(rows)
     if not combined_rows:
-        return warnings, rows, extra
-    return warnings, [*rows, *combined_rows], extra
+        return warnings, rows, extra, compared
+    return warnings, [*rows, *combined_rows], extra, compared
 
 
 def evaluate(record: GuardRecord) -> list[AskWarning]:
@@ -442,6 +418,7 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         vintage_gap_2020,
         boundary_change_2020,
         moe_not_significant,
+        shared_sample,
         geography_unsupported,
         ambiguous_place,
         universe_mismatch,

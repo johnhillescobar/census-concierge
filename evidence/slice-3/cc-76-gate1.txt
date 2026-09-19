@@ -1,0 +1,281 @@
+CC-76 Gate 1 -- tests + mutation check
+commit: 166e701
+branch: feat/cc-76-significance
+ticket: CC-76
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== uv run pytest -q --color=no --tb=short (new/changed tests, restored tree) ==========
+$ uv run pytest -q --color=no --tb=short api/tests/test_guards.py::test_equal_threshold_is_not_distinguishable api/tests/test_guards.py::test_year_over_year_indistinguishable_change api/tests/test_guards.py::test_parent_place_exposes_shared_sample_and_conclusion api/tests/test_guards.py::test_comparison_legs_are_not_ambiguous_places api/tests/test_ask_loop.py::test_parentless_tracts_fail_closed_with_urls api/tests/test_ask_loop.py::test_universe_mismatch_finishes_with_a_url api/tests/test_ask_loop.py::test_versus_geography_does_not_warn_ambiguous_place api/tests/test_demo_harness.py::test_holdout_is_out_of_scope api/tests/test_demo_harness.py::test_golden_file_scope_includes_comparison_traps api/tests/test_ask_route.py::test_openapi_documents_post_ask api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+
+...........                                                              [100%]
+11 passed in 0.52s
+exit: 0
+
+===== MUTATION 1: distinguishable uses >= instead of strict > =====
+test: test_equal_threshold_is_not_distinguishable
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_guards.py::test_equal_threshold_is_not_distinguishable
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_equal_threshold_is_not_distinguishable _________________
+api\tests\test_guards.py:276: in test_equal_threshold_is_not_distinguishable
+    assert [item.code for item in response.warnings] == ["moe_not_significant"]
+E   AssertionError: assert [] == ['moe_not_significant']
+E     
+E     Right contains one more item: 'moe_not_significant'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_equal_threshold_is_not_distinguishable
+1 failed in 0.41s
+exit: 1
+restore: git checkout -- api/src/compare.py
+
+===== MUTATION 2: _pair_ok only pairs different geos in the same year (drops same-geo year-over-year) =====
+test: test_year_over_year_indistinguishable_change
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_guards.py::test_year_over_year_indistinguishable_change
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_year_over_year_indistinguishable_change _________________
+api\tests\test_guards.py:293: in test_year_over_year_indistinguishable_change
+    assert [item.code for item in response.warnings] == ["moe_not_significant"]
+E   AssertionError: assert [] == ['moe_not_significant']
+E     
+E     Right contains one more item: 'moe_not_significant'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_year_over_year_indistinguishable_change
+1 failed in 0.30s
+exit: 1
+restore: git checkout -- api/src/compare.py
+
+===== MUTATION 3: nested_pair always False (shared_sample never fires) =====
+test: test_parent_place_exposes_shared_sample_and_conclusion
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_guards.py::test_parent_place_exposes_shared_sample_and_conclusion
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_parent_place_exposes_shared_sample_and_conclusion ____________
+api\tests\test_guards.py:317: in test_parent_place_exposes_shared_sample_and_conclusion
+    assert [item.code for item in response.warnings] == ["shared_sample"]
+E   AssertionError: assert [] == ['shared_sample']
+E     
+E     Right contains one more item: 'shared_sample'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_parent_place_exposes_shared_sample_and_conclusion
+1 failed in 0.35s
+exit: 1
+restore: git checkout -- api/src/compare.py
+
+===== MUTATION 4: skip parentless_tracts fail-closed return in resolve_geography =====
+test: test_parentless_tracts_fail_closed_with_urls
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_loop.py::test_parentless_tracts_fail_closed_with_urls
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_parentless_tracts_fail_closed_with_urls _________________
+api\tests\test_ask_loop.py:158: in test_parentless_tracts_fail_closed_with_urls
+    assert "1201" in response.warnings[0].detail
+E   AssertionError: assert '1201' in 'tract with in={} is not a legal combination'
+E    +  where 'tract with in={} is not a legal combination' = AskWarning(code='geography_unsupported', detail='tract with in={} is not a legal combination').detail
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_parentless_tracts_fail_closed_with_urls
+1 failed in 0.64s
+exit: 1
+restore: git checkout -- api/src/geo.py
+
+===== MUTATION 5: finish_tools no longer finishes parentless tract-vs-tract (omit unsupported and tract_vs) =====
+test: test_parentless_tracts_fail_closed_with_urls
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_loop.py::test_parentless_tracts_fail_closed_with_urls
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_parentless_tracts_fail_closed_with_urls _________________
+api\tests\test_ask_loop.py:157: in test_parentless_tracts_fail_closed_with_urls
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+E   AssertionError: assert [] == ['geography_unsupported']
+E     
+E     Right contains one more item: 'geography_unsupported'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_parentless_tracts_fail_closed_with_urls
+1 failed in 0.76s
+exit: 1
+restore: git checkout -- api/src/finish.py
+
+===== MUTATION 6: finish_tools omits universe_mismatch (no nationwide URL) =====
+test: test_universe_mismatch_finishes_with_a_url
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_loop.py::test_universe_mismatch_finishes_with_a_url
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_universe_mismatch_finishes_with_a_url __________________
+api\tests\test_ask_loop.py:182: in test_universe_mismatch_finishes_with_a_url
+    assert response.urls
+E   AssertionError: assert []
+E    +  where [] = AskResponse(answer='stopped', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[], om...risons=[], warnings=[AskWarning(code='universe_mismatch', detail='question crosses universes: households × families')]).urls
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_universe_mismatch_finishes_with_a_url
+1 failed in 0.61s
+exit: 1
+restore: git checkout -- api/src/finish.py
+
+===== MUTATION 7: is_slice1 again excludes q23 and t15+ =====
+test: test_holdout_is_out_of_scope
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_demo_harness.py::test_holdout_is_out_of_scope
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________________ test_holdout_is_out_of_scope _________________________
+api\tests\test_demo_harness.py:288: in test_holdout_is_out_of_scope
+    assert ids == ["q01", "q23", "q24", "t08", "t09", "t10", "t15"]
+E   AssertionError: assert ['q01', 'q24'... 't09', 't10'] == ['q01', 'q23'...', 't10', ...]
+E     
+E     At index 1 diff: 'q24' != 'q23'
+E     Right contains 2 more items, first extra item: 't10'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_holdout_is_out_of_scope - Asserti...
+1 failed in 0.22s
+exit: 1
+restore: git checkout -- scripts/run_demo.py
+
+===== MUTATION 8: is_slice1 again excludes q23 and t15+ =====
+test: test_golden_file_scope_includes_comparison_traps
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_demo_harness.py::test_golden_file_scope_includes_comparison_traps
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_golden_file_scope_includes_comparison_traps _______________
+api\tests\test_demo_harness.py:300: in test_golden_file_scope_includes_comparison_traps
+    assert "t15" in ids and "t18" in ids
+E   AssertionError: assert ('t15' in {'q01', 'q02', 'q03', 'q04', 'q05', 'q06', ...})
+=========================== short test summary info ===========================
+FAILED api/tests/test_demo_harness.py::test_golden_file_scope_includes_comparison_traps
+1 failed in 0.18s
+exit: 1
+restore: git checkout -- scripts/run_demo.py
+
+===== MUTATION 9: AskResponse drops comparisons[] =====
+test: test_openapi_documents_post_ask
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_route.py::test_openapi_documents_post_ask
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+api\tests\test_ask_route.py:54: in test_openapi_documents_post_ask
+    assert response["required"] == list(CONTRACT_FIELDS)
+E   AssertionError: assert ['answer', 'u...d_years', ...] == ['answer', 'u...d_years', ...]
+E     
+E     At index 15 diff: 'warnings' != 'comparisons'
+E     Right contains one more item: 'warnings'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.55s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 10: evaluate omits shared_sample =====
+test: test_versus_geography_does_not_warn_ambiguous_place
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_loop.py::test_versus_geography_does_not_warn_ambiguous_place
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_versus_geography_does_not_warn_ambiguous_place _____________
+api\tests\test_ask_loop.py:343: in test_versus_geography_does_not_warn_ambiguous_place
+    assert [item.code for item in response.warnings] == ["shared_sample"]
+E   AssertionError: assert [] == ['shared_sample']
+E     
+E     Right contains one more item: 'shared_sample'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_versus_geography_does_not_warn_ambiguous_place
+1 failed in 0.68s
+exit: 1
+restore: git checkout -- api/src/guards.py
+
+===== MUTATION 11: evaluate omits shared_sample =====
+test: test_comparison_legs_are_not_ambiguous_places
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_guards.py::test_comparison_legs_are_not_ambiguous_places
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_comparison_legs_are_not_ambiguous_places ________________
+api\tests\test_guards.py:380: in test_comparison_legs_are_not_ambiguous_places
+    assert _codes(record) == ["shared_sample"]
+E   AssertionError: assert [] == ['shared_sample']
+E     
+E     Right contains one more item: 'shared_sample'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_comparison_legs_are_not_ambiguous_places
+1 failed in 0.32s
+exit: 1
+restore: git checkout -- api/src/guards.py
+
+===== MUTATION 12: generated schema.d.ts drops comparisons =====
+test: test_generated_schema_declares_every_contract_field
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_generated_schema_declares_every_contract_field _____________
+api\tests\test_generated_client.py:55: in test_generated_schema_declares_every_contract_field
+    assert f"{field}:" in body, field
+E   AssertionError: comparisons
+E   assert 'comparisons:' in 'AskResponse: {\n            /**\n             * Alternatives\n             * @description Related tables with the rea...     */\n            warnings: components["schemas"]["AskWarning"][];\n        };\n        /** AskWarning */\n        '
+=========================== short test summary info ===========================
+FAILED api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+1 failed in 0.75s
+exit: 1
+restore: git checkout -- packages/client/schema.d.ts
+
+===== summary =====
+mutations GOOD: 12
+mutations BAD: 0
+GOOD  test_equal_threshold_is_not_distinguishable  (distinguishable uses >= instead of strict >)
+GOOD  test_year_over_year_indistinguishable_change  (_pair_ok only pairs different geos in the same year)
+GOOD  test_parent_place_exposes_shared_sample_and_conclusion  (nested_pair always False)
+GOOD  test_parentless_tracts_fail_closed_with_urls  (skip parentless_tracts fail-closed return)
+GOOD  test_parentless_tracts_fail_closed_with_urls  (finish_tools omits unsupported and tract_vs)
+GOOD  test_universe_mismatch_finishes_with_a_url  (finish_tools omits universe_mismatch)
+GOOD  test_holdout_is_out_of_scope  (is_slice1 again excludes q23 and t15+)
+GOOD  test_golden_file_scope_includes_comparison_traps  (is_slice1 again excludes q23 and t15+)
+GOOD  test_openapi_documents_post_ask  (AskResponse drops comparisons[])
+GOOD  test_versus_geography_does_not_warn_ambiguous_place  (evaluate omits shared_sample)
+GOOD  test_comparison_legs_are_not_ambiguous_places  (evaluate omits shared_sample)
+GOOD  test_generated_schema_declares_every_contract_field  (generated schema.d.ts drops comparisons)
+
+========== git status --short (after restore) ==========
+$ git status --short
+
+?? evidence/slice-3/cc-76-gate1.txt
+exit: 0

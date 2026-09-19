@@ -1,0 +1,248 @@
+CC-76 Gate 2 RE-RUN -- cold review of origin/main...HEAD after 7a0c245
+branch: feat/cc-76-significance
+HEAD: 7a0c245d836e95821d512c0a43c5c5aa6c93e7f8
+implement: 166e701
+year-fix: 6fd7858
+miss-fix: 7a0c245 finish comparisons and illegal listings when the model stops
+base: origin/main (4391323282a8fe39902f2a2bca0f8ca14cd351fd)
+review surface: git diff origin/main...HEAD (commits only)
+working tree at review start: dirty with unrelated .vscode/launch.json, README.md, docs/DEBUGGING.md -- not in this review
+prior Gate 2: evidence/slice-3/cc-76-gate2.txt (HEAD then 6a5f9f1; verdict ship it with follow-ups)
+prior Gate 2 re-run: evidence/slice-3/cc-76-gate2-rerun.txt (HEAD then 6fd7858; verdict ship it with follow-ups)
+Gate 1 miss-fix: evidence/slice-3/cc-76-gate1-missfix.txt (4 GOOD / 0 BAD)
+E2E / make demo / make eval: not this phase; missing post-miss-fix scoreboard expected
+no commit; no product-source edits; no PR
+
+========== git rev-parse HEAD ==========
+
+7a0c245d836e95821d512c0a43c5c5aa6c93e7f8
+
+========== git rev-parse origin/main ==========
+
+4391323282a8fe39902f2a2bca0f8ca14cd351fd
+
+========== git log -1 ==========
+
+commit 7a0c245d836e95821d512c0a43c5c5aa6c93e7f8
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Sat Sep 19 13:35:41 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Sat Sep 19 13:35:41 2026 -0500
+
+    fix(compare): finish comparisons and illegal listings when the model stops (CC-76)
+
+    q23, t03, and t15-t18 missed because the loop left without a URL. Always complete search/resolve/build/fetch except non-nested containment; pin gross rent; ship a candidate listing URL for illegal wildcards; treat unnamed median combine as a declined computation.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+========== git log --oneline origin/main..HEAD ==========
+
+7a0c245 fix(compare): finish comparisons and illegal listings when the model stops (CC-76)
+ffe648c evidence(slice-3): record CC-76 E2E pre-PR
+04bb7f2 docs: record CC-76 Gate 2 re-run and name YoY as an MOE_diff pair
+6fd7858 fix(compare): leave Comparison.year empty when vintages differ (CC-76)
+9d17179 evidence(slice-3): record CC-76 Gate 2
+6a5f9f1 evidence(slice-3): record CC-76 Gate 1
+166e701 feat(compare): report MOE_diff significance for series and geography pairs (CC-76)
+
+========== git status ==========
+
+On branch feat/cc-76-significance
+Your branch is ahead of origin/feat/cc-76-significance by 1 commit.
+
+Changes not staged for commit:
+  modified:   .vscode/launch.json
+  modified:   README.md
+
+Untracked files:
+  docs/DEBUGGING.md
+
+========== git diff --stat origin/main...HEAD ==========
+
+ .claude/DESIGN.md                          |    1 +
+ .claude/PLAN.md                            |    4 +-
+ api/src/ask.py                             |    3 +-
+ api/src/compare.py                         |  195 +
+ api/src/contract.py                        |   24 +-
+ api/src/finish.py                          |   43 +-
+ api/src/geo.py                             |   18 +-
+ api/src/guards.py                          |   55 +-
+ api/src/tools.py                           |    4 +-
+ api/src/vintages.py                        |   47 +
+ api/tests/ask_fixtures.py                  |   36 +
+ api/tests/test_ask_loop.py                 |  148 +-
+ api/tests/test_ask_route.py                |   20 +
+ api/tests/test_ask_tools.py                |    3 +-
+ api/tests/test_demo_harness.py             |   27 +-
+ api/tests/test_generated_client.py         |    1 +
+ api/tests/test_guards.py                   |   83 +-
+ api/tests/test_static_frontend.py          |    1 +
+ api/tests/test_vintages.py                 |   12 +
+ docs/ARCHITECTURE.md                       |   23 +-
+ evals/golden_questions.toml                |    6 +-
+ evidence/latest.json                       | 3150 +++++----
+ evidence/slice-3/cc-76-e2e-pre.txt         | 9674 ++++++++++++++++++++++++++++
+ evidence/slice-3/cc-76-gate1-fix.txt       |   43 +
+ evidence/slice-3/cc-76-gate1-missfix.txt   |   44 +
+ evidence/slice-3/cc-76-gate1.txt           |  281 +
+ evidence/slice-3/cc-76-gate2-rerun.txt     |  292 +
+ evidence/slice-3/cc-76-gate2.txt           |  265 +
+ evidence/slice-3/cc-76-preflight-claims.md |   25 +
+ evidence/slice-3/cc-76-preflight.txt       |   38 +
+ packages/client/openapi.json               |   85 +-
+ packages/client/schema.d.ts                |   65 +-
+ scripts/run_demo.py                        |   11 +-
+ web/src/App.test.tsx                       |    2 +
+ web/src/ask.test.ts                        |    1 +
+ web/src/display.test.ts                    |    1 +
+ 36 files changed, 13281 insertions(+), 1450 deletions(-)
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3729 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1782 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         13.445 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.775 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+115 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 18%]
+........................................................................ [ 36%]
+........................................................................ [ 54%]
+........................................................................ [ 72%]
+........................................................................ [ 91%]
+...................................                                      [100%]
+395 passed in 10.57s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+machines did not stop the rest of the playbook
+
+========== Gate 2 Pass 1 -- generic bugs / silent-wrong-answer ==========
+cold read of origin/main...HEAD after 7a0c245; code only; no implementer chat; no ticket story.
+
+Prior Gate 2 findings re-read on this tree:
+
+1. Comparison.year contract drift on year-over-year pairs -- closed (6fd7858).
+   comparison_rows sets year=left_year if left_year and left_year == right_year else empty.
+2. ARCHITECTURE.md moe_not_significant parenthetical denying same-place years -- closed (04bb7f2).
+   evaluate() now names same-year geography legs on a versus series, and same-place year-over-year.
+
+Pass 1 findings:
+
+1. docs/ARCHITECTURE.md still describes finish as trap-gated.
+   Prose: if the model stops before a vintage, measure, universe, or unsupported-geography trap has a URL, the loop finishes search, resolve, build, and fetch.
+   finish_tools now runs whenever record.url is missing. build_url is skipped only when geo_status.nested is False (geography_not_nested). Pinning is still documented as B28001 only; pinned_table also injects B25064 / B19113 / B19001. Illegal wildcard listings now ship a candidate GeoSpec (unsupported_wildcard) instead of empty specs. None of that inverts MOE_diff or silently joins overlapping ACS5.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Wrong formula: nothing. moe_diff is still sqrt(left^2 + right^2). distinguishable is abs(e1-e2) > threshold (strict).
+- Inverted predicates: nothing. overlapping_vintage still skips pairing. year_span is added only when the question says every year; hyphen 5-year windows stay on _acs5_end_years. 2018 to 2022 without every year is not treated as overlapping ACS5 from the span parser.
+- Finish restoring a non-nested containment URL: nothing. nested is False skips build_url; test_tract_within_denver_does_not_finish_a_url asserts urls == [].
+- Invented tracts for unnamed median combine: nothing. these five tracts combined is not a wildcard/within match; tract with empty in_parts fail-closes with no specs. median_not_aggregatable fires from the question. finish_aggregation returns the input rows and does not append a combined median. Demo scoring without a URL is the harness, not a substituted geography.
+- Candidate illegal listing becoming a successful substitute: nothing. unsupported_wildcard is legal=False, geography_unsupported fires, URL is built, live Census rejects tract:* / block group:* without the required parents. Failed fetch still keeps the URL.
+- Silent overlapping ACS5 series from finish years: nothing. finish_tools passes requested_years but does not set allow_overlapping_acs5. plan_years destaggers ACS5 (or uses ACS1 when the probe says so). The overlapping_vintage warning still attaches from the asked span.
+- Silent vintage rewrite: nothing. wants_acs1 only when the question says 1-year/acs1. No year is rewritten in geo.py.
+- Key leak: nothing. No new URL formatter; CensusURL still redacts.
+- Numbers through the model: nothing. comparisons[] still assembled from fetched rows. _tool_content is unchanged.
+- Blocking clarification: nothing. New paths warn and ship (or decline the median combine).
+- Circular imports: nothing. finish imports universe_mismatch and vintages; geo imports unsupported_wildcard from compare; compare does not import geo.
+- Tests that cannot fail: nothing. New tests assert B25064 + urls on Austin rent, geography_unsupported + group:* URL on the Wyoming listing, empty urls on Denver tracts, overlapping_vintage on from/to every year, year_span vs hyphen, and demo answered without a URL for median_not_aggregatable. Gate 1 miss-fix: 4 GOOD / 0 BAD.
+- Comparison.year left-biased: nothing. Still shared vintage or empty.
+
+========== Gate 2 Pass 2 -- docs/playbooks/review-pr.md ==========
+machines first (above). all exit 0, so the rest of the playbook ran.
+
+The claim
+  When the model stops without a URL, the loop still completes search / resolve / build / fetch (except non-nested containment), so year-over-year and geography-versus questions get comparisons[] with MOE_diff; median gross rent / family income / income distribution are pinned; illegal wildcard listings ship a candidate URL with geography_unsupported; every year from X to Y warns overlapping_vintage; unnamed median combine scores as declined without inventing tracts.
+
+Evidence
+  Not this phase. No make demo / make eval after 7a0c245. Do not claim a rate move from this fix.
+  evidence/latest.json demo (ffe648c, before this commit): answered_rate 0.775, p95 13.445s, --repeat 3, n 186. That is the pre-miss-fix E2E that motivated 7a0c245. Do not reuse it as post-fix evidence.
+  Gate 1 miss-fix: evidence/slice-3/cc-76-gate1-missfix.txt (4 GOOD / 0 BAD).
+
+Scope
+  Belongs to slice 3 (YoY MOE_diff; comparison traps must succeed; overlapping ACS5 warned; medians not aggregated). Not-in-slice (charts, memory, PDF, auth, new tool, new route, graph node) was not built.
+  36 files vs ~15: compare.py + Comparison on the HTTP contract, finish/geo/vintages/guards, demo scoring, golden t03 note, PLAN/DESIGN/ARCHITECTURE, evidence including the 9674-line e2e-pre transcript and latest.json. Not drive-by canvas/PDF work. File count is evidence + generated client, not extra product surface.
+
+Silent-wrong-answer
+  URL / MOE / GEOID / universe still present on the paths this change fetches. geography_not_nested still ships no URL (explicit exception). median_not_aggregatable may ship no URL rather than invent tracts; the warning declines the computation and finish_aggregation does not append a combined median. Illegal listings ship a candidate URL that 400s. overlapping ACS5 destaggers unless the fetch flag is on; the warning stays. Redaction remains a CensusURL property. Guards warn and ship. Numbers do not pass back through the model.
+  Prior Comparison.year drift remains closed.
+
+Shape
+  No new tool, route, or add_node. pinned_table is a parameter on search/finish, not a fifth tool. unsupported_wildcard is a GeoSpec constructor, not a new route.
+  ARCHITECTURE.md was updated earlier for comparisons[] / shared_sample / YoY, but 7a0c245 did not update it for always-finish, the extra pinned tables, or candidate illegal listings (Pass 1 #1). domain_models 7 <= 15.
+
+Tests
+  Behaviour: finish-on-stop for Austin rent and illegal block-group listing; no URL for Denver tracts; overlapping_vintage on from/to every year; year_span does not treat hyphen ACS5 windows as a dense span; demo is_answered for median_not_aggregatable with empty url. No ticket-named tests. _search still branches on question text. No assertions on prompt wording or LLM prose. Fixture comparisons: [] updates are contract completeness, not a retrieval fake.
+
+The verdict
+  Ship it with follow-ups -- finishing the four-tool loop when the model stops, pinning median gross rent, shipping a candidate URL for illegal listings, warning every-year from/to as overlapping ACS5, and scoring unnamed median combine without inventing tracts. Follow-ups below are not silent-wrong-answer on estimates, MOEs, or the 90% conclusion.
+
+Follow-ups (none are silent-wrong-answer blockers):
+  1. ARCHITECTURE.md: finish is no longer trap-gated; pin B25064/B19113/B19001; illegal wildcards ship a candidate spec plus URL.
+  2. Quote a new --repeat 3 scoreboard at E2E after 7a0c245. 0.775 / 13.445s is pre-this-fix.
+  3. comparisons[] is on the contract; the slice-2 pane does not render it (canvas is slice 4).

@@ -64,12 +64,7 @@ def percentile(values: list[float], p: float) -> float:
 
 
 def is_slice1(entry: dict[str, Any]) -> bool:
-    if entry.get("holdout"):
-        return False
-    ident = str(entry.get("id") or "")
-    if ident == "q23":
-        return False
-    return not (ident[:1] == "t" and ident[1:].isdigit() and int(ident[1:]) >= 15)
+    return not bool(entry.get("holdout"))
 
 
 def select_questions(
@@ -115,7 +110,9 @@ def census_urls(body: dict[str, Any]) -> list[str]:
 
 
 # These traps have no legal Census URL; requiring one would score a silent substitution.
-_WARNING_WITHOUT_FETCH = frozenset({"ambiguous_place", "geography_not_nested"})
+_WARNING_WITHOUT_FETCH = frozenset(
+    {"ambiguous_place", "geography_not_nested", "median_not_aggregatable"}
+)
 
 
 def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]) -> bool:
