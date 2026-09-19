@@ -64,12 +64,7 @@ def percentile(values: list[float], p: float) -> float:
 
 
 def is_slice1(entry: dict[str, Any]) -> bool:
-    if entry.get("holdout"):
-        return False
-    ident = str(entry.get("id") or "")
-    if ident == "q23":
-        return False
-    return not (ident[:1] == "t" and ident[1:].isdigit() and int(ident[1:]) >= 15)
+    return not bool(entry.get("holdout"))
 
 
 def select_questions(

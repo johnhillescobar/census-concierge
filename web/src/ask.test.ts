@@ -20,6 +20,7 @@ const harris: AskResponse = {
   table_id: "B01003",
   alternatives: [],
   warnings: [],
+  comparisons: [],
 };
 
 afterEach(() => {

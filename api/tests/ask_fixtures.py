@@ -41,6 +41,12 @@ def _search(question: str, k: int = 10) -> list[str]:
     q = question.casefold()
     if "bike" in q or "bicycle" in q:
         return ["B08301"][:k]
+    if "poverty" in q:
+        return ["B17001"][:k]
+    if "rent" in q:
+        return ["B25064"][:k]
+    if "households" in q and "families" in q:
+        return ["B19013"][:k]
     if "broadband" in q:
         return ["B28002"][:k]
     if "cell phone" in q or "mobile phone" in q or "households with a computer" in q:
@@ -64,6 +70,16 @@ def _describe(table_id: str) -> dict[str, object] | None:
             "title": "Median Household Income",
             "universe": "Households",
             "members": ["B19013A", "B19013B"],
+        },
+        "B17001": {
+            "title": "Poverty Status in the Past 12 Months",
+            "universe": "Population for whom poverty status is determined",
+            "members": [],
+        },
+        "B25064": {
+            "title": "Median Gross Rent",
+            "universe": "Renter-occupied housing units paying cash rent",
+            "members": [],
         },
         "B28002": {
             "title": "Internet Subscriptions",
@@ -284,6 +300,14 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
             2024: {
                 "B01003": {"universe": "Total population", "variables": ["001E"]},
                 "B19013": {"universe": "Households", "variables": ["001E"]},
+                "B17001": {
+                    "universe": "Population for whom poverty status is determined",
+                    "variables": ["001E", "002E"],
+                },
+                "B25064": {
+                    "universe": "Renter-occupied housing units paying cash rent",
+                    "variables": ["001E"],
+                },
                 "B28001": {"universe": "Households", "variables": ["001E"]},
             }
         }

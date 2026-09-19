@@ -29,10 +29,13 @@ join); unpublished and 2020-ACS1 gaps keep their own reason codes; cell-phone
 wording and "households with a computer" pin `B28001` in `search_tables`;
 cell-phone wording emits `measure_unavailable` and still fetches households with
 smartphone access; a year question that names no place resolves to `us:1`;
-`urls[]` is the built URL when every vintage is omitted; if the model stops
-before a vintage or measure trap has a URL, the loop finishes search, resolve,
-build, and fetch; `make demo` includes
-year-series traps `t09`–`t14`.** Retrieval runs
+a geo-less universe trap does too; parentless tract-vs-tract fail-closes with
+`geography_unsupported` plus two candidate specs; `AskResponse.comparisons[]`
+carries `MOE_diff`, both estimates, both MOEs, and the 90% conclusion;
+place-vs-parent emits `shared_sample`; `urls[]` is the built URL when every
+vintage is omitted; if the model stops before a vintage, measure, universe, or
+unsupported-geography trap has a URL, the loop finishes search, resolve,
+build, and fetch; `make demo` includes the golden set except holdout.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and
@@ -82,6 +85,7 @@ api/pyproject.toml           the app's dependencies
 api/src/main.py              FastAPI app; `POST /ask` → `run_ask`; serves `web/dist`
 api/src/ask.py               hand-rolled tool loop (`dispatch`, no graph)
 api/src/guards.py            DESIGN §4 guards; evaluated at assemble
+api/src/compare.py           MOE_diff pairing, comparisons[], shared_sample
 api/src/vintages.py          ACS1 vs non-overlapping ACS5 year plan
 api/src/tools.py             search_tables, build_url
 api/src/fetch.py             fetch_data; years and comparison-geo fan-out, vintage plan, cap 5 in flight
@@ -129,7 +133,7 @@ returns `AskResponse` — `answer`, `urls[]` (one key-redacted Census URL per
 attempted request), per-leg `legs[]` (`for_spec` identifies the geography) and
 unique year buckets (`requested` / `attempted` / `succeeded` / `failed` /
 `omitted`), `rows`, `moe`, `geoid`,
-`universe`, `table_id`, `alternatives[]`, `warnings[]`. Rows are dicts, not a
+`universe`, `table_id`, `alternatives[]`, `comparisons[]`, `warnings[]`. Rows are dicts, not a
 per-row model. Start with `uv run uvicorn src.main:app --reload`.
 
 `run_ask` is a hand-rolled loop (`complete` then `dispatch`), not a graph and
@@ -162,8 +166,9 @@ record: overlapping ACS5 vintages, MOE-indistinguishable differences (same-year
 geography legs on a versus series, not same-place years), illegal
 geography combinations, several matching places, questions that cross
 universes, combined published medians, RSS MOE over more than five areas,
-ZIP-vs-ZCTA requests, and containment Census `for`/`in` grammar cannot express.
-None of them blocks. Additive combine appends one summed row per vintage; a
+ZIP-vs-ZCTA requests, containment Census `for`/`in` grammar cannot express,
+and nested place/parent pairs that share ACS sample. None of them blocks.
+`comparisons[]` is built in `compare.py` from the same pairing. Additive combine appends one summed row per vintage; a
 median combine does not. `CensusURL` redacts `&key=` in `__str__` / the
 response; `with_key()` is the httpx site. Missing or empty
 `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError` rather than
@@ -233,7 +238,7 @@ futures.
 | ~~0~~ | ~~the index~~ — done, above |
 | ~~1~~ | ~~`POST /ask`, four-tool loop, `CensusURL`, DESIGN §4 guards, `run_demo.py`~~ — done, above |
 | ~~2~~ | ~~`web/` chat pane (CC-24). Generated client (CC-27). FastAPI serves `web/dist` (CC-32)~~ — done, above |
-| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); ACS1 where published else non-overlapping ACS5 (CC-72); wildcard tract parent + versus-split geo fan-out (CC-73); series provenance + `boundary_change_2020` (CC-74); per-year variable check + `measure_unavailable` (CC-75); YoY significance still open |
+| 3 | fan-out over years (`fetch_data.years`, `urls[]`); `GeoSpec` list from `resolve_geography`; median/MOE aggregation (CC-61); ZCTA/non-nesting (CC-60); named ACS5 ZCTA without listing (CC-71); ACS1 where published else non-overlapping ACS5 (CC-72); wildcard tract parent + versus-split geo fan-out (CC-73); series provenance + `boundary_change_2020` (CC-74); per-year variable check + `measure_unavailable` (CC-75); `MOE_diff` / `comparisons[]` / `shared_sample` (CC-76) |
 | 4 | the canvas and its state model |
 | *spike* | *nothing — it produces a decision in DESIGN §9, not code* |
 | 5 | Postgres, `thread_id`, conversation persistence |

@@ -70,6 +70,24 @@ class AskWarning(BaseModel):
     detail: str = Field(description="What was raised, in one sentence.")
 
 
+class Comparison(BaseModel):
+    variable: str = Field(description="Estimate variable compared.")
+    geoid_a: str = Field(description="AFFGEOID of the first leg.")
+    geoid_b: str = Field(description="AFFGEOID of the second leg.")
+    year: str = Field(description="Vintage end year when both legs share one; else empty.")
+    estimate_a: str = Field(description="Published estimate for geoid_a.")
+    estimate_b: str = Field(description="Published estimate for geoid_b.")
+    moe_a: str = Field(description="90% margin for estimate_a.")
+    moe_b: str = Field(description="90% margin for estimate_b.")
+    threshold: str = Field(description="MOE_diff = sqrt(moe_a^2 + moe_b^2).")
+    distinguishable: bool = Field(
+        description="True when abs(estimate_a - estimate_b) exceeds threshold."
+    )
+    shared_sample: bool = Field(
+        description="True when the compared geographies nest and share ACS sample."
+    )
+
+
 class RequestLeg(BaseModel):
     year: int = Field(description="Vintage end year for this Census request.")
     url: str = Field(description="Key-redacted Census API URL for this year.")
@@ -125,10 +143,14 @@ class AskResponse(BaseModel):
     alternatives: list[Alternative] = Field(
         description="Related tables with the reason they differ from the selection."
     )
+    comparisons: list[Comparison] = Field(
+        description="Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag."
+    )
     warnings: list[AskWarning] = Field(
         description="Non-blocking guards: overlapping_vintage, moe_not_significant, "
         "geography_unsupported, ambiguous_place, universe_mismatch, "
         "median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, "
         "geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, "
-        "boundary_change_2020, measure_unavailable, variable_not_in_vintage."
+        "boundary_change_2020, measure_unavailable, variable_not_in_vintage, "
+        "shared_sample."
     )

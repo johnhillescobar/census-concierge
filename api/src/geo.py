@@ -10,6 +10,7 @@ from typing import Any, Literal
 from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
+from src.compare import parentless_tracts
 from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
     filter_rows,
@@ -198,6 +199,13 @@ class ResolveGeographyTool(BaseTool):
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
+        packed = parentless_tracts(query, dataset=dataset, year=year) if level is None else None
+        if packed:
+            detail, specs = packed
+            hit = ResolveGeographyResult(
+                specs=specs, wildcard=False, legal=False, detail=detail, compare=True
+            )
+            return detail, hit
         sides = split_versus(query) if level is None else None
         if sides:
             hits = [(await self._resolve(side, None, dataset, year, entries))[1] for side in sides]

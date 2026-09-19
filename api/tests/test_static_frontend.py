@@ -25,6 +25,7 @@ EMPTY = {
     "universe": "",
     "table_id": "",
     "alternatives": [],
+    "comparisons": [],
     "warnings": [],
 }
 

@@ -138,6 +138,51 @@ async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     assert response.rows
 
 
+async def test_parentless_tracts_fail_closed_with_urls() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Is the poverty rate in tract 1201 higher than tract 1305?",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert "1201" in response.warnings[0].detail
+    assert "1305" in response.warnings[0].detail
+    assert [row.for_spec for row in record.geographies] == ["tract:120100", "tract:130500"]
+    assert response.urls
+    assert "tract:120100" in response.urls[0]
+
+
+async def test_universe_mismatch_finishes_with_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "What share of households are Black families earning over $75k?",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert any(item.code == "universe_mismatch" for item in response.warnings)
+    assert response.urls
+    assert "us:1" in response.urls[0]
+
+
 async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
     record = ExecutionRecord()
     tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "")
@@ -295,7 +340,7 @@ async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
     assert record.geo_status["compare"] is True
     assert [row.level for row in record.geographies] == ["place", "state"]
     response = assemble("Austin vs Texas", record)
-    assert [item.code for item in response.warnings] == []
+    assert [item.code for item in response.warnings] == ["shared_sample"]
 
 
 async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
