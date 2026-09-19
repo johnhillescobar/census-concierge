@@ -1114,6 +1114,18 @@ def test_acs1_2020_gap_is_not_a_missing_variable() -> None:
     assert "vintage_gap_2020" in _codes(record)
 
 
+def test_since_before_first_vintage_names_the_published_gap_without_a_fetch() -> None:
+    record = ExecutionRecord(
+        question=T14,
+        table_id="B28001",
+        table_facts=_computer_facts,
+    )
+    record.published_vintages = lambda dataset: set(range(2016, 2025))
+    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
+    assert "2016" in warning.detail
+    assert "2013" not in warning.detail
+
+
 def test_since_before_first_vintage_names_the_published_gap() -> None:
     record = ExecutionRecord(
         question=T14,

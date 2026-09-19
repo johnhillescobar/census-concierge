@@ -29,7 +29,9 @@ join); unpublished and 2020-ACS1 gaps keep their own reason codes; cell-phone
 wording and "households with a computer" pin `B28001` in `search_tables`;
 cell-phone wording emits `measure_unavailable` and still fetches households with
 smartphone access; a year question that names no place resolves to `us:1`;
-`urls[]` is the built URL when every vintage is omitted; `make demo` includes
+`urls[]` is the built URL when every vintage is omitted; if the model stops
+before a vintage or measure trap has a URL, the loop finishes search, resolve,
+build, and fetch; `make demo` includes
 year-series traps `t09`–`t14`.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;

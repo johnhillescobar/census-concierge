@@ -21,6 +21,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse, GeoSpec
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
+from src.finish import finish_tools
 from src.geo import ResolveGeographyTool
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
@@ -436,4 +437,5 @@ async def run_ask(
             break
     except RuntimeError as exc:
         answer = answer or str(exc)
+    await finish_tools(dispatch, tools, record)
     return assemble(answer, record)

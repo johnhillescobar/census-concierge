@@ -1,0 +1,19 @@
+# live make demo -- slice 3 / CC-75 fix
+# HEAD: fb0e7ab357239ffc0ec33ef5f866f9052ff1308f
+# captured: 2026-09-19T01:31:11Z
+# command: npm --prefix web run build; uv run python scripts/run_demo.py --repeat 3
+
+## Scoreboard (from evidence/latest.json, not the transcript)
+generated_at: 2026-09-19T01:57:57+00:00
+repeat: 3  n: 171
+answered_rate: 0.761  (floor 0.70)
+overall_answered_rate: 0.643
+p95_latency_seconds: 13.088  (ceiling 20)
+selector_at_1: 0.875
+synthetic_alignment: 0.544
+demo.misses ids: q04, q10, q14, q17, q18, q20, q21, q30, q33, q34, q39, q40, t03, t04, t06, t07, t08, t10, t11, t12, t13, t14, q08, q28, t01, q11, q24
+
+CC-75 owned:
+t09: 0/3 misses (cleared)
+t01: 2/3 misses (overlapping_vintage, empty URL on r2/r3)
+t14: 3/3 misses (missing variable_not_in_vintage; r2 picked B28001 with URL)

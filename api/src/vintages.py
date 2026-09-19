@@ -94,6 +94,10 @@ def variable_not_in_vintage(record: Any) -> AskWarning | None:
         raw = list(dict.fromkeys(years))
         if published is not None:
             lo, hi = min(raw), max(raw)
+            first = min(published) if published else lo
+            if lo < first:
+                lo = first
+                hi = max(hi, first)
             scanned = [year for year in published if lo <= year <= hi]
         else:
             scanned = [year for year in raw if year not in unpublished]

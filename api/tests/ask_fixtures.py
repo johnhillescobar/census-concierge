@@ -279,7 +279,16 @@ def _harris(**fields: object) -> GeoSpec:
 
 
 def _tools(record: ExecutionRecord) -> dict[str, Any]:
-    facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
+    facts = {
+        "acs5": {
+            2024: {
+                "B01003": {"universe": "Total population", "variables": ["001E"]},
+                "B19013": {"universe": "Households", "variables": ["001E"]},
+                "B28001": {"universe": "Households", "variables": ["001E"]},
+            }
+        }
+    }
+
     return {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
         "resolve_geography": _geo_tool(),
