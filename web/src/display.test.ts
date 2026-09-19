@@ -35,6 +35,7 @@ const harris: AskResponse = {
   table_id: "B01003",
   alternatives: [{ table_id: "B01001", reason: "related table" }],
   warnings: [],
+  comparisons: [],
 };
 
 describe("estimatePairs", () => {

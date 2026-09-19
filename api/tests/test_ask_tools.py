@@ -673,7 +673,8 @@ async def test_all_tracts_in_michigan_stay_illegal() -> None:
         }
     )
     assert message.artifact.legal is False
-    assert message.artifact.specs == []
+    assert [row.for_spec for row in message.artifact.specs] == ["tract:*"]
+    assert message.artifact.specs[0].in_spec == "state:26"
 
 
 @pytest.mark.parametrize(
@@ -704,6 +705,42 @@ async def test_versus_emits_austin_then_texas_as_comparison_legs(query: str) -> 
     assert artifact.specs[0].in_spec == "state:48"
     assert artifact.specs[1].for_spec == "state:48"
     assert artifact.specs[1].in_spec == ""
+
+
+async def test_versus_splits_even_when_level_is_passed() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "Compare median gross rent in Austin to the Texas average",
+                "level": "place",
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is True
+    assert [row.level for row in artifact.specs] == ["place", "state"]
+
+
+async def test_parentless_tracts_run_even_when_level_is_passed() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "Is the poverty rate in tract 1201 higher than tract 1305?",
+                "level": "tract",
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is False
+    assert [row.for_spec for row in artifact.specs] == ["tract:120100", "tract:130500"]
 
 
 async def test_springfield_versus_texas_keeps_place_alternatives() -> None:

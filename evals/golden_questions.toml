@@ -391,8 +391,10 @@ note = "FAMILY income, not household. Returning B19013 is the canonical universe
 id = "t03"
 text = "Is the poverty rate in tract 1201 higher than tract 1305?"
 tier = "trap"
-expect_warning = "moe_not_significant"
-note = "Tract MOEs usually swamp the difference. Must say so rather than rank them."
+expect_warning = "geography_unsupported"
+note = """Tract-vs-tract needs state and county. Fail closed with candidate specs and \
+URLs rather than scoring moe_not_significant against zero rows. When two legs do \
+fetch, tract MOEs usually swamp the difference."""
 
 [[question]]
 id = "t04"

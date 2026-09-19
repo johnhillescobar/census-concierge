@@ -1,0 +1,59 @@
+CC-76 Gate 1 (remaining demo traps) — mutation check
+
+Finish re-resolves tract/block-group listings, versus pairs, and parentless
+tracts when the model already built a coarser URL; ACS1 rebuilds after an
+acs5 resolve; tract wording still emits boundary_change_2020 on a county
+fetch; poverty / uninsured pins B17001 / B27001.
+
+========== restored tree ==========
+$ uv run pytest api/tests/test_ask_loop.py api/tests/test_ask_tools.py api/tests/test_guards.py api/tests/test_vintages.py -q
+237 passed
+
+===== MUTATION: listing redo always false =====
+test: test_block_group_listing_replaces_a_state_url
+test: test_tract_within_place_drops_a_city_url
+test: test_every_tract_listing_replaces_a_county_url
+
+GOOD
+assert [] == ['geography_unsupported']
+restore: _listing_level vs current GeoSpec.level
+
+===== MUTATION: versus redo always false =====
+test: test_texas_only_rent_compare_adds_austin
+
+GOOD
+assert False (shared_sample missing)
+restore: redo when compare is unset or fewer than two legs
+
+===== MUTATION: finish does not re-resolve ACS1 when URL is missing =====
+test: test_acs1_year_span_builds_after_acs5_resolve
+
+GOOD
+assert '' == 'B17001'
+restore: wants_acs1(question) and not record.url
+
+===== MUTATION: boundary_change ignores tract wording on a county fetch =====
+test: test_tract_wording_warns_boundary_when_the_fetch_is_county
+
+GOOD
+assert 'boundary_change_2020' in ['vintage_gap_2020']
+restore: infer tract/block group from the question when geos are coarser
+
+===== MUTATION: poverty and uninsured wording do not pin =====
+test: test_poverty_and_uninsured_wording_pin_tables
+
+GOOD
+assert None == 'B17001'
+restore: pinned_table returns B17001 / B27001
+
+===== MUTATION: parentless and versus skip when level is passed =====
+test: test_versus_splits_even_when_level_is_passed
+test: test_parentless_tracts_run_even_when_level_is_passed
+
+GOOD
+assert False is True
+restore: parentless_tracts and split_versus run even when level is set
+
+===== summary =====
+mutations GOOD: 6
+mutations BAD: 0

@@ -235,7 +235,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                 )
     fallback = record.geography.geoid if record.geography else ""
     rows = _rows_with_geoid(record.rows, fallback)
-    warnings, rows, extra = finish_aggregation(
+    warnings, rows, extra, compared = finish_aggregation(
         record, rows, {item.table_id for item in alternatives}
     )
     alternatives.extend(extra)
@@ -253,6 +253,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         universe=selected_universe,
         table_id=record.table_id,
         alternatives=alternatives,
+        comparisons=compared,
         warnings=warnings,
     )
 

@@ -1,0 +1,38 @@
+# CC-76 pre-flight raw output
+# origin/main 4391323 (CC-75 post-merge E2E)
+# 2026-09-19
+
+CC-76  To Do  Story  Report defensible significance for series and geography comparisons
+CC-74  Done
+CC-73  Done
+CC-75  Done
+
+evaluate names include moe_not_significant; formula abs(e1-e2) <= sqrt(m1*m1 + m2*m2)
+AskResponse fields have no comparisons: answer urls requested_years attempted_years
+succeeded_years failed_years omitted_years omission_reasons legs rows moe geoid
+universe table_id alternatives warnings
+is_slice1 drops q23 and t>=15; holdout; n picked 57
+golden t03 expect_warning = moe_not_significant (no table)
+golden t06 expect_warning = universe_mismatch (no table)
+golden q23 expect_table = B25064 expect_geo_level = place (no warning)
+golden t15 zcta_not_zip t16 geography_not_nested t17 median_not_aggregatable t18 moe_aggregation_degraded
+split_versus t03 None
+split_versus q23 ('median gross rent in Austin', 'the Texas average')
+detect_level t03 tract
+_nation t03 False
+_nation t06 False
+place_token t03 is the poverty rate in tract 1201 higher than tract 1305?
+universe_mismatch t06 households × families
+equal-to 10 vs sqrt(6^2+8^2)=10 True
+_WARNING_WITHOUT_FETCH frozenset({'ambiguous_place', 'geography_not_nested'})
+finish_tools only device_table or overlapping_vintage
+
+--- loc ---
+ 398 ask.py
+ 400 fetch.py
+ 382 geo.py
+ 391 guards.py
+ 256 vintages.py
+ 112 contract.py
+  31 finish.py
+api src files 23  domain models 6  doc_lines 1781/1800  largest 400/400

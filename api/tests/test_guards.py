@@ -59,6 +59,13 @@ def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
     assert _codes(record) == []
 
 
+def test_from_to_consecutive_acs5_years_overlap() -> None:
+    record = ExecutionRecord(
+        question="Plot median household income for Cuyahoga County every year from 2017 to 2023"
+    )
+    assert _codes(record) == ["overlapping_vintage"]
+
+
 def _fetch(**fields: object) -> FetchDataResult:
     payload: dict[str, object] = {
         "ok": True,
@@ -263,7 +270,69 @@ def test_versus_series_warns_when_same_year_legs_are_indistinguishable() -> None
         {"GEO_ID": "a", "year": "2022", "B25064_001E": "1000", "B25064_001M": "10"},
         {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
     ]
-    assert _codes(record) == ["moe_not_significant"]
+    response = assemble("versus series", record)
+    assert [item.code for item in response.warnings] == ["moe_not_significant"]
+    assert {item.year for item in response.comparisons} == {"2017", "2022"}
+
+
+def test_equal_threshold_is_not_distinguishable() -> None:
+    record = ExecutionRecord(question=T03)
+    record.rows = [
+        {"GEO_ID": "a", "B17001_002E": "100", "B17001_002M": "6"},
+        {"GEO_ID": "b", "B17001_002E": "110", "B17001_002M": "8"},
+    ]
+    response = assemble("not ranked", record)
+    assert [item.code for item in response.warnings] == ["moe_not_significant"]
+    pair = response.comparisons[0]
+    assert pair.threshold == "10"
+    assert pair.estimate_a == "100"
+    assert pair.estimate_b == "110"
+    assert pair.moe_a == "6"
+    assert pair.moe_b == "8"
+    assert pair.distinguishable is False
+
+
+def test_year_over_year_indistinguishable_change() -> None:
+    record = ExecutionRecord(question="Compare poverty in 2017 to 2022")
+    record.rows = [
+        {"GEO_ID": "a", "year": "2017", "B17001_002E": "100", "B17001_002M": "50"},
+        {"GEO_ID": "a", "year": "2022", "B17001_002E": "110", "B17001_002M": "50"},
+    ]
+    response = assemble("not change", record)
+    assert [item.code for item in response.warnings] == ["moe_not_significant"]
+    assert response.comparisons[0].distinguishable is False
+    assert response.comparisons[0].geoid_a == "a"
+    assert response.comparisons[0].geoid_b == "a"
+    assert response.comparisons[0].year == ""
+
+
+def test_parent_place_exposes_shared_sample_and_conclusion() -> None:
+    record = ExecutionRecord(question="Compare median gross rent in Austin to the Texas average")
+    record.geographies = [
+        GeoSpec(
+            name="Austin city, Texas",
+            level="place",
+            for_spec="place:4805000",
+            in_spec="state:48",
+            geoid="1600000US4805000",
+        ),
+        GeoSpec(name="Texas", level="state", for_spec="state:48", geoid="0400000US48"),
+    ]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    record.rows = [
+        {"GEO_ID": "1600000US4805000", "B25064_001E": "1729", "B25064_001M": "14"},
+        {"GEO_ID": "0400000US48", "B25064_001E": "1403", "B25064_001M": "4"},
+    ]
+    response = assemble("Austin vs Texas", record)
+    assert [item.code for item in response.warnings] == ["shared_sample"]
+    pair = response.comparisons[0]
+    assert pair.distinguishable is True
+    assert pair.shared_sample is True
+    assert pair.estimate_a == "1729"
+    assert pair.estimate_b == "1403"
+    assert pair.moe_a == "14"
+    assert pair.moe_b == "4"
+    assert float(pair.threshold) > 14
 
 
 def test_overlapping_vintages_do_not_compare_leftover_rows() -> None:
@@ -309,11 +378,16 @@ def test_one_geography_is_not_ambiguous() -> None:
 def test_comparison_legs_are_not_ambiguous_places() -> None:
     record = ExecutionRecord(question="Median gross rent in Austin versus the Texas average")
     record.geographies = [
-        GeoSpec(name="Austin city, Texas", level="place", for_spec="place:4805000"),
+        GeoSpec(
+            name="Austin city, Texas",
+            level="place",
+            for_spec="place:4805000",
+            in_spec="state:48",
+        ),
         GeoSpec(name="Texas", level="state", for_spec="state:48"),
     ]
     record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
-    assert _codes(record) == []
+    assert _codes(record) == ["shared_sample"]
 
 
 def test_comparison_with_leftover_matches_still_warns() -> None:
@@ -350,7 +424,8 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
     await dispatch(tool, {"id": "bg1", "args": {"query": "every block group in Wyoming"}}, record)
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
-    assert record.geographies == []
+    assert [row.for_spec for row in record.geographies] == ["block group:*"]
+    assert record.geographies[0].in_spec == "state:56"
     response = assemble("answer still ships", record)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert "block group" in response.warnings[0].detail
@@ -972,7 +1047,7 @@ def test_block_group_series_crossing_2020_warns() -> None:
 
 
 def test_county_series_crossing_2020_does_not_warn_boundary() -> None:
-    record = ExecutionRecord()
+    record = ExecutionRecord(question=T13)
     record.geographies = [
         GeoSpec(level="county", name="Wayne County", for_spec="county:163", in_spec="state:26")
     ]

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from src.vintages import (
+    HEALTH_TABLE,
+    POVERTY_TABLE,
     REASON_GAP_2020,
     REASON_MAX,
     REASON_OVERLAP,
@@ -11,9 +13,13 @@ from src.vintages import (
     is_series,
     nonoverlapping_acs5,
     period_for,
+    pinned_table,
     plan_years,
+    question_years,
+    requested_years,
     span_years,
     stamp_provenance,
+    year_span,
 )
 
 ACS1 = {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024}
@@ -30,6 +36,20 @@ def test_consecutive_requires_a_dense_span() -> None:
     assert is_series([2018, 2019, 2021, 2022], PUBLISHED) is True
     assert is_series([2018, 2019, 2021, 2022]) is False
     assert is_series([2019, 2022], PUBLISHED) is False
+
+
+def test_poverty_and_uninsured_wording_pin_tables() -> None:
+    assert pinned_table("poverty in Fresno County") == POVERTY_TABLE
+    assert pinned_table("Total population without health insurance") == HEALTH_TABLE
+
+
+def test_from_to_is_a_year_span_hyphen_range_is_not() -> None:
+    assert year_span("every year from 2017 to 2023") == list(range(2017, 2024))
+    assert year_span("2018 through 2022") == list(range(2018, 2023))
+    assert year_span("between 2015-2019 and 2018-2022") == []
+    assert question_years("since 2017") == [2017]
+    assert requested_years("since 2017", 2024) == list(range(2017, 2025))
+    assert requested_years("from 2017 to 2023", 2024) == list(range(2017, 2024))
 
 
 def test_nonoverlapping_acs5_keeps_2017_and_2022() -> None:

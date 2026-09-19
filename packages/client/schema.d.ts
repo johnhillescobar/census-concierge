@@ -64,6 +64,11 @@ export interface components {
              */
             attempted_years: number[];
             /**
+             * Comparisons
+             * @description Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.
+             */
+            comparisons: components["schemas"]["Comparison"][];
+            /**
              * Failed Years
              * @description Unique attempted vintages with at least one failed or timed-out call.
              */
@@ -129,7 +134,7 @@ export interface components {
             urls: string[];
             /**
              * Warnings
-             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage.
+             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage, shared_sample.
              */
             warnings: components["schemas"]["AskWarning"][];
         };
@@ -145,6 +150,64 @@ export interface components {
              * @description What was raised, in one sentence.
              */
             detail: string;
+        };
+        /** Comparison */
+        Comparison: {
+            /**
+             * Distinguishable
+             * @description True when abs(estimate_a - estimate_b) exceeds threshold.
+             */
+            distinguishable: boolean;
+            /**
+             * Estimate A
+             * @description Published estimate for geoid_a.
+             */
+            estimate_a: string;
+            /**
+             * Estimate B
+             * @description Published estimate for geoid_b.
+             */
+            estimate_b: string;
+            /**
+             * Geoid A
+             * @description AFFGEOID of the first leg.
+             */
+            geoid_a: string;
+            /**
+             * Geoid B
+             * @description AFFGEOID of the second leg.
+             */
+            geoid_b: string;
+            /**
+             * Moe A
+             * @description 90% margin for estimate_a.
+             */
+            moe_a: string;
+            /**
+             * Moe B
+             * @description 90% margin for estimate_b.
+             */
+            moe_b: string;
+            /**
+             * Shared Sample
+             * @description True when the compared geographies nest and share ACS sample.
+             */
+            shared_sample: boolean;
+            /**
+             * Threshold
+             * @description MOE_diff = sqrt(moe_a^2 + moe_b^2).
+             */
+            threshold: string;
+            /**
+             * Variable
+             * @description Estimate variable compared.
+             */
+            variable: string;
+            /**
+             * Year
+             * @description Vintage end year when both legs share one; else empty.
+             */
+            year: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

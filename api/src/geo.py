@@ -10,6 +10,7 @@ from typing import Any, Literal
 from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
+from src.compare import parentless_tracts, unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
     filter_rows,
@@ -198,7 +199,14 @@ class ResolveGeographyTool(BaseTool):
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
-        sides = split_versus(query) if level is None else None
+        packed = parentless_tracts(query, dataset=dataset, year=year)
+        if packed:
+            detail, specs = packed
+            hit = ResolveGeographyResult(
+                specs=specs, wildcard=False, legal=False, detail=detail, compare=True
+            )
+            return detail, hit
+        sides = split_versus(query)
         if sides:
             hits = [(await self._resolve(side, None, dataset, year, entries))[1] for side in sides]
             if all(hit.legal and hit.specs for hit in hits):
@@ -336,10 +344,14 @@ class ResolveGeographyTool(BaseTool):
             list_in = {"state": "*"}
             predicate = predicate or state_wildcard
         if predicate is None:
-            return _fail(
-                f"{for_level} with in={dict(in_parts)} is not a legal combination",
-                wildcard=wildcard,
+            detail = f"{for_level} with in={dict(in_parts)} is not a legal combination"
+            if not (wildcard or in_parts):
+                return _fail(detail, wildcard=wildcard)
+            spec = unsupported_wildcard(query, for_level, in_parts, dataset=dataset, year=year)
+            unsupported = ResolveGeographyResult(
+                specs=[spec], wildcard=wildcard, legal=False, detail=detail
             )
+            return detail, unsupported
         # fmt: off
         zcta = for_level == "zip code tabulation area" and not wildcard
         hit = re.search(r"(?i)\b(?:zcta5?s?|zips?|zip codes?)\s+(\d{5})\b", query) if zcta else None

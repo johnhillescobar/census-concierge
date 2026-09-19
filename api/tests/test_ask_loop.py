@@ -6,10 +6,10 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from ask_fixtures import _describe, _geo_tool, _harris, _search, _tools
+from ask_fixtures import ENTRIES, _describe, _geo_tool, _harris, _search, _tools
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
-from src.contract import AskResponse
+from src.contract import AskResponse, GeoSpec
 from src.fetch import FetchDataTool
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
@@ -138,6 +138,364 @@ async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     assert response.rows
 
 
+async def test_parentless_tracts_fail_closed_with_urls() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Is the poverty rate in tract 1201 higher than tract 1305?",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert "1201" in response.warnings[0].detail
+    assert "1305" in response.warnings[0].detail
+    assert [row.for_spec for row in record.geographies] == ["tract:120100", "tract:130500"]
+    assert response.urls
+    assert "tract:120100" in response.urls[0]
+
+
+async def test_universe_mismatch_finishes_with_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "What share of households are Black families earning over $75k?",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert any(item.code == "universe_mismatch" for item in response.warnings)
+    assert response.urls
+    assert "us:1" in response.urls[0]
+
+
+async def test_austin_rent_finishes_when_the_model_stops() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Compare median gross rent in Austin to the Texas average",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B25064"
+    assert response.urls
+    assert response.rows
+    assert any(item.code == "shared_sample" for item in response.warnings)
+    assert "place:4805000" in response.urls[0] or "state:48" in "".join(response.urls)
+
+
+async def test_block_group_state_listing_finishes_with_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    entries = [
+        *ENTRIES,
+        GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
+    ]
+    tools["resolve_geography"] = _geo_tool(table=entries)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Median household income for every block group in Wyoming",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert response.urls
+    assert "group:*" in response.urls[0]
+
+
+async def test_tract_within_denver_does_not_finish_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Compare poverty by census tract within the city of Denver",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert any(item.code == "geography_not_nested" for item in response.warnings)
+    assert response.urls == []
+
+
+def _stopped() -> Any:
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    return complete
+
+
+async def test_block_group_listing_replaces_a_state_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    entries = [
+        *ENTRIES,
+        GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
+    ]
+    tools["resolve_geography"] = _geo_tool(table=entries)
+    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "Wyoming"}}, record)
+    await dispatch(
+        tools["search_tables"],
+        {"id": "2", "args": {"question": "median household income in Wyoming"}},
+        record,
+    )
+    await dispatch(tools["build_url"], {"id": "3", "args": {"table_id": "B19013"}}, record)
+    assert record.url is not None
+    assert "state:56" in str(record.url)
+    response = await run_ask(
+        "Median household income for every block group in Wyoming",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert response.urls
+    assert "group:*" in response.urls[0]
+
+
+async def test_tract_within_place_drops_a_city_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    denver = GeoSpec(
+        level="place",
+        name="Denver city, Colorado",
+        for_spec="place:20000",
+        in_spec="state:08",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = denver
+    record.geographies = [denver]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B17001", "universe": "Population", "members": []}]
+    record.table_id = "B17001"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M"
+        "&for=place:20000&in=state:08"
+    )
+    response = await run_ask(
+        "Compare poverty by census tract within the city of Denver",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert any(item.code == "geography_not_nested" for item in response.warnings)
+    assert response.urls == []
+
+
+async def test_every_tract_listing_replaces_a_county_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    wayne = GeoSpec(
+        level="county",
+        name="Wayne County, Michigan",
+        for_spec="county:163",
+        in_spec="state:26",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = wayne
+    record.geographies = [wayne]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B27010", "universe": "Population", "members": []}]
+    record.table_id = "B27010"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M"
+        "&for=county:163&in=state:26"
+    )
+    response = await run_ask(
+        "Total population without health insurance across every tract in Wayne County",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B27001"
+    assert response.urls
+    assert "tract:*" in response.urls[0]
+
+
+async def test_tract_in_county_listing_replaces_a_county_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    wayne = GeoSpec(
+        level="county",
+        name="Wayne County, Michigan",
+        for_spec="county:163",
+        in_spec="state:26",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = wayne
+    record.geographies = [wayne]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B28002", "universe": "Households", "members": []}]
+    record.table_id = "B28002"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28002_001E,B28002_001M"
+        "&for=county:163&in=state:26"
+    )
+    response = await run_ask(
+        "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B28002"
+    assert response.urls
+    assert "tract:*" in response.urls[0]
+    assert "county:163" in response.urls[0]
+
+
+async def test_tract_in_named_state_keeps_that_county() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    wayne = GeoSpec(
+        level="county",
+        name="Wayne County, Michigan",
+        for_spec="county:163",
+        in_spec="state:26",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = wayne
+    record.geographies = [wayne]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B28002", "universe": "Households", "members": []}]
+    record.table_id = "B28002"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M"
+        "&for=county:163&in=state:26"
+    )
+    response = await run_ask(
+        "Broadband subscription trend by census tract in Wayne County, "
+        "North Carolina, 2018 to 2022",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.urls
+    assert "tract:*" in response.urls[0]
+    assert "state:37" in response.urls[0]
+    assert "county:191" in response.urls[0]
+
+
+async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"], {"id": "1", "args": {"query": "Fresno County"}}, record
+    )
+    await dispatch(
+        tools["search_tables"],
+        {"id": "2", "args": {"question": "poverty in Fresno County"}},
+        record,
+    )
+    record.consecutive_failures["build_url"] = 2
+    response = await run_ask(
+        "1-year ACS poverty for Fresno County, 2018 through 2022",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B17001"
+    assert response.urls
+    assert "/acs/acs1" in response.urls[0]
+    assert "county:019" in response.urls[0]
+
+
+async def test_acs1_year_span_replaces_an_acs5_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    fresno = GeoSpec(
+        level="county",
+        name="Fresno County, California",
+        for_spec="county:019",
+        in_spec="state:06",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = fresno
+    record.geographies = [fresno]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B17001", "universe": "Population", "members": []}]
+    record.table_id = "B17001"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M"
+        "&for=county:019&in=state:06"
+    )
+    response = await run_ask(
+        "1-year ACS poverty for Fresno County, 2018 through 2022",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B17001"
+    assert response.urls
+    assert "/acs/acs1" in response.urls[0]
+    assert "county:019" in response.urls[0]
+
+
+async def test_texas_only_rent_compare_adds_austin() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "Texas"}}, record)
+    await dispatch(
+        tools["search_tables"],
+        {"id": "2", "args": {"question": "median gross rent in Texas"}},
+        record,
+    )
+    await dispatch(tools["build_url"], {"id": "3", "args": {"table_id": "B25064"}}, record)
+    assert record.url is not None
+    assert "state:48" in str(record.url)
+    response = await run_ask(
+        "Compare median gross rent in Austin to the Texas average",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B25064"
+    assert any(item.code == "shared_sample" for item in response.warnings)
+    joined = "".join(response.urls)
+    assert "place:4805000" in joined and "state:48" in joined
+
+
 async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
     record = ExecutionRecord()
     tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "")
@@ -196,32 +554,14 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
 async def test_search_does_not_select_the_table() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
-    queue: list[dict[str, Any]] = [
-        {
-            "content": "",
-            "tool_calls": [
-                {
-                    "id": "1",
-                    "name": "search_tables",
-                    "args": {"question": "population of Harris County, Texas"},
-                }
-            ],
-        },
-        {"content": "candidates listed", "tool_calls": []},
-    ]
-
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        _ = messages, openai_tools
-        return queue.pop(0)
-
-    response = await run_ask(
-        "population of Harris County, Texas", complete=complete, tools=tools, record=record
+    await dispatch(
+        tools["search_tables"],
+        {"id": "1", "args": {"question": "population of Harris County, Texas"}},
+        record,
     )
     assert record.pool[0]["table_id"] == "B01003"
-    assert response.table_id == ""
-    assert response.universe == ""
+    assert record.table_id == ""
+    assert record.url is None
 
 
 async def test_failed_rebuild_clears_the_previous_url_and_rows() -> None:
@@ -295,7 +635,7 @@ async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
     assert record.geo_status["compare"] is True
     assert [row.level for row in record.geographies] == ["place", "state"]
     response = assemble("Austin vs Texas", record)
-    assert [item.code for item in response.warnings] == []
+    assert [item.code for item in response.warnings] == ["shared_sample"]
 
 
 async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:

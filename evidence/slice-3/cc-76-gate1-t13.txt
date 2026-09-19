@@ -1,0 +1,57 @@
+CC-76 Gate 1 — T13 listing rewrite and ACS1 URL rebuild
+
+finish rewrites `by census tract in <county>` to `every tract in <county>`
+so resolve_geography builds tract:*; ACS1 questions replace an existing
+ACS5 URL; boundary_change_2020 no longer infers tract from question text
+when the fetch is still county.
+
+========== restored tree ==========
+$ uv run pytest api/tests/test_ask_loop.py api/tests/test_guards.py -q
+........................................................................ [ 59%]
+..................................................                       [100%]
+122 passed in 3.53s
+exit: 0
+
+===== MUTATION: by-tract-in-county keeps the original resolve query =====
+test: test_tract_in_county_listing_replaces_a_county_url
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'tract:*' in 'https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=county:163&in=state:26'
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:382: AssertionError: assert 'tract:*' in 'https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=county:163&in=state:26'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_tract_in_county_listing_replaces_a_county_url
+1 failed in 0.68s
+exit: 1
+
+===== MUTATION: ACS1 redo only when URL is missing =====
+test: test_acs1_year_span_replaces_an_acs5_url
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '/acs/acs1' in 'https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06'
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:438: AssertionError: assert '/acs/acs1' in 'https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:019&in=state:06'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+1 failed in 0.56s
+exit: 1
+
+===== MUTATION: boundary_change infers tract wording on a county fetch =====
+test: test_county_series_crossing_2020_does_not_warn_boundary
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'boundary_change_2020' not in ['boundary_change_2020']
+     +  where ['boundary_change_2020'] = _codes(ExecutionRecord(pool=[], geography=None, geographies=[GeoSpec(level='county', name='Wayne County', geoid='', for_spec=...ns=[], dataset='acs5', acs1_ineligible=False), allow_overlapping_acs5=False, table_facts=None, published_vintages=None))
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:1060: AssertionError: assert 'boundary_change_2020' not in ['boundary_change_2020']
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_county_series_crossing_2020_does_not_warn_boundary
+1 failed in 0.25s
+exit: 1
+
+===== summary =====
+mutations GOOD: 3
+mutations BAD: 0

@@ -1,0 +1,21 @@
+CC-76 Gate 1 — keep the named state on a by-tract-in-county rewrite
+
+_listing_query keeps ', North Carolina' (or another state) and still stops
+before a year so T13 does not swallow ', 2018'.
+
+===== MUTATION: by-tract-in-county cuts at the first comma =====
+test: test_tract_in_named_state_keeps_that_county
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'state:37' in 'https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=tract:*&in=state:26+county:163'
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:414: AssertionError: assert 'state:37' in 'https://api.census.gov/data/2018/acs/acs5?get=NAME,GEO_ID,B28002_001E,B28002_001M&for=tract:*&in=state:26+county:163'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_tract_in_named_state_keeps_that_county
+1 failed in 0.60s
+exit: 1
+
+===== summary =====
+mutations GOOD: 1
+mutations BAD: 0

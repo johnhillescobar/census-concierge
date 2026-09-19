@@ -109,6 +109,7 @@ Across geographies:
 | `geography_not_nested` | The requested containment is not expressible — tracts nest in counties, not places; a ZIP overlaps a city rather than sitting inside it. Splitting one needs block-level areal allocation, which is out of scope. |
 | `median_not_aggregatable` | Medians cannot be combined across areas by any weighting. Decline the computation rather than produce a plausible wrong number. |
 | `moe_aggregation_degraded` | Estimates sum; MOEs do not. `sqrt(Σ MOEᵢ²)` is an approximation that degrades past a handful of areas. |
+| `shared_sample` | Place-vs-parent (and other nested pairs) share ACS sample; independent `MOE_diff` overstates variance. Note it. |
 
 **A silently short series is the same failure as a wrong one.** When years,
 geographies, or variables are dropped, the response says which and why.
