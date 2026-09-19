@@ -340,6 +340,7 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                     "universe": "Civilian noninstitutionalized population",
                     "variables": ["001E"],
                 },
+                "B28002": {"universe": "Households", "variables": ["001E"]},
             }
         }
     }

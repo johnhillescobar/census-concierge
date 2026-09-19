@@ -111,14 +111,6 @@ def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
         prefixes = {str(row.get("GEO_ID") or "")[:3] for row in record.rows}
         level = "tract" if "140" in prefixes else "block group" if "150" in prefixes else ""
     if not level:
-        hosted = {spec.level for spec in record.geographies}
-        if hosted and hosted <= {"county", "place", "state", "us"}:
-            text = str(getattr(record, "question", "") or "")
-            if re.search(r"\bblock groups?\b", text, re.I):
-                level = "block group"
-            elif re.search(r"\b(?:census\s+)?tracts?\b", text, re.I):
-                level = "tract"
-    if not level:
         return None
     artifact = getattr(record, "fetch", None)
     years = [

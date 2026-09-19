@@ -40,8 +40,8 @@ emits `shared_sample`; `urls[]` is the built URL when every vintage is omitted;
 if the model stops without a URL, or resolved a coarser geography than a tract
 or block-group listing / versus pair / parentless tract pair, the loop finishes
 search, resolve, build, and fetch unless containment is `geography_not_nested`;
-a tract or block-group *question* whose years cross 2020 emits
-`boundary_change_2020` even when the fetch landed at county; `make demo` includes
+`by census tract in <county>` is finished as `tract:*` in that county so
+`boundary_change_2020` names tract polygons actually fetched; `make demo` includes
 the golden set except holdout.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;

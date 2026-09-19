@@ -20,6 +20,10 @@ _LISTING = re.compile(
     r"\b(?:census\s+)?(block groups?|tracts?)\s+(?:within|inside)\b",
     re.I,
 )
+_BY_COUNTY = re.compile(
+    r"\bby\s+(?:census\s+)?(block groups?|tracts?)\s+in\s+([^,]*\bcount(?:y|ies)\b)",
+    re.I,
+)
 
 
 def _latest(record: Any) -> int:
@@ -33,11 +37,18 @@ def _latest(record: Any) -> int:
 
 
 def _listing_level(question: str) -> str | None:
-    match = _LISTING.search(question)
+    match = _LISTING.search(question) or _BY_COUNTY.search(question)
     if not match:
         return None
     raw = next((group for group in match.groups() if group), "")
     return "block group" if raw.casefold().startswith("block") else "tract"
+
+
+def _listing_query(question: str) -> str:
+    match = _BY_COUNTY.search(question)
+    if not match:
+        return question
+    return f"every {match.group(1)} in {match.group(2).strip()}"
 
 
 def _wrong_listing(record: Any, question: str) -> bool:
@@ -74,10 +85,11 @@ async def finish_tools(
     record.consecutive_failures.clear()
     year = _latest(record)
     geo = tools.get("resolve_geography")
+    url = getattr(record, "url", None)
     redo = _wrong_listing(record, question) or _wrong_versus(record, question)
     redo = redo or _wrong_parentless(record, question, year)
-    redo = redo or bool(wants_acs1(question) and not getattr(record, "url", None))
-    if not getattr(record, "url", None) or redo:
+    redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
+    if not url or redo:
         pin = pinned_table(question)
         search = tools.get("search_tables")
         if search is not None and (
@@ -86,7 +98,7 @@ async def finish_tools(
         ):
             await dispatch(search, {"id": "search_tables", "args": {"question": question}}, record)
         if geo is not None and (redo or not record.geographies):
-            args: dict[str, Any] = {"query": question}
+            args: dict[str, Any] = {"query": _listing_query(question)}
             if wants_acs1(question):
                 args["dataset"] = "acs1"
             await dispatch(geo, {"id": "resolve_geography", "args": args}, record)

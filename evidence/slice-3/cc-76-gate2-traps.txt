@@ -1,0 +1,231 @@
+CC-76 Gate 2 -- cold review of origin/main...HEAD after 25b79c8
+branch: feat/cc-76-significance
+HEAD: 25b79c8735ced788fceca67834f69efb9cfb51a0
+latest: 25b79c8 re-resolve listings/versus/parentless/ACS1; boundary_change from tract wording on a county fetch; poverty/uninsured pins
+implement: 166e701
+base: origin/main (4391323282a8fe39902f2a2bca0f8ca14cd351fd)
+review surface: git diff origin/main...HEAD
+E2E / make demo / make eval: not this phase
+no commit; no product-source edits; no PR
+
+========== git rev-parse HEAD ==========
+
+25b79c8735ced788fceca67834f69efb9cfb51a0
+
+exit: 0
+
+========== git rev-parse origin/main ==========
+
+4391323282a8fe39902f2a2bca0f8ca14cd351fd
+
+exit: 0
+
+========== git log -1 ==========
+
+commit 25b79c8735ced788fceca67834f69efb9cfb51a0
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Sat Sep 19 14:55:27 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Sat Sep 19 14:55:27 2026 -0500
+
+    fix(compare): re-resolve listings and series traps the model substituted (CC-76)
+    
+    When the model fetched a coarser legal geography, finish now rebuilds tract/block-group listings, versus pairs, parentless tracts, and ACS1 year spans from the original question so t03/t04/t12/t13/t16/t18 can warn without silently substituting.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+exit: 0
+
+========== git log --oneline origin/main..HEAD ==========
+
+25b79c8 fix(compare): re-resolve listings and series traps the model substituted (CC-76)
+62b2d01 evidence(slice-3): record CC-76 demo after miss-fix (answered 0.800)
+b3cf56b docs: record CC-76 Gate 2 after the demo-miss fix
+7a0c245 fix(compare): finish comparisons and illegal listings when the model stops (CC-76)
+ffe648c evidence(slice-3): record CC-76 E2E pre-PR
+04bb7f2 docs: record CC-76 Gate 2 re-run and name YoY as an MOE_diff pair
+6fd7858 fix(compare): leave Comparison.year empty when vintages differ (CC-76)
+9d17179 evidence(slice-3): record CC-76 Gate 2
+6a5f9f1 evidence(slice-3): record CC-76 Gate 1
+166e701 feat(compare): report MOE_diff significance for series and geography pairs (CC-76)
+
+exit: 0
+
+========== git status ==========
+
+On branch feat/cc-76-significance
+Your branch is up to date with 'origin/feat/cc-76-significance'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .vscode/launch.json
+	modified:   README.md
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	docs/DEBUGGING.md
+	evidence/slice-3/_gate2_capture.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+exit: 0
+
+========== git diff --stat origin/main...HEAD ==========
+
+ .claude/DESIGN.md                          |     1 +
+ .claude/PLAN.md                            |     4 +-
+ api/src/ask.py                             |     3 +-
+ api/src/compare.py                         |   195 +
+ api/src/contract.py                        |    24 +-
+ api/src/finish.py                          |   104 +-
+ api/src/geo.py                             |    20 +-
+ api/src/guards.py                          |    63 +-
+ api/src/tools.py                           |     4 +-
+ api/src/vintages.py                        |    55 +
+ api/tests/ask_fixtures.py                  |    56 +
+ api/tests/test_ask_loop.py                 |   297 +-
+ api/tests/test_ask_route.py                |    20 +
+ api/tests/test_ask_tools.py                |    39 +-
+ api/tests/test_demo_harness.py             |    27 +-
+ api/tests/test_generated_client.py         |     1 +
+ api/tests/test_guards.py                   |    99 +-
+ api/tests/test_static_frontend.py          |     1 +
+ api/tests/test_vintages.py                 |    20 +
+ docs/ARCHITECTURE.md                       |    34 +-
+ evals/golden_questions.toml                |     6 +-
+ evidence/latest.json                       |  3216 ++---
+ evidence/slice-3/cc-76-e2e-pre.txt         | 17708 +++++++++++++++++++++++++++
+ evidence/slice-3/cc-76-gate1-fix.txt       |    43 +
+ evidence/slice-3/cc-76-gate1-missfix.txt   |    44 +
+ evidence/slice-3/cc-76-gate1-traps.txt     |    59 +
+ evidence/slice-3/cc-76-gate1.txt           |   281 +
+ evidence/slice-3/cc-76-gate2-missfix.txt   |   248 +
+ evidence/slice-3/cc-76-gate2-rerun.txt     |   292 +
+ evidence/slice-3/cc-76-gate2.txt           |   265 +
+ evidence/slice-3/cc-76-preflight-claims.md |    25 +
+ evidence/slice-3/cc-76-preflight.txt       |    38 +
+ packages/client/openapi.json               |    85 +-
+ packages/client/schema.d.ts                |    65 +-
+ scripts/run_demo.py                        |    11 +-
+ web/src/App.test.tsx                       |     2 +
+ web/src/ask.test.ts                        |     1 +
+ web/src/display.test.ts                    |     1 +
+ 38 files changed, 21786 insertions(+), 1671 deletions(-)
+
+exit: 0
+
+========== git show 25b79c8 --stat ==========
+
+commit 25b79c8735ced788fceca67834f69efb9cfb51a0
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Sat Sep 19 14:55:27 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Sat Sep 19 14:55:27 2026 -0500
+
+    fix(compare): re-resolve listings and series traps the model substituted (CC-76)
+    
+    When the model fetched a coarser legal geography, finish now rebuilds tract/block-group listings, versus pairs, parentless tracts, and ACS1 year spans from the original question so t03/t04/t12/t13/t16/t18 can warn without silently substituting.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ api/src/finish.py                      |  71 ++++++++++++++--
+ api/src/geo.py                         |   4 +-
+ api/src/guards.py                      |   8 ++
+ api/src/vintages.py                    |   8 ++
+ api/tests/ask_fixtures.py              |  20 +++++
+ api/tests/test_ask_loop.py             | 149 ++++++++++++++++++++++++++++++++-
+ api/tests/test_ask_tools.py            |  36 ++++++++
+ api/tests/test_guards.py               |  16 ++++
+ api/tests/test_vintages.py             |   8 ++
+ docs/ARCHITECTURE.md                   |  14 ++--
+ evidence/slice-3/cc-76-gate1-traps.txt |  59 +++++++++++++
+ 11 files changed, 376 insertions(+), 17 deletions(-)
+
+exit: 0
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3789 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1782 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         15.042 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate              0.8 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    budget increases               
+
+All invariants held.
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+[1;32mAll checks passed![0m
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+116 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 89%]
+............................................                             [100%]
+404 passed in 10.76s
+
+exit: 0
+
+========== summary ==========
+
+any_nonzero: 0
+
+machines did not stop the rest of the playbook

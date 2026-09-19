@@ -351,6 +351,38 @@ async def test_every_tract_listing_replaces_a_county_url() -> None:
     assert "tract:*" in response.urls[0]
 
 
+async def test_tract_in_county_listing_replaces_a_county_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    wayne = GeoSpec(
+        level="county",
+        name="Wayne County, Michigan",
+        for_spec="county:163",
+        in_spec="state:26",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = wayne
+    record.geographies = [wayne]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B28002", "universe": "Households", "members": []}]
+    record.table_id = "B28002"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2018/acs/acs1?get=NAME,GEO_ID,B28002_001E,B28002_001M"
+        "&for=county:163&in=state:26"
+    )
+    response = await run_ask(
+        "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B28002"
+    assert response.urls
+    assert "tract:*" in response.urls[0]
+    assert "county:163" in response.urls[0]
+
+
 async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
@@ -363,6 +395,38 @@ async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
         record,
     )
     record.consecutive_failures["build_url"] = 2
+    response = await run_ask(
+        "1-year ACS poverty for Fresno County, 2018 through 2022",
+        complete=_stopped(),
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B17001"
+    assert response.urls
+    assert "/acs/acs1" in response.urls[0]
+    assert "county:019" in response.urls[0]
+
+
+async def test_acs1_year_span_replaces_an_acs5_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    fresno = GeoSpec(
+        level="county",
+        name="Fresno County, California",
+        for_spec="county:019",
+        in_spec="state:06",
+        dataset="acs5",
+        vintage=2024,
+    )
+    record.geography = fresno
+    record.geographies = [fresno]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    record.pool = [{"table_id": "B17001", "universe": "Population", "members": []}]
+    record.table_id = "B17001"
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M"
+        "&for=county:019&in=state:06"
+    )
     response = await run_ask(
         "1-year ACS poverty for Fresno County, 2018 through 2022",
         complete=_stopped(),
