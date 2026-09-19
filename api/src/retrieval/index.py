@@ -34,11 +34,9 @@ SEMANTIC = "semantic.npz"
 # questions.
 #
 # In practice only one ranker runs. Measured 2026-08-14 on the tuning set,
-# equal-weight RRF was worse than embeddings alone on every metric —
-# @1 40% -> 28%, @5 80% -> 68% — because BM25 (@1 18%) is not close enough in
-# strength to earn an equal vote. BM25 stays built: it is what answers a query
-# that names a table ID or a rare category verbatim, which this question set
-# does not test and real users will type.
+# equal-weight RRF was worse than embeddings alone on every metric.
+# BM25 stays built and unused while semantic.npz exists. Verbatim table-ID
+# queries were never scored. See docs/retrieval.md.
 RRF_K = 60
 
 

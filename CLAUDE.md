@@ -72,9 +72,9 @@ chat. Close with `uv run python scripts/jira_transition.py CC-N --done --comment
 (needs `ATLASSIAN_EMAIL` + `ATLASSIAN_API_TOKEN` in `.env`). Use the script, not IDE
 MCP — same path in Claude Code and Cursor.
 
-Jira owns *open vs done* and the post-merge numbers. `.claude/PLAN.md` STATUS
-is a close pointer (floors, `evidence/slice-<N>/`, epic URL), not an eval ledger.
-Name `CC-N` in commits/PRs; Jira comments link to the PR or `evidence/`.
+Jira owns *open vs done* and the post-merge numbers. `.claude/PLAN.md` is a
+close pointer, not an eval ledger. Board: `docs/slices.md`. Name `CC-N` in
+commits/PRs; Jira comments link to the PR or `evidence/`.
 
 ## Slice workflow
 
@@ -102,12 +102,13 @@ matrix and worked examples: `docs/process-evidence.md`.
 One tool-calling loop. Four to six tools. LangGraph only where durable
 checkpointing and multi-user resumption genuinely require it — not for routing.
 
-Postgres from day one (never SQLite: multi-user). No module-level mutable
-state; pass context as arguments so workers scale horizontally. PDF generation
-is a background job, never a request handler.
+Postgres when persistence lands (slice 5). Never SQLite. No module-level
+mutable state; pass context as arguments. PDF generation is a background job,
+never a request handler.
 
-`docs/ARCHITECTURE.md` is one page and describes the system as it *is*. If you
-change the shape, update it in the same commit.
+`docs/ARCHITECTURE.md` describes the system as it *is*. If you change the
+shape, update it in the same commit. Detail: `docs/ask-path.md`,
+`docs/retrieval.md`, `docs/requirements.md`.
 
 ## Environment
 

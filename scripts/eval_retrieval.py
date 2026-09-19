@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 """Retrieval scoreboard: can we find the right table for a question?
 
-This is slice 0's only metric. It runs without an agent, without FastAPI and
-without a frontend, so you learn whether the product is possible in week one
-rather than month four.
+Gated numbers: long-tail retriever @10 and selector @1 (with --rerank).
+Needs OPENAI_API_KEY to embed queries against a semantic index.
+`--rerank` also needs GEMINI_API_KEY. A BM25-only index scores without keys.
 
     python scripts/eval_retrieval.py
     python scripts/eval_retrieval.py --tier long_tail
     python scripts/eval_retrieval.py --verbose
-
-Needs OPENAI_API_KEY once the index has a semantic layer — the question has to
-be embedded with the same model the documents were. A BM25-only index scores
-without any key.
 
 Writes evidence/latest.json, which check_budgets.py reads.
 """

@@ -1,4 +1,4 @@
-"""The ask loop: call_model() then dispatch(), no graph.
+"""The ask loop: _openai_complete() then dispatch(), no graph.
 
 Tools are constructed per request and handed an ExecutionRecord. That is
 per-request state, not a module global.

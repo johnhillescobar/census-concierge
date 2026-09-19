@@ -18,8 +18,8 @@ doc_lines            = 1800   # PRESCRIPTIVE docs only: CLAUDE.md, DESIGN,
                               # .claude/skills, docs/playbooks. These are
                               # instructions an agent must hold in context, and
                               # more of them means less of them gets followed.
-                              # Currently ~1780 — near the cap on purpose: a new
-                              # rule should cost an old one.
+                              # Currently ~1235 — room after catalogs moved to
+                              # docs/ (requirements, retrieval, slices, ask-path).
                               # NOT counted: docs/ARCHITECTURE.md, which
                               # describes what exists and must grow with the
                               # system, and the frozen ideation transcript.
@@ -66,7 +66,7 @@ p95_latency_seconds  = 20.0   # golden suite, measured by `make demo`
 # Floors, not ceilings: these may only be RAISED, and only by evidence.
 #
 # Slice 0 is a two-stage pipeline: search() retrieves a candidate pool; the
-# selector (rerank.py today, the agent in slice 1) picks one table from it.
+# selector (rerank.py, wired into search_tables — CC-54) picks one table from it.
 # Gating a single bi-encoder @1 conflated the stages and blocked slice 0 while
 # the pipeline was already above floor on the metric that matches the product.
 retrieval_at_10_min  = 0.90   # retriever: expected table in raw top-10, long_tail

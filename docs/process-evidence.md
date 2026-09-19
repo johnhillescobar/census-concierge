@@ -80,9 +80,10 @@ the defects a Gate 1 probe would target.
 - **RRF fusion measured worse, not better.** The slice-0 plan prescribed BM25 +
   embedding fusion. Equal-weight RRF scored below embeddings alone on every metric
   (@1 0.40 -> 0.28, @5 0.80 -> 0.68). BM25 at @1 0.18 is not strong enough to earn
-  an equal vote, and any weight is fitted to 40 questions. BM25 stays built and is
-  what answers a query naming a table ID verbatim, which the eval set never does.
-  *Backs the "ranking change measured on the tuning set alone" row.*
+  an equal vote, and any weight is fitted to 40 questions. BM25 stays built and
+  unused by `search()` while embeddings exist. Verbatim table-ID queries were
+  never scored — `docs/retrieval.md`. *Backs the "ranking change measured on the
+  tuning set alone" row.*
 - **Synthetic questions measured worse, not better.** The plan expected "the
   largest jump" here; it was the largest drop (@1 0.40 -> 0.25, MRR 0.55 -> 0.47).
   Six generic ways of asking about a table describe its topic while blurring what

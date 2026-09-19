@@ -23,9 +23,8 @@ The model stops by emitting text — there is no `finish` tool.
 ## The loop is ours
 
 `langchain_core.tools` is allowed. **`langchain.agents`, `create_agent` and
-`AgentExecutor` are not.** At four tools the loop is ~120 lines you can read in
-one screen, and the predecessor's central problem was that nobody could see what
-the agent did.
+`AgentExecutor` are not.** The loop lives in `ask.py` so you can read what the
+agent did. The predecessor's central problem was that nobody could.
 
 `convert_to_openai_tool(tool)` gives the provider schema; `await
 tool.ainvoke(args)` validates against `args_schema` and runs `_arun`. Schema
@@ -41,7 +40,7 @@ Every cross-cutting concern belongs in one of two functions:
 
 | | wraps every | does |
 |---|---|---|
-| `call_model()` | LLM call | budget check **before** the call, token/cost accounting after, span, retry config |
+| `_openai_complete()` | LLM call | budget check **before** the call, token/cost accounting after, span, retry config |
 | `dispatch(tool_call)` | tool call | arg validation, span, timing, contained failure, artifact capture |
 
 That is the middleware. Do not build a hook registry, a pipeline, or an
@@ -93,7 +92,7 @@ domain vocabulary, and it keeps tool schemas out of the 15-model domain budget.
 ```python
 class SearchTablesInput(ToolInput):
     question: str = Field(description="The user's question, verbatim.")
-    k: int = Field(default=5, ge=1, le=20)
+    k: int = Field(default=10, ge=1, le=20)
 
 class SearchTablesTool(BaseTool):
     name: str = "search_tables"
@@ -202,8 +201,8 @@ sites. Prompt sprawl was a symptom of the graph.
 
 A fact in the prompt cannot be tested, cannot be versioned against evidence, and
 degrades silently when the model changes. What is left is small: the role, loop
-policy (when to search, fetch, `finish`), the ambiguity rule (candidates as
-results, never a blocking question), and the `finish` payload shape.
+policy (search, resolve, build, fetch; stop on text — no `finish` tool), and
+the ambiguity rule (candidates as results, never a blocking question).
 
 ### The test for a line
 
@@ -262,9 +261,8 @@ behind it.
 runtime. Generated PDFs go to object storage and come back as signed URLs.
 Writing to local disk works on your laptop and fails in production.
 
-Tracing is **Langfuse**, instrumented by hand in `call_model()` and `dispatch()`
-— not LangSmith, whose only advantage was auto-instrumentation we gave up when
-we took the loop.
+Tracing is **Langfuse at slice 8 (CC-48)**, by hand in `_openai_complete` and
+`dispatch` — not LangSmith. Do not add it early.
 
 ## Pydantic and DTOs
 
@@ -309,4 +307,4 @@ greppable call. The predecessor redacted "at the boundary", which is correct
 only for as long as every path goes through that boundary — and paths get added.
 
 - The LLM emits a `ChartSpec`. It never emits chart code, SVG, or SQL.
-- Per-user spend cap on model calls, enforced in `call_model()`.
+- Per-user spend cap on model calls, enforced in `_openai_complete()` (slice 8).

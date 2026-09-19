@@ -1,345 +1,110 @@
 # DESIGN — census-concierge
 
-The durable "what and why". If a decision here is reversed, edit this file in
-the same commit and say why. `PLAN.md` holds the "when and in what order".
+The durable "what and why". Reverse a decision here in the same commit and say
+why. Order: `.claude/PLAN.md`. What runs: `docs/ARCHITECTURE.md`. Contract and
+guards: `docs/requirements.md`.
 
 ---
 
 ## 1. Product
 
-A conversational concierge for the Census table ecosystem.
+A conversational concierge for the Census table ecosystem. A user asks in plain
+language. The agent finds the right table — **especially one they have never
+used** — and returns a natural-language answer, a working table or chart, and
+the exact Census API URL. A session exports as a PDF with every URL.
 
-A user asks in plain language. The agent finds the right table — **especially
-one the user has never used** — pulls the data, and returns three things
-together: a natural-language answer, a working table or chart, and the exact
-Census API URL that produced it. At the end of a session the whole conversation
-exports as a PDF with a table of contents, a summary, the tables, the
-visualizations, and every API URL.
+Two panes: chat, and a canvas of tables and charts.
 
-Two panes: chat on one side, a canvas of tables and charts on the other.
+## 2. The failure this project exists to avoid
 
-## 2. The failure this project is designed to avoid
+A predecessor reached 38,184 lines across 116 files, a 14-node LangGraph, 43
+files of clarification, and 75–207 seconds to answer *"population of New York
+City"*, wrong one run in three. Retrieval was faked with `B01003` for any
+input. The API URL was a truncated stub and never shown.
 
-A predecessor (`census_tool`) reached:
+**Root cause: the only signal was "tests pass".** An agent maximizes whatever
+signal exists. Section 8 is the replacement signal.
 
-- 38,184 lines of Python across 116 source files
-- ~100 test files, a 14-node LangGraph with 10 conditional-edge blocks
-- 43 of 125 source files touching a clarification subsystem
-- 8 separate validation modules that nobody decided to build
-- 75–207 seconds to answer *"What's the population of New York City?"*, wrong
-  one run in three
+## 3. Users
 
-Its retrieval was faked in tests by a stub returning `B01003` for any input, so
-a broken retriever stayed hidden for months. The API URL — the headline feature
-— was built as a truncated stub missing variables and geography, and never
-rendered anywhere a user could see it.
+GIS professionals and non-profit researchers. Expert in a handful of tables,
+lost in the other thousand. Consequences:
 
-**Root cause: the only feedback signal was "tests pass", so that is what got
-optimized.** An AI coding agent maximizes whatever signal exists. Everything in
-section 8 follows from this.
+1. **Discovery is the product.** Effort belongs in the index and its eval.
+2. **No blocking clarification.** Candidates are results plus an editable plan strip.
+3. **Always show alternatives.** That is the concierge value.
+4. **No silent wrong answers.** Universe errors and missing MOEs destroy trust.
 
-## 3. Users, and what follows
+## 4. Requirements
 
-GIS professionals, non-profit researchers, and others who work with Census data
-regularly. Initially ~10 known users; more if it proves out.
+Every response ships URL (even on fetch failure), MOE, GEOID, universe, and
+alternatives. Guards warn and still ship; none block. Full catalog:
+`docs/requirements.md`.
 
-They are **expert in a narrow subset of tables and lost in the other thousand.**
-Someone who knows income tables cold may never have touched housing, commuting,
-or disability tables, and may not know the subject tables exist.
+## 5. Architecture (intent)
 
-Four consequences:
+Monorepo: `api/` (Python 3.12), `web/` (React + TypeScript), generated
+`packages/client/` (CI fails on drift). One tool-calling loop, four to six
+tools. LangGraph only for durable checkpointing if the CC-9 spike says so —
+never for routing.
 
-1. **Discovery is the product.** Retrieval quality is not a supporting concern;
-   it is the thing being sold. Engineering effort belongs in index construction
-   and retrieval evaluation, not orchestration.
-2. **No blocking clarification questions.** A user who does not know the
-   ecosystem *cannot answer* "which table did you mean?" Show candidates as
-   results with an editable plan strip instead.
-3. **Show alternatives, always.** Related and adjacent tables are the concierge
-   value, and they teach the ecosystem one answer at a time.
-4. **They will not tolerate silent wrong answers.** Universe errors and missing
-   margins of error destroy trust permanently with this audience.
+Postgres when persistence lands (slice 5 / CC-6). **Never SQLite.** No
+module-level mutable state except the read-only index. PDF is a background job,
+never a request handler. The LLM emits a `ChartSpec`; the frontend renders.
+Auth is bought (Clerk, slice 8). Tracing is Langfuse at slice 8 (CC-48), by
+hand in the complete/dispatch choke points — not LangSmith.
 
-## 4. Non-negotiables in every response
+One container: FastAPI serves the API and the built frontend, pinned index
+baked in, managed Postgres, object storage for PDFs. The index is a GitHub
+Release asset, never built during `docker build`. The container filesystem is
+ephemeral.
 
-| | why |
-|---|---|
-| **Full API URL** | The product. Variables, geography, vintage. Rendered even when the fetch fails or the agent is unsure — a wrong URL is fixable in ten seconds, wrong prose is not. |
-| **Margins of error** | Fetch `M` beside every `E`. ACS estimates without MOE are professionally useless to a researcher; small-geography MOEs routinely swamp the differences people want to compare. |
-| **GEOID** | They join to TIGER shapefiles. Place names do not join. |
-| **Universe** | "Households" vs "families" vs "population" vs "housing units" is the most common silent wrong answer in Census work. |
-| **Alternatives** | Related tables, with the reason they differ. |
+## 6. Retrieval
 
-### Guards
+Census titles have no overlap with how people ask (`bike to work` → B08301).
+Index **universe + title + concept**. Synthetics are generated and committed,
+not embedded. `search()` ranks embeddings; BM25 is built, not fused, and is
+not a live query path. Variable-level *fetch* is CC-77, not the index.
 
-Conditions the agent must **raise rather than answer through**. Every one of
-them fails silently by default: the answer looks right, charts cleanly, and is
-wrong. Each has a warning code, each has a trap question in
-`evals/golden_questions.toml`, and **none of them blocks** — the answer still
-ships, with the warning attached and the user free to override.
+Two layers: a vintage-agnostic semantic index over the union of table IDs, and
+a per-vintage availability matrix (`index_store/availability.json.gz`). No
+vector database — numpy `.npz` at this scale.
 
-Shipping in **slice 1**:
+Measured corrections (ladder + encoder sweep): `docs/retrieval.md`.
+What moved `@1` was corpus structure (1,458 → 636 family documents), not RRF
+and not synthetic-in-the-vector.
 
-| code | condition |
-|---|---|
-| `overlapping_vintage` | ACS5 periods sharing sample years (2015–2019 vs 2018–2022) are not comparable. Warn; never silently chart. |
-| `moe_not_significant` | Differences inside the margin of error are reported as indistinguishable, not ranked. |
-| `geography_unsupported` | A table not published at the requested level is said plainly, never silently substituted. |
-| `ambiguous_place` | "Springfield" returns the candidates **as results**. Never a blocking question — a user who does not know the ecosystem cannot answer one. |
-| `universe_mismatch` | A question crossing households × families × population × housing units surfaces the conflict instead of picking one. |
-
-Added in **slice 3** (series and comparisons). These are standard questions for
-this audience, and every failure in them is silent.
-
-Across years:
-
-| code | condition |
-|---|---|
-| `measure_unavailable` | The Census does not measure it at all. Say so, then offer the nearest real thing and name its universe. |
-| `acs1_geography_ineligible` | ACS1 is published only for places of 65,000+, so no annual series exists for smaller geographies. |
-| `vintage_gap_2020` | The standard 2020 ACS1 release was never issued. Show a gap; never interpolate or bridge. |
-| `boundary_change_2020` | Tract and block-group geometry was redrawn; a series crossing 2020 compares different polygons. |
-| `variable_not_in_vintage` | A variable absent — or present but redefined — in part of the requested range. The redefined case is the dangerous one. |
-
-Across geographies:
-
-| code | condition |
-|---|---|
-| `zcta_not_zip` | ZIP codes are USPS delivery routes; ZCTAs are block-built approximations. ~10% of ZIPs have no ZCTA, ZCTAs nest in nothing, and ACS1 does not publish them. |
-| `geography_not_nested` | The requested containment is not expressible — tracts nest in counties, not places; a ZIP overlaps a city rather than sitting inside it. Splitting one needs block-level areal allocation, which is out of scope. |
-| `median_not_aggregatable` | Medians cannot be combined across areas by any weighting. Decline the computation rather than produce a plausible wrong number. |
-| `moe_aggregation_degraded` | Estimates sum; MOEs do not. `sqrt(Σ MOEᵢ²)` is an approximation that degrades past a handful of areas. |
-| `shared_sample` | Place-vs-parent (and other nested pairs) share ACS sample; independent `MOE_diff` overstates variance. Note it. |
-
-**A silently short series is the same failure as a wrong one.** When years,
-geographies, or variables are dropped, the response says which and why.
-
-## 5. Architecture
-
-**Monorepo.** Two repos for one developer buys nothing and costs version skew,
-two CI configs, and contract drift.
-
-```
-api/                FastAPI + agent (Python 3.12)
-web/                React + TypeScript
-packages/client/    generated from the OpenAPI schema
-evals/              golden_questions.toml — the specification
-scripts/            check_budgets.py, eval_retrieval.py, run_demo.py
-evidence/           latest.json — what the last run measured
-docs/ARCHITECTURE.md   one page, the system as it IS
-budgets.toml        enforced complexity limits
-```
-
-CI regenerates the TypeScript client from FastAPI's OpenAPI schema and **fails
-if it differs from the committed copy.** A breaking API change therefore cannot
-merge without its frontend change in the same commit.
-
-**Agent shape: one tool-calling loop, four to six tools.** LangGraph only where
-durable checkpointing and multi-user resumption genuinely require it — never for
-routing. Routing branches are the mechanism by which the predecessor grew to 14
-nodes.
-
-**Concurrency.** Postgres from day one, never SQLite. `thread_id` per
-conversation. No module-level mutable state; context is passed as arguments so
-workers scale horizontally. Per-user spend cap from the first deployed slice.
-
-**PDF is a background job.** `POST /reports` → job id → poll or SSE. Never a
-request handler; generation takes tens of seconds and blocks a worker.
-
-**Charts: the LLM emits a `ChartSpec`, the frontend renders it.** Never chart
-code, never SVG — unreviewable, unverifiable, and a security problem once hosted.
-
-**Auth is bought, not built.** Clerk / Auth0 / Supabase. At ~10 users this is an
-afternoon.
-
-**Observability: Langfuse.** *(Changed 2026-08-13 — this said LangSmith, whose
-only stated advantage was being "an env var away with LangChain/LangGraph." That
-argument died when we chose to own the loop.)* With manual instrumentation as
-the baseline either way, Langfuse's SDK is the nicer one to write by hand, and
-it links traces to prompt versions — which pairs directly with `prompt_hash`.
-About twenty lines, inside `call_model()` and `dispatch()`, which are already
-the choke points.
-
-**Deployment: one container.** FastAPI serves the API *and* the built frontend
-as static files, on Render (Fly.io is an equal substitute), with that provider's
-managed Postgres. One deployable, one domain, no CORS, no second host — at ten
-users a separate CDN for the frontend buys nothing and costs a pipeline. Auth is
-Clerk: unlike an edge allowlist it survives the move to public signup. Running
-cost ~$25–40/month plus model usage.
-
-```
-                     ┌── Clerk (JWT) ──┐
-  browser ── TLS ──▶ one container ─────▶ managed Postgres
-                     FastAPI
-                     + static frontend
-                     + baked index
-                          ├──▶ object storage (PDFs)
-                          └──▶ api.census.gov · OpenAI
-```
-
-**The index ships as a pinned artifact.** A manually-triggered GitHub Actions
-workflow builds it and publishes a versioned Release asset; the Dockerfile
-downloads that exact version. It is never built during `docker build` — that
-would need an API key at build time and make images nondeterministic. This is
-what makes `index_hash` operationally real: the hash in `evidence/latest.json`
-corresponds to a release tag you can point at.
-
-**The container filesystem is ephemeral.** Nothing durable is written to disk at
-runtime. Generated PDFs go to object storage and come back as signed URLs.
-
-## 6. Retrieval design — the core
-
-Semantic search over table titles alone will not work. Census titles are terse
-jargon (`MEDIAN HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2023
-INFLATION-ADJUSTED DOLLARS)`) and nobody types that. The gap is real:
-
-```
-"how many people bike to work"  ->  B08301  MEANS OF TRANSPORTATION TO WORK
-"worst broadband access"        ->  B28002  PRESENCE AND TYPES OF INTERNET
-                                            SUBSCRIPTIONS IN HOUSEHOLD
-```
-
-Zero lexical overlap in either case. Four requirements:
-
-1. **Index the universe**, not just the title. It is both a retrieval signal and
-   a required display field.
-2. **Index at variable level as well as table level.** Users want one line
-   inside a large cross-tab they would never find by table name.
-3. **Generate synthetic questions at index time.** For each table, have an LLM
-   write 5–10 questions it answers. Generated and committed; **not** embedded —
-   folding them in hurt golden `@1`. Alignment scoring catches off-topic generation.
-4. **Hybrid search.** Lexical (BM25) for exact IDs and jargon, embeddings for
-   semantics. Users will type both `B19013` and "gross rent as a percentage of
-   income". `search()` ranks on embeddings; BM25 is built and unused except
-   verbatim table-ID queries. Equal-weight RRF scored below embeddings alone.
-
-### Two layers, because questions span 2016 → latest
-
-A table's *meaning* is stable across vintages; its *availability and definition*
-are not. Those are different data structures, and conflating them means either
-one index per vintage (nine times the embedding and LLM cost) or silently wrong
-answers about what existed when.
-
-- **Semantic layer — vintage-agnostic, built once**, over the union of table IDs
-  across all vintages so discontinued tables stay findable. Vintage tokens are
-  normalized out of the indexed text: `(IN 2023 INFLATION-ADJUSTED DOLLARS)` is
-  noise that pollutes embeddings and gives BM25 a year to match on.
-- **Availability matrix — per vintage.** `(dataset, vintage, table_id,
-  variable_id) -> exists`, plus universe. A lookup, not a search. This is what
-  lets `variable_not_in_vintage` and `acs1_geography_ineligible` join on facts
-  rather than expecting the model to remember when the computer tables were
-  reworked.
-
-### No vector database
-
-~1,300 table groups is ~8 MB of embeddings; brute-force cosine over 30k vectors
-runs in single-digit milliseconds. numpy `.npz` + BM25, loaded at startup. Chroma,
-FAISS and pgvector are all a service, a dependency and a class of bugs bought for
-nothing at this scale. Revisit if decennial or PUMS land.
-
-**The index is a build artifact, not runtime state** — built offline by a script
-that needs an API key and ~1,300 LLM calls, then served read-only and baked into
-the container image. Not object storage, not a shared database. The operational
-argument is that ACS refreshes annually and deploys are more frequent; the
-decisive argument is that `evidence/latest.json` records a score for a *specific*
-index, so an index that can change under a running deployment makes the
-scoreboard describe something that is no longer running.
-
-### Corrections, measured 2026-08-14 (slice 0)
-
-Full ladder in `evidence/retrieval_steps.md`. Three claims above did not survive
-contact with the corpus:
-
-- **~~Fuse BM25 and embeddings with RRF~~.** Equal-weight RRF scored below
-  embeddings alone on every metric. `search()` ranks on embeddings; BM25 is
-  built and unused, kept for verbatim table-ID queries.
-- **~~Synthetic questions are the largest jump~~.** They were the largest drop
-  (`@1` 40%→25%). Generated and committed; not fed to the embedding.
-- **What worked was corpus structure, not ranking.** One document per table
-  family, no survey-quality tables, and no `C` table identical to its `B`:
-  1,458 documents → 636. Every step reads the table ID, which is the most
-  informative field in this corpus.
-
-### The metric
-
-The slice-0 gate is two-stage on `long_tail`: retriever `@10` (expected table in
-the raw pool) and selector `@1` (generative pick from that pool). Raw cosine
-`@1` is recorded, not gated — the agent does not take the top hit. The number
-that matters once an agent exists is `answered_rate`.
-
-`@5` and MRR are diagnostics, and the gap between them is informative:
-
-- **@10 low** → the index is broken; the table is not findable at all.
-- **@10 high, selector `@1` low** → selection problem. Cheaper than a new encoder.
-
-### Why the eval set is deliberately long-tail
-
-> A question belongs in the eval set if **the user could not already answer it
-> themselves.** If they know the table is B19013, they do not need this product.
-
-Easy questions score well and measure nothing — a retriever that nails
-"population of Harris County" and misses the two examples above would score 100%
-on a core-only set and be useless. That is the `B01003`-stub failure with extra
-steps.
-
-`evals/golden_questions.toml` is tiered `core` / `long_tail` / `trap`.
-**`long_tail` is the number on the scoreboard.** Building the set, in order of
-value: ask real census nerds for the last ten questions they struggled with;
-sample programmatically across topic prefixes; and use the heuristic *if you had
-to look up the table ID, it belongs in the long tail.*
+Gate: long-tail retriever `@10` and selector `@1`. `answered_rate` is the
+number once an agent exists. `long_tail` is the scoreboard; `core` proves
+nothing.
 
 ## 7. Deliberately not building
 
 | | until |
 |---|---|
-| Clarification subsystem | the demo suite proves specific questions need it |
-| Gazetteer / geocoder module | ranked NAME listing (CC-54) and plan-strip override (CC-37) still fail a golden question. Census `onelineaddress` matches zero county names (CC-23). |
-| A fifth agent tool | a question in `golden_questions.toml` fails because no existing tool can do X. Years are a parameter (slice 3 / CC-28), not a tool. |
+| Clarification subsystem | the demo suite names the questions that need it |
+| Gazetteer | CC-55: NAME ranking (CC-54) and plan strip (CC-37) still fail a golden question |
+| A fifth tool | CC-56: a golden question fails because no existing tool can do X |
 | Graph nodes for branching | never |
 | Typed contracts at every boundary | a real bug demands one |
-| Caching, queues, horizontal scaling | someone complains |
-| Multi-repo split | a second team exists |
-| PUMS, LEHD, CBP, decennial beyond basics | ACS works end to end |
+| Caching, queues, a second repo | someone complains / a second team |
+| PUMS, LEHD, CBP, decennial | ACS works end to end |
 
 ## 8. Anti-drift harness
 
-Because the signal is what gets optimized, the signal is a user-value number.
-
-1. **`budgets.toml`, enforced by `scripts/check_budgets.py` in CI.** Caps lines,
-   files, graph nodes, tools, models, dependencies, latency, and floors on
-   retrieval and answered rate. **A coding agent may never raise a budget.**
-   Raising one is a standalone human commit with a written reason in the log at
-   the bottom of that file. This turns invisible growth across fifty PRs into
-   about ten decisions a human made and can read back.
-2. **`make demo` is the definition of done.** Real questions, real APIs, pass
-   rate and p95 latency. Quote the scoreboard in the PR; link the transcript.
-   Green tests are not done; a closed ticket is not done.
-3. **Behavior tests only.** Question in, table and URL out. No assertions on
-   prompt wording or LLM prose. No test named after a ticket. No fake that
-   returns the same table for every input.
-4. **`CLAUDE.md` and `.cursor/rules/` are short and mostly prohibitions**, each
-   one earned by a specific predecessor failure.
-5. **Diff-size tripwire.** A PR touching more than ~15 files is a redesign
-   wearing a feature's clothes. CI says so loudly.
-
-The scaffold started **red**: structural budgets passed and retrieval floors
-failed. You could not reach green by writing code, only by making retrieval work.
+1. `budgets.toml`, enforced in CI. An agent **never** raises a budget.
+2. `make demo` is done. Quote the scoreboard; green tests are not done.
+3. Behavior tests only. No prompt-wording asserts, no ticket-named tests, no
+   fake that returns one table for every input.
+4. `CLAUDE.md` and `.cursor/rules/` stay short, mostly prohibitions.
+5. A PR over ~15 files is a redesign wearing a feature's clothes.
 
 ## 9. Open decisions
 
-- **Canvas model: card stack or living workspace?** Experts refine rather than
-  ask independent questions — *"population by county in Texas"* → *"add median
-  income"* → *"only counties over 100k"*. That is one dataset being iterated,
-  not four cards. Leaning workspace. Affects the state model, so decide before
-  slice 4.
-- ~~**Embedding model and vector store**~~ — **decided 2026-08-14.** No vector
-  store: numpy `.npz` + BM25, baked into the image. `search()` is embeddings
-  only (`text-embedding-3-large`); BM25 unused except verbatim table IDs. See §6.
-- ~~**StateGraph for the agent loop**~~ — **decided 2026-09-12.** The agent is
-  a hand-rolled loop (`call_model()` then `dispatch(tool_call)`), not
-  `create_agent` and not a `StateGraph`. Graph nodes for routing stay banned
-  (§5, §7). Still open, spiked before slice 5 (PLAN): whether LangGraph's
-  Postgres checkpointer can sit under that loop without reintroducing a graph.
-  If it cannot, persist with ~30 lines.
-- ~~**ACS vintages and golden table IDs**~~ — **decided slice 0.** ACS5 and ACS1,
-  2016 through latest (no ACS1 2020). Table IDs verified 2026-08-14.
+- ~~**Canvas model**~~ — **living workspace** (CC-11), not a card stack.
+- ~~**Embedding / vector store**~~ — numpy `.npz`, embeddings-only `search()`.
+  `docs/retrieval.md`.
+- ~~**StateGraph for the loop**~~ — hand-rolled `_openai_complete` then
+  `dispatch`. Still open: CC-9, whether LangGraph's checkpointer can sit under
+  that loop without a graph. If not, ~30 lines.
+- ~~**ACS vintages**~~ — ACS5 and ACS1, 2016 through latest (no ACS1 2020).
