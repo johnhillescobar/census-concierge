@@ -199,14 +199,14 @@ class ResolveGeographyTool(BaseTool):
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
-        packed = parentless_tracts(query, dataset=dataset, year=year) if level is None else None
+        packed = parentless_tracts(query, dataset=dataset, year=year)
         if packed:
             detail, specs = packed
             hit = ResolveGeographyResult(
                 specs=specs, wildcard=False, legal=False, detail=detail, compare=True
             )
             return detail, hit
-        sides = split_versus(query) if level is None else None
+        sides = split_versus(query)
         if sides:
             hits = [(await self._resolve(side, None, dataset, year, entries))[1] for side in sides]
             if all(hit.legal and hit.specs for hit in hits):

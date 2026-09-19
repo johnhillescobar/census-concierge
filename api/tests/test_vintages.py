@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from src.vintages import (
+    HEALTH_TABLE,
+    POVERTY_TABLE,
     REASON_GAP_2020,
     REASON_MAX,
     REASON_OVERLAP,
@@ -11,6 +13,7 @@ from src.vintages import (
     is_series,
     nonoverlapping_acs5,
     period_for,
+    pinned_table,
     plan_years,
     question_years,
     requested_years,
@@ -33,6 +36,11 @@ def test_consecutive_requires_a_dense_span() -> None:
     assert is_series([2018, 2019, 2021, 2022], PUBLISHED) is True
     assert is_series([2018, 2019, 2021, 2022]) is False
     assert is_series([2019, 2022], PUBLISHED) is False
+
+
+def test_poverty_and_uninsured_wording_pin_tables() -> None:
+    assert pinned_table("poverty in Fresno County") == POVERTY_TABLE
+    assert pinned_table("Total population without health insurance") == HEALTH_TABLE
 
 
 def test_from_to_is_a_year_span_hyphen_range_is_not() -> None:

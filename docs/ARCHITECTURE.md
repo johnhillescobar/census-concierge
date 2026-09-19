@@ -27,8 +27,9 @@ years cross 2020 emits `boundary_change_2020` naming the affected periods;
 not match that vintage's availability matrix (`variable_not_in_vintage`, no silent
 join); unpublished and 2020-ACS1 gaps keep their own reason codes; cell-phone
 wording and "households with a computer" pin `B28001` in `search_tables`;
-"median gross rent", "median family income", and "income distribution" pin
-`B25064` / `B19113` / `B19001`; cell-phone wording emits `measure_unavailable`
+"median gross rent", "median family income", "income distribution", "poverty",
+and "without health insurance" pin `B25064` / `B19113` / `B19001` / `B17001` /
+`B27001`; cell-phone wording emits `measure_unavailable`
 and still fetches households with smartphone access; a year question that names
 no place resolves to `us:1`; a geo-less universe trap does too; parentless
 tract-vs-tract fail-closes with `geography_unsupported` plus two candidate specs;
@@ -36,9 +37,12 @@ an illegal listing (block group in a state, tracts in a state) ships a candidate
 wildcard URL rather than an empty `urls[]`; `AskResponse.comparisons[]` carries
 `MOE_diff`, both estimates, both MOEs, and the 90% conclusion; place-vs-parent
 emits `shared_sample`; `urls[]` is the built URL when every vintage is omitted;
-if the model stops without a URL, the loop finishes search, resolve, build, and
-fetch unless containment is `geography_not_nested`; `make demo` includes the
-golden set except holdout.** Retrieval runs
+if the model stops without a URL, or resolved a coarser geography than a tract
+or block-group listing / versus pair / parentless tract pair, the loop finishes
+search, resolve, build, and fetch unless containment is `geography_not_nested`;
+a tract or block-group *question* whose years cross 2020 emits
+`boundary_change_2020` even when the fetch landed at county; `make demo` includes
+the golden set except holdout.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and

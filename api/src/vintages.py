@@ -18,11 +18,15 @@ DEVICE_TABLE = "B28001"
 RENT_TABLE = "B25064"
 FAMILY_INCOME_TABLE = "B19113"
 DISTRIBUTION_TABLE = "B19001"
+POVERTY_TABLE = "B17001"
+HEALTH_TABLE = "B27001"
 _DEVICE = re.compile(r"\b(?:cell phones?|mobile phones?)\b", re.IGNORECASE)
 _COMPUTER = re.compile(r"\bhouseholds with a computer\b", re.IGNORECASE)
 _RENT = re.compile(r"\bmedian gross rent\b", re.IGNORECASE)
 _FAMILY_INCOME = re.compile(r"\bmedian family income\b", re.IGNORECASE)
 _DISTRIBUTION = re.compile(r"\bincome distribution\b", re.IGNORECASE)
+_POVERTY = re.compile(r"\bpoverty\b", re.IGNORECASE)
+_UNINSURED = re.compile(r"\bwithout health insurance\b", re.IGNORECASE)
 _ACS1 = re.compile(r"\b(?:1-year|acs1)\b", re.IGNORECASE)
 _SINCE_WORD = re.compile(r"\bsince\s+(?:19|20)\d{2}\b", re.IGNORECASE)
 _SINCE = re.compile(r"\b(?:since|from|through)\s+((?:19|20)\d{2})\b", re.IGNORECASE)
@@ -97,6 +101,10 @@ def pinned_table(question: str) -> str | None:
         return FAMILY_INCOME_TABLE
     if _DISTRIBUTION.search(question):
         return DISTRIBUTION_TABLE
+    if _POVERTY.search(question):
+        return POVERTY_TABLE
+    if _UNINSURED.search(question):
+        return HEALTH_TABLE
     return None
 
 

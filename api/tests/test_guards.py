@@ -1060,6 +1060,22 @@ def test_county_series_crossing_2020_does_not_warn_boundary() -> None:
     assert "boundary_change_2020" not in _codes(record)
 
 
+def test_tract_wording_warns_boundary_when_the_fetch_is_county() -> None:
+    record = ExecutionRecord(question=T13, table_id="B28002")
+    record.geographies = [
+        GeoSpec(level="county", name="Wayne County", for_spec="county:163", in_spec="state:26")
+    ]
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018, 2019, 2021, 2022],
+        succeeded_years=[2018, 2019, 2021, 2022],
+        omitted_years=[2020],
+        omission_reasons=["vintage_gap_2020"],
+    )
+    assert "boundary_change_2020" in _codes(record)
+
+
 def test_tract_series_entirely_before_or_after_redraw_does_not_warn() -> None:
     before = ExecutionRecord()
     before.geographies = [_wayne_tracts()]

@@ -49,6 +49,8 @@ def _search(question: str, k: int = 10) -> list[str]:
         return ["B19013"][:k]
     if "broadband" in q:
         return ["B28002"][:k]
+    if "health insurance" in q:
+        return ["B27001"][:k]
     if "cell phone" in q or "mobile phone" in q or "households with a computer" in q:
         return ["B28010", "B28003"][:k]
     if "income" in q:
@@ -109,6 +111,11 @@ def _describe(table_id: str) -> dict[str, object] | None:
         "B28010": {
             "title": "Computers in Household",
             "universe": "Households",
+            "members": [],
+        },
+        "B27001": {
+            "title": "Health Insurance Coverage Status by Sex by Age",
+            "universe": "Civilian noninstitutionalized population",
             "members": [],
         },
     }
@@ -177,6 +184,14 @@ def _list_geographies(
             "in": "state:27",
             "geoid": "0500000US27031",
             "population": "5635",
+        },
+        {
+            "name": "Fresno County, California",
+            "level": "county",
+            "for": "county:019",
+            "in": "state:06",
+            "geoid": "0500000US06019",
+            "population": "1017162",
         },
     ]
     if level == "place":
@@ -321,9 +336,14 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 "B19113": {"universe": "Families", "variables": ["001E"]},
                 "B19001": {"universe": "Households", "variables": ["001E"]},
                 "B28001": {"universe": "Households", "variables": ["001E"]},
+                "B27001": {
+                    "universe": "Civilian noninstitutionalized population",
+                    "variables": ["001E"],
+                },
             }
         }
     }
+    facts["acs1"] = facts["acs5"]
 
     return {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
