@@ -163,7 +163,7 @@ and puts AFFGEOID
 published geography). Top-level `geoid` names one geography or is empty.
 `evaluate()` in `guards.py` then attaches DESIGN §4 warnings from the execution
 record: overlapping ACS5 vintages, MOE-indistinguishable differences (same-year
-geography legs on a versus series, not same-place years), illegal
+geography legs on a versus series, and same-place year-over-year), illegal
 geography combinations, several matching places, questions that cross
 universes, combined published medians, RSS MOE over more than five areas,
 ZIP-vs-ZCTA requests, containment Census `for`/`in` grammar cannot express,
