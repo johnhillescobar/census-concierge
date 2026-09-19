@@ -1,0 +1,337 @@
+CC-76 Gate 2 RE-RUN -- cold review of origin/main...HEAD after 0f6dcdc
+branch: feat/cc-76-significance
+HEAD: 0f6dcdcd57f8f540fe5bf8c2f5f9ad9e61c0c3fe
+latest: 0f6dcdc rewrite `by census tract in <county>` to `every tract in <county>`; ACS1 replaces an ACS5 URL; drop boundary_change wording inference
+implement: 166e701
+base: origin/main (4391323282a8fe39902f2a2bca0f8ca14cd351fd)
+review surface: git diff origin/main...HEAD (commits only); especially 0f6dcdc
+working tree at review start: dirty with unrelated .vscode/launch.json, README.md, docs/DEBUGGING.md -- not in this review
+prior Gate 2: evidence/slice-3/cc-76-gate2-traps.txt (HEAD then 25b79c8; verdict not yet)
+Gate 1 T13: evidence/slice-3/cc-76-gate1-t13.txt (3 GOOD / 0 BAD)
+E2E / make demo / make eval: not this phase
+no commit; no product-source edits; no PR
+
+========== git rev-parse HEAD ==========
+
+0f6dcdcd57f8f540fe5bf8c2f5f9ad9e61c0c3fe
+
+exit: 0
+
+========== git rev-parse origin/main ==========
+
+4391323282a8fe39902f2a2bca0f8ca14cd351fd
+
+exit: 0
+
+========== git log -1 ==========
+
+commit 0f6dcdcd57f8f540fe5bf8c2f5f9ad9e61c0c3fe
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Sat Sep 19 15:13:54 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Sat Sep 19 15:13:54 2026 -0500
+
+    fix(compare): rebuild tract listings instead of warning on county GEOIDs (CC-76)
+
+    Gate 2 found boundary_change_2020 claiming tract polygons on a county URL. Rewrite `by census tract in <county>` to a wildcard listing, drop the wording inference, and rebuild ACS1 when the existing URL is still ACS5.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+exit: 0
+
+========== git log --oneline origin/main..HEAD ==========
+
+0f6dcdc fix(compare): rebuild tract listings instead of warning on county GEOIDs (CC-76)
+25b79c8 fix(compare): re-resolve listings and series traps the model substituted (CC-76)
+62b2d01 evidence(slice-3): record CC-76 demo after miss-fix (answered 0.800)
+b3cf56b docs: record CC-76 Gate 2 after the demo-miss fix
+7a0c245 fix(compare): finish comparisons and illegal listings when the model stops (CC-76)
+ffe648c evidence(slice-3): record CC-76 E2E pre-PR
+04bb7f2 docs: record CC-76 Gate 2 re-run and name YoY as an MOE_diff pair
+6fd7858 fix(compare): leave Comparison.year empty when vintages differ (CC-76)
+9d17179 evidence(slice-3): record CC-76 Gate 2
+6a5f9f1 evidence(slice-3): record CC-76 Gate 1
+166e701 feat(compare): report MOE_diff significance for series and geography pairs (CC-76)
+
+exit: 0
+
+========== git status ==========
+
+On branch feat/cc-76-significance
+Your branch is ahead of 'origin/feat/cc-76-significance' by 1 commit.
+
+Changes not staged for commit:
+  modified:   .vscode/launch.json
+  modified:   README.md
+
+Untracked files:
+  docs/DEBUGGING.md
+
+no changes added to commit
+
+exit: 0
+
+========== git diff --stat origin/main...HEAD ==========
+
+ .claude/DESIGN.md                          |     1 +
+ .claude/PLAN.md                            |     4 +-
+ api/src/ask.py                             |     3 +-
+ api/src/compare.py                         |   195 +
+ api/src/contract.py                        |    24 +-
+ api/src/finish.py                          |   116 +-
+ api/src/geo.py                             |    20 +-
+ api/src/guards.py                          |    55 +-
+ api/src/tools.py                           |     4 +-
+ api/src/vintages.py                        |    55 +
+ api/tests/ask_fixtures.py                  |    57 +
+ api/tests/test_ask_loop.py                 |   361 +-
+ api/tests/test_ask_route.py                |    20 +
+ api/tests/test_ask_tools.py                |    39 +-
+ api/tests/test_demo_harness.py             |    27 +-
+ api/tests/test_generated_client.py         |     1 +
+ api/tests/test_guards.py                   |    85 +-
+ api/tests/test_static_frontend.py          |     1 +
+ api/tests/test_vintages.py                 |    20 +
+ docs/ARCHITECTURE.md                       |    34 +-
+ evals/golden_questions.toml                |     6 +-
+ evidence/latest.json                       |  3216 ++---
+ evidence/slice-3/cc-76-e2e-pre.txt         | 17708 +++++++++++++++++++++++++++
+ evidence/slice-3/cc-76-gate1-fix.txt       |    43 +
+ evidence/slice-3/cc-76-gate1-missfix.txt   |    44 +
+ evidence/slice-3/cc-76-gate1-t13.txt       |    57 +
+ evidence/slice-3/cc-76-gate1-traps.txt     |    59 +
+ evidence/slice-3/cc-76-gate1.txt           |   281 +
+ evidence/slice-3/cc-76-gate2-missfix.txt   |   248 +
+ evidence/slice-3/cc-76-gate2-rerun.txt     |   292 +
+ evidence/slice-3/cc-76-gate2-traps.txt     |   231 +
+ evidence/slice-3/cc-76-gate2.txt           |   265 +
+ evidence/slice-3/cc-76-preflight-claims.md |    25 +
+ evidence/slice-3/cc-76-preflight.txt       |    38 +
+ packages/client/openapi.json               |    85 +-
+ packages/client/schema.d.ts                |    65 +-
+ scripts/run_demo.py                        |    11 +-
+ web/src/App.test.tsx                       |     2 +
+ web/src/ask.test.ts                        |     1 +
+ web/src/display.test.ts                    |     1 +
+ 40 files changed, 22128 insertions(+), 1672 deletions(-)
+
+exit: 0
+
+========== git show 0f6dcdc --stat ==========
+
+ api/src/finish.py                      |  20 ++-
+ api/src/guards.py                      |   8 --
+ api/tests/ask_fixtures.py              |   1 +
+ api/tests/test_ask_loop.py             |  64 +++++++++
+ api/tests/test_guards.py               |  18 +--
+ docs/ARCHITECTURE.md                   |   4 +-
+ evidence/slice-3/cc-76-gate1-t13.txt   |  57 ++++++++
+ evidence/slice-3/cc-76-gate2-traps.txt | 231 +++++++++++++++++++++++++++++++++
+ 8 files changed, 372 insertions(+), 31 deletions(-)
+
+exit: 0
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3791 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1782 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         15.042 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate              0.8 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run ruff check . ==========
+
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+
+115 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 71%]
+........................................................................ [ 88%]
+.............................................                            [100%]
+405 passed in 10.25s
+
+exit: 0
+
+========== summary ==========
+
+any_nonzero: 0
+
+machines did not stop the rest of the playbook
+
+========== Gate 2 Pass 1 -- generic bugs / silent-wrong-answer ==========
+cold read of origin/main...HEAD after 0f6dcdc; code only; no implementer chat; no ticket story.
+
+Prior Gate 2 findings re-read on this tree:
+
+1. boundary_change_2020 from tract wording on a county fetch -- closed (0f6dcdc).
+   guards.py no longer searches question text for tract/block-group after GEO_ID prefixes miss.
+   test_county_series_crossing_2020_does_not_warn_boundary now uses T13 on a county GeoSpec
+   and asserts the code is absent. test_tract_wording_warns_boundary_when_the_fetch_is_county
+   is gone.
+2. ACS1 year span left on an ACS5 URL -- closed for the tested path (0f6dcdc).
+   finish_tools redos when wants_acs1 and "/acs/acs1" is not in str(url).
+   test_acs1_year_span_replaces_an_acs5_url asserts the rebuilt URL is ACS1.
+3. T13 county URL in place of tract:* -- closed for T13's exact wording (0f6dcdc).
+   test_tract_in_county_listing_replaces_a_county_url asserts tract:* and county:163.
+
+Pass 1 findings:
+
+1. _listing_query truncates at the comma and throws away the state the question already named.
+   _BY_COUNTY is `by (census )?(block groups?|tracts?) in ([^,]*\bcount(y|ies)\b)`.
+   _listing_query then returns only `every {level} in {county}` and drops the match suffix.
+   `by census tract in Wayne County, North Carolina, 2018 to 2022` becomes
+   `every tract in Wayne County`. resolve_geography lists every Wayne County
+   (state=*) and rank_matches picks Michigan by population (fixture: 1,770,644 vs
+   NC 117,333). The rebuilt URL is tract:* in county:163 / state:26.
+   Worse when the model already had NC: finish re-resolves from the truncated
+   string and replaces a correct county GeoSpec with Michigan tracts.
+   GIS phrasing is `County, ST`. The URL still looks like a tract listing. GEOIDs
+   are the wrong county. That is a silent wrong geography, not a warning.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Wording-based boundary_change_2020 on a county fetch: nothing. The question-text
+  inference is deleted. County specs with T13 in record.question do not warn.
+  Tract/block-group still comes from GeoSpec.level, for_spec, or GEO_ID 140/150.
+- T13 exact wording left on county:*: nothing. `_BY_COUNTY` matches T13
+  (`by census tract in Wayne County, 2018 to 2022`); rewrite is `every tract in
+  Wayne County`; fixture rank picks Michigan; URL has tract:* and county:163.
+- ACS5 URL left in place for a 1-year/acs1 question: nothing on the tested path.
+  wants_acs1 plus `/acs/acs1` not in str(CensusURL) redos resolve/build. CensusURL
+  __str__ keeps the path, so the substring sees the dataset.
+- Key leak: nothing. No new URL formatter; CensusURL still redacts.
+- Numbers through the model: nothing. comparisons[] still assembled from rows.
+- Blocking clarification: nothing. Guards still warn and ship.
+- Inverted MOE_diff: nothing. still sqrt(a^2+b^2); distinguishable is abs(e1-e2) > threshold.
+- Overlapping ACS5 silently joined: nothing. finish does not set allow_overlapping_acs5.
+- Stale county fetch after listing redo: nothing. resolve_geography changing
+  geography calls clear_series (url, rows, table_id, fetch), then build+fetch.
+- geography_not_nested restored into a URL: nothing. nested is False still skips build_url.
+- Tests that cannot fail: nothing. Gate 1 T13 mutations: 3 GOOD / 0 BAD
+  (keep original resolve query; ACS1 redo only when URL missing; restore wording
+  inference). New tests assert tract:* / county:163, /acs/acs1, and the county
+  series does not carry boundary_change_2020.
+- Ticket-named tests: nothing.
+- Prompt/LLM prose assertions: nothing.
+
+========== Gate 2 Pass 2 -- docs/playbooks/review-pr.md ==========
+machines first (above). all exit 0, so the rest of the playbook ran.
+
+The claim
+  A `by census tract in <county>` question that the model fetched as a county
+  now finishes as tract:* in that county, so boundary_change_2020 names tract
+  polygons that were actually fetched; a 1-year/ACS1 question that landed on
+  ACS5 is rebuilt as ACS1.
+
+Evidence
+  Not this phase. No make demo / make eval after 0f6dcdc. Do not claim a rate
+  move from this fix.
+  evidence/latest.json demo (62b2d01, before this commit): answered_rate 0.800,
+  p95 15.042s. That is the post-miss-fix / pre-T13-fix scoreboard.
+  Gate 1 T13: evidence/slice-3/cc-76-gate1-t13.txt (3 GOOD / 0 BAD).
+
+Scope
+  Belongs to slice 3 (tract/block-group series crossing 2020; ACS1 where
+  published; comparison traps must not silently substitute). Not-in-slice
+  (charts, memory, PDF, auth, new tool, new route, graph node) was not built.
+  40 files vs ~15: compare.py + Comparison on the HTTP contract, finish/geo/
+  vintages/guards, demo scoring, golden notes, PLAN/DESIGN/ARCHITECTURE,
+  evidence including the e2e-pre transcript and latest.json. Not drive-by
+  canvas/PDF work. File count is evidence + generated client, not extra
+  product surface.
+
+Silent-wrong-answer
+  URL / MOE / GEOID / universe still present on the paths this change fetches.
+  Redaction remains a CensusURL property. Guards warn and ship. Numbers do not
+  pass back through the model. Prior T13 county+tract-warning and ACS5-for-ACS1
+  substitutions are closed on the exact golden wording.
+  Pass 1 #1 is not closed: `_listing_query` discards `, State` / `, ST` and
+  re-resolves, so a named smaller Wayne County (or a correct model spec for it)
+  is replaced by Michigan tracts. GEOIDs look right and are the wrong county.
+  That blocks.
+
+Shape
+  No new tool, route, or add_node. The rewrite is a resolve query string, not a
+  fifth tool. ARCHITECTURE.md now says `by census tract in <county>` is finished
+  as tract:* so boundary_change_2020 names polygons actually fetched.
+  domain_models 7 <= 15. largest file LOC 400 <= 400 (at the cap).
+
+Tests
+  Behaviour: tract:* + county:163 for T13 wording after a county URL; /acs/acs1
+  after an ACS5 URL; county series with T13 question text does not emit
+  boundary_change_2020. No ticket-named tests. _search still branches on
+  question text. No assertions on prompt wording or LLM prose.
+  The new listing test uses T13 without a state and the fixture's Michigan-first
+  ranking, so it cannot see Pass 1 #1.
+
+The verdict
+  Not yet -- `_listing_query` strips the state after the county comma and
+  re-resolves `every tract in Wayne County`, so `by census tract in Wayne
+  County, North Carolina` (or a model that already had NC) ships Michigan
+  tract:* GEOIDs.
+
+Follow-ups if that is fixed (none of these are the blocker):
+  1. Quote a new --repeat 3 scoreboard at E2E after the T13/ACS1 fix. 0.800 /
+     15.042s is pre-this-commit.
+  2. largest file LOC is at 400. Do not grow the cap.
+  3. comparisons[] is on the contract; the slice-2 pane does not render it
+     (canvas is slice 4).

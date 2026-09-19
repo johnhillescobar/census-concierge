@@ -21,7 +21,10 @@ _LISTING = re.compile(
     re.I,
 )
 _BY_COUNTY = re.compile(
-    r"\bby\s+(?:census\s+)?(block groups?|tracts?)\s+in\s+([^,]*\bcount(?:y|ies)\b)",
+    r"\bby\s+(?:census\s+)?(block groups?|tracts?)\s+in\s+"
+    r"((?:(?!(?:19|20)\d{2}).)*?\bcount(?:y|ies)\b"
+    r"(?:\s*,\s*(?!(?:19|20)\d{2})[A-Za-z][A-Za-z.' -]*?)?)"
+    r"(?=\s*,\s*(?:19|20)\d{2}|\s*$|[.?!])",
     re.I,
 )
 
