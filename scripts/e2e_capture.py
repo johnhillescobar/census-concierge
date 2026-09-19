@@ -213,6 +213,8 @@ def _npm_ci(npm: str, web: str, log: Path, *, quiet: bool) -> None:
 
 def main() -> int:
     load_dotenv(ROOT / ".env")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(
         description="Capture make eval + make demo into evidence/slice-<N>/"
     )

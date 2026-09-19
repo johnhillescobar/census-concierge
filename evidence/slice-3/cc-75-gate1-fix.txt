@@ -1,0 +1,32 @@
+# CC-75 Gate 1 (fix) — mutation check
+
+Fixes Gate 2 pass 1: empty fetch urls fall back to the built URL; definition
+reference is the latest calendar year, not reversed request order.
+
+========== restored tree ==========
+$ uv run pytest -q --tb=short api/tests/test_guards.py::test_all_incompatible_years_still_ship_the_built_url api/tests/test_availability.py::test_latest_calendar_year_is_the_definition_reference
+..                                                                       [100%]
+2 passed in 0.38s
+
+===== MUTATION: series_from_record keeps empty fetch urls =====
+test: test_all_incompatible_years_still_ship_the_built_url
+
+GOOD
+FAILED api/tests/test_guards.py::test_all_incompatible_years_still_ship_the_built_url
+AssertionError: assert [] == ['https://api...']
+restore: urls fallback
+
+===== MUTATION: definition reference is last requested usable year =====
+test: test_latest_calendar_year_is_the_definition_reference
+
+GOOD
+FAILED api/tests/test_availability.py::test_latest_calendar_year_is_the_definition_reference
+assert [2019] == [2024]
+restore: max(usable)
+
+===== summary =====
+mutations GOOD: 2
+mutations BAD: 0
+
+$ uv run pytest -q -m "not integration"
+374 passed in 6.42s
