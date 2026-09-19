@@ -80,6 +80,7 @@ scripts/eval_retrieval.py    the scoreboard; --rerank, --holdout
 scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
 scripts/e2e_capture.py       eval + demo transcript into evidence/slice-<N>/
 scripts/score_synthetic.py   generated-question quality, on a 600 sample
+scripts/jira_fetch.py        read-only Jira issue/epic fetch (needs .env tokens)
 scripts/jira_transition.py   Jira status + comments via REST (needs .env tokens)
 scripts/generate_client.py   OpenAPI → packages/client; `--check` is the drift gate
 evals/golden_questions.toml  70 scorable: 4 core, 40 long-tail, 18 trap,

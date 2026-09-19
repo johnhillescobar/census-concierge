@@ -146,6 +146,81 @@
       "justMyCode": false
     },
     {
+      // Debugging the running app (not the experiments).
+      //
+      // Note: `--reload` spawns a child process; `subProcess` keeps breakpoints working.
+      "name": "api: uvicorn (debug, reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["src.main:app", "--reload", "--host", "127.0.0.1", "--port", "8000"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/api",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false,
+      "subProcess": true
+    },
+    {
+      "name": "api: uvicorn (debug, no reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["src.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/api",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Scripted model + fake tools: no live keys, no network.
+      // Good default breakpoints: src/ask.py:run_ask, src/ask.py:dispatch, src/tools.py, src/fetch.py
+      "name": "api: ask loop (offline, scripted)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "-q",
+        "-m",
+        "not integration",
+        "api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // FastAPI route + OpenAPI contract: no live keys, no network.
+      "name": "api: /ask route contract (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests/test_ask_route.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Guards, comparisons, and aggregation warnings: no live keys, no network.
+      "name": "api: guards + comparisons (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests/test_guards.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
       "name": "pytest: current file",
       "type": "debugpy",
       "request": "launch",
