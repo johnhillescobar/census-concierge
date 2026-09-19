@@ -59,6 +59,12 @@ _NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
 )
 _AVERAGE = frozenset({"average", "avg", "mean"})
+_US = re.compile(r"\b(?:u\.?s\.?a?\.?|united states|nationwide|the nation)\b", re.I)
+_HAS_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
+_IN_PLACE = re.compile(
+    r"\b(?:in|for)\s+(?!((?:19|20)\d{2})\b)([A-Za-z][A-Za-z.'-]*)",
+    re.I,
+)
 
 
 class ResolveGeographyResult(ToolResult):
@@ -151,6 +157,21 @@ def split_versus(query: str) -> tuple[str, str] | None:
     return None
 
 
+def _nation(query: str) -> bool:
+    if _WILDCARD.search(query) or _WITHIN.search(query):
+        return False
+    if detect_level(query) is not None or find_state(query) is not None:
+        return False
+    if any(match.group(2).casefold() not in _NOISE for match in _IN_PLACE.finditer(query)):
+        return False
+    if re.search(r"\bof\s+[A-Z][a-z]", query):
+        return False
+    leftover = re.sub(r"[^A-Za-z]+", " ", _HAS_YEAR.sub(" ", query)).strip()
+    if not leftover:
+        return False
+    return bool(_US.search(query) or _HAS_YEAR.search(query))
+
+
 class ResolveGeographyTool(BaseTool):
     name: str = "resolve_geography"
     description: str = "Turn a place name or 'all counties in X' into Census for/in codes."
@@ -200,6 +221,17 @@ class ResolveGeographyTool(BaseTool):
         year: int,
         entries: list[GeoLevel],
     ) -> tuple[str, ResolveGeographyResult]:
+        if level is None and _nation(query):
+            spec = GeoSpec(
+                level="us",
+                name="United States",
+                for_spec="us:1",
+                geoid="0100000US",
+                dataset=dataset,
+                vintage=year,
+            )
+            result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
+            return f"1 geography: {spec.for_spec}", result
         wildcard_match = _WILDCARD.search(query) or _WITHIN.search(query)
         wildcard = wildcard_match is not None
         parent_text = wildcard_match.group(2) if wildcard_match else query

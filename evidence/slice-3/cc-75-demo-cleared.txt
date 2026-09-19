@@ -1,0 +1,22 @@
+# live make demo -- slice 3 / CC-75 after finish_tools + scan-window
+# HEAD: fb0e7ab357239ffc0ec33ef5f866f9052ff1308f (uncommitted: finish.py, ask.py, vintages.py, tests, ARCHITECTURE)
+# captured: 2026-09-19T03:10:45+00:00
+# command: npm --prefix web run build; uv run python -u scripts/run_demo.py --repeat 3
+
+## Scoreboard (from evidence/latest.json, not the transcript)
+generated_at: 2026-09-19T03:10:45+00:00
+repeat: 3  n: 171
+answered_rate: 0.752  (floor 0.70; prior live 0.761)
+overall_answered_rate: 0.649
+p95_latency_seconds: 15.727  (ceiling 20; prior live 13.088)
+selector_at_1: 0.875
+synthetic_alignment: 0.544
+retrieval_at_10: 0.9
+demo.misses ids: q04, q08, q10, q11, q13, q15, q17, q18, q20, q24, q28, q33, q34, q39, q43, t02, t03, t04, t06, t07, t08, t10, t11, t12, t13
+
+CC-75 owned (3/3 each, not in demo.misses):
+t01: overlapping_vintage + B19013 + URL
+t09: measure_unavailable + B28001 + URL
+t14: variable_not_in_vintage + B28001 + URL
+
+Out of CC-75 (do not chase here): cousin-table long-tail (q10/q11/t08), later traps (t10 overlapping series warn, t11 acs1 geo, t12 vintage_gap_2020, t13 boundary_change_2020).

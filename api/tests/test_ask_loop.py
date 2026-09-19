@@ -84,6 +84,60 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
     ]
 
 
+async def test_computer_share_finishes_when_the_model_stops() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        del dataset
+        if table_id != "B28001" or year < 2017:
+            return None
+        return {"title": "Types of Computers", "universe": "Households", "variables": ["001E"]}
+
+    record.table_facts = facts
+    record.published_vintages = lambda dataset: set(range(2016, 2025))
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "How has the share of households with a computer changed since 2013?",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B28001"
+    assert any(item.code == "variable_not_in_vintage" for item in response.warnings)
+    assert response.urls
+    assert response.rows
+    assert "us:1" in response.urls[0]
+
+
+async def test_overlapping_income_finishes_when_the_model_stops() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Compare median household income between 2015-2019 and 2018-2022",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B19013"
+    assert any(item.code == "overlapping_vintage" for item in response.warnings)
+    assert response.urls
+    assert response.rows
+
+
 async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
     record = ExecutionRecord()
     tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "")

@@ -21,6 +21,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from src.census_url import CensusURL, redact_text
 from src.contract import Alternative, AskResponse, GeoSpec
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
+from src.finish import finish_tools
 from src.geo import ResolveGeographyTool
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
@@ -57,6 +58,8 @@ class ExecutionRecord:
     geo_status: dict[str, str | bool] | None = None
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
+    table_facts: Any = None
+    published_vintages: Any = None
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -342,6 +345,8 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
         return table if isinstance(table, dict) else None
 
+    record.table_facts = facts
+    record.published_vintages = lambda d: {int(year) for year in matrix["datasets"].get(d, {})}
     return {
         "search_tables": SearchTablesTool(search=search, describe=describe),
         "resolve_geography": ResolveGeographyTool(
@@ -367,6 +372,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             ),
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
+            table_facts=facts,
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }
@@ -431,4 +437,5 @@ async def run_ask(
             break
     except RuntimeError as exc:
         answer = answer or str(exc)
+    await finish_tools(dispatch, tools, record)
     return assemble(answer, record)

@@ -1,0 +1,255 @@
+CC-75 Gate 2 RE-RUN -- cold review of origin/main...HEAD after cb3eef8
+branch: feat/cc-75-variable-vintage
+HEAD: cb3eef888364dacd36e4f7861a72fde10a9cd8e4
+base: origin/main (7f0e603fc4799f9f0daf157a8a072782d69c250b)
+review surface: git diff origin/main...HEAD
+prior Gate 2: evidence/slice-3/cc-75-gate2.txt (HEAD then bf56c7a; verdict Not yet)
+fix commit: cb3eef8 keep the built URL when every vintage is incompatible; drop_incompatible uses max calendar year
+E2E / make demo / make eval: not this phase; missing scoreboard expected
+no commit; no product-source edits; no PR
+
+========== git rev-parse HEAD ==========
+
+cb3eef888364dacd36e4f7861a72fde10a9cd8e4
+
+========== git rev-parse origin/main ==========
+
+7f0e603fc4799f9f0daf157a8a072782d69c250b
+
+========== git log -1 ==========
+
+commit cb3eef888364dacd36e4f7861a72fde10a9cd8e4
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Fri Sep 18 19:03:19 2026 -0500
+
+    fix(series): keep the built URL when every vintage is incompatible (CC-75)
+    
+    An all-omitted fetch no longer blanks urls[], and a descending year list uses the latest calendar year as the definition reference.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+========== git log --oneline origin/main..HEAD ==========
+
+cb3eef8 fix(series): keep the built URL when every vintage is incompatible (CC-75)
+4fccea3 evidence(slice-3): record CC-75 Gate 2 review
+bf56c7a evidence(slice-3): record CC-75 Gate 1 mutation check
+7c0cb61 feat(series): warn on missing measures and variables across vintages (CC-75)
+
+========== git status ==========
+
+On branch feat/cc-75-variable-vintage
+Your branch is ahead of origin/main by 4 commits.
+
+Unstaged (not in this review surface): evidence/slice-3/cc-75-gate1-fix.txt
+was empty in cb3eef8; working copy has a Gate 1 fix mutation transcript from the caller.
+
+========== git diff --stat origin/main...HEAD ==========
+
+ .claude/PLAN.md                            |   2 +-
+ api/src/ask.py                             |   3 +
+ api/src/census_url.py                      |  21 ++
+ api/src/contract.py                        |   2 +-
+ api/src/fetch.py                           |  66 ++++--
+ api/src/guards.py                          |   4 +-
+ api/src/retrieval/availability.py          |  55 +++++
+ api/src/vintages.py                        |  59 +++++
+ api/tests/test_availability.py             |  73 ++++++
+ api/tests/test_demo_harness.py             |  10 +-
+ api/tests/test_fetch_years.py              | 137 ++++++++++++
+ api/tests/test_guards.py                   | 114 ++++++++++
+ docs/ARCHITECTURE.md                       |   9 +-
+ evidence/slice-3/cc-75-gate1-fix.txt       |   0
+ evidence/slice-3/cc-75-gate1.txt           | 342 +++++++++++++++++++++++++++++
+ evidence/slice-3/cc-75-gate2.txt           | 236 ++++++++++++++++++++
+ evidence/slice-3/cc-75-preflight-claims.md |  23 ++
+ evidence/slice-3/cc-75-preflight.txt       |  29 +++
+ packages/client/openapi.json               |   2 +-
+ packages/client/schema.d.ts                |   2 +-
+ scripts/run_demo.py                        |   2 +-
+ 21 files changed, 1163 insertions(+), 28 deletions(-)
+
+========== Gate 2 machines (raw) ==========
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               3368 <= 4000
+  ok    api src files               22 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1010 <= 3000
+  ok    system prompt tokens       188 <= 1200
+  ok    doc lines                 1781 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                6 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.619 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.786 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    budget increases               
+
+All invariants held.
+
+exit: 0
+
+========== uv run ruff check . && uv run ruff format --check . ==========
+
+All checks passed!
+111 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 22 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 57%]
+........................................................................ [ 77%]
+........................................................................ [ 96%]
+..............                                                           [100%]
+374 passed in 5.59s
+
+exit: 0
+
+========== summary ==========
+any_nonzero: 0
+machines did not stop the rest of the playbook
+
+========== Gate 2 Pass 1 -- generic bugs ==========
+cold read of origin/main...HEAD after cb3eef8; code only; no implementer chat; no ticket story.
+
+Prior Gate 2 blockers re-read on this tree:
+
+1. Empty urls[] when every vintage is omitted -- closed.
+   series_from_record now takes list(artifact.urls) or the built record.url.
+   assemble still ships that URL. test_all_incompatible_years_still_ship_the_built_url
+   asserts response.urls == [str(built)] with fetch urls=[]. _absorb does not
+   overwrite record.url with FetchDataResult.url (still empty when there are no
+   legs). _pack still writes urls=[] on the tool artifact; the user-facing
+   fallback is the assembler.
+
+2. drop_incompatible referenced reversed(years), not max year -- closed.
+   reference = facts_by_year[max(usable)] if usable else None.
+   test_latest_calendar_year_is_the_definition_reference uses [2024, 2019]
+   and keeps 2024.
+
+Pass 1 findings:
+
+1. same_definition compares stripped title and aliased universe only.
+   The availability matrix stores suffix ids, not labels. A suffix present in
+   both vintages with a recoded meaning and a stable table title/universe is
+   joined with no warning. Missing suffixes and title/universe changes are
+   dropped.
+
+2. fetch.py is at the file cap: largest file LOC 400 <= 400.
+   One more counted line fails check_budgets.py. Budgets were not raised.
+
+Pass 1 hunted items that were not present (nothing):
+
+- Failure-branch URL drop after the fix: nothing. Empty fetch urls fall back
+  to the built CensusURL; overlapping_vintage / measure_unavailable / all-
+  incompatible tests all assert response.urls.
+- Descending year list taking the earlier definition: nothing. max(usable).
+- Key leak: nothing. estimate_table parses CensusURL._redacted; fetch still
+  attaches the key only via .with_key() at the HTTP call; _tool_content joins
+  result.urls (redacted); fallback uses str(built) which is CensusURL.__str__.
+- Circular import: nothing. vintages.variable_not_in_vintage lazy-imports
+  availability; availability does not import vintages; fetch already imports
+  both at module level.
+- Numbers passing back through the model: nothing. Rows stay on the artifact;
+  _tool_content reports counts, omitted pairs, and URLs.
+- Blocking clarification: nothing. New codes are warnings.
+- MOE / GEOID / universe dropped on the keep path: nothing. Remaining legs
+  still carry paired E/M and GEO_ID; assemble still fills universe; empty-row
+  failure path uses geography GEOID fallback.
+- Census key in tests leaking as live URLs: nothing.
+
+========== Gate 2 Pass 2 -- docs/playbooks/review-pr.md ==========
+machines first (above). all exit 0, so the rest of the playbook ran.
+
+The claim
+  A series omits vintages whose table, estimate suffixes, or title/universe
+  do not match that vintage, names those years, and still ships the Census URL
+  (including when every requested year is incompatible). A cell-phone question
+  gets a non-blocking measure_unavailable warning; fetch still runs.
+  One sentence a user can do: see which years of a series cannot be joined,
+  and why, instead of a joined table that mixes missing or redefined columns.
+
+Evidence
+  Not this phase. No make demo / make eval scoreboard in this review. Do not
+  claim a rate move. latest.json p95 19.619s is already 0.381s under the 20s
+  ceiling; this PR also folds t09-t14 into is_slice1() (51 -> 57 demo
+  questions). That is a gated-set change, not a measured one here.
+
+Scope
+  Belongs to slice 3 (per-year variable check; measure_unavailable). YoY
+  MOE_diff is still open and was not built. No new tool, route, or graph node.
+  21 files vs ~15: five evidence files (one empty in HEAD: cc-75-gate1-fix.txt),
+  PLAN, ARCHITECTURE, generated openapi+schema, demo harness, plus product and
+  tests. Not drive-by chart/PDF work. Demo-scope expansion is in-slice.
+
+Silent-wrong-answer
+  Prior block (all-years-omitted ships empty urls[]) is closed on the
+  assembler path. Remaining-year path still has urls, moe_rows, GEOID,
+  universe, alternatives. New warning codes are listed on the contract /
+  OpenAPI description. Redaction remains a CensusURL property; no new URL
+  formatter. Guards warn and ship. No substituted vintage without a warning:
+  omitted years go on omitted_years with variable_not_in_vintage. Empty-
+  universe aliased to households can hide a missing universe
+  (same_definition). Suffix recode with a stable title is still a silent
+  join (Pass 1 finding 1); the matrix has no labels, so this is residual,
+  not a new URL drop.
+
+Shape
+  ARCHITECTURE.md updated in the same diff. No new Pydantic model, tool, route,
+  or add_node. drop_incompatible has two callers (fetch + guard). Guard path
+  calls it with suffixes=[] so it re-detects missing tables/definitions from
+  question years, not the URL suffixes fetch used. That split is how 2013 from
+  the question is named when fetch only omitted 2016.
+
+Tests
+  Behaviour: not fetched, not in rows, warning names years, URL present on the
+  mixed path and the all-incompatible assemble path. No ticket-named tests.
+  No retrieval fake returning one table. Assertions on warning.detail
+  (smartphone, Households, B28001) are guard copy, not LLM prose.
+  A new test file is not claimed as demo evidence.
+
+The verdict
+  Ship it with follow-ups -- a series now names years that cannot be joined
+  and still ships the Census URL, including when every vintage is incompatible.
+  Follow-ups (none is a failure-branch URL drop):
+  - fetch.py sits on the 400-line file cap.
+  - make demo now includes t09-t14 (n 51 -> 57); p95 19.619s is the old set.
+  - residual: suffix-label recodes with a stable table title are joined.

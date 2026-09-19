@@ -207,7 +207,7 @@ exactly like a right one.
 Backend only. It lands before the canvas so the chart pane is built once,
 against the final shape.
 
-> **STATUS 2026-09-18.** Slice 3 in progress (CC-74 Done). Demo still `is_slice1()`. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
+> **STATUS 2026-09-18.** Slice 3 in progress (CC-75 E2E pre). Floors met. Demo includes t09–t14. Evidence: `evidence/slice-3/`. Epic: https://johnhillescobar.atlassian.net/browse/CC-2.
 
 ### Years
 
@@ -226,7 +226,7 @@ against the final shape.
       is a sentence in the answer and a gap in the data — never interpolated,
       never bridged, never silently dropped. A silently short series is the same
       failure as a wrong one.
-- [ ] Per-year variable existence check against that vintage's `variables.json`.
+- [x] Per-year variable existence check against that vintage's `variables.json`.
       A variable absent or redefined mid-range is a warning, not a silent join.
 - [ ] Year-over-year significance: `MOE_diff = sqrt(m₁² + m₂²)`. Differences that
       do not clear it are reported as **not distinguishable**, not as change.

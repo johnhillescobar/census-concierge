@@ -3,7 +3,8 @@
 One boundary, one pair of models. Rows stay untyped dicts — a census row that
 becomes five models through five layers is how the predecessor grew. Alternatives
 and warnings are typed because the TypeScript client (slice 2) generates from
-this schema; `urls[]` is one redacted Census URL per attempted request.
+this schema; `urls[]` is one redacted Census URL per attempted request, or the
+built URL when every vintage is omitted.
 """
 
 from __future__ import annotations
@@ -84,7 +85,11 @@ class RequestLeg(BaseModel):
 class AskResponse(BaseModel):
     answer: str = Field(description="Natural-language answer.")
     urls: list[str] = Field(
-        description="Key-redacted Census API URLs, one per attempted request, in requested order."
+        description=(
+            "Key-redacted Census API URLs, one per attempted request, in requested order. "
+            "When every requested vintage is omitted, this is the built URL so the request "
+            "is still editable."
+        )
     )
     requested_years: list[int] = Field(
         description="Years asked of fetch_data, de-duplicated in first-requested order."
@@ -125,5 +130,5 @@ class AskResponse(BaseModel):
         "geography_unsupported, ambiguous_place, universe_mismatch, "
         "median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, "
         "geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, "
-        "boundary_change_2020."
+        "boundary_change_2020, measure_unavailable, variable_not_in_vintage."
     )

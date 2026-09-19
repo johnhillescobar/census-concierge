@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
+from src.census_url import CensusURL
 from src.contract import GeoSpec
 from src.fetch import FetchDataResult
 from src.guards import MOE_COMBINE_FORMULA, evaluate
@@ -23,6 +24,8 @@ T16 = "Compare poverty by census tract within the city of Denver"
 T11 = "Unemployment in Middlebury, Vermont each year since 2017"
 T12 = "1-year ACS poverty for Fresno County, 2018 through 2022"
 T13 = "Broadband subscription trend by census tract in Wayne County, 2018 to 2022"
+T09 = "Number of cell phones in Denver since 2017"
+T14 = "How has the share of households with a computer changed since 2013?"
 Q24 = "Median household income for ZCTA 90210"
 
 
@@ -1045,3 +1048,162 @@ def test_published_zero_moe_is_kept() -> None:
     record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "10", "B01003_001M": "0"}]
     response = assemble("ships", record)
     assert response.moe[0]["B01003_001M"] == "0"
+
+
+def _computer_facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+    assert dataset == "acs5" and table_id == "B28001"
+    if year < 2017:
+        return None
+    return {
+        "title": "Types of Computers in Household",
+        "universe": "Households",
+        "variables": ["001E", "002E", "005E"],
+    }
+
+
+def test_cell_phones_warn_before_fetch() -> None:
+    record = ExecutionRecord(question=T09)
+    assert _codes(record) == ["measure_unavailable"]
+    warning = evaluate(record)[0]
+    assert "smartphone" in warning.detail
+    assert "Households" in warning.detail
+    assert "B28001" in warning.detail
+
+
+def test_computer_share_is_not_a_missing_measure() -> None:
+    record = ExecutionRecord(question=T14, table_id="B28001")
+    assert "measure_unavailable" not in _codes(record)
+
+
+def test_absent_computer_years_are_named_and_the_url_ships() -> None:
+    record = ExecutionRecord(question=T14, table_id="B28001", table_facts=_computer_facts)
+    record.fetch = _fetch(
+        urls=["https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M"],
+        requested_years=[2013, 2024],
+        attempted_years=[2024],
+        omitted_years=[2016],
+        omission_reasons=["variable_not_in_vintage"],
+        dataset="acs5",
+    )
+    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
+    assert "2013" in warning.detail
+    assert "2016" in warning.detail
+    response = assemble("ships", record)
+    assert response.urls
+    assert response.warnings[0].code == "variable_not_in_vintage"
+
+
+def test_acs1_2020_gap_is_not_a_missing_variable() -> None:
+    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs1" and table_id == "B17001"
+        if year == 2020:
+            return None
+        return {"title": "Poverty Status", "universe": "Population", "variables": ["001E"]}
+
+    record = ExecutionRecord(question=T12, table_id="B17001", table_facts=facts)
+    record.published_vintages = lambda dataset: {2018, 2019, 2021, 2022}
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018, 2019, 2021, 2022],
+        omitted_years=[2020],
+        omission_reasons=["vintage_gap_2020"],
+        urls=["https://api.census.gov/data/2018/acs/acs1?get=NAME"],
+    )
+    assert "variable_not_in_vintage" not in _codes(record)
+    assert "vintage_gap_2020" in _codes(record)
+
+
+def test_since_before_first_vintage_names_the_published_gap_without_a_fetch() -> None:
+    record = ExecutionRecord(
+        question=T14,
+        table_id="B28001",
+        table_facts=_computer_facts,
+    )
+    record.published_vintages = lambda dataset: set(range(2016, 2025))
+    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
+    assert "2016" in warning.detail
+    assert "2013" not in warning.detail
+
+
+def test_since_before_first_vintage_names_the_published_gap() -> None:
+    record = ExecutionRecord(
+        question=T14,
+        table_id="B28001",
+        table_facts=_computer_facts,
+    )
+    record.published_vintages = lambda dataset: set(range(2016, 2025))
+    record.fetch = _fetch(
+        requested_years=[2017, 2024], attempted_years=[2017, 2024], dataset="acs5"
+    )
+    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
+    assert "2016" in warning.detail
+    assert "2013" not in warning.detail
+
+
+def test_unchanged_computer_years_do_not_warn() -> None:
+    record = ExecutionRecord(
+        question="Share of households with a computer in 2017 and 2024",
+        table_id="B28001",
+        table_facts=_computer_facts,
+    )
+    record.fetch = _fetch(
+        requested_years=[2017, 2024], attempted_years=[2017, 2024], dataset="acs5"
+    )
+    assert "variable_not_in_vintage" not in _codes(record)
+
+
+def test_redefined_universe_is_not_joined() -> None:
+    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        universe = "Families" if year == 2019 else "Households"
+        return {"title": "Median Household Income", "universe": universe, "variables": ["001E"]}
+
+    record = ExecutionRecord(question=T14, table_id="B19013", table_facts=facts)
+    record.fetch = _fetch(requested_years=[2019, 2024], dataset="acs5")
+    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
+    assert "2019" in warning.detail
+
+
+def test_overlapping_vintage_still_ships_the_url() -> None:
+    record = ExecutionRecord(
+        question=T01,
+        url=CensusURL(
+            "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M"
+            "&for=us:1"
+        ),
+    )
+    response = assemble("answer still ships", record)
+    assert [item.code for item in response.warnings] == ["overlapping_vintage"]
+    assert response.urls
+
+
+def test_measure_unavailable_still_ships_the_url() -> None:
+    record = ExecutionRecord(question=T09, table_id="B28001")
+    record.fetch = _fetch(
+        urls=["https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_005E,B28001_005M"],
+        requested_years=[2017, 2023],
+        attempted_years=[2017, 2023],
+    )
+    response = assemble("ships", record)
+    assert [item.code for item in response.warnings] == ["measure_unavailable"]
+    assert response.urls
+
+
+def test_all_incompatible_years_still_ship_the_built_url() -> None:
+    built = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M"
+        "&for=place:20000&in=state:08"
+    )
+    record = ExecutionRecord(
+        question=T14, table_id="B28001", url=built, table_facts=_computer_facts
+    )
+    record.fetch = _fetch(
+        urls=[],
+        requested_years=[2013, 2016],
+        omitted_years=[2013, 2016],
+        omission_reasons=["variable_not_in_vintage", "variable_not_in_vintage"],
+        dataset="acs5",
+    )
+    response = assemble("ships", record)
+    assert response.urls == [str(built)]
+    assert any(item.code == "variable_not_in_vintage" for item in response.warnings)

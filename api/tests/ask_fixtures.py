@@ -43,6 +43,8 @@ def _search(question: str, k: int = 10) -> list[str]:
         return ["B08301"][:k]
     if "broadband" in q:
         return ["B28002"][:k]
+    if "cell phone" in q or "mobile phone" in q or "households with a computer" in q:
+        return ["B28010", "B28003"][:k]
     if "income" in q:
         return ["B19013"][:k]
     if "population" in q:
@@ -65,6 +67,21 @@ def _describe(table_id: str) -> dict[str, object] | None:
         },
         "B28002": {
             "title": "Internet Subscriptions",
+            "universe": "Households",
+            "members": [],
+        },
+        "B28001": {
+            "title": "Types of Computers and Internet Subscriptions",
+            "universe": "Households",
+            "members": [],
+        },
+        "B28003": {
+            "title": "Presence of a Computer and Type of Internet Subscription",
+            "universe": "Households",
+            "members": [],
+        },
+        "B28010": {
+            "title": "Computers in Household",
             "universe": "Households",
             "members": [],
         },
@@ -262,7 +279,16 @@ def _harris(**fields: object) -> GeoSpec:
 
 
 def _tools(record: ExecutionRecord) -> dict[str, Any]:
-    facts = {"acs5": {2024: {"B01003": {"universe": "Total population", "variables": ["001E"]}}}}
+    facts = {
+        "acs5": {
+            2024: {
+                "B01003": {"universe": "Total population", "variables": ["001E"]},
+                "B19013": {"universe": "Households", "variables": ["001E"]},
+                "B28001": {"universe": "Households", "variables": ["001E"]},
+            }
+        }
+    }
+
     return {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
         "resolve_geography": _geo_tool(),

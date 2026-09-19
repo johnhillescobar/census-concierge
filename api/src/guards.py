@@ -11,7 +11,7 @@ from typing import Protocol
 
 from src.contract import Alternative, AskWarning, GeoSpec
 from src.vintages import CENSUS_MISSING as _MISSING
-from src.vintages import period_for
+from src.vintages import measure_unavailable, period_for, variable_not_in_vintage
 
 _ACS5_SPAN = 5
 _RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
@@ -436,6 +436,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
     warnings: list[AskWarning] = []
     for guard in (
         overlapping_vintage,
+        measure_unavailable,
+        variable_not_in_vintage,
         acs1_geography_ineligible,
         vintage_gap_2020,
         boundary_change_2020,

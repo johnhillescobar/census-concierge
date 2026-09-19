@@ -70,3 +70,103 @@ def test_the_union_is_ordered_by_table_id() -> None:
     # experiments cache is keyed on the exact document list. A reordering
     # invalidates every recorded number without changing a score.
     assert list(availability.union_tables(MATRIX)) == ["B19013", "B28002", "B99053"]
+
+
+def test_household_encoding_and_title_case_are_the_same_definition() -> None:
+    early = {
+        "title": "TYPES OF COMPUTERS IN HOUSEHOLD",
+        "universe": "",
+        "variables": ["001E"],
+    }
+    late = {
+        "title": "Types of Computers in Household",
+        "universe": "Households",
+        "variables": ["001E"],
+    }
+    assert availability.same_definition(early, late)
+    assert availability.same_definition(late, {"title": late["title"], "universe": "HSHLD"})
+    assert availability.same_definition(
+        {"title": "Median Household Income (in 2023 inflation-adjusted dollars)", "universe": ""},
+        {"title": "Median Household Income", "universe": "Households"},
+    )
+    assert not availability.same_definition(
+        {"title": "Median Household Income", "universe": "Households"},
+        {"title": "Median Family Income", "universe": "Families"},
+    )
+
+
+def test_recoded_suffix_labels_are_dropped_missing_signatures_are_not() -> None:
+    stable = {
+        "title": "Types of Computers in Household",
+        "universe": "Households",
+        "variables": ["001E", "005E"],
+    }
+    assert availability.same_definition(stable, dict(stable))
+    assert not availability.same_definition(
+        {**stable, "label_sig": "aaaa"}, {**stable, "label_sig": "bbbb"}
+    )
+    facts = {
+        2017: {**stable, "label_sig": "aaaa"},
+        2024: {**stable, "label_sig": "bbbb"},
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs5" and table_id == "B28001"
+        return facts[year]
+
+    kept, omitted, reasons = availability.drop_incompatible(
+        lookup, "acs5", [2017, 2024], "B28001", ["005E"]
+    )
+    assert kept == [2024]
+    assert omitted == [2017]
+    assert reasons == [availability.REASON_VARIABLE]
+
+
+def test_changed_universe_or_missing_suffix_is_dropped() -> None:
+    facts = {
+        2016: None,
+        2019: {"title": "Median Household Income", "universe": "Families", "variables": ["001E"]},
+        2024: {
+            "title": "Median Household Income",
+            "universe": "Households",
+            "variables": ["001E", "002E"],
+        },
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs5" and table_id == "B19013"
+        return facts[year]
+
+    kept, omitted, reasons = availability.drop_incompatible(
+        lookup, "acs5", [2016, 2019, 2024], "B19013", ["001E"]
+    )
+    assert kept == [2024]
+    assert omitted == [2016, 2019]
+    assert reasons == [availability.REASON_VARIABLE, availability.REASON_VARIABLE]
+    kept, omitted, reasons = availability.drop_incompatible(
+        lookup, "acs5", [2024], "B19013", ["002E"]
+    )
+    assert kept == [2024]
+    assert omitted == []
+    kept, omitted, _reasons = availability.drop_incompatible(
+        lookup, "acs5", [2019, 2024], "B19013", ["002E"]
+    )
+    assert 2019 in omitted
+    assert kept == [2024]
+
+
+def test_latest_calendar_year_is_the_definition_reference() -> None:
+    facts = {
+        2019: {"title": "Median Household Income", "universe": "Families", "variables": ["001E"]},
+        2024: {"title": "Median Household Income", "universe": "Households", "variables": ["001E"]},
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs5" and table_id == "B19013"
+        return facts[year]
+
+    kept, omitted, _reasons = availability.drop_incompatible(
+        lookup, "acs5", [2024, 2019], "B19013", ["001E"]
+    )
+    assert kept == [2024]
+    assert omitted == [2019]

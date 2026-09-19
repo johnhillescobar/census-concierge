@@ -124,12 +124,12 @@ export interface components {
             universe: string;
             /**
              * Urls
-             * @description Key-redacted Census API URLs, one per attempted request, in requested order.
+             * @description Key-redacted Census API URLs, one per attempted request, in requested order. When every requested vintage is omitted, this is the built URL so the request is still editable.
              */
             urls: string[];
             /**
              * Warnings
-             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020.
+             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage.
              */
             warnings: components["schemas"]["AskWarning"][];
         };

@@ -1,0 +1,29 @@
+# CC-75 pre-flight raw output
+# origin/main 1b6e7d9
+# 2026-09-18
+
+evaluate names ['overlapping_vintage', 'acs1_geography_ineligible', 'vintage_gap_2020', 'boundary_change_2020', 'moe_not_significant', 'geography_unsupported', 'ambiguous_place', 'universe_mismatch', 'median_not_aggregatable', 'moe_aggregation_degraded', 'zcta_not_zip', 'geography_not_nested']
+warnings desc: Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020.
+is_slice1 drops t>=9; q23; holdout
+golden t09 expect_warning = measure_unavailable expect_table = B28001
+golden t14 expect_warning = variable_not_in_vintage expect_table = B28001
+acs5 years [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+B28001 2016 ABSENT
+B28001 2017-2024 nvars 11 suffixes 001E-011E
+B28001 2017 vs 2024 label_phrase identical
+2016 B28* tables []
+_WARNING_WITHOUT_FETCH frozenset({'ambiguous_place', 'geography_not_nested'})
+
+--- loc ---
+ 391 ask.py
+ 105 census_url.py
+ 107 contract.py
+ 368 fetch.py
+ 389 guards.py
+  71 retrieval\availability.py
+ 262 tools.py
+ 184 vintages.py
+CC-75  To Do  Story
+Validate measures and variables across vintages
+CC-72  Done  Story
+Select defensible ACS vintages and account for gaps

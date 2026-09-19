@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.census_url import CensusURL, redact_text
 from src.contract import GeoSpec, RequestLeg
+from src.retrieval.availability import drop_incompatible
 from src.tools import ToolInput, ToolResult
 from src.vintages import REASON_NO_URL, VintagePlan, is_series, plan_years, span_years
 
@@ -75,9 +76,10 @@ def clear_series(record: Any) -> None:
 
 def series_from_record(record: Any) -> dict[str, Any]:
     artifact = getattr(record, "fetch", None)
+    built = getattr(record, "url", None)
     if isinstance(artifact, FetchDataResult):
         return {
-            "urls": list(artifact.urls),
+            "urls": list(artifact.urls) or ([str(built)] if built else []),
             "requested_years": list(artifact.requested_years),
             "attempted_years": list(artifact.attempted_years),
             "succeeded_years": list(artifact.succeeded_years),
@@ -86,7 +88,6 @@ def series_from_record(record: Any) -> dict[str, Any]:
             "omission_reasons": list(artifact.omission_reasons),
             "legs": list(artifact.legs),
         }
-    built = getattr(record, "url", None)
     if built:
         return {
             "urls": [str(built)],
@@ -187,6 +188,30 @@ def _pack(
     )
 
 
+def _apply_variables(
+    plan: VintagePlan,
+    template: CensusURL,
+    lookup: Callable[[str, int, str], dict[str, Any] | None] | None,
+) -> VintagePlan:
+    table_id, suffixes = (
+        template.estimate_table() if lookup is not None and plan.attempted else ("", [])
+    )
+    if lookup is None or not plan.attempted or not table_id:
+        return plan
+    kept, dropped, reasons = drop_incompatible(
+        lookup, plan.dataset, plan.attempted, table_id, suffixes
+    )
+    if not dropped:
+        return plan
+    return VintagePlan(
+        dataset=plan.dataset,
+        attempted=kept,
+        omitted=[*plan.omitted, *dropped],
+        reasons=[*plan.reasons, *reasons],
+        acs1_ineligible=plan.acs1_ineligible,
+    )
+
+
 def _tool_content(result: FetchDataResult) -> str:
     joined = ", ".join(result.urls)
     n_ok = sum(1 for leg in result.legs if leg.ok)
@@ -227,6 +252,7 @@ class FetchDataTool(BaseTool):
     census_key: Callable[[], str]
     http_get: Callable[[str], tuple[int, Any]] | None = None
     published: Callable[[str], set[int]] | None = None
+    table_facts: Callable[[str, int, str], dict[str, Any] | None] | None = None
     allow_overlapping_acs5: bool = False
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
@@ -335,13 +361,17 @@ class FetchDataTool(BaseTool):
         acs1_ok: bool | None = None
         if series and built.dataset != "acs1":
             acs1_ok = await asyncio.to_thread(self._acs1_ok, built, published)
-        plan = plan_years(
-            dataset=built.dataset or "acs5",
-            years=requested,
-            published=published,
-            acs1_ok=acs1_ok,
-            allow_overlapping_acs5=self.allow_overlapping_acs5,
-            cap=MAX_YEARS,
+        plan = _apply_variables(
+            plan_years(
+                dataset=built.dataset or "acs5",
+                years=requested,
+                published=published,
+                acs1_ok=acs1_ok,
+                allow_overlapping_acs5=self.allow_overlapping_acs5,
+                cap=MAX_YEARS,
+            ),
+            built,
+            self.table_facts,
         )
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
         specs = list(self.last_geographies() or []) if self.last_geographies else []
@@ -377,13 +407,17 @@ class FetchDataTool(BaseTool):
         if plan.dataset == "acs1" and any(
             (not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered
         ):
-            plan = plan_years(
-                dataset="acs5",
-                years=requested,
-                published=published,
-                acs1_ok=False,
-                allow_overlapping_acs5=self.allow_overlapping_acs5,
-                cap=MAX_YEARS,
+            plan = _apply_variables(
+                plan_years(
+                    dataset="acs5",
+                    years=requested,
+                    published=published,
+                    acs1_ok=False,
+                    allow_overlapping_acs5=self.allow_overlapping_acs5,
+                    cap=MAX_YEARS,
+                ),
+                built,
+                self.table_facts,
             )
             gathered = await fanout(plan)
         legs = [item[0] for item in gathered]

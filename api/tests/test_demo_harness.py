@@ -281,13 +281,14 @@ def test_slice3_and_holdout_are_out_of_scope() -> None:
         {"id": "t08", "tier": "trap"},
         {"id": "t09", "tier": "trap"},
         {"id": "t10", "tier": "trap"},
+        {"id": "t15", "tier": "trap"},
         {"id": "h01", "tier": "long_tail", "holdout": True},
     ]
     ids = [entry["id"] for entry in run_demo.select_questions(entries)]
-    assert ids == ["q01", "q24", "t08"]
+    assert ids == ["q01", "q24", "t08", "t09", "t10"]
 
 
-def test_golden_file_scope_matches_slice1() -> None:
+def test_golden_file_scope_includes_year_series_traps() -> None:
     import tomllib
 
     with (ROOT / "evals" / "golden_questions.toml").open("rb") as handle:
@@ -295,10 +296,11 @@ def test_golden_file_scope_matches_slice1() -> None:
     picked = run_demo.select_questions(entries)
     ids = {entry["id"] for entry in picked}
     assert "h01" not in ids
-    assert "t09" not in ids and "t18" not in ids
+    assert "t09" in ids and "t14" in ids
+    assert "t15" not in ids and "t18" not in ids
     assert "t01" in ids and "t08" in ids
     assert "q23" not in ids and "q24" in ids
-    assert len(picked) == 51
+    assert len(picked) == 57
 
 
 def test_key_in_a_url_is_a_leak() -> None:
