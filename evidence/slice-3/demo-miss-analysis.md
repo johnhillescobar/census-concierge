@@ -11,7 +11,7 @@ the AC; this file is the *why*.
 ## When to open this
 
 - Interpreting `make demo` misses that look like “slice 3 is unfinished.”
-- Starting **CC-75** or **CC-76**.
+- Starting **CC-76**.
 - Tempted to add a new epic, a new floor, or cousin-table AC onto those tickets.
 
 Do **not** open it to implement a random long-tail miss.
@@ -45,6 +45,13 @@ CC-74 post-merge E2E (`evidence/slice-3/cc-74-e2e-post.txt`, `--repeat 3`):
 q04, q10, q11, q17, q18, q20, q21, q24, q34, q36, q39, q41, t01, t03, t04,
 t06, t08. `t13` is still excluded by `is_slice1()`. The failure modes below
 still apply; they are not a reason to reopen CC-74.
+
+CC-75 post-merge E2E (`evidence/slice-3/cc-75-e2e-post.txt`, `--repeat 3`, n=171):
+`answered_rate` 0.769, `p95` 14.737s, `selector_at_1` 0.875. `demo.misses`:
+q04, q05, q08, q10, q11, q17, q18, q20, q21, q28, q34, q37, q39, q41, t03, t04,
+t06, t07, t08, t10, t11, t12, t13. `t09` and `t14` are not in the miss list.
+`t10`–`t13` are now in the suite and miss on missing warnings; they are not a
+reason to reopen CC-75.
 
 ## What “answered” means
 
@@ -97,7 +104,7 @@ Open under epic [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2):
 
 | ticket | owns | live questions |
 |---|---|---|
-| [CC-75](https://johnhillescobar.atlassian.net/browse/CC-75) | `variable_not_in_vintage`, `measure_unavailable`, warn-and-ship on vintage/measure traps | `t09`, `t14`; also `t01` empty URL |
+| [CC-75](https://johnhillescobar.atlassian.net/browse/CC-75) Done | `variable_not_in_vintage`, `measure_unavailable`, warn-and-ship on vintage/measure traps | `t09`, `t14` not in post-merge misses |
 | [CC-76](https://johnhillescobar.atlassian.net/browse/CC-76) | `MOE_diff`, shared-sample caveat, two-leg fetch before significance | `q23`, `t15`–`t18`; `t03` two legs; `t06` empty URL |
 
 AC added **2026-09-18** (on the tickets, not here):
