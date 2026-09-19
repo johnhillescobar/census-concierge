@@ -76,9 +76,10 @@ def clear_series(record: Any) -> None:
 
 def series_from_record(record: Any) -> dict[str, Any]:
     artifact = getattr(record, "fetch", None)
+    built = getattr(record, "url", None)
     if isinstance(artifact, FetchDataResult):
         return {
-            "urls": list(artifact.urls),
+            "urls": list(artifact.urls) or ([str(built)] if built else []),
             "requested_years": list(artifact.requested_years),
             "attempted_years": list(artifact.attempted_years),
             "succeeded_years": list(artifact.succeeded_years),
@@ -87,7 +88,6 @@ def series_from_record(record: Any) -> dict[str, Any]:
             "omission_reasons": list(artifact.omission_reasons),
             "legs": list(artifact.legs),
         }
-    built = getattr(record, "url", None)
     if built:
         return {
             "urls": [str(built)],
@@ -193,10 +193,10 @@ def _apply_variables(
     template: CensusURL,
     lookup: Callable[[str, int, str], dict[str, Any] | None] | None,
 ) -> VintagePlan:
-    if lookup is None or not plan.attempted:
-        return plan
-    table_id, suffixes = template.estimate_table()
-    if not table_id:
+    table_id, suffixes = (
+        template.estimate_table() if lookup is not None and plan.attempted else ("", [])
+    )
+    if lookup is None or not plan.attempted or not table_id:
         return plan
     kept, dropped, reasons = drop_incompatible(
         lookup, plan.dataset, plan.attempted, table_id, suffixes

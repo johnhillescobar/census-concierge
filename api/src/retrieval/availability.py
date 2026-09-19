@@ -116,15 +116,13 @@ def drop_incompatible(
 ) -> tuple[list[int], list[int], list[str]]:
     """Keep years whose table, suffixes, and definition match the latest usable year."""
     facts_by_year = {year: lookup(dataset, year, table_id) for year in years}
-    reference = next(
-        (
-            facts
-            for year in reversed(years)
-            if (facts := facts_by_year[year]) is not None
-            and (not suffixes or set(suffixes) <= set(facts.get("variables") or []))
-        ),
-        None,
-    )
+    usable = [
+        year
+        for year in years
+        if (facts := facts_by_year[year]) is not None
+        and (not suffixes or set(suffixes) <= set(facts.get("variables") or []))
+    ]
+    reference = facts_by_year[max(usable)] if usable else None
     kept: list[int] = []
     omitted: list[int] = []
     reasons: list[str] = []

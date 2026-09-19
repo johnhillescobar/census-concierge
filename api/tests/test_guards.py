@@ -1139,3 +1139,23 @@ def test_measure_unavailable_still_ships_the_url() -> None:
     response = assemble("ships", record)
     assert [item.code for item in response.warnings] == ["measure_unavailable"]
     assert response.urls
+
+
+def test_all_incompatible_years_still_ship_the_built_url() -> None:
+    built = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M"
+        "&for=place:20000&in=state:08"
+    )
+    record = ExecutionRecord(
+        question=T14, table_id="B28001", url=built, table_facts=_computer_facts
+    )
+    record.fetch = _fetch(
+        urls=[],
+        requested_years=[2013, 2016],
+        omitted_years=[2013, 2016],
+        omission_reasons=["variable_not_in_vintage", "variable_not_in_vintage"],
+        dataset="acs5",
+    )
+    response = assemble("ships", record)
+    assert response.urls == [str(built)]
+    assert any(item.code == "variable_not_in_vintage" for item in response.warnings)

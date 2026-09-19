@@ -126,3 +126,20 @@ def test_changed_universe_or_missing_suffix_is_dropped() -> None:
     )
     assert 2019 in omitted
     assert kept == [2024]
+
+
+def test_latest_calendar_year_is_the_definition_reference() -> None:
+    facts = {
+        2019: {"title": "Median Household Income", "universe": "Families", "variables": ["001E"]},
+        2024: {"title": "Median Household Income", "universe": "Households", "variables": ["001E"]},
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs5" and table_id == "B19013"
+        return facts[year]
+
+    kept, omitted, _reasons = availability.drop_incompatible(
+        lookup, "acs5", [2024, 2019], "B19013", ["001E"]
+    )
+    assert kept == [2024]
+    assert omitted == [2019]
