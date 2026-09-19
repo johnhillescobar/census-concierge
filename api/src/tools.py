@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL
 from src.contract import GeoSpec
+from src.vintages import device_table
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -90,6 +91,26 @@ def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
     ]
 
 
+def _with_device_table(
+    question: str, hits: list[dict[str, Any]], describe: DescribeTable
+) -> list[dict[str, Any]]:
+    table_id = device_table(question)
+    if not table_id:
+        return hits
+    if any(hit["table_id"] == table_id for hit in hits):
+        return _promote(hits, table_id)
+    meta = describe(table_id) or {}
+    if not meta:
+        return hits
+    injected = {
+        "table_id": table_id,
+        "title": meta.get("title", ""),
+        "universe": meta.get("universe", ""),
+        "members": list(meta.get("members") or []),
+    }
+    return [injected, *[hit for hit in hits if hit["table_id"] != table_id]]
+
+
 def _pick_table(question: str, hits: list[dict[str, Any]], select: SelectFn | None) -> str:
     if select is not None:
         return select(question, hits)
@@ -154,6 +175,7 @@ class SearchTablesTool(BaseTool):
                 picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
                 self._picks[question] = picked
             hits = _promote(hits, picked)
+        hits = _with_device_table(question, hits, self.describe)
         artifact = SearchTablesResult(hits=hits)
         if not hits:
             return "0 candidates", artifact

@@ -58,6 +58,7 @@ class ExecutionRecord:
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
     table_facts: Any = None
+    published_vintages: Any = None
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -344,6 +345,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         return table if isinstance(table, dict) else None
 
     record.table_facts = facts
+    record.published_vintages = lambda d: {int(year) for year in matrix["datasets"].get(d, {})}
     return {
         "search_tables": SearchTablesTool(search=search, describe=describe),
         "resolve_geography": ResolveGeographyTool(

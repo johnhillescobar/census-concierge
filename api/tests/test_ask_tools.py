@@ -154,6 +154,50 @@ async def test_same_question_does_not_reselect() -> None:
     assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
 
 
+async def test_cell_phone_and_computer_questions_pin_b28001() -> None:
+    def search(question: str, k: int = 10) -> list[str]:
+        del question
+        return ["B28010", "B28003"][:k]
+
+    tool = SearchTablesTool(
+        search=search,
+        describe=_describe,
+        select=lambda question, hits: "B28010",
+    )
+    phones = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "Number of cell phones in Denver since 2017"},
+            "id": "c1",
+        }
+    )
+    computers = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {
+                "question": "How has the share of households with a computer changed since 2013?"
+            },
+            "id": "c2",
+        }
+    )
+    assert [hit["table_id"] for hit in phones.artifact.hits][0] == "B28001"
+    assert [hit["table_id"] for hit in computers.artifact.hits][0] == "B28001"
+
+
+async def test_broadband_is_not_pinned_to_b28001(search_tool: SearchTablesTool) -> None:
+    message = await search_tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "search_tables",
+            "args": {"question": "worst broadband access"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.hits[0]["table_id"] == "B28002"
+
+
 async def test_unknown_selector_id_keeps_retrieval_order() -> None:
     tool = SearchTablesTool(
         search=_pool_search,
@@ -197,6 +241,44 @@ def test_zcta_nested_in_county_is_not_legal() -> None:
         )
         is None
     )
+
+
+async def test_year_question_with_no_place_resolves_to_the_united_states() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "How has the share of households with a computer changed since 2013?"
+            },
+            "id": "c1",
+        }
+    )
+    assert message.artifact.legal is True
+    assert [spec.for_spec for spec in message.artifact.specs] == ["us:1"]
+    overlap = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Compare median household income between 2015-2019 and 2018-2022"},
+            "id": "c2",
+        }
+    )
+    assert [spec.for_spec for spec in overlap.artifact.specs] == ["us:1"]
+
+
+async def test_named_place_with_a_year_is_not_replaced_by_the_united_states() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Number of cell phones in Denver since 2017"},
+            "id": "c1",
+        }
+    )
+    assert [spec.for_spec for spec in message.artifact.specs] != ["us:1"]
 
 
 async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:

@@ -23,11 +23,14 @@ with no `in=` and no national listing, ACS1 ZCTA fail-closes from that vintage's
 vintage, period, table, GEOID, estimate and matching MOE (Census sentinels are
 null on `moe[]`, never zero); a tract or block-group series whose requested
 years cross 2020 emits `boundary_change_2020` naming the affected periods;
-`fetch_data` omits years whose table, estimate suffixes, or definition do not
-match that vintage's availability matrix (`variable_not_in_vintage`, no silent
-join); cell-phone wording emits `measure_unavailable` and still fetches
-households with smartphone access; `make demo` includes year-series traps
-`t09`–`t14`.** Retrieval runs
+`fetch_data` omits years whose table, estimate suffixes, labels, or definition do
+not match that vintage's availability matrix (`variable_not_in_vintage`, no silent
+join); unpublished and 2020-ACS1 gaps keep their own reason codes; cell-phone
+wording and "households with a computer" pin `B28001` in `search_tables`;
+cell-phone wording emits `measure_unavailable` and still fetches households with
+smartphone access; a year question that names no place resolves to `us:1`;
+`urls[]` is the built URL when every vintage is omitted; `make demo` includes
+year-series traps `t09`–`t14`.** Retrieval runs
 end to end as a two-stage pipeline: `search()` retrieves a top-10 pool;
 `rerank.py` selects one table from it. `search_tables` applies that pick;
 `index.search()` does not. `budgets.toml` gates retriever `@10` and

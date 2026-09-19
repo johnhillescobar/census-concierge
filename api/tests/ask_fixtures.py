@@ -43,6 +43,8 @@ def _search(question: str, k: int = 10) -> list[str]:
         return ["B08301"][:k]
     if "broadband" in q:
         return ["B28002"][:k]
+    if "cell phone" in q or "mobile phone" in q or "households with a computer" in q:
+        return ["B28010", "B28003"][:k]
     if "income" in q:
         return ["B19013"][:k]
     if "population" in q:
@@ -65,6 +67,21 @@ def _describe(table_id: str) -> dict[str, object] | None:
         },
         "B28002": {
             "title": "Internet Subscriptions",
+            "universe": "Households",
+            "members": [],
+        },
+        "B28001": {
+            "title": "Types of Computers and Internet Subscriptions",
+            "universe": "Households",
+            "members": [],
+        },
+        "B28003": {
+            "title": "Presence of a Computer and Type of Internet Subscription",
+            "universe": "Households",
+            "members": [],
+        },
+        "B28010": {
+            "title": "Computers in Household",
             "universe": "Households",
             "members": [],
         },

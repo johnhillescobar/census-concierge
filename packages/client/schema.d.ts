@@ -124,7 +124,7 @@ export interface components {
             universe: string;
             /**
              * Urls
-             * @description Key-redacted Census API URLs, one per attempted request, in requested order.
+             * @description Key-redacted Census API URLs, one per attempted request, in requested order. When every requested vintage is omitted, this is the built URL so the request is still editable.
              */
             urls: string[];
             /**

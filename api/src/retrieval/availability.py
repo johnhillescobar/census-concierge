@@ -17,6 +17,7 @@ import json
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
+from hashlib import sha1
 from pathlib import Path
 from typing import Any
 
@@ -37,15 +38,19 @@ def build() -> dict[str, Any]:
         for year in metadata.cached_vintages(dataset):
             tables = metadata.tables(dataset, year)
             by_table: dict[str, list[str]] = defaultdict(list)
+            labels: dict[str, list[tuple[str, str]]] = defaultdict(list)
             for variable in metadata.variables(dataset, year).values():
                 prefix = f"{variable.table_id}_"
-                by_table[variable.table_id].append(variable.variable_id.removeprefix(prefix))
+                suffix = variable.variable_id.removeprefix(prefix)
+                by_table[variable.table_id].append(suffix)
+                labels[variable.table_id].append((suffix, variable.label))
 
             datasets.setdefault(dataset, {})[str(year)] = {
                 table_id: {
                     "title": table.title,
                     "universe": table.universe,
                     "variables": sorted(by_table.get(table_id, [])),
+                    "label_sig": _label_sig(labels.get(table_id, [])),
                 }
                 for table_id, table in sorted(tables.items())
             }
@@ -98,8 +103,18 @@ def _universe(raw: str) -> str:
     return "households" if folded in _HOUSEHOLD else folded
 
 
+def _label_sig(pairs: list[tuple[str, str]]) -> str:
+    blob = "\n".join(
+        f"{suffix}\t{strip_vintage(label).casefold()}" for suffix, label in sorted(pairs)
+    )
+    return sha1(blob.encode()).hexdigest()[:16]
+
+
 def same_definition(left: dict[str, Any], right: dict[str, Any]) -> bool:
-    """True when title/universe differences are encoding, not a redefinition."""
+    """True when title/universe/label differences are encoding, not a redefinition."""
+    left_sig, right_sig = str(left.get("label_sig") or ""), str(right.get("label_sig") or "")
+    if left_sig and right_sig and left_sig != right_sig:
+        return False
     return (
         _universe(str(left.get("universe") or "")) == _universe(str(right.get("universe") or ""))
         and strip_vintage(str(left.get("title") or "")).casefold()

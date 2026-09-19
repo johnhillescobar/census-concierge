@@ -95,6 +95,33 @@ def test_household_encoding_and_title_case_are_the_same_definition() -> None:
     )
 
 
+def test_recoded_suffix_labels_are_dropped_missing_signatures_are_not() -> None:
+    stable = {
+        "title": "Types of Computers in Household",
+        "universe": "Households",
+        "variables": ["001E", "005E"],
+    }
+    assert availability.same_definition(stable, dict(stable))
+    assert not availability.same_definition(
+        {**stable, "label_sig": "aaaa"}, {**stable, "label_sig": "bbbb"}
+    )
+    facts = {
+        2017: {**stable, "label_sig": "aaaa"},
+        2024: {**stable, "label_sig": "bbbb"},
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs5" and table_id == "B28001"
+        return facts[year]
+
+    kept, omitted, reasons = availability.drop_incompatible(
+        lookup, "acs5", [2017, 2024], "B28001", ["005E"]
+    )
+    assert kept == [2024]
+    assert omitted == [2017]
+    assert reasons == [availability.REASON_VARIABLE]
+
+
 def test_changed_universe_or_missing_suffix_is_dropped() -> None:
     facts = {
         2016: None,

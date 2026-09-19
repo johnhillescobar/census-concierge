@@ -14,7 +14,9 @@ REASON_OVERLAP = "overlapping_vintage"
 REASON_MAX = "max_years"
 REASON_NO_URL = "no_url"
 REASON_UNPUBLISHED = "unpublished_vintage"
+DEVICE_TABLE = "B28001"
 _DEVICE = re.compile(r"\b(?:cell phones?|mobile phones?)\b", re.IGNORECASE)
+_COMPUTER = re.compile(r"\bhouseholds with a computer\b", re.IGNORECASE)
 _SINCE = re.compile(r"\b(?:since|from|through)\s+((?:19|20)\d{2})\b", re.IGNORECASE)
 _SPAN = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
 CENSUS_MISSING = {
@@ -44,6 +46,13 @@ def question_years(question: str) -> list[int]:
     return list(dict.fromkeys(years))
 
 
+def device_table(question: str) -> str | None:
+    text = str(question or "")
+    if _DEVICE.search(text) or _COMPUTER.search(text):
+        return DEVICE_TABLE
+    return None
+
+
 def measure_unavailable(record: Any) -> AskWarning | None:
     if not _DEVICE.search(str(getattr(record, "question", "") or "")):
         return None
@@ -60,27 +69,37 @@ def variable_not_in_vintage(record: Any) -> AskWarning | None:
     from src.retrieval.availability import REASON_VARIABLE, drop_incompatible
 
     artifact = getattr(record, "fetch", None)
+    omitted = list(getattr(artifact, "omitted_years", None) or [])
+    reasons = list(getattr(artifact, "omission_reasons", None) or [])
     missing = [
         int(year)
-        for year, reason in zip(
-            getattr(artifact, "omitted_years", None) or [],
-            getattr(artifact, "omission_reasons", None) or [],
-            strict=False,
-        )
+        for year, reason in zip(omitted, reasons, strict=False)
         if reason == REASON_VARIABLE
     ]
     lookup = getattr(record, "table_facts", None)
     table_id = str(getattr(record, "table_id", "") or "")
     years = question_years(str(getattr(record, "question", "") or ""))
     years.extend(int(year) for year in getattr(artifact, "requested_years", None) or [])
+    dataset = str(getattr(artifact, "dataset", "") or "")
+    vintages = list(getattr(record, "vintages", None) or [])
+    dataset = dataset or (vintages[0][0] if vintages else "acs5")
+    getter = getattr(record, "published_vintages", None)
+    published = set(getter(dataset)) if callable(getter) else None
+    unpublished = {
+        int(year)
+        for year, reason in zip(omitted, reasons, strict=False)
+        if reason in {REASON_GAP_2020, REASON_UNPUBLISHED}
+    }
     if lookup is not None and table_id and years:
-        dataset = str(getattr(artifact, "dataset", "") or "")
-        vintages = list(getattr(record, "vintages", None) or [])
-        dataset = dataset or (vintages[0][0] if vintages else "acs5")
-        _kept, dropped, _reasons = drop_incompatible(
-            lookup, dataset, list(dict.fromkeys(years)), table_id, []
-        )
-        missing.extend(dropped)
+        raw = list(dict.fromkeys(years))
+        if published is not None:
+            lo, hi = min(raw), max(raw)
+            scanned = [year for year in published if lo <= year <= hi]
+        else:
+            scanned = [year for year in raw if year not in unpublished]
+        if scanned:
+            _kept, dropped, _reasons = drop_incompatible(lookup, dataset, scanned, table_id, [])
+            missing.extend(dropped)
     missing = list(dict.fromkeys(missing))
     if not missing:
         return None

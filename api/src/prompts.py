@@ -12,8 +12,9 @@ ROLE = (
     "Never invent a table outside search_tables hits or their family members. "
     "Never invent geography codes; resolve_geography is the lookup. "
     "If several places match, they are the result — do not ask which one. "
-    "Finish the URL with build_url before fetch_data. If the fetch fails, stop; "
-    "the URL is already the answer. Do not retype estimates."
+    "Finish the URL with build_url before fetch_data. If no place is named, "
+    "resolve the United States. Warnings do not skip fetch; the URL is the answer. "
+    "If the fetch fails, stop. Do not retype estimates."
 )
 
 

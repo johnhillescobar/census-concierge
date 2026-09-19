@@ -1093,6 +1093,42 @@ def test_absent_computer_years_are_named_and_the_url_ships() -> None:
     assert response.warnings[0].code == "variable_not_in_vintage"
 
 
+def test_acs1_2020_gap_is_not_a_missing_variable() -> None:
+    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        assert dataset == "acs1" and table_id == "B17001"
+        if year == 2020:
+            return None
+        return {"title": "Poverty Status", "universe": "Population", "variables": ["001E"]}
+
+    record = ExecutionRecord(question=T12, table_id="B17001", table_facts=facts)
+    record.published_vintages = lambda dataset: {2018, 2019, 2021, 2022}
+    record.fetch = _fetch(
+        dataset="acs1",
+        requested_years=list(range(2018, 2023)),
+        attempted_years=[2018, 2019, 2021, 2022],
+        omitted_years=[2020],
+        omission_reasons=["vintage_gap_2020"],
+        urls=["https://api.census.gov/data/2018/acs/acs1?get=NAME"],
+    )
+    assert "variable_not_in_vintage" not in _codes(record)
+    assert "vintage_gap_2020" in _codes(record)
+
+
+def test_since_before_first_vintage_names_the_published_gap() -> None:
+    record = ExecutionRecord(
+        question=T14,
+        table_id="B28001",
+        table_facts=_computer_facts,
+    )
+    record.published_vintages = lambda dataset: set(range(2016, 2025))
+    record.fetch = _fetch(
+        requested_years=[2017, 2024], attempted_years=[2017, 2024], dataset="acs5"
+    )
+    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
+    assert "2016" in warning.detail
+    assert "2013" not in warning.detail
+
+
 def test_unchanged_computer_years_do_not_warn() -> None:
     record = ExecutionRecord(
         question="Share of households with a computer in 2017 and 2024",
