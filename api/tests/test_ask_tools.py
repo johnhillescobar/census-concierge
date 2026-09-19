@@ -673,7 +673,8 @@ async def test_all_tracts_in_michigan_stay_illegal() -> None:
         }
     )
     assert message.artifact.legal is False
-    assert message.artifact.specs == []
+    assert [row.for_spec for row in message.artifact.specs] == ["tract:*"]
+    assert message.artifact.specs[0].in_spec == "state:26"
 
 
 @pytest.mark.parametrize(

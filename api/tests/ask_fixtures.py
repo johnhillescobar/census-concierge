@@ -81,6 +81,16 @@ def _describe(table_id: str) -> dict[str, object] | None:
             "universe": "Renter-occupied housing units paying cash rent",
             "members": [],
         },
+        "B19113": {
+            "title": "Median Family Income",
+            "universe": "Families",
+            "members": [],
+        },
+        "B19001": {
+            "title": "Household Income",
+            "universe": "Households",
+            "members": [],
+        },
         "B28002": {
             "title": "Internet Subscriptions",
             "universe": "Households",
@@ -308,6 +318,8 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                     "universe": "Renter-occupied housing units paying cash rent",
                     "variables": ["001E"],
                 },
+                "B19113": {"universe": "Families", "variables": ["001E"]},
+                "B19001": {"universe": "Households", "variables": ["001E"]},
                 "B28001": {"universe": "Households", "variables": ["001E"]},
             }
         }

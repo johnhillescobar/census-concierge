@@ -151,6 +151,21 @@ def test_geography_not_nested_with_empty_url_is_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=body) is True
 
 
+def test_median_not_aggregatable_with_empty_url_is_answered() -> None:
+    entry = {
+        "id": "t17",
+        "expect_table": "B19013",
+        "expect_warning": "median_not_aggregatable",
+    }
+    body = _body(
+        table_id="",
+        url="",
+        rows=[],
+        warnings=[{"code": "median_not_aggregatable", "detail": "cannot combine medians"}],
+    )
+    assert run_demo.is_answered(entry, status_code=200, body=body) is True
+
+
 def test_warning_only_without_url_is_not_answered() -> None:
     entry = {"id": "t03", "expect_warning": "moe_not_significant"}
     body = _body(

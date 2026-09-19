@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from ask_fixtures import _describe, _geo_tool, _harris, _search, _tools
+from ask_fixtures import ENTRIES, _describe, _geo_tool, _harris, _search, _tools
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse
@@ -183,6 +183,75 @@ async def test_universe_mismatch_finishes_with_a_url() -> None:
     assert "us:1" in response.urls[0]
 
 
+async def test_austin_rent_finishes_when_the_model_stops() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Compare median gross rent in Austin to the Texas average",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B25064"
+    assert response.urls
+    assert response.rows
+    assert any(item.code == "shared_sample" for item in response.warnings)
+    assert "place:4805000" in response.urls[0] or "state:48" in "".join(response.urls)
+
+
+async def test_block_group_state_listing_finishes_with_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    entries = [
+        *ENTRIES,
+        GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
+    ]
+    tools["resolve_geography"] = _geo_tool(table=entries)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Median household income for every block group in Wyoming",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert response.urls
+    assert "group:*" in response.urls[0]
+
+
+async def test_tract_within_denver_does_not_finish_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "Compare poverty by census tract within the city of Denver",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert any(item.code == "geography_not_nested" for item in response.warnings)
+    assert response.urls == []
+
+
 async def test_two_consecutive_failures_of_the_same_tool_abort() -> None:
     record = ExecutionRecord()
     tool = FetchDataTool(last_url=lambda: None, census_key=lambda: "")
@@ -241,32 +310,14 @@ async def test_failed_fetch_still_returns_the_built_url() -> None:
 async def test_search_does_not_select_the_table() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
-    queue: list[dict[str, Any]] = [
-        {
-            "content": "",
-            "tool_calls": [
-                {
-                    "id": "1",
-                    "name": "search_tables",
-                    "args": {"question": "population of Harris County, Texas"},
-                }
-            ],
-        },
-        {"content": "candidates listed", "tool_calls": []},
-    ]
-
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        _ = messages, openai_tools
-        return queue.pop(0)
-
-    response = await run_ask(
-        "population of Harris County, Texas", complete=complete, tools=tools, record=record
+    await dispatch(
+        tools["search_tables"],
+        {"id": "1", "args": {"question": "population of Harris County, Texas"}},
+        record,
     )
     assert record.pool[0]["table_id"] == "B01003"
-    assert response.table_id == ""
-    assert response.universe == ""
+    assert record.table_id == ""
+    assert record.url is None
 
 
 async def test_failed_rebuild_clears_the_previous_url_and_rows() -> None:

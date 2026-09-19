@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL
 from src.contract import GeoSpec
-from src.vintages import device_table
+from src.vintages import pinned_table
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -94,7 +94,7 @@ def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
 def _with_device_table(
     question: str, hits: list[dict[str, Any]], describe: DescribeTable
 ) -> list[dict[str, Any]]:
-    table_id = device_table(question)
+    table_id = pinned_table(question)
     if not table_id:
         return hits
     if any(hit["table_id"] == table_id for hit in hits):

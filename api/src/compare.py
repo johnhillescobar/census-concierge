@@ -35,6 +35,25 @@ _RANK = {
 }
 
 
+def unsupported_wildcard(
+    query: str,
+    for_level: str,
+    in_parts: dict[str, str],
+    *,
+    dataset: str,
+    year: int,
+) -> GeoSpec:
+    parent = " ".join(f"{k}:{v}" for k, v in in_parts.items())
+    return GeoSpec(
+        level=for_level,
+        name=query.strip(),
+        for_spec=f"{for_level}:*",
+        in_spec=parent,
+        dataset=dataset,
+        vintage=year,
+    )
+
+
 def moe_diff(left: float, right: float) -> float:
     return math.sqrt(left * left + right * right)
 

@@ -11,8 +11,10 @@ from typing import Protocol
 
 from src.compare import comparison_rows, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
-from src.vintages import CENSUS_MISSING as _MISSING
-from src.vintages import measure_unavailable, period_for, variable_not_in_vintage
+from src.vintages import (
+    CENSUS_MISSING as _MISSING,
+)
+from src.vintages import measure_unavailable, period_for, variable_not_in_vintage, year_span
 
 _ACS5_SPAN = 5
 _RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
@@ -138,6 +140,8 @@ def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
 
 def overlapping_vintage(record: GuardRecord) -> AskWarning | None:
     years = _acs5_end_years(record.question)
+    if re.search(r"\bevery year\b", record.question, re.IGNORECASE):
+        years.extend(year_span(record.question))
     years.extend(year for dataset, year in record.vintages if dataset == "acs5")
     if not _overlaps(years):
         return None

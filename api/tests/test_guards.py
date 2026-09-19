@@ -59,6 +59,13 @@ def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
     assert _codes(record) == []
 
 
+def test_from_to_consecutive_acs5_years_overlap() -> None:
+    record = ExecutionRecord(
+        question="Plot median household income for Cuyahoga County every year from 2017 to 2023"
+    )
+    assert _codes(record) == ["overlapping_vintage"]
+
+
 def _fetch(**fields: object) -> FetchDataResult:
     payload: dict[str, object] = {
         "ok": True,
@@ -417,7 +424,8 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
     await dispatch(tool, {"id": "bg1", "args": {"query": "every block group in Wyoming"}}, record)
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
-    assert record.geographies == []
+    assert [row.for_spec for row in record.geographies] == ["block group:*"]
+    assert record.geographies[0].in_spec == "state:56"
     response = assemble("answer still ships", record)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert "block group" in response.warnings[0].detail

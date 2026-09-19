@@ -15,10 +15,23 @@ REASON_MAX = "max_years"
 REASON_NO_URL = "no_url"
 REASON_UNPUBLISHED = "unpublished_vintage"
 DEVICE_TABLE = "B28001"
+RENT_TABLE = "B25064"
+FAMILY_INCOME_TABLE = "B19113"
+DISTRIBUTION_TABLE = "B19001"
 _DEVICE = re.compile(r"\b(?:cell phones?|mobile phones?)\b", re.IGNORECASE)
 _COMPUTER = re.compile(r"\bhouseholds with a computer\b", re.IGNORECASE)
+_RENT = re.compile(r"\bmedian gross rent\b", re.IGNORECASE)
+_FAMILY_INCOME = re.compile(r"\bmedian family income\b", re.IGNORECASE)
+_DISTRIBUTION = re.compile(r"\bincome distribution\b", re.IGNORECASE)
+_ACS1 = re.compile(r"\b(?:1-year|acs1)\b", re.IGNORECASE)
+_SINCE_WORD = re.compile(r"\bsince\s+(?:19|20)\d{2}\b", re.IGNORECASE)
 _SINCE = re.compile(r"\b(?:since|from|through)\s+((?:19|20)\d{2})\b", re.IGNORECASE)
 _SPAN = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
+_YEAR_SPAN = re.compile(
+    r"\b(?:from|between)\s+((?:19|20)\d{2})\s+(?:to|and|through)\s+((?:19|20)\d{2})\b|"
+    r"\b((?:19|20)\d{2})\s+(?:to|through)\s+((?:19|20)\d{2})\b",
+    re.IGNORECASE,
+)
 CENSUS_MISSING = {
     None,
     "",
@@ -40,16 +53,50 @@ class VintagePlan:
     acs1_ineligible: bool = False
 
 
+def year_span(question: str) -> list[int]:
+    years: list[int] = []
+    for first, second, third, fourth in _YEAR_SPAN.findall(question):
+        start_text, end_text = (first, second) if first else (third, fourth)
+        start, end = int(start_text), int(end_text)
+        if end >= start:
+            years.extend(range(start, end + 1))
+    return years
+
+
 def question_years(question: str) -> list[int]:
     years = [int(part) for pair in _SPAN.findall(question) for part in pair]
+    years.extend(year_span(question))
     years.extend(int(match.group(1)) for match in _SINCE.finditer(question))
     return list(dict.fromkeys(years))
+
+
+def requested_years(question: str, latest: int) -> list[int]:
+    years = question_years(question)
+    if _SINCE_WORD.search(question) and years:
+        return list(range(min(years), latest + 1))
+    return years
+
+
+def wants_acs1(question: str) -> bool:
+    return _ACS1.search(question) is not None
 
 
 def device_table(question: str) -> str | None:
     text = str(question or "")
     if _DEVICE.search(text) or _COMPUTER.search(text):
         return DEVICE_TABLE
+    return None
+
+
+def pinned_table(question: str) -> str | None:
+    if hit := device_table(question):
+        return hit
+    if _RENT.search(question):
+        return RENT_TABLE
+    if _FAMILY_INCOME.search(question):
+        return FAMILY_INCOME_TABLE
+    if _DISTRIBUTION.search(question):
+        return DISTRIBUTION_TABLE
     return None
 
 

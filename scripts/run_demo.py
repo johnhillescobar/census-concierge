@@ -110,7 +110,9 @@ def census_urls(body: dict[str, Any]) -> list[str]:
 
 
 # These traps have no legal Census URL; requiring one would score a silent substitution.
-_WARNING_WITHOUT_FETCH = frozenset({"ambiguous_place", "geography_not_nested"})
+_WARNING_WITHOUT_FETCH = frozenset(
+    {"ambiguous_place", "geography_not_nested", "median_not_aggregatable"}
+)
 
 
 def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]) -> bool:
