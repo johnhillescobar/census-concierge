@@ -7,6 +7,10 @@ globs: api/**/*.py
 
 Python 3.12. Ruff + mypy. Keep any file under 400 lines (enforced).
 
+**Read before editing.** Warning codes: `docs/requirements.md`. Live `POST /ask`
+path: `docs/ask-path.md`. Retrieval measurements: `docs/retrieval.md`. Do not
+invent a guard code that is not in that catalog.
+
 ## Agent shape
 
 **One tool-calling loop. Four to six tools.** Not a graph.
@@ -61,7 +65,7 @@ conditionally per user or per tool. Neither exists through slice 8.
 
 ## Guards are pure functions, not hooks
 
-The DESIGN §4 guards are **not** `after_tool` middleware. Tools record what they
+The DESIGN §4 guards (`docs/requirements.md`) are **not** `after_tool` middleware. Tools record what they
 did — table chosen, vintages fetched, geography levels, MOEs returned — into an
 execution record, and the response assembler evaluates every guard against that
 record **once, at the end**.
