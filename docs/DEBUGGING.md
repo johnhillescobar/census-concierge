@@ -124,8 +124,9 @@ Run:
 Manual request:
 
 - Swagger: `http://127.0.0.1:8000/docs`
-- PowerShell:
-  - `Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType application/json -Body '{\"question\":\"population of Harris County, Texas\"}'`
+- PowerShell (single-quoted strings do not unescape backslashes; build JSON with `ConvertTo-Json`):
+  - `$body = @{ question = "population of Harris County, Texas" } | ConvertTo-Json`
+  - `Invoke-RestMethod http://127.0.0.1:8000/ask -Method Post -ContentType application/json -Body $body`
 - Curl (Windows): use `curl.exe` to avoid the PowerShell `curl` alias
   - `curl.exe -X POST http://127.0.0.1:8000/ask -H "Content-Type: application/json" -d "{\"question\":\"population of Harris County, Texas\"}"`
 

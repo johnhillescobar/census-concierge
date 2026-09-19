@@ -21,6 +21,7 @@ import base64
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -51,12 +52,26 @@ def _auth_header() -> dict[str, str]:
     return {"Authorization": f"Basic {encoded}", "Accept": "application/json"}
 
 
-def _api(method: str, path: str) -> dict[str, Any]:
+def _api(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     url = f"https://{_site()}/rest/api/3{path}"
-    req = urllib.request.Request(url, method=method, headers=_auth_header())
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        raw = resp.read()
-        return json.loads(raw) if raw else {}
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        method=method,
+        headers={**_auth_header(), "Content-Type": "application/json"} if body else _auth_header(),
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read()
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        print(f"Jira HTTP {exc.code} {method} {path}", file=sys.stderr)
+        print(exc.read().decode(errors="replace")[:1000], file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as exc:
+        print(f"Jira transport error {method} {path}: {exc.reason}", file=sys.stderr)
+        sys.exit(1)
 
 
 def _issue(key: str) -> dict[str, Any]:
@@ -70,18 +85,25 @@ def _issue(key: str) -> dict[str, Any]:
 
 
 def _search(jql: str, *, fields: str = "summary,status,issuetype,parent") -> list[dict[str, Any]]:
-    params = urllib.parse.urlencode(
-        {
-            "jql": jql,
-            "maxResults": 200,
-            "fields": fields,
-        }
-    )
-    payload = _api("GET", f"/search?{params}")
-    issues = payload.get("issues")
-    if not isinstance(issues, list):
-        return []
-    return [issue for issue in issues if isinstance(issue, dict)]
+    # Jira Cloud removed GET /search; POST /search/jql paginates with nextPageToken.
+    field_list = [part.strip() for part in fields.split(",") if part.strip()]
+    found: list[dict[str, Any]] = []
+    next_page: str | None = None
+    seen_tokens: set[str] = set()
+    while True:
+        body: dict[str, Any] = {"jql": jql, "maxResults": 100, "fields": field_list}
+        if next_page:
+            body["nextPageToken"] = next_page
+        payload = _api("POST", "/search/jql", body)
+        page = payload.get("issues")
+        if isinstance(page, list):
+            found.extend(issue for issue in page if isinstance(issue, dict))
+        token = payload.get("nextPageToken")
+        if not isinstance(token, str) or not token or token in seen_tokens:
+            break
+        seen_tokens.add(token)
+        next_page = token
+    return found
 
 
 def _as_text(value: Any) -> str:
@@ -329,10 +351,10 @@ def cmd_epic(args: argparse.Namespace) -> int:
         issuetype = fields.get("issuetype") or {}
         status = fields.get("status") or {}
         line = (
-            f"{issue.get('key','?'):>8}  "
+            f"{issue.get('key', '?'):>8}  "
             f"{getattr(status, 'get', lambda *_: '')('name'):<12}  "
             f"{getattr(issuetype, 'get', lambda *_: '')('name'):<10}  "
-            f"{fields.get('summary','')}"
+            f"{fields.get('summary', '')}"
         )
         print(line.rstrip())
     return 0

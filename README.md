@@ -66,4 +66,4 @@ Read `CLAUDE.md` first. It is short, and most of it is prohibitions earned the
 hard way.
 
 For hands-on debugging (offline scripted loop + where to set breakpoints), see
-`docs/DEBUGGING.md`.
+[docs/DEBUGGING.md](docs/DEBUGGING.md).
