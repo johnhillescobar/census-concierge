@@ -1,0 +1,33 @@
+# CC-92 Gate 1 mutation check
+
+Mutations run on feat/cc-92-variable-vintage against the new tests. One
+behaviour at a time; restored after each.
+
+## GOOD — introduction_omissions always returns []
+
+```
+FAILED test_unpublished_years_before_a_published_hole_are_named
+  assert [] == [2013, 2014, 2015]
+FAILED test_acs1_series_names_years_before_the_table_exists
+  assert 'unpublished_vintage' == 'variable_not_in_vintage'
+```
+
+## GOOD — _required_suffixes never pairs M
+
+```
+FAILED test_missing_margin_is_dropped_when_the_reference_lists_m
+  assert [2016, 2024] == [2024]
+FAILED test_missing_margin_year_is_not_joined
+  assert [2016, 2024] == [2024]
+```
+
+## GOOD — fetch skips question_years union
+
+```
+FAILED test_acs1_series_names_years_before_the_table_exists
+  assert 'acs5' == 'acs1'
+FAILED test_income_series_keeps_unpublished_years_unpublished
+  KeyError: 2013
+```
+
+Restored after each mutation. Tests pass again.

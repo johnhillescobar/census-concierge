@@ -170,3 +170,81 @@ def test_latest_calendar_year_is_the_definition_reference() -> None:
     )
     assert kept == [2024]
     assert omitted == [2019]
+
+
+def test_missing_margin_is_dropped_when_the_reference_lists_m() -> None:
+    facts = {
+        2016: {"title": "Types of Computers", "universe": "Households", "variables": ["001E"]},
+        2024: {
+            "title": "Types of Computers",
+            "universe": "Households",
+            "variables": ["001E", "001M"],
+        },
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        del dataset, table_id
+        return facts[year]
+
+    kept, omitted, reasons = availability.drop_incompatible(
+        lookup, "acs5", [2016, 2024], "B28001", ["001E", "001M"]
+    )
+    assert kept == [2024]
+    assert omitted == [2016]
+    assert reasons == [availability.REASON_VARIABLE]
+
+
+def test_e_only_matrix_does_not_require_margins() -> None:
+    facts = {
+        2016: {"title": "Types of Computers", "universe": "Households", "variables": ["001E"]},
+        2024: {"title": "Types of Computers", "universe": "Households", "variables": ["001E"]},
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        del dataset, table_id
+        return facts[year]
+
+    kept, omitted, reasons = availability.drop_incompatible(
+        lookup, "acs5", [2016, 2024], "B28001", ["001E", "001M"]
+    )
+    assert kept == [2016, 2024]
+    assert omitted == []
+    assert reasons == []
+
+
+def test_unpublished_years_before_a_published_hole_are_named() -> None:
+    published = {
+        "acs5": set(range(2016, 2025)),
+        "acs1": {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024},
+    }
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        if table_id == "B28001" and dataset == "acs5" and year < 2017:
+            return None
+        return {"title": "Types of Computers", "universe": "Households", "variables": ["001E"]}
+
+    omitted = availability.introduction_omissions(
+        lookup, "acs1", [2013, 2014, 2015], "B28001", list(range(2013, 2025)), published
+    )
+    assert omitted == [2013, 2014, 2015]
+    assert (
+        availability.introduction_omissions(
+            lookup, "acs1", [2013, 2014, 2015], "B19013", list(range(2013, 2025)), published
+        )
+        == []
+    )
+
+
+def test_a_table_present_in_every_published_year_is_not_an_introduction() -> None:
+    published = {"acs5": set(range(2016, 2025)), "acs1": set(range(2016, 2025)) - {2020}}
+
+    def lookup(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        del dataset, year, table_id
+        return {"title": "Median Household Income", "universe": "Households", "variables": ["001E"]}
+
+    assert (
+        availability.introduction_omissions(
+            lookup, "acs1", [2013, 2014, 2015], "B19013", list(range(2013, 2025)), published
+        )
+        == []
+    )

@@ -121,45 +121,18 @@ def measure_unavailable(record: Any) -> AskWarning | None:
 
 
 def variable_not_in_vintage(record: Any) -> AskWarning | None:
-    from src.retrieval.availability import REASON_VARIABLE, drop_incompatible
+    from src.retrieval.availability import REASON_VARIABLE
 
     artifact = getattr(record, "fetch", None)
     omitted = list(getattr(artifact, "omitted_years", None) or [])
     reasons = list(getattr(artifact, "omission_reasons", None) or [])
-    missing = [
-        int(year)
-        for year, reason in zip(omitted, reasons, strict=False)
-        if reason == REASON_VARIABLE
-    ]
-    lookup = getattr(record, "table_facts", None)
-    table_id = str(getattr(record, "table_id", "") or "")
-    years = question_years(str(getattr(record, "question", "") or ""))
-    years.extend(int(year) for year in getattr(artifact, "requested_years", None) or [])
-    dataset = str(getattr(artifact, "dataset", "") or "")
-    vintages = list(getattr(record, "vintages", None) or [])
-    dataset = dataset or (vintages[0][0] if vintages else "acs5")
-    getter = getattr(record, "published_vintages", None)
-    published = set(getter(dataset)) if callable(getter) else None
-    unpublished = {
-        int(year)
-        for year, reason in zip(omitted, reasons, strict=False)
-        if reason in {REASON_GAP_2020, REASON_UNPUBLISHED}
-    }
-    if lookup is not None and table_id and years:
-        raw = list(dict.fromkeys(years))
-        if published is not None:
-            lo, hi = min(raw), max(raw)
-            first = min(published) if published else lo
-            if lo < first:
-                lo = first
-                hi = max(hi, first)
-            scanned = [year for year in published if lo <= year <= hi]
-        else:
-            scanned = [year for year in raw if year not in unpublished]
-        if scanned:
-            _kept, dropped, _reasons = drop_incompatible(lookup, dataset, scanned, table_id, [])
-            missing.extend(dropped)
-    missing = list(dict.fromkeys(missing))
+    missing = list(
+        dict.fromkeys(
+            int(year)
+            for year, reason in zip(omitted, reasons, strict=False)
+            if reason == REASON_VARIABLE
+        )
+    )
     if not missing:
         return None
     labeled = ", ".join(str(year) for year in missing)
@@ -343,5 +316,55 @@ def plan_years(
         attempted=kept,
         omitted=capped,
         reasons=capped_reasons,
+        acs1_ineligible=plan.acs1_ineligible,
+    )
+
+
+def apply_variable_plan(
+    plan: VintagePlan,
+    template: Any,
+    lookup: Any,
+    requested: list[int],
+    published: dict[str, set[int]] | None,
+) -> VintagePlan:
+    """Drop or reclassify years whose table, E/M, or definition does not match."""
+    from src.retrieval.availability import (
+        REASON_VARIABLE,
+        drop_incompatible,
+        introduction_omissions,
+    )
+
+    if lookup is None:
+        return plan
+    table_id, suffixes = ("", [])
+    if plan.attempted or plan.omitted:
+        table_id, suffixes = template.estimate_table()
+    if not table_id:
+        return plan
+    kept, dropped, drop_reasons = drop_incompatible(
+        lookup, plan.dataset, plan.attempted, table_id, suffixes
+    )
+    unpublished = [
+        year
+        for year, reason in zip(plan.omitted, plan.reasons, strict=True)
+        if reason == REASON_UNPUBLISHED
+    ]
+    extra = set(
+        introduction_omissions(lookup, plan.dataset, unpublished, table_id, requested, published)
+    )
+    if not dropped and not extra:
+        return plan
+    omitted = list(plan.omitted)
+    reasons = [
+        REASON_VARIABLE if year in extra else reason
+        for year, reason in zip(omitted, plan.reasons, strict=True)
+    ]
+    omitted.extend(dropped)
+    reasons.extend(drop_reasons)
+    return VintagePlan(
+        dataset=plan.dataset,
+        attempted=kept,
+        omitted=omitted,
+        reasons=reasons,
         acs1_ineligible=plan.acs1_ineligible,
     )

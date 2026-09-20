@@ -13,6 +13,7 @@ from src.contract import AskResponse, GeoSpec
 from src.fetch import FetchDataTool
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
+from src.vintages import requested_years
 from test_ask_route import CONTRACT_FIELDS
 
 
@@ -94,8 +95,27 @@ async def test_computer_share_finishes_when_the_model_stops() -> None:
             return None
         return {"title": "Types of Computers", "universe": "Households", "variables": ["001E"]}
 
-    record.table_facts = facts
-    record.published_vintages = lambda dataset: set(range(2016, 2025))
+    published = {
+        "acs5": set(range(2016, 2025)),
+        "acs1": {2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024},
+    }
+    tools["fetch_data"] = FetchDataTool(
+        last_url=lambda: record.url,
+        last_geographies=lambda: (
+            record.geographies[:2] if (record.geo_status or {}).get("compare") else []
+        ),
+        census_key=lambda: "secret",
+        http_get=lambda _url: (
+            200,
+            [
+                ["NAME", "B28001_001E", "B28001_001M", "GEO_ID", "us"],
+                ["United States", "100", "12", "0100000US", "1"],
+            ],
+        ),
+        published=lambda dataset: published[dataset],
+        table_facts=facts,
+        question_years=lambda: requested_years(record.question, 2024),
+    )
 
     async def complete(
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]

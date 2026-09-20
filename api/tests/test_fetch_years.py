@@ -872,10 +872,11 @@ def _computer_payload(year: int) -> list[list[str]]:
 
 
 def _computer_facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
-    assert dataset == "acs5" and table_id == "B28001"
-    if year == 2016:
+    if table_id != "B28001":
         return None
-    if year == 2017:
+    if dataset == "acs5" and year == 2016:
+        return None
+    if dataset == "acs5" and year == 2017:
         return {
             "title": "TYPES OF COMPUTERS IN HOUSEHOLD",
             "universe": "",
@@ -993,3 +994,144 @@ async def test_household_encoding_is_not_a_redefinition() -> None:
     assert seen == [2018, 2024]
     assert artifact.omitted_years == []
     assert artifact.attempted_years == [2018, 2024]
+
+
+COMPUTERS_US = CensusURL(
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M&for=us:1"
+)
+INCOME_US = CensusURL(
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=us:1"
+)
+
+
+def _device_facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+    if table_id != "B28001":
+        return None
+    if dataset == "acs5" and year < 2017:
+        return None
+    return {
+        "title": "Types of Computers in Household",
+        "universe": "Households",
+        "variables": ["001E", "002E"],
+    }
+
+
+def _income_facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+    del dataset
+    if table_id != "B19013" or year < 2016:
+        return None
+    return {"title": "Median Household Income", "universe": "Households", "variables": ["001E"]}
+
+
+async def test_acs1_series_names_years_before_the_table_exists() -> None:
+    seen: list[tuple[str, int]] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        year = _year_from(url)
+        seen.append((dataset, year))
+        return 200, _computer_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: COMPUTERS_US,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        table_facts=_device_facts,
+        question_years=lambda: list(range(2013, 2025)),
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2016, 2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.dataset == "acs1"
+    pairs = dict(zip(artifact.omitted_years, artifact.omission_reasons, strict=True))
+    assert pairs[2013] == "variable_not_in_vintage"
+    assert pairs[2014] == "variable_not_in_vintage"
+    assert pairs[2015] == "variable_not_in_vintage"
+    assert pairs[2020] == "vintage_gap_2020"
+    assert 2016 in artifact.attempted_years
+    assert 2016 not in artifact.omitted_years
+    assert ("acs1", 2016) in seen
+
+
+async def test_income_series_keeps_unpublished_years_unpublished() -> None:
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        return 200, [
+            ["NAME", "GEO_ID", "B19013_001E", "B19013_001M"],
+            ["United States", "0100000US", str(year), "12"],
+        ]
+
+    tool = FetchDataTool(
+        last_url=lambda: INCOME_US,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        table_facts=_income_facts,
+        question_years=lambda: list(range(2013, 2025)),
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2016, 2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    pairs = dict(zip(artifact.omitted_years, artifact.omission_reasons, strict=True))
+    assert pairs[2013] == "unpublished_vintage"
+    assert pairs[2014] == "unpublished_vintage"
+    assert pairs[2015] == "unpublished_vintage"
+    assert "variable_not_in_vintage" not in artifact.omission_reasons
+    assert 2016 in artifact.attempted_years
+
+
+async def test_missing_margin_year_is_not_joined() -> None:
+    seen: list[int] = []
+
+    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
+        del dataset, table_id
+        variables = ["001E"] if year == 2016 else ["001E", "001M"]
+        return {"title": "Types of Computers", "universe": "Households", "variables": variables}
+
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        seen.append(year)
+        if "/acs/acs1" in url:
+            return 204, ""
+        return 200, [
+            ["NAME", "GEO_ID", "B28001_001E", "B28001_001M"],
+            ["Denver city, Colorado", "1600000US0820000", str(year), "12"],
+        ]
+
+    url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_001E,B28001_001M"
+        "&for=place:20000&in=state:08"
+    )
+    tool = FetchDataTool(
+        last_url=lambda: url,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+        table_facts=facts,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2016, 2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert seen == [2024]
+    assert artifact.omitted_years == [2016]
+    assert artifact.omission_reasons == ["variable_not_in_vintage"]
+    assert artifact.attempted_years == [2024]

@@ -33,7 +33,7 @@ from src.tools import (
     SearchTablesResult,
     SearchTablesTool,
 )
-from src.vintages import latest_vintages, moe_rows, stamp_provenance
+from src.vintages import latest_vintages, moe_rows, requested_years, stamp_provenance
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
@@ -374,6 +374,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             table_facts=facts,
+            question_years=lambda: requested_years(record.question, latest("acs5")),
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }

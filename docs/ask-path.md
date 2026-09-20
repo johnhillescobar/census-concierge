@@ -48,8 +48,11 @@ httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
 `fetch_data(years=…)` is a parameter, not a fifth tool. ACS1 when Census
 publishes every listed member with rows; else non-overlapping ACS5 end years.
 Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
-`acs1_geography_ineligible`). A variable absent or redefined mid-range is
-`variable_not_in_vintage`, not a silent join. Tract / block-group series that
+`acs1_geography_ineligible`). A variable absent or redefined mid-range — including
+unpublished years before a table’s first in-matrix vintage when any dataset has a
+published hole in the requested span — is `variable_not_in_vintage`, recorded on
+the fetch artifact, not inferred from question text at assemble. Tract /
+block-group series that
 cross 2020 emit `boundary_change_2020`. An ACS1-ineligible comparison leg
 destaggers **all** comparison legs to non-overlapping ACS5.
 

@@ -1,0 +1,30 @@
+# CC-92 pre-flight raw output
+# origin/main fb77a1e
+# 2026-09-19
+
+CC-76 post-merge demo.misses include t14 (missing warning variable_not_in_vintage)
+latest.json t14 repeat 3: dataset acs1 us:1 years 2016-2024 skip 2020; warnings [vintage_gap_2020]; 8 rows
+latest.json t14 repeat 1: acs5; warnings include variable_not_in_vintage
+
+acs5 years [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+acs1 years [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024]
+B28001 acs5 2016 ABSENT
+B28001 acs5 2017-2024 n=11 E suffixes 001E-011E M=[]
+B28001 acs1 2016-2024 (no 2020) n=11 E suffixes 001E-011E M=[]
+same_definition acs1 2016 vs 2024 True (empty/HSHLD/Households + title case)
+drop_incompatible acs1 2016-2024 suffixes [] or 001E: dropped=[]
+drop_incompatible acs1 suffixes 001E+001M: dropped=all (matrix has no M)
+drop_incompatible acs5 2016-2024 001E: dropped=[2016]
+question_years(t14)=[2013]
+requested_years(t14, 2024)=2013..2024
+variable_not_in_vintage(ACS1 miss artifact)=None
+variable_not_in_vintage(ACS5 destagger with 2016 omitted)=2016
+
+metadata.variables() is E-only by design. Raw labels 2016 "Estimate!!Total" vs 2024 "Estimate!!Total:" — punctuation, not a redefinition.
+
+--- loc ---
+ 399 ask.py
+ 400 fetch.py
+ 368 guards.py
+ 132 retrieval/availability.py
+ 303 vintages.py
