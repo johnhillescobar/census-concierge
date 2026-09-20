@@ -107,7 +107,7 @@ class SearchTablesTool(BaseTool):
     index: TableIndex                    # injected, never a global
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    async def _arun(self, question: str, k: int = 5) -> tuple[str, SearchResult]:
+    async def _arun(self, question: str, k: int = 10) -> tuple[str, SearchResult]:
         hits = await self.index.search(question, k)
         return f"{len(hits)} candidates: {...}", SearchResult(hits=hits)
 
