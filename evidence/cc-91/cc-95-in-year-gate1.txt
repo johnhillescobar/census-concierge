@@ -1,0 +1,124 @@
+# CC-95 in-year Gate 1 mutation check
+Branch: feat/cc-95-ambiguous-place-candidates
+$ git log -1 --format="HEAD: %H %s"
+HEAD: b1613d7a8e6909c2570eb9d988adb57b210ddfbb fix(CC-95): honor in-year as the ACS5 vintage
+(exit 0)
+$ git status --short
+(exit 0)
+
+## GOOD — new tests at HEAD
+
+$ uv run pytest -q --tb=short api/tests/test_vintages.py::test_from_to_is_a_year_span_hyphen_range_is_not api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+...                                                                      [100%]
+3 passed in 0.52s
+(exit 0)
+
+## GOOD — in-year extraction
+remove the `_IN_YEAR.finditer` extend from `question_years`
+
+3 failed, 0 passed
+
+$ uv run pytest -q --tb=short api/tests/test_vintages.py::test_from_to_is_a_year_span_hyphen_range_is_not api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_______________ test_from_to_is_a_year_span_hyphen_range_is_not _______________
+api\tests\test_vintages.py:53: in test_from_to_is_a_year_span_hyphen_range_is_not
+    assert question_years("population of Harris County, Texas in 2022") == [2022]
+E   assert [] == [2022]
+E     
+E     Right contains one more item: 2022
+E     Use -v to get more diff
+_____________________ test_in_year_rewrites_the_built_url _____________________
+api\tests\test_fetch_years.py:94: in test_in_year_rewrites_the_built_url
+    assert seen == [2022]
+E   assert [2024] == [2022]
+E     
+E     At index 0 diff: 2024 != 2022
+E     Use -v to get more diff
+__________________ test_in_year_uses_that_vintage_not_latest __________________
+api\tests\test_ask_loop.py:128: in test_in_year_uses_that_vintage_not_latest
+    assert urlsplit(response.urls[0]).path == "/data/2022/acs/acs5"
+E   AssertionError: assert '/data/2024/acs/acs5' == '/data/2022/acs/acs5'
+E     
+E     - /data/2022/acs/acs5
+E     ?          ^
+E     + /data/2024/acs/acs5
+E     ?          ^
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_from_to_is_a_year_span_hyphen_range_is_not
+FAILED api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url - a...
+FAILED api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+3 failed in 0.89s
+(exit 1)
+
+$ git checkout -- api/src/vintages.py
+(exit 0)
+
+## GOOD — built-year merge
+restore filling `requested` from `built.year` when empty, then always appending `question_years()`
+
+2 failed, 0 passed
+
+$ uv run pytest -q --tb=short api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_____________________ test_in_year_rewrites_the_built_url _____________________
+api\tests\test_fetch_years.py:94: in test_in_year_rewrites_the_built_url
+    assert seen == [2022]
+E   assert [2024, 2022] == [2022]
+E     
+E     At index 0 diff: 2024 != 2022
+E     Left contains one more item: 2022
+E     Use -v to get more diff
+__________________ test_in_year_uses_that_vintage_not_latest __________________
+api\tests\test_ask_loop.py:128: in test_in_year_uses_that_vintage_not_latest
+    assert urlsplit(response.urls[0]).path == "/data/2022/acs/acs5"
+E   AssertionError: assert '/data/2024/acs/acs5' == '/data/2022/acs/acs5'
+E     
+E     - /data/2022/acs/acs5
+E     ?          ^
+E     + /data/2024/acs/acs5
+E     ?          ^
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url - a...
+FAILED api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+2 failed in 0.73s
+(exit 1)
+
+$ git checkout -- api/src/fetch.py
+(exit 0)
+
+## GOOD — pytest -q -m "not integration"
+
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+...................................................................      [100%]
+427 passed in 11.28s
+(exit 0)
+
+## GOOD — structural budgets
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               3893 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1563 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+(exit 0)
