@@ -20,9 +20,10 @@ Done. Do not re-open them. Residual misses after CC-2 are CC-91.
 
 ## Now
 
-[CC-11](https://johnhillescobar.atlassian.net/browse/CC-11) slice 4 and
-[CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) reliability are
-**In Progress**, in parallel. CC-77 waits on CC-11 table/plan-strip
+[CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) reliability is
+**In Progress**. Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
+is **To Do** in Jira (epic and all eight stories). They may proceed in
+parallel; CC-91 does not block CC-11. CC-77 waits on CC-11 table/plan-strip
 foundations. Spike CC-9 before slice 5.
 
 ---

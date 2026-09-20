@@ -1,0 +1,145 @@
+docs-align Gate 1 -- tests + mutation check
+branch: docs/align-canonical-docs
+PR: 57
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== restored tree, pre-mutation ==========
+$ uv run pytest -q api/tests/test_budgets.py api/tests/test_invariants.py::test_missing_agent_catalog_fails_the_check api/tests/test_invariants.py::test_present_agent_catalogs_pass_the_check --color=no
+
+...                                                                      [100%]
+3 passed in 0.28s
+exit: 0
+
+===== MUTATION check_mandatory_catalogs always returns [] =====
+test: api/tests/test_invariants.py::test_missing_agent_catalog_fails_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_missing_agent_catalog_fails_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_missing_agent_catalog_fails_the_check __________________
+api\tests\test_invariants.py:109: in test_missing_agent_catalog_fails_the_check
+    assert {item.where for item in found} == {
+E   AssertionError: assert set() == {'docs/ask-pa...cs/slices.md'}
+E     
+E     Extra items in the right set:
+E     'docs/slices.md'
+E     'docs/retrieval.md'
+E     'docs/requirements.md'
+E     'docs/ask-path.md'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_missing_agent_catalog_fails_the_check
+1 failed in 0.39s
+exit: 1
+
+restore: git restore scripts/check_invariants.py
+
+===== MUTATION check_mandatory_catalogs always reports a hit =====
+test: api/tests/test_invariants.py::test_present_agent_catalogs_pass_the_check
+
+GOOD
+$ uv run pytest -q api/tests/test_invariants.py::test_present_agent_catalogs_pass_the_check --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_present_agent_catalogs_pass_the_check __________________
+api\tests\test_invariants.py:118: in test_present_agent_catalogs_pass_the_check
+    assert inv.check_mandatory_catalogs() == []
+E   AssertionError: assert [Violation(wh... is missing')] == []
+E     
+E     Left contains one more item: Violation(where='docs/requirements.md', message='mandatory agent catalog is missing')
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_present_agent_catalogs_pass_the_check
+1 failed in 0.30s
+exit: 1
+
+restore: git restore scripts/check_invariants.py
+
+===== MUTATION drop docs/requirements.md from _doc_lines() =====
+test: api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+
+GOOD
+$ uv run pytest -q api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_doc_lines_counts_each_agent_catalog ___________________
+api\tests\test_budgets.py:36: in test_doc_lines_counts_each_agent_catalog
+    assert bud._doc_lines() == expected
+E   assert 24 == 27
+E    +  where 24 = <function _doc_lines at 0x0000022A45B1BBA0>()
+E    +    where <function _doc_lines at 0x0000022A45B1BBA0> = bud._doc_lines
+=========================== short test summary info ===========================
+FAILED api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog - ...
+1 failed in 0.19s
+exit: 1
+
+restore: git restore scripts/check_budgets.py
+
+===== MUTATION drop docs/ask-path.md from _doc_lines() =====
+test: api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+
+GOOD
+$ uv run pytest -q api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_doc_lines_counts_each_agent_catalog ___________________
+api\tests\test_budgets.py:36: in test_doc_lines_counts_each_agent_catalog
+    assert bud._doc_lines() == expected
+E   assert 22 == 27
+E    +  where 22 = <function _doc_lines at 0x0000021F6785BBA0>()
+E    +    where <function _doc_lines at 0x0000021F6785BBA0> = bud._doc_lines
+=========================== short test summary info ===========================
+FAILED api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog - ...
+1 failed in 0.17s
+exit: 1
+
+restore: git restore scripts/check_budgets.py
+
+===== MUTATION drop docs/retrieval.md from _doc_lines() =====
+test: api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+
+GOOD
+$ uv run pytest -q api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_doc_lines_counts_each_agent_catalog ___________________
+api\tests\test_budgets.py:36: in test_doc_lines_counts_each_agent_catalog
+    assert bud._doc_lines() == expected
+E   assert 20 == 27
+E    +  where 20 = <function _doc_lines at 0x0000019FA3E0BBA0>()
+E    +    where <function _doc_lines at 0x0000019FA3E0BBA0> = bud._doc_lines
+=========================== short test summary info ===========================
+FAILED api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog - ...
+1 failed in 0.14s
+exit: 1
+
+restore: git restore scripts/check_budgets.py
+
+===== MUTATION drop docs/slices.md from _doc_lines() =====
+test: api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+
+GOOD
+$ uv run pytest -q api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog --tb=short --color=no
+
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_doc_lines_counts_each_agent_catalog ___________________
+api\tests\test_budgets.py:36: in test_doc_lines_counts_each_agent_catalog
+    assert bud._doc_lines() == expected
+E   assert 16 == 27
+E    +  where 16 = <function _doc_lines at 0x000002B7D2BFBBA0>()
+E    +    where <function _doc_lines at 0x000002B7D2BFBBA0> = bud._doc_lines
+=========================== short test summary info ===========================
+FAILED api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog - ...
+1 failed in 0.23s
+exit: 1
+
+restore: git restore scripts/check_budgets.py

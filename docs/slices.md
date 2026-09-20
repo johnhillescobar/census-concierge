@@ -12,7 +12,7 @@ one-line STATUS pointer, not an eval ledger.
 | [CC-5](https://johnhillescobar.atlassian.net/browse/CC-5) | 2 chat UI, one pane | Done |
 | [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2) | 3 series and comparisons | Done |
 | [CC-4](https://johnhillescobar.atlassian.net/browse/CC-4) | agent harness (process, not a product slice) | Done |
-| [CC-11](https://johnhillescobar.atlassian.net/browse/CC-11) | 4 living workspace, charts, CSV | **In Progress** |
+| [CC-11](https://johnhillescobar.atlassian.net/browse/CC-11) | 4 living workspace, charts, CSV | To Do |
 | [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) | post-slice-3 reliability (does not block CC-11) | **In Progress** |
 | [CC-9](https://johnhillescobar.atlassian.net/browse/CC-9) | spike: LangGraph checkpointer | To Do |
 | [CC-6](https://johnhillescobar.atlassian.net/browse/CC-6) | 5 conversation persistence | To Do |
