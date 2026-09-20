@@ -1,0 +1,278 @@
+# CC-95 in-year Gate 2 — cold review
+
+Branch: feat/cc-95-ambiguous-place-candidates
+Commit under review: b1613d7a8e6909c2570eb9d988adb57b210ddfbb
+  fix(CC-95): honor in-year as the ACS5 vintage
+HEAD at review: 6f003f0 chore(CC-95): record in-year Gate 1 mutation check
+Ticket: CC-95 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+PR: https://github.com/johnhillescobar/census-concierge/pull/61
+Gate 1: evidence/cc-91/cc-95-in-year-gate1.txt (2 GOOD / 0 BAD)
+
+Files in b1613d7 (7):
+  api/src/fetch.py
+  api/src/vintages.py
+  api/tests/ask_fixtures.py
+  api/tests/test_ask_loop.py
+  api/tests/test_fetch_years.py
+  api/tests/test_vintages.py
+  docs/ask-path.md
+
+Working tree vs b1613d7 for those files: empty (no post-commit drift).
+
+Required reading before review: CLAUDE.md, docs/playbooks/run-slice.md,
+docs/playbooks/review-pr.md, .claude/PLAN.md, docs/ask-path.md,
+docs/requirements.md, docs/slices.md. origin/main present
+(d36cef5a7226ab7cf698d72901ac518202f9049f); no fetch.
+
+---
+
+## Pass 1 — generic bugs (diff only, no intent)
+
+Cold-read of `git show b1613d7` and those files vs origin/main at that commit.
+No ticket description as spec.
+
+$ git show b1613d7 --stat
+(exit 0)
+
+```
+commit b1613d7a8e6909c2570eb9d988adb57b210ddfbb
+Author: John Hill Escobar <johnhillescobar@users.noreply.github.com>
+Date:   Sun Sep 20 17:58:44 2026 -0500
+
+    fix(CC-95): honor in-year as the ACS5 vintage
+
+    A lone in/for YYYY was ignored, so fetch kept the built latest. Extract
+    that year and rewrite the URL to it instead of merging onto 2024.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ api/src/fetch.py              |  7 ++++---
+ api/src/vintages.py           |  2 ++
+ api/tests/ask_fixtures.py     |  2 ++
+ api/tests/test_ask_loop.py    | 45 +++++++++++++++++++++++++++++++++++++++++++
+ api/tests/test_fetch_years.py | 26 +++++++++++++++++++++++++
+ api/tests/test_vintages.py    |  5 +++++
+ docs/ask-path.md              |  3 ++-
+ 7 files changed, 86 insertions(+), 4 deletions(-)
+```
+
+$ git diff b1613d7 -- api/src/vintages.py api/src/fetch.py docs/ask-path.md api/tests/ask_fixtures.py api/tests/test_ask_loop.py api/tests/test_fetch_years.py api/tests/test_vintages.py
+(exit 0; empty)
+
+Year extraction
+- `_IN_YEAR` is `\b(?:in|for)(?:\s+the\s+year)?\s+((?:19|20)\d{2})\b`.
+  `question_years` appends those matches after span / since, then uniques.
+- "in 2022" and "for 2022" become [2022]. "compared to 2017" stays [].
+  "since 2022" still expands via `_SINCE_WORD` to [2022, 2023, 2024].
+- "in the 2022 ACS" (words between in and the year) does not match. Claimed
+  form is a lone `in YYYY` / `for YYYY`.
+- "in 2017 and 2024" extracts 2017 only (second year has no in/for). Not the
+  lone-year path this diff tests.
+
+Fetch year selection
+- `asked` is `question_years()` when the callback is set, else [].
+- When the tool `years` arg is empty: `requested = asked or [built.year]`.
+  Asked replaces the built latest; it is not unioned onto 2024.
+- When the tool `years` arg is non-empty and `asked` is non-empty: still
+  `unique_years([*requested, *asked])` (union). Finish already passes
+  `requested_years(...)` as `years`, so that path unions a list with itself.
+  Model-omitted years (tool description: omit years for the built URL) is the
+  path the new tests exercise.
+- Rewrite is `CensusURL.with_year`; geography query string is unchanged.
+  Artifact URLs stay the redacted form; `with_key` remains the httpx site.
+
+Fixtures / tests
+- Scripted `_tools` now injects `question_years=lambda: requested_years(record.question, 2024)`,
+  matching production `ask.py`. Other scripted questions in this file do not
+  contain `in/for YYYY`.
+- Loop test: path `/data/2022/acs/acs5`, `county:201`, no `/2024/`.
+- Fetch test: `seen == [2022]`, requested_years [2022], no key= in artifact URL.
+- Tests are not ticket-named. Assertions are URL/year/geo, not prompt prose.
+
+Leaked keys / races / control
+- nothing. No new URL formatter. No shared mutable state. No new branch node.
+
+Pass 1 findings:
+- nothing blocking.
+- empty-years fetch prefers extracted in/for years over the built latest.
+- union-when-model-passes-years is unchanged and not the covered path.
+- "in 2017 and 2024" still only takes the first in-year; not this commit's claim.
+
+---
+
+## Pass 2 — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+Working directory: C:\Users\johnh\Dropbox\Python\census-concierge
+PowerShell: each machine run separately (no &&). All exit 0.
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3893 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1563 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.285 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.842 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+```
+
+### uv run ruff check .
+
+exit 0
+
+```
+All checks passed!
+```
+
+### uv run ruff format --check .
+
+exit 0
+
+```
+126 files already formatted
+```
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+...................................................................      [100%]
+427 passed in 10.83s
+```
+
+All six exited 0. Invariants review continues.
+
+### The claim
+
+A user who asks for ACS data `in YYYY` or `for YYYY` gets that ACS5 end year
+on the Census URL, not the built latest vintage merged on top of it.
+
+Evidence: Gate 1 mutation transcript `evidence/cc-91/cc-95-in-year-gate1.txt`
+(2 GOOD / 0 BAD). This Gate 2 does not run `make eval` / `make demo`. The PR
+scoreboard (answered_rate 0.842, p95 17.285s) is from E2E before this vintage
+fix. Live evidence of this follow-up is a later pipeline step.
+
+### Scope
+
+Belongs to CC-91 residual reliability (CC-95). Current PLAN.md slice is CC-91
+In Progress; CC-11 canvas is To Do and not touched.
+
+This commit: 7 files. No informal regions (CC-96), no finish place_token
+(CC-98), no ResultPlan (CC-90), no candidate UI (CC-37). No budget raised.
+`check_invariants --base origin/main`: budget increases ok.
+
+While-we-were-in-there: nothing. Fixture `question_years` wiring is the
+production callback this fetch change needs in the scripted loop.
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md.
+
+- URL: still a full Census API URL per attempted request. Fetch now rewrites
+  the built template to the extracted end year via `CensusURL.with_year`.
+  Variables and geography query stay; vintage in the path changes. Present
+  when fetch runs. ask-path.md records the lone in/for YYYY rule.
+- MOE: template still `get=NAME,GEO_ID,...E,...M`. Fetch path still pairs M
+  with E. Unchanged.
+- GEOID: still on fetched rows. Unchanged.
+- Universe: assemble path unchanged.
+- Redaction: artifact URLs are `str(CensusURL)`; test asserts `key=` absent.
+  No new raw-URL formatter.
+- Numbers do not pass back through the model.
+- No new blocking clarification. Guards still warn and ship.
+- Vintage: this is honoring the asked year, not silently substituting latest
+  when the user named one. Unpublished years still go through `plan_years`
+  omission (`unpublished_vintage` / `vintage_gap_2020`), not an invisible
+  swap. Overlapping ACS5 still warns when a series is destaggered.
+
+### Shape
+
+No new tool, route, Pydantic model, or `.add_node()`. Years remain a
+`fetch_data` parameter. No `*_manager` / `*_orchestrator` / `*_factory` /
+`*_policy` / `*_strategy` / `*_service`. ARCHITECTURE.md unchanged (years
+policy lives in ask-path.md, which this commit updates).
+
+### Tests
+
+Behaviour: `question_years` / `requested_years` for `in 2022` and `for 2022`;
+fetch `seen == [2022]` and URL path `/data/2022/acs/acs5`; loop URL not
+`/2024/`. No prompt wording. No constant-table retrieval fake. Tests not
+named after a ticket. Gate 1 mutations on extraction and built-year merge
+are in `evidence/cc-91/cc-95-in-year-gate1.txt` (not re-run here). A new
+test is not live evidence; E2E is later.
+
+Pass 2 findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing. Named in/for year is the URL vintage; MOE,
+  GEOID, redaction, and non-blocking guards hold.
+- scope: nothing out of CC-95 / CC-91
+- tests: nothing
+
+---
+
+## Verdict
+
+ship it
+
+User-facing claim: a lone `in YYYY` or `for YYYY` now fetches that ACS5 end
+year instead of keeping the built latest vintage on the URL.
+
+Single most important reason: machines all exited 0, no budget was weakened,
+and empty-years fetch prefers the extracted question year over the built
+latest, which is the silent wrong vintage this follow-up removes.
