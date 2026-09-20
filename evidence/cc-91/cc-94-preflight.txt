@@ -1,0 +1,58 @@
+# CC-94 pre-flight raw output
+# HEAD 91471dc (CC-93 post-merge printout in cc-93-e2e-post.txt)
+# 2026-09-20
+# Did not Read E2E transcripts.
+
+CC-93 post-merge DEMO/MISSES: evidence/slice-3/cc-93-e2e-post.txt
+answered_rate 0.850  p95 18.308  n=186  repeat=3
+retrieval_at_10 / selector from last merge_evidence latest.json (186 trials):
+retrieval_at_10 0.90  selector_at_1 0.875  index_hash 377cd59fe62a
+prompt_hash e574ca4880c7
+Do not reconstruct demo.trials or zeroed miss timings into latest.json.
+
+post-merge MISSES (20 rows):
+  q08 r1 B18101F  url county:* in=state:50
+  q10 r1,r2 B16001 url county:081 in=state:36 (Queens NY)
+  q10 r3 B16001 url place:63116 in=state:42 (PA)
+  q17 r1,r2 empty url
+  q17 r3 B24114 url county:140 in=state:09 (CT)
+  q18 r3 B25072 url place:53000 in=state:55 (Milwaukee)
+  q20 r1,r3 B07201 r2 B07013  url place:08830 in=state:16 (Boise)
+  q34 r1,r2,r3 B19053 url place:08950 in=state:30 (Bozeman)
+  q39 r1,r2,r3 empty url
+  q43 r3 B08303 url county:103 in=state:36 (Suffolk NY)
+  t07 r2 empty url
+  t07 r3 B06001 url acs1 2024 place:55000 in=state:04 (Phoenix)
+
+Ticket example IDs still missing after CC-93: q10 q17 q18 q20 q34 q39 t07
+No longer missing: q15 q41
+Not in ticket list, 1/3 noise: q08 q43
+
+Jira at start: CC-94 To Do, CC-93 Done, CC-95/96/97 To Do.
+
+--- search() top-10 (same index_hash; one embed batch) ---
+q08 B18101 rank 2  pool has B18101; members include B18101F
+q10 C16001 rank 1  pool also has B16001
+q15 B05002 rank 8  in pool; selector recovers; 0/3 demo miss
+q17 B24010 OUT of pool
+q18 B25003 OUT of pool
+q20 B07001 OUT of pool  (B07201, B07013 in pool)
+q34 B24080 OUT of pool  (B19053 in pool rank 4)
+q39 B25004 rank 2  selector does not miss
+q41 B15012 rank 3  selector recovers; 0/3 demo miss
+q43 B08302 rank 2  selector does not miss
+t07 B01003 OUT of pool  (B06001 in pool)
+
+selector misses (latest.json reranked): q10 q17 q18 q20 q34
+q10: C16001 top-1, choose() picked B16001 (rerank prompt prefers B over C)
+
+--- place_token vs NAME listing (no Census call) ---
+place_token(q39)= 'why are so many homes in detroit sitting empty?'
+filter_rows(q39_token, Detroit NAME)= []
+filter_rows('detroit', Detroit NAME)= ['place:22000']
+place_token(t07)= 'population of phoenix in 2024 from the 1-year acs'
+filter_rows(t07_token, Phoenix NAME)= []
+filter_rows('phoenix', Phoenix NAME)= ['place:55000']
+
+uv run python scripts/jira_fetch.py epic CC-91 --list
+  CC-92 Done, CC-93 Done, CC-94 In Progress, CC-95 To Do, CC-96 To Do, CC-97 To Do
