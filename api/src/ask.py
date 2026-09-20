@@ -60,14 +60,13 @@ class ExecutionRecord:
     allow_overlapping_acs5: bool = False
     table_facts: Any = None
     published_vintages: Any = None
+    retained_urls: list[str] = field(default_factory=list)
 
 
 def _artifact_ok(artifact: Any) -> bool:
     if artifact is None:
         return True
-    ok = getattr(artifact, "ok", None)
-    if ok is None and isinstance(artifact, dict):
-        ok = artifact.get("ok")
+    ok = artifact.get("ok") if isinstance(artifact, dict) else getattr(artifact, "ok", None)
     return ok is not False
 
 

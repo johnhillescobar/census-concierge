@@ -74,7 +74,7 @@ def unique_years(years: list[int]) -> list[int]:
 
 
 def _kept_urls(record: Any) -> list[str]:
-    kept = [url for url in getattr(record, "retained_urls", []) or [] if url]
+    kept = [url for url in list(getattr(record, "retained_urls", None) or []) if url]
     extra = list(getattr(getattr(record, "fetch", None), "urls", None) or [])
     built = getattr(record, "url", None)
     if built:
@@ -121,7 +121,7 @@ def series_from_record(record: Any) -> dict[str, Any]:
             "omission_reasons": list(artifact.omission_reasons),
             "legs": list(artifact.legs),
         }
-    return {"urls": urls, **years}
+    return {"urls": [str(CensusURL(url)) for url in urls if url], **years}
 
 
 def _census_get(url: str) -> tuple[int, Any]:
