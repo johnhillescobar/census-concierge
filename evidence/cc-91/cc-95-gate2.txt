@@ -1,0 +1,259 @@
+# CC-95 Gate 2 — cold review
+
+Branch: feat/cc-95-ambiguous-place-candidates
+Range: origin/main...HEAD
+Commits:
+  1dc3174 chore(CC-95): record Gate 1 mutation check
+  d9d2d9d feat(CC-95): return ranked GeoSpec candidates for ambiguous Census names
+Ticket: CC-95 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+
+Files vs origin/main (15, at the ~15 cap):
+  api/src/contract.py
+  api/src/geo.py
+  api/src/geo_list.py
+  api/src/guards.py
+  api/tests/ask_fixtures.py
+  api/tests/test_ask_loop.py
+  api/tests/test_ask_tools.py
+  api/tests/test_guards.py
+  docs/ARCHITECTURE.md
+  docs/ask-path.md
+  evidence/cc-91/cc-95-gate1.txt
+  evidence/cc-91/cc-95-preflight-claims.md
+  evidence/cc-91/cc-95-preflight.txt
+  packages/client/openapi.json
+  packages/client/schema.d.ts
+
+---
+
+## Pass 1 — generic bugs (diff only, no intent)
+
+Cold-read of origin/main...HEAD. No ticket description as spec.
+
+Matching
+- filter_rows now matches a NAME head only when it equals the token, the remainder
+  is a Census class (city/town/village/cdp/borough/county/...), or the token is a
+  later whole word (West Springfield). A leading token that is only a prefix of a
+  longer head no longer hits (Queens vs Queens Gate CDP). Truncated first words of
+  multi-word places (Los vs Los Angeles city) miss rather than prefix-match.
+- named_rows still last-token-falls-back on the same listing, then geo.py lists
+  counties when for_level is place, the tool level arg is omitted, and the place
+  listing is empty.
+- leftover_parents (nested wildcard parents) still uses filter_rows + rank_matches,
+  not named_rows — no last-token fallback there. Tighter _name_hit still applies.
+- County fallback is skipped when the tool is passed level=place.
+
+Unambiguous geo paths (existing tests not rewritten)
+- Harris: county detect_level, Harrison excluded by word boundary. Untouched path.
+- Portland / Portland Maine: class suffix on portland city; state-qualified list_in.
+- Wildcard, ZCTA, geography_not_nested: return before named_rows / county fallback.
+- Metro: no _LEVELS alias; this diff does not touch that path.
+- versus / compare-to: split then _resolve per side; Springfield still matches places.
+
+Redaction
+- AskWarning.candidates are GeoSpec fields (level, GEOID, dataset/vintage, for/in).
+  No URL, no &key=. Loop test wraps CensusURL around those fields and asserts
+  key= is absent. list_census_names still uses CensusURL.
+
+Control / assemble
+- specs[0] is still selected; n>1 still summarized as alternatives.
+- ambiguous_place copies list(matches) onto the warning. compare and len<=2 still
+  skip. Unique county fallback (len==1) does not warn.
+- Other warning constructors rely on candidates default_factory=list.
+
+Tests that cannot fail
+- nothing. New tests assert concrete for/in, GEOID, dataset/vintage, and redaction.
+
+Leaked keys / races
+- nothing.
+
+Pass 1 findings:
+- Leading-token match dropped the old startswith(token+" ") catch-all; only a
+  Census class remainder still counts. Truncated first words miss. Named
+  unambiguous fixtures still match via class, later-word, or an earlier return.
+- Nested parent listing does not use named_rows (pre-existing; tighter filter applies).
+- Explicit level=place skips county fallback.
+- nothing on redaction, races, or rewrites of Harris / Portland / wildcard / ZCTA /
+  non-nesting / versus.
+
+---
+
+## Pass 2 — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+Working directory: C:\Users\johnh\Dropbox\Python\census-concierge
+PowerShell: ruff used semicolon + LASTEXITCODE (not &&).
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3890 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1561 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.421 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.825 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+```
+
+### uv run ruff check . ; uv run ruff format --check .
+
+exit 0
+
+```
+All checks passed!
+126 files already formatted
+```
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+................................................................         [100%]
+424 passed in 12.38s
+```
+
+All five exited 0. Invariants review continues.
+
+### The claim
+
+A user who asks about an ambiguous Census name gets ranked executable GeoSpec
+candidates (level, GEOID, dataset/vintage, for/in) on the ambiguous_place
+warning, and an unspecified name that is not a Census place (Queens) resolves
+as the matching county instead of a compound place (Queens Gate CDP).
+
+Evidence: Gate 2 does not run make eval / make demo. No CC-95 scoreboard on
+this branch for this review. E2E is a later pipeline step. latest.json on the
+branch is a prior run (answered_rate 0.825, p95 19.421s). Live evidence pending.
+
+### Scope
+
+Belongs to CC-91 residual reliability (CC-95), not slice 4 canvas / CC-11
+Not-in-this-slice. 15 files vs origin/main (at the ~15 cap). Product code is
+contract.py, geo.py, geo_list.py, guards.py, four test files, ask-path.md,
+ARCHITECTURE.md, and regenerated packages/client. Evidence is preflight + Gate 1.
+No new tools, routes, or graph nodes. GeoSpec is now referenced from AskWarning
+on the OpenAPI boundary; domain_models stays 7.
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md.
+
+- URL: Cook County still builds the selected URL; candidates are GeoSpecs, not
+  URLs. Failure/empty-url assemble path in test_several_matching_places still
+  ships urls=[] when nothing was built.
+- MOE: get= in the candidate URL tests still includes 001M. Fetch path unchanged.
+- GEOID: on each candidate GeoSpec; selected geoid still from assemble.
+- Universe: unchanged assemble path.
+- Redaction: candidates have no &key=. Tests wrap CensusURL. No new raw URL
+  format of the Census key.
+- Numbers do not pass back through the model. Population is ranking-only in
+  geo_list; GeoSpec does not carry it.
+- No new blocking clarification. Guards still warn and ship. UI still prints
+  warning.detail (names); structured candidates are on the JSON contract.
+- Geography fallback: unspecified place with no NAME hit lists counties.
+  Unique hit (Queens County) ships with no ambiguous_place warning. That is a
+  listing-order fallback, not a swap of an already-matched place. Place hits
+  (Portland, Springfield, Harris County via detect_level) still win first.
+  Documented in ask-path.md. Explicit level=place skips it.
+
+### Shape
+
+No new tool, route, or add_node. No new Pydantic class: AskWarning gained
+candidates: list[GeoSpec]; GeoSpec already existed and is now on the HTTP
+schema because the warning field references it. ARCHITECTURE.md one-line
+update. No manager / orchestrator / factory / policy / strategy / service
+module.
+
+### Tests
+
+Behaviour: Queens -> county:081 not place:63116; springfield later-word still
+hits; candidates carry geoid/for/in/dataset/vintage; CensusURL redaction; one
+geography still does not warn. No prompt wording. No constant-table retrieval
+fake. Tests not named CC-95. Gate 1 mutation transcript is in
+evidence/cc-91/cc-95-gate1.txt (not re-run here). A new test file is not
+evidence that anything works live.
+
+Pass 2 findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing that returns numbers for the wrong place or
+  drops MOE on a fetched row. Unique county fallback has no warning when
+  len==1; place listings still win when they hit.
+- scope: 15 files at the cap (evidence + generated client included)
+- follow-ups (non-blocking):
+  1. E2E scoreboard not in this gate
+  2. largest file LOC is 400/400
+  3. slice-2 UI still renders warning.code + detail only; candidates[] are
+     JSON/OpenAPI, not painted
+  4. leftover_parents still uses filter_rows not named_rows
+
+---
+
+## Verdict
+
+ship it with follow-ups
+
+User-facing claim: ambiguous Census names return ranked executable GeoSpec
+candidates on ambiguous_place, and Queens resolves as Queens County, NY
+rather than Queens Gate CDP.
+
+Single most important reason: machines all exited 0, no budget was weakened,
+the selected URL/MOE/GEOID path is unchanged, candidates are GeoSpecs without
+keys, and no guard became a blocking question.
+
+Follow-ups are the four listed under Pass 2. None returns a row without MOE
+or a number for a substituted geography that already matched as a place.
