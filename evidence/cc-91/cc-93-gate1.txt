@@ -1,0 +1,144 @@
+# CC-93 Gate 1 mutation check
+
+Branch: feat/cc-93-retain-urls
+HEAD: 1d604b5 fix(CC-93): retain already-built Census URLs through assemble
+
+Mutation: clear_series does not retain URLs
+(remove the _kept_urls(record) call from clear_series before wiping record.url / record.fetch)
+
+## GOOD — clear_series does not retain URLs
+
+7 failed, 0 passed
+
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 7 items
+
+api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear FAILED [ 14%]
+api/tests/test_guards.py::test_no_row_fetch_survives_series_clear FAILED [ 28%]
+api/tests/test_guards.py::test_failed_fetch_survives_series_clear FAILED [ 42%]
+api/tests/test_guards.py::test_unresolved_empty_fetch_keeps_the_built_url FAILED [ 57%]
+api/tests/test_guards.py::test_failed_rebuild_keeps_the_previous_url FAILED [ 71%]
+api/tests/test_ask_loop.py::test_tract_within_place_keeps_the_built_city_url FAILED [ 85%]
+api/tests/test_guards.py::test_new_geography_clears_current_fetch_but_keeps_the_url FAILED [100%]
+
+================================== FAILURES ===================================
+_______________ test_warning_only_keeps_url_after_series_clear ________________
+api\tests\test_guards.py:1308: in test_warning_only_keeps_url_after_series_clear
+    assert response.urls == [str(built)]
+E   AssertionError: assert [] == ['https://api...&in=state:08']
+E     
+E     Right contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=place:20000&in=state:08'
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M&for=place:20000&in=state:08',
+E     - ]
+___________________ test_no_row_fetch_survives_series_clear ___________________
+api\tests\test_guards.py:1318: in test_no_row_fetch_survives_series_clear
+    assert response.urls == [_RETAINED]
+E   AssertionError: assert [] == ['https://api...&in=state:08']
+E     
+E     Right contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08'
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08',
+E     - ]
+___________________ test_failed_fetch_survives_series_clear ___________________
+api\tests\test_guards.py:1337: in test_failed_fetch_survives_series_clear
+    assert response.urls == [_RETAINED]
+E   AssertionError: assert [] == ['https://api...&in=state:08']
+E     
+E     Right contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08'
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08',
+E     - ]
+_______________ test_unresolved_empty_fetch_keeps_the_built_url _______________
+api\tests\test_guards.py:1348: in test_unresolved_empty_fetch_keeps_the_built_url
+    assert response.urls == [_RETAINED]
+E   AssertionError: assert [] == ['https://api...&in=state:08']
+E     
+E     Right contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08'
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08',
+E     - ]
+_________________ test_failed_rebuild_keeps_the_previous_url __________________
+api\tests\test_guards.py:1371: in test_failed_rebuild_keeps_the_previous_url
+    assert response.urls == [_RETAINED]
+E   AssertionError: assert [] == ['https://api...&in=state:08']
+E     
+E     Right contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08'
+E     
+E     Full diff:
+E     + []
+E     - [
+E     -     'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:20000&in=state:08',
+E     - ]
+______________ test_tract_within_place_keeps_the_built_city_url _______________
+api\tests\test_ask_loop.py:340: in test_tract_within_place_keeps_the_built_city_url
+    assert response.urls
+E   AssertionError: assert []
+E    +  where [] = AskResponse(answer='stopped', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[], omitted_years=[], omission_reasons=[], legs=[], rows=[], moe=[], geoid='', universe='', table_id='', alternatives=[Alternative(table_id='B17001', reason='related table')], comparisons=[], warnings=[AskWarning(code='geography_not_nested', detail='tract does not nest in place (city of Denver); splitting it needs block-level areal allocation, which is out of scope')]).urls
+__________ test_new_geography_clears_current_fetch_but_keeps_the_url __________
+api\tests\test_guards.py:468: in test_new_geography_clears_current_fetch_but_keeps_the_url
+    assert response.urls
+E   AssertionError: assert []
+E    +  where [] = AskResponse(answer='candidates listed', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[], omitted_years=[], omission_reasons=[], legs=[], rows=[], moe=[], geoid='0500000US17031', universe='', table_id='', alternatives=[Alternative(table_id='B01003', reason='related table')], comparisons=[], warnings=[AskWarning(code='ambiguous_place', detail='3 matching geographies: Cook County, Illinois; Cook County, Georgia; Cook County, Minnesota')]).urls
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear
+FAILED api/tests/test_guards.py::test_no_row_fetch_survives_series_clear - As...
+FAILED api/tests/test_guards.py::test_failed_fetch_survives_series_clear - As...
+FAILED api/tests/test_guards.py::test_unresolved_empty_fetch_keeps_the_built_url
+FAILED api/tests/test_guards.py::test_failed_rebuild_keeps_the_previous_url
+FAILED api/tests/test_ask_loop.py::test_tract_within_place_keeps_the_built_city_url
+FAILED api/tests/test_guards.py::test_new_geography_clears_current_fetch_but_keeps_the_url
+============================== 7 failed in 0.79s ==============================
+
+## GOOD — never-built URLs stay empty under the same mutation
+
+0 failed, 5 passed
+
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 5 items
+
+api/tests/test_guards.py::test_series_clear_without_a_built_url_stays_empty PASSED [ 20%]
+api/tests/test_ask_loop.py::test_tract_within_denver_does_not_finish_a_url PASSED [ 40%]
+api/tests/test_guards.py::test_tract_within_a_place_does_not_invent_a_fetch PASSED [ 60%]
+api/tests/test_guards.py::test_zctas_in_a_state_warn_as_not_nested PASSED [ 80%]
+api/tests/test_guards.py::test_named_zcta_with_a_state_warns_as_not_nested PASSED [100%]
+
+============================== 5 passed in 0.61s ==============================
+
+Restored _kept_urls(record) in clear_series.
+
+## GOOD — restored non-integration suite
+
+0 failed, 422 passed
+
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+........................................................................ [ 68%]
+........................................................................ [ 85%]
+..............................................................           [100%]
+422 passed in 10.51s

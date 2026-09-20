@@ -1,0 +1,274 @@
+# CC-93 Gate 2 — cold review
+
+Branch: feat/cc-93-retain-urls
+Range: origin/main...HEAD
+Commits:
+  e6ae064 docs: record CC-92 post-merge E2E
+  1d604b5 fix(CC-93): retain already-built Census URLs through assemble
+  206e829 chore(CC-93): record Gate 1 mutation transcript
+Ticket: CC-93 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+
+Files vs origin/main (12, under ~15):
+  .claude/PLAN.md
+  README.md
+  api/src/fetch.py
+  api/tests/test_ask_loop.py
+  api/tests/test_guards.py
+  docs/ask-path.md
+  evidence/cc-91/cc-93-gate1.txt
+  evidence/cc-91/cc-93-preflight-claims.md
+  evidence/cc-91/cc-93-preflight.txt
+  evidence/latest.json
+  evidence/slice-3/cc-92-e2e-post.txt
+  evidence/slice-3/demo-miss-analysis.md
+
+CC-93 product diff is fetch.py, two test files, docs/ask-path.md, and
+cc-93 evidence. e6ae064 is CC-92 post-merge E2E on this branch.
+
+---
+
+## Pass 1 — generic bugs (diff only, no intent)
+
+Cold-read of origin/main...HEAD. No ticket description as spec.
+
+Control flow
+- _kept_urls copies record.retained_urls, then fetch.urls, then str(record.url),
+  wraps each extra through CensusURL, de-dupes, writes back onto the record.
+- clear_series calls _kept_urls, then sets url/rows/table_id/universe/fetch
+  empty. The keep and the wipe are sequential; no await between them.
+- series_from_record also calls _kept_urls. Current built URL wins when
+  present; else kept. If fetch is a FetchDataResult, artifact.urls wins when
+  non-empty, else that fallback. Year buckets still come only from a live
+  FetchDataResult; after clear they are empty lists.
+
+Lost / dropped URLs
+- A built URL or fetch.urls list is copied before clear_series wipes the
+  pointers. assemble after clear ships kept rather than [].
+- A successful current fetch still returns only artifact.urls, not the
+  retained history. Same as before when a fetch artifact exists.
+- Never-built still ships urls=[]. test_series_clear_without_a_built_url_stays_empty
+  pins that.
+
+Wrong fallbacks
+- After resolve_geography changes the spec, assemble can ship the previous
+  geography's URL as urls[0]. test_new_geography_clears_current_fetch_but_keeps_the_url
+  asserts county:201 (Harris) after resolving Cook, with ambiguous_place.
+  Rows are cleared, so no Harris numbers are returned as Cook's answer.
+- geography_not_nested keeps the city URL (place:20000) when finish does not
+  rebuild. That is a prior legal GET, not an invented nested for/in.
+
+Record mutation
+- retained_urls is not a field on ExecutionRecord. _kept_urls setattr's it.
+  dataclasses.replace / asdict would drop it. series_from_record is a read
+  used by assemble and it writes. Per-request record; no cross-request share.
+
+Redaction / keys
+- New keep path wraps CensusURL. Tests with &key=secret assert key= and
+  secret are absent.
+- When FetchDataResult.urls is non-empty, series_from_record still assigns
+  list(artifact.urls) without wrapping CensusURL. Production _fetch_one
+  already stores str(census_url). Not introduced here; the new fallback
+  path does wrap.
+
+Year buckets vs URL
+- test_failed_fetch_survives_series_clear pins response.urls == retained URL
+  and response.failed_years == []. The fetch artifact (failed_years=[2024])
+  is discarded by clear_series. URL remains; series metadata does not.
+
+Tests that cannot fail
+- nothing. New tests assert concrete URL substrings, empty vs non-empty
+  urls, and redaction. Renames of two existing tests flip [] to a kept URL.
+
+Leaked keys
+- nothing on the new CensusURL wrap.
+
+Race
+- nothing across requests. Keep-then-wipe in clear_series is synchronous.
+
+Pass 1 findings:
+- retained_urls is undeclared state; series_from_record mutates the record.
+- After clear_series, urls[] can be non-empty while table_id, universe, and
+  year buckets (including failed_years) are empty.
+- Geography change ships the previous geography's URL as urls[0] with a
+  warning about the new place; rows are empty.
+- nothing else: no key leak on the keep path, no tests that cannot fail,
+  no dropped URL on the four assemble-after-clear cases in the diff.
+
+---
+
+## Pass 2 — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+Working directory: C:\Users\johnh\Dropbox\Python\census-concierge
+PowerShell: ruff used semicolon as specified (not &&).
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3860 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1556 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.585 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.842 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+```
+
+### uv run ruff check . ; uv run ruff format --check .
+
+exit 0
+
+```
+All checks passed!
+123 files already formatted
+```
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 51%]
+........................................................................ [ 68%]
+........................................................................ [ 85%]
+..............................................................           [100%]
+422 passed in 11.24s
+```
+
+All five exited 0. Invariants review continues.
+
+### The claim
+
+A user who already got a legal Census URL, then hits a warning-only, no-row,
+failed-fetch, or unresolved finish path, still receives that URL in urls[]
+instead of an empty list.
+
+Evidence: Gate 2 does not run make eval / make demo. No CC-93 scoreboard
+on this branch for this review. E2E is a later pipeline step. latest.json
+on the branch is the CC-92 post-merge run (answered_rate 0.842, p95 17.585s).
+
+### Scope
+
+Belongs to CC-91 residual reliability (CC-93), not slice 4 canvas / CC-11
+Not-in-this-slice. 12 files vs origin/main. Product code is four files
+(fetch.py, two tests, ask-path.md). Branch also includes CC-92 post-merge
+E2E (PLAN, README, latest.json, slice-3 transcripts). No drive-by tools,
+routes, or graph nodes. ask-path.md empty-urls sentence updated.
+ARCHITECTURE.md inventory unchanged (still four tools, one route, no graph).
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md.
+
+- URL: clear_series no longer drops a previously built/fetched redacted URL.
+  Empty urls[] remains when nothing was ever built. Failure branches in the
+  new tests still include urls[].
+- MOE: M is still required on get= (kept URLs in tests include 001M). Rows
+  after clear are empty, so moe is empty — no estimates without MOE.
+- GEOID: still from rows / geography fallback. After clear, rows are empty.
+- Universe: clear_series still wipes table_id and universe. A response can
+  now have a B-table URL and an empty universe string. That empty universe
+  on these paths is pre-existing; this change did not fill it. Not a
+  substituted universe.
+- Redaction: keep path is CensusURL. No new raw urlencode of &key=.
+- Numbers do not pass back through the model.
+- No new blocking clarification. Guards still warn and ship
+  (overlapping_vintage, geography_not_nested, ambiguous_place).
+- No silent vintage/geography repair: finish still refuses to invent nested
+  for/in; the kept URL is the one already built.
+
+### Shape
+
+No new tool, route, Pydantic model, or add_node. No manager / orchestrator
+/ factory / policy / strategy / service module. retained_urls is an ad-hoc
+attribute, not a new domain model.
+
+### Tests
+
+Behaviour: urls[] after clear, redaction, geography_not_nested still warns,
+empty stays empty. No prompt wording. No constant-table retrieval fake.
+Tests not named CC-93. Gate 1 mutation transcript is in
+evidence/cc-91/cc-93-gate1.txt (not re-run here).
+
+Pass 2 findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing that returns numbers for the wrong place or
+  drops MOE on a fetched row. Follow-up: universe/table_id/year buckets
+  still cleared while urls[] is now populated; previous-geography URL can
+  be urls[0] after a resolve change.
+- scope: branch mixes CC-92 post-merge E2E with CC-93 (not extra product
+  code).
+- follow-ups (non-blocking):
+  1. declare retained_urls on ExecutionRecord or stop writing it from
+     series_from_record
+  2. universe / table_id / failed_years still empty after series clear
+  3. previous-geography URL after resolve change (rows empty, warning fires)
+  4. largest file LOC is 400/400
+  5. E2E scoreboard not in this gate
+
+---
+
+## Verdict
+
+ship with follow-ups
+
+User-facing claim: if a Census URL was already built or fetched, warning,
+no-row, failed-fetch, and unresolved assembly still ship that redacted URL
+instead of urls=[].
+
+Single most important reason: the keep path uses CensusURL, the four
+failure/clear cases in the tests no longer empty urls[], and every Gate 2
+machine exited 0.
+
+Follow-ups are the five listed under Pass 2. None returns a row without MOE
+or a number for a substituted geography.

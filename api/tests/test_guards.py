@@ -10,9 +10,10 @@ from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.census_url import CensusURL
 from src.contract import GeoSpec
-from src.fetch import FetchDataResult
+from src.fetch import FetchDataResult, clear_series
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
+from src.tools import BuildUrlResult
 from src.vintages import moe_rows, period_for
 
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
@@ -445,7 +446,7 @@ async def test_unknown_place_is_not_unsupported_geography() -> None:
     assert _codes(record) == []
 
 
-async def test_new_geography_drops_previous_fetch() -> None:
+async def test_new_geography_clears_current_fetch_but_keeps_the_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
@@ -464,7 +465,10 @@ async def test_new_geography_drops_previous_fetch() -> None:
     assert record.rows == []
     assert record.table_id == ""
     response = assemble("candidates listed", record)
-    assert response.urls == []
+    assert response.urls
+    assert "county:201" in response.urls[0]
+    assert "B01003_001E" in response.urls[0]
+    assert "key=" not in response.urls[0]
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert response.answer == "candidates listed"
 
@@ -1287,3 +1291,88 @@ def test_all_incompatible_years_still_ship_the_built_url() -> None:
     response = assemble("ships", record)
     assert response.urls == [str(built)]
     assert any(item.code == "variable_not_in_vintage" for item in response.warnings)
+
+
+_RETAINED = (
+    "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M"
+    "&for=place:20000&in=state:08"
+)
+
+
+def test_warning_only_keeps_url_after_series_clear() -> None:
+    built = CensusURL(_RETAINED.replace("B17001", "B19013"))
+    record = ExecutionRecord(question=T01, url=built, table_id="B19013")
+    clear_series(record)
+    response = assemble("warning only", record)
+    assert [item.code for item in response.warnings] == ["overlapping_vintage"]
+    assert response.urls == [str(built)]
+    assert "key=" not in response.urls[0]
+
+
+def test_no_row_fetch_survives_series_clear() -> None:
+    record = ExecutionRecord(
+        url=CensusURL(_RETAINED), table_id="B17001", fetch=_fetch(urls=[_RETAINED], rows=[])
+    )
+    clear_series(record)
+    response = assemble("no rows", record)
+    assert response.urls == [_RETAINED]
+    assert response.rows == []
+
+
+def test_failed_fetch_survives_series_clear() -> None:
+    record = ExecutionRecord(
+        url=CensusURL(_RETAINED),
+        table_id="B17001",
+        fetch=_fetch(
+            ok=False,
+            urls=[_RETAINED],
+            status_code=0,
+            requested_years=[2024],
+            attempted_years=[2024],
+            failed_years=[2024],
+        ),
+    )
+    clear_series(record)
+    response = assemble("timed out", record)
+    assert response.urls == [_RETAINED]
+    assert response.failed_years == []
+    assert response.rows == []
+
+
+def test_unresolved_empty_fetch_keeps_the_built_url() -> None:
+    keyed = f"{_RETAINED}&key=secret"
+    record = ExecutionRecord(url=CensusURL(keyed), table_id="B17001")
+    clear_series(record)
+    record.fetch = _fetch(ok=False, urls=[], detail="call build_url before fetch_data")
+    response = assemble("unresolved", record)
+    assert response.urls == [_RETAINED]
+    assert "key=" not in response.urls[0]
+    assert "secret" not in "".join(response.urls)
+
+
+def test_failed_rebuild_keeps_the_previous_url() -> None:
+    keyed = f"{_RETAINED}&key=secret"
+    record = ExecutionRecord(url=CensusURL(keyed), table_id="B17001")
+    _absorb(
+        record,
+        "build_url",
+        BuildUrlResult(
+            ok=False,
+            url="",
+            table_id="B17001",
+            variables=[],
+            dataset="acs5",
+            vintage=2024,
+            detail="not in pool",
+        ),
+    )
+    response = assemble("unresolved", record)
+    assert record.url is None
+    assert response.urls == [_RETAINED]
+    assert "key=" not in response.urls[0]
+
+
+def test_series_clear_without_a_built_url_stays_empty() -> None:
+    record = ExecutionRecord()
+    clear_series(record)
+    assert assemble("never built", record).urls == []

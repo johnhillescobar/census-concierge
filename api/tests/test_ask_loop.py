@@ -310,7 +310,7 @@ async def test_block_group_listing_replaces_a_state_url() -> None:
     assert "group:*" in response.urls[0]
 
 
-async def test_tract_within_place_drops_a_city_url() -> None:
+async def test_tract_within_place_keeps_the_built_city_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     denver = GeoSpec(
@@ -337,7 +337,11 @@ async def test_tract_within_place_drops_a_city_url() -> None:
         record=record,
     )
     assert any(item.code == "geography_not_nested" for item in response.warnings)
-    assert response.urls == []
+    assert response.urls
+    assert "place:20000" in response.urls[0]
+    assert "B17001_001E" in response.urls[0]
+    assert "B17001_001M" in response.urls[0]
+    assert "key=" not in response.urls[0]
 
 
 async def test_every_tract_listing_replaces_a_county_url() -> None:
