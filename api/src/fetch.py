@@ -17,14 +17,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.census_url import CensusURL, redact_text
 from src.contract import GeoSpec, RequestLeg
-from src.retrieval.availability import drop_incompatible
 from src.tools import ToolInput, ToolResult
-from src.vintages import REASON_NO_URL, VintagePlan, is_series, plan_years, span_years
+from src.vintages import (
+    REASON_NO_URL,
+    VintagePlan,
+    apply_variable_plan,
+    is_series,
+    plan_years,
+    span_years,
+)
 
 MAX_IN_FLIGHT = 5
 MAX_YEARS = 12
 LastUrl = Callable[[], CensusURL | None]
 LastGeographies = Callable[[], list[GeoSpec]]
+QuestionYears = Callable[[], list[int]]
 
 
 class FetchDataInput(ToolInput):
@@ -188,30 +195,6 @@ def _pack(
     )
 
 
-def _apply_variables(
-    plan: VintagePlan,
-    template: CensusURL,
-    lookup: Callable[[str, int, str], dict[str, Any] | None] | None,
-) -> VintagePlan:
-    table_id, suffixes = (
-        template.estimate_table() if lookup is not None and plan.attempted else ("", [])
-    )
-    if lookup is None or not plan.attempted or not table_id:
-        return plan
-    kept, dropped, reasons = drop_incompatible(
-        lookup, plan.dataset, plan.attempted, table_id, suffixes
-    )
-    if not dropped:
-        return plan
-    return VintagePlan(
-        dataset=plan.dataset,
-        attempted=kept,
-        omitted=[*plan.omitted, *dropped],
-        reasons=[*plan.reasons, *reasons],
-        acs1_ineligible=plan.acs1_ineligible,
-    )
-
-
 def _tool_content(result: FetchDataResult) -> str:
     joined = ", ".join(result.urls)
     n_ok = sum(1 for leg in result.legs if leg.ok)
@@ -253,6 +236,7 @@ class FetchDataTool(BaseTool):
     http_get: Callable[[str], tuple[int, Any]] | None = None
     published: Callable[[str], set[int]] | None = None
     table_facts: Callable[[str, int, str], dict[str, Any] | None] | None = None
+    question_years: QuestionYears | None = None
     allow_overlapping_acs5: bool = False
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
@@ -343,6 +327,8 @@ class FetchDataTool(BaseTool):
         if not requested:
             year = built.year
             requested = [year] if year is not None else []
+        if self.question_years is not None:
+            requested = unique_years([*requested, *self.question_years()])
         if not requested:
             result = _pack(
                 ok=False,
@@ -361,7 +347,7 @@ class FetchDataTool(BaseTool):
         acs1_ok: bool | None = None
         if series and built.dataset != "acs1":
             acs1_ok = await asyncio.to_thread(self._acs1_ok, built, published)
-        plan = _apply_variables(
+        plan = apply_variable_plan(
             plan_years(
                 dataset=built.dataset or "acs5",
                 years=requested,
@@ -372,6 +358,8 @@ class FetchDataTool(BaseTool):
             ),
             built,
             self.table_facts,
+            requested,
+            published,
         )
         sem = asyncio.Semaphore(MAX_IN_FLIGHT)
         specs = list(self.last_geographies() or []) if self.last_geographies else []
@@ -407,7 +395,7 @@ class FetchDataTool(BaseTool):
         if plan.dataset == "acs1" and any(
             (not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered
         ):
-            plan = _apply_variables(
+            plan = apply_variable_plan(
                 plan_years(
                     dataset="acs5",
                     years=requested,
@@ -418,6 +406,8 @@ class FetchDataTool(BaseTool):
                 ),
                 built,
                 self.table_facts,
+                requested,
+                published,
             )
             gathered = await fanout(plan)
         legs = [item[0] for item in gathered]

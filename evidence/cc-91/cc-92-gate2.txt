@@ -1,0 +1,227 @@
+# CC-92 Gate 2 — cold review
+
+Branch: feat/cc-92-variable-vintage
+Range: origin/main...HEAD
+Commit: 3cc741c fix(CC-92): persist vintage compatibility on the fetch artifact
+Ticket: CC-92 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+
+Files vs origin/main: 12 (under ~15). Product: ask.py, fetch.py,
+availability.py, vintages.py, docs/ask-path.md, four test files, three
+evidence files.
+
+---
+
+## Pass A — generic bugs (diff only, no intent)
+
+Cold-read of origin/main...HEAD. No product intent.
+
+Control flow
+- apply_variable_plan still filters plan.attempted through drop_incompatible,
+  then only relabels years already omitted as unpublished_vintage.
+  Incompatible attempted years are dropped, not joined.
+- ACS1 204/404 fallback rebuilds a fresh ACS5 plan and runs apply_variable_plan
+  again. First-plan classifications are not reused (no stale attempted set).
+- question_years is concatenated onto the tool years (unique_years keeps
+  first-seen order), then is_series / span_years may densify. The model's
+  years= list is not the final requested set when question_years is wired.
+  That is a control-flow change, not lost omitted/reasons state.
+
+Lost state
+- omitted and reasons stay lockstep in apply_variable_plan (copy, rewrite
+  extra as variable_not_in_vintage, extend dropped). _pack stores both.
+  _tool_content zips them strict=True.
+- variable_not_in_vintage at assemble no longer scans table_facts / question
+  text. It only reads fetch.omitted_years / omission_reasons. Years not
+  recorded on the artifact are not warned. Producer tests cover the record
+  path; a missing fetch artifact yields no warning (also no joined rows).
+
+Incorrect reasons
+- introduction_omissions / _published_hole: a published hole on any dataset
+  in the requested span reclassifies unpublished years before this dataset's
+  first in-span presence as variable_not_in_vintage. A hole on ACS1 can
+  relabel ACS5 unpublished years (and the reverse). Years stay omitted; the
+  reason can be the wrong code.
+- vintage_gap_2020 is not in the unpublished list used for extra, so 2020
+  stays vintage_gap_2020.
+
+Silent joins
+- drop_incompatible now requires matching M when the reference vintage lists
+  any M. estimate_table() returns E-only suffixes; _required_suffixes re-pairs
+  M from the reference. Missing-M years are omitted, not fetched.
+- If the reference vintage lists no M, M is not required (E-only years stay).
+  That is a join of years the URL asked M for, if the matrix omitted margins.
+- lookup is None → apply_variable_plan is a no-op (no variable filter).
+  Production default_tools passes table_facts.
+
+Budget / LOC
+- Nothing in the diff raises a budget. Machines in pass B.
+
+Pass A findings:
+- introduction_omissions can attach variable_not_in_vintage using a hole on
+  a different dataset (incorrect reason; not a silent join).
+- variable_not_in_vintage zips omitted/reasons with strict=False; a length
+  mismatch drops years from the warning without error.
+- nothing else: no lost omitted/reasons on the producer path, no attempted
+  year kept after drop_incompatible failure.
+
+---
+
+## Pass B — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3856 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1554 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.116 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.825 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+```
+
+### uv run ruff check . && uv run ruff format --check .
+
+exit 0
+
+```
+All checks passed!
+122 files already formatted
+```
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+.......................................................                  [100%]
+415 passed in 11.36s
+```
+
+All five exited 0. Invariants review continues.
+
+### The claim
+
+A series that includes years a table/variable does not exist in (or a year
+whose definition or required E/M does not match the latest usable vintage)
+omits those years as variable_not_in_vintage on the fetch artifact and still
+ships the URL. Assemble no longer infers that warning from question text.
+
+Evidence: Gate 2 does not run make eval / make demo. No scoreboard on this
+branch for this review. E2E is a later pipeline step.
+
+### Scope
+
+Belongs to CC-91 residual reliability (CC-92), not slice 4 canvas / CC-11
+Not-in-this-slice. 12 files. No drive-by tools, routes, or graph nodes.
+ask-path.md updated for the new omission rule. ARCHITECTURE.md inventory
+unchanged (still four tools, fetch owns year fan-out).
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md.
+
+- URL still on the response when years are omitted (guard tests assemble
+  with urls / built URL). CensusURL is still the formatter; no new key=
+  path.
+- MOE: M still on the get= list; years missing M relative to a reference
+  that lists M are omitted rather than joined.
+- GEOID / universe: untouched.
+- Numbers do not pass back through the model.
+- Guards still warn and ship; no new blocking clarification.
+- Vintage/geography are not silently substituted: omitted years are named.
+  question_years expands the requested span from the question, then omits
+  with reasons — that is a warning path, not an invisible vintage swap.
+- Failure branches still pack urls / omitted / reasons.
+
+### Shape
+
+No new tool, route, Pydantic model, or add_node. apply_variable_plan moved
+from fetch.py to vintages.py (second caller: fetch ACS1 and ACS5 plans).
+Not a manager/orchestrator/factory.
+
+### Tests
+
+Behaviour: omitted years, reasons, HTTP years seen, dataset. No prompt
+wording. No constant-table retrieval fake. Tests not named CC-92.
+Guard tests now read the fetch artifact; fetch tests own the producer.
+That split matches the claim. Gate 1 mutation transcript is in
+evidence/cc-91/cc-92-gate1.txt (not re-run here).
+
+Pass B findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing
+- scope: nothing
+- follow-ups (non-blocking):
+  1. variable_not_in_vintage still zips with strict=False
+  2. _published_hole is cross-dataset (specified in ask-path.md; income
+     test locks the no-hole unpublished path)
+  3. largest file LOC is 400/400
+  4. E2E scoreboard not in this gate
+
+---
+
+## Verdict
+
+ship with follow-ups
+
+User-facing claim: incompatible or pre-introduction years in a requested
+span are omitted as variable_not_in_vintage on the fetch, and the URL still
+ships.
+
+Follow-ups are the four listed under Pass B. None is a silent join.

@@ -122,6 +122,18 @@ def same_definition(left: dict[str, Any], right: dict[str, Any]) -> bool:
     )
 
 
+def _estimate_suffixes(suffixes: list[str]) -> set[str]:
+    return {item[:-1] + "E" if item.endswith("M") else item for item in suffixes}
+
+
+def _required_suffixes(suffixes: list[str], reference_vars: set[str]) -> set[str]:
+    """E always; matching M only when the reference vintage lists margins."""
+    needed = _estimate_suffixes(suffixes)
+    if not suffixes or not any(item.endswith("M") for item in reference_vars):
+        return needed
+    return needed | {item[:-1] + "M" for item in needed if item.endswith("E")}
+
+
 def drop_incompatible(
     lookup: TableFacts,
     dataset: str,
@@ -129,15 +141,17 @@ def drop_incompatible(
     table_id: str,
     suffixes: list[str],
 ) -> tuple[list[int], list[int], list[str]]:
-    """Keep years whose table, suffixes, and definition match the latest usable year."""
+    """Keep years whose table, E/M suffixes, and definition match the latest usable year."""
     facts_by_year = {year: lookup(dataset, year, table_id) for year in years}
+    estimates = _estimate_suffixes(suffixes)
     usable = [
         year
         for year in years
         if (facts := facts_by_year[year]) is not None
-        and (not suffixes or set(suffixes) <= set(facts.get("variables") or []))
+        and (not estimates or estimates <= set(facts.get("variables") or []))
     ]
     reference = facts_by_year[max(usable)] if usable else None
+    required = _required_suffixes(suffixes, set((reference or {}).get("variables") or []))
     kept: list[int] = []
     omitted: list[int] = []
     reasons: list[str] = []
@@ -147,7 +161,7 @@ def drop_incompatible(
         published = set((facts or {}).get("variables") or [])
         if (
             facts is None
-            or (suffixes and not set(suffixes) <= published)
+            or (required and not required <= published)
             or (reference is not None and not same_definition(facts, reference))
         ):
             omitted.append(year)
@@ -155,3 +169,45 @@ def drop_incompatible(
             continue
         kept.append(year)
     return kept, omitted, reasons
+
+
+def introduction_omissions(
+    lookup: TableFacts,
+    dataset: str,
+    unpublished: list[int],
+    table_id: str,
+    requested: list[int],
+    published: dict[str, set[int]] | None,
+) -> list[int]:
+    """Unpublished years before a mid-range table introduction are not a silent join."""
+    if not unpublished or not published or not requested or not table_id:
+        return []
+    lo, hi = min(requested), max(requested)
+    if not _published_hole(lookup, table_id, published, lo, hi):
+        return []
+    present = [
+        year
+        for year in published.get(dataset, ())
+        if lo <= year <= hi and lookup(dataset, year, table_id) is not None
+    ]
+    first = min(present) if present else None
+    if first is None:
+        return list(unpublished)
+    return [year for year in unpublished if year < first]
+
+
+def _published_hole(
+    lookup: TableFacts,
+    table_id: str,
+    published: dict[str, set[int]],
+    lo: int,
+    hi: int,
+) -> bool:
+    for dataset, years in published.items():
+        span = [year for year in years if lo <= year <= hi]
+        if not span:
+            continue
+        flags = [lookup(dataset, year, table_id) is not None for year in span]
+        if any(flags) and not all(flags):
+            return True
+    return False

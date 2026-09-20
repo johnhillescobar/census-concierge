@@ -5,6 +5,7 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 
 from __future__ import annotations
 
+import pytest
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.census_url import CensusURL
@@ -1126,8 +1127,8 @@ def test_published_zero_moe_is_kept() -> None:
 
 
 def _computer_facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
-    assert dataset == "acs5" and table_id == "B28001"
-    if year < 2017:
+    del dataset
+    if table_id != "B28001" or year < 2017:
         return None
     return {
         "title": "Types of Computers in Household",
@@ -1151,13 +1152,13 @@ def test_computer_share_is_not_a_missing_measure() -> None:
 
 
 def test_absent_computer_years_are_named_and_the_url_ships() -> None:
-    record = ExecutionRecord(question=T14, table_id="B28001", table_facts=_computer_facts)
+    record = ExecutionRecord(question=T14, table_id="B28001")
     record.fetch = _fetch(
         urls=["https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B28001_002E,B28001_002M"],
-        requested_years=[2013, 2024],
-        attempted_years=[2024],
-        omitted_years=[2016],
-        omission_reasons=["variable_not_in_vintage"],
+        requested_years=list(range(2013, 2025)),
+        attempted_years=[2017, 2022],
+        omitted_years=[2013, 2014, 2015, 2016],
+        omission_reasons=["variable_not_in_vintage"] * 4,
         dataset="acs5",
     )
     warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
@@ -1166,6 +1167,17 @@ def test_absent_computer_years_are_named_and_the_url_ships() -> None:
     response = assemble("ships", record)
     assert response.urls
     assert response.warnings[0].code == "variable_not_in_vintage"
+
+
+def test_mismatched_omission_arrays_fail_closed() -> None:
+    record = ExecutionRecord(question=T14, table_id="B28001")
+    record.fetch = _fetch(
+        omitted_years=[2013, 2014, 2015],
+        omission_reasons=["variable_not_in_vintage"],
+        dataset="acs5",
+    )
+    with pytest.raises(ValueError, match="zip"):
+        evaluate(record)
 
 
 def test_acs1_2020_gap_is_not_a_missing_variable() -> None:
@@ -1189,31 +1201,22 @@ def test_acs1_2020_gap_is_not_a_missing_variable() -> None:
     assert "vintage_gap_2020" in _codes(record)
 
 
-def test_since_before_first_vintage_names_the_published_gap_without_a_fetch() -> None:
-    record = ExecutionRecord(
-        question=T14,
-        table_id="B28001",
-        table_facts=_computer_facts,
-    )
-    record.published_vintages = lambda dataset: set(range(2016, 2025))
-    warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
-    assert "2016" in warning.detail
-    assert "2013" not in warning.detail
-
-
-def test_since_before_first_vintage_names_the_published_gap() -> None:
-    record = ExecutionRecord(
-        question=T14,
-        table_id="B28001",
-        table_facts=_computer_facts,
-    )
-    record.published_vintages = lambda dataset: set(range(2016, 2025))
+def test_acs1_years_before_introduction_are_named() -> None:
+    record = ExecutionRecord(question=T14, table_id="B28001")
     record.fetch = _fetch(
-        requested_years=[2017, 2024], attempted_years=[2017, 2024], dataset="acs5"
+        urls=[
+            "https://api.census.gov/data/2016/acs/acs1?get=NAME,GEO_ID,B28001_001E,B28001_001M&for=us:1"
+        ],
+        requested_years=list(range(2013, 2025)),
+        attempted_years=[2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024],
+        omitted_years=[2013, 2014, 2015, 2020],
+        omission_reasons=["variable_not_in_vintage"] * 3 + ["vintage_gap_2020"],
+        dataset="acs1",
     )
     warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
-    assert "2016" in warning.detail
-    assert "2013" not in warning.detail
+    assert "2013" in warning.detail
+    assert "2016" not in warning.detail
+    assert "vintage_gap_2020" in _codes(record)
 
 
 def test_unchanged_computer_years_do_not_warn() -> None:
@@ -1228,13 +1231,15 @@ def test_unchanged_computer_years_do_not_warn() -> None:
     assert "variable_not_in_vintage" not in _codes(record)
 
 
-def test_redefined_universe_is_not_joined() -> None:
-    def facts(dataset: str, year: int, table_id: str) -> dict[str, object] | None:
-        universe = "Families" if year == 2019 else "Households"
-        return {"title": "Median Household Income", "universe": universe, "variables": ["001E"]}
-
-    record = ExecutionRecord(question=T14, table_id="B19013", table_facts=facts)
-    record.fetch = _fetch(requested_years=[2019, 2024], dataset="acs5")
+def test_redefined_universe_is_named_from_fetch_omissions() -> None:
+    record = ExecutionRecord(question=T14, table_id="B19013")
+    record.fetch = _fetch(
+        requested_years=[2019, 2024],
+        attempted_years=[2024],
+        omitted_years=[2019],
+        omission_reasons=["variable_not_in_vintage"],
+        dataset="acs5",
+    )
     warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
     assert "2019" in warning.detail
 
