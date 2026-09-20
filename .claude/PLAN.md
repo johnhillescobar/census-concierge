@@ -57,6 +57,10 @@ overruns, pick the 30 lines.
 
 ## Slice 5 — Conversation persistence (CC-6)
 
+Storage only. Concurrency law (no globals, pass arguments, never SQLite) is
+already in DESIGN §5 — do not rediscover it here. A conversation survives a
+restart; it does not yet understand "what about Texas?".
+
 Postgres. **Never SQLite.** `thread_id` owned by `user_id` from day one.
 `POST /conversations`, append, `GET /conversations/{id}` (refresh must not
 lose the canvas). Implement whichever way CC-9 decided.

@@ -48,11 +48,21 @@ Monorepo: `api/` (Python 3.12), `web/` (React + TypeScript), generated
 tools. LangGraph only for durable checkpointing if the CC-9 spike says so —
 never for routing.
 
-Postgres when persistence lands (slice 5 / CC-6). **Never SQLite.** No
-module-level mutable state except the read-only index. PDF is a background job,
-never a request handler. The LLM emits a `ChartSpec`; the frontend renders.
-Auth is bought (Clerk, slice 8). Tracing is Langfuse at slice 8 (CC-48), by
-hand in the complete/dispatch choke points — not LangSmith.
+**Concurrency is law now, not a slice-5 feature.** Even one user today will be
+N workers tomorrow. No module-level mutable state; pass context as function
+arguments. No `contextvars` set/reset — that pattern leaks across users. The
+read-only index is the only exception. Async endpoints. Horizontal scaling is
+the test: if a second worker would see different state, the design is wrong.
+`check_invariants.py` fails the build on sqlite and contextvars.
+
+Postgres, `thread_id`, and `user_id` ownership land in slice 5 / CC-6.
+**Never SQLite** is already decided so that epic cannot undo a local
+`checkpoints.db`. CC-6 does not invent the no-globals rule; it stores
+conversations under it.
+
+PDF is a background job, never a request handler. The LLM emits a `ChartSpec`;
+the frontend renders. Auth is bought (Clerk, slice 8). Tracing is Langfuse at
+slice 8 (CC-48), by hand in the complete/dispatch choke points — not LangSmith.
 
 One container: FastAPI serves the API and the built frontend, pinned index
 baked in, managed Postgres, object storage for PDFs. The index is a GitHub

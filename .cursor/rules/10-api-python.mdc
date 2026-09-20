@@ -246,6 +246,9 @@ Budget: `system_prompt_tokens` 1200, measured as string-literal chars / 4.
 
 ## Concurrency — this app is multi-user
 
+This is **now**, not slice 5. CC-6 stores conversations; it does not introduce
+these rules. Durable copy: DESIGN §5.
+
 - Postgres. **Never SQLite.** The predecessor used a local `checkpoints.db`.
 - **No module-level mutable state.** Pass context as function arguments. Avoid
   the contextvar set/reset-token pattern — one refactor from cross-user leakage.
