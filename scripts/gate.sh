@@ -54,6 +54,8 @@ Hand this to a fresh general-purpose subagent (not fork), isolation: worktree wh
 
   Read CLAUDE.md, docs/playbooks/run-slice.md, and the current slice in
   .claude/PLAN.md first. You have no context from the caller.
+  Gate 1 and Gate 2 also read the catalog matching touched paths
+  (docs/requirements.md, docs/ask-path.md, docs/retrieval.md).
   Do exactly this phase, nothing downstream:
   $task
   $capture

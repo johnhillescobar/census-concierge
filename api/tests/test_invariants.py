@@ -23,6 +23,7 @@ def test_invariants_name_the_forbidden_patterns() -> None:
     assert "blocking clarification" in blob
     assert "census key in artifacts" in blob
     assert "empty secret defaults" in blob
+    assert "mandatory catalogs" in blob
     assert "budget increases" in {name for name, _ in inv.collect(None)}
 
 
@@ -100,6 +101,21 @@ def test_redacted_prefix_in_evidence_json_fails_the_check(tmp_path: Path, monkey
     found = inv.check_census_key_not_in_artifacts()
     assert found
     assert "latest.json" in found[0].where
+
+
+def test_missing_agent_catalog_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    found = inv.check_mandatory_catalogs()
+    assert {item.where for item in found} == {
+        "docs/requirements.md",
+        "docs/ask-path.md",
+        "docs/retrieval.md",
+        "docs/slices.md",
+    }
+
+
+def test_present_agent_catalogs_pass_the_check() -> None:
+    assert inv.check_mandatory_catalogs() == []
 
 
 def test_exact_redacted_key_in_evidence_json_passes_the_check(

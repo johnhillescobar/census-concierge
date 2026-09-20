@@ -107,8 +107,9 @@ mutable state; pass context as arguments. PDF generation is a background job,
 never a request handler.
 
 `docs/ARCHITECTURE.md` describes the system as it *is*. If you change the
-shape, update it in the same commit. Detail: `docs/ask-path.md`,
-`docs/retrieval.md`, `docs/requirements.md`.
+shape, update it in the same commit. Read the catalog that matches the work:
+`docs/requirements.md` (contract), `docs/ask-path.md` (`/ask`),
+`docs/retrieval.md` (index), `docs/slices.md` (board).
 
 ## Environment
 

@@ -7,20 +7,29 @@ record for `POST /ask` after slice 3 ([CC-2](https://johnhillescobar.atlassian.n
 
 `run_ask` is a hand-rolled loop: `_openai_complete` then `dispatch`. Not a
 graph, not `create_agent`. The model stops by emitting text; there is no
-`finish` tool. `finish_tools()` in `api/src/finish.py` fills required fields
-when the model stops early.
+`finish` tool.
 
 Four tools:
 
 | tool | module | does |
 |---|---|---|
-| `search_tables` | `tools.py` | `index.search` top-10, then `rerank.choose`; some wordings pin a table |
+| `search_tables` | `tools.py` | `index.search` top-10, then `rerank.choose`; wording pins live in `vintages.pinned_table` |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
 
 `assemble()` builds `AskResponse` from the execution record. `guards.evaluate()`
 attaches warning codes from `docs/requirements.md`. None of them block.
+
+## Finish path
+
+`finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
+stops without a URL, or with the wrong listing level, an incomplete comparison,
+a parentless tract pair, or an ACS1 request that never built `/acs/acs1`, it
+retries: search (including a wording pin if the pool missed it); resolve
+(listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
+build, unless `geo_status.nested` is False; then fetch. Non-expressible
+containment stops — it does not invent nested `for`/`in`.
 
 ## Contract
 
@@ -41,7 +50,11 @@ publishes every listed member with rows; else non-overlapping ACS5 end years.
 Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
 `acs1_geography_ineligible`). A variable absent or redefined mid-range is
 `variable_not_in_vintage`, not a silent join. Tract / block-group series that
-cross 2020 emit `boundary_change_2020`.
+cross 2020 emit `boundary_change_2020`. An ACS1-ineligible comparison leg
+destaggers **all** comparison legs to non-overlapping ACS5.
+
+`allow_overlapping_acs5` exists on fetch / `plan_years`. It is not on
+`AskRequest` or the UI; exposing it is a slice-4 plan-strip typed field.
 
 ## Geography
 
@@ -53,6 +66,16 @@ A named-county parent of a tract wildcard is `for=tract:*` without listing
 tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is
 `geography_not_nested` with no invented fetch. A `:*` wildcard stays one GET.
+
+Runtime legality scans **all** matching `geography.json` rows
+(`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict
+is last-wins. `geo_levels()["county"]` is summary level 324; all counties in a
+state is level 050.
+
+An unsupported tract or block-group listing can still ship a **candidate**
+wildcard URL (`legal=False`, `for=block group:*` / `tract:*`) with
+`geography_unsupported`. That is not an empty `urls[]`. Empty `urls[]` means
+the loop stopped before `build_url`.
 
 ## Comparisons and aggregation
 

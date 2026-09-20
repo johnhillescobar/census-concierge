@@ -9,9 +9,16 @@ Conversational discovery for the Census table ecosystem. Users are GIS
 professionals and non-profit researchers who are **expert in a handful of tables
 and lost in the other thousand**. The product is *discovery*.
 
-Canonical documents — read before any non-trivial change:
-`CLAUDE.md` · `.claude/DESIGN.md` · `.claude/PLAN.md`.
-Catalogs: `docs/requirements.md`, `docs/ARCHITECTURE.md`. Board: `docs/slices.md`.
+Always read before any non-trivial change: `CLAUDE.md` · `.claude/DESIGN.md` ·
+`.claude/PLAN.md`. Then the catalog that matches the work — not all of them
+every turn:
+
+- Current shape: `docs/ARCHITECTURE.md`
+- Response, URL, Census interpretation, UI rendering, or review:
+  `docs/requirements.md`
+- `POST /ask` behavior: `docs/ask-path.md`
+- Index, search, rerank, or retrieval eval: `docs/retrieval.md`
+- Scope or status: `docs/slices.md`
 
 Slice work follows `docs/playbooks/run-slice.md`: pre-flight claim check, Gate 1
 (tests + mutation check), Gate 2 (cold review), E2E before and after merge. Every
@@ -39,7 +46,8 @@ not done. A new test file is not done. A closed ticket is not done.
 ## Every response ships
 
 Full API URL (variables, geography, vintage — **even when the fetch fails**),
-margins of error, GEOID, universe, and related tables. See `.claude/DESIGN.md` §4.
+margins of error, GEOID, universe, and related tables. Catalog:
+`docs/requirements.md`.
 
 ## Never
 

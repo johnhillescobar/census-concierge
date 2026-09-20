@@ -1,6 +1,6 @@
 """Slice-1 guards: pure functions over the execution record.
 
-Evaluated once, at assemble time. None of them blocks — DESIGN.md §4.
+Evaluated once, at assemble time. None of them blocks — docs/requirements.md.
 """
 
 from __future__ import annotations

@@ -138,6 +138,10 @@ def _doc_lines() -> int:
         ".cursor/commands/*.md",
         ".claude/skills/*/SKILL.md",
         "docs/playbooks/*.md",
+        "docs/requirements.md",
+        "docs/ask-path.md",
+        "docs/retrieval.md",
+        "docs/slices.md",
     )
     seen: set[Path] = set()
     for pattern in patterns:

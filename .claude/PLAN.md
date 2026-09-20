@@ -35,6 +35,8 @@ slice 6).
 
 - [ ] Two-pane shell; table with GEOID, estimate, MOE.
 - [ ] Backend `ResultPlan`; editable plan strip; re-run on override.
+      Typed fields include the existing `allow_overlapping_acs5` fetch override
+      (consecutive ACS5; `overlapping_vintage` still warns). Not follow-up language.
 - [ ] `ChartSpec` from the agent; frontend renders (never chart code or SVG).
 - [ ] Alternatives panel.
 - [ ] CSV export.
@@ -49,6 +51,16 @@ slice 6).
 Half a day. Throwaway branch. Does the Postgres checkpointer justify two
 dependencies against ~30 lines under a **hand-rolled loop**? If the spike
 overruns, pick the 30 lines.
+
+Evaluate on:
+
+- Lines of code each way, and the delta to `direct_dependencies`.
+- What LangGraph gives *beyond* persistence — interrupts, time-travel,
+  streaming state. Does anything in slices 5–8 need them?
+- How well the checkpointer sits under a **hand-rolled loop** rather than a
+  graph. If using it means reintroducing a `StateGraph` to hold the loop, the
+  cost is much larger than two dependencies.
+- Cost of switching later, in each direction.
 
 **Done when:** a dated decision is in DESIGN §9, the branch is deleted,
 `budgets.toml` is untouched.

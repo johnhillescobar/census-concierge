@@ -66,6 +66,10 @@ the same mental model as the implementation cannot falsify that model. Two passe
 - **project invariants**: `docs/playbooks/review-pr.md`. Run the machines first; a
   non-zero exit ends the review.
 
+Gate 1 and Gate 2 also read the catalog matching touched paths: response / URL /
+Census / UI → `docs/requirements.md`; `/ask` → `docs/ask-path.md`; index /
+search / rerank → `docs/retrieval.md`; scope → `docs/slices.md`.
+
 Transcript to `evidence/slice-<N>/gate2.txt`; findings into the PR body, "nothing"
 included.
 

@@ -29,7 +29,7 @@ matrix, 636-family index, golden set, `make eval` floors. Evidence:
 `docs/retrieval.md`.
 
 **Slice 1** (2026-09-13). `POST /ask`, four-tool loop, response contract, five
-DESIGN §4 guards (none block), `make demo`. answered_rate 0.803, p95 14.164s.
+guards from `docs/requirements.md` (none block), `make demo`. answered_rate 0.803, p95 14.164s.
 Evidence: `evidence/slice-1/`. Selector is `rerank.choose` inside
 `search_tables` ([CC-54](https://johnhillescobar.atlassian.net/browse/CC-54)), not a fifth tool.
 
