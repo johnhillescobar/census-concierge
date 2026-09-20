@@ -66,7 +66,8 @@ destaggers **all** comparison legs to non-overlapping ACS5.
 NAME listing ranks by place class, population, then GEO_ID; `specs[0]` is
 selected. A leading token matches the NAME head or that head plus a Census
 class, not an unrelated compound (`Queens` is not `Queens Gate CDP`). An
-unspecified place with no NAME hit falls back to the county listing.
+unspecified place with no NAME hit falls back to the county listing; a query
+that already named city/place does not.
 `ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
 dataset/vintage, `for`/`in`).
 `versus` / `compared to` / `compare … to` emits one executable spec per side.

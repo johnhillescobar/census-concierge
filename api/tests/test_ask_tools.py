@@ -869,6 +869,20 @@ async def test_queens_resolves_as_the_county_not_the_gate_cdp() -> None:
     assert "alternatives" not in message.content
 
 
+async def test_named_city_does_not_fall_back_to_the_county() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Harris city, Texas"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.specs == []
+    assert "no place matched" in message.artifact.detail
+
+
 async def test_portland_selects_oregon_over_maine() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(

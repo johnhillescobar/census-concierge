@@ -399,7 +399,7 @@ class ResolveGeographyTool(BaseTool):
         )
         token = place_token(query, state[0] if state else None)
         matched = named_rows(token, rows)
-        if not matched and for_level == "place" and not level:
+        if not matched and for_level == "place" and not level and detect_level(query) is None:
             matched = named_rows(
                 token,
                 await asyncio.to_thread(
