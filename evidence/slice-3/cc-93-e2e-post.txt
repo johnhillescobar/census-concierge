@@ -1,0 +1,82 @@
+# E2E post -- slice 3 / CC-93
+# ticket: CC-93
+# branch: main
+# HEAD: e6ae0644ad17331e82ccb00fc5622bd89438f6cd
+# captured: 2026-09-20T17:05:50Z
+# recipe: make eval then make demo --repeat 3
+# command: uv run python scripts/e2e_capture.py --slice 3 --ticket CC-93 --phase post --from demo
+#
+# The per-trial capture log was overwritten. This file keeps the DEMO/MISSES
+# scoreboard from that finished run (terminal capture, exit 0). Gated keys
+# and demo.misses are restored in evidence/latest.json. demo.trials is empty.
+
+# START run_demo --repeat 3
+# DONE run_demo --repeat 3
+
+DEMO  repeat=3  n_trials=186
+
+  core       n=12   answered=100%   http_ok=100%
+  long_tail  n=120  answered=85%   http_ok=100%
+  trap       n=54   answered=96%   http_ok=100%
+
+  answered_rate  0.850  (long_tail, floor 0.7)   overall 0.892
+  p95_latency    18.308s  (ceiling 20s)
+  t_llm          4.811s   t_census_api 3.878s   t_ours 3.315s   (means; not gated)
+  prompt_hash    e574ca4880c7   index_hash 377cd59fe62a
+
+MISSES
+
+  q08 r1  expected B18101  got B18101F  http_ok=True  wrong table B18101F
+      Disability rates among adults in rural Vermont counties
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B18101F_001E,B18101F_001M&for=county:*&in=state:50
+  q10 r1  expected C16001  got B16001  http_ok=True  wrong table B16001
+      What languages are spoken at home in Queens?
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=county:081&in=state:36
+  q17 r1  expected B24010  got —  http_ok=True  wrong table (none)
+      Occupation breakdown for workers in Silicon Valley counties
+  q20 r1  expected B07001  got B07201  http_ok=True  wrong table B07201
+      People who moved into Boise from another state last year
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16
+  q34 r1  expected B24080  got B19053  http_ok=True  wrong table B19053
+      Workers in Bozeman who run their own business instead of working for someone else
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19053_001E,B19053_001M&for=place:08950&in=state:30
+  q39 r1  expected B25004  got —  http_ok=True  wrong table (none)
+      Why are so many homes in Detroit sitting empty?
+  q10 r2  expected C16001  got B16001  http_ok=True  wrong table B16001
+      What languages are spoken at home in Queens?
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=county:081&in=state:36
+  q17 r2  expected B24010  got —  http_ok=True  wrong table (none)
+      Occupation breakdown for workers in Silicon Valley counties
+  q20 r2  expected B07001  got B07013  http_ok=True  wrong table B07013
+      People who moved into Boise from another state last year
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07013_001E,B07013_001M&for=place:08830&in=state:16
+  q34 r2  expected B24080  got B19053  http_ok=True  wrong table B19053
+      Workers in Bozeman who run their own business instead of working for someone else
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19053_001E,B19053_001M&for=place:08950&in=state:30
+  q39 r2  expected B25004  got —  http_ok=True  wrong table (none)
+      Why are so many homes in Detroit sitting empty?
+  t07 r2  expected B01003  got —  http_ok=True  wrong table (none)
+      Population of Phoenix in 2024 from the 1-year ACS
+  q10 r3  expected C16001  got B16001  http_ok=True  wrong table B16001
+      What languages are spoken at home in Queens?
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B16001_001E,B16001_001M&for=place:63116&in=state:42
+  q17 r3  expected B24010  got B24114  http_ok=True  wrong table B24114
+      Occupation breakdown for workers in Silicon Valley counties
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B24114_001E,B24114_001M&for=county:140&in=state:09
+  q18 r3  expected B25003  got B25072  http_ok=True  wrong table B25072
+      Renter versus owner households in Milwaukee
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B25072_001E,B25072_001M&for=place:53000&in=state:55
+  q20 r3  expected B07001  got B07201  http_ok=True  wrong table B07201
+      People who moved into Boise from another state last year
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B07201_001E,B07201_001M&for=place:08830&in=state:16
+  q34 r3  expected B24080  got B19053  http_ok=True  wrong table B19053
+      Workers in Bozeman who run their own business instead of working for someone else
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19053_001E,B19053_001M&for=place:08950&in=state:30
+  q39 r3  expected B25004  got —  http_ok=True  wrong table (none)
+      Why are so many homes in Detroit sitting empty?
+  q43 r3  expected B08302  got B08303  http_ok=True  wrong table B08303
+      What time do commuters in Suffolk County leave the house?
+      https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B08303_001E,B08303_001M&for=county:103&in=state:36
+  t07 r3  expected B01003  got B06001  http_ok=True  wrong table B06001
+      Population of Phoenix in 2024 from the 1-year ACS
+      https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B06001_001E,B06001_001M&for=place:55000&in=state:04

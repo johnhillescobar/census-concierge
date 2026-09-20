@@ -62,6 +62,11 @@ CC-92 post-merge E2E (`evidence/slice-3/cc-92-e2e-post.txt`, `--repeat 3`, n=186
 `answered_rate` 0.842, `p95` 17.585s, `selector_at_1` 0.875. `demo.misses`:
 q10, q11, q17, q18, q20, q34, q39, q41. `t14` is not in the miss list.
 
+CC-93 post-merge E2E (`evidence/slice-3/cc-93-e2e-post.txt`, `--repeat 3`, n=186):
+`answered_rate` 0.850, `p95` 18.308s, `selector_at_1` 0.875. `demo.misses`:
+q08, q10, q17, q18, q20, q34, q39, q43, t07. Empty-URL `q17`/`q39`/`t07` are
+never-built (out of this ticket), not a wipe of a legal URL.
+
 ## What “answered” means
 
 HTTP 200 is not answered. `scripts/run_demo.py` `is_answered()` requires:
@@ -121,6 +126,7 @@ Closed under epic [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91):
 | ticket | owns | live questions |
 |---|---|---|
 | [CC-92](https://johnhillescobar.atlassian.net/browse/CC-92) Done | persist vintage compatibility on the fetch artifact; `variable_not_in_vintage` from `omission_reasons` | `t14` not in post-merge misses |
+| [CC-93](https://johnhillescobar.atlassian.net/browse/CC-93) Done | retain already-built Census URLs through assemble | empty-URL `q17`/`q39`/`t07` are never-built, not a wipe |
 
 AC added **2026-09-18** (on the tickets, not here):
 
