@@ -73,7 +73,22 @@ def unique_years(years: list[int]) -> list[int]:
     return out
 
 
+def _kept_urls(record: Any) -> list[str]:
+    kept = [url for url in getattr(record, "retained_urls", []) or [] if url]
+    extra = list(getattr(getattr(record, "fetch", None), "urls", None) or [])
+    built = getattr(record, "url", None)
+    if built:
+        extra.append(str(built))
+    for url in extra:
+        redacted = str(CensusURL(url)) if url else ""
+        if redacted and redacted not in kept:
+            kept.append(redacted)
+    record.retained_urls = kept
+    return kept
+
+
 def clear_series(record: Any) -> None:
+    _kept_urls(record)
     record.url = None
     record.rows = []
     record.table_id = ""
@@ -82,32 +97,11 @@ def clear_series(record: Any) -> None:
 
 
 def series_from_record(record: Any) -> dict[str, Any]:
+    kept = _kept_urls(record)
     artifact = getattr(record, "fetch", None)
     built = getattr(record, "url", None)
-    if isinstance(artifact, FetchDataResult):
-        return {
-            "urls": list(artifact.urls) or ([str(built)] if built else []),
-            "requested_years": list(artifact.requested_years),
-            "attempted_years": list(artifact.attempted_years),
-            "succeeded_years": list(artifact.succeeded_years),
-            "failed_years": list(artifact.failed_years),
-            "omitted_years": list(artifact.omitted_years),
-            "omission_reasons": list(artifact.omission_reasons),
-            "legs": list(artifact.legs),
-        }
-    if built:
-        return {
-            "urls": [str(built)],
-            "requested_years": [],
-            "attempted_years": [],
-            "succeeded_years": [],
-            "failed_years": [],
-            "omitted_years": [],
-            "omission_reasons": [],
-            "legs": [],
-        }
-    return {
-        "urls": [],
+    urls = [str(built)] if built else kept
+    years: dict[str, Any] = {
         "requested_years": [],
         "attempted_years": [],
         "succeeded_years": [],
@@ -116,6 +110,18 @@ def series_from_record(record: Any) -> dict[str, Any]:
         "omission_reasons": [],
         "legs": [],
     }
+    if isinstance(artifact, FetchDataResult):
+        urls = list(artifact.urls) or urls
+        years = {
+            "requested_years": list(artifact.requested_years),
+            "attempted_years": list(artifact.attempted_years),
+            "succeeded_years": list(artifact.succeeded_years),
+            "failed_years": list(artifact.failed_years),
+            "omitted_years": list(artifact.omitted_years),
+            "omission_reasons": list(artifact.omission_reasons),
+            "legs": list(artifact.legs),
+        }
+    return {"urls": urls, **years}
 
 
 def _census_get(url: str) -> tuple[int, Any]:

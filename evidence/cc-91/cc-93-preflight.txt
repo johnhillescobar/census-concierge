@@ -1,0 +1,29 @@
+# CC-93 pre-flight raw output
+# origin/main e6ae064 (ahead 1: docs CC-92 post-merge)
+# 2026-09-20
+
+CC-76 post-merge (cce74f4 evidence/latest.json):
+answered_rate 0.825 p95 17.116
+demo.misses ids: q10 q11 q15 q17 q18 q20 q34 q39 q41 t07 t11 t14
+empty url field (url=''):
+  miss: q39 x3, t07 x1, q17 x2, q18 x1, q41 x1  (detail=wrong table (none); harness names table_id first)
+  answered empty-url: t16 geography_not_nested; t17 geography_unsupported+median_not_aggregatable
+No trial has miss_detail 'empty url' because expect_table rows score as wrong table (none) first.
+
+CC-92 post-merge latest.json: empty-url misses remaining q39 x3, q41 x1, q17 r3.
+t16/t17 still empty and answered via _WARNING_WITHOUT_FETCH.
+
+CC-90 To Do, CC-89 To Do (no overlap).
+
+--- loc ---
+ 400 ask.py
+ 392 fetch.py
+ 368 guards.py
+ 109 finish.py
+
+--- trace: one built URL through clear_series ---
+built = Denver place B17001 with &key=secret
+BEFORE clear assemble urls = [redacted place:20000 URL]
+AFTER clear_series: record.url is None; series_from_record urls=[]; assemble urls=[]
+AFTER failed rebuild (_absorb build_url ok=False): record.url None; assemble urls=[]
+key never appeared on assemble.urls (CensusURL redacts).
