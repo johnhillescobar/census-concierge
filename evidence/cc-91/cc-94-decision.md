@@ -1,10 +1,13 @@
 # CC-94 decision — 2026-09-20
 
-Diagnostic only. No production code. Pinned scoreboard: CC-93 post-merge
-`evidence/latest.json` (`answered_rate` 0.85, `retrieval_at_10` 0.90,
-`selector_at_1` 0.875, `--repeat 3`, n=186, `index_hash` 377cd59fe62a).
-Did not Read E2E transcripts. Used `demo.misses` URLs, retrieval/selector
-miss lists, one `search()` top-10 pass, and `place_token`/`filter_rows`.
+Diagnostic only. No production code. Pinned post-merge scoreboard:
+`evidence/slice-3/cc-93-e2e-post.txt` (`answered_rate` 0.850, `p95` 18.308s,
+`--repeat 3`, n=186). Retrieval floors from `evidence/latest.json`
+(`retrieval_at_10` 0.90, `selector_at_1` 0.875, `index_hash` 377cd59fe62a) —
+that file is the last `merge_evidence()` write (186 trials), not a reconstructed
+post-merge stub. Did not Read the E2E transcript body. Used the DEMO/MISSES
+printout URLs, retrieval/selector miss lists, one `search()` top-10 pass, and
+`place_token`/`filter_rows`.
 
 ## Groups
 

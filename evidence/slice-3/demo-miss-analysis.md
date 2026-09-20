@@ -63,9 +63,10 @@ CC-92 post-merge E2E (`evidence/slice-3/cc-92-e2e-post.txt`, `--repeat 3`, n=186
 q10, q11, q17, q18, q20, q34, q39, q41. `t14` is not in the miss list.
 
 CC-93 post-merge E2E (`evidence/slice-3/cc-93-e2e-post.txt`, `--repeat 3`, n=186):
-`answered_rate` 0.850, `p95` 18.308s, `selector_at_1` 0.875. `demo.misses`:
+`answered_rate` 0.850, `p95` 18.308s, `selector_at_1` 0.875. MISSES printout:
 q08, q10, q17, q18, q20, q34, q39, q43, t07. Empty-URL `q17`/`q39`/`t07` are
-never-built (out of this ticket), not a wipe of a legal URL.
+never-built (out of this ticket), not a wipe of a legal URL. The last
+`merge_evidence()` `latest.json` keeps 186 trials from the CC-93 pre-PR run.
 
 CC-94 (2026-09-20) classified those leftover IDs from this scoreboard, not
 transcripts: `evidence/cc-91/cc-94-decision.md`. `q15`/`q41` no longer miss.

@@ -6,9 +6,10 @@
 # recipe: make eval then make demo --repeat 3
 # command: uv run python scripts/e2e_capture.py --slice 3 --ticket CC-93 --phase post --from demo
 #
-# The per-trial capture log was overwritten. This file keeps the DEMO/MISSES
-# scoreboard from that finished run (terminal capture, exit 0). Gated keys
-# and demo.misses are restored in evidence/latest.json. demo.trials is empty.
+# The per-trial capture log was overwritten. This file is the DEMO/MISSES
+# printout from that finished run (terminal capture, exit 0). Do not invent
+# demo.trials or zeroed miss timings in evidence/latest.json; that file stays
+# the last merge_evidence() artifact (CC-93 pre-PR, 186 trials).
 
 # START run_demo --repeat 3
 # DONE run_demo --repeat 3
