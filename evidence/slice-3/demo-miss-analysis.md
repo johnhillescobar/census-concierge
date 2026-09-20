@@ -58,6 +58,10 @@ q10, q11, q15, q17, q18, q20, q34, q39, q41, t07, t11, t14. `q23` and `t15`–`t
 are not in the miss list. `t14` missing `variable_not_in_vintage` is not a reason
 to reopen CC-76. Slice 3 closed. `retrieval_at_1_holdout` 0.625 (n=8).
 
+CC-92 post-merge E2E (`evidence/slice-3/cc-92-e2e-post.txt`, `--repeat 3`, n=186):
+`answered_rate` 0.842, `p95` 17.585s, `selector_at_1` 0.875. `demo.misses`:
+q10, q11, q17, q18, q20, q34, q39, q41. `t14` is not in the miss list.
+
 ## What “answered” means
 
 HTTP 200 is not answered. `scripts/run_demo.py` `is_answered()` requires:
@@ -111,6 +115,12 @@ Closed under epic [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2):
 |---|---|---|
 | [CC-75](https://johnhillescobar.atlassian.net/browse/CC-75) Done | `variable_not_in_vintage`, `measure_unavailable`, warn-and-ship on vintage/measure traps | `t09`, `t14` not in CC-75 post-merge misses; `t14` missed on CC-76 post-merge |
 | [CC-76](https://johnhillescobar.atlassian.net/browse/CC-76) Done | `MOE_diff`, shared-sample caveat, two-leg fetch before significance | `q23`, `t15`–`t18` not in post-merge misses |
+
+Closed under epic [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91):
+
+| ticket | owns | live questions |
+|---|---|---|
+| [CC-92](https://johnhillescobar.atlassian.net/browse/CC-92) Done | persist vintage compatibility on the fetch artifact; `variable_not_in_vintage` from `omission_reasons` | `t14` not in post-merge misses |
 
 AC added **2026-09-18** (on the tickets, not here):
 
