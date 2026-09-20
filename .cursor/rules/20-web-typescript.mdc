@@ -5,8 +5,8 @@ globs: web/**/*.ts,web/**/*.tsx
 
 # web/ — React + TypeScript
 
-Budget: 3,000 lines. One chat pane today. Canvas, `ChartSpec`, and the plan
-strip are slice 4 — do not build them here.
+Budget: 3,000 lines. Slice 4 (CC-11) is the canvas. Render the contract in
+`docs/requirements.md`; `AskResponse` shape is `docs/ask-path.md`.
 
 ## The API client is generated, never hand-written
 
@@ -22,11 +22,8 @@ Do not hand-edit generated files. Do not add a parallel fetch wrapper.
 - When a table is shown, it includes **GEOID, estimate, and margin of error**.
   MOE is not optional metadata — researchers cannot use an estimate without it.
 
-## Not yet
-
-Charts render from a `ChartSpec` (type, x, y, series, title) in slice 4. The
-backend never sends chart code or SVG. The editable plan strip
-(`ACS5 2019–2023 · B01003 · county · Texas [edit]`) is also slice 4.
-No component library, no state-management library, no design system, no routing
-abstraction — until the second real use appears. Check `.claude/PLAN.md` for
-which slice a feature belongs to before building it.
+Charts render from a `ChartSpec` (type, x, y, series, title). The backend never
+sends chart code or SVG. The editable plan strip is CC-11. No component library,
+no state-management library, no design system, no routing abstraction — until
+the second real use appears. Check `.claude/PLAN.md` before building a later
+slice's feature.

@@ -1,0 +1,101 @@
+docs-align Gate 2 -- cold review of PR 57 follow-up (after 55efe2f + this commit)
+branch: docs/align-canonical-docs
+PR: 57
+
+Machines first. Non-zero would have ended the review.
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               3795 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1551 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.116 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.825 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run ruff check . && uv run ruff format --check . ==========
+
+All checks passed!
+122 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+
+409 passed in 11.22s
+
+exit: 0
+
+## Generic pass
+
+No production behavior change. Python deltas are comments/docstrings plus
+harness tests for documentation budgets. Copilot thread on SearchTablesTool `k`
+is already aligned: schema and `_arun` both default to 10. Metadata rebuild
+note already names `data/raw/`.
+
+## Project invariants
+
+- Claim: operators of this repo can load a smaller canonical set without
+  catalogs escaping `doc_lines`. Not a Census-user feature. Said plainly.
+- Evidence: no new `make demo`. Quoted CC-76 post-merge scoreboard in the PR.
+- Scope: docs/harness, not slice 4 implementation. File count is over ~15
+  because catalogs moved out of always-read files.
+- Silent-wrong-answer: no response-path code change. URL/MOE/GEOID/universe
+  contract unchanged. Guards still do not block.
+- Shape: no new tool, route, model, or graph node. ARCHITECTURE status line
+  updated to match Jira (CC-11 To Do, CC-91 In Progress).
+- Tests: `test_doc_lines_counts_each_agent_catalog` proves each catalog
+  contributes and ARCHITECTURE does not. Catalog existence tests remain.
+  Mutation transcript: `evidence/docs-align/gate1.txt` (6 GOOD, 0 BAD).
+
+Jira check (read-only): CC-11 epic and CC-34/35/37/49/87/88/89/90 are To Do.
+CC-91 is In Progress. Canonical docs now match that.
+
+## Verdict
+
+Ship it. A cold session can reconstruct from PLAN + `docs/slices.md` + this
+evidence directory + the PR body. Copilot's remaining overview item is stale.

@@ -5,7 +5,8 @@ is a few hundred thousand postings and a query touches only the terms it
 contains. `rank_bm25` would be a dependency to save forty lines.
 
 BM25 is here for what embeddings are bad at — exact table IDs, Census jargon,
-and category names that appear in a variable label and nowhere else.
+and category names that appear in a variable label and nowhere else. `search()`
+does not consult it while semantic.npz exists. See docs/retrieval.md.
 """
 
 from __future__ import annotations

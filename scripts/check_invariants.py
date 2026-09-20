@@ -255,6 +255,20 @@ def check_budgets_not_weakened(base: str) -> list[Violation]:
     return found
 
 
+def check_mandatory_catalogs() -> list[Violation]:
+    """Agent catalogs must exist. Does not validate their prose."""
+    found: list[Violation] = []
+    for rel in (
+        "docs/requirements.md",
+        "docs/ask-path.md",
+        "docs/retrieval.md",
+        "docs/slices.md",
+    ):
+        if not (ROOT / rel).is_file():
+            found.append(Violation(rel, "mandatory agent catalog is missing"))
+    return found
+
+
 CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("banned agent frameworks", check_banned_agent_frameworks),
     ("sqlite", check_no_sqlite),
@@ -266,6 +280,7 @@ CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("census key in artifacts", check_census_key_not_in_artifacts),
     ("empty secret defaults", check_no_empty_secret_defaults),
     ("key attached only via CensusURL", check_key_attached_only_in_census_url),
+    ("mandatory catalogs", check_mandatory_catalogs),
 )
 
 

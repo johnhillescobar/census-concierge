@@ -6,7 +6,8 @@ globs: api/tests/**,evals/**,scripts/**
 # Evals and tests
 
 **`evals/golden_questions.toml` is the product specification.** Tiered
-`core` / `long_tail` / `trap`.
+`core` / `long_tail` / `trap`. Trap `expect_warning` codes:
+`docs/requirements.md`. Retrieval facts: `docs/retrieval.md`.
 
 ## The scoreboard
 
@@ -60,7 +61,7 @@ not the file length.
 
 ```
 python scripts/check_budgets.py     # budgets; exits 1 on violation
-python scripts/eval_retrieval.py    # retrieval scoreboard; no keys needed
+python scripts/eval_retrieval.py    # needs OPENAI_API_KEY; --rerank needs GEMINI_API_KEY
 python scripts/run_demo.py --repeat 3   # end-to-end; needs live keys
 ```
 

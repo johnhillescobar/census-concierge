@@ -212,7 +212,7 @@ Larger than every model difference measured here, combined.
 
 ```powershell
 uv sync --group experiments          # torch, sentence-transformers, cohere, google-genai, voyageai (~2 GB)
-make metadata                        # harness rebuilds the post-fold corpus from data/availability.parquet
+make metadata                        # fetch ACS metadata into data/raw/; harness rebuilds the corpus from that cache
 ```
 
 Keys come from `.env`. An arm whose key is missing fails loudly and the rest of

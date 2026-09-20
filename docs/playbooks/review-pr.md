@@ -45,7 +45,9 @@ support. Say so.
 
 ## Silent-wrong-answer review
 
-For any change touching a response path:
+For any change touching a response path, read `docs/requirements.md` first.
+For `/ask` behavior, also `docs/ask-path.md`. For index, search, or rerank,
+also `docs/retrieval.md`. Then:
 
 - **URL, MOE, GEOID, universe** still present in every branch, including the
   failure branches. A wrong URL is fixable in ten seconds; missing MOE is a

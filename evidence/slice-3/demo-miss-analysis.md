@@ -10,8 +10,7 @@ the AC; this file is the *why*.
 
 ## When to open this
 
-- Interpreting `make demo` misses that look like “slice 3 is unfinished.”
-- Starting **CC-76**.
+- Interpreting leftover `make demo` misses after slice 3 closed.
 - Tempted to add a new epic, a new floor, or cousin-table AC onto those tickets.
 
 Do **not** open it to implement a random long-tail miss.
@@ -52,6 +51,12 @@ q04, q05, q08, q10, q11, q17, q18, q20, q21, q28, q34, q37, q39, q41, t03, t04,
 t06, t07, t08, t10, t11, t12, t13. `t09` and `t14` are not in the miss list.
 `t10`–`t13` are now in the suite and miss on missing warnings; they are not a
 reason to reopen CC-75.
+
+CC-76 post-merge E2E (`evidence/slice-3/cc-76-e2e-post.txt`, `--repeat 3`, n=186):
+`answered_rate` 0.825, `p95` 17.116s, `selector_at_1` 0.875. `demo.misses`:
+q10, q11, q15, q17, q18, q20, q34, q39, q41, t07, t11, t14. `q23` and `t15`–`t18`
+are not in the miss list. `t14` missing `variable_not_in_vintage` is not a reason
+to reopen CC-76. Slice 3 closed. `retrieval_at_1_holdout` 0.625 (n=8).
 
 ## What “answered” means
 
@@ -100,12 +105,12 @@ the trap. Guard is already slice 1; do not reopen it inside CC-74/75/76.
 
 ## What remaining tickets own
 
-Open under epic [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2):
+Closed under epic [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2):
 
 | ticket | owns | live questions |
 |---|---|---|
-| [CC-75](https://johnhillescobar.atlassian.net/browse/CC-75) Done | `variable_not_in_vintage`, `measure_unavailable`, warn-and-ship on vintage/measure traps | `t09`, `t14` not in post-merge misses |
-| [CC-76](https://johnhillescobar.atlassian.net/browse/CC-76) | `MOE_diff`, shared-sample caveat, two-leg fetch before significance | `q23`, `t15`–`t18`; `t03` two legs; `t06` empty URL |
+| [CC-75](https://johnhillescobar.atlassian.net/browse/CC-75) Done | `variable_not_in_vintage`, `measure_unavailable`, warn-and-ship on vintage/measure traps | `t09`, `t14` not in CC-75 post-merge misses; `t14` missed on CC-76 post-merge |
+| [CC-76](https://johnhillescobar.atlassian.net/browse/CC-76) Done | `MOE_diff`, shared-sample caveat, two-leg fetch before significance | `q23`, `t15`–`t18` not in post-merge misses |
 
 AC added **2026-09-18** (on the tickets, not here):
 

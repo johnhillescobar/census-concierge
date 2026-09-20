@@ -18,7 +18,9 @@ needs a clean checkout.
 The subagent prompt, every time:
 
 1. Read `CLAUDE.md`, `docs/playbooks/run-slice.md`, and the current slice in
-   `.claude/PLAN.md` first. You have no context from the caller.
+   `.claude/PLAN.md` first. You have no context from the caller. Gate 1 and
+   Gate 2 also read the catalog matching touched paths (`docs/requirements.md`,
+   `docs/ask-path.md`, `docs/retrieval.md`, `docs/slices.md`).
 2. Do exactly this phase, nothing downstream.
 3. Capture raw output to `evidence/slice-<N>/<phase>.txt` (no model edits). Gate 1/2
    may tee; E2E redirects to the file so heartbeats never enter the session.
