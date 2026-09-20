@@ -67,6 +67,9 @@ CC-93 post-merge E2E (`evidence/slice-3/cc-93-e2e-post.txt`, `--repeat 3`, n=186
 q08, q10, q17, q18, q20, q34, q39, q43, t07. Empty-URL `q17`/`q39`/`t07` are
 never-built (out of this ticket), not a wipe of a legal URL.
 
+CC-94 (2026-09-20) classified those leftover IDs from this scoreboard, not
+transcripts: `evidence/cc-91/cc-94-decision.md`. `q15`/`q41` no longer miss.
+
 ## What “answered” means
 
 HTTP 200 is not answered. `scripts/run_demo.py` `is_answered()` requires:
@@ -127,6 +130,7 @@ Closed under epic [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91):
 |---|---|---|
 | [CC-92](https://johnhillescobar.atlassian.net/browse/CC-92) Done | persist vintage compatibility on the fetch artifact; `variable_not_in_vintage` from `omission_reasons` | `t14` not in post-merge misses |
 | [CC-93](https://johnhillescobar.atlassian.net/browse/CC-93) Done | retain already-built Census URLs through assemble | empty-URL `q17`/`q39`/`t07` are never-built, not a wipe |
+| [CC-94](https://johnhillescobar.atlassian.net/browse/CC-94) Done | classify table-selection misses; one finish/`place_token` leaf | `q39` never-built → [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98); `q17` stays CC-96; `q10` r3 Queens PA stays CC-95; no retrieval/B-C leaves |
 
 AC added **2026-09-18** (on the tickets, not here):
 
