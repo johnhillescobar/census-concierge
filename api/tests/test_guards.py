@@ -5,6 +5,7 @@ No LLM. A stub that always returns the same table would hide a broken guard.
 
 from __future__ import annotations
 
+import pytest
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.census_url import CensusURL
@@ -1166,6 +1167,17 @@ def test_absent_computer_years_are_named_and_the_url_ships() -> None:
     response = assemble("ships", record)
     assert response.urls
     assert response.warnings[0].code == "variable_not_in_vintage"
+
+
+def test_mismatched_omission_arrays_fail_closed() -> None:
+    record = ExecutionRecord(question=T14, table_id="B28001")
+    record.fetch = _fetch(
+        omitted_years=[2013, 2014, 2015],
+        omission_reasons=["variable_not_in_vintage"],
+        dataset="acs5",
+    )
+    with pytest.raises(ValueError, match="zip"):
+        evaluate(record)
 
 
 def test_acs1_2020_gap_is_not_a_missing_variable() -> None:

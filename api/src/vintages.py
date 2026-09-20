@@ -129,7 +129,7 @@ def variable_not_in_vintage(record: Any) -> AskWarning | None:
     missing = list(
         dict.fromkeys(
             int(year)
-            for year, reason in zip(omitted, reasons, strict=False)
+            for year, reason in zip(omitted, reasons, strict=True)
             if reason == REASON_VARIABLE
         )
     )
