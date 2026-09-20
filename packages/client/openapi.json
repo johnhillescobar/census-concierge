@@ -207,6 +207,14 @@
       },
       "AskWarning": {
         "properties": {
+          "candidates": {
+            "description": "Ranked executable geographies when code is ambiguous_place; else empty.",
+            "items": {
+              "$ref": "#/components/schemas/GeoSpec"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
           "code": {
             "description": "Machine-readable warning code.",
             "title": "Code",
@@ -297,6 +305,55 @@
           "shared_sample"
         ],
         "title": "Comparison",
+        "type": "object"
+      },
+      "GeoSpec": {
+        "description": "Executable geography. `for`/`in` come from metadata, not from prose.",
+        "properties": {
+          "codes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Codes",
+            "type": "object"
+          },
+          "dataset": {
+            "default": "acs5",
+            "title": "Dataset",
+            "type": "string"
+          },
+          "for_spec": {
+            "default": "",
+            "title": "For Spec",
+            "type": "string"
+          },
+          "geoid": {
+            "default": "",
+            "title": "Geoid",
+            "type": "string"
+          },
+          "in_spec": {
+            "default": "",
+            "title": "In Spec",
+            "type": "string"
+          },
+          "level": {
+            "default": "",
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "vintage": {
+            "default": 0,
+            "title": "Vintage",
+            "type": "integer"
+          }
+        },
+        "title": "GeoSpec",
         "type": "object"
       },
       "HTTPValidationError": {

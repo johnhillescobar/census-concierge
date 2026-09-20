@@ -222,6 +222,7 @@ def ambiguous_place(record: GuardRecord) -> AskWarning | None:
     return AskWarning(
         code="ambiguous_place",
         detail=f"{len(names)} matching geographies: {listing}",
+        candidates=list(matches),
     )
 
 

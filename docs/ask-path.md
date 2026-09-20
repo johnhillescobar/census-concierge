@@ -64,7 +64,11 @@ destaggers **all** comparison legs to non-overlapping ACS5.
 
 `resolve_geography` returns metadata-backed `for`/`in`, never model prose.
 NAME listing ranks by place class, population, then GEO_ID; `specs[0]` is
-selected and the rest stay on `geographies` so `ambiguous_place` still warns.
+selected. A leading token matches the NAME head or that head plus a Census
+class, not an unrelated compound (`Queens` is not `Queens Gate CDP`). An
+unspecified place with no NAME hit falls back to the county listing.
+`ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
+dataset/vintage, `for`/`in`).
 `versus` / `compared to` / `compare … to` emits one executable spec per side.
 A named-county parent of a tract wildcard is `for=tract:*` without listing
 tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no

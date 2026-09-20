@@ -15,6 +15,7 @@ from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
     filter_rows,
     find_state,
+    named_rows,
     rank_matches,
     token_is_dc,
 )
@@ -397,9 +398,14 @@ class ResolveGeographyTool(BaseTool):
             self.list_geographies, for_level, list_in, dataset=dataset, vintage=year
         )
         token = place_token(query, state[0] if state else None)
-        matched = rank_matches(filter_rows(token, rows))
-        if not matched and token:
-            matched = rank_matches(filter_rows(token.split()[-1], rows) if token.split() else [])
+        matched = named_rows(token, rows)
+        if not matched and for_level == "place" and not level:
+            matched = named_rows(
+                token,
+                await asyncio.to_thread(
+                    self.list_geographies, "county", list_in, dataset=dataset, vintage=year
+                ),
+            )
         specs = [
             GeoSpec(
                 level=row["level"],

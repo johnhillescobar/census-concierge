@@ -141,6 +141,11 @@ export interface components {
         /** AskWarning */
         AskWarning: {
             /**
+             * Candidates
+             * @description Ranked executable geographies when code is ambiguous_place; else empty.
+             */
+            candidates?: components["schemas"]["GeoSpec"][];
+            /**
              * Code
              * @description Machine-readable warning code.
              */
@@ -208,6 +213,51 @@ export interface components {
              * @description Vintage end year when both legs share one; else empty.
              */
             year: string;
+        };
+        /**
+         * GeoSpec
+         * @description Executable geography. `for`/`in` come from metadata, not from prose.
+         */
+        GeoSpec: {
+            /** Codes */
+            codes?: {
+                [key: string]: string;
+            };
+            /**
+             * Dataset
+             * @default acs5
+             */
+            dataset: string;
+            /**
+             * For Spec
+             * @default
+             */
+            for_spec: string;
+            /**
+             * Geoid
+             * @default
+             */
+            geoid: string;
+            /**
+             * In Spec
+             * @default
+             */
+            in_spec: string;
+            /**
+             * Level
+             * @default
+             */
+            level: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Vintage
+             * @default 0
+             */
+            vintage: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {

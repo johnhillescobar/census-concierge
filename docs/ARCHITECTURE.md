@@ -67,7 +67,8 @@ Availability: `index_store/availability.json.gz` (not parquet).
 ## HTTP
 
 One route: `POST /ask` → `run_ask`. Four tools. `AskResponse` fields and the
-series/geo/comparison rules: `docs/ask-path.md`. Start:
+series/geo/comparison rules: `docs/ask-path.md`. `ambiguous_place` carries
+ranked `GeoSpec` candidates. Start:
 `uv run uvicorn src.main:app --reload` (from `api/`, or with `PYTHONPATH=api`).
 
 `make demo` is `scripts/run_demo.py --repeat 3` (golden set except holdout).

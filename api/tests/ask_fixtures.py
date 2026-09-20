@@ -193,6 +193,14 @@ def _list_geographies(
             "geoid": "0500000US06019",
             "population": "1017162",
         },
+        {
+            "name": "Queens County, New York",
+            "level": "county",
+            "for": "county:081",
+            "in": "state:36",
+            "geoid": "0500000US36081",
+            "population": "2323052",
+        },
     ]
     if level == "place":
         places = [
@@ -259,6 +267,14 @@ def _list_geographies(
                 "in": "state:29",
                 "geoid": "1600000US2970000",
                 "population": "169954",
+            },
+            {
+                "name": "Queens Gate CDP, Pennsylvania",
+                "level": "place",
+                "for": "place:63116",
+                "in": "state:42",
+                "geoid": "1600000US4263116",
+                "population": "1602",
             },
         ]
         state = in_parts.get("state")

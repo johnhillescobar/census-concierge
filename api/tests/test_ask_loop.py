@@ -642,6 +642,19 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert "Cook County, Georgia" in response.warnings[0].detail
     assert "Cook County, Minnesota" in response.warnings[0].detail
+    candidates = response.warnings[0].candidates
+    assert [row.in_spec for row in candidates] == ["state:17", "state:13", "state:27"]
+    assert candidates[0].geoid == "0500000US17031"
+    assert candidates[0].level == "county"
+    assert candidates[0].dataset == "acs5"
+    assert candidates[0].for_spec == "county:031"
+    assert "key=" not in str(
+        CensusURL(
+            f"https://api.census.gov/data/{candidates[0].vintage}/acs/"
+            f"{candidates[0].dataset}?get=NAME,GEO_ID,B01003_001E,B01003_001M"
+            f"&for={candidates[0].for_spec}&in={candidates[0].in_spec}&key=secret"
+        )
+    )
 
 
 async def test_versus_geography_does_not_warn_ambiguous_place() -> None:

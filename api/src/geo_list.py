@@ -92,17 +92,44 @@ def token_is_dc(token: str) -> bool:
     return bool(words) and all(word in {"washington", "dc", "d", "c"} for word in words)
 
 
+_CLASS = re.compile(
+    r"^(?:city|town|village|cdp|borough|county|parish|township|municipality|"
+    r"census area|metro township|ut)\b"
+)
+
+
+def _name_hit(token: str, head: str) -> bool:
+    if head == token:
+        return True
+    rest = head[len(token) :].lstrip() if head.startswith(f"{token} ") else ""
+    if rest and _CLASS.match(rest):
+        return True
+    return bool(re.search(rf"\b{re.escape(token)}\b", head) and not head.startswith(token))
+
+
 def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Match the place/county head (before the comma), never the state suffix."""
+    """Match the NAME head (before the comma), never the state suffix.
+
+    A leading token is the whole head or the head plus a Census class
+    (`Springfield city`, `Queens County`). `Queens Gate CDP` is a different
+    published name. A later whole word still matches (`West Springfield`).
+    """
     if not token:
         return []
     hits: list[dict[str, str]] = []
     for row in rows:
-        head = row["name"].casefold().split(",", 1)[0]
-        named = head == token or head.startswith(f"{token} ")
-        if named or re.search(rf"\b{re.escape(token)}\b", head):
+        head = row["name"].casefold().split(",", 1)[0].strip()
+        if _name_hit(token, head):
             hits.append(row)
     return hits
+
+
+def named_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    matched = rank_matches(filter_rows(token, rows))
+    if matched or not token:
+        return matched
+    parts = token.split()
+    return rank_matches(filter_rows(parts[-1], rows) if parts else [])
 
 
 def _rank_key(row: dict[str, str]) -> tuple[int, int, float, str]:
