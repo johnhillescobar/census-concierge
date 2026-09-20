@@ -46,7 +46,8 @@ httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
 
 ## Years
 
-`fetch_data(years=…)` is a parameter, not a fifth tool. ACS1 when Census
+`fetch_data(years=…)` is a parameter, not a fifth tool. A lone `in YYYY` or
+`for YYYY` is that ACS5 end year (not latest). ACS1 when Census
 publishes every listed member with rows; else non-overlapping ACS5 end years.
 Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
 `acs1_geography_ineligible`). A variable absent or redefined mid-range — including

@@ -9,6 +9,7 @@ import httpx
 from src.census_url import CensusURL
 from src.contract import GeoSpec
 from src.fetch import MAX_IN_FLIGHT, MAX_YEARS, FetchDataTool, unique_years
+from src.vintages import requested_years
 
 TEMPLATE = CensusURL(
     "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
@@ -71,6 +72,31 @@ def test_with_geography_rewrites_for_and_in() -> None:
     assert "county:201" not in encoded
     assert TEMPLATE.for_is_wildcard() is False
     assert "for=county:201" in str(TEMPLATE)
+
+
+async def test_in_year_rewrites_the_built_url() -> None:
+    seen: list[int] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        year = _year_from(url)
+        seen.append(year)
+        return 200, _ok_payload(year)
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE,
+        census_key=lambda: "secret",
+        http_get=http_get,
+        question_years=lambda: requested_years("population of Harris County, Texas in 2022", 2024),
+    )
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}
+    )
+    assert seen == [2022]
+    assert message.artifact.requested_years == [2022]
+    assert message.artifact.urls[0].split("/")[4] == "2022"
+    assert "/2024/" not in message.artifact.urls[0]
+    assert "county:201" in message.artifact.urls[0]
+    assert "key=" not in message.artifact.urls[0]
 
 
 def test_for_is_wildcard_detects_star_listings() -> None:

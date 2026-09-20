@@ -30,6 +30,7 @@ _UNINSURED = re.compile(r"\bwithout health insurance\b", re.IGNORECASE)
 _ACS1 = re.compile(r"\b(?:1-year|acs1)\b", re.IGNORECASE)
 _SINCE_WORD = re.compile(r"\bsince\s+(?:19|20)\d{2}\b", re.IGNORECASE)
 _SINCE = re.compile(r"\b(?:since|from|through)\s+((?:19|20)\d{2})\b", re.IGNORECASE)
+_IN_YEAR = re.compile(r"\b(?:in|for)(?:\s+the\s+year)?\s+((?:19|20)\d{2})\b", re.IGNORECASE)
 _SPAN = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
 _YEAR_SPAN = re.compile(
     r"\b(?:from|between)\s+((?:19|20)\d{2})\s+(?:to|and|through)\s+((?:19|20)\d{2})\b|"
@@ -71,6 +72,7 @@ def question_years(question: str) -> list[int]:
     years = [int(part) for pair in _SPAN.findall(question) for part in pair]
     years.extend(year_span(question))
     years.extend(int(match.group(1)) for match in _SINCE.finditer(question))
+    years.extend(int(match.group(1)) for match in _IN_YEAR.finditer(question))
     return list(dict.fromkeys(years))
 
 

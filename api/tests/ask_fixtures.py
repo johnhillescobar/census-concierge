@@ -16,6 +16,7 @@ from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
+from src.vintages import requested_years
 
 ENTRIES = [
     GeoLevel("state", "040", (), (), ""),
@@ -385,6 +386,7 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 record.geographies[:2] if (record.geo_status or {}).get("compare") else []
             ),
             census_key=lambda: "secret",
+            question_years=lambda: requested_years(record.question, 2024),
             http_get=lambda url: (
                 200,
                 [

@@ -85,6 +85,51 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
     ]
 
 
+async def test_in_year_uses_that_vintage_not_latest() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "1",
+                    "name": "search_tables",
+                    "args": {"question": "population of Harris County, Texas in 2022"},
+                }
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+        {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+        {"content": "Harris County has data.", "tool_calls": []},
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(
+        "population of Harris County, Texas in 2022",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert urlsplit(response.urls[0]).path == "/data/2022/acs/acs5"
+    assert "county:201" in response.urls[0]
+    assert "/2024/" not in response.urls[0]
+
+
 async def test_computer_share_finishes_when_the_model_stops() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
