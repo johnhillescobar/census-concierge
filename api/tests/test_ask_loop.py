@@ -85,6 +85,51 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
     ]
 
 
+async def test_in_year_uses_that_vintage_not_latest() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "1",
+                    "name": "search_tables",
+                    "args": {"question": "population of Harris County, Texas in 2022"},
+                }
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+        {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+        {"content": "Harris County has data.", "tool_calls": []},
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(
+        "population of Harris County, Texas in 2022",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert urlsplit(response.urls[0]).path == "/data/2022/acs/acs5"
+    assert "county:201" in response.urls[0]
+    assert "/2024/" not in response.urls[0]
+
+
 async def test_computer_share_finishes_when_the_model_stops() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
@@ -642,6 +687,19 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert "Cook County, Georgia" in response.warnings[0].detail
     assert "Cook County, Minnesota" in response.warnings[0].detail
+    candidates = response.warnings[0].candidates
+    assert [row.in_spec for row in candidates] == ["state:17", "state:13", "state:27"]
+    assert candidates[0].geoid == "0500000US17031"
+    assert candidates[0].level == "county"
+    assert candidates[0].dataset == "acs5"
+    assert candidates[0].for_spec == "county:031"
+    assert "key=" not in str(
+        CensusURL(
+            f"https://api.census.gov/data/{candidates[0].vintage}/acs/"
+            f"{candidates[0].dataset}?get=NAME,GEO_ID,B01003_001E,B01003_001M"
+            f"&for={candidates[0].for_spec}&in={candidates[0].in_spec}&key=secret"
+        )
+    )
 
 
 async def test_versus_geography_does_not_warn_ambiguous_place() -> None:

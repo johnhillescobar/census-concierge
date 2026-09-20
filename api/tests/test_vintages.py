@@ -50,6 +50,11 @@ def test_from_to_is_a_year_span_hyphen_range_is_not() -> None:
     assert question_years("since 2017") == [2017]
     assert requested_years("since 2017", 2024) == list(range(2017, 2025))
     assert requested_years("from 2017 to 2023", 2024) == list(range(2017, 2024))
+    assert question_years("population of Harris County, Texas in 2022") == [2022]
+    assert requested_years("population of Harris County, Texas in 2022", 2024) == [2022]
+    assert question_years("median income for 2022") == [2022]
+    assert question_years("population of Austin compared to 2017") == []
+    assert requested_years("since 2022", 2024) == [2022, 2023, 2024]
 
 
 def test_nonoverlapping_acs5_keeps_2017_and_2022() -> None:

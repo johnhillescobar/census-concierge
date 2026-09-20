@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
-from src.census_url import CensusURL
+from src.census_url import CENSUS_API, CensusURL
 from src.contract import GeoSpec
 from src.fetch import FetchDataResult, clear_series
 from src.guards import MOE_COMBINE_FORMULA, evaluate
@@ -359,22 +359,53 @@ def test_illegal_geography_combination_warns() -> None:
 
 def test_several_matching_places_are_the_result() -> None:
     record = ExecutionRecord(question="Population of Springfield")
-    record.geographies = [GeoSpec(name=f"Springfield {i}") for i in range(15)]
+    record.geographies = [
+        GeoSpec(
+            name=f"Springfield {i}",
+            level="place",
+            for_spec=f"place:{i}",
+            in_spec="state:17",
+            geoid=f"1600000US17{i:05d}",
+            dataset="acs5",
+            vintage=2024,
+        )
+        for i in range(15)
+    ]
     warnings = evaluate(record)
     assert [item.code for item in warnings] == ["ambiguous_place"]
     assert "Springfield 0" in warnings[0].detail
     assert "Springfield 14" in warnings[0].detail
     assert "+3 more" not in warnings[0].detail
+    assert [row.geoid for row in warnings[0].candidates] == [
+        spec.geoid for spec in record.geographies
+    ]
+    first = warnings[0].candidates[0]
+    assert first.level == "place"
+    assert first.for_spec == "place:0"
+    assert first.in_spec == "state:17"
+    assert first.dataset == "acs5"
+    assert first.vintage == 2024
+    built = CensusURL(
+        f"{CENSUS_API}/{first.vintage}/acs/{first.dataset}"
+        f"?get=NAME,GEO_ID,B01003_001E,B01003_001M&for={first.for_spec}&in={first.in_spec}"
+        "&key=secret"
+    )
+    assert "place:0" in str(built)
+    assert "state:17" in str(built)
+    assert "key=" not in str(built)
     response = assemble("candidates listed", record)
     assert response.answer == "candidates listed"
     assert response.urls == []
     assert response.geoid == ""
+    assert response.warnings[0].candidates == warnings[0].candidates
 
 
 def test_one_geography_is_not_ambiguous() -> None:
     record = ExecutionRecord()
     record.geographies = [_harris()]
     assert _codes(record) == []
+    response = assemble("Harris County, Texas", record)
+    assert response.warnings == []
 
 
 def test_comparison_legs_are_not_ambiguous_places() -> None:

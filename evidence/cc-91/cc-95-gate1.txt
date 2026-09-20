@@ -1,0 +1,155 @@
+# CC-95 Gate 1 mutation check
+Branch: feat/cc-95-ambiguous-place-candidates
+$ git log -1 --format=HEAD: %H %s
+HEAD: d9d2d9d95b79933a77f8439d88cae3d5648b5794 feat(CC-95): return ranked GeoSpec candidates for ambiguous Census names
+(exit 0)
+$ git status --short
+?? evidence/cc-91/cc-95-gate1.txt
+(exit 0)
+
+## GOOD — new tests at HEAD
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_leading_token_does_not_match_a_longer_name api/tests/test_ask_tools.py::test_queens_resolves_as_the_county_not_the_gate_cdp api/tests/test_guards.py::test_several_matching_places_are_the_result api/tests/test_guards.py::test_one_geography_is_not_ambiguous api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url
+.....                                                                    [100%]
+5 passed in 0.76s
+(exit 0)
+
+## GOOD — pytest -q -m "not integration"
+
+$ uv run pytest -q -m not integration
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+................................................................         [100%]
+424 passed in 11.83s
+(exit 0)
+
+## GOOD — structural budgets
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               3890 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1561 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+(exit 0)
+
+## BAD — prefix NAME match
+restore old filter_rows (head == token or startswith token+" " or word-boundary)
+
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_leading_token_does_not_match_a_longer_name api/tests/test_ask_tools.py::test_queens_resolves_as_the_county_not_the_gate_cdp
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______________ test_leading_token_does_not_match_a_longer_name _______________
+api\tests\test_ask_tools.py:467: in test_leading_token_does_not_match_a_longer_name
+    assert [row["for"] for row in filter_rows("queens", rows)] == ["county:081"]
+E   AssertionError: assert ['place:63116', 'county:081'] == ['county:081']
+E     
+E     At index 0 diff: 'place:63116' != 'county:081'
+E     Left contains one more item: 'county:081'
+E     Use -v to get more diff
+_____________ test_queens_resolves_as_the_county_not_the_gate_cdp _____________
+api\tests\test_ask_tools.py:864: in test_queens_resolves_as_the_county_not_the_gate_cdp
+    assert [row.for_spec for row in specs] == ["county:081"]
+E   AssertionError: assert ['place:63116'] == ['county:081']
+E     
+E     At index 0 diff: 'place:63116' != 'county:081'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_leading_token_does_not_match_a_longer_name
+FAILED api/tests/test_ask_tools.py::test_queens_resolves_as_the_county_not_the_gate_cdp
+2 failed in 0.61s
+(exit 1)
+
+## BAD — county fallback
+keep the tight filter; remove for_level == "place" county listing in geo.py
+
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_queens_resolves_as_the_county_not_the_gate_cdp
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_queens_resolves_as_the_county_not_the_gate_cdp _____________
+api\tests\test_ask_tools.py:864: in test_queens_resolves_as_the_county_not_the_gate_cdp
+    assert [row.for_spec for row in specs] == ["county:081"]
+E   AssertionError: assert [] == ['county:081']
+E     
+E     Right contains one more item: 'county:081'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_queens_resolves_as_the_county_not_the_gate_cdp
+1 failed in 0.81s
+(exit 1)
+
+## BAD — warning candidates
+keep listing; stop setting candidates=list(matches) in ambiguous_place
+
+$ uv run pytest -q --tb=short api/tests/test_guards.py::test_several_matching_places_are_the_result api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_________________ test_several_matching_places_are_the_result _________________
+api\tests\test_guards.py:379: in test_several_matching_places_are_the_result
+    assert [row.geoid for row in warnings[0].candidates] == [
+E   AssertionError: assert [] == ['1600000US17...1700005', ...]
+E     
+E     Right contains 15 more items, first extra item: '1600000US1700000'
+E     Use -v to get more diff
+______________ test_ambiguous_geography_builds_the_selected_url _______________
+api\tests\test_ask_loop.py:646: in test_ambiguous_geography_builds_the_selected_url
+    assert [row.in_spec for row in candidates] == ["state:17", "state:13", "state:27"]
+E   AssertionError: assert [] == ['state:17', ...', 'state:27']
+E     
+E     Right contains 3 more items, first extra item: 'state:17'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_several_matching_places_are_the_result
+FAILED api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url
+2 failed in 0.76s
+(exit 1)
+
+## BAD — one geography is not ambiguous
+assemble empty warnings: fire ambiguous_place when len(matches)==1
+
+$ uv run pytest -q --tb=short api/tests/test_guards.py::test_one_geography_is_not_ambiguous
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_one_geography_is_not_ambiguous _____________________
+api\tests\test_guards.py:406: in test_one_geography_is_not_ambiguous
+    assert _codes(record) == []
+E   AssertionError: assert ['ambiguous_place'] == []
+E     
+E     Left contains one more item: 'ambiguous_place'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_one_geography_is_not_ambiguous - Assert...
+1 failed in 0.47s
+(exit 1)
+
+## GOOD — restored HEAD; new tests pass
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_leading_token_does_not_match_a_longer_name api/tests/test_ask_tools.py::test_queens_resolves_as_the_county_not_the_gate_cdp api/tests/test_guards.py::test_several_matching_places_are_the_result api/tests/test_guards.py::test_one_geography_is_not_ambiguous api/tests/test_ask_loop.py::test_ambiguous_geography_builds_the_selected_url
+.....                                                                    [100%]
+5 passed in 0.65s
+(exit 0)
+$ git status --short
+?? evidence/cc-91/cc-95-gate1.txt
+(exit 0)
+$ git rev-parse HEAD
+d9d2d9d95b79933a77f8439d88cae3d5648b5794
+(exit 0)
+$ git log -1 --format=%H %s
+d9d2d9d95b79933a77f8439d88cae3d5648b5794 feat(CC-95): return ranked GeoSpec candidates for ambiguous Census names
+(exit 0)

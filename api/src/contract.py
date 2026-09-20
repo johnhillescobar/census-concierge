@@ -68,6 +68,10 @@ class Alternative(BaseModel):
 class AskWarning(BaseModel):
     code: str = Field(description="Machine-readable warning code.")
     detail: str = Field(description="What was raised, in one sentence.")
+    candidates: list[GeoSpec] = Field(
+        default_factory=list,
+        description="Ranked executable geographies when code is ambiguous_place; else empty.",
+    )
 
 
 class Comparison(BaseModel):

@@ -442,6 +442,32 @@ def test_harris_does_not_match_harrison() -> None:
     assert [row["for"] for row in hits] == ["county:201"]
 
 
+def test_leading_token_does_not_match_a_longer_name() -> None:
+    rows = [
+        {
+            "name": "Queens Gate CDP, Pennsylvania",
+            "level": "place",
+            "for": "place:63116",
+            "geoid": "1600000US4263116",
+        },
+        {
+            "name": "Queens County, New York",
+            "level": "county",
+            "for": "county:081",
+            "in": "state:36",
+            "geoid": "0500000US36081",
+        },
+        {
+            "name": "West Springfield Town city, Massachusetts",
+            "level": "place",
+            "for": "place:77890",
+            "geoid": "1600000US2577890",
+        },
+    ]
+    assert [row["for"] for row in filter_rows("queens", rows)] == ["county:081"]
+    assert [row["for"] for row in filter_rows("springfield", rows)] == ["place:77890"]
+
+
 def test_duplicate_names_rank_by_class_then_population() -> None:
     rows = [
         {
@@ -822,6 +848,39 @@ async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
     assert "selected county:031 state:17" in message.content
     assert "2 alternatives" in message.content
     assert "state:13" not in message.content
+
+
+async def test_queens_resolves_as_the_county_not_the_gate_cdp() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Queens"},
+            "id": "c1",
+        }
+    )
+    specs = message.artifact.specs
+    assert [row.for_spec for row in specs] == ["county:081"]
+    assert specs[0].in_spec == "state:36"
+    assert specs[0].geoid == "0500000US36081"
+    assert specs[0].dataset == "acs5"
+    assert specs[0].vintage == 2024
+    assert "alternatives" not in message.content
+
+
+async def test_named_city_does_not_fall_back_to_the_county() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Harris city, Texas"},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.specs == []
+    assert "no place matched" in message.artifact.detail
 
 
 async def test_portland_selects_oregon_over_maine() -> None:

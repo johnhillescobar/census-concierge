@@ -330,11 +330,12 @@ class FetchDataTool(BaseTool):
                 detail="call build_url before fetch_data",
             )
             return result.detail, result
+        asked = unique_years(self.question_years() if self.question_years is not None else [])
         if not requested:
             year = built.year
-            requested = [year] if year is not None else []
-        if self.question_years is not None:
-            requested = unique_years([*requested, *self.question_years()])
+            requested = asked or ([year] if year is not None else [])
+        elif asked:
+            requested = unique_years([*requested, *asked])
         if not requested:
             result = _pack(
                 ok=False,
