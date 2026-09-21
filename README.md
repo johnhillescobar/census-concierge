@@ -14,7 +14,7 @@ get the table you did not know existed, the data, and the API URL to reuse.
 | selector @1 — long tail | 0.88 | 0.70 |
 | synthetic alignment | 0.54 | 0.50 |
 | answered rate | 0.84 | 0.70 |
-| p95 latency | 17.3s | 20s |
+| p95 latency | 18.5s | 20s |
 | api src LOC | 3890 | 4000 |
 
 ## Slices
