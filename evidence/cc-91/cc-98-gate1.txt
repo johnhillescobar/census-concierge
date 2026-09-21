@@ -1,0 +1,125 @@
+# CC-98 Gate 1 mutation check
+Branch: feat/cc-98-place-token-extract
+$ git log -1 --format=HEAD: %H %s
+HEAD: 69d687ae9a177cca4fcec6f2fa1ba58b3af2662b feat(CC-98): extract a published place from a full-sentence query
+(exit 0)
+$ git status --short
+(exit 0)
+$ git branch --show-current
+feat/cc-98-place-token-extract
+(exit 0)
+## GOOD — new tests at HEAD
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name api/tests/test_ask_tools.py::test_sentence_question_resolves_the_published_place api/tests/test_ask_loop.py::test_sentence_place_finishes_with_a_url
+.....                                                                    [100%]
+5 passed in 0.49s
+(exit 0)
+## GOOD — pytest -q -m "not integration"
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.....                                                                    [100%]
+437 passed in 11.86s
+(exit 0)
+## GOOD — structural budgets
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               3917 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1572 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+(exit 0)
+## GOOD — place_token in/for/of capitalized-span extract
+skip the _PLACE_SPAN collect / return spans[-1] block in place_token
+After revert, place_token of a full question is the whole sentence again.
+
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_sentence_place_token_is_the_published_name _______________
+api\tests\test_ask_tools.py:1402: in test_sentence_place_token_is_the_published_name
+    assert place_token(query, None) == token
+E   AssertionError: assert 'why are so m...itting empty?' == 'detroit'
+E     
+E     - detroit
+E     + why are so many homes in detroit sitting empty?
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name
+1 failed in 0.37s
+(exit 1)
+$ git checkout -- api/src/geo_list.py
+(exit 0)
+
+## GOOD — place_token in/for/of capitalized-span extract
+skip the _PLACE_SPAN collect / return spans[-1] block in place_token
+After revert, place_token of a full question is the whole sentence again.
+
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_sentence_question_resolves_the_published_place
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_ test_sentence_question_resolves_the_published_place[Why are so many homes in Detroit sitting empty?-place:22000-state:26] _
+api\tests\test_ask_tools.py:1464: in test_sentence_question_resolves_the_published_place
+    assert specs
+E   assert []
+_ test_sentence_question_resolves_the_published_place[Population of Phoenix in 2024 from the 1-year ACS-place:55000-state:04] _
+api\tests\test_ask_tools.py:1464: in test_sentence_question_resolves_the_published_place
+    assert specs
+E   assert []
+_ test_sentence_question_resolves_the_published_place[What did people in Ann Arbor study in college?-place:03000-state:26] _
+api\tests\test_ask_tools.py:1464: in test_sentence_question_resolves_the_published_place
+    assert specs
+E   assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_sentence_question_resolves_the_published_place[Why are so many homes in Detroit sitting empty?-place:22000-state:26]
+FAILED api/tests/test_ask_tools.py::test_sentence_question_resolves_the_published_place[Population of Phoenix in 2024 from the 1-year ACS-place:55000-state:04]
+FAILED api/tests/test_ask_tools.py::test_sentence_question_resolves_the_published_place[What did people in Ann Arbor study in college?-place:03000-state:26]
+3 failed in 0.35s
+(exit 1)
+$ git checkout -- api/src/geo_list.py
+(exit 0)
+
+## GOOD — place_token in/for/of capitalized-span extract
+skip the _PLACE_SPAN collect / return spans[-1] block in place_token
+After revert, place_token of a full question is the whole sentence again.
+
+$ uv run pytest -q --tb=short api/tests/test_ask_loop.py::test_sentence_place_finishes_with_a_url
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_sentence_place_finishes_with_a_url ___________________
+api\tests\test_ask_loop.py:290: in test_sentence_place_finishes_with_a_url
+    assert response.table_id == "B25064"
+E   AssertionError: assert '' == 'B25064'
+E     
+E     - B25064
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_sentence_place_finishes_with_a_url - ...
+1 failed in 0.76s
+(exit 1)
+$ git checkout -- api/src/geo_list.py
+(exit 0)
+
+## GOOD — restore working tree to HEAD
+
+$ git status --short
+(exit 0)
+$ git diff -- api/src/geo_list.py
+(exit 0)
+
+# Verdict
+pass, 3 new tests mutation-checked, 7 GOOD / 0 BAD
