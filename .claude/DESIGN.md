@@ -94,6 +94,7 @@ nothing.
 |---|---|
 | Clarification subsystem | the demo suite names the questions that need it |
 | Gazetteer | CC-55: NAME ranking (CC-54) and plan strip (CC-37) still fail a golden question |
+| Informal region aliases | CC-96: not a Census NAME; fail closed; gazetteer still CC-55 / q17 after CC-37 |
 | A fifth tool | CC-56: a golden question fails because no existing tool can do X |
 | Graph nodes for branching | never |
 | Typed contracts at every boundary | a real bug demands one |
