@@ -1,0 +1,67 @@
+# CC-98 pre-flight raw output
+# origin/main dcdfa23 (CC-97 post-merge on main)
+# 2026-09-21
+# Did not Read E2E transcripts.
+
+HEAD dcdfa23
+latest.demo answered_rate 0.825 p95 25.534 n 186
+demo.misses ids: q10 q17 q18 q20 q34 q39 q41 q10 q17 q18 q20 q34 q39 q41 q10 q15 q17 q18 q20 q34 q39 t07
+q39 r1/r2/r3 answered=False table=None n_url=0 warnings=[]
+t07 r1/r2 answered=True table=None n_url=1; r3 answered=False n_url=1
+
+Jira at start: CC-98 To Do, parent CC-91.
+uv run python scripts/jira_fetch.py epic CC-91 --list
+  CC-92..CC-97 Done, CC-98 To Do, CC-99 To Do
+
+uv run python scripts/check_budgets.py --structural-only
+  ok    api src LOC               3899 <= 4000
+  ok    largest file LOC           400 <= 400
+  ok    doc lines                 1571 <= 1800
+  ok    agent tools                  4 <= 6
+geo.py 400/400
+geo_list.py 162/400
+finish.py 109/400
+ask.py 399/400
+
+--- place_token / detect_level (no Census call) ---
+q39 = 'Why are so many homes in Detroit sitting empty?'
+  detect_level=None find_state=None
+  place_token='why are so many homes in detroit sitting empty?' words=9
+t07 = 'Population of Phoenix in 2024 from the 1-year ACS'
+  detect_level=None find_state=None
+  place_token='population of phoenix in 2024 from the 1-year acs' words=9
+q41 = 'What did people in Ann Arbor study in college?'
+  place_token='what did people in ann arbor study in college?' words=9
+q17 = 'Occupation breakdown for workers in Silicon Valley counties'
+  detect_level=county place_token='occupation breakdown for workers in silicon valley'
+'population of Harris County, Texas' place_token='population of harris'
+'New York City' place_token='new york'
+'Austin, Texas' place_token='austin'
+'State College, Pennsylvania' place_token='state college'
+
+finish_tools query: args = {"query": _listing_query(question)}  (api/src/finish.py:104)
+_listing_query returns the raw question unless _BY_COUNTY matches.
+
+--- live ACS5 2024 place:* in=state:* (CENSUS_API_KEY present; URLs unkeyed) ---
+place_rows 32330
+
+token 'why are so many homes in detroit sitting empty?':
+  filter_n 0 named0 None
+token 'population of phoenix in 2024 from the 1-year acs':
+  filter_n 0 named0 None
+token 'detroit':
+  filter_n 6 named0=Detroit city, Michigan place:22000 in=state:26 pop 638530
+  also Detroit city OR; Detroit town TX/AL; Detroit village IL; Detroit CDP KS
+token 'phoenix':
+  filter_n 4 named0=Phoenix city, Arizona place:55000 in=state:04 pop 1642323
+  also Phoenix city OR; Phoenix village NY/IL
+token 'ann arbor':
+  filter_n 1 named0=Ann Arbor city, Michigan place:03000 in=state:26 pop 122036
+
+--- golden ---
+evals/golden_questions.toml q39 expect_table=B25004 expect_geo_level=place
+t07 expect_table=B01003 (trap; empty-URL repeats only, not B06001)
+
+grep: place_token api/src/geo.py:132
+      filter_rows / named_rows api/src/geo_list.py:110,127
+      finish_tools resolve query api/src/finish.py:104

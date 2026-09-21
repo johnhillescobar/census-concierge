@@ -1366,6 +1366,46 @@ def test_new_york_city_token_keeps_new_york() -> None:
     assert place_token("State College, Pennsylvania", "pennsylvania") == "state college"
 
 
+def test_sentence_place_token_is_the_published_name() -> None:
+    rows = [
+        {
+            "name": "Detroit city, Michigan",
+            "level": "place",
+            "for": "place:22000",
+            "population": "638530",
+        },
+        {
+            "name": "Detroit city, Oregon",
+            "level": "place",
+            "for": "place:19100",
+            "population": "111",
+        },
+        {
+            "name": "Phoenix city, Arizona",
+            "level": "place",
+            "for": "place:55000",
+            "population": "1642323",
+        },
+        {
+            "name": "Ann Arbor city, Michigan",
+            "level": "place",
+            "for": "place:03000",
+            "population": "122036",
+        },
+    ]
+    cases = [
+        ("Why are so many homes in Detroit sitting empty?", "detroit", "place:22000"),
+        ("Population of Phoenix in 2024 from the 1-year ACS", "phoenix", "place:55000"),
+        ("What did people in Ann Arbor study in college?", "ann arbor", "place:03000"),
+    ]
+    for query, token, code in cases:
+        assert place_token(query, None) == token
+        assert filter_rows(query.casefold(), rows) == []
+        hits = rank_matches(filter_rows(token, rows))
+        assert hits[0]["for"] == code
+    assert place_token("population of Harris County, Texas", "texas") == "population of harris"
+
+
 def test_empty_place_token_matches_nothing() -> None:
     rows = [{"name": "Albany city, New York", "for": "place:1"}]
     assert filter_rows("", rows) == []
@@ -1398,6 +1438,33 @@ async def test_new_york_city_does_not_return_every_new_york_place() -> None:
         }
     )
     assert [row.for_spec for row in message.artifact.specs] == ["place:3651000"]
+
+
+@pytest.mark.parametrize(
+    ("query", "for_spec", "in_spec"),
+    [
+        ("Why are so many homes in Detroit sitting empty?", "place:22000", "state:26"),
+        ("Population of Phoenix in 2024 from the 1-year ACS", "place:55000", "state:04"),
+        ("What did people in Ann Arbor study in college?", "place:03000", "state:26"),
+    ],
+)
+async def test_sentence_question_resolves_the_published_place(
+    query: str, for_spec: str, in_spec: str
+) -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    specs = message.artifact.specs
+    assert specs
+    assert specs[0].for_spec == for_spec
+    assert specs[0].in_spec == in_spec
+    assert specs[0].level == "place"
 
 
 async def test_bare_state_query_resolves_as_the_state() -> None:

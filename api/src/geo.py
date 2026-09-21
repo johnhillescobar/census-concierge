@@ -16,6 +16,7 @@ from src.geo_list import (
     filter_rows,
     find_state,
     named_rows,
+    place_token,
     rank_matches,
     token_is_dc,
 )
@@ -49,10 +50,6 @@ _WILDCARD = re.compile(
 _WITHIN = re.compile(
     r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|zip|"
     r"counties|county|places?|cities|city)(?:\s+\d{5})?\s+(?:within|inside)\s+(?:the\s+)?(.+)",
-    re.IGNORECASE,
-)
-_COUNTY = re.compile(
-    r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
     re.IGNORECASE,
 )
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
@@ -127,24 +124,6 @@ def detect_level(text: str) -> str | None:
         if re.search(rf"\b{re.escape(alias)}\b", folded):
             return level
     return None
-
-
-def place_token(query: str, state_name: str | None) -> str:
-    match = _COUNTY.search(query)
-    if match and match.group(1).casefold() not in {"all", "every", "each"}:
-        return match.group(1).casefold()
-    text = re.sub(r",\s*[A-Z]{2}\b", " ", query)
-    for word in ("county", "counties", "city", "cities", "place", "places", "cdp", "town"):
-        text = re.sub(rf"\b{word}\b", " ", text, flags=re.IGNORECASE)
-    leftover = re.sub(r"[,\s]+", " ", text).strip().casefold()
-    if not state_name:
-        return leftover
-    without_state = re.sub(rf"\b{re.escape(state_name)}\b", " ", leftover).strip()
-    without_state = re.sub(r"[,\s]+", " ", without_state).strip()
-    significant = " ".join(word for word in without_state.split() if word not in _NOISE)
-    if significant:
-        return significant
-    return state_name if state_name in leftover else leftover
 
 
 def split_versus(query: str) -> tuple[str, str] | None:
