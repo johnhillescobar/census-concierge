@@ -24,8 +24,9 @@ Done. Do not re-open them. Residual misses after CC-2 are CC-91.
 **In Progress**. CC-95 Done (ambiguous place candidates); floors met;
 `evidence/slice-3/`; https://johnhillescobar.atlassian.net/browse/CC-95.
 CC-94 Done (classification; [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98)
-finish/geo leaf). CC-96 Done (decision: no informal-region aliases;
-[CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) last-word leaf).
+finish/geo leaf). CC-96 Done (no alias dataset; the ask loop maps vernacular
+to published NAMEs; [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99)
+last-word leaf).
 Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
 is **To Do** in Jira (epic and all eight stories). They may proceed in
 parallel; CC-91 does not block CC-11. CC-77 waits on CC-11 table/plan-strip

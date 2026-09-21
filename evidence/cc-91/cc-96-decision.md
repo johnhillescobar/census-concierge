@@ -27,10 +27,13 @@ until-clause, not a gazetteer now. Named question if it is ever revisited:
 **Supported:** Census-published NAME heads (place, county, state, MSA as
 published) and CC-95 same-name candidates.
 
-**Limitation:** informal multi-county vernaculars (Silicon Valley, DMV, SoCal).
-0 `GeoSpec`s. Do not last-word substitute. Do not add a new warning code on
-this ticket — empty URL stays unanswered until the user names a published
-geography.
+**Limitation (matcher, not the agent):** informal multi-county vernaculars
+(Silicon Valley, DMV, SoCal) are not Census NAME heads. `named_rows` must not
+last-word substitute. The ask loop still maps that vernacular to a published
+NAME (`San Jose-Sunnyvale-Santa Clara, CA Metro Area`, Santa Clara County, …)
+and calls `resolve_geography` with it. That is the concierge, not a gazetteer.
+Empty URL after the matcher 0-hits is not “wait for the user to rename the
+place.”
 
 ### Cost
 
@@ -63,5 +66,15 @@ stay unpinned (`B24010` is still out of search `@10`).
 
 ## Not created
 
-No gazetteer, no Silicon Valley county list, no MSA-metro story, no retrieval
-or B/C leaf, no new warning code.
+No gazetteer, no Silicon Valley FIPS table, no MSA-metro story, no retrieval
+or B/C leaf, no new warning code. LangGraph is still the CC-9 checkpointer
+spike, not an alias graph.
+
+## Addendum — 2026-09-20 (owner)
+
+The agent maps end-user aliases to published Census NAMEs. That is the
+product. CC-96 forbids a maintained alias dataset (CC-55 gazetteer), not
+that rewrite. Today's loop is LangChain tools under the hand-rolled `ask`
+path; LangGraph is not required for it. CC-99 only stops deterministic
+last-word substitution (`valley` → Naugatuck Valley CT) so the matcher
+does not lie before the model can try a published NAME.
