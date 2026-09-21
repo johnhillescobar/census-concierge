@@ -71,6 +71,13 @@ never-built (out of this ticket), not a wipe of a legal URL. The last
 CC-94 (2026-09-20) classified those leftover IDs from this scoreboard, not
 transcripts: `evidence/cc-91/cc-94-decision.md`. `q15`/`q41` no longer miss.
 
+CC-97 closed (2026-09-21) with a latency caveat. Pre-PR `--repeat 3`:
+`answered_rate` 0.833, `p95` 18.752s (ceiling cleared). Post-merge transcript
+`evidence/slice-3/cc-97-e2e-post.txt` (two `--repeat 3` demos): last DEMO
+`answered_rate` 0.825, `p95` 25.534s (over-ceiling, not promoted). `t11` 3/3
+`acs1_geography_ineligible`. Residual misses are CC-98 (`q39`) / CC-99 (`q17`)
+/ cousins, not this ticket.
+
 ## What “answered” means
 
 HTTP 200 is not answered. `scripts/run_demo.py` `is_answered()` requires:
@@ -133,6 +140,7 @@ Closed under epic [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91):
 | [CC-93](https://johnhillescobar.atlassian.net/browse/CC-93) Done | retain already-built Census URLs through assemble | empty-URL `q17`/`q39`/`t07` are never-built, not a wipe |
 | [CC-94](https://johnhillescobar.atlassian.net/browse/CC-94) Done | classify table-selection misses; one finish/`place_token` leaf | `q39` never-built → [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98); `q17` stays CC-96; `q10` r3 Queens PA stays CC-95; no retrieval/B-C leaves |
 | [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) Done | informal/alias questions: LLM + existing tools, Census-shaped output; last-word leaf [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) (not shipped) | `q17` 0 NAME hits; r3 `county:140` CT is last-word `valley` |
+| [CC-97](https://johnhillescobar.atlassian.net/browse/CC-97) Done | `acs1_geography_ineligible` on non-series ACS5 fallback | `t11` 3/3; p95 over-ceiling recorded not promoted |
 
 AC added **2026-09-18** (on the tickets, not here):
 

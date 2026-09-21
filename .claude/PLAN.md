@@ -21,12 +21,14 @@ Done. Do not re-open them. Residual misses after CC-2 are CC-91.
 ## Now
 
 [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) reliability is
-**In Progress**. CC-95 Done (ambiguous place candidates); floors met;
-`evidence/slice-3/`; https://johnhillescobar.atlassian.net/browse/CC-95.
-CC-94 Done (classification; [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98)
-finish/geo leaf). CC-96 Done (informal/alias geography is the ask loop plus
-tools; [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) last-word
-leaf). Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
+**In Progress**. Next leaf [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98)
+(finish/`place_token`; live AC `q39`). CC-95 Done (ambiguous place candidates);
+floors met; `evidence/slice-3/`; https://johnhillescobar.atlassian.net/browse/CC-95.
+CC-94 Done (classification; CC-98 finish/geo leaf). CC-96 Done (informal/alias
+geography is the ask loop plus tools; [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99)
+last-word leaf). CC-97 Done (`acs1_geography_ineligible`; answered_rate held;
+p95 over-ceiling recorded not promoted; `evidence/slice-3/cc-97-e2e-post.txt`).
+Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
 is **To Do** in Jira (epic and all eight stories). They may proceed in
 parallel; CC-91 does not block CC-11. CC-77 waits on CC-11 table/plan-strip
 foundations. Spike CC-9 before slice 5.
