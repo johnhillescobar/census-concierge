@@ -56,7 +56,9 @@ published hole in the requested span — is `variable_not_in_vintage`, recorded 
 the fetch artifact, not inferred from question text at assemble. Tract /
 block-group series that
 cross 2020 emit `boundary_change_2020`. An ACS1-ineligible comparison leg
-destaggers **all** comparison legs to non-overlapping ACS5.
+destaggers **all** comparison legs to non-overlapping ACS5. A 204/404 ACS1
+geography falls back to ACS5 and sets `acs1_geography_ineligible` even when
+the requested years are not a series.
 
 `allow_overlapping_acs5` exists on fetch / `plan_years`. It is not on
 `AskRequest` or the UI; exposing it is a slice-4 plan-strip typed field.

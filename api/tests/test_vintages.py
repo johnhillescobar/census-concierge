@@ -70,6 +70,14 @@ def test_gapped_acs5_years_are_fetched_as_requested() -> None:
     assert plan.acs1_ineligible is False
 
 
+def test_known_ineligible_acs5_fallback_year_sets_the_flag() -> None:
+    plan = plan_years(dataset="acs5", years=[2024], published=PUBLISHED, acs1_ok=False)
+    assert plan.dataset == "acs5"
+    assert plan.attempted == [2024]
+    assert plan.omitted == []
+    assert plan.acs1_ineligible is True
+
+
 def test_consecutive_acs5_without_acs1_destaggers() -> None:
     years = list(range(2017, 2024))
     plan = plan_years(dataset="acs5", years=years, published=PUBLISHED, acs1_ok=False)

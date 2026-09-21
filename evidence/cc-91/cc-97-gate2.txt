@@ -1,0 +1,244 @@
+# CC-97 Gate 2 — cold review
+
+Branch: feat/cc-97-acs1-geography-ineligible
+Range: origin/main...HEAD
+Commits:
+  90da6ca feat(CC-97): persist ACS1 geography-ineligible on a non-series ACS5 fallback
+  40beb5c chore(CC-97): record Gate 1 mutation check
+Ticket: CC-97 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+Evidence: evidence/cc-91/cc-97-gate2.txt
+
+Files vs origin/main (8, under ~15):
+  api/src/vintages.py
+  api/tests/test_fetch_years.py
+  api/tests/test_guards.py
+  api/tests/test_vintages.py
+  docs/ask-path.md
+  evidence/cc-91/cc-97-gate1.txt
+  evidence/cc-91/cc-97-preflight-claims.md
+  evidence/cc-91/cc-97-preflight.txt
+
+Product diff is vintages.py (plan_years default + else-branch flag) plus
+three test files and ask-path.md. Evidence-only files are Gate 1 / preflight.
+
+---
+
+## Pass 1 — generic bugs (diff only, no intent)
+
+Cold-read of origin/main...HEAD as code. No ticket text as spec.
+
+Control flow (plan_years)
+- Empty years still return VintagePlan with default acs1_ineligible=False.
+- Destagger branch is unchanged: series and dataset != "acs1" and
+  acs1_ok is not True; flag is `acs1_ok is False`.
+- Else branch previously left acs1_ineligible at the dataclass default
+  (False). It now sets
+  `acs1_ok is False and use == "acs5" and not allow_overlapping_acs5`.
+- `use` is "acs1" when series or dataset == "acs1", else the incoming
+  dataset. An ACS1 plan with acs1_ok=False does not set the flag here;
+  a later ACS5 replan can.
+- Cap rebuild copies plan.acs1_ineligible. apply_variable_plan is not
+  in this diff and already copies the field.
+
+Default change
+- acs1_ok default False → None. Destagger still runs on None
+  (`is not True`). Flag is False unless acs1_ok is exactly False.
+  Unprobed / omitted-arg destagger no longer inherits ineligible=True.
+  Fetch always passes acs1_ok; production first plan is None unless a
+  series probe ran.
+
+Callers
+- Only fetch.py calls plan_years. First plan passes probed-or-None.
+  ACS1 204/404 replan passes dataset="acs5", acs1_ok=False. That replan
+  is how a non-series year list reaches the new else-branch True.
+- allow_overlapping_acs5=True forces series False, so the else branch
+  suppresses the flag (same outcome as the existing overlapping
+  override test on consecutive years).
+
+Missed cases checked
+- Single year, acs1_ok=False, dataset=acs5: else, flag True.
+- Gapped non-series (e.g. 2019+2022), acs1_ok=False, dataset=acs5:
+  else, flag True. Same predicate as the single-year path; no extra
+  branch. No dedicated fetch test for that list shape.
+- dataset=acs1, acs1_ok=False: else, use=acs1, flag False.
+- acs1_ok=None or True on else: flag False.
+- First fetch plan for a non-series ACS5 template never probes, so
+  acs1_ok stays None and the new True path is not taken until a 204/404
+  ACS1 replan. That is existing fetch control flow, not this diff.
+
+Incorrect control flow
+- nothing. Destagger flag formula unchanged. Else-branch True only when
+  known-ineligible, the plan is ACS5, and overlapping override is off.
+
+Pass 1 findings: nothing.
+
+---
+
+## Pass 2 — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+All six exited 0; invariants review continues.
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3899 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           400 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1569 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.527 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.842 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+```
+
+### uv run ruff check .
+
+exit 0
+
+```
+All checks passed!
+```
+
+### uv run ruff format --check .
+
+exit 0
+
+```
+warning: Failed to write cache file `C:\Users\johnh\Dropbox\Python\census-concierge\.ruff_cache\0.16.3\12328025558248554802`: Access is denied. (os error 5)
+129 files already formatted
+```
+
+Cache write is an environment warning; format check passed.
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 66%]
+........................................................................ [ 83%]
+........................................................................ [100%]
+432 passed in 11.11s
+```
+
+### The claim
+
+A user who gets ACS5 after an ACS1 204/404 for a geography that is not a
+year series now sees `acs1_geography_ineligible` on the shipped answer,
+instead of a silent dataset swap. The ACS5 URL still ships.
+
+Evidence: Gate 2 does not run make eval / make demo. No scoreboard on
+this branch for this review. E2E is a later pipeline step.
+
+### Scope
+
+Belongs to CC-91 residual reliability (Now in PLAN.md), not slice 4
+canvas / CC-11 Not-in-this-slice. 8 files. One production module
+(vintages.py). No drive-by tools, routes, graph nodes, or new warning
+codes. ask-path.md records the non-series 204/404 fallback. ARCHITECTURE
+inventory unchanged (still four tools; vintages still owns ACS1 vs ACS5
+planning).
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md, docs/slices.md.
+
+- URL: fetch tests assert ACS5 URLs after 204 fallback, with E and M on
+  get=, and assemble copies fetch.urls. CensusURL is still the formatter;
+  no new string-built URL. `key=` asserted absent on the artifact URL.
+- MOE: E paired with M on the fallback URL; guard assemble asserts
+  moe[0]["B01003_001M"].
+- GEOID: present on the fallback row and the assembled response.
+- Universe: assemble still carries record.universe.
+- Failure / fallback still ships the ACS5 answer; the new work is the
+  warning, not a block.
+- Numbers do not pass back through the model.
+- No new blocking clarification. Guard still warns and ships.
+- Dataset substitution (ACS1 → ACS5) is no longer silent on the
+  non-series 204/404 path: acs1_ineligible on the plan → fetch artifact →
+  acs1_geography_ineligible. Eligible ACS1 stays ACS1 with the flag
+  False. Unknown probe (None) still destaggers without the warning.
+- overlapping_vintage / vintage_gap_2020 paths are not rewritten here.
+
+### Shape
+
+No new tool, route, Pydantic model, or add_node. No new abstraction.
+plan_years already had a second caller (fetch first plan and ACS1
+fallback). Not a manager/orchestrator/factory.
+
+### Tests
+
+Behaviour: dataset, acs1_ineligible, attempted/succeeded years, ACS1 vs
+ACS5 URLs seen, GEOID, E/M, key redaction, assemble warning code. No
+prompt wording. No constant-table retrieval fake. Tests not named CC-97.
+Producer (fetch/vintages) sets the flag; guard/assemble reads it. Gate 1
+mutation transcript is in evidence/cc-91/cc-97-gate1.txt (not re-run
+here).
+
+Pass 2 findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing
+- scope: nothing
+- tests: nothing
+- follow-ups: nothing that blocks; E2E scoreboard is not this gate
+
+---
+
+## Verdict
+
+ship it
+
+User-facing claim: an ACS1 204/404 that falls back to ACS5 now carries
+acs1_geography_ineligible even when the requested years are not a series,
+and the ACS5 URL (with MOE and GEOID) still ships.
