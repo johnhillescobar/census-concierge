@@ -381,6 +381,76 @@ async def test_consecutive_acs5_destaggers_when_acs1_is_ineligible() -> None:
     assert 2020 not in {year for dataset, year in seen if dataset == "acs5"}
 
 
+async def test_acs1_ineligible_year_falls_back_to_acs5_with_the_flag() -> None:
+    seen: list[str] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        dataset = "acs1" if "/acs/acs1" in url else "acs5"
+        seen.append(dataset)
+        if dataset == "acs1":
+            return 204, ""
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE.with_dataset("acs1"),
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert "acs1" in seen
+    assert artifact.dataset == "acs5"
+    assert artifact.acs1_ineligible is True
+    assert artifact.requested_years == [2024]
+    assert artifact.attempted_years == [2024]
+    assert artifact.succeeded_years == [2024]
+    assert artifact.ok is True
+    assert all("/acs/acs5" in url for url in artifact.urls)
+    assert "B01003_001E" in artifact.urls[0]
+    assert "B01003_001M" in artifact.urls[0]
+    assert artifact.rows[0]["GEO_ID"]
+    assert artifact.rows[0]["B01003_001E"]
+    assert artifact.rows[0]["B01003_001M"]
+    assert "key=" not in artifact.urls[0]
+
+
+async def test_acs1_eligible_year_stays_on_acs1() -> None:
+    seen: list[str] = []
+
+    def http_get(url: str) -> tuple[int, object]:
+        seen.append("acs1" if "/acs/acs1" in url else "acs5")
+        return 200, _ok_payload(_year_from(url))
+
+    tool = FetchDataTool(
+        last_url=lambda: TEMPLATE.with_dataset("acs1"),
+        census_key=lambda: "secret",
+        http_get=http_get,
+        published=_published,
+    )
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "fetch_data",
+            "args": {"years": [2024]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert seen == ["acs1"]
+    assert artifact.dataset == "acs1"
+    assert artifact.acs1_ineligible is False
+    assert artifact.attempted_years == [2024]
+    assert all("/acs/acs1" in url for url in artifact.urls)
+
+
 async def test_consecutive_acs1_eligible_omits_2020_and_does_not_fetch_it() -> None:
     seen: list[tuple[str, int]] = []
 

@@ -114,6 +114,60 @@ def test_small_place_series_warns_acs1_ineligible() -> None:
     assert response.omission_reasons == ["overlapping_vintage"] * 5
 
 
+def test_acs1_fallback_year_warns_ineligible_geography() -> None:
+    record = ExecutionRecord()
+    record.table_id = "B01003"
+    record.universe = "total population"
+    record.fetch = _fetch(
+        acs1_ineligible=True,
+        dataset="acs5",
+        requested_years=[2024],
+        attempted_years=[2024],
+        succeeded_years=[2024],
+        urls=[
+            "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
+            "&for=place:44275&in=state:50"
+        ],
+        rows=[
+            {
+                "GEO_ID": "1600000US5044275",
+                "NAME": "Middlebury CDP, Vermont",
+                "B01003_001E": "7220",
+                "B01003_001M": "12",
+                "year": "2024",
+            }
+        ],
+    )
+    record.rows = list(record.fetch.rows)
+    assert _codes(record) == ["acs1_geography_ineligible"]
+    response = assemble("ACS5 still ships", record)
+    assert response.warnings[0].code == "acs1_geography_ineligible"
+    assert response.urls == list(record.fetch.urls)
+    assert response.table_id == "B01003"
+    assert response.universe == "total population"
+    assert response.rows[0]["dataset"] == "acs5"
+    assert response.rows[0]["vintage"] == "2024"
+    assert response.rows[0]["GEO_ID"] == "1600000US5044275"
+    assert response.rows[0]["B01003_001E"] == "7220"
+    assert response.moe[0]["B01003_001M"] == "12"
+
+
+def test_acs1_eligible_geography_does_not_warn() -> None:
+    record = ExecutionRecord()
+    record.fetch = _fetch(
+        dataset="acs1",
+        acs1_ineligible=False,
+        requested_years=[2024],
+        attempted_years=[2024],
+        succeeded_years=[2024],
+        urls=[
+            "https://api.census.gov/data/2024/acs/acs1?get=NAME,GEO_ID,B01003_001E,B01003_001M"
+            "&for=county:201&in=state:48"
+        ],
+    )
+    assert "acs1_geography_ineligible" not in _codes(record)
+
+
 def test_acs1_span_crossing_2020_warns_and_keeps_the_gap() -> None:
     record = ExecutionRecord(question=T12)
     record.vintages = [("acs1", year) for year in (2018, 2019, 2021, 2022)]

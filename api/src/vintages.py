@@ -266,7 +266,7 @@ def plan_years(
     dataset: str,
     years: list[int],
     published: dict[str, set[int]] | None = None,
-    acs1_ok: bool | None = False,
+    acs1_ok: bool | None = None,
     allow_overlapping_acs5: bool = False,
     cap: int | None = None,
 ) -> VintagePlan:
@@ -297,7 +297,13 @@ def plan_years(
         use = "acs1" if series or dataset == "acs1" else dataset
         planned = span_years(years) if series else years
         attempted, omitted, reasons = _drop_unpublished(use, planned, published)
-        plan = VintagePlan(dataset=use, attempted=attempted, omitted=omitted, reasons=reasons)
+        plan = VintagePlan(
+            dataset=use,
+            attempted=attempted,
+            omitted=omitted,
+            reasons=reasons,
+            acs1_ineligible=(acs1_ok is False and use == "acs5" and not allow_overlapping_acs5),
+        )
     if cap is None or len(plan.attempted) <= cap:
         return plan
     kept = plan.attempted[:cap]

@@ -1,0 +1,59 @@
+# CC-97 pre-flight raw output
+# origin/main 102dd35
+# 2026-09-20
+
+HEAD 102dd35
+latest.demo answered_rate 0.842 p95 18.527 n 186
+demo.misses ids: q10 q17 q18 q20 q34 q39 q41 t07 q10 q17 q18 q20 q34 q39 t07 q10 q11 q17 q20 q34 q39
+t11 n 3
+t11 r1 answered=True got=B23025 rows=1 n_url=1 warnings=['variable_not_in_vintage', 'acs1_geography_ineligible', 'ambiguous_place'] detail=''
+  url https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M,B23025_002E,B23025_002M,B23025_003E,B23025_003M&for=place:44275&in=state:50
+t11 r2 answered=True got=B23025 rows=1 n_url=1 warnings=['variable_not_in_vintage', 'acs1_geography_ineligible', 'ambiguous_place'] detail=''
+  url https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M,B23025_005E,B23025_005M&for=place:44275&in=state:50
+t11 r3 answered=True got=B23025 rows=1 n_url=1 warnings=['variable_not_in_vintage', 'acs1_geography_ineligible', 'ambiguous_place'] detail=''
+  url https://api.census.gov/data/2022/acs/acs5?get=NAME,GEO_ID,B23025_001E,B23025_001M&for=place:44275&in=state:50
+ANALYSIS CC-76 post-merge E2E (`evidence/slice-3/cc-76-e2e-post.txt`, `--repeat 3`, n=186):
+ANALYSIS q10, q11, q15, q17, q18, q20, q34, q39, q41, t07, t11, t14.
+
+--- wants_acs1 / years ---
+wants_acs1(t11) False
+wants_acs1(explicit acs1) True
+question_years [2017]
+requested_years [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+is_series [2017,2022] False
+is_series 2017-2024 True
+plan acs1_ok=False dataset=acs5 attempted=[2017, 2022] ineligible=True omitted_n=6
+plan acs1_ok=None dataset=acs5 attempted=[2017, 2022] ineligible=False omitted_n=6
+plan acs1_ok=True dataset=acs1 attempted=[2017, 2018, 2019, 2021, 2022, 2023, 2024] ineligible=False omitted_n=1
+plan years=[2017,2022] acs1_ok=False acs5 [2017, 2022] False []
+guard destagger no flag []
+guard destagger with flag ['acs1_geography_ineligible']
+guard fetch=None []
+
+--- availability B23025 ---
+acs5 present [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024] absent [] n_E 7
+acs1 present [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024] absent [] n_E 7
+
+--- geo ACS1 levels ---
+acs1 ['alaska native regional corporation', 'american indian area/alaska native area/hawaiian home land', 'combined statistical area', 'congressional district', 'county', 'county subdivision', 'division', 'metropolitan division', 'metropolitan statistical area/micropolitan statistical area', 'place', 'principal city (or part)', 'public use microdata area', 'region', 'school district (elementary)', 'school district (secondary)', 'school district (unified)', 'state', 'urban area', 'us']
+acs5-only includes tract, block group, zip code tabulation area
+place in acs1 True
+
+--- loc ---
+ 397 api/src/fetch.py
+ 325 api/src/vintages.py
+ 369 api/src/guards.py
+ 399 api/src/ask.py
+ 125 api/src/census_url.py
+ 109 api/src/finish.py
+
+--- live ACS1 probes (CensusURL.with_key, same as fetch._acs1_ok) ---
+middlebury B23025 acs1 2024: HTTP 204 parsed_rows=None _acs1_ok=False
+middlebury B01003 acs1 2024: HTTP 204 parsed_rows=None _acs1_ok=False
+middlebury NAME acs1 2024: HTTP 204 parsed_rows=None _acs1_ok=False
+middlebury B23025 acs5 2024: HTTP 200 parsed_rows=1
+middlebury B23025 acs5 2017: HTTP 200 parsed_rows=1
+harris B23025 acs1 2024: HTTP 200 parsed_rows=1 _acs1_ok=True
+cuyahoga B19013 acs1 2023: HTTP 200 parsed_rows=1 _acs1_ok=True
+phoenix B01003 acs1 2024: HTTP 200 parsed_rows=1 _acs1_ok=True
+middlebury B23025 acs1 extra vars: HTTP 204 parsed_rows=None _acs1_ok=False
