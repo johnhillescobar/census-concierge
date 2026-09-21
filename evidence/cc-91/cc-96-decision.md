@@ -57,9 +57,9 @@ drops last-word must keep that control.
 ## Leaves created
 
 One Story: [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) do not
-resolve unpublished region names via last-word NAME hits. Live proof: `q17`
-must not become `county:140` CT. `q17` `answered_rate` / `B24010` stay unpinned
-(`B24010` is still out of search `@10`).
+resolve unpublished region names via last-word NAME hits. Until it ships,
+`q17` can still become `county:140` CT. `q17` `answered_rate` / `B24010`
+stay unpinned (`B24010` is still out of search `@10`).
 
 ## Not created
 

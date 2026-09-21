@@ -17,6 +17,8 @@ empty URL, r3 `county:140` `state:09`. Did not Read E2E transcripts.
 
 ## Decision
 
-Fail closed. Do not ship an alias gazetteer. One implementation leaf: stop
-last-word NAME substitution for an unpublished token, without regressing
-`Harris County, Texas`. Do not pin `q17` `answered_rate` or `B24010`.
+Fail closed is the policy, not current runtime. Do not ship an alias
+gazetteer. One implementation leaf: stop last-word NAME substitution for an
+unpublished token, without regressing `Harris County, Texas`. Do not pin
+`q17` `answered_rate` or `B24010`. Until that leaf ships, `q17` can still
+resolve as `county:140` CT.
