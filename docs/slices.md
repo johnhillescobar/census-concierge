@@ -46,3 +46,4 @@ answered_rate 0.825, p95 17.116s. Evidence: `evidence/slice-3/`. Live behavior:
 
 - [CC-55](https://johnhillescobar.atlassian.net/browse/CC-55) — no gazetteer until NAME ranking and the CC-37 plan strip still fail a named golden question.
 - [CC-56](https://johnhillescobar.atlassian.net/browse/CC-56) — a fifth tool is earned by a failing golden question, not scheduled. Years are a parameter (CC-28).
+- [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) — informal/alias place language is the agent’s job: existing tools, Census-shaped output. The NAME matcher must not fake a hit ([CC-99](https://johnhillescobar.atlassian.net/browse/CC-99)). A gazetteer *module* is a separate until-clause ([CC-55](https://johnhillescobar.atlassian.net/browse/CC-55)), not a ban on alias questions.

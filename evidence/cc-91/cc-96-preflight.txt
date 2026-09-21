@@ -1,0 +1,66 @@
+# CC-96 pre-flight raw output
+# HEAD 054f91a (CC-95 merged; CC-76 miss summary in evidence/slice-3/demo-miss-analysis.md)
+# 2026-09-20
+# Did not Read E2E transcripts.
+
+CC-76 post-merge DEMO/MISSES (demo-miss-analysis.md): q10, q11, q15, q17, q18,
+q20, q34, q39, q41, t07, t11, t14.
+CC-94 printout of CC-93 post-merge: q17 r1,r2 empty url; q17 r3 B24114
+url county:140 in=state:09 (CT). B24010 out of search top-10 (CC-94 group 5).
+
+git rev-parse --short HEAD
+054f91a
+
+uv run python scripts/check_budgets.py (excerpt)
+  ok    largest file LOC           400 <= 400
+  ok    doc lines                 1564 <= 1800
+geo.py non-blank/non-comment LOC 400/400
+geo_list.py 162/400
+guards.py 369/400
+
+Jira at start: CC-96 To Do -> In Progress. Parent CC-91.
+uv run python scripts/jira_fetch.py epic CC-91 --list
+  CC-92 Done, CC-93 Done, CC-94 Done, CC-95 Done,
+  CC-96 In Progress, CC-97 To Do, CC-98 To Do
+
+--- place_token / detect_level (no Census call) ---
+q17 = 'Occupation breakdown for workers in Silicon Valley counties'
+detect_level = county
+find_state = None
+place_token = 'occupation breakdown for workers in silicon valley'
+'Silicon Valley counties' place_token = 'silicon valley'
+'population of Harris County, Texas' place_token = 'population of harris'
+'Harris County, Texas' place_token = 'harris'
+'Lake of the Woods County, Minnesota' place_token = 'lake of the woods'
+
+--- live ACS5 2024 NAME listings (CENSUS_API_KEY present; URLs unkeyed) ---
+county_rows 3222
+place_rows 32330
+msa_rows 935
+  for=metropolitan statistical area/micropolitan statistical area:*
+
+token 'occupation breakdown for workers in silicon valley' / 'silicon valley':
+  county filter_full 0
+  place filter_full 0
+  msa filter_full 0
+filter_rows('silicon'): county 0, place 0, msa 0
+
+named_rows last-word 'valley' (the live substitution):
+  county 7, rank_matches[0] =
+    Naugatuck Valley Planning Region, Connecticut  county:140  in=state:09  pop 454969
+    also Lower Connecticut River Valley CT county:130;
+    Valley County ID/MT/NE; Golden Valley MT/ND
+  place 259 (Moreno Valley city, California first)
+  msa 3 (Spokane-Spokane Valley, WA Metro Area first)
+
+msa names containing jose or silicon:
+  St. Joseph, MO-KS Metro Area
+  San Jose-Sunnyvale-Santa Clara, CA Metro Area
+  (no 'Silicon Valley')
+
+grep: named_rows last-word fallback api/src/geo_list.py:127
+      _COUNTY unbounded greedy capture api/src/geo.py:54
+      _WARNING_WITHOUT_FETCH = ambiguous_place, geography_not_nested,
+        median_not_aggregatable  (scripts/run_demo.py)
+      CC-55 gazetteer until-clause .claude/DESIGN.md §7
+      CC-37 geography control cannot submit arbitrary for/in
