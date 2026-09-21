@@ -1,0 +1,147 @@
+# CC-97 Gate 1 mutation check
+Branch: feat/cc-97-acs1-geography-ineligible
+$ git log -1 --format=HEAD: %H %s
+HEAD: 90da6ca6a7a995050b817980825bd35920fc77ab feat(CC-97): persist ACS1 geography-ineligible on a non-series ACS5 fallback
+(exit 0)
+$ git status --short
+(exit 0)
+
+## GOOD — new tests at HEAD
+5 passed in 0.30s
+
+$ uv run pytest -q --tb=short api/tests/test_vintages.py::test_known_ineligible_acs5_fallback_year_sets_the_flag api/tests/test_fetch_years.py::test_acs1_ineligible_year_falls_back_to_acs5_with_the_flag api/tests/test_fetch_years.py::test_acs1_eligible_year_stays_on_acs1 api/tests/test_guards.py::test_acs1_fallback_year_warns_ineligible_geography api/tests/test_guards.py::test_acs1_eligible_geography_does_not_warn
+.....                                                                    [100%]
+5 passed in 0.30s
+(exit 0)
+
+## GOOD — related existing tests (gapped ACS5, overlapping override, consecutive destagger, consecutive ACS1 eligible)
+6 passed in 0.24s
+
+$ uv run pytest -q --tb=short api/tests/test_vintages.py::test_gapped_acs5_years_are_fetched_as_requested api/tests/test_vintages.py::test_overlapping_override_keeps_consecutive_acs5 api/tests/test_vintages.py::test_consecutive_acs5_without_acs1_destaggers api/tests/test_vintages.py::test_consecutive_acs1_eligible_omits_2020 api/tests/test_fetch_years.py::test_consecutive_acs5_destaggers_when_acs1_is_ineligible api/tests/test_fetch_years.py::test_consecutive_acs1_eligible_omits_2020_and_does_not_fetch_it
+......                                                                   [100%]
+6 passed in 0.24s
+(exit 0)
+
+## GOOD — plan_years else-branch does not set acs1_ineligible
+plan_years else-branch does not set acs1_ineligible
+
+1 failed in 0.18s
+
+$ uv run pytest -q --tb=short api/tests/test_vintages.py::test_known_ineligible_acs5_fallback_year_sets_the_flag
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_known_ineligible_acs5_fallback_year_sets_the_flag ____________
+api\tests\test_vintages.py:78: in test_known_ineligible_acs5_fallback_year_sets_the_flag
+    assert plan.acs1_ineligible is True
+E   AssertionError: assert False is True
+E    +  where False = VintagePlan(dataset='acs5', attempted=[2024], omitted=[], reasons=[], acs1_ineligible=False).acs1_ineligible
+=========================== short test summary info ===========================
+FAILED api/tests/test_vintages.py::test_known_ineligible_acs5_fallback_year_sets_the_flag
+1 failed in 0.18s
+(exit 1)
+
+$ git checkout -- api/src/vintages.py
+
+(exit 0)
+
+## GOOD — plan_years else-branch does not set acs1_ineligible on ACS5 fallback
+plan_years else-branch does not set acs1_ineligible on ACS5 fallback
+
+1 failed in 0.34s
+
+$ uv run pytest -q --tb=short api/tests/test_fetch_years.py::test_acs1_ineligible_year_falls_back_to_acs5_with_the_flag
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_acs1_ineligible_year_falls_back_to_acs5_with_the_flag __________
+api\tests\test_fetch_years.py:411: in test_acs1_ineligible_year_falls_back_to_acs5_with_the_flag
+    assert artifact.acs1_ineligible is True
+E   AssertionError: assert False is True
+E    +  where False = FetchDataResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=co... succeeded_years=[2024], failed_years=[], omitted_years=[], omission_reasons=[], dataset='acs5', acs1_ineligible=False).acs1_ineligible
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_acs1_ineligible_year_falls_back_to_acs5_with_the_flag
+1 failed in 0.34s
+(exit 1)
+
+$ git checkout -- api/src/vintages.py
+
+(exit 0)
+
+## GOOD — ACS1 200 still falls back to ACS5
+ACS1 200 still falls back to ACS5
+
+1 failed in 0.65s
+
+$ uv run pytest -q --tb=short api/tests/test_fetch_years.py::test_acs1_eligible_year_stays_on_acs1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_acs1_eligible_year_stays_on_acs1 ____________________
+api\tests\test_fetch_years.py:447: in test_acs1_eligible_year_stays_on_acs1
+    assert seen == ["acs1"]
+E   AssertionError: assert ['acs1', 'acs5'] == ['acs1']
+E     
+E     Left contains one more item: 'acs5'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_fetch_years.py::test_acs1_eligible_year_stays_on_acs1
+1 failed in 0.65s
+(exit 1)
+
+$ git checkout -- api/src/fetch.py
+
+(exit 0)
+
+## GOOD — acs1_geography_ineligible ignores fetch.acs1_ineligible
+acs1_geography_ineligible ignores fetch.acs1_ineligible
+
+1 failed in 0.34s
+
+$ uv run pytest -q --tb=short api/tests/test_guards.py::test_acs1_fallback_year_warns_ineligible_geography
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_acs1_fallback_year_warns_ineligible_geography ______________
+api\tests\test_guards.py:142: in test_acs1_fallback_year_warns_ineligible_geography
+    assert _codes(record) == ["acs1_geography_ineligible"]
+E   AssertionError: assert [] == ['acs1_geography_ineligible']
+E     
+E     Right contains one more item: 'acs1_geography_ineligible'
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_acs1_fallback_year_warns_ineligible_geography
+1 failed in 0.34s
+(exit 1)
+
+$ git checkout -- api/src/guards.py
+
+(exit 0)
+
+## GOOD — acs1_geography_ineligible warns when the flag is False
+acs1_geography_ineligible warns when the flag is False
+
+1 failed in 0.43s
+
+$ uv run pytest -q --tb=short api/tests/test_guards.py::test_acs1_eligible_geography_does_not_warn
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________ test_acs1_eligible_geography_does_not_warn __________________
+api\tests\test_guards.py:168: in test_acs1_eligible_geography_does_not_warn
+    assert "acs1_geography_ineligible" not in _codes(record)
+E   AssertionError: assert 'acs1_geography_ineligible' not in ['acs1_geography_ineligible']
+E    +  where ['acs1_geography_ineligible'] = _codes(ExecutionRecord(pool=[], geography=None, geographies=[], url=None, table_id='', universe='', rows=[], timings=[], cons...s1', acs1_ineligible=False), allow_overlapping_acs5=False, table_facts=None, published_vintages=None, retained_urls=[]))
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_acs1_eligible_geography_does_not_warn
+1 failed in 0.43s
+(exit 1)
+
+$ git checkout -- api/src/guards.py
+
+(exit 0)
+
+## GOOD — restore working tree to HEAD
+
+$ git status --short
+?? evidence/cc-91/cc-97-gate1.txt
+(exit 0)
+
+
+# Verdict
+pass, 5 new tests mutation-checked, 8 GOOD / 0 BAD
