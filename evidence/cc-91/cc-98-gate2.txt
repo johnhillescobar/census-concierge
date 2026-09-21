@@ -1,0 +1,255 @@
+# CC-98 Gate 2 — cold review
+
+Branch: feat/cc-98-place-token-extract
+Range: origin/main...HEAD
+Commits:
+  e55997c chore(CC-98): record Gate 1 mutation check
+  69d687a feat(CC-98): extract a published place from a full-sentence query
+Ticket: CC-98 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+Evidence: evidence/cc-91/cc-98-gate2.txt
+
+Files vs origin/main (9, under ~15):
+  api/src/geo.py
+  api/src/geo_list.py
+  api/tests/ask_fixtures.py
+  api/tests/test_ask_loop.py
+  api/tests/test_ask_tools.py
+  docs/ask-path.md
+  evidence/cc-91/cc-98-gate1.txt
+  evidence/cc-91/cc-98-preflight-claims.md
+  evidence/cc-91/cc-98-preflight.txt
+
+Product diff is place_token moved geo.py -> geo_list.py, a Title Case
+in/for/of span extract before the leftover sentence path, listing fixtures
+for Detroit / Phoenix / Ann Arbor, three tests, and ask-path.md.
+Evidence-only files are Gate 1 / preflight.
+
+---
+
+## Pass 1 — generic bugs (diff only, no intent)
+
+Cold-read of origin/main...HEAD as code. No ticket text as spec.
+
+Control flow (place_token)
+- _COUNTY.search still runs first. Named county not in {all, every, each}
+  returns group 1 casefold. Regex and early return moved unchanged.
+- New: _PLACE_SPAN finds Title Case spans after in / for / of.
+  Negative lookahead skips (?:19|20)\d{2}. Name is group 2 (group 1 is
+  the unused year capture inside the lookahead).
+- If state_name is set, that name is stripped from each span; empty and
+  state-only spans are dropped.
+- Remaining spans: return the last one, casefolded.
+- No span: leftover path as before (strip USPS, class words, state,
+  _TOKEN_NOISE). Same word set that geo.py _NOISE still uses for _nation.
+- Call sites in geo.py are unchanged: default for_level, wildcard host,
+  nested parent match, NAME listing token.
+
+Callers
+- resolve_geography still passes find_state's name or None.
+- Finish still dispatches resolve_geography with the original question
+  when urls are missing. The new token is what lets NAME listing hit.
+
+Missed cases checked
+- Bare "New York City" / "Austin, Texas" / "State College, Pennsylvania":
+  no in/for/of span; leftover path; existing tests still assert the old
+  tokens.
+- "population of Texas": span is the state, stripped, leftover returns
+  texas; for_level stays state.
+- "population of Harris County, Texas": _COUNTY still wins; token remains
+  the greedy capture "population of harris". _PLACE_SPAN does not run.
+- "of Phoenix in 2024": year span skipped; last remaining is phoenix.
+- "in Ann Arbor ... in college": college is lowercase, not a span.
+- "all counties in Texas": _WILDCARD sets for_level before listing;
+  place_token runs on parent_text "Texas", host equals state.
+- Two Detroit rows: filter_rows("detroit") hits both; rank_matches
+  population then GEOID; specs[0] is the larger.
+- No Title Case span (all-lowercase "in detroit"): leftover is the whole
+  sentence; filter_rows of that token stays empty.
+- After dropping a trailing state span, an earlier Title Case word after
+  of (e.g. a group name) can remain as the token. That is the last-span
+  rule on what is left, not a second branch. No NAME row in the new
+  fixtures would match those leftover words.
+
+Incorrect control flow
+- nothing. County still precedes the span extract. Span extract returns
+  only when a Title Case in/for/of name remains. Leftover is unchanged
+  when it does not. Listing still ranks; specs[0] is still the pick.
+
+Pass 1 findings: nothing.
+
+---
+
+## Pass 2 — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+All six exited 0; invariants review continues.
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3917 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1572 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.752 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.825 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+```
+
+### uv run ruff check .
+
+exit 0
+
+```
+All checks passed!
+```
+
+### uv run ruff format --check .
+
+exit 0
+
+```
+130 files already formatted
+```
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 82%]
+........................................................................ [ 98%]
+.....                                                                    [100%]
+437 passed in 10.77s
+```
+
+### The claim
+
+A full-sentence question that names a published place after in / for / of
+now resolves that place (and can finish a Census URL) instead of matching
+the whole sentence against NAME and returning no geography.
+
+Evidence: Gate 2 does not run make eval / make demo. No scoreboard on
+this branch for this review. E2E is a later pipeline step.
+
+### Scope
+
+Belongs to CC-91 residual reliability (Now in PLAN.md; CC-98 is the
+current leaf), not slice 4 canvas / CC-11 Not-in-this-slice. 9 files.
+Two production modules (move + extract). No drive-by tools, routes,
+graph nodes, or new warning codes. ask-path.md records the capitalized
+in/for/of extract. ARCHITECTURE inventory unchanged (still four tools;
+resolve_geography still owns NAME listing). geo.py stays under the 400
+line cap by moving place_token, not by raising a budget.
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md, docs/slices.md.
+
+- URL: finish still goes search -> resolve -> build -> fetch -> assemble.
+  The new work is a NAME token so resolve can populate specs. CensusURL
+  is still the formatter in list_census_names; no new string-built URL.
+- MOE: unchanged assemble/fetch pairing of E with M. New finish test
+  asserts the Detroit place URL; existing finish tests still assert E/M
+  and GEOID on the same assemble path.
+- GEOID: GeoSpec still copies listing geoid. Detroit MI fixture carries
+  1600000US2622000.
+- Universe: assemble still carries record.universe.
+- Failure still ships when a URL exists; empty urls still mean no legal
+  URL. This change is what lets the sentence path produce one.
+- Numbers do not pass back through the model.
+- No new blocking clarification. ambiguous_place is still candidates on
+  the answer. Detroit MI vs OR are both NAME hits; rank_matches picks
+  the larger as specs[0].
+- No silent vintage or geography substitution. Extracting a token from
+  the question is parsing for NAME, not swapping a different area after
+  a miss. Uncapitalized sentences still fail closed (leftover sentence,
+  zero NAME rows) rather than guessing.
+- overlapping_vintage / acs1_geography_ineligible paths are not rewritten.
+
+### Shape
+
+No new tool, route, Pydantic model, or add_node. place_token already had
+four call sites in geo.py; it moved to geo_list.py. Not a
+manager/orchestrator/factory. _TOKEN_NOISE copies geo.py _NOISE for the
+leftover path; not a second validator.
+
+### Tests
+
+Behaviour: token equals the published name head; full-sentence
+filter_rows stays empty; rank_matches[0] is the expected for=; resolve
+returns place + state in=; finish with a stopped model ships a URL with
+place:22000 and state:26. No prompt wording. Search fixture is
+question-dependent (rent -> B25064), not a constant-table fake. Tests
+not named CC-98. Gate 1 mutation transcript is in
+evidence/cc-91/cc-98-gate1.txt (not re-run here).
+
+Pass 2 findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing
+- scope: nothing
+- tests: nothing
+- follow-ups: nothing that blocks; E2E scoreboard is not this gate
+
+---
+
+## Verdict
+
+ship it
+
+User-facing claim: a full-sentence question that names a published place
+after in / for / of now resolves that place and can ship the Census URL
+(with MOE and GEOID still on assemble), instead of matching the whole
+sentence against NAME and returning empty urls.
