@@ -4,7 +4,7 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo e2e gate lint types test fmt invariants hooks metadata index serve web-test client
+.PHONY: check eval demo e2e latency-chart gate lint types test fmt invariants hooks metadata index serve web-test client
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
 check: lint types test invariants web-test
@@ -39,6 +39,13 @@ demo:
 ## Usage: make e2e SLICE=3 TICKET=CC-71 PHASE=pre
 e2e:
 	uv run python scripts/e2e_capture.py --slice $(SLICE) --ticket $(TICKET) --phase $(PHASE)
+
+## Histogram + ECDF of demo trial seconds for two latest.json snapshots.
+## Usage: make latency-chart PRE=36e2248 POST=origin/main
+## Optional: OUT=.claude/cc-98-e2e-latency-distribution.svg
+OUT ?= .claude/e2e-latency-distribution.svg
+latency-chart:
+	uv run python scripts/plot_e2e_latency.py --pre $(PRE) --post $(POST) --out $(OUT)
 
 ## Local API. Swagger at http://127.0.0.1:8000/docs
 ## After `npm --prefix web run build`, GET / is the chat UI (same origin as /ask).
