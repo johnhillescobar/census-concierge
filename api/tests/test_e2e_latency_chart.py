@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -42,7 +44,7 @@ def test_svg_marks_both_p95_and_the_budget_ceiling(tmp_path: Path) -> None:
     out = tmp_path / "chart.svg"
     out.write_text(svg, encoding="utf-8")
     text = out.read_text(encoding="utf-8")
-    assert "pre  p95 19.000s  answered 0.842" in text
+    assert "pre p95 19.000s  answered 0.842" in text
     assert "post p95 22.000s  answered 0.808" in text
     assert "ceiling 20s" in text
     assert "pre p95 19.00s" in text
@@ -55,3 +57,38 @@ def test_load_latest_from_file(tmp_path: Path) -> None:
     series = plot.series_from_latest(plot.load_latest(str(path)), "file")
     assert series.n == 2
     assert series.latencies == [8.0, 9.0]
+
+
+def test_svg_escapes_title_and_labels() -> None:
+    pre = plot.series_from_latest(_payload([5.0], p95=5.0, answered=1.0), "pre & <a>")
+    post = plot.series_from_latest(_payload([6.0], p95=6.0, answered=1.0), 'post "b"')
+    svg = plot.render_svg(pre, post, ceiling=20.0, title="<script>alert(1)</script>")
+    assert "<script>" not in svg
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in svg
+    assert "pre &amp; &lt;a&gt;" in svg
+    assert "post &quot;b&quot;" in svg
+
+
+def test_ecdf_is_a_step_function() -> None:
+    assert plot.ecdf_steps([5.0, 10.0], xmin=0.0, xmax=20.0) == [
+        (0.0, 0.0),
+        (5.0, 0.0),
+        (5.0, 0.5),
+        (10.0, 0.5),
+        (10.0, 1.0),
+        (20.0, 1.0),
+    ]
+
+
+def test_resolve_out_stays_inside_root(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    out = plot.resolve_out(Path("charts/a.svg"), root=root)
+    assert out == (root / "charts" / "a.svg").resolve()
+
+
+def test_resolve_out_rejects_outside_root(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    root.mkdir()
+    with pytest.raises(SystemExit, match="outside the repo"):
+        plot.resolve_out(tmp_path / "nope.svg", root=root)

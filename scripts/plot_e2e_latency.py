@@ -13,6 +13,7 @@ plus ECDF so a p95 ceiling miss is visible as tail, not as a slower median.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import math
 import subprocess
@@ -43,6 +44,35 @@ def percentile(values: list[float], p: float) -> float:
     ordered = sorted(values)
     rank = math.ceil(p / 100 * len(ordered)) - 1
     return ordered[max(0, min(rank, len(ordered) - 1))]
+
+
+def svg_escape(value: str) -> str:
+    """Text and attribute content. Stops `&` / `<` / quotes breaking the SVG."""
+    return html.escape(value, quote=True)
+
+
+def ecdf_steps(xs: list[float], *, xmin: float, xmax: float) -> list[tuple[float, float]]:
+    """Right-continuous ECDF as (x, F) corners of a step polyline."""
+    pts = [(xmin, 0.0)]
+    n = len(xs)
+    for i, x in enumerate(xs):
+        xi = min(max(x, xmin), xmax)
+        pts.append((xi, i / n))
+        pts.append((xi, (i + 1) / n))
+    pts.append((xmax, 1.0))
+    return pts
+
+
+def resolve_out(path: Path, *, root: Path = ROOT) -> Path:
+    """Write only under `root`. Relative `--out` is rooted at the repo."""
+    base = root.resolve()
+    out = path if path.is_absolute() else base / path
+    out = out.resolve()
+    try:
+        out.relative_to(base)
+    except ValueError:
+        raise SystemExit(f"refusing to write outside the repo: {out}") from None
+    return out
 
 
 def bin_counts(xs: list[float], *, bin_w: float, xmax: float) -> list[int]:
@@ -143,13 +173,14 @@ def render_svg(
     pre_color, post_color, ceil_color = "#1f6feb", "#cf222e", "#57606a"
     ink, muted, grid = "#1f2328", "#656d76", "#d0d7de"
     font = "Segoe UI, Helvetica, Arial, sans-serif"
+    safe_title = svg_escape(title)
     parts: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {width} {height}" role="img" '
-        f'aria-label="{title}">',
+        f'aria-label="{safe_title}">',
         f'<rect width="{width}" height="{height}" fill="#ffffff"/>',
         f'<text x="{ml}" y="28" font-family="{font}" font-size="20" '
-        f'font-weight="600" fill="{ink}">{title}</text>',
+        f'font-weight="600" fill="{ink}">{safe_title}</text>',
         f'<text x="{ml}" y="50" font-family="{font}" font-size="12" fill="{muted}">'
         f"make demo latencies, n={pre.n} vs {post.n}. Seconds to return an answer "
         f"(all trials). Ceiling {ceiling:g}s is the budget, not a histogram bin.</text>",
@@ -159,11 +190,11 @@ def render_svg(
         f'<rect x="{lx}" y="16" width="12" height="12" fill="{pre_color}" '
         f'fill-opacity="0.75" stroke="{pre_color}"/>',
         f'<text x="{lx + 18}" y="26" font-family="{font}" font-size="12" fill="{ink}">'
-        f"{pre.label}  p95 {pre.p95:.3f}s  answered {pre.answered_rate:.3f}</text>",
+        f"{svg_escape(pre.label)} p95 {pre.p95:.3f}s  answered {pre.answered_rate:.3f}</text>",
         f'<rect x="{lx}" y="34" width="12" height="12" fill="{post_color}" '
         f'fill-opacity="0.75" stroke="{post_color}"/>',
         f'<text x="{lx + 18}" y="44" font-family="{font}" font-size="12" fill="{ink}">'
-        f"{post.label} p95 {post.p95:.3f}s  answered {post.answered_rate:.3f}</text>",
+        f"{svg_escape(post.label)} p95 {post.p95:.3f}s  answered {post.answered_rate:.3f}</text>",
     ]
 
     def frame(y0: float, ylabel: str, ticks: list[tuple[float, str]], ymap: Any) -> None:
@@ -230,11 +261,10 @@ def render_svg(
             )
 
     def ecdf_pts(xs: list[float]) -> str:
-        pts = [(xmap(0), ymap_bot(0))]
-        for i, x in enumerate(xs):
-            pts.append((xmap(min(x, xmax)), ymap_bot((i + 1) / len(xs))))
-        pts.append((xmap(xmax), ymap_bot(1)))
-        return " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return " ".join(
+            f"{xmap(x):.1f},{ymap_bot(frac):.1f}"
+            for x, frac in ecdf_steps(xs, xmin=xmin, xmax=xmax)
+        )
 
     parts.append(
         f'<polyline fill="none" stroke="{pre_color}" stroke-width="2.2" '
@@ -261,7 +291,7 @@ def render_svg(
         if label and label_y is not None:
             parts.append(
                 f'<text x="{xp + 4:.1f}" y="{label_y:.1f}" font-family="{font}" '
-                f'font-size="10" fill="{color}">{label}</text>'
+                f'font-size="10" fill="{color}">{svg_escape(label)}</text>'
             )
 
     vline(ceiling, top_y0, ceil_color, "5 4", f"ceiling {ceiling:g}s", top_y0 + 14)
@@ -307,12 +337,12 @@ def main() -> int:
     post = series_from_latest(load_latest(args.post), args.post_label)
     ceiling = p95_ceiling()
     svg = render_svg(pre, post, ceiling=ceiling, title=args.title)
-    out = args.out if args.out.is_absolute() else ROOT / args.out
+    out = resolve_out(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(svg, encoding="utf-8", newline="\n")
     print(summarize(pre))
     print(summarize(post))
-    print(f"wrote {out.relative_to(ROOT)}")
+    print(f"wrote {out.relative_to(ROOT.resolve())}")
     return 0
 
 
