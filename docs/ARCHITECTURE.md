@@ -23,6 +23,7 @@ scripts/build_index.py       builds index_store/ (needs OPENAI_API_KEY)
 scripts/eval_retrieval.py    retrieval scoreboard; --rerank, --holdout
 scripts/run_demo.py          POST /ask scoreboard; --repeat, --tier
 scripts/e2e_capture.py       eval + demo transcript → evidence/slice-<N>/
+scripts/plot_e2e_latency.py  pre vs post demo latency histogram + ECDF
 scripts/score_synthetic.py   generated-question quality
 scripts/jira_fetch.py        read-only Jira (needs .env tokens)
 scripts/jira_transition.py   Jira status + comments
