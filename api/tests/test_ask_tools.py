@@ -1404,6 +1404,14 @@ def test_sentence_place_token_is_the_published_name() -> None:
         hits = rank_matches(filter_rows(token, rows))
         assert hits[0]["for"] == code
     assert place_token("population of Harris County, Texas", "texas") == "population of harris"
+    assert place_token("vacancy in Isle of Palms", None) == "isle of palms"
+    assert (
+        place_token("Population in District of Columbia", "district of columbia")
+        == "district of columbia"
+    )
+    assert (
+        place_token("in the District of Columbia", "district of columbia") == "district of columbia"
+    )
 
 
 def test_empty_place_token_matches_nothing() -> None:
@@ -1412,7 +1420,16 @@ def test_empty_place_token_matches_nothing() -> None:
     assert filter_rows("new york", rows) == []
 
 
-@pytest.mark.parametrize("query", ["Washington, DC", "Washington DC", "Washington, D.C."])
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Washington, DC",
+        "Washington DC",
+        "Washington, D.C.",
+        "Population in District of Columbia",
+        "in the District of Columbia",
+    ],
+)
 async def test_washington_dc_resolves_as_district_of_columbia(query: str) -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(

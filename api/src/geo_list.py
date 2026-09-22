@@ -97,7 +97,8 @@ _COUNTY = re.compile(
     re.IGNORECASE,
 )
 _PLACE_SPAN = re.compile(
-    r"\b(?:in|for|of)\s+(?!((?:19|20)\d{2})\b)([A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*)*)"
+    r"\b(?i:in|for|of)\s+(?:(?:the|a)\s+)?(?!((?:19|20)\d{2})\b)"
+    r"([A-Z][A-Za-z.'-]*(?:\s+(?:(?:of|the|and)\s+)*[A-Z][A-Za-z.'-]*)*)"
 )
 _TOKEN_NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
