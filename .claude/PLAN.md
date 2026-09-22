@@ -21,8 +21,8 @@ Done. Do not re-open them. Residual misses after CC-2 are CC-91.
 ## Now
 
 [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) reliability is
-**In Progress**. Next leaf [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99)
-(last-word NAME; live AC `q17`). CC-98 Done (finish/`place_token`; q39 3/3;
+**In Progress**. [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99)
+(last-word NAME; live AC `q17`) is **In Progress**. CC-98 Done (finish/`place_token`; q39 3/3;
 answered_rate held; p95 over-ceiling recorded not promoted;
 `evidence/slice-3/cc-98-e2e-post.txt`). CC-95 Done (ambiguous place candidates);
 floors met; `evidence/slice-3/`; https://johnhillescobar.atlassian.net/browse/CC-95.

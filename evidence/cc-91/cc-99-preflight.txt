@@ -1,0 +1,52 @@
+# CC-99 pre-flight raw output
+# origin/main ba90c51 (CC-98 post-merge on main)
+# 2026-09-22
+# Did not Read E2E transcripts.
+
+HEAD ba90c51
+latest.demo answered_rate 0.808 p95 21.366 n 186
+demo.misses ids include q17 x3
+q17 r1/r2/r3 answered=False table=None warnings=['ambiguous_place']
+  (several Valley* NAME hits after CC-95, not the old silent county:140 pick)
+
+Jira at start: CC-99 To Do -> In Progress, parent CC-91.
+uv run python scripts/jira_fetch.py epic CC-91 --list
+  CC-92..CC-98 Done, CC-99 In Progress
+
+uv run python scripts/check_budgets.py --structural-only
+  ok    api src LOC               3918 <= 4000
+  ok    largest file LOC           399 <= 400
+  ok    doc lines                 1574 <= 1800
+  ok    agent tools                  4 <= 6
+geo.py 381/400
+geo_list.py 200/400
+ask.py 399/400
+finish.py 109/400
+
+--- place_token / detect_level / named_rows (no Census call) ---
+q17 = 'Occupation breakdown for workers in Silicon Valley counties'
+detect_level = county
+find_state = None
+place_token q17 = 'occupation breakdown for workers in silicon valley'
+place_token 'Silicon Valley counties' = 'silicon valley'
+place_token 'population of Harris County, Texas' = 'population of harris'
+place_token 'Harris County, Texas' = 'harris'
+place_token 'Lake of the Woods County, Minnesota' = 'lake of the woods'
+
+fixture rows: Naugatuck Valley CT county:140 pop 454969;
+  Valley County ID county:085; Harris County TX county:201
+filter_rows('silicon valley') = []
+named_rows('silicon valley') = Naugatuck Valley county:140, Valley County ID
+named_rows('valley') = same (the last-word substitution)
+named_rows('harris') = Harris County TX
+named_rows('population of harris') = Harris County TX  (last-word 'harris')
+
+--- golden ---
+evals/golden_questions.toml q17 expect_table=B24010 expect_geo_level=county
+Do not pin q17 answered_rate or B24010.
+
+grep: named_rows last-word fallback api/src/geo_list.py:169,174
+      _COUNTY unbounded greedy capture api/src/geo_list.py:95
+      resolve uses named_rows api/src/geo.py:380
+      CC-55 gazetteer until-clause .claude/DESIGN.md §7
+      CC-96 decision evidence/cc-91/cc-96-decision.md

@@ -93,8 +93,8 @@ def token_is_dc(token: str) -> bool:
 
 
 _COUNTY = re.compile(
-    r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
-    re.IGNORECASE,
+    r"\b([A-Z][A-Za-z.'-]*(?:\s+(?:[A-Z][A-Za-z.'-]*|of|the|and))*?)"
+    r"\s+(?i:count(?:y|ies))\b"
 )
 _PLACE_SPAN = re.compile(
     r"\b(?i:in|for|of)\s+(?:(?:the|a)\s+)?(?!((?:19|20)\d{2})\b)"
@@ -107,8 +107,12 @@ _TOKEN_NOISE = frozenset(
 
 def place_token(query: str, state_name: str | None) -> str:
     match = _COUNTY.search(query)
-    if match and match.group(1).casefold() not in {"all", "every", "each"}:
-        return match.group(1).casefold()
+    if match:
+        words = match.group(1).casefold().split()
+        while words and words[0] in _TOKEN_NOISE:
+            words.pop(0)
+        if words and words[0] not in {"all", "every", "each"}:
+            return " ".join(words)
     spans = [hit.group(2).casefold() for hit in _PLACE_SPAN.finditer(query)]
     if state_name:
         kept: list[str] = []
@@ -167,11 +171,7 @@ def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def named_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    matched = rank_matches(filter_rows(token, rows))
-    if matched or not token:
-        return matched
-    parts = token.split()
-    return rank_matches(filter_rows(parts[-1], rows) if parts else [])
+    return rank_matches(filter_rows(token, rows))
 
 
 def _rank_key(row: dict[str, str]) -> tuple[int, int, float, str]:
