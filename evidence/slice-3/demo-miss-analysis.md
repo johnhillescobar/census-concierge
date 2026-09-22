@@ -78,6 +78,12 @@ CC-97 closed (2026-09-21) with a latency caveat. Pre-PR `--repeat 3`:
 `acs1_geography_ineligible`. Residual misses are CC-98 (`q39`) / CC-99 (`q17`)
 / cousins, not this ticket.
 
+CC-98 closed (2026-09-21) with a latency caveat. Pre-PR `--repeat 3`:
+`answered_rate` 0.842, `p95` 19.671s (ceiling cleared). Post-merge transcript
+`evidence/slice-3/cc-98-e2e-post.txt`: `answered_rate` 0.808, `p95` 21.366s
+(over-ceiling, not promoted). `q39` 3/3 `B25004` Detroit `place:22000` /
+`state:26`. Residual misses are CC-99 (`q17`) / cousins, not this ticket.
+
 ## What “answered” means
 
 HTTP 200 is not answered. `scripts/run_demo.py` `is_answered()` requires:
@@ -141,6 +147,7 @@ Closed under epic [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91):
 | [CC-94](https://johnhillescobar.atlassian.net/browse/CC-94) Done | classify table-selection misses; one finish/`place_token` leaf | `q39` never-built → [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98); `q17` stays CC-96; `q10` r3 Queens PA stays CC-95; no retrieval/B-C leaves |
 | [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) Done | informal/alias questions: LLM + existing tools, Census-shaped output; last-word leaf [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) (not shipped) | `q17` 0 NAME hits; r3 `county:140` CT is last-word `valley` |
 | [CC-97](https://johnhillescobar.atlassian.net/browse/CC-97) Done | `acs1_geography_ineligible` on non-series ACS5 fallback | `t11` 3/3; p95 over-ceiling recorded not promoted |
+| [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98) Done | extract a published place from a full-sentence finish query | `q39` 3/3; p95 over-ceiling recorded not promoted |
 
 AC added **2026-09-18** (on the tickets, not here):
 
