@@ -271,6 +271,28 @@ async def test_austin_rent_finishes_when_the_model_stops() -> None:
     assert "place:4805000" in response.urls[0] or "state:48" in "".join(response.urls)
 
 
+async def test_sentence_place_finishes_with_a_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages, openai_tools
+        return {"content": "stopped", "tool_calls": []}
+
+    response = await run_ask(
+        "What is median gross rent in Detroit?",
+        complete=complete,
+        tools=tools,
+        record=record,
+    )
+    assert response.table_id == "B25064"
+    assert response.urls
+    assert "place:22000" in response.urls[0]
+    assert "state:26" in response.urls[0]
+
+
 async def test_block_group_state_listing_finishes_with_a_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
