@@ -2,20 +2,17 @@ import type { AskResponse } from "./ask";
 
 export type PaneState = "idle" | "loading" | "error" | "result";
 
-export type EstimateCell = {
-  variable: string;
-  estimate: string | null;
-  moe: string | null;
-};
-
-export type GeographyEstimates = {
-  geoid: string;
-  name: string;
-  year: string;
+export type DatasetRow = {
   dataset: string;
+  year: string;
   period: string;
   tableId: string;
-  pairs: EstimateCell[];
+  variable: string;
+  geoid: string;
+  name: string;
+  estimate: string | null;
+  moe: string | null;
+  universe: string;
 };
 
 const CENSUS_MISSING = new Set([
@@ -48,11 +45,31 @@ export function redactCensusUrl(url: string): string {
   }
 }
 
+export function censusRaw(value: string | null | undefined): string | null {
+  if (value == null || CENSUS_MISSING.has(value)) {
+    return null;
+  }
+  return value;
+}
+
 export function formatCensusValue(raw: string | null | undefined): string {
-  if (raw == null || CENSUS_MISSING.has(raw)) {
+  const value = censusRaw(raw);
+  return value ?? "—";
+}
+
+export function formatCensusNumber(raw: string | null | undefined): string {
+  const value = censusRaw(raw);
+  if (value == null) {
     return "—";
   }
-  return raw;
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+    return value;
+  }
+  const negative = value.startsWith("-");
+  const unsigned = negative ? value.slice(1) : value;
+  const [whole, fraction] = unsigned.split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${negative ? "-" : ""}${grouped}${fraction != null ? `.${fraction}` : ""}`;
 }
 
 export function censusUrls(response: AskResponse): string[] {
@@ -70,34 +87,41 @@ export function censusYearsIncomplete(response: AskResponse): boolean {
   return response.failed_years.length > 0 || response.omitted_years.length > 0;
 }
 
-export function estimatePairs(
-  row: Record<string, string | null> | undefined,
-  moe: Record<string, string | null> | undefined,
-): EstimateCell[] {
+export function estimateVariables(row: Record<string, string | null> | undefined): string[] {
   if (!row) {
     return [];
   }
-  const margins = moe ?? {};
-  return Object.keys(row)
-    .filter((key) => key.includes("_") && key.endsWith("E"))
-    .map((variable) => {
-      const raw = margins[`${variable.slice(0, -1)}M`] ?? null;
-      return {
-        variable,
-        estimate: row[variable] ?? null,
-        moe: raw == null || CENSUS_MISSING.has(raw) ? null : raw,
-      };
-    });
+  return Object.keys(row).filter((key) => key.includes("_") && key.endsWith("E"));
 }
 
-export function estimatesByGeography(response: AskResponse): GeographyEstimates[] {
-  return response.rows.map((row, index) => ({
-    geoid: row.GEO_ID ?? "",
-    name: row.NAME ?? "",
-    year: row.year ?? row.vintage ?? "",
-    dataset: row.dataset ?? "",
-    period: row.period ?? "",
-    tableId: row.table_id ?? "",
-    pairs: estimatePairs(row, response.moe[index]),
-  }));
+export function matchingMoe(
+  variable: string,
+  margins: Record<string, string | null> | undefined,
+): string | null {
+  if (!variable.endsWith("E") || !margins) {
+    return null;
+  }
+  return censusRaw(margins[`${variable.slice(0, -1)}M`]);
+}
+
+export function normalizeActiveDataset(response: AskResponse): DatasetRow[] {
+  const dataset: DatasetRow[] = [];
+  response.rows.forEach((row, index) => {
+    const margins = response.moe[index];
+    for (const variable of estimateVariables(row)) {
+      dataset.push({
+        dataset: row.dataset || "",
+        year: row.year || row.vintage || "",
+        period: row.period || "",
+        tableId: row.table_id || response.table_id || "",
+        variable,
+        geoid: row.GEO_ID || "",
+        name: row.NAME || "",
+        estimate: censusRaw(row[variable]),
+        moe: matchingMoe(variable, margins),
+        universe: response.universe || "",
+      });
+    }
+  });
+  return dataset;
 }

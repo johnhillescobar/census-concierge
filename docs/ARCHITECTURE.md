@@ -2,7 +2,8 @@
 
 **Status (2026-09-23).** Slices 0–3 are built and their epics are Done
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
-is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done).
+is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
+the result pane renders one normalized GEOID/MOE table (CC-35).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
@@ -79,6 +80,14 @@ series/geo/comparison rules: `docs/ask-path.md`. Optional `chart` is a `ChartSpe
 
 One pane. Dev server proxies `/ask` to `:8000`. Built `web/dist` is served at
 `GET /` from the same origin. Canvas is slice 4.
+
+The result pane renders one frontend-normalized table from `AskResponse`
+(`normalizeActiveDataset` in `web/src/display.ts`): one visible row per
+geography × year/period × estimate variable, with GEOID, dataset, vintage,
+period, table, variable, raw estimate, and matching 90% MOE. Scalar and
+multi-row answers share that model. Census sentinels and missing MOE are
+unavailable (`—`), never zero. Chart and CSV consume the same rows; they
+must not re-parse `AskResponse`.
 
 ## Data
 

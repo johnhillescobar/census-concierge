@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { AskResponse } from "./ask";
 import {
   censusFetchFailed,
+  censusRaw,
   censusYearsIncomplete,
-  estimatePairs,
-  estimatesByGeography,
+  formatCensusNumber,
   formatCensusValue,
+  matchingMoe,
+  normalizeActiveDataset,
   redactCensusUrl,
 } from "./display";
 
@@ -27,6 +29,11 @@ const harris: AskResponse = {
       GEO_ID: "0500000US48201",
       B01003_001E: "4838303",
       B01003_001M: "123",
+      dataset: "acs5",
+      year: "2024",
+      vintage: "2024",
+      period: "2020-2024",
+      table_id: "B01003",
     },
   ],
   moe: [{ GEO_ID: "0500000US48201", NAME: "Harris County, Texas", B01003_001M: "123" }],
@@ -39,23 +46,23 @@ const harris: AskResponse = {
   chart_unavailable: false,
 };
 
-describe("estimatePairs", () => {
-  it("pairs each estimate with its matching 90% MOE", () => {
-    expect(estimatePairs(harris.rows[0], harris.moe[0])).toEqual([
-      { variable: "B01003_001E", estimate: "4838303", moe: "123" },
-    ]);
+describe("matchingMoe", () => {
+  it("pairs an estimate with its exact 90% M suffix on the same margins object", () => {
+    expect(matchingMoe("B01003_001E", harris.moe[0])).toBe("123");
   });
 
-  it("keeps an estimate when the matching MOE is missing", () => {
-    expect(estimatePairs({ B19013_001E: "1", GEO_ID: "x" }, { GEO_ID: "x" })).toEqual([
-      { variable: "B19013_001E", estimate: "1", moe: null },
-    ]);
+  it("keeps an estimate when the matching MOE key is absent", () => {
+    expect(matchingMoe("B19013_001E", { GEO_ID: "x" })).toBeNull();
   });
 
   it("treats a Census sentinel MOE as missing, not as a number", () => {
+    expect(matchingMoe("B01003_001E", { B01003_001M: "-555555555" })).toBeNull();
+  });
+
+  it("does not borrow an M value from a different variable", () => {
     expect(
-      estimatePairs({ B01003_001E: "10", GEO_ID: "x" }, { GEO_ID: "x", B01003_001M: "-555555555" }),
-    ).toEqual([{ variable: "B01003_001E", estimate: "10", moe: null }]);
+      matchingMoe("B19013_002E", { B19013_001M: "9", B19013_002M: "-666666666" }),
+    ).toBeNull();
   });
 });
 
@@ -79,10 +86,7 @@ describe("censusFetchFailed", () => {
     expect(
       censusFetchFailed({
         ...harris,
-        urls: [
-          harris.urls[0],
-          harris.urls[0].replace("/2024/", "/2019/"),
-        ],
+        urls: [harris.urls[0], harris.urls[0].replace("/2024/", "/2019/")],
         attempted_years: [2019, 2024],
         succeeded_years: [2024],
         failed_years: [2019],
@@ -96,10 +100,7 @@ describe("censusYearsIncomplete", () => {
     expect(
       censusYearsIncomplete({
         ...harris,
-        urls: [
-          harris.urls[0],
-          harris.urls[0].replace("/2024/", "/2019/"),
-        ],
+        urls: [harris.urls[0], harris.urls[0].replace("/2024/", "/2019/")],
         attempted_years: [2019, 2024],
         succeeded_years: [2024],
         failed_years: [2019],
@@ -160,51 +161,111 @@ describe("formatCensusValue", () => {
   });
 });
 
-describe("estimatesByGeography", () => {
-  it("keeps one geography on a single-row response", () => {
-    expect(estimatesByGeography(harris)).toEqual([
+describe("formatCensusNumber", () => {
+  it("groups digits for display without changing the stored raw value", () => {
+    expect(formatCensusNumber("4838303")).toBe("4,838,303");
+    expect(censusRaw("4838303")).toBe("4838303");
+  });
+
+  it("renders sentinels as unavailable, not as large negatives or zero", () => {
+    expect(formatCensusNumber("-555555555")).toBe("—");
+    expect(formatCensusNumber(null)).toBe("—");
+    expect(formatCensusNumber("0")).toBe("0");
+  });
+});
+
+describe("normalizeActiveDataset", () => {
+  it("emits one table row for a one-row scalar using the same model as a series", () => {
+    expect(normalizeActiveDataset(harris)).toEqual([
       {
+        dataset: "acs5",
+        year: "2024",
+        period: "2020-2024",
+        tableId: "B01003",
+        variable: "B01003_001E",
         geoid: "0500000US48201",
         name: "Harris County, Texas",
-        year: "",
-        dataset: "",
-        period: "",
-        tableId: "",
-        pairs: [{ variable: "B01003_001E", estimate: "4838303", moe: "123" }],
+        estimate: "4838303",
+        moe: "123",
+        universe: "Total population",
       },
     ]);
   });
 
-  it("does not collapse several geographies onto the first row", () => {
+  it("does not collapse several geographies onto the first Census row", () => {
     const oregon: AskResponse = {
+      ...harris,
+      geoid: "",
+      universe: "Households",
+      table_id: "B19013",
+      rows: [
+        {
+          NAME: "Baker County, Oregon",
+          GEO_ID: "0500000US41001",
+          B19013_001E: "52000",
+          dataset: "acs5",
+          year: "2024",
+          vintage: "2024",
+          period: "2020-2024",
+          table_id: "B19013",
+        },
+        {
+          NAME: "Benton County, Oregon",
+          GEO_ID: "0500000US41003",
+          B19013_001E: "71000",
+          dataset: "acs5",
+          year: "2024",
+          vintage: "2024",
+          period: "2020-2024",
+          table_id: "B19013",
+        },
+      ],
+      moe: [
+        { GEO_ID: "0500000US41001", B19013_001M: "2400" },
+        { GEO_ID: "0500000US41003", B19013_001M: "3100" },
+      ],
+    };
+    const rows = normalizeActiveDataset(oregon);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.geoid)).toEqual(["0500000US41001", "0500000US41003"]);
+    expect(rows.map((row) => row.estimate)).toEqual(["52000", "71000"]);
+    expect(rows.map((row) => row.moe)).toEqual(["2400", "3100"]);
+    expect(rows.map((row) => row.variable)).toEqual(["B19013_001E", "B19013_001E"]);
+  });
+
+  it("emits a row for every estimate variable on every geography", () => {
+    const mixed: AskResponse = {
       ...harris,
       geoid: "",
       rows: [
         {
           NAME: "Baker County, Oregon",
           GEO_ID: "0500000US41001",
-          B01003_001E: "16668",
-          B01003_001M: "24",
+          B01001_001E: "16668",
+          B01001_002E: "8401",
         },
         {
           NAME: "Benton County, Oregon",
           GEO_ID: "0500000US41003",
-          B01003_001E: "95184",
-          B01003_001M: "51",
+          B01001_001E: "95184",
+          B01001_002E: "47012",
         },
       ],
       moe: [
-        { GEO_ID: "0500000US41001", NAME: "Baker County, Oregon", B01003_001M: "24" },
-        { GEO_ID: "0500000US41003", NAME: "Benton County, Oregon", B01003_001M: "51" },
+        { B01001_001M: "24", B01001_002M: "18" },
+        { B01001_001M: "51", B01001_002M: "33" },
       ],
     };
-    const areas = estimatesByGeography(oregon);
-    expect(areas).toHaveLength(2);
-    expect(areas.map((area) => area.geoid)).toEqual(["0500000US41001", "0500000US41003"]);
-    expect(areas.map((area) => area.pairs[0]?.estimate)).toEqual(["16668", "95184"]);
+    const rows = normalizeActiveDataset(mixed);
+    expect(rows.map((row) => `${row.geoid}:${row.variable}:${row.estimate}`)).toEqual([
+      "0500000US41001:B01001_001E:16668",
+      "0500000US41001:B01001_002E:8401",
+      "0500000US41003:B01001_001E:95184",
+      "0500000US41003:B01001_002E:47012",
+    ]);
   });
 
-  it("surfaces dataset, period, and table on each point", () => {
+  it("keeps dataset, period, and table on each series point from that row", () => {
     const series: AskResponse = {
       ...harris,
       rows: [
@@ -227,11 +288,85 @@ describe("estimatesByGeography", () => {
       ],
       moe: [harris.moe[0], harris.moe[0]],
     };
-    expect(estimatesByGeography(series).map((area) => area.period)).toEqual([
+    expect(normalizeActiveDataset(series).map((row) => row.period)).toEqual([
       "2014-2018",
       "2018-2022",
     ]);
-    expect(estimatesByGeography(series)[0]?.dataset).toBe("acs5");
-    expect(estimatesByGeography(series)[0]?.tableId).toBe("B01003");
+    expect(normalizeActiveDataset(series).map((row) => row.year)).toEqual(["2018", "2022"]);
+    expect(normalizeActiveDataset(series)[0]?.dataset).toBe("acs5");
+    expect(normalizeActiveDataset(series)[0]?.tableId).toBe("B01003");
+  });
+
+  it("keeps ACS1 period labels as the year, distinct from ACS5 windows", () => {
+    const acs1: AskResponse = {
+      ...harris,
+      rows: [
+        { ...harris.rows[0], dataset: "acs1", year: "2023", vintage: "2023", period: "2023" },
+      ],
+    };
+    expect(normalizeActiveDataset(acs1)[0]).toMatchObject({
+      dataset: "acs1",
+      year: "2023",
+      period: "2023",
+    });
+  });
+
+  it("does not infer year, dataset, or period from a URL when the row omits them", () => {
+    const bare: AskResponse = {
+      ...harris,
+      rows: [
+        {
+          NAME: "Harris County, Texas",
+          GEO_ID: "0500000US48201",
+          B01003_001E: "4838303",
+        },
+      ],
+    };
+    expect(normalizeActiveDataset(bare)[0]).toMatchObject({
+      dataset: "",
+      year: "",
+      period: "",
+      estimate: "4838303",
+    });
+  });
+
+  it("does not borrow a missing MOE from another row", () => {
+    const shortMoe: AskResponse = {
+      ...harris,
+      geoid: "",
+      rows: [
+        { NAME: "Baker County, Oregon", GEO_ID: "0500000US41001", B19013_001E: "52000" },
+        { NAME: "Benton County, Oregon", GEO_ID: "0500000US41003", B19013_001E: "71000" },
+      ],
+      moe: [{ GEO_ID: "0500000US41001", B19013_001M: "2400" }],
+    };
+    const rows = normalizeActiveDataset(shortMoe);
+    expect(rows[0]?.moe).toBe("2400");
+    expect(formatCensusNumber(rows[0]?.moe)).toBe("2,400");
+    expect(rows[1]?.moe).toBeNull();
+    expect(formatCensusNumber(rows[1]?.moe)).toBe("—");
+    expect(formatCensusNumber(rows[1]?.moe)).not.toBe("0");
+    expect(rows[1]?.estimate).toBe("71000");
+  });
+
+  it("stores Census sentinels as null so they are not chart points or zeroes", () => {
+    const sentinels: AskResponse = {
+      ...harris,
+      rows: [
+        {
+          ...harris.rows[0],
+          B01003_001E: "-999999999",
+        },
+      ],
+      moe: [{ GEO_ID: "0500000US48201", B01003_001M: "-555555555" }],
+    };
+    expect(normalizeActiveDataset(sentinels)[0]).toMatchObject({
+      estimate: null,
+      moe: null,
+    });
+  });
+
+  it("returns no dataset rows when the fetch is empty", () => {
+    expect(normalizeActiveDataset({ ...harris, rows: [], moe: [] })).toEqual([]);
   });
 });

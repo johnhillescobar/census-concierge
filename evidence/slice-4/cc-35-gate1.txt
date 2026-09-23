@@ -1,0 +1,1250 @@
+CC-35 Gate 1 -- tests + mutation check
+commit: 4def572d83e236a5c2eaf15222dc9839aabcb3be feat(CC-35): render one GEOID/MOE table from a single dataset normalizer
+branch: feat/cc-35-dataset-table
+ticket: CC-35
+make: not found; ran the Makefile check recipe
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== Makefile check recipe (python side) ==========
+========== uv run ruff check . ==========
+[1;32mAll checks passed![0m
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+136 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m not integration ==========
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 76%]
+........................................................................ [ 92%]
+....................................                                     [100%]
+468 passed in 12.83s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+
+exit: 0
+========== npm --prefix web ci ==========
+npm error code EBUSY
+npm error syscall rmdir
+npm error path C:\Users\johnh\Dropbox\Python\census-concierge\web\node_modules\@babel
+npm error errno -4082
+npm error EBUSY: resource busy or locked, rmdir 'C:\Users\johnh\Dropbox\Python\census-concierge\web\node_modules\@babel'
+npm error A complete log of this run can be found in: C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-09-23T16_24_43_751Z-debug-0.log
+
+exit: 4294963214
+
+
+npm --prefix web ci failed with EBUSY (Dropbox lock on web/node_modules). A lockfile-matching npm ci in %TEMP%\cc35-web plus robocopy overlay restored .bin so the remaining web recipe could run. Source tree was not modified.
+
+========== npm --prefix web test ==========
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 7ms
+ ✓ src/display.test.ts (26 tests) 16ms
+ ✓ src/App.test.tsx (19 tests) 1258ms
+
+ Test Files  3 passed (3)
+      Tests  48 passed (48)
+   Start at  11:27:35
+   Duration  5.17s (transform 171ms, setup 817ms, collect 619ms, tests 1.28s, environment 2.33s, prepare 408ms)
+
+
+exit: 0
+
+========== npm --prefix web run typecheck ==========
+
+> typecheck
+> tsc --noEmit
+
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpi23np8zp\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpi23np8zp\schema.d.ts [54.1ms]
+packages/client is up to date.
+
+exit: 0
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1248 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1582 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                8 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.664 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.758 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+# Mutation check: revert one behaviour, run only the relevant test(s), confirm FAIL, restore.
+
+===== MUTATION: pairing E with a non-matching M / borrowing MOE from another row =====
+test: does not borrow an M value from a different variable; does not borrow a missing MOE from another row or render it as zero; renders a missing MOE as unavailable rather than zero or another row's margin
+
+$ npm --prefix web test -- src/display.test.ts src/App.test.tsx -t "does not borrow an M value from a different variable|does not borrow a missing MOE from another row|renders a missing MOE as unavailable"
+
+GOOD
+
+> test
+> vitest run src/display.test.ts src/App.test.tsx -t does not borrow an M value from a different variable|does not borrow a missing MOE from another row|renders a missing MOE as unavailable
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/display.test.ts (26 tests | 2 failed | 24 skipped) 8ms
+   ↓ matchingMoe > pairs an estimate with its exact 90% M suffix on the same margins object
+   ↓ matchingMoe > keeps an estimate when the matching MOE key is absent
+   ↓ matchingMoe > treats a Census sentinel MOE as missing, not as a number
+   × matchingMoe > does not borrow an M value from a different variable 6ms
+     → expected '9' to be null
+   ↓ censusFetchFailed > is true when a URL shipped and Census returned no rows
+   ↓ censusFetchFailed > is false when rows arrived
+   ↓ censusFetchFailed > is false when some years succeeded and others failed
+   ↓ censusYearsIncomplete > is true when a year failed but rows arrived
+   ↓ censusYearsIncomplete > is false on a complete one-year fetch
+   ↓ censusYearsIncomplete > is false when every attempted year failed
+   ↓ redactCensusUrl > strips key= from a Census URL
+   ↓ redactCensusUrl > strips a first-parameter key and an uppercase KEY
+   ↓ redactCensusUrl > strips key= from a URL the parser rejects
+   ↓ formatCensusValue > renders Census missing sentinels as unavailable
+   ↓ formatCensusValue > keeps a published MOE of zero
+   ↓ formatCensusNumber > groups digits for display without changing the stored raw value
+   ↓ formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero
+   ↓ normalizeActiveDataset > emits one table row for a one-row scalar using the same model as a series
+   ↓ normalizeActiveDataset > does not collapse several geographies onto the first Census row
+   ↓ normalizeActiveDataset > emits a row for every estimate variable on every geography
+   ↓ normalizeActiveDataset > keeps dataset, period, and table on each series point from that row
+   ↓ normalizeActiveDataset > keeps ACS1 period labels as the year, distinct from ACS5 windows
+   ↓ normalizeActiveDataset > does not infer year, dataset, or period from a URL when the row omits them
+   × normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero 1ms
+     → expected '2400' to be null
+   ↓ normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes
+   ↓ normalizeActiveDataset > returns no dataset rows when the fetch is empty
+ ❯ src/App.test.tsx (19 tests | 1 failed | 18 skipped) 178ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   ↓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   × App result > renders a missing MOE as unavailable rather than zero or another row's margin 177ms
+     → expected true to be false // Object.is equality
+   ↓ App result > replaces every previous table row when a new result arrives
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 42 skipped (45)
+   Start at  11:29:37
+   Duration  3.62s (transform 138ms, setup 374ms, collect 517ms, tests 186ms, environment 1.24s, prepare 244ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > renders a missing MOE as unavailable rather than zero or another row's margin
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/App.test.tsx:461:41
+    459|     expect(texts).toHaveLength(2);
+    460|     expect(texts[0]?.includes("2,400")).toBe(true);
+    461|     expect(texts[1]?.includes("2,400")).toBe(false);
+       |                                         ^
+    462|     expect(texts[1]?.at(-1)).toBe("—");
+    463|     expect(texts.flat().includes("0")).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/display.test.ts > matchingMoe > does not borrow an M value from a different variable
+AssertionError: expected '9' to be null
+
+- Expected: 
+null
+
++ Received: 
+"9"
+
+ ❯ src/display.test.ts:65:7
+     63|     expect(
+     64|       matchingMoe("B19013_002E", { B19013_001M: "9", B19013_002M: "-66…
+     65|     ).toBeNull();
+       |       ^
+     66|   });
+     67| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/display.test.ts > normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero
+AssertionError: expected '2400' to be null
+
+- Expected: 
+null
+
++ Received: 
+"2400"
+
+ ❯ src/display.test.ts:345:26
+    343|     const rows = normalizeActiveDataset(shortMoe);
+    344|     expect(rows[0]?.moe).toBe("2400");
+    345|     expect(rows[1]?.moe).toBeNull();
+       |                          ^
+    346|     expect(rows[1]?.estimate).toBe("71000");
+    347|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== MUTATION: treating Census sentinels as numeric estimates or zero =====
+test: treats a Census sentinel MOE as missing, not as a number; renders sentinels as unavailable, not as large negatives or zero; stores Census sentinels as null so they are not chart points or zeroes; does not present a Census missing sentinel as a numeric MOE
+
+$ npm --prefix web test -- src/display.test.ts src/App.test.tsx -t "treats a Census sentinel MOE as missing|renders sentinels as unavailable|stores Census sentinels as null|does not present a Census missing sentinel"
+
+GOOD  matchingMoe > treats a Census sentinel MOE as missing, not as a number  (failed)
+GOOD  formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero  (failed)
+GOOD  normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes  (failed)
+BAD   App.test.tsx > does not present a Census missing sentinel as a numeric MOE  (passed; empty metadata cells still render em dash)
+
+> test
+> vitest run src/display.test.ts src/App.test.tsx -t treats a Census sentinel MOE as missing|renders sentinels as unavailable|stores Census sentinels as null|does not present a Census missing sentinel
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/display.test.ts (26 tests | 3 failed | 23 skipped) 16ms
+   ↓ matchingMoe > pairs an estimate with its exact 90% M suffix on the same margins object
+   ↓ matchingMoe > keeps an estimate when the matching MOE key is absent
+   × matchingMoe > treats a Census sentinel MOE as missing, not as a number 6ms
+     → expected '0' to be null
+   ↓ matchingMoe > does not borrow an M value from a different variable
+   ↓ censusFetchFailed > is true when a URL shipped and Census returned no rows
+   ↓ censusFetchFailed > is false when rows arrived
+   ↓ censusFetchFailed > is false when some years succeeded and others failed
+   ↓ censusYearsIncomplete > is true when a year failed but rows arrived
+   ↓ censusYearsIncomplete > is false on a complete one-year fetch
+   ↓ censusYearsIncomplete > is false when every attempted year failed
+   ↓ redactCensusUrl > strips key= from a Census URL
+   ↓ redactCensusUrl > strips a first-parameter key and an uppercase KEY
+   ↓ redactCensusUrl > strips key= from a URL the parser rejects
+   ↓ formatCensusValue > renders Census missing sentinels as unavailable
+   ↓ formatCensusValue > keeps a published MOE of zero
+   ↓ formatCensusNumber > groups digits for display without changing the stored raw value
+   × formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero 4ms
+     → expected '0' to be '—' // Object.is equality
+   ↓ normalizeActiveDataset > emits one table row for a one-row scalar using the same model as a series
+   ↓ normalizeActiveDataset > does not collapse several geographies onto the first Census row
+   ↓ normalizeActiveDataset > emits a row for every estimate variable on every geography
+   ↓ normalizeActiveDataset > keeps dataset, period, and table on each series point from that row
+   ↓ normalizeActiveDataset > keeps ACS1 period labels as the year, distinct from ACS5 windows
+   ↓ normalizeActiveDataset > does not infer year, dataset, or period from a URL when the row omits them
+   ↓ normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero
+   × normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes 4ms
+     → expected { dataset: 'acs5', year: '2024', …(8) } to match object { estimate: null, moe: null }
+(8 matching properties omitted from actual)
+   ↓ normalizeActiveDataset > returns no dataset rows when the fetch is empty
+ ✓ src/App.test.tsx (19 tests | 18 skipped) 183ms
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 1 passed | 41 skipped (45)
+   Start at  11:29:43
+   Duration  3.64s (transform 126ms, setup 460ms, collect 398ms, tests 199ms, environment 1.17s, prepare 243ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/display.test.ts > matchingMoe > treats a Census sentinel MOE as missing, not as a number
+AssertionError: expected '0' to be null
+
+- Expected: 
+null
+
++ Received: 
+"0"
+
+ ❯ src/display.test.ts:59:71
+     57| 
+     58|   it("treats a Census sentinel MOE as missing, not as a number", () =>…
+     59|     expect(matchingMoe("B01003_001E", { B01003_001M: "-555555555" })).…
+       |                                                                       ^
+     60|   });
+     61| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/display.test.ts > formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero
+AssertionError: expected '0' to be '—' // Object.is equality
+
+Expected: "—"
+Received: "0"
+
+ ❯ src/display.test.ts:171:46
+    169| 
+    170|   it("renders sentinels as unavailable, not as large negatives or zero…
+    171|     expect(formatCensusNumber("-555555555")).toBe("—");
+       |                                              ^
+    172|     expect(formatCensusNumber(null)).toBe("—");
+    173|     expect(formatCensusNumber("0")).toBe("0");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/display.test.ts > normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes
+AssertionError: expected { dataset: 'acs5', year: '2024', …(8) } to match object { estimate: null, moe: null }
+(8 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "estimate": null,
+-   "moe": null,
++   "estimate": "0",
++   "moe": "0",
+  }
+
+ ❯ src/display.test.ts:360:50
+    358|       moe: [{ GEO_ID: "0500000US48201", B01003_001M: "-555555555" }],
+    359|     };
+    360|     expect(normalizeActiveDataset(sentinels)[0]).toMatchObject({
+       |                                                  ^
+    361|       estimate: null,
+    362|       moe: null,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== MUTATION: collapsing multiple geographies or multiple variables onto the first row =====
+test: does not collapse several geographies onto the first Census row; emits a row for every estimate variable on every geography; labels every geography instead of presenting the first row as the answer; renders every estimate variable for every geography
+
+$ npm --prefix web test -- src/display.test.ts src/App.test.tsx -t "does not collapse several geographies|emits a row for every estimate variable|labels every geography|renders every estimate variable"
+
+GOOD
+
+> test
+> vitest run src/display.test.ts src/App.test.tsx -t does not collapse several geographies|emits a row for every estimate variable|labels every geography|renders every estimate variable
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/display.test.ts (26 tests | 2 failed | 24 skipped) 12ms
+   ↓ matchingMoe > pairs an estimate with its exact 90% M suffix on the same margins object
+   ↓ matchingMoe > keeps an estimate when the matching MOE key is absent
+   ↓ matchingMoe > treats a Census sentinel MOE as missing, not as a number
+   ↓ matchingMoe > does not borrow an M value from a different variable
+   ↓ censusFetchFailed > is true when a URL shipped and Census returned no rows
+   ↓ censusFetchFailed > is false when rows arrived
+   ↓ censusFetchFailed > is false when some years succeeded and others failed
+   ↓ censusYearsIncomplete > is true when a year failed but rows arrived
+   ↓ censusYearsIncomplete > is false on a complete one-year fetch
+   ↓ censusYearsIncomplete > is false when every attempted year failed
+   ↓ redactCensusUrl > strips key= from a Census URL
+   ↓ redactCensusUrl > strips a first-parameter key and an uppercase KEY
+   ↓ redactCensusUrl > strips key= from a URL the parser rejects
+   ↓ formatCensusValue > renders Census missing sentinels as unavailable
+   ↓ formatCensusValue > keeps a published MOE of zero
+   ↓ formatCensusNumber > groups digits for display without changing the stored raw value
+   ↓ formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero
+   ↓ normalizeActiveDataset > emits one table row for a one-row scalar using the same model as a series
+   × normalizeActiveDataset > does not collapse several geographies onto the first Census row 8ms
+     → expected [ { dataset: 'acs5', …(9) } ] to have a length of 2 but got 1
+   × normalizeActiveDataset > emits a row for every estimate variable on every geography 2ms
+     → expected [ '0500000US41001:B01001_001E:16668' ] to deeply equal [ …(4) ]
+   ↓ normalizeActiveDataset > keeps dataset, period, and table on each series point from that row
+   ↓ normalizeActiveDataset > keeps ACS1 period labels as the year, distinct from ACS5 windows
+   ↓ normalizeActiveDataset > does not infer year, dataset, or period from a URL when the row omits them
+   ↓ normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero
+   ↓ normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes
+   ↓ normalizeActiveDataset > returns no dataset rows when the fetch is empty
+ ❯ src/App.test.tsx (19 tests | 2 failed | 17 skipped) 219ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   ↓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   × App result > labels every geography instead of presenting the first row as the answer 153ms
+     → Unable to find an element with the text: 2 areas. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of every county in Oregon"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mPopulation for Oregon counties.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US41001[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Estimates"[39m
+          [33mclass[39m=[32m"table-scroll"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<table[39m
+            [33mclass[39m=[32m"geo-table"[39m
+          [36m>[39m
+            [36m<thead>[39m
+              [36m<tr>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mGEOID[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mName[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mDataset[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mYear[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mPeriod[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mTable[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mVariable[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mEstimate[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mMOE[0m
+                [36m</th>[39m
+              [36m</tr>[39m
+            [36m</thead>[39m
+            [36m<tbody>[39m
+              [36m<tr>[39m
+                [36m<td>[39m
+                  [0m0500000US41001[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0mBaker County, Oregon[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0mB01003[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0mB01003_001E[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m16,668[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m24[0m
+                [36m</td>[39m
+              [36m</tr>[39m
+            [36m</tbody>[39m
+          [36m</table>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"census-urls"[39m
+          [36m>[39m
+            [36m<pre[39m
+              [33mclass[39m=[32m"census-url"[39m
+            [36m>[39m
+              [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48[0m
+            [36m</pre>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mCopy URL[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × App result > renders every estimate variable for every geography 65ms
+     → expected [ <td></td> ] to have a length of 2 but got 1
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   ↓ App result > renders a missing MOE as unavailable rather than zero or another row's margin
+   ↓ App result > replaces every previous table row when a new result arrives
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 41 skipped (45)
+   Start at  11:29:49
+   Duration  3.46s (transform 120ms, setup 357ms, collect 383ms, tests 231ms, environment 1.03s, prepare 231ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > labels every geography instead of presenting the first row as the answer
+TestingLibraryElementError: Unable to find an element with the text: 2 areas. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main>[39m
+      [36m<h1>[39m
+        [0mcensus-concierge[0m
+      [36m</h1>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"lede"[39m
+      [36m>[39m
+        [0mAsk a Census question. The table, URL, and related tables come back together.[0m
+      [36m</p>[39m
+      [36m<form>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"Question"[39m
+          [33mplaceholder[39m=[32m"population of Harris County, Texas"[39m
+          [33mvalue[39m=[32m"population of every county in Oregon"[39m
+        [36m/>[39m
+        [36m<button[39m
+          [33mtype[39m=[32m"submit"[39m
+        [36m>[39m
+          [0mAsk[0m
+        [36m</button>[39m
+      [36m</form>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"pane"[39m
+        [33mdata-state[39m=[32m"result"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"answer"[39m
+        [36m>[39m
+          [0mPopulation for Oregon counties.[0m
+        [36m</p>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"meta"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mTable[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mB01003[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mUniverse[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mTotal population[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mGEOID[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m0500000US41001[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<h2>[39m
+          [0mEstimates[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Estimates"[39m
+          [33mclass[39m=[32m"table-scroll"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<table[39m
+            [33mclass[39m=[32m"geo-table"[39m
+          [36m>[39m
+            [36m<thead>[39m
+              [36m<tr>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mGEOID[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mName[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mDataset[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mYear[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mPeriod[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mTable[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mVariable[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mEstimate[0m
+                [36m</th>[39m
+                [36m<th[39m
+                  [33mscope[39m=[32m"col"[39m
+                [36m>[39m
+                  [0mMOE[0m
+                [36m</th>[39m
+              [36m</tr>[39m
+            [36m</thead>[39m
+            [36m<tbody>[39m
+              [36m<tr>[39m
+                [36m<td>[39m
+                  [0m0500000US41001[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0mBaker County, Oregon[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m—[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0mB01003[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0mB01003_001E[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m16,668[0m
+                [36m</td>[39m
+                [36m<td>[39m
+                  [0m24[0m
+                [36m</td>[39m
+              [36m</tr>[39m
+            [36m</tbody>[39m
+          [36m</table>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mCensus API URL[0m
+        [36m</h2>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"url-row"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"census-urls"[39m
+          [36m>[39m
+            [36m<pre[39m
+              [33mclass[39m=[32m"census-url"[39m
+            [36m>[39m
+              [0mhttps://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48[0m
+            [36m</pre>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mCopy URL[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<h2>[39m
+          [0mAlternatives[0m
+        [36m</h2>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"alts"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mB01001[0m
+            [0m — [0m
+            [0mrelated table[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/App.test.tsx:210:19
+    208|     await user.click(screen.getByRole("button", { name: "Ask" }));
+    209|     await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    210|     expect(screen.getByText("2 areas")).toBeTruthy();
+       |                   ^
+    211|     expect(screen.queryByText(/B01003_001E: 16668 ± 24/)).toBeNull();
+    212|     expect(document.querySelector("ul.estimates")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/App.test.tsx > App result > renders every estimate variable for every geography
+AssertionError: expected [ <td></td> ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/App.test.tsx:249:48
+    247|     await user.click(screen.getByRole("button", { name: "Ask" }));
+    248|     await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    249|     expect(screen.getAllByText("B01001_001E")).toHaveLength(2);
+       |                                                ^
+    250|     expect(screen.getAllByText("B01001_002E")).toHaveLength(2);
+    251|     expect(screen.getByText("8,401")).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/display.test.ts > normalizeActiveDataset > does not collapse several geographies onto the first Census row
+AssertionError: expected [ { dataset: 'acs5', …(9) } ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/display.test.ts:229:18
+    227|     };
+    228|     const rows = normalizeActiveDataset(oregon);
+    229|     expect(rows).toHaveLength(2);
+       |                  ^
+    230|     expect(rows.map((row) => row.geoid)).toEqual(["0500000US41001", "0…
+    231|     expect(rows.map((row) => row.estimate)).toEqual(["52000", "71000"]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/display.test.ts > normalizeActiveDataset > emits a row for every estimate variable on every geography
+AssertionError: expected [ '0500000US41001:B01001_001E:16668' ] to deeply equal [ …(4) ]
+
+- Expected
++ Received
+
+  [
+    "0500000US41001:B01001_001E:16668",
+-   "0500000US41001:B01001_002E:8401",
+-   "0500000US41003:B01001_001E:95184",
+-   "0500000US41003:B01001_002E:47012",
+  ]
+
+ ❯ src/display.test.ts:260:79
+    258|     };
+    259|     const rows = normalizeActiveDataset(mixed);
+    260|     expect(rows.map((row) => `${row.geoid}:${row.variable}:${row.estim…
+       |                                                                               ^
+    261|       "0500000US41001:B01001_001E:16668",
+    262|       "0500000US41001:B01001_002E:8401",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== MUTATION: inferring year/dataset/period from a URL =====
+test: does not infer year, dataset, or period from a URL when the row omits them
+
+$ npm --prefix web test -- src/display.test.ts -t "does not infer year, dataset, or period from a URL"
+
+GOOD
+
+> test
+> vitest run src/display.test.ts -t does not infer year, dataset, or period from a URL
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/display.test.ts (26 tests | 1 failed | 25 skipped) 10ms
+   ↓ matchingMoe > pairs an estimate with its exact 90% M suffix on the same margins object
+   ↓ matchingMoe > keeps an estimate when the matching MOE key is absent
+   ↓ matchingMoe > treats a Census sentinel MOE as missing, not as a number
+   ↓ matchingMoe > does not borrow an M value from a different variable
+   ↓ censusFetchFailed > is true when a URL shipped and Census returned no rows
+   ↓ censusFetchFailed > is false when rows arrived
+   ↓ censusFetchFailed > is false when some years succeeded and others failed
+   ↓ censusYearsIncomplete > is true when a year failed but rows arrived
+   ↓ censusYearsIncomplete > is false on a complete one-year fetch
+   ↓ censusYearsIncomplete > is false when every attempted year failed
+   ↓ redactCensusUrl > strips key= from a Census URL
+   ↓ redactCensusUrl > strips a first-parameter key and an uppercase KEY
+   ↓ redactCensusUrl > strips key= from a URL the parser rejects
+   ↓ formatCensusValue > renders Census missing sentinels as unavailable
+   ↓ formatCensusValue > keeps a published MOE of zero
+   ↓ formatCensusNumber > groups digits for display without changing the stored raw value
+   ↓ formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero
+   ↓ normalizeActiveDataset > emits one table row for a one-row scalar using the same model as a series
+   ↓ normalizeActiveDataset > does not collapse several geographies onto the first Census row
+   ↓ normalizeActiveDataset > emits a row for every estimate variable on every geography
+   ↓ normalizeActiveDataset > keeps dataset, period, and table on each series point from that row
+   ↓ normalizeActiveDataset > keeps ACS1 period labels as the year, distinct from ACS5 windows
+   × normalizeActiveDataset > does not infer year, dataset, or period from a URL when the row omits them 9ms
+     → expected { dataset: 'acs5', year: '2024', …(8) } to match object { dataset: '', year: '', …(2) }
+(6 matching properties omitted from actual)
+   ↓ normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero
+   ↓ normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes
+   ↓ normalizeActiveDataset > returns no dataset rows when the fetch is empty
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 skipped (26)
+   Start at  11:29:54
+   Duration  2.96s (transform 57ms, setup 154ms, collect 34ms, tests 10ms, environment 466ms, prepare 104ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/display.test.ts > normalizeActiveDataset > does not infer year, dataset, or period from a URL when the row omits them
+AssertionError: expected { dataset: 'acs5', year: '2024', …(8) } to match object { dataset: '', year: '', …(2) }
+(6 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "dataset": "",
++   "dataset": "acs5",
+    "estimate": "4838303",
+-   "period": "",
+-   "year": "",
++   "period": "2020-2024",
++   "year": "2024",
+  }
+
+ ❯ src/display.test.ts:325:45
+    323|       ],
+    324|     };
+    325|     expect(normalizeActiveDataset(bare)[0]).toMatchObject({
+       |                                             ^
+    326|       dataset: "",
+    327|       year: "",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== MUTATION: scalar answers using a separate estimates list instead of the table =====
+test: renders URL, estimate with MOE, GEOID, universe, and an alternative; keeps the estimates table keyboard-reachable with semantic headers
+
+$ npm --prefix web test -- src/App.test.tsx -t "renders URL, estimate with MOE|keeps the estimates table keyboard-reachable"
+
+GOOD
+
+> test
+> vitest run src/App.test.tsx -t renders URL, estimate with MOE|keeps the estimates table keyboard-reachable
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/App.test.tsx (19 tests | 2 failed | 17 skipped) 251ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   × App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 179ms
+     → expected <ul class="estimates"><li></li></ul> to be null
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   ↓ App result > renders a missing MOE as unavailable rather than zero or another row's margin
+   ↓ App result > replaces every previous table row when a new result arrives
+   × App result > keeps the estimates table keyboard-reachable with semantic headers 71ms
+     → Cannot read properties of null (reading 'tabIndex')
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 17 skipped (19)
+   Start at  11:30:00
+   Duration  3.28s (transform 80ms, setup 165ms, collect 126ms, tests 251ms, environment 509ms, prepare 98ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+AssertionError: expected <ul class="estimates"><li></li></ul> to be null
+
+- Expected: 
+null
+
++ Received: 
+<ul
+  class="estimates"
+>
+  <li>
+    B01003_001E
+    : 
+    4,838,303
+     ±
+     
+    123
+  </li>
+</ul>
+
+ ❯ src/App.test.tsx:114:52
+    112|     expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruth…
+    113|     expect(screen.queryByRole("list", { name: /estimates/i })).toBeNul…
+    114|     expect(document.querySelector("ul.estimates")).toBeNull();
+       |                                                    ^
+    115|     expect(screen.getByRole("table")).toBeTruthy();
+    116|     expect(screen.getByRole("columnheader", { name: "GEOID" })).toBeTr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/App.test.tsx > App result > keeps the estimates table keyboard-reachable with semantic headers
+TypeError: Cannot read properties of null (reading 'tabIndex')
+ ❯ src/App.test.tsx:505:21
+    503|     await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    504|     const scroller = document.querySelector(".table-scroll") as HTMLEl…
+    505|     expect(scroller.tabIndex).toBe(0);
+       |                     ^
+    506|     expect(scroller.getAttribute("aria-label")).toBe("Estimates");
+    507|     expect(screen.getByRole("table")).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== MUTATION: keeping stale rows after a new AskResponse =====
+test: replaces every previous table row when a new result arrives
+
+$ npm --prefix web test -- src/App.test.tsx -t "replaces every previous table row when a new result arrives"
+
+GOOD
+
+> test
+> vitest run src/App.test.tsx -t replaces every previous table row when a new result arrives
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/App.test.tsx (19 tests | 1 failed | 18 skipped) 291ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   ↓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   ↓ App result > renders a missing MOE as unavailable rather than zero or another row's margin
+   × App result > replaces every previous table row when a new result arrives 291ms
+     → expected <td></td> to be null
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 skipped (19)
+   Start at  11:30:05
+   Duration  3.35s (transform 83ms, setup 144ms, collect 135ms, tests 291ms, environment 551ms, prepare 119ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > replaces every previous table row when a new result arrives
+AssertionError: expected <td></td> to be null
+
+- Expected: 
+null
+
++ Received: 
+<td>
+  Benton County, Oregon
+</td>
+
+ ❯ src/App.test.tsx:493:57
+    491|     await user.click(screen.getByRole("button", { name: "Ask" }));
+    492|     await waitFor(() => expect(screen.getByText("Harris County, Texas"…
+    493|     expect(screen.queryByText("Benton County, Oregon")).toBeNull();
+       |                                                         ^
+    494|     expect(screen.queryByText("0500000US41003")).toBeNull();
+    495|     expect(document.querySelectorAll(".geo-table tbody tr")).toHaveLen…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== MUTATION: rendering missing MOE as 0 =====
+test: renders sentinels as unavailable, not as large negatives or zero; does not borrow a missing MOE from another row or render it as zero; renders a missing MOE as unavailable rather than zero or another row's margin
+
+$ npm --prefix web test -- src/display.test.ts src/App.test.tsx -t "renders sentinels as unavailable, not as large negatives or zero|does not borrow a missing MOE from another row|renders a missing MOE as unavailable"
+
+GOOD  formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero  (failed)
+GOOD  App.test.tsx > renders a missing MOE as unavailable rather than zero or another row's margin  (failed)
+BAD   normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero  (passed; asserts stored null, not the rendered 0)
+
+> test
+> vitest run src/display.test.ts src/App.test.tsx -t renders sentinels as unavailable, not as large negatives or zero|does not borrow a missing MOE from another row|renders a missing MOE as unavailable
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/display.test.ts (26 tests | 1 failed | 24 skipped) 10ms
+   ↓ matchingMoe > pairs an estimate with its exact 90% M suffix on the same margins object
+   ↓ matchingMoe > keeps an estimate when the matching MOE key is absent
+   ↓ matchingMoe > treats a Census sentinel MOE as missing, not as a number
+   ↓ matchingMoe > does not borrow an M value from a different variable
+   ↓ censusFetchFailed > is true when a URL shipped and Census returned no rows
+   ↓ censusFetchFailed > is false when rows arrived
+   ↓ censusFetchFailed > is false when some years succeeded and others failed
+   ↓ censusYearsIncomplete > is true when a year failed but rows arrived
+   ↓ censusYearsIncomplete > is false on a complete one-year fetch
+   ↓ censusYearsIncomplete > is false when every attempted year failed
+   ↓ redactCensusUrl > strips key= from a Census URL
+   ↓ redactCensusUrl > strips a first-parameter key and an uppercase KEY
+   ↓ redactCensusUrl > strips key= from a URL the parser rejects
+   ↓ formatCensusValue > renders Census missing sentinels as unavailable
+   ↓ formatCensusValue > keeps a published MOE of zero
+   ↓ formatCensusNumber > groups digits for display without changing the stored raw value
+   × formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero 8ms
+     → expected '0' to be '—' // Object.is equality
+   ↓ normalizeActiveDataset > emits one table row for a one-row scalar using the same model as a series
+   ↓ normalizeActiveDataset > does not collapse several geographies onto the first Census row
+   ↓ normalizeActiveDataset > emits a row for every estimate variable on every geography
+   ↓ normalizeActiveDataset > keeps dataset, period, and table on each series point from that row
+   ↓ normalizeActiveDataset > keeps ACS1 period labels as the year, distinct from ACS5 windows
+   ↓ normalizeActiveDataset > does not infer year, dataset, or period from a URL when the row omits them
+   ✓ normalizeActiveDataset > does not borrow a missing MOE from another row or render it as zero 1ms
+   ↓ normalizeActiveDataset > stores Census sentinels as null so they are not chart points or zeroes
+   ↓ normalizeActiveDataset > returns no dataset rows when the fetch is empty
+ ❯ src/App.test.tsx (19 tests | 1 failed | 18 skipped) 195ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   ↓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   × App result > renders a missing MOE as unavailable rather than zero or another row's margin 194ms
+     → expected '0' to be '—' // Object.is equality
+   ↓ App result > replaces every previous table row when a new result arrives
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 1 passed | 42 skipped (45)
+   Start at  11:30:11
+   Duration  3.62s (transform 131ms, setup 482ms, collect 363ms, tests 204ms, environment 1.32s, prepare 195ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > renders a missing MOE as unavailable rather than zero or another row's margin
+AssertionError: expected '0' to be '—' // Object.is equality
+
+Expected: "—"
+Received: "0"
+
+ ❯ src/App.test.tsx:462:30
+    460|     expect(texts[0]?.includes("2,400")).toBe(true);
+    461|     expect(texts[1]?.includes("2,400")).toBe(false);
+    462|     expect(texts[1]?.at(-1)).toBe("—");
+       |                              ^
+    463|     expect(texts.flat().includes("0")).toBe(false);
+    464|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/display.test.ts > formatCensusNumber > renders sentinels as unavailable, not as large negatives or zero
+AssertionError: expected '0' to be '—' // Object.is equality
+
+Expected: "—"
+Received: "0"
+
+ ❯ src/display.test.ts:171:46
+    169| 
+    170|   it("renders sentinels as unavailable, not as large negatives or zero…
+    171|     expect(formatCensusNumber("-555555555")).toBe("—");
+       |                                              ^
+    172|     expect(formatCensusNumber(null)).toBe("—");
+    173|     expect(formatCensusNumber("0")).toBe("0");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+exit: 1
+restore: git checkout -- web/src/display.ts web/src/App.tsx
+
+===== tree after restores =====
+web/src/display.ts and web/src/App.tsx: clean (git diff empty)
