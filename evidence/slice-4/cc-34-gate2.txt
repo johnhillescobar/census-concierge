@@ -1,0 +1,843 @@
+Gate 2 transcript — CC-34 ChartSpec
+branch: feat/cc-34-chartspec
+HEAD: 3e1241f (Gate 1 evidence); feat: b4dbeaf
+base: origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+
+=== commands ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-34-chartspec
+
+$ git log --oneline origin/main..HEAD
+exit: 0
+3e1241f chore(CC-34): record Gate 1 mutation check
+b4dbeaf feat(CC-34): emit a validated ChartSpec on AskResponse
+
+$ git diff --stat origin/main...HEAD
+exit: 0
+ .claude/PLAN.md                     |   5 +-
+ api/src/ask.py                      |   4 +-
+ api/src/contract.py                 |  57 ++++++-
+ api/src/prompts.py                  |   5 +-
+ api/tests/test_ask_route.py         |  21 ++-
+ api/tests/test_chart.py             | 181 +++++++++++++++++++++++
+ api/tests/test_generated_client.py  |   4 +-
+ api/tests/test_static_frontend.py   |   2 +
+ docs/ARCHITECTURE.md                |   9 +-
+ docs/ask-path.md                    |  10 +-
+ evidence/slice-4/cc-34-gate1.txt    | 286 ++++++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-34-preflight.md |  24 +++
+ packages/client/openapi.json        |  83 +++++++++++
+ packages/client/schema.d.ts         |  49 ++++++
+ web/src/App.test.tsx                |   2 +
+ web/src/ask.test.ts                 |   1 +
+ web/src/display.test.ts             |   1 +
+ 17 files changed, 728 insertions(+), 16 deletions(-)
+
+$ git diff origin/main...HEAD -- . :(exclude)evidence/slice-4/cc-34-gate1.txt
+exit: 0
+diff --git a/.claude/PLAN.md b/.claude/PLAN.md
+index 0a2445d..a96f5e5 100644
+--- a/.claude/PLAN.md
++++ b/.claude/PLAN.md
+@@ -31,8 +31,9 @@ CC-98 finish/geo leaf). CC-96 Done (informal/alias geography is the ask loop
+ plus tools). CC-97 Done (`acs1_geography_ineligible`; answered_rate held; p95
+ over-ceiling recorded not promoted; `evidence/slice-3/cc-97-e2e-post.txt`).
+ Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
+-is **To Do** in Jira (epic and all eight stories). CC-77 waits on CC-11
+-table/plan-strip foundations. Spike CC-9 before slice 5.
++is **To Do** in Jira; [CC-34](https://johnhillescobar.atlassian.net/browse/CC-34)
++(ChartSpec) is **In Progress**. CC-77 waits on CC-11 table/plan-strip
++foundations. Spike CC-9 before slice 5.
+ 
+ ---
+ 
+diff --git a/api/src/ask.py b/api/src/ask.py
+index c063bd6..8f8097d 100644
+--- a/api/src/ask.py
++++ b/api/src/ask.py
+@@ -19,7 +19,7 @@ from langchain_core.tools import BaseTool
+ from langchain_core.utils.function_calling import convert_to_openai_tool
+ 
+ from src.census_url import CensusURL, redact_text
+-from src.contract import Alternative, AskResponse, GeoSpec
++from src.contract import Alternative, AskResponse, GeoSpec, take_chart
+ from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
+ from src.finish import finish_tools
+ from src.geo import ResolveGeographyTool
+@@ -244,7 +244,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
+     year = record.vintages[-1][1] if record.vintages else None
+     rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
+     return AskResponse(
+-        answer=answer,
++        **take_chart(answer, rows),
+         **series_from_record(record),
+         rows=rows,
+         moe=moe_rows(rows),
+diff --git a/api/src/contract.py b/api/src/contract.py
+index a9f7e25..ce4edc2 100644
+--- a/api/src/contract.py
++++ b/api/src/contract.py
+@@ -9,9 +9,11 @@ built URL when every vintage is omitted.
+ 
+ from __future__ import annotations
+ 
++import json
+ import re
++from typing import Any, Literal
+ 
+-from pydantic import BaseModel, Field, field_validator, model_validator
++from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+ 
+ _CLAUSE = re.compile(r"(.+?):(\S+)")
+ 
+@@ -104,6 +106,30 @@ class RequestLeg(BaseModel):
+     )
+ 
+ 
++_UNSAFE_TITLE = re.compile(r"<\s*(?:svg|script|iframe)\b|javascript:|on\w+\s*=", re.I)
++
++
++class ChartSpec(BaseModel):
++    """Roles over rows/moe. No duplicated data, Vega, or markup."""
++
++    model_config = ConfigDict(extra="forbid")
++    type: Literal["line", "bar"] = Field(description="line for years; bar for geographies.")
++    x: Literal["year", "geography"] = Field(description="Axis from row year or GEO_ID.")
++    y: Literal["estimate"] = Field(description="Estimate columns; never copied values.")
++    series_by: Literal["geography", "variable"] | None = Field(
++        default=None, description="Split by GEO_ID or estimate variable."
++    )
++    title: str = Field(description="Plain-text title.")
++    show_moe: Literal[True] = Field(default=True, description="MOE display cannot be opted out.")
++
++    @field_validator("title")
++    @classmethod
++    def title_is_plain_text(cls, value: str) -> str:
++        if _UNSAFE_TITLE.search(value):
++            raise ValueError("title must not contain markup or code")
++        return value
++
++
+ class AskResponse(BaseModel):
+     answer: str = Field(description="Natural-language answer.")
+     urls: list[str] = Field(
+@@ -158,3 +184,32 @@ class AskResponse(BaseModel):
+         "boundary_change_2020, measure_unavailable, variable_not_in_vintage, "
+         "shared_sample."
+     )
++    chart: ChartSpec | None = Field(default=None, description="Validated chart roles, or null.")
++    chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
++
++
++def take_chart(answer: str, rows: list[dict[str, str | None]]) -> dict[str, Any]:
++    cleaned, payload, saw = answer, None, False
++    try:
++        body = json.loads(answer.strip())
++    except json.JSONDecodeError:
++        body = None
++    if isinstance(body, dict) and "answer" in body:
++        cleaned = str(body.get("answer") or "")
++        raw = body.get("chart")
++        saw = raw is not None
++        payload = raw if isinstance(raw, dict) else {}
++    none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
++    if not saw:
++        return none
++    try:
++        spec = ChartSpec.model_validate(payload)
++    except ValidationError:
++        return {**none, "chart_unavailable": True}
++    years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
++    geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
++    estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
++    fits = (spec.x != "year" or len(years) > 1) and (spec.x != "geography" or len(geos) > 1)
++    fits = fits and (spec.series_by != "geography" or len(geos) > 1)
++    fits = fits and (spec.series_by != "variable" or len(estimates) > 1)
++    return none if not fits else {"answer": cleaned, "chart": spec, "chart_unavailable": False}
+diff --git a/api/src/prompts.py b/api/src/prompts.py
+index 0b7da28..312763f 100644
+--- a/api/src/prompts.py
++++ b/api/src/prompts.py
+@@ -14,7 +14,10 @@ ROLE = (
+     "If several places match, they are the result — do not ask which one. "
+     "Finish the URL with build_url before fetch_data. If no place is named, "
+     "resolve the United States. Warnings do not skip fetch; the URL is the answer. "
+-    "If the fetch fails, stop. Do not retype estimates."
++    "If the fetch fails, stop. Do not retype estimates. "
++    "Stop with JSON {answer, chart}; chart is {type: line|bar, x: year|geography, "
++    "y: estimate, title, show_moe: true, optional series_by: geography|variable} or null. "
++    "No Vega, SVG, or code."
+ )
+ 
+ 
+diff --git a/api/tests/test_ask_route.py b/api/tests/test_ask_route.py
+index 1ebdaba..72240ee 100644
+--- a/api/tests/test_ask_route.py
++++ b/api/tests/test_ask_route.py
+@@ -33,7 +33,10 @@ CONTRACT_FIELDS = (
+     "alternatives",
+     "comparisons",
+     "warnings",
++    "chart",
++    "chart_unavailable",
+ )
++REQUIRED_FIELDS = CONTRACT_FIELDS[:-2]
+ 
+ 
+ def test_openapi_documents_post_ask() -> None:
+@@ -51,7 +54,8 @@ def test_openapi_documents_post_ask() -> None:
+     assert list(request_props) == ["question"]
+     assert request_props["question"]["minLength"] == 1
+     response = schema["components"]["schemas"]["AskResponse"]
+-    assert response["required"] == list(CONTRACT_FIELDS)
++    assert response["required"] == list(REQUIRED_FIELDS)
++    assert list(response["properties"])[-2:] == ["chart", "chart_unavailable"]
+     assert response["properties"]["alternatives"]["items"] == {
+         "$ref": "#/components/schemas/Alternative"
+     }
+@@ -87,6 +91,19 @@ def test_openapi_documents_post_ask() -> None:
+     leg = schema["components"]["schemas"]["RequestLeg"]
+     assert leg["required"] == ["year", "url", "ok", "status_code", "detail"]
+     assert "for_spec" in leg["properties"]
++    chart = schema["components"]["schemas"]["ChartSpec"]
++    assert chart.get("additionalProperties") is False
++    assert set(chart["properties"]) == {"type", "x", "y", "series_by", "title", "show_moe"}
++    assert "vega" not in chart["properties"]
++    assert "svg" not in chart["properties"]
++    assert chart["properties"]["type"]["enum"] == ["line", "bar"]
++    assert chart["properties"]["x"]["enum"] == ["year", "geography"]
++    assert chart["properties"]["y"]["const"] == "estimate"
++    assert chart["properties"]["show_moe"]["const"] is True
++    assert response["properties"]["chart"]["anyOf"] == [
++        {"$ref": "#/components/schemas/ChartSpec"},
++        {"type": "null"},
++    ]
+ 
+ 
+ def test_empty_question_is_a_validation_error() -> None:
+@@ -122,6 +139,8 @@ EMPTY_CONTRACT = {
+     "alternatives": [],
+     "comparisons": [],
+     "warnings": [],
++    "chart": None,
++    "chart_unavailable": False,
+ }
+ 
+ 
+diff --git a/api/tests/test_chart.py b/api/tests/test_chart.py
+new file mode 100644
+index 0000000..2987c8c
+--- /dev/null
++++ b/api/tests/test_chart.py
+@@ -0,0 +1,181 @@
++"""Validated ChartSpec on assemble: roles only, extra fields rejected."""
++
++from __future__ import annotations
++
++import json
++
++import pytest
++from pydantic import ValidationError
++from src.ask import ExecutionRecord, assemble
++from src.contract import ChartSpec
++
++AUSTIN = {
++    "NAME": "Austin city, Texas",
++    "GEO_ID": "1600000US4805000",
++    "year": "2024",
++    "B25064_001E": "1729",
++    "B25064_001M": "14",
++}
++TEXAS = {
++    "NAME": "Texas",
++    "GEO_ID": "0400000US48",
++    "year": "2024",
++    "B25064_001E": "1403",
++    "B25064_001M": "4",
++}
++DENVER_2019 = {
++    "NAME": "Denver city, Colorado",
++    "GEO_ID": "1600000US0820000",
++    "year": "2019",
++    "B19013_001E": "100",
++    "B19013_001M": "5",
++}
++DENVER_2024 = {
++    "NAME": "Denver city, Colorado",
++    "GEO_ID": "1600000US0820000",
++    "year": "2024",
++    "B19013_001E": "110",
++    "B19013_001M": "6",
++}
++HARRIS = {
++    "NAME": "Harris County, Texas",
++    "GEO_ID": "0500000US48201",
++    "year": "2024",
++    "B01003_001E": "4838303",
++    "B01003_001M": "123",
++}
++
++BAR = {
++    "type": "bar",
++    "x": "geography",
++    "y": "estimate",
++    "title": "Median gross rent",
++    "show_moe": True,
++}
++LINE = {
++    "type": "line",
++    "x": "year",
++    "y": "estimate",
++    "title": "Median household income",
++    "show_moe": True,
++}
++
++
++def _envelope(answer: str, chart: dict | None) -> str:
++    return json.dumps({"answer": answer, "chart": chart})
++
++
++def test_year_series_keeps_a_line_chart() -> None:
++    record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
++    response = assemble(_envelope("Income rose.", LINE), record)
++    assert response.answer == "Income rose."
++    assert response.chart is not None
++    assert response.chart.model_dump() == {**LINE, "series_by": None}
++    assert response.chart_unavailable is False
++    assert [row["year"] for row in response.rows] == ["2019", "2024"]
++    assert response.moe[0]["B19013_001M"] == "5"
++
++
++def test_two_geographies_keep_a_bar_chart() -> None:
++    record = ExecutionRecord(rows=[AUSTIN, TEXAS])
++    response = assemble(_envelope("Austin is higher.", BAR), record)
++    assert response.chart is not None
++    assert response.chart.type == "bar"
++    assert response.chart.x == "geography"
++    assert response.chart.y == "estimate"
++    assert response.chart.show_moe is True
++    assert response.chart_unavailable is False
++    assert [row["GEO_ID"] for row in response.rows] == [AUSTIN["GEO_ID"], TEXAS["GEO_ID"]]
++
++
++def test_geography_series_over_years_is_kept() -> None:
++    austin_2019 = {**AUSTIN, "year": "2019", "B25064_001E": "1600"}
++    texas_2019 = {**TEXAS, "year": "2019", "B25064_001E": "1300"}
++    spec = {**LINE, "series_by": "geography", "title": "Rent by place"}
++    record = ExecutionRecord(rows=[austin_2019, AUSTIN, texas_2019, TEXAS])
++    response = assemble(_envelope("Both rose.", spec), record)
++    assert response.chart is not None
++    assert response.chart.series_by == "geography"
++    assert response.chart.x == "year"
++    assert len(response.rows) == 4
++
++
++def test_variable_series_is_kept() -> None:
++    row_2019 = {
++        **DENVER_2019,
++        "B19013_001E": "100",
++        "B19013_001M": "5",
++        "B19013_002E": "80",
++        "B19013_002M": "4",
++    }
++    row_2024 = {
++        **DENVER_2024,
++        "B19013_001E": "110",
++        "B19013_001M": "6",
++        "B19013_002E": "90",
++        "B19013_002M": "5",
++    }
++    spec = {**LINE, "series_by": "variable", "title": "Two income measures"}
++    record = ExecutionRecord(rows=[row_2019, row_2024])
++    response = assemble(_envelope("Two measures.", spec), record)
++    assert response.chart is not None
++    assert response.chart.series_by == "variable"
++    assert "B19013_002E" in response.rows[0]
++
++
++def test_scalar_result_has_no_chart() -> None:
++    record = ExecutionRecord(rows=[HARRIS])
++    response = assemble(_envelope("Population is 4.8 million.", BAR), record)
++    assert response.chart is None
++    assert response.chart_unavailable is False
++    assert response.answer == "Population is 4.8 million."
++    assert response.rows[0]["B01003_001E"] == "4838303"
++    assert response.moe[0]["B01003_001M"] == "123"
++
++
++def test_prose_answer_stays_a_prose_answer() -> None:
++    record = ExecutionRecord(rows=[HARRIS])
++    response = assemble("Harris County has data.", record)
++    assert response.answer == "Harris County has data."
++    assert response.chart is None
++    assert response.chart_unavailable is False
++
++
++def test_unknown_chart_type_is_discarded() -> None:
++    record = ExecutionRecord(rows=[AUSTIN, TEXAS])
++    payload = {**BAR, "type": "scatter"}
++    response = assemble(_envelope("Austin is higher.", payload), record)
++    assert response.chart is None
++    assert response.chart_unavailable is True
++    assert response.answer == "Austin is higher."
++    assert len(response.rows) == 2
++    assert response.moe[0]["B25064_001M"] == "14"
++
++
++def test_extra_vega_field_is_rejected() -> None:
++    with pytest.raises(ValidationError):
++        ChartSpec.model_validate({**BAR, "vega": {"mark": "bar"}})
++    record = ExecutionRecord(rows=[AUSTIN, TEXAS])
++    response = assemble(_envelope("Austin is higher.", {**BAR, "mark": "bar"}), record)
++    assert response.chart is None
++    assert response.chart_unavailable is True
++    assert [row["GEO_ID"] for row in response.rows] == [AUSTIN["GEO_ID"], TEXAS["GEO_ID"]]
++
++
++def test_svg_payload_is_rejected() -> None:
++    with pytest.raises(ValidationError):
++        ChartSpec.model_validate({**BAR, "svg": "<svg onload=alert(1)>"})
++    with pytest.raises(ValidationError):
++        ChartSpec.model_validate({**BAR, "title": "<svg><script>alert(1)</script></svg>"})
++    with pytest.raises(ValidationError):
++        ChartSpec.model_validate({**BAR, "show_moe": False})
++    record = ExecutionRecord(rows=[AUSTIN, TEXAS])
++    urls_before = list(record.rows)
++    response = assemble(
++        _envelope("Austin is higher.", {**BAR, "html": "<script>alert(1)</script>"}),
++        record,
++    )
++    assert response.chart is None
++    assert response.chart_unavailable is True
++    assert response.rows[0]["B25064_001E"] == urls_before[0]["B25064_001E"]
++    assert response.warnings == []
+diff --git a/api/tests/test_generated_client.py b/api/tests/test_generated_client.py
+index 25e3bda..7626670 100644
+--- a/api/tests/test_generated_client.py
++++ b/api/tests/test_generated_client.py
+@@ -34,6 +34,8 @@ CONTRACT_FIELDS = (
+     "alternatives",
+     "comparisons",
+     "warnings",
++    "chart",
++    "chart_unavailable",
+ )
+ 
+ 
+@@ -52,7 +54,7 @@ def test_generated_schema_declares_every_contract_field() -> None:
+     end = text.index("AskWarning:", start)
+     body = text[start:end]
+     for field in CONTRACT_FIELDS:
+-        assert f"{field}:" in body, field
++        assert f"{field}:" in body or f"{field}?:" in body, field
+ 
+ 
+ def test_ask_ts_consumes_generated_types() -> None:
+diff --git a/api/tests/test_static_frontend.py b/api/tests/test_static_frontend.py
+index 19c4e49..5b86764 100644
+--- a/api/tests/test_static_frontend.py
++++ b/api/tests/test_static_frontend.py
+@@ -27,6 +27,8 @@ EMPTY = {
+     "alternatives": [],
+     "comparisons": [],
+     "warnings": [],
++    "chart": None,
++    "chart_unavailable": False,
+ }
+ 
+ 
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index c81be81..6ff07e7 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -2,7 +2,7 @@
+ 
+ **Status (2026-09-22).** Slices 0–3 are built and their epics are Done
+ (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
+-is To Do in Jira. Neither has changed this shape yet.
++is in progress at CC-34: `AskResponse.chart` is a validated `ChartSpec`.
+ 
+ This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
+ `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
+@@ -44,7 +44,7 @@ api/src/geo.py               resolve_geography → GeoSpec list
+ api/src/geo_list.py          state FIPS + NAME listings
+ api/src/census_url.py        CensusURL; default form never carries &key=
+ api/src/prompts.py           one system prompt
+-api/src/contract.py          AskResponse
++api/src/contract.py          AskResponse; ChartSpec; GeoSpec
+ web/                         Vite + React chat pane
+ packages/client/             generated; CI fails if stale
+ ```
+@@ -68,8 +68,9 @@ Availability: `index_store/availability.json.gz` (not parquet).
+ ## HTTP
+ 
+ One route: `POST /ask` → `run_ask`. Four tools. `AskResponse` fields and the
+-series/geo/comparison rules: `docs/ask-path.md`. `ambiguous_place` carries
+-ranked `GeoSpec` candidates. Start:
++series/geo/comparison rules: `docs/ask-path.md`. Optional `chart` is a `ChartSpec` (line/bar roles over
++`rows`); invalid model chart output is discarded (`chart_unavailable`).
++`ambiguous_place` carries ranked `GeoSpec` candidates. Start:
+ `uv run uvicorn src.main:app --reload` (from `api/`, or with `PYTHONPATH=api`).
+ 
+ `make demo` is `scripts/run_demo.py --repeat 3` (golden set except holdout).
+diff --git a/docs/ask-path.md b/docs/ask-path.md
+index 0a71592..2263dbf 100644
+--- a/docs/ask-path.md
++++ b/docs/ask-path.md
+@@ -36,10 +36,12 @@ containment stops — it does not invent nested `for`/`in`.
+ `AskResponse`: `answer`, `urls[]` (one key-redacted URL per attempted request),
+ `legs[]` (`for_spec` identifies the geography), year buckets (`requested` /
+ `attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`,
+-`universe`, `table_id`, `alternatives[]`, `comparisons[]`, `warnings[]`.
+-Rows are dicts. There is no `http_ok`. Empty `urls` means no legal URL was
+-produced by `build_url` or an attempted fetch — not that finish cleared the
+-current pointer.
++`universe`, `table_id`, `alternatives[]`, `comparisons[]`, `warnings[]`,
++optional `chart` (`ChartSpec`: `type`, `x`, `y`, `series_by`, `title`,
++`show_moe`; no Vega/SVG/code) and `chart_unavailable` when a model chart
++failed validation. Rows are dicts. There is no `http_ok`. Empty `urls` means
++no legal URL was produced by `build_url` or an attempted fetch — not that
++finish cleared the current pointer.
+ 
+ `CensusURL` redacts `&key=` in `__str__` / the response; `with_key()` is the
+ httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
+diff --git a/evidence/slice-4/cc-34-preflight.md b/evidence/slice-4/cc-34-preflight.md
+new file mode 100644
+index 0000000..15026b9
+--- /dev/null
++++ b/evidence/slice-4/cc-34-preflight.md
+@@ -0,0 +1,24 @@
++# CC-34 pre-flight — claims vs measured
++
++Raw commands in this file. Settled on `origin/main` @ `762b1f8`. Jira `CC-34`
++To Do, parent CC-11. Slice 3 post-merge E2E is closed (CC-91 Done). Did not
++Read E2E transcripts. Did not open CC-11 sibling stories.
++
++| Claim in the ticket | Settled by | Verdict |
++| --- | --- | --- |
++| The existing completion can return the NL answer plus a narrow structured chart choice in the same tool loop | `api/src/ask.py` `_openai_complete` already returns `content` on the stop turn (`tool_calls` empty). `run_ask` assigns that string to `answer` with no second `complete()` call. Parsing `{answer, chart}` from that same `content` adds no model call, no fifth tool, no route, no graph node | **Holds.** |
++| Strict Pydantic can reject extra fields and code/SVG-like payloads before they reach the generated client | Ran `ChartSpec` with `extra="forbid"` and `show_moe: Literal[True]`. Valid bar accepted. `vega` / `svg` extras → `extra_forbidden`. `type=scatter` and `show_moe=False` → `literal_error` | **Holds.** |
++| q23 and multi-year records have enough to validate `x`, `series_by`, and MOE without duplicating row data | `evidence/latest.json` scoreboard (not transcripts): q23 3/3 answered, `rows=2` (two GEOIDs). t09 Denver since 2017 `rows=7`. q01 `rows=1`. Assemble already stamps `year`/`GEO_ID` (`stamp_provenance`) and matching `M` (`moe_rows`). `ChartSpec` names roles on those fields | **Holds.** |
++| Added schema/prompt text fits budgets | Structural at this SHA: api LOC 3923/4000, files 24/40, ask.py **399/400**, prompt 205/1200, docs 1577/1800, domain models 7/15, tools 4, routes 1, deps 7, p95 18.664/20, answered_rate 0.867. Plan: +1 `ChartSpec` (8/15), parse in `contract.py` (ask.py stays 399 via `**take_chart`), ~45 prompt tokens, no new tool/route/dep/file required | **Holds.** Do not raise a budget. |
++
++## Decision
++
++Parse `{answer, chart}` from the existing stop-turn `content`. Validate with
++`extra="forbid"` enums. Invalid payload → `chart=null` and `chart_unavailable=true`.
++Scalar / structural mismatch → `chart=null`, not unavailable. Prose-only content
++keeps today's answer path. No second model call.
++
++## Out of this ticket
++
++Rendering (CC-87). Plan strip, canvas shell, CSV, `ResultPlan`. Vega grammar.
++Raising any budget.
+diff --git a/packages/client/openapi.json b/packages/client/openapi.json
+index e172251..c1b4218 100644
+--- a/packages/client/openapi.json
++++ b/packages/client/openapi.json
+@@ -59,6 +59,23 @@
+             "title": "Attempted Years",
+             "type": "array"
+           },
++          "chart": {
++            "anyOf": [
++              {
++                "$ref": "#/components/schemas/ChartSpec"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "description": "Validated chart roles, or null."
++          },
++          "chart_unavailable": {
++            "default": false,
++            "description": "Model chart failed validation.",
++            "title": "Chart Unavailable",
++            "type": "boolean"
++          },
+           "comparisons": {
+             "description": "Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.",
+             "items": {
+@@ -233,6 +250,72 @@
+         "title": "AskWarning",
+         "type": "object"
+       },
++      "ChartSpec": {
++        "additionalProperties": false,
++        "description": "Roles over rows/moe. No duplicated data, Vega, or markup.",
++        "properties": {
++          "series_by": {
++            "anyOf": [
++              {
++                "enum": [
++                  "geography",
++                  "variable"
++                ],
++                "type": "string"
++              },
++              {
++                "type": "null"
++              }
++            ],
++            "description": "Split by GEO_ID or estimate variable.",
++            "title": "Series By"
++          },
++          "show_moe": {
++            "const": true,
++            "default": true,
++            "description": "MOE display cannot be opted out.",
++            "title": "Show Moe",
++            "type": "boolean"
++          },
++          "title": {
++            "description": "Plain-text title.",
++            "title": "Title",
++            "type": "string"
++          },
++          "type": {
++            "description": "line for years; bar for geographies.",
++            "enum": [
++              "line",
++              "bar"
++            ],
++            "title": "Type",
++            "type": "string"
++          },
++          "x": {
++            "description": "Axis from row year or GEO_ID.",
++            "enum": [
++              "year",
++              "geography"
++            ],
++            "title": "X",
++            "type": "string"
++          },
++          "y": {
++            "const": "estimate",
++            "description": "Estimate columns; never copied values.",
++            "title": "Y",
++            "type": "string"
++          }
++        },
++        "required": [
++          "type",
++          "x",
++          "y",
++          "title"
++        ],
++        "title": "ChartSpec",
++        "type": "object"
++      },
+       "Comparison": {
+         "properties": {
+           "distinguishable": {
+diff --git a/packages/client/schema.d.ts b/packages/client/schema.d.ts
+index defbe5f..6415aef 100644
+--- a/packages/client/schema.d.ts
++++ b/packages/client/schema.d.ts
+@@ -63,6 +63,14 @@ export interface components {
+              * @description Unique vintages for which a Census request was issued.
+              */
+             attempted_years: number[];
++            /** @description Validated chart roles, or null. */
++            chart?: components["schemas"]["ChartSpec"] | null;
++            /**
++             * Chart Unavailable
++             * @description Model chart failed validation.
++             * @default false
++             */
++            chart_unavailable: boolean;
+             /**
+              * Comparisons
+              * @description Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.
+@@ -156,6 +164,47 @@ export interface components {
+              */
+             detail: string;
+         };
++        /**
++         * ChartSpec
++         * @description Roles over rows/moe. No duplicated data, Vega, or markup.
++         */
++        ChartSpec: {
++            /**
++             * Series By
++             * @description Split by GEO_ID or estimate variable.
++             */
++            series_by?: ("geography" | "variable") | null;
++            /**
++             * Show Moe
++             * @description MOE display cannot be opted out.
++             * @default true
++             * @constant
++             */
++            show_moe: true;
++            /**
++             * Title
++             * @description Plain-text title.
++             */
++            title: string;
++            /**
++             * Type
++             * @description line for years; bar for geographies.
++             * @enum {string}
++             */
++            type: "line" | "bar";
++            /**
++             * X
++             * @description Axis from row year or GEO_ID.
++             * @enum {string}
++             */
++            x: "year" | "geography";
++            /**
++             * Y
++             * @description Estimate columns; never copied values.
++             * @constant
++             */
++            y: "estimate";
++        };
+         /** Comparison */
+         Comparison: {
+             /**
+diff --git a/web/src/App.test.tsx b/web/src/App.test.tsx
+index e31ff4a..5a8a5c5 100644
+--- a/web/src/App.test.tsx
++++ b/web/src/App.test.tsx
+@@ -31,6 +31,7 @@ const harris: AskResponse = {
+   alternatives: [{ table_id: "B01001", reason: "related table" }],
+   warnings: [],
+   comparisons: [],
++  chart_unavailable: false,
+ };
+ 
+ const rentFailure: AskResponse = {
+@@ -53,6 +54,7 @@ const rentFailure: AskResponse = {
+   alternatives: [{ table_id: "B25063", reason: "distribution versus median" }],
+   warnings: [{ code: "geography_unsupported", detail: "not published at this level" }],
+   comparisons: [],
++  chart_unavailable: false,
+ };
+ 
+ function pane(): HTMLElement {
+diff --git a/web/src/ask.test.ts b/web/src/ask.test.ts
+index 26d9288..f5cf942 100644
+--- a/web/src/ask.test.ts
++++ b/web/src/ask.test.ts
+@@ -21,6 +21,7 @@ const harris: AskResponse = {
+   alternatives: [],
+   warnings: [],
+   comparisons: [],
++  chart_unavailable: false,
+ };
+ 
+ afterEach(() => {
+diff --git a/web/src/display.test.ts b/web/src/display.test.ts
+index 4f14262..ddd0ea4 100644
+--- a/web/src/display.test.ts
++++ b/web/src/display.test.ts
+@@ -36,6 +36,7 @@ const harris: AskResponse = {
+   alternatives: [{ table_id: "B01001", reason: "related table" }],
+   warnings: [],
+   comparisons: [],
++  chart_unavailable: false,
+ };
+ 
+ describe("estimatePairs", () => {
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               3973 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1018 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1579 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                8 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.664 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.867 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+[1;32mAll checks passed![0m
+
+$ uv run ruff format --check .
+exit: 0
+135 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m not integration
+exit: 0
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 46%]
+........................................................................ [ 62%]
+........................................................................ [ 78%]
+........................................................................ [ 93%]
+.............................                                            [100%]
+461 passed in 21.15s
+
+$ uv run python scripts/generate_client.py --check
+exit: 0
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmp5tb25xmp\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp5tb25xmp\schema.d.ts [42.5ms]
+packages/client is up to date.
+
+=== Pass A — generic bugs (cold read of origin/main...HEAD, code only) ===
+
+1. take_chart (api/src/contract.py) parses the stop-turn with json.loads(answer.strip()) and only treats a top-level object that already has an "answer" key as an envelope. Markdown fences, a preamble, or trailing commentary make JSONDecodeError; saw stays False; the raw envelope (including the chart object) is stored as AskResponse.answer. Tests only feed json.dumps({answer, chart}).
+2. ChartSpec does not cross-check type against x. A line chart with x=geography (or bar with x=year) validates whenever the cardinality checks pass.
+3. title_is_plain_text is a denylist (<svg|script|iframe>, javascript:, on*=). Other markup in title is accepted. extra=forbid already rejects vega/svg/html fields on the spec itself.
+
+=== Pass B — project invariants (review-pr.md); machines first ===
+
+Machines: all exit 0 (budgets, invariants --base origin/main, ruff check, ruff format --check, mypy api/src, pytest -q -m "not integration" 461 passed, generate_client.py --check). No budget raise. No invariant break.
+
+Claim: POST /ask can attach a validated ChartSpec (roles over rows, show_moe locked true) or set chart_unavailable; the model does not emit Vega/SVG/code. No chart is rendered (CC-87). Scaffolding toward a visible chart, not a user-visible canvas yet.
+Evidence: E2E not run in this gate (downstream). pytest is not make demo.
+Scope: belongs to slice 4 / CC-34. Not later-slice work (no ResultPlan, plan strip, CSV, canvas shell, PDF, persistence). 17 files vs ~15: two evidence artifacts, generated openapi.json + schema.d.ts, three web test fixtures adding chart_unavailable, PLAN/ARCHITECTURE/ask-path. No drive-by feature.
+Silent-wrong-answer: assemble still sets urls/legs, moe_rows, GEOID, universe, alternatives, warnings independently of take_chart; discard paths in test_chart.py keep rows and MOE. No new URL formatter (CensusURL unchanged). ChartSpec.y is the column role "estimate", not copied values. No blocking clarification. No silent vintage/geo repair.
+4. take_chart does not consult overlapping_vintage. finish_aggregation already zeros comparisons[] when that guard fires; a line ChartSpec over overlapping ACS5 end years still ships if len(years)>1. Domain rule is warn and do not chart overlapping ACS5. Warning still attaches; the spec would tell a later renderer to draw the incomparable series.
+Shape: no new tool, route, graph node, or *_manager/_orchestrator/_factory/_policy/_strategy/_service. ChartSpec sits on the API/LLM boundary (not a per-row model). docs/ARCHITECTURE.md updated in the feat commit. take_chart has one caller; extracted so ask.py stays 399/400.
+Tests: behavior on assemble/OpenAPI, not prompt wording or LLM prose. No ticket-named tests. No constant-table fake.
+
+=== verdict ===
+Ship it with follow-ups: machines green and the contract is roles-only ChartSpec, but take_chart still emits a chart over overlapping ACS5 years (comparisons already suppressed) and only accepts an exact JSON envelope.

@@ -1,0 +1,175 @@
+CC-34 Gate 2 re-run (cold)
+Branch: feat/cc-34-chartspec
+HEAD: 5e6d4701348ad554ff6fe55821bb4397083bb906
+  fix(CC-34): drop overlapping ACS5 line charts and unwrap fenced JSON
+Range: origin/main...HEAD
+  5e6d470 fix(CC-34): drop overlapping ACS5 line charts and unwrap fenced JSON
+  cbd7f52 chore(CC-34): record Gate 2 cold review
+  3e1241f chore(CC-34): record Gate 1 mutation check
+  b4dbeaf feat(CC-34): emit a validated ChartSpec on AskResponse
+Catalogs read: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+  docs/playbooks/review-pr.md, docs/requirements.md, docs/ask-path.md,
+  docs/ARCHITECTURE.md
+E2E not run (instruction).
+
+================================================================
+0. Machines (review-pr.md) — all exit 0
+================================================================
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               3985 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1018 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1579 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                8 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.664 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.867 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+135 files already formatted
+
+$ uv run mypy api/src
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+463 passed in 18.56s
+
+$ uv run python scripts/generate_client.py --check
+packages/client is up to date.
+
+================================================================
+1. Diff (code; not evidence/slice-4/cc-34-gate2.txt)
+================================================================
+
+18 files, +1606/-16 vs origin/main. Code/docs/client/fixtures are 15 files;
+three evidence artifacts (preflight, gate1, prior gate2) make 18.
+
+Shape: ChartSpec on AskResponse; assemble spreads take_chart(); no new tool,
+route, graph node, or *_manager/orchestrator/factory/policy/strategy/service.
+ARCHITECTURE.md and ask-path.md updated in the same range. domain_models 8/15.
+
+take_chart (api/src/contract.py):
+- If the whole answer (stripped) starts with ```, drop the opening fence line
+  and cut at the last closing ```, then json.loads that text.
+- Envelope with key "answer" supplies cleaned prose; chart payload is validated
+  as ChartSpec (extra=forbid; y=estimate; show_moe const True).
+- Invalid spec → chart=null, chart_unavailable=true. Prose-only → both false.
+- Spec that does not fit rows (one year, one geo, one series) is dropped with
+  chart_unavailable false.
+- New: if spec.x == "year" and overlapping_vintage is in assemble warnings,
+  fits=False (chart dropped, chart_unavailable false).
+
+Tests added for the two fixes: test_fenced_json_still_extracts_the_chart,
+test_overlapping_acs5_years_do_not_keep_a_line_chart. No prompt-wording
+asserts. No retrieval fake.
+
+================================================================
+2. Prior blockers — gone in this HEAD
+================================================================
+
+(1) Fence leak — GONE
+    Whole-document ```json ... ``` is unwrapped before json.loads. assemble of
+    a fenced envelope yields answer == "Income rose." and a line ChartSpec.
+    Prefixed prose before a fence is still a whole-document parse (same as the
+    original envelope rule; not the failure that was reported).
+
+(4) Overlapping ACS5 year charts — GONE
+    assemble of ACS5 vintages 2018+2019 fires overlapping_vintage (guards.py)
+    and take_chart drops x=="year". Rows, MOE, and the warning still ship.
+    Comparisons were already skipped on that guard; the chart now matches.
+
+================================================================
+3. Pass 1 — generic bugs (cold read)
+================================================================
+
+Remaining:
+- type vs x still not cross-checked (line+geography or bar+year can validate).
+  Contract enums allow both pairs; no renderer on this PR. Not a Census
+  silent-wrong-answer.
+- title denylist still incomplete vs every markup token. extra=forbid already
+  rejects vega/svg/html fields; show_moe cannot be false. No HTML renderer here.
+
+Nothing else.
+
+================================================================
+4. Pass 2 — project invariants (review-pr.md)
+================================================================
+
+Claim: POST /ask can now return a validated ChartSpec (roles over rows: type,
+x, y, series_by, title, show_moe) or chart_unavailable when the model chart
+fails validation. Overlapping ACS5 year-axis charts are not kept.
+
+Evidence: Gate 2 does not require make demo; E2E is the next pipeline step
+and was not run here.
+
+Scope: slice 4 / CC-34 (ChartSpec). Not slice 5–8. Canvas table, plan strip,
+CSV, frontend chart render remain other CC-11 stories. Under ~15 files of
+product change; evidence transcripts explain the rest. Nothing added "while
+we were in there" outside ChartSpec.
+
+Silent-wrong-answer:
+- URL, MOE, GEOID, universe, alternatives still assembled on this path.
+- No new CensusURL formatting; key redaction unchanged.
+- ChartSpec names roles, not values; numbers do not pass back through the model.
+- No blocking clarification. Guards still warn and ship.
+- overlapping_vintage year charts are dropped, not silently plotted.
+- No silent vintage/geo repair.
+
+Shape: output field, not a tool or route. One new domain model on the HTTP
+boundary. No .add_node(). ARCHITECTURE.md matches.
+
+Tests: behavior on assemble/rows/warnings, not prompt text.
+
+Remaining: nothing.
+
+================================================================
+Verdict
+================================================================
+
+Ship it with follow-ups.
+
+User-facing: a validated ChartSpec can come back on AskResponse; a fenced
+JSON envelope does not leak into answer; overlapping ACS5 year-axis charts
+are dropped while the URL, rows, MOE, and overlapping_vintage warning still
+ship.
+
+Follow-ups (not silent-wrong-answer, not blockers):
+- type vs x uncoupled
+- title denylist incomplete

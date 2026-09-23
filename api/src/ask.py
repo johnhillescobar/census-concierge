@@ -19,7 +19,7 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.census_url import CensusURL, redact_text
-from src.contract import Alternative, AskResponse, GeoSpec
+from src.contract import Alternative, AskResponse, GeoSpec, take_chart
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import finish_tools
 from src.geo import ResolveGeographyTool
@@ -244,7 +244,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
     year = record.vintages[-1][1] if record.vintages else None
     rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
     return AskResponse(
-        answer=answer,
+        **take_chart(answer, rows, warnings),
         **series_from_record(record),
         rows=rows,
         moe=moe_rows(rows),

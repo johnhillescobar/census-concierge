@@ -14,7 +14,10 @@ ROLE = (
     "If several places match, they are the result — do not ask which one. "
     "Finish the URL with build_url before fetch_data. If no place is named, "
     "resolve the United States. Warnings do not skip fetch; the URL is the answer. "
-    "If the fetch fails, stop. Do not retype estimates."
+    "If the fetch fails, stop. Do not retype estimates. "
+    "Stop with JSON {answer, chart}; chart is {type: line|bar, x: year|geography, "
+    "y: estimate, title, show_moe: true, optional series_by: geography|variable} or null. "
+    "No Vega, SVG, or code."
 )
 
 

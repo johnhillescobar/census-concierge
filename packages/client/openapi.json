@@ -59,6 +59,23 @@
             "title": "Attempted Years",
             "type": "array"
           },
+          "chart": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChartSpec"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Validated chart roles, or null."
+          },
+          "chart_unavailable": {
+            "default": false,
+            "description": "Model chart failed validation.",
+            "title": "Chart Unavailable",
+            "type": "boolean"
+          },
           "comparisons": {
             "description": "Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.",
             "items": {
@@ -231,6 +248,72 @@
           "detail"
         ],
         "title": "AskWarning",
+        "type": "object"
+      },
+      "ChartSpec": {
+        "additionalProperties": false,
+        "description": "Roles over rows/moe. No duplicated data, Vega, or markup.",
+        "properties": {
+          "series_by": {
+            "anyOf": [
+              {
+                "enum": [
+                  "geography",
+                  "variable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Split by GEO_ID or estimate variable.",
+            "title": "Series By"
+          },
+          "show_moe": {
+            "const": true,
+            "default": true,
+            "description": "MOE display cannot be opted out.",
+            "title": "Show Moe",
+            "type": "boolean"
+          },
+          "title": {
+            "description": "Plain-text title.",
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "description": "line for years; bar for geographies.",
+            "enum": [
+              "line",
+              "bar"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "x": {
+            "description": "Axis from row year or GEO_ID.",
+            "enum": [
+              "year",
+              "geography"
+            ],
+            "title": "X",
+            "type": "string"
+          },
+          "y": {
+            "const": "estimate",
+            "description": "Estimate columns; never copied values.",
+            "title": "Y",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "title"
+        ],
+        "title": "ChartSpec",
         "type": "object"
       },
       "Comparison": {
