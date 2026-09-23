@@ -54,7 +54,8 @@ def test_generated_schema_declares_every_contract_field() -> None:
     end = text.index("AskWarning:", start)
     body = text[start:end]
     for field in CONTRACT_FIELDS:
-        assert f"{field}:" in body or f"{field}?:" in body, field
+        needle = f"{field}?:" if field == "chart" else f"{field}:"
+        assert needle in body, field
 
 
 def test_ask_ts_consumes_generated_types() -> None:

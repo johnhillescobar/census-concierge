@@ -106,7 +106,7 @@ class RequestLeg(BaseModel):
     )
 
 
-_UNSAFE_TITLE = re.compile(r"<\s*(?:svg|script|iframe)\b|javascript:|on\w+\s*=", re.I)
+_UNSAFE_TITLE = re.compile(r"<[^>]+>|javascript:", re.I)
 
 
 class ChartSpec(BaseModel):
@@ -128,6 +128,12 @@ class ChartSpec(BaseModel):
         if _UNSAFE_TITLE.search(value):
             raise ValueError("title must not contain markup or code")
         return value
+
+    @model_validator(mode="after")
+    def line_is_year_and_bar_is_geography(self) -> ChartSpec:
+        if (self.type == "line") != (self.x == "year"):
+            raise ValueError("line uses x=year; bar uses x=geography")
+        return self
 
 
 class AskResponse(BaseModel):
@@ -222,13 +228,8 @@ def take_chart(
     if spec is None and not unavailable:
         title = str((rows[0].get("table_id") if rows else "") or "")
         if len(years) > 1:
-            spec = ChartSpec(
-                type="line",
-                x="year",
-                y="estimate",
-                title=title,
-                series_by="geography" if len(geos) > 1 else None,
-            )
+            series: Literal["geography"] | None = "geography" if len(geos) > 1 else None
+            spec = ChartSpec(type="line", x="year", y="estimate", title=title, series_by=series)
         elif len(geos) > 1:
             spec = ChartSpec(type="bar", x="geography", y="estimate", title=title)
     if spec is None:

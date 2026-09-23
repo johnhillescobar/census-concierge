@@ -1,0 +1,63 @@
+CC-34 Copilot review fixes -- mutation check
+branch: feat/cc-34-chartspec
+ticket: CC-34
+PR: https://github.com/johnhillescobar/census-concierge/pull/71
+threads: r4082659337 title tags; r4082659389 type/x; r4082659435 required fields
+
+# GOOD = test fails against the broken implementation (the check works).
+
+========== restored tree ==========
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py api/tests/test_generated_client.py
+19 passed in 5.59s
+exit: 0
+
+===== MUTATION 1: title denylist accepts ordinary tags =====
+test: test_html_title_is_rejected
+revert: _UNSAFE_TITLE to <svg|script|iframe denylist
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_html_title_is_rejected
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________________________ test_html_title_is_rejected _________________________
+api\tests\test_chart.py:193: in test_html_title_is_rejected
+    with pytest.raises(ValidationError):
+E   Failed: DID NOT RAISE ValidationError
+1 failed in 0.44s
+exit: 1
+restore: tag-reject regex
+
+===== MUTATION 2: type and x stay uncoupled =====
+tests: test_mismatched_chart_type_and_axis_is_rejected,
+       test_mismatched_chart_type_and_axis_is_discarded
+revert: drop ChartSpec.line_is_year_and_bar_is_geography
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_mismatched_chart_type_and_axis_is_rejected api/tests/test_chart.py::test_mismatched_chart_type_and_axis_is_discarded
+
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______________ test_mismatched_chart_type_and_axis_is_rejected _______________
+E   Failed: DID NOT RAISE ValidationError
+______________ test_mismatched_chart_type_and_axis_is_discarded _______________
+E   AssertionError: assert ChartSpec(type='line', x='geography', ...) is None
+2 failed in 0.41s
+exit: 1
+restore: model_validator
+
+===== MUTATION 3: required AskResponse field becomes optional =====
+test: test_generated_schema_declares_every_contract_field
+revert: packages/client/schema.d.ts answer: string -> answer?: string
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_generated_schema_declares_every_contract_field _____________
+E   AssertionError: answer
+E   assert 'answer:' in 'AskResponse: { ... chart?: ... }'
+1 failed in 0.62s
+exit: 1
+restore: git checkout -- packages/client/schema.d.ts

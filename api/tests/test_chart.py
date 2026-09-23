@@ -181,6 +181,26 @@ def test_extra_vega_field_is_rejected() -> None:
     assert [row["GEO_ID"] for row in response.rows] == [AUSTIN["GEO_ID"], TEXAS["GEO_ID"]]
 
 
+def test_mismatched_chart_type_and_axis_is_discarded() -> None:
+    record = ExecutionRecord(rows=[AUSTIN, TEXAS])
+    response = assemble(_envelope("Austin is higher.", {**BAR, "type": "line"}), record)
+    assert response.chart is None
+    assert response.chart_unavailable is True
+    assert len(response.rows) == 2
+
+
+def test_html_title_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        ChartSpec.model_validate({**BAR, "title": "<b>Rent</b>"})
+
+
+def test_mismatched_chart_type_and_axis_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        ChartSpec.model_validate({**BAR, "type": "line"})
+    with pytest.raises(ValidationError):
+        ChartSpec.model_validate({**LINE, "type": "bar"})
+
+
 def test_svg_payload_is_rejected() -> None:
     with pytest.raises(ValidationError):
         ChartSpec.model_validate({**BAR, "svg": "<svg onload=alert(1)>"})
