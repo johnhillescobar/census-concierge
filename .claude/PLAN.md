@@ -31,8 +31,9 @@ CC-98 finish/geo leaf). CC-96 Done (informal/alias geography is the ask loop
 plus tools). CC-97 Done (`acs1_geography_ineligible`; answered_rate held; p95
 over-ceiling recorded not promoted; `evidence/slice-3/cc-97-e2e-post.txt`).
 Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
-is **To Do** in Jira (epic and all eight stories). CC-77 waits on CC-11
-table/plan-strip foundations. Spike CC-9 before slice 5.
+is **To Do** in Jira; [CC-34](https://johnhillescobar.atlassian.net/browse/CC-34)
+(ChartSpec) is **In Progress**. CC-77 waits on CC-11 table/plan-strip
+foundations. Spike CC-9 before slice 5.
 
 ---
 

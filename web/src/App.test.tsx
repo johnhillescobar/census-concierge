@@ -31,6 +31,7 @@ const harris: AskResponse = {
   alternatives: [{ table_id: "B01001", reason: "related table" }],
   warnings: [],
   comparisons: [],
+  chart_unavailable: false,
 };
 
 const rentFailure: AskResponse = {
@@ -53,6 +54,7 @@ const rentFailure: AskResponse = {
   alternatives: [{ table_id: "B25063", reason: "distribution versus median" }],
   warnings: [{ code: "geography_unsupported", detail: "not published at this level" }],
   comparisons: [],
+  chart_unavailable: false,
 };
 
 function pane(): HTMLElement {

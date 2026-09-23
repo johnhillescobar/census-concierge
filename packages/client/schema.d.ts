@@ -63,6 +63,14 @@ export interface components {
              * @description Unique vintages for which a Census request was issued.
              */
             attempted_years: number[];
+            /** @description Validated chart roles, or null. */
+            chart?: components["schemas"]["ChartSpec"] | null;
+            /**
+             * Chart Unavailable
+             * @description Model chart failed validation.
+             * @default false
+             */
+            chart_unavailable: boolean;
             /**
              * Comparisons
              * @description Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.
@@ -155,6 +163,47 @@ export interface components {
              * @description What was raised, in one sentence.
              */
             detail: string;
+        };
+        /**
+         * ChartSpec
+         * @description Roles over rows/moe. No duplicated data, Vega, or markup.
+         */
+        ChartSpec: {
+            /**
+             * Series By
+             * @description Split by GEO_ID or estimate variable.
+             */
+            series_by?: ("geography" | "variable") | null;
+            /**
+             * Show Moe
+             * @description MOE display cannot be opted out.
+             * @default true
+             * @constant
+             */
+            show_moe: true;
+            /**
+             * Title
+             * @description Plain-text title.
+             */
+            title: string;
+            /**
+             * Type
+             * @description line for years; bar for geographies.
+             * @enum {string}
+             */
+            type: "line" | "bar";
+            /**
+             * X
+             * @description Axis from row year or GEO_ID.
+             * @enum {string}
+             */
+            x: "year" | "geography";
+            /**
+             * Y
+             * @description Estimate columns; never copied values.
+             * @constant
+             */
+            y: "estimate";
         };
         /** Comparison */
         Comparison: {

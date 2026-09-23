@@ -9,9 +9,11 @@ built URL when every vintage is omitted.
 
 from __future__ import annotations
 
+import json
 import re
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 _CLAUSE = re.compile(r"(.+?):(\S+)")
 
@@ -104,6 +106,30 @@ class RequestLeg(BaseModel):
     )
 
 
+_UNSAFE_TITLE = re.compile(r"<\s*(?:svg|script|iframe)\b|javascript:|on\w+\s*=", re.I)
+
+
+class ChartSpec(BaseModel):
+    """Roles over rows/moe. No duplicated data, Vega, or markup."""
+
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["line", "bar"] = Field(description="line for years; bar for geographies.")
+    x: Literal["year", "geography"] = Field(description="Axis from row year or GEO_ID.")
+    y: Literal["estimate"] = Field(description="Estimate columns; never copied values.")
+    series_by: Literal["geography", "variable"] | None = Field(
+        default=None, description="Split by GEO_ID or estimate variable."
+    )
+    title: str = Field(description="Plain-text title.")
+    show_moe: Literal[True] = Field(default=True, description="MOE display cannot be opted out.")
+
+    @field_validator("title")
+    @classmethod
+    def title_is_plain_text(cls, value: str) -> str:
+        if _UNSAFE_TITLE.search(value):
+            raise ValueError("title must not contain markup or code")
+        return value
+
+
 class AskResponse(BaseModel):
     answer: str = Field(description="Natural-language answer.")
     urls: list[str] = Field(
@@ -158,3 +184,32 @@ class AskResponse(BaseModel):
         "boundary_change_2020, measure_unavailable, variable_not_in_vintage, "
         "shared_sample."
     )
+    chart: ChartSpec | None = Field(default=None, description="Validated chart roles, or null.")
+    chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
+
+
+def take_chart(answer: str, rows: list[dict[str, str | None]]) -> dict[str, Any]:
+    cleaned, payload, saw = answer, None, False
+    try:
+        body = json.loads(answer.strip())
+    except json.JSONDecodeError:
+        body = None
+    if isinstance(body, dict) and "answer" in body:
+        cleaned = str(body.get("answer") or "")
+        raw = body.get("chart")
+        saw = raw is not None
+        payload = raw if isinstance(raw, dict) else {}
+    none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
+    if not saw:
+        return none
+    try:
+        spec = ChartSpec.model_validate(payload)
+    except ValidationError:
+        return {**none, "chart_unavailable": True}
+    years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
+    geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
+    estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
+    fits = (spec.x != "year" or len(years) > 1) and (spec.x != "geography" or len(geos) > 1)
+    fits = fits and (spec.series_by != "geography" or len(geos) > 1)
+    fits = fits and (spec.series_by != "variable" or len(estimates) > 1)
+    return none if not fits else {"answer": cleaned, "chart": spec, "chart_unavailable": False}

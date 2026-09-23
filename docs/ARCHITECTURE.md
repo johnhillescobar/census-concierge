@@ -2,7 +2,7 @@
 
 **Status (2026-09-22).** Slices 0–3 are built and their epics are Done
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
-is To Do in Jira. Neither has changed this shape yet.
+is in progress at CC-34: `AskResponse.chart` is a validated `ChartSpec`.
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
@@ -44,7 +44,7 @@ api/src/geo.py               resolve_geography → GeoSpec list
 api/src/geo_list.py          state FIPS + NAME listings
 api/src/census_url.py        CensusURL; default form never carries &key=
 api/src/prompts.py           one system prompt
-api/src/contract.py          AskResponse
+api/src/contract.py          AskResponse; ChartSpec; GeoSpec
 web/                         Vite + React chat pane
 packages/client/             generated; CI fails if stale
 ```
@@ -68,8 +68,9 @@ Availability: `index_store/availability.json.gz` (not parquet).
 ## HTTP
 
 One route: `POST /ask` → `run_ask`. Four tools. `AskResponse` fields and the
-series/geo/comparison rules: `docs/ask-path.md`. `ambiguous_place` carries
-ranked `GeoSpec` candidates. Start:
+series/geo/comparison rules: `docs/ask-path.md`. Optional `chart` is a `ChartSpec` (line/bar roles over
+`rows`); invalid model chart output is discarded (`chart_unavailable`).
+`ambiguous_place` carries ranked `GeoSpec` candidates. Start:
 `uv run uvicorn src.main:app --reload` (from `api/`, or with `PYTHONPATH=api`).
 
 `make demo` is `scripts/run_demo.py --repeat 3` (golden set except holdout).

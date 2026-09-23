@@ -33,7 +33,10 @@ CONTRACT_FIELDS = (
     "alternatives",
     "comparisons",
     "warnings",
+    "chart",
+    "chart_unavailable",
 )
+REQUIRED_FIELDS = CONTRACT_FIELDS[:-2]
 
 
 def test_openapi_documents_post_ask() -> None:
@@ -51,7 +54,8 @@ def test_openapi_documents_post_ask() -> None:
     assert list(request_props) == ["question"]
     assert request_props["question"]["minLength"] == 1
     response = schema["components"]["schemas"]["AskResponse"]
-    assert response["required"] == list(CONTRACT_FIELDS)
+    assert response["required"] == list(REQUIRED_FIELDS)
+    assert list(response["properties"])[-2:] == ["chart", "chart_unavailable"]
     assert response["properties"]["alternatives"]["items"] == {
         "$ref": "#/components/schemas/Alternative"
     }
@@ -87,6 +91,19 @@ def test_openapi_documents_post_ask() -> None:
     leg = schema["components"]["schemas"]["RequestLeg"]
     assert leg["required"] == ["year", "url", "ok", "status_code", "detail"]
     assert "for_spec" in leg["properties"]
+    chart = schema["components"]["schemas"]["ChartSpec"]
+    assert chart.get("additionalProperties") is False
+    assert set(chart["properties"]) == {"type", "x", "y", "series_by", "title", "show_moe"}
+    assert "vega" not in chart["properties"]
+    assert "svg" not in chart["properties"]
+    assert chart["properties"]["type"]["enum"] == ["line", "bar"]
+    assert chart["properties"]["x"]["enum"] == ["year", "geography"]
+    assert chart["properties"]["y"]["const"] == "estimate"
+    assert chart["properties"]["show_moe"]["const"] is True
+    assert response["properties"]["chart"]["anyOf"] == [
+        {"$ref": "#/components/schemas/ChartSpec"},
+        {"type": "null"},
+    ]
 
 
 def test_empty_question_is_a_validation_error() -> None:
@@ -122,6 +139,8 @@ EMPTY_CONTRACT = {
     "alternatives": [],
     "comparisons": [],
     "warnings": [],
+    "chart": None,
+    "chart_unavailable": False,
 }
 
 

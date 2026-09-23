@@ -21,6 +21,7 @@ const harris: AskResponse = {
   alternatives: [],
   warnings: [],
   comparisons: [],
+  chart_unavailable: false,
 };
 
 afterEach(() => {

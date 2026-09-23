@@ -27,6 +27,8 @@ EMPTY = {
     "alternatives": [],
     "comparisons": [],
     "warnings": [],
+    "chart": None,
+    "chart_unavailable": False,
 }
 
 
