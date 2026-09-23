@@ -106,5 +106,7 @@ published medians is declined (`median_not_aggregatable`).
 
 One Vite pane. After `npm --prefix web run build`, FastAPI serves `web/dist`
 at `/` from the same origin as `POST /ask`. Census URLs are visible and
-copyable (redacted). Sentinels render as `—`. Canvas, `ChartSpec`, and the
+copyable (redacted). Sentinels render as `—`. The active dataset is one
+normalized table (GEOID, estimate, matching MOE) from `AskResponse` rows;
+a one-row scalar uses that same table. Canvas, `ChartSpec`, and the
 plan strip are slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11)).

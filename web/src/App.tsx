@@ -4,14 +4,69 @@ import {
   censusFetchFailed,
   censusUrls,
   censusYearsIncomplete,
-  estimatesByGeography,
-  formatCensusValue,
+  formatCensusNumber,
+  normalizeActiveDataset,
+  type DatasetRow,
   type PaneState,
 } from "./display";
 
 type AppProps = {
   askFn?: (question: string) => Promise<AskResponse>;
 };
+
+const TABLE_HEADERS = [
+  "GEOID",
+  "Name",
+  "Dataset",
+  "Year",
+  "Period",
+  "Table",
+  "Variable",
+  "Estimate",
+  "MOE",
+] as const;
+
+function EstimatesTable({ rows }: { rows: DatasetRow[] }) {
+  return (
+    <>
+      <h2>Estimates</h2>
+      <div className="table-scroll" tabIndex={0} aria-label="Estimates">
+        <table className="geo-table">
+          <thead>
+            <tr>
+              {TABLE_HEADERS.map((header) => (
+                <th key={header} scope="col">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={TABLE_HEADERS.length}>No estimates returned.</td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={`${row.year}:${row.period}:${row.geoid}:${row.name}:${row.variable}`}>
+                  <td>{row.geoid || "—"}</td>
+                  <td>{row.name || "—"}</td>
+                  <td>{row.dataset || "—"}</td>
+                  <td>{row.year || "—"}</td>
+                  <td>{row.period || "—"}</td>
+                  <td>{row.tableId || "—"}</td>
+                  <td>{row.variable || "—"}</td>
+                  <td>{formatCensusNumber(row.estimate)}</td>
+                  <td>{formatCensusNumber(row.moe)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
 
 export function App({ askFn = ask }: AppProps) {
   const [question, setQuestion] = useState("");
@@ -40,19 +95,15 @@ export function App({ askFn = ask }: AppProps) {
     }
   }
 
-  const areas = result ? estimatesByGeography(result) : [];
+  const dataset = result ? normalizeActiveDataset(result) : [];
   const urls = result ? censusUrls(result) : [];
   const urlText = urls.join("\n");
   const failed = result ? censusFetchFailed(result) : false;
   const incomplete = result ? censusYearsIncomplete(result) : false;
+  const geoids = [...new Set(dataset.map((row) => row.geoid).filter(Boolean))];
   const geoidLabel =
-    result?.geoid || (areas.length > 1 ? `${areas.length} areas` : "—");
-  const datasetLabel = areas.find((area) => area.dataset)?.dataset;
-  const periods = [...new Set(areas.map((area) => area.period).filter(Boolean))];
-  const series = (result?.attempted_years.length ?? 0) > 1;
-  const showYear = series || new Set(areas.map((area) => area.year).filter(Boolean)).size > 1;
-  const showPeriod = periods.length > 1;
-  const multi = areas.length > 1 || series;
+    result?.geoid || (geoids.length > 1 ? `${geoids.length} areas` : geoids[0] || "—");
+  const datasetLabel = dataset.find((row) => row.dataset)?.dataset;
 
   async function onCopyUrl() {
     if (!urlText) {
@@ -111,59 +162,8 @@ export function App({ askFn = ask }: AppProps) {
                   <dd>{datasetLabel}</dd>
                 </>
               ) : null}
-              {periods.length === 1 ? (
-                <>
-                  <dt>Period</dt>
-                  <dd>{periods[0]}</dd>
-                </>
-              ) : null}
             </dl>
-            {areas.length === 1 && areas[0].pairs.length > 0 && !multi ? (
-              <>
-                <h2>Estimates</h2>
-                <ul className="estimates">
-                  {areas[0].pairs.map((pair) => (
-                    <li key={pair.variable}>
-                      {pair.variable}: {formatCensusValue(pair.estimate)} ± {formatCensusValue(pair.moe)}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-            {multi && areas.length > 0 ? (
-              <>
-                <h2>Estimates</h2>
-                <table className="geo-table">
-                  <thead>
-                    <tr>
-                      {showYear ? <th>Year</th> : null}
-                      {showPeriod ? <th>Period</th> : null}
-                      <th>GEOID</th>
-                      <th>Name</th>
-                      <th>Variable</th>
-                      <th>Estimate</th>
-                      <th>MOE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {areas.flatMap((area) => {
-                      const pairs = area.pairs.length > 0 ? area.pairs : [{ variable: "", estimate: null, moe: null }];
-                      return pairs.map((pair) => (
-                        <tr key={`${area.year}:${area.period}:${area.geoid}:${area.name}:${pair.variable}`}>
-                          {showYear ? <td>{area.year || "—"}</td> : null}
-                          {showPeriod ? <td>{area.period || "—"}</td> : null}
-                          <td>{area.geoid || "—"}</td>
-                          <td>{area.name || "—"}</td>
-                          <td>{pair.variable || "—"}</td>
-                          <td>{formatCensusValue(pair.estimate)}</td>
-                          <td>{formatCensusValue(pair.moe)}</td>
-                        </tr>
-                      ));
-                    })}
-                  </tbody>
-                </table>
-              </>
-            ) : null}
+            <EstimatesTable rows={dataset} />
             <h2>Census API URL</h2>
             {urls.length > 0 ? (
               <div className="url-row">

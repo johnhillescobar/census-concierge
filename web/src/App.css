@@ -65,6 +65,7 @@ form button:disabled {
   border-radius: 6px;
   border: 1px solid #d7d4c8;
   background: #fff;
+  overflow-x: hidden;
 }
 
 .pane[data-state="idle"] {
@@ -155,7 +156,6 @@ form button:disabled {
   flex: 1;
 }
 
-.estimates,
 .alts,
 .warnings {
   margin: 0 0 1rem;
@@ -167,10 +167,21 @@ h2 {
   margin: 0 0 0.4rem;
 }
 
-.geo-table {
-  width: 100%;
-  border-collapse: collapse;
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
   margin: 0 0 1rem;
+}
+
+.table-scroll:focus {
+  outline: 2px solid #3d4a6b;
+  outline-offset: 2px;
+}
+
+.geo-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
   font-size: 0.9rem;
 }
 
