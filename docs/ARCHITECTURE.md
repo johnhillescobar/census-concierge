@@ -1,8 +1,8 @@
 # ARCHITECTURE — the system as it IS
 
-**Status (2026-09-22).** Slices 0–3 are built and their epics are Done
+**Status (2026-09-23).** Slices 0–3 are built and their epics are Done
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
-is in progress at CC-34: `AskResponse.chart` is a validated `ChartSpec`.
+is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
