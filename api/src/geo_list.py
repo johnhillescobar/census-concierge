@@ -93,8 +93,8 @@ def token_is_dc(token: str) -> bool:
 
 
 _COUNTY = re.compile(
-    r"\b([A-Z][A-Za-z.'-]*(?:\s+(?:[A-Z][A-Za-z.'-]*|of|the|and))*?)"
-    r"\s+(?i:count(?:y|ies))\b"
+    r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
+    re.IGNORECASE,
 )
 _PLACE_SPAN = re.compile(
     r"\b(?i:in|for|of)\s+(?:(?:the|a)\s+)?(?!((?:19|20)\d{2})\b)"
@@ -109,6 +109,11 @@ def place_token(query: str, state_name: str | None) -> str:
     match = _COUNTY.search(query)
     if match:
         words = match.group(1).casefold().split()
+        cut = 0
+        for i, word in enumerate(words):
+            if word in _TOKEN_NOISE | {"for"} and word not in {"of", "the", "and"}:
+                cut = i + 1
+        words = words[cut:]
         while words and words[0] in _TOKEN_NOISE:
             words.pop(0)
         if words and words[0] not in {"all", "every", "each"}:

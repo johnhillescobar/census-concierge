@@ -968,7 +968,12 @@ async def test_state_qualified_place_stays_exact() -> None:
 
 @pytest.mark.parametrize(
     "query",
-    ["Harris County, Texas", "population of Harris County, Texas"],
+    [
+        "Harris County, Texas",
+        "population of Harris County, Texas",
+        "what is harris county",
+        "what is harris county, texas",
+    ],
 )
 async def test_harris_county_texas_resolves_to_codes(query: str) -> None:
     tool = _geo_tool()
@@ -1012,6 +1017,7 @@ async def test_informal_region_counties_do_not_become_a_valley_county() -> None:
 
     query = "Occupation breakdown for workers in Silicon Valley counties"
     assert place_token(query, None) == "silicon valley"
+    assert named_rows("silicon valley", extra) == []
     tool = _geo_tool(listing)
     message = await tool.ainvoke(
         {
@@ -1481,6 +1487,8 @@ def test_sentence_place_token_is_the_published_name() -> None:
         hits = rank_matches(filter_rows(token, rows))
         assert hits[0]["for"] == code
     assert place_token("population of Harris County, Texas", "texas") == "harris"
+    assert place_token("what is harris county", None) == "harris"
+    assert place_token("1-year ACS poverty for Fresno County, 2018 through 2022", None) == "fresno"
     assert place_token("vacancy in Isle of Palms", None) == "isle of palms"
     assert (
         place_token("Population in District of Columbia", "district of columbia")

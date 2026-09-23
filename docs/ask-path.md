@@ -71,7 +71,7 @@ selected. A leading token matches the NAME head or that head plus a Census
 class, not an unrelated compound (`Queens` is not `Queens Gate CDP`). A
 token that misses the NAME head is not retried as its last word (`valley` is
 not a Valley county). A county token is the name before `county`, not the
-sentence (`population of Harris County` is Harris). A
+sentence (`population of Harris County` and `what is harris county` are Harris). A
 full-sentence query extracts the capitalized name after `in` / `for` / `of`
 (lowercase `of` / `the` / `and` stay inside that name), not the whole question. An unspecified place with no NAME hit falls back to
 the county listing; a query that already named city/place does not.
