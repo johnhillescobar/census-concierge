@@ -84,6 +84,12 @@ CC-98 closed (2026-09-21) with a latency caveat. Pre-PR `--repeat 3`:
 (over-ceiling, not promoted). `q39` 3/3 `B25004` Detroit `place:22000` /
 `state:26`. Residual misses are CC-99 (`q17`) / cousins, not this ticket.
 
+CC-99 closed (2026-09-22). Post-merge transcript
+`evidence/slice-3/cc-99-e2e-post.txt` (`--repeat 3`, n=186): `answered_rate`
+0.867, `p95` 18.664s (under ceiling), `selector_at_1` 0.875. `q17` 0/3 table
+unpinned (`B24114` / empty). `demo.misses`: q10, q11, q17, q18, q20, q30, q34,
+t07. Residual misses are cousins, not this ticket.
+
 ## What “answered” means
 
 HTTP 200 is not answered. `scripts/run_demo.py` `is_answered()` requires:
@@ -145,9 +151,10 @@ Closed under epic [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91):
 | [CC-92](https://johnhillescobar.atlassian.net/browse/CC-92) Done | persist vintage compatibility on the fetch artifact; `variable_not_in_vintage` from `omission_reasons` | `t14` not in post-merge misses |
 | [CC-93](https://johnhillescobar.atlassian.net/browse/CC-93) Done | retain already-built Census URLs through assemble | empty-URL `q17`/`q39`/`t07` are never-built, not a wipe |
 | [CC-94](https://johnhillescobar.atlassian.net/browse/CC-94) Done | classify table-selection misses; one finish/`place_token` leaf | `q39` never-built → [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98); `q17` stays CC-96; `q10` r3 Queens PA stays CC-95; no retrieval/B-C leaves |
-| [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) Done | informal/alias questions: LLM + existing tools, Census-shaped output; last-word leaf [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) (not shipped) | `q17` 0 NAME hits; r3 `county:140` CT is last-word `valley` |
+| [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) Done | informal/alias questions: LLM + existing tools, Census-shaped output; last-word leaf [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) | `q17` 0 NAME hits; last-word leaf shipped |
 | [CC-97](https://johnhillescobar.atlassian.net/browse/CC-97) Done | `acs1_geography_ineligible` on non-series ACS5 fallback | `t11` 3/3; p95 over-ceiling recorded not promoted |
 | [CC-98](https://johnhillescobar.atlassian.net/browse/CC-98) Done | extract a published place from a full-sentence finish query | `q39` 3/3; p95 over-ceiling recorded not promoted |
+| [CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) Done | do not last-word-substitute unpublished region tokens | `q17` 0/3 table unpinned; p95 under ceiling |
 
 AC added **2026-09-18** (on the tickets, not here):
 
