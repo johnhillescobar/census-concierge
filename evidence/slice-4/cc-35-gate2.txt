@@ -1,0 +1,200 @@
+Gate 2 transcript — CC-35 dataset table
+branch: feat/cc-35-dataset-table
+HEAD: be2f789 (Gate 1 evidence); feat: 4def572; test pin: c6d559f
+base: origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+  docs/requirements.md, docs/ask-path.md, docs/slices.md,
+  docs/playbooks/review-pr.md, docs/ARCHITECTURE.md
+no E2E; no PR; no product-code edits
+
+=== commands ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-35-dataset-table
+
+$ git rev-parse HEAD
+exit: 0
+be2f789a08f257ed34ee709f75f8302f01a77035
+
+$ git status
+exit: 0
+On branch feat/cc-35-dataset-table
+Your branch is ahead of 'origin/main' by 3 commits.
+  (use "git push" to publish your local commits)
+
+nothing to commit, working tree clean
+
+$ git log --oneline origin/main...HEAD
+exit: 0
+be2f789 chore(CC-35): record Gate 1 mutation check
+c6d559f test(CC-35): pin MOE cells so sentinel-as-zero mutations fail
+4def572 feat(CC-35): render one GEOID/MOE table from a single dataset normalizer
+
+$ git diff --stat origin/main...HEAD
+exit: 0
+ docs/ARCHITECTURE.md                |   11 +-
+ docs/ask-path.md                    |    4 +-
+ evidence/slice-4/cc-35-gate1.txt    | 1250 +++++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-35-preflight.md |   57 ++
+ web/src/App.css                     |   17 +-
+ web/src/App.test.tsx                |  114 +++-
+ web/src/App.tsx                     |  124 ++--
+ web/src/display.test.ts             |  221 +++++--
+ web/src/display.ts                  |  100 +--
+ 9 files changed, 1739 insertions(+), 159 deletions(-)
+
+$ git diff --name-only origin/main...HEAD
+exit: 0
+docs/ARCHITECTURE.md
+docs/ask-path.md
+evidence/slice-4/cc-35-gate1.txt
+evidence/slice-4/cc-35-preflight.md
+web/src/App.css
+web/src/App.test.tsx
+web/src/App.tsx
+web/src/display.test.ts
+web/src/display.ts
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1253 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1582 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                8 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.664 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.758 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit: 0
+136 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 46%]
+........................................................................ [ 61%]
+........................................................................ [ 76%]
+........................................................................ [ 92%]
+....................................                                     [100%]
+468 passed in 24.58s
+
+$ npm --prefix web test
+exit: 0
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 8ms
+ ✓ src/display.test.ts (26 tests) 71ms
+ ✓ src/App.test.tsx (19 tests) 3953ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  300ms
+   ✓ App result > shows dataset and period on a series point  411ms
+   ✓ App result > replaces every previous table row when a new result arrives  564ms
+
+ Test Files  3 passed (3)
+      Tests  48 passed (48)
+   Start at  12:38:08
+   Duration  8.88s (transform 288ms, setup 1.41s, collect 1.10s, tests 4.03s, environment 2.32s, prepare 398ms)
+
+$ npm --prefix web run typecheck
+exit: 0
+
+> typecheck
+> tsc --noEmit
+
+npm ci not required; existing web/node_modules used (vitest.cmd present). No EBUSY.
+
+=== Pass A — generic bugs (cold read of origin/main...HEAD, code only) ===
+
+nothing
+
+normalizeActiveDataset walks response.rows, emits one DatasetRow per E variable,
+pairs MOE via moe[index] + exact `{E[:-1]}M` suffix, and censusRaw-nulls sentinels
+and missing M. Empty moe[index] is null, not a neighbor's margin and not "0".
+EstimatesTable is the only estimates UI (no ul.estimates). Fetch-failure still
+renders the table with "No estimates returned." plus URL/meta. New ask clears
+result before replace. React row keys include year:period:geoid:name:variable.
+No crash paths, off-by-one, or stale-row bugs found in the diff.
+
+=== Pass B — project invariants (review-pr.md); machines first ===
+
+Machines: all exit 0 (budgets, invariants --base origin/main, ruff check, ruff
+format --check, mypy api/src, pytest -q -m "not integration" 468 passed,
+npm --prefix web test 48 passed, npm --prefix web run typecheck). No budget
+raise (api src still 4000/4000; no backend lines added). No invariant break.
+
+Claim: a user now sees one GEOID / estimate / matching-MOE table for the active
+dataset, for a one-row scalar and for multi-geography / multi-variable rows.
+Census sentinels and missing MOE render as —, never as zero. The old scalar
+list (`B01003_001E: n ± moe`) is gone.
+Evidence: E2E not run in this gate (downstream). pytest/vitest is not make demo.
+Scope: belongs to slice 4 / CC-11 table work. Diff stays in web/ + catalogs +
+evidence. Not later-slice work (no two-pane shell, ResultPlan, plan strip, CSV,
+PDF, persistence, auth). 9 files, under ~15. No drive-by feature: grouping
+formatter and keyboard-focusable .table-scroll are the table.
+Silent-wrong-answer: URL (visible, copyable, redactCensusUrl strips key=), MOE,
+GEOID, universe, alternatives still on the result path including Census fetch
+failure (rentFailure: notice + empty table + URL + table_id + universe + GEOID).
+No new URL formatter. Numbers are not passed back through the model. No blocking
+clarification. No silent vintage/geo repair; omitted year/dataset/period stay
+blank rather than inferred from a URL. Index-aligned moe_rows remains the
+pairing contract; a short moe list does not borrow.
+Shape: no new tool, route, graph node, Pydantic model, or forbidden module name.
+docs/ARCHITECTURE.md and docs/ask-path.md updated in the feat commit. Chart/CSV
+are named as future consumers of DatasetRow; this diff does not render them.
+Tests: behavior on cells and dataset rows, not prompt wording or LLM prose. No
+ticket-named tests. No constant-table retrieval fake.
+
+=== verdict ===
+Ship it — one GEOID/estimate/MOE table is now the active dataset for scalar and
+multi-row answers, with sentinels as — and URL/universe still on the failure path.
