@@ -1,0 +1,286 @@
+CC-34 Gate 1 -- tests + mutation check
+commit: b4dbeaf1a8a400144fc074156052da42e1c9fa4c feat(CC-34): emit a validated ChartSpec on AskResponse
+branch: feat/cc-34-chartspec
+ticket: CC-34
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== uv run pytest -q --color=no --tb=short (new/changed tests, restored tree) ==========
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_year_series_keeps_a_line_chart api/tests/test_chart.py::test_two_geographies_keep_a_bar_chart api/tests/test_chart.py::test_geography_series_over_years_is_kept api/tests/test_chart.py::test_variable_series_is_kept api/tests/test_chart.py::test_scalar_result_has_no_chart api/tests/test_chart.py::test_prose_answer_stays_a_prose_answer api/tests/test_chart.py::test_unknown_chart_type_is_discarded api/tests/test_chart.py::test_extra_vega_field_is_rejected api/tests/test_chart.py::test_svg_payload_is_rejected api/tests/test_ask_route.py::test_openapi_documents_post_ask api/tests/test_ask_route.py::test_a_valid_question_returns_the_declared_contract api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+
+............                                                             [100%]
+12 passed in 0.37s
+exit: 0
+
+===== MUTATION 1: year-axis fit never keeps a line chart =====
+test: test_year_series_keeps_a_line_chart
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_year_series_keeps_a_line_chart
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_year_series_keeps_a_line_chart _____________________
+api\tests\test_chart.py:72: in test_year_series_keeps_a_line_chart
+    assert response.chart is not None
+E   AssertionError: assert None is not None
+E    +  where None = AskResponse(answer='Income rose.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[...S0820000', universe='', table_id='', alternatives=[], comparisons=[], warnings=[], chart=None, chart_unavailable=False).chart
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_year_series_keeps_a_line_chart - Asserti...
+1 failed in 0.27s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 2: geography-axis fit never keeps a bar chart =====
+test: test_two_geographies_keep_a_bar_chart
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_two_geographies_keep_a_bar_chart
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_two_geographies_keep_a_bar_chart ____________________
+api\tests\test_chart.py:82: in test_two_geographies_keep_a_bar_chart
+    assert response.chart is not None
+E   AssertionError: assert None is not None
+E    +  where None = AskResponse(answer='Austin is higher.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_ye... geoid='', universe='', table_id='', alternatives=[], comparisons=[], warnings=[], chart=None, chart_unavailable=False).chart
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_two_geographies_keep_a_bar_chart - Asser...
+1 failed in 0.25s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 3: series_by geography never kept =====
+test: test_geography_series_over_years_is_kept
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_geography_series_over_years_is_kept
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_geography_series_over_years_is_kept ___________________
+api\tests\test_chart.py:97: in test_geography_series_over_years_is_kept
+    assert response.chart is not None
+E   AssertionError: assert None is not None
+E    +  where None = AskResponse(answer='Both rose.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[],... geoid='', universe='', table_id='', alternatives=[], comparisons=[], warnings=[], chart=None, chart_unavailable=False).chart
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_geography_series_over_years_is_kept - As...
+1 failed in 0.28s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 4: series_by variable never kept =====
+test: test_variable_series_is_kept
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_variable_series_is_kept
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________________ test_variable_series_is_kept _________________________
+api\tests\test_chart.py:121: in test_variable_series_is_kept
+    assert response.chart is not None
+E   AssertionError: assert None is not None
+E    +  where None = AskResponse(answer='Two measures.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=...S0820000', universe='', table_id='', alternatives=[], comparisons=[], warnings=[], chart=None, chart_unavailable=False).chart
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_variable_series_is_kept - AssertionError...
+1 failed in 0.27s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 5: scalar/mismatch still attaches a valid chart (skip fits) =====
+test: test_scalar_result_has_no_chart
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_scalar_result_has_no_chart
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_scalar_result_has_no_chart _______________________
+api\tests\test_chart.py:129: in test_scalar_result_has_no_chart
+    assert response.chart is None
+E   AssertionError: assert ChartSpec(type='bar', x='geography', y='estimate', series_by=None, title='Median gross rent', show_moe=True) is None
+E    +  where ChartSpec(type='bar', x='geography', y='estimate', series_by=None, title='Median gross rent', show_moe=True) = AskResponse(answer='Population is 4.8 million.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], ...'bar', x='geography', y='estimate', series_by=None, title='Median gross rent', show_moe=True), chart_unavailable=False).chart
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_scalar_result_has_no_chart - AssertionEr...
+1 failed in 0.27s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 6: prose treated as a failed chart envelope =====
+test: test_prose_answer_stays_a_prose_answer
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_prose_answer_stays_a_prose_answer
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_prose_answer_stays_a_prose_answer ____________________
+api\tests\test_chart.py:141: in test_prose_answer_stays_a_prose_answer
+    assert response.chart_unavailable is False
+E   AssertionError: assert True is False
+E    +  where True = AskResponse(answer='Harris County has data.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], fai...00US48201', universe='', table_id='', alternatives=[], comparisons=[], warnings=[], chart=None, chart_unavailable=True).chart_unavailable
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_prose_answer_stays_a_prose_answer - Asse...
+1 failed in 0.28s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 7: ChartSpec.type is str (unknown enum accepted) =====
+test: test_unknown_chart_type_is_discarded
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_unknown_chart_type_is_discarded
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_unknown_chart_type_is_discarded _____________________
+api\tests\test_chart.py:148: in test_unknown_chart_type_is_discarded
+    assert response.chart is None
+E   AssertionError: assert ChartSpec(type='scatter', x='geography', y='estimate', series_by=None, title='Median gross rent', show_moe=True) is None
+E    +  where ChartSpec(type='scatter', x='geography', y='estimate', series_by=None, title='Median gross rent', show_moe=True) = AskResponse(answer='Austin is higher.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_ye...tter', x='geography', y='estimate', series_by=None, title='Median gross rent', show_moe=True), chart_unavailable=False).chart
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_unknown_chart_type_is_discarded - Assert...
+1 failed in 0.24s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 8: ChartSpec extra=forbid becomes extra=allow =====
+test: test_extra_vega_field_is_rejected
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_extra_vega_field_is_rejected
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________________ test_extra_vega_field_is_rejected ______________________
+api\tests\test_chart.py:156: in test_extra_vega_field_is_rejected
+    with pytest.raises(ValidationError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValidationError
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_extra_vega_field_is_rejected - Failed: D...
+1 failed in 0.27s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 9: title markup validator removed =====
+test: test_svg_payload_is_rejected
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_chart.py::test_svg_payload_is_rejected
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________________ test_svg_payload_is_rejected _________________________
+api\tests\test_chart.py:168: in test_svg_payload_is_rejected
+    with pytest.raises(ValidationError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValidationError
+=========================== short test summary info ===========================
+FAILED api/tests/test_chart.py::test_svg_payload_is_rejected - Failed: DID NO...
+1 failed in 0.36s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 10: ChartSpec extra=forbid becomes extra=allow =====
+test: test_openapi_documents_post_ask
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_route.py::test_openapi_documents_post_ask
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_openapi_documents_post_ask _______________________
+api\tests\test_ask_route.py:95: in test_openapi_documents_post_ask
+    assert chart.get("additionalProperties") is False
+E   AssertionError: assert True is False
+E    +  where True = <built-in method get of dict object at 0x000001733F1CE140>('additionalProperties')
+E    +    where <built-in method get of dict object at 0x000001733F1CE140> = {'properties': {'type': {'type': 'string', 'enum': ['line', 'bar'], 'title': 'Type', 'description': 'line for years; b...timate variable.'}, ...}, 'additionalProperties': True, 'type': 'object', 'required': ['type', 'x', 'y', 'title'], ...}.get
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.67s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 11: AskResponse drops chart and chart_unavailable =====
+test: test_a_valid_question_returns_the_declared_contract
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_ask_route.py::test_a_valid_question_returns_the_declared_contract
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_a_valid_question_returns_the_declared_contract _____________
+api\tests\test_ask_route.py:157: in test_a_valid_question_returns_the_declared_contract
+    assert response.json() == EMPTY_CONTRACT
+E   AssertionError: assert {'answer': ''...ars': [], ...} == {'answer': ''...ars': [], ...}
+E     
+E     Omitting 17 identical items, use -vv to show
+E     Right contains 2 more items:
+E     {'chart': None, 'chart_unavailable': False}
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_a_valid_question_returns_the_declared_contract
+1 failed in 0.60s
+exit: 1
+restore: git checkout -- api/src/contract.py
+
+===== MUTATION 12: generated schema.d.ts drops chart fields =====
+test: test_generated_schema_declares_every_contract_field
+
+$ uv run pytest -q --color=no --tb=short api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_generated_schema_declares_every_contract_field _____________
+api\tests\test_generated_client.py:57: in test_generated_schema_declares_every_contract_field
+    assert f"{field}:" in body or f"{field}?:" in body, field
+E   AssertionError: chart
+E   assert ('chart:' in 'AskResponse: {\n            /**\n             * Alternatives\n             * @description Related tables with the rea...     */\n            warnings: components["schemas"]["AskWarning"][];\n        };\n        /** AskWarning */\n        ' or 'chart?:' in 'AskResponse: {\n            /**\n             * Alternatives\n             * @description Related tables with the rea...     */\n            warnings: components["schemas"]["AskWarning"][];\n        };\n        /** AskWarning */\n        ')
+=========================== short test summary info ===========================
+FAILED api/tests/test_generated_client.py::test_generated_schema_declares_every_contract_field
+1 failed in 0.45s
+exit: 1
+restore: git checkout -- packages/client/schema.d.ts
+
+========== uv run pytest -q --color=no -m "not integration" (restored tree) ==========
+$ uv run pytest -q --color=no -m "not integration"
+
+........................................................................ [ 15%]
+........................................................................ [ 31%]
+........................................................................ [ 46%]
+........................................................................ [ 62%]
+........................................................................ [ 78%]
+........................................................................ [ 93%]
+.............................                                            [100%]
+461 passed in 10.82s
+exit: 0
+
+===== summary =====
+mutations GOOD: 12
+mutations BAD: 0
+GOOD  test_year_series_keeps_a_line_chart  (year-axis fit never keeps a line chart)
+GOOD  test_two_geographies_keep_a_bar_chart  (geography-axis fit never keeps a bar chart)
+GOOD  test_geography_series_over_years_is_kept  (series_by geography never kept)
+GOOD  test_variable_series_is_kept  (series_by variable never kept)
+GOOD  test_scalar_result_has_no_chart  (scalar/mismatch still attaches a valid chart (skip fits))
+GOOD  test_prose_answer_stays_a_prose_answer  (prose treated as a failed chart envelope)
+GOOD  test_unknown_chart_type_is_discarded  (ChartSpec.type is str (unknown enum accepted))
+GOOD  test_extra_vega_field_is_rejected  (ChartSpec extra=forbid becomes extra=allow)
+GOOD  test_svg_payload_is_rejected  (title markup validator removed)
+GOOD  test_openapi_documents_post_ask  (ChartSpec extra=forbid becomes extra=allow)
+GOOD  test_a_valid_question_returns_the_declared_contract  (AskResponse drops chart and chart_unavailable)
+GOOD  test_generated_schema_declares_every_contract_field  (generated schema.d.ts drops chart fields)
+
+full suite (not integration) exit: 0
+
+========== git status --short (after restore) ==========
+$ git status --short
+
+?? evidence/slice-4/cc-34-gate1.txt
+exit: 0
+
+VERDICT: pass (suite green; mutations 12 GOOD / 0 BAD of 12)
