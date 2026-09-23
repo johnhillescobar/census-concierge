@@ -1,8 +1,8 @@
 # ARCHITECTURE — the system as it IS
 
-**Status (2026-09-19).** Slices 0–3 are built and their epics are Done
-(`docs/slices.md`). Slice 4 (CC-11) is To Do in Jira; post-slice-3 reliability
-(CC-91) is In Progress. Neither has changed this shape yet.
+**Status (2026-09-22).** Slices 0–3 are built and their epics are Done
+(`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
+is To Do in Jira. Neither has changed this shape yet.
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing

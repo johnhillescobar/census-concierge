@@ -13,7 +13,7 @@ one-line STATUS pointer, not an eval ledger.
 | [CC-2](https://johnhillescobar.atlassian.net/browse/CC-2) | 3 series and comparisons | Done |
 | [CC-4](https://johnhillescobar.atlassian.net/browse/CC-4) | agent harness (process, not a product slice) | Done |
 | [CC-11](https://johnhillescobar.atlassian.net/browse/CC-11) | 4 living workspace, charts, CSV | To Do |
-| [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) | post-slice-3 reliability (does not block CC-11) | **In Progress** |
+| [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) | post-slice-3 reliability (does not block CC-11) | Done |
 | [CC-9](https://johnhillescobar.atlassian.net/browse/CC-9) | spike: LangGraph checkpointer | To Do |
 | [CC-6](https://johnhillescobar.atlassian.net/browse/CC-6) | 5 conversation persistence | To Do |
 | [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3) | 6 follow-ups | To Do |
@@ -46,4 +46,4 @@ answered_rate 0.825, p95 17.116s. Evidence: `evidence/slice-3/`. Live behavior:
 
 - [CC-55](https://johnhillescobar.atlassian.net/browse/CC-55) — no gazetteer until NAME ranking and the CC-37 plan strip still fail a named golden question.
 - [CC-56](https://johnhillescobar.atlassian.net/browse/CC-56) — a fifth tool is earned by a failing golden question, not scheduled. Years are a parameter (CC-28).
-- [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) — informal/alias place language is the agent’s job: existing tools, Census-shaped output. The NAME matcher must not fake a hit ([CC-99](https://johnhillescobar.atlassian.net/browse/CC-99)). A gazetteer *module* is a separate until-clause ([CC-55](https://johnhillescobar.atlassian.net/browse/CC-55)), not a ban on alias questions.
+- [CC-96](https://johnhillescobar.atlassian.net/browse/CC-96) — informal/alias place language is the agent’s job: existing tools, Census-shaped output. The NAME matcher must not fake a hit ([CC-99](https://johnhillescobar.atlassian.net/browse/CC-99) Done). A gazetteer *module* is a separate until-clause ([CC-55](https://johnhillescobar.atlassian.net/browse/CC-55)), not a ban on alias questions.
