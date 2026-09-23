@@ -107,8 +107,17 @@ _TOKEN_NOISE = frozenset(
 
 def place_token(query: str, state_name: str | None) -> str:
     match = _COUNTY.search(query)
-    if match and match.group(1).casefold() not in {"all", "every", "each"}:
-        return match.group(1).casefold()
+    if match:
+        words = match.group(1).casefold().split()
+        cut = 0
+        for i, word in enumerate(words):
+            if word in _TOKEN_NOISE | {"for"} and word not in {"of", "the", "and"}:
+                cut = i + 1
+        words = words[cut:]
+        while words and words[0] in _TOKEN_NOISE:
+            words.pop(0)
+        if words and words[0] not in {"all", "every", "each"}:
+            return " ".join(words)
     spans = [hit.group(2).casefold() for hit in _PLACE_SPAN.finditer(query)]
     if state_name:
         kept: list[str] = []
@@ -167,11 +176,7 @@ def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def named_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    matched = rank_matches(filter_rows(token, rows))
-    if matched or not token:
-        return matched
-    parts = token.split()
-    return rank_matches(filter_rows(parts[-1], rows) if parts else [])
+    return rank_matches(filter_rows(token, rows))
 
 
 def _rank_key(row: dict[str, str]) -> tuple[int, int, float, str]:

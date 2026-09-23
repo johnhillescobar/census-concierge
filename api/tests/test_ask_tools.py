@@ -20,6 +20,7 @@ from src.geo import (
     filter_rows,
     find_state,
     legal_predicate,
+    named_rows,
     nests_in,
     place_token,
     rank_matches,
@@ -466,6 +467,37 @@ def test_leading_token_does_not_match_a_longer_name() -> None:
     ]
     assert [row["for"] for row in filter_rows("queens", rows)] == ["county:081"]
     assert [row["for"] for row in filter_rows("springfield", rows)] == ["place:77890"]
+
+
+def test_unpublished_region_does_not_match_a_valley_county() -> None:
+    rows = [
+        {
+            "name": "Naugatuck Valley Planning Region, Connecticut",
+            "level": "county",
+            "for": "county:140",
+            "in": "state:09",
+            "geoid": "0500000US09140",
+            "population": "454969",
+        },
+        {
+            "name": "Valley County, Idaho",
+            "level": "county",
+            "for": "county:085",
+            "in": "state:16",
+            "geoid": "0500000US16085",
+            "population": "11746",
+        },
+        {
+            "name": "Harris County, Texas",
+            "level": "county",
+            "for": "county:201",
+            "in": "state:48",
+            "geoid": "0500000US48201",
+            "population": "4731145",
+        },
+    ]
+    assert named_rows("silicon valley", rows) == []
+    assert [row["for"] for row in named_rows("harris", rows)] == ["county:201"]
 
 
 def test_duplicate_names_rank_by_class_then_population() -> None:
@@ -934,18 +966,69 @@ async def test_state_qualified_place_stays_exact() -> None:
     assert "alternatives" not in message.content
 
 
-async def test_harris_county_texas_resolves_to_codes() -> None:
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Harris County, Texas",
+        "population of Harris County, Texas",
+        "what is harris county",
+        "what is harris county, texas",
+    ],
+)
+async def test_harris_county_texas_resolves_to_codes(query: str) -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Harris County, Texas"},
+            "args": {"query": query},
             "id": "c1",
         }
     )
     assert [row.for_spec for row in message.artifact.specs] == ["county:201"]
     assert message.artifact.specs[0].in_spec == "state:48"
+
+
+async def test_informal_region_counties_do_not_become_a_valley_county() -> None:
+    extra = [
+        {
+            "name": "Naugatuck Valley Planning Region, Connecticut",
+            "level": "county",
+            "for": "county:140",
+            "in": "state:09",
+            "geoid": "0500000US09140",
+            "population": "454969",
+        },
+        {
+            "name": "Valley County, Idaho",
+            "level": "county",
+            "for": "county:085",
+            "in": "state:16",
+            "geoid": "0500000US16085",
+            "population": "11746",
+        },
+    ]
+
+    def listing(
+        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+    ) -> list[dict[str, str]]:
+        rows = _list_geographies(level, parts, dataset, vintage)
+        return [*rows, *extra] if level == "county" else rows
+
+    query = "Occupation breakdown for workers in Silicon Valley counties"
+    assert place_token(query, None) == "silicon valley"
+    assert named_rows("silicon valley", extra) == []
+    tool = _geo_tool(listing)
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": query},
+            "id": "c1",
+        }
+    )
+    assert message.artifact.specs == []
+    assert "county:140" not in message.content
 
 
 def test_pair_margins_adds_m_beside_every_e() -> None:
@@ -1403,7 +1486,9 @@ def test_sentence_place_token_is_the_published_name() -> None:
         assert filter_rows(query.casefold(), rows) == []
         hits = rank_matches(filter_rows(token, rows))
         assert hits[0]["for"] == code
-    assert place_token("population of Harris County, Texas", "texas") == "population of harris"
+    assert place_token("population of Harris County, Texas", "texas") == "harris"
+    assert place_token("what is harris county", None) == "harris"
+    assert place_token("1-year ACS poverty for Fresno County, 2018 through 2022", None) == "fresno"
     assert place_token("vacancy in Isle of Palms", None) == "isle of palms"
     assert (
         place_token("Population in District of Columbia", "district of columbia")

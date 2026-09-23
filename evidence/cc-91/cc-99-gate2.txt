@@ -1,0 +1,286 @@
+# CC-99 Gate 2 — cold review
+
+Branch: feat/cc-99-last-word-name
+Range: origin/main...HEAD
+HEAD: 1c2db223734dfb4ea66dce2beeef5a80f6eb695e
+Commits:
+  1c2db22 chore(CC-99): record Gate 1 mutation check
+  5754ebf feat(CC-99): do not resolve unpublished regions via last-word NAME hits
+Ticket: CC-99 (epic CC-91)
+Reviewer: cold Gate 2 (no caller context)
+Evidence: evidence/cc-91/cc-99-gate2.txt
+
+Files vs origin/main (7, under ~15):
+  .claude/PLAN.md
+  api/src/geo_list.py
+  api/tests/test_ask_tools.py
+  docs/ask-path.md
+  evidence/cc-91/cc-99-gate1.txt
+  evidence/cc-91/cc-99-preflight-claims.md
+  evidence/cc-91/cc-99-preflight.txt
+
+Product diff is named_rows returning rank_matches(filter_rows(...)) with
+no last-word retry; _COUNTY requiring a Title Case name before
+count(y|ies), allowing of/the/and inside that name, then stripping
+leading _TOKEN_NOISE so the county token is the name not the sentence;
+Harris sentence resolve parametrized; two listing tests; ask-path.md.
+PLAN.md marks the leaf In Progress. Evidence-only files are Gate 1 /
+preflight.
+
+---
+
+## Pass 1 — generic bugs (diff only, no intent)
+
+Cold-read of origin/main...HEAD as code. No ticket text as spec.
+
+Control flow (place_token / named_rows)
+- named_rows is now one line: rank_matches(filter_rows(token, rows)).
+  The previous path, when filter_rows of the full token was empty,
+  retried filter_rows of token.split()[-1]. That retry is gone.
+- _name_hit is unchanged: exact NAME head, head plus a Census class,
+  or a later whole word in the head (West Springfield still matches
+  springfield). Last-word retry was a second token, not that branch.
+- _COUNTY no longer IGNORECASE on the whole pattern. Capture is
+  Title Case [A-Z]..., then non-greedy (Title Case word | of | the |
+  and), then (?i:count(y|ies)).
+- County hit: split group 1, pop leading _TOKEN_NOISE, then if the
+  first remaining word is not {all, every, each} return the joined
+  remainder. Empty or all/every/each falls through to _PLACE_SPAN
+  then leftover, as before.
+- Call sites in geo.py are unchanged: default for_level, wildcard
+  host, nested parent match (still filter_rows+rank_matches, never
+  named_rows), NAME listing token then named_rows; place miss still
+  retries the same token on the county listing.
+
+Callers
+- resolve_geography still passes find_state's name or None into
+  place_token, then named_rows(token, rows). Empty named_rows still
+  becomes specs=[].
+- Nested leftover_parents still uses filter_rows, so it never had
+  the last-word retry.
+
+Missed cases checked
+- "Harris County, Texas": _COUNTY group 1 is Harris; token harris;
+  _name_hit("harris", "harris county") is head plus class; for stays
+  county:201 in=state:48. Parametrized with the sentence form.
+- "population of Harris County, Texas": Title Case Harris starts the
+  county capture (lowercase "population of" cannot). Token harris,
+  not the sentence. Control: named_rows("harris") still hits the
+  Texas row in the fixture.
+- "Population of Harris County, Texas": capture can start at
+  Population (Title Case) and include "of Harris" before County;
+  leading noise pops population then of; remainder harris. Same token.
+- "Occupation breakdown for workers in Silicon Valley counties":
+  detect_level sees counties -> county. _COUNTY cannot continue from
+  Occupation through lowercase "breakdown for workers in". Match is
+  Silicon Valley counties; token silicon valley. named_rows of that
+  token does not retry valley, so Naugatuck Valley Planning Region
+  and Valley County are not hits. specs=[].
+- named_rows("silicon valley") vs fixture Valley* rows is [].
+  Later-word _name_hit still needs the token as a whole word in the
+  head; "silicon valley" is not that word.
+- "all counties in Texas" / "All Counties in Texas": first remaining
+  word all -> do not return from _COUNTY. Wildcard path unchanged.
+- "vacancy in Isle of Palms": _COUNTY does not fire; _PLACE_SPAN
+  still returns isle of palms (of allowed inside the span).
+- "New York City" / "Austin, Texas" / "State College, Pennsylvania":
+  leftover path unchanged; existing assertions still hold.
+- All-lowercase "harris county": _COUNTY and _PLACE_SPAN both need
+  Title Case, so leftover (strip county, then noise) still yields
+  harris. Fail-closed Title Case is the same convention as the
+  in/for/of span, not a new branch.
+- Leading noise-only county capture ("The County"): words empty
+  after strip; fall through. No published county in the fixtures
+  starts with a _TOKEN_NOISE word.
+- compare.py has its own _COUNTY; this diff does not touch it.
+
+Incorrect control flow
+- nothing. Last-word retry is gone for every named_rows caller.
+  County still precedes the span extract. County now returns the
+  name before count(y|ies) after stripping leading noise, so Harris
+  does not depend on a last-word retry. Listing still ranks;
+  specs[0] is still the pick when there are hits; zero hits stay
+  empty specs.
+
+Pass 1 findings: nothing.
+
+---
+
+## Pass 2 — project invariants (review-pr.md)
+
+Machines first. Commands and output as returned (not paraphrased).
+All six exited 0; invariants review continues.
+
+### uv run python scripts/check_budgets.py
+
+exit 0
+
+```
+BUDGETS
+
+  ok    api src LOC               3918 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1577 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.671 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.808 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+```
+
+### uv run python scripts/check_invariants.py --base origin/main
+
+exit 0
+
+```
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+```
+
+### uv run ruff check .
+
+exit 0
+
+```
+All checks passed!
+```
+
+### uv run ruff format --check .
+
+exit 0
+
+```
+133 files already formatted
+```
+
+### uv run mypy api/src
+
+exit 0
+
+```
+Success: no issues found in 24 source files
+```
+
+### uv run pytest -q -m "not integration"
+
+exit 0
+
+```
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 48%]
+........................................................................ [ 64%]
+........................................................................ [ 80%]
+........................................................................ [ 96%]
+..................                                                       [100%]
+450 passed in 11.35s
+```
+
+### The claim
+
+An informal region that is not a Census NAME head no longer resolves
+to an unrelated published county whose NAME happens to contain the
+region's last word. The tool returns empty specs instead of a Valley
+county (or similar). A named county in a full sentence still resolves
+to that county's codes.
+
+Evidence: Gate 2 does not run make eval / make demo. No scoreboard on
+this branch for this review. E2E is a later pipeline step.
+
+### Scope
+
+Belongs to CC-91 residual reliability (Now in PLAN.md; CC-99 is the
+current leaf), not slice 4 canvas / CC-11 Not-in-this-slice. 7 files.
+One production module. No drive-by tools, routes, graph nodes, or new
+warning codes. ask-path.md records last-word NAME and the county-token
+rule. ARCHITECTURE inventory unchanged (still four tools;
+resolve_geography still owns NAME listing). PLAN.md is a status
+pointer only. No budget raised (check_invariants --base green).
+
+### Silent-wrong-answer
+
+Catalogs read: docs/requirements.md, docs/ask-path.md, docs/slices.md.
+
+- URL: finish still goes search -> resolve -> build -> fetch -> assemble.
+  Named_rows miss stays specs=[] / empty urls, not a substituted
+  geography. CensusURL is still the formatter in list_census_names;
+  no new string-built URL.
+- MOE: unchanged assemble/fetch pairing of E with M.
+- GEOID: GeoSpec still copies listing geoid when there is a hit.
+  Empty specs do not invent one. Harris fixture still 0500000US48201.
+- Universe: assemble still carries record.universe.
+- Failure still ships when a URL exists; empty urls still mean no
+  legal URL. This change is fail-closed on unpublished regions, not
+  a silent repair.
+- Numbers do not pass back through the model.
+- No new blocking clarification. Zero NAME hits are empty specs, not
+  a question. ambiguous_place is untouched.
+- No silent vintage or geography substitution. Dropping last-word
+  retry is the opposite of substituting Valley County / Naugatuck
+  Valley for Silicon Valley. County-token stripping is parsing for
+  NAME, not swapping a different area after a miss.
+- overlapping_vintage / acs1_geography_ineligible paths are not rewritten.
+- geography_unsupported: do not substitute. Empty specs follow that.
+
+### Shape
+
+No new tool, route, Pydantic model, or add_node. named_rows lost a
+branch; it did not gain an abstraction. Not a
+manager/orchestrator/factory. No second validator. docs/ARCHITECTURE.md
+unchanged because the inventory did not change.
+
+### Tests
+
+Behaviour: named_rows("silicon valley") is []; named_rows("harris")
+is county:201; place_token of the informal-region sentence is
+silicon valley; resolve of that sentence has specs=[] and does not
+emit county:140; Harris County and "population of Harris County,
+Texas" both resolve county:201 in=state:48; sentence county token is
+harris. No prompt wording. Listing extra is additive county rows on
+the existing question-dependent geo fake, not a constant-table
+retrieval fake. Tests not named CC-99. Gate 1 mutation transcript is
+in evidence/cc-91/cc-99-gate1.txt (not re-run here).
+
+Pass 2 findings:
+- machines: nothing (all green; no budget weaken)
+- silent-wrong-answer: nothing
+- scope: nothing
+- tests: nothing
+- follow-ups: nothing that blocks; E2E scoreboard is not this gate
+
+---
+
+## Verdict
+
+ship it
+
+User-facing claim: a question that names an unpublished region no
+longer ships a Census URL for an unrelated county whose NAME shares
+the region's last word; resolve returns empty specs. A named county
+in a full sentence still resolves to that county (MOE and GEOID still
+on assemble when a fetch exists).

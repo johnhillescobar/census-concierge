@@ -1,0 +1,134 @@
+# CC-99 Gate 1 mutation check
+Branch: feat/cc-99-last-word-name
+$ git log -1 --format=HEAD: %H %s
+HEAD: 5754ebfa17ba893dd5b9014e1253eb063689be27 feat(CC-99): do not resolve unpublished regions via last-word NAME hits
+(exit 0)
+$ git status --short
+(exit 0)
+$ git branch --show-current
+feat/cc-99-last-word-name
+(exit 0)
+## GOOD — new tests at HEAD
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_unpublished_region_does_not_match_a_valley_county api/tests/test_ask_tools.py::test_informal_region_counties_do_not_become_a_valley_county api/tests/test_ask_tools.py::test_harris_county_texas_resolves_to_codes api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name
+.....                                                                    [100%]
+5 passed in 0.27s
+(exit 0)
+## GOOD — pytest -q -m "not integration"
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 48%]
+........................................................................ [ 64%]
+........................................................................ [ 80%]
+........................................................................ [ 96%]
+..................                                                       [100%]
+450 passed in 11.02s
+(exit 0)
+## GOOD — structural budgets
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               3918 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           399 <= 400
+  ok    web src LOC               1014 <= 3000
+  ok    system prompt tokens       205 <= 1200
+  ok    doc lines                 1577 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                7 <= 15
+  ok    direct dependencies          7 <= 25
+
+All budgets met.
+
+(exit 0)
+## GOOD — last-word named_rows fallback (parts[-1] retry)
+restore the last-word named_rows fallback in named_rows
+Ticket AC: silicon-valley empty-specs tests FAIL; Harris still PASSES.
+
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_unpublished_region_does_not_match_a_valley_county api/tests/test_ask_tools.py::test_informal_region_counties_do_not_become_a_valley_county
+FF                                                                       [100%]
+================================== FAILURES ===================================
+___________ test_unpublished_region_does_not_match_a_valley_county ____________
+api\tests\test_ask_tools.py:499: in test_unpublished_region_does_not_match_a_valley_county
+    assert named_rows("silicon valley", rows) == []
+E   AssertionError: assert [{'name': 'Na...ate:16', ...}] == []
+E     
+E     Left contains 2 more items, first extra item: {'name': 'Naugatuck Valley Planning Region, Connecticut', 'level': 'county', 'for': 'county:140', 'in': 'state:09', ...}
+E     Use -v to get more diff
+_________ test_informal_region_counties_do_not_become_a_valley_county _________
+api\tests\test_ask_tools.py:1024: in test_informal_region_counties_do_not_become_a_valley_county
+    assert message.artifact.specs == []
+E   AssertionError: assert [GeoSpec(leve...nty': '085'})] == []
+E     
+E     Left contains 2 more items, first extra item: GeoSpec(level='county', name='Naugatuck Valley Planning Region, Connecticut', geoid='0500000US09140', for_spec='county:140', in_spec='state:09', dataset='acs5', vintage=2024, codes={'state': '09', 'county': '140'})
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_unpublished_region_does_not_match_a_valley_county
+FAILED api/tests/test_ask_tools.py::test_informal_region_counties_do_not_become_a_valley_county
+2 failed in 0.34s
+(exit 1)
+
+## GOOD — last-word named_rows fallback (Harris control still PASSES)
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_harris_county_texas_resolves_to_codes api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name
+...                                                                      [100%]
+3 passed in 0.20s
+(exit 0)
+$ git checkout -- api/src/geo_list.py
+(exit 0)
+
+## GOOD — greedy _COUNTY capture / noise strip in place_token
+restore greedy case-insensitive _COUNTY and return match.group(1) without stripping _TOKEN_NOISE
+Harris "population of Harris County, Texas" and silicon-valley place_token FAIL; last-word named_rows is not this mutation.
+
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_harris_county_texas_resolves_to_codes api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name api/tests/test_ask_tools.py::test_informal_region_counties_do_not_become_a_valley_county
+.FFF                                                                     [100%]
+================================== FAILURES ===================================
+_ test_harris_county_texas_resolves_to_codes[population of Harris County, Texas] _
+api\tests\test_ask_tools.py:983: in test_harris_county_texas_resolves_to_codes
+    assert [row.for_spec for row in message.artifact.specs] == ["county:201"]
+E   AssertionError: assert [] == ['county:201']
+E     
+E     Right contains one more item: 'county:201'
+E     Use -v to get more diff
+_______________ test_sentence_place_token_is_the_published_name _______________
+api\tests\test_ask_tools.py:1483: in test_sentence_place_token_is_the_published_name
+    assert place_token("population of Harris County, Texas", "texas") == "harris"
+E   AssertionError: assert 'population of harris' == 'harris'
+E     
+E     - harris
+E     + population of harris
+_________ test_informal_region_counties_do_not_become_a_valley_county _________
+api\tests\test_ask_tools.py:1014: in test_informal_region_counties_do_not_become_a_valley_county
+    assert place_token(query, None) == "silicon valley"
+E   AssertionError: assert 'occupation b...ilicon valley' == 'silicon valley'
+E     
+E     - silicon valley
+E     + occupation breakdown for workers in silicon valley
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_harris_county_texas_resolves_to_codes[population of Harris County, Texas]
+FAILED api/tests/test_ask_tools.py::test_sentence_place_token_is_the_published_name
+FAILED api/tests/test_ask_tools.py::test_informal_region_counties_do_not_become_a_valley_county
+3 failed, 1 passed in 0.46s
+(exit 1)
+
+## GOOD — greedy _COUNTY capture / noise strip (named_rows last-word not reverted)
+$ uv run pytest -q --tb=short api/tests/test_ask_tools.py::test_unpublished_region_does_not_match_a_valley_county
+.                                                                        [100%]
+1 passed in 0.19s
+(exit 0)
+$ git checkout -- api/src/geo_list.py
+(exit 0)
+
+## GOOD — restore working tree to HEAD
+
+$ git status --short
+(exit 0)
+$ git diff -- api/src/geo_list.py
+(exit 0)
+
+# Verdict
+pass, 2 mutations GOOD / 0 BAD, 4 new tests mutation-checked, 8 GOOD / 0 BAD
