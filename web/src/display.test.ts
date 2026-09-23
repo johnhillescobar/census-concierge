@@ -330,7 +330,7 @@ describe("normalizeActiveDataset", () => {
     });
   });
 
-  it("does not borrow a missing MOE from another row or render it as zero", () => {
+  it("does not borrow a missing MOE from another row", () => {
     const shortMoe: AskResponse = {
       ...harris,
       geoid: "",
@@ -343,6 +343,7 @@ describe("normalizeActiveDataset", () => {
     const rows = normalizeActiveDataset(shortMoe);
     expect(rows[0]?.moe).toBe("2400");
     expect(rows[1]?.moe).toBeNull();
+    expect(rows[1]?.moe).not.toBe("0");
     expect(rows[1]?.estimate).toBe("71000");
   });
 

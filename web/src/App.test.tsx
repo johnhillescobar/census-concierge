@@ -260,7 +260,7 @@ describe("App result", () => {
           Promise.resolve({
             ...harris,
             moe: [{ GEO_ID: "0500000US48201", NAME: "Harris County, Texas", B01003_001M: "-555555555" }],
-            rows: [{ ...harris.rows[0], B01003_001M: "-555555555" }],
+            rows: [{ ...harris.rows[0], B01003_001M: "-555555555", dataset: "acs5", year: "2024", vintage: "2024", period: "2020-2024", table_id: "B01003" }],
           })
         }
       />,
@@ -268,9 +268,13 @@ describe("App result", () => {
     await user.type(screen.getByLabelText("Question"), "population of Harris County");
     await user.click(screen.getByRole("button", { name: "Ask" }));
     await waitFor(() => expect(pane().dataset.state).toBe("result"));
-    expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
-    expect(screen.getAllByRole("cell", { name: "—" }).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/-555555555/)).toBeNull();
+    const row = [...document.querySelectorAll(".geo-table tbody tr td")].map(
+      (td) => td.textContent || "",
+    );
+    expect(row.at(-2)).toBe("4,838,303");
+    expect(row.at(-1)).toBe("—");
+    expect(row.at(-1)).not.toBe("0");
+    expect(row).not.toContain("-555555555");
     expect(screen.queryByText(/B01003_001E: /)).toBeNull();
   });
 
