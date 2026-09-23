@@ -209,15 +209,30 @@ def take_chart(
         saw = raw is not None
         payload = raw if isinstance(raw, dict) else {}
     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
-    if not saw:
-        return none
-    try:
-        spec = ChartSpec.model_validate(payload)
-    except ValidationError:
-        return {**none, "chart_unavailable": True}
+    spec: ChartSpec | None = None
+    unavailable = False
+    if saw:
+        try:
+            spec = ChartSpec.model_validate(payload)
+        except ValidationError:
+            unavailable = True
     years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
     geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
     estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
+    if spec is None and not unavailable:
+        title = str((rows[0].get("table_id") if rows else "") or "")
+        if len(years) > 1:
+            spec = ChartSpec(
+                type="line",
+                x="year",
+                y="estimate",
+                title=title,
+                series_by="geography" if len(geos) > 1 else None,
+            )
+        elif len(geos) > 1:
+            spec = ChartSpec(type="bar", x="geography", y="estimate", title=title)
+    if spec is None:
+        return {**none, "chart_unavailable": unavailable}
     fits = (spec.x != "year" or len(years) > 1) and (spec.x != "geography" or len(geos) > 1)
     fits = fits and (spec.series_by != "geography" or len(geos) > 1)
     fits = fits and (spec.series_by != "variable" or len(estimates) > 1)

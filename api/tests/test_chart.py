@@ -141,6 +141,25 @@ def test_prose_answer_stays_a_prose_answer() -> None:
     assert response.chart_unavailable is False
 
 
+def test_prose_comparison_gets_a_geography_bar() -> None:
+    record = ExecutionRecord(rows=[AUSTIN, TEXAS], table_id="B25064")
+    response = assemble("Austin is higher.", record)
+    assert response.answer == "Austin is higher."
+    assert response.chart is not None
+    assert response.chart.type == "bar"
+    assert response.chart.x == "geography"
+    assert response.chart_unavailable is False
+
+
+def test_prose_year_series_gets_a_line() -> None:
+    record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024], table_id="B19013")
+    response = assemble("Income rose.", record)
+    assert response.chart is not None
+    assert response.chart.type == "line"
+    assert response.chart.x == "year"
+    assert response.chart.series_by is None
+
+
 def test_unknown_chart_type_is_discarded() -> None:
     record = ExecutionRecord(rows=[AUSTIN, TEXAS])
     payload = {**BAR, "type": "scatter"}
