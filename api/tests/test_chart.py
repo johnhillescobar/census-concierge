@@ -179,3 +179,26 @@ def test_svg_payload_is_rejected() -> None:
     assert response.chart_unavailable is True
     assert response.rows[0]["B25064_001E"] == urls_before[0]["B25064_001E"]
     assert response.warnings == []
+
+
+def test_fenced_json_still_extracts_the_chart() -> None:
+    record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
+    blob = "```json\n" + _envelope("Income rose.", LINE) + "\n```"
+    response = assemble(blob, record)
+    assert response.answer == "Income rose."
+    assert response.chart is not None
+    assert response.chart.type == "line"
+
+
+def test_overlapping_acs5_years_do_not_keep_a_line_chart() -> None:
+    earlier = {**DENVER_2019, "year": "2018", "B19013_001E": "90", "B19013_001M": "4"}
+    record = ExecutionRecord(
+        question="Median household income in Denver in 2018 and 2019",
+        rows=[earlier, DENVER_2019],
+        vintages=[("acs5", 2018), ("acs5", 2019)],
+    )
+    response = assemble(_envelope("Income rose.", LINE), record)
+    assert "overlapping_vintage" in {item.code for item in response.warnings}
+    assert response.chart is None
+    assert response.chart_unavailable is False
+    assert len(response.rows) == 2

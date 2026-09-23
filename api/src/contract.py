@@ -188,10 +188,19 @@ class AskResponse(BaseModel):
     chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
 
 
-def take_chart(answer: str, rows: list[dict[str, str | None]]) -> dict[str, Any]:
+def take_chart(
+    answer: str,
+    rows: list[dict[str, str | None]],
+    warnings: list[Any] | None = None,
+) -> dict[str, Any]:
+    text = answer.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        if "```" in text:
+            text = text[: text.rfind("```")].strip()
     cleaned, payload, saw = answer, None, False
     try:
-        body = json.loads(answer.strip())
+        body = json.loads(text)
     except json.JSONDecodeError:
         body = None
     if isinstance(body, dict) and "answer" in body:
@@ -212,4 +221,7 @@ def take_chart(answer: str, rows: list[dict[str, str | None]]) -> dict[str, Any]
     fits = (spec.x != "year" or len(years) > 1) and (spec.x != "geography" or len(geos) > 1)
     fits = fits and (spec.series_by != "geography" or len(geos) > 1)
     fits = fits and (spec.series_by != "variable" or len(estimates) > 1)
+    codes = {getattr(item, "code", "") for item in warnings or []}
+    if spec.x == "year" and "overlapping_vintage" in codes:
+        fits = False
     return none if not fits else {"answer": cleaned, "chart": spec, "chart_unavailable": False}

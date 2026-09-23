@@ -244,7 +244,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
     year = record.vintages[-1][1] if record.vintages else None
     rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
     return AskResponse(
-        **take_chart(answer, rows),
+        **take_chart(answer, rows, warnings),
         **series_from_record(record),
         rows=rows,
         moe=moe_rows(rows),
