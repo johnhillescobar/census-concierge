@@ -342,8 +342,10 @@ describe("normalizeActiveDataset", () => {
     };
     const rows = normalizeActiveDataset(shortMoe);
     expect(rows[0]?.moe).toBe("2400");
+    expect(formatCensusNumber(rows[0]?.moe)).toBe("2,400");
     expect(rows[1]?.moe).toBeNull();
-    expect(rows[1]?.moe).not.toBe("0");
+    expect(formatCensusNumber(rows[1]?.moe)).toBe("—");
+    expect(formatCensusNumber(rows[1]?.moe)).not.toBe("0");
     expect(rows[1]?.estimate).toBe("71000");
   });
 

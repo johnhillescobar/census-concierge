@@ -214,6 +214,14 @@ describe("App result", () => {
     expect(screen.getByText("0500000US41003")).toBeTruthy();
     expect(screen.getByText("16,668")).toBeTruthy();
     expect(screen.getByText("95,184")).toBeTruthy();
+    const body = document.querySelector(".geo-table tbody") as HTMLTableSectionElement;
+    const texts = [...body.querySelectorAll("tr")].map((tr) =>
+      [...tr.querySelectorAll("td")].map((td) => td.textContent || ""),
+    );
+    expect(texts[0]?.at(-2)).toBe("16,668");
+    expect(texts[0]?.at(-1)).toBe("24");
+    expect(texts[1]?.at(-2)).toBe("95,184");
+    expect(texts[1]?.at(-1)).toBe("51");
     expect(screen.getAllByText("B01003_001E")).toHaveLength(2);
   });
 
