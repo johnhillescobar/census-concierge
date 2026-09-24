@@ -144,7 +144,7 @@ class ResultPlan(BaseModel):
         from src.geo import legal_predicate
 
         zcta = "zip code tabulation area"
-        geo = next((g for g in self.geographies if zcta in (g.level, g.for_spec)), None)
+        geo = next((g for g in self.geographies if zcta in (g.level, *g.codes)), None)
         wild = bool(geo and geo.for_spec.endswith(":*"))
         if (
             self.dataset == "acs1"
@@ -180,18 +180,22 @@ def plan_from_record(record: Any) -> ResultPlan:
     table_id = str(getattr(record, "table_id", "") or table)
     dataset = dataset or (vintages[0][0] if vintages else "acs5")
     overlap = bool(getattr(record, "allow_overlapping_acs5", False))
+    fields = dict(
+        table_id=table_id,
+        variables=[f"{table}_{item}" for item in suffixes] if table else [],
+        dataset=dataset,
+        years=years,
+        requested_years=requested,
+        geographies=geos,
+        allow_overlapping_acs5=overlap,
+    )
     try:
-        return ResultPlan(
-            table_id=table_id,
-            variables=[f"{table}_{item}" for item in suffixes] if table else [],
-            dataset=dataset,
-            years=years,
-            requested_years=requested,
-            geographies=geos,
-            allow_overlapping_acs5=overlap,
-        )
+        return ResultPlan.model_validate(fields)
     except ValidationError:
-        return ResultPlan(table_id=table_id, dataset=dataset, allow_overlapping_acs5=overlap)
+        try:
+            return ResultPlan.model_validate({**fields, "geographies": []})
+        except ValidationError:
+            return ResultPlan(table_id=table_id, dataset=dataset, allow_overlapping_acs5=overlap)
 
 
 class AskResponse(BaseModel):

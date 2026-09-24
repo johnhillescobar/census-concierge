@@ -324,6 +324,35 @@ def test_acs1_zcta_record_still_ships_the_url() -> None:
     assert response.plan.table_id == "B01003"
     assert response.plan.dataset == "acs1"
     assert response.plan.geographies == []
+    assert response.plan.years == [2023]
+    assert response.plan.variables == ["B01003_001E"]
+
+
+def test_acs1_zcta_clause_without_level_still_ships_the_url() -> None:
+    url = CensusURL(
+        "https://api.census.gov/data/2023/acs/acs1"
+        "?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=zip code tabulation area:90210"
+    )
+    response = assemble(
+        "Census returned HTTP 400.",
+        ExecutionRecord(
+            table_id="B01003",
+            url=url,
+            geographies=[GeoSpec(for_spec="zip code tabulation area:90210")],
+            fetch=_fetch(
+                ok=False,
+                urls=[str(url)],
+                requested_years=[2023],
+                attempted_years=[2023],
+                failed_years=[2023],
+                dataset="acs1",
+            ),
+        ),
+    )
+    assert response.urls == [str(url)]
+    assert response.plan.geographies == []
+    assert response.plan.years == [2023]
+    assert response.plan.variables == ["B01003_001E"]
 
 
 def test_plan_rejects_acs1_zcta() -> None:
@@ -333,6 +362,14 @@ def test_plan_rejects_acs1_zcta() -> None:
             geographies=[
                 GeoSpec(level="zip code tabulation area", for_spec="zip code tabulation area:90210")
             ],
+        )
+
+
+def test_plan_rejects_acs1_zcta_clause_without_level() -> None:
+    with pytest.raises(ValidationError, match="ZCTA"):
+        ResultPlan(
+            dataset="acs1",
+            geographies=[GeoSpec(for_spec="zip code tabulation area:90210")],
         )
 
 
