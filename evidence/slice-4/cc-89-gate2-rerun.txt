@@ -1,0 +1,288 @@
+Gate 2 re-run transcript — CC-89 typed plan overrides (post-fix)
+branch: feat/cc-89-plan-overrides
+HEAD: 7e8b2dcadedc39635aa5d534d39f44ff2ed1f61d
+fix: 7e8b2dc fix(CC-89): stamp plan dataset onto GEOID-bound geographies
+prior Gate 2: evidence/slice-4/cc-89-gate2.txt (HEAD then 4c2affc)
+base: origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read (order): CLAUDE.md, docs/playbooks/run-slice.md,
+  docs/playbooks/review-pr.md, .claude/PLAN.md, docs/requirements.md,
+  docs/ask-path.md, docs/ARCHITECTURE.md, docs/slices.md,
+  evidence/slice-4/cc-89-preflight.md, evidence/slice-4/cc-89-gate1.txt,
+  evidence/slice-4/cc-89-gate2.txt, .cursor/rules/40-census-domain.mdc
+no implement; no E2E; no PR; no commit; this file is uncommitted
+
+=== git ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-89-plan-overrides
+
+$ git rev-parse HEAD
+exit: 0
+7e8b2dcadedc39635aa5d534d39f44ff2ed1f61d
+
+$ git log --oneline origin/main..HEAD
+exit: 0
+7e8b2dc fix(CC-89): stamp plan dataset onto GEOID-bound geographies
+bedb945 chore(CC-89): record Gate 2 cold review
+4c2affc chore(CC-89): record Gate 1 tests and mutation check
+f722cbb feat(CC-89): validate and pin typed plan overrides on POST /ask
+
+$ git log origin/main..HEAD --format="%H %s"
+exit: 0
+7e8b2dcadedc39635aa5d534d39f44ff2ed1f61d fix(CC-89): stamp plan dataset onto GEOID-bound geographies
+bedb945dd1dde8149ee9bdddc8346e24132b617a chore(CC-89): record Gate 2 cold review
+4c2affc825186c83e334d36ad6a1d437aa117a2a chore(CC-89): record Gate 1 tests and mutation check
+f722cbba7264f8eb4ca525e4a64ecb73019e467e feat(CC-89): validate and pin typed plan overrides on POST /ask
+
+$ git diff origin/main...HEAD --stat
+exit: 0
+ api/src/ask.py                      | 115 ++++++++++---------
+ api/src/contract.py                 | 171 +++++++++++++++++++++++++---
+ api/src/fetch.py                    |  93 ++++++---------
+ api/src/finish.py                   |   9 +-
+ api/src/geo_list.py                 |   7 +-
+ api/src/guards.py                   |   6 +-
+ api/src/main.py                     |  17 ++-
+ api/src/retrieval/availability.py   |  19 +---
+ api/src/retrieval/build.py          |  45 +-------
+ api/src/retrieval/index.py          |  18 +--
+ api/src/retrieval/metadata.py       |  56 +--------
+ api/src/retrieval/synthetic.py      |  15 +--
+ api/src/retrieval/text.py           |  25 +---
+ api/src/tools.py                    |  14 +--
+ api/tests/ask_fixtures.py           |  69 ++++++-----
+ api/tests/test_ask_route.py         | 143 ++++++++++++++++++++++-
+ api/tests/test_plan.py              |  28 +++++
+ api/tests/test_plan_override.py     | 219 +++++++++++++++++++++++++++++++++++
+ api/tests/test_static_frontend.py   |   4 +-
+ docs/ARCHITECTURE.md                |   7 +-
+ docs/ask-path.md                    |   6 +-
+ docs/requirements.md                |   2 +-
+ evidence/slice-4/cc-89-gate1.txt    | 208 +++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-89-gate2.txt    | 221 ++++++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-89-preflight.md |  80 +++++++++++++
+ packages/client/openapi.json        |  11 ++
+ packages/client/schema.d.ts         |   2 +
+ web/src/ask.test.ts                 |  14 +++
+ web/src/ask.ts                      |   5 +-
+ 29 files changed, 1278 insertions(+), 351 deletions(-)
+
+$ git diff origin/main...HEAD -- budgets.toml
+exit: 0
+(empty)
+
+$ git show 7e8b2dc --stat
+exit: 0
+commit 7e8b2dcadedc39635aa5d534d39f44ff2ed1f61d
+    fix(CC-89): stamp plan dataset onto GEOID-bound geographies
+
+ api/src/contract.py             |  8 +++-----
+ api/tests/test_plan.py          | 11 +++++++++++
+ api/tests/test_plan_override.py | 25 +++++++++++++++++++++++++
+ 3 files changed, 39 insertions(+), 5 deletions(-)
+
+=== Pass B machines (review-pr.md first; raw output) ===
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               3998 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               1315 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1591 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         16.692 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.808 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit: 0
+141 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 43%]
+........................................................................ [ 57%]
+........................................................................ [ 72%]
+........................................................................ [ 86%]
+....................................................................     [100%]
+500 passed in 12.57s
+
+=== Pass A probe (A.1 closed?; ACS1 ZCTA; A.2; A.3; pair_margins) ===
+
+$ uv run python -c "..."   (PYTHONPATH=api)
+exit: 0
+=== A.1 prior finding (plan.dataset vs GeoSpec.dataset after GEOID bind) ===
+plan.dataset acs1
+geo.dataset before bind acs5
+geo.dataset after bind acs1
+for/in county:201 state:48
+allowed_geographies {('county:201', 'state:48', 'acs1')}
+pinned build args {'table_id': 'B01003', 'dataset': 'acs1'}
+build triple ('county:201', 'state:48', 'acs1')
+triple in allowed True
+=== ACS1 ZCTA still 422 ===
+ACS1+ZCTA ValidationError 1
+1 validation error for AskRequest
+=== A.2 geo-only override dataset default ===
+geo-only plan.dataset acs5
+geo-only geo.dataset after bind acs5
+wants_acs1 True
+pin overwrites acs1 arg to acs5
+finish redo forced False when geos pinned True
+=== A.3 reject_unknown_override OSError ===
+fail-open OSError True
+=== pair_margins still on build ===
+['B01003_001E', 'B01003_001M']
+=== HTTP ACS1 county bind (AskRequest) ===
+request plan geo.dataset acs1
+request plan.dataset acs1
+
+$ uv run python -c "AskRequest ACS1+ZCTA full ValidationError"
+exit: 0
+1 validation error for AskRequest
+  Value error, ACS1 is not published for ZCTA [type=value_error, input_value={'table_id': '', 'variabl...verlapping_acs5': False}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+
+=== Pass A (generic bugs, cold) ===
+
+bind_override_geographies now stamps dataset=plan.dataset onto every GEOID-bound
+GeoSpec (7e8b2dc). pin_tool_args still always writes plan.dataset onto
+build_url. allowed_geographies is still keyed on
+(geo.for_spec, geo.in_spec, geo.dataset) in both default_tools and the
+ask_fixtures fake. After bind, the ACS1 county triple matches; prior Gate 2
+probe had triple in allowed False.
+
+finish.py still sets redo=False when plan.geographies is set. That no longer
+blocks the ACS1+GEOID path: the first build is legal, so finish does not need
+the wants_acs1 rebuild. It still blocks a geo-only override (no dataset field)
+from being repaired to ACS1 by the question text (A.2).
+
+ResultPlan.consistent still 422s ACS1+ZCTA at AskRequest bind, before run_ask.
+Message: "ACS1 is not published for ZCTA". Empty-GEOID for/in still 422.
+
+pair_margins still runs inside BuildUrlTool after variable normalize. ACS1
+county test asserts B01003_001M in the URL. overlapping_vintage still reads
+question + ACS5 vintages and does not inspect allow_overlapping_acs5; the
+consecutive-year override test still asserts the warning.
+
+CensusURL still builds the URL; no new formatter. resolve_geography is skipped
+when geos are pinned; submitted for/in is overwritten from AFFGEOID.
+
+No fifth tool, no new route, no add_node. Reuses ResultPlan.
+
+=== Pass B narrative (machines cannot check) ===
+
+Claim: a caller can POST optional AskRequest.plan (the CC-90 ResultPlan) on
+the existing /ask route and those fields are validated then pinned through
+the four-tool loop; model args cannot undo them. After 7e8b2dc, plan.dataset
+is also stamped onto GEOID-bound GeoSpecs so allowed_geographies matches the
+pinned build_url dataset.
+
+Evidence: E2E is not this phase. Gate 1 mutation transcript is on disk.
+Fix adds test_geoid_bind_copies_plan_dataset and
+test_acs1_dataset_override_builds_a_county_url (500 vs prior 498).
+No make demo / make eval scoreboard in this PR yet.
+
+Scope: slice 4 / CC-11, ticket CC-89. One route, four tools, zero graph
+nodes. Reuses ResultPlan. No plan-strip UI (CC-37), no two-pane shell
+(CC-88), no fifth tool, no extra route, no persistence, no follow-up
+language, no wildcards without GEOID. Budgets not raised (api src LOC
+3998/4000, down 2 from the feat). budgets.toml not in the diff.
+29 files: product helpers plus docstring compaction to pay LOC, tests,
+catalogs, generated client, evidence. Compaction is the pre-flight
+constraint, not a sibling feature.
+
+Silent-wrong-answer: GEOID rebound from AFFGEOID; submitted for/in discarded.
+MOE pairing still runs on a successful build. overlapping_vintage still fires
+when allow_overlapping_acs5 is True. CensusURL still redacts &key=. No
+blocking clarification. Prior dual-path (plan.dataset vs GeoSpec.dataset on
+GEOID bind) is closed — see probe.
+
+Shape: AskRequest.plan is ResultPlan. ARCHITECTURE.md / ask-path.md /
+requirements.md updated in the feat commit. Fix did not change shape.
+
+Tests: behavioral; no prompt/LLM prose asserts; no ticket-named tests.
+ask_fixtures allowed_geographies uses the same (for, in, dataset) key as
+production, so the new ACS1 loop test would fail without the stamp.
+
+=== Pass A findings ===
+
+1. CLOSED — prior A.1 (plan.dataset vs GeoSpec.dataset). bind_override_geographies
+   stamps dataset=plan.dataset. Probe: before bind geo.dataset=acs5; after bind
+   acs1; allowed {(county:201, state:48, acs1)}; pinned dataset acs1; triple in
+   allowed True. AskRequest bind matches. ACS1 county URL path is no longer
+   empty urls[].
+
+2. STILL TRUE (follow-up) — prior A.2. A geo-only override defaults
+   ResultPlan.dataset to acs5; bind stamps that onto the GeoSpec; pin_tool_args
+   overwrites a model/finish acs1 arg to acs5; finish.py redo=False when geos
+   are pinned, so wants_acs1(question) cannot rebuild. Not a silent-wrong-answer
+   on a full ResultPlan (dataset is a typed field with default acs5); it is a
+   partial-plan footgun.
+
+3. STILL TRUE (follow-up) — prior A.3. reject_unknown_override returns "" on
+   OSError (matrix missing), so unknown table_id is not 422 before run_ask on
+   that path. Fail-open.
+
+=== Pass B findings ===
+
+1. CLOSED — prior B.1 / A.1 silent-wrong-answer on ACS1+county GEOID. URL now
+   builds; MOE present on that path.
+
+2. Machines: nothing (all exit 0; budgets not weakened; LOC 3998/4000).
+
+3. Follow-ups only: A.2 geo-only dataset default; A.3 reject_unknown_override
+   fail-open. Neither is a silent-wrong-answer on the claimed full-plan pin.
+
+=== Verdict ===
+
+ship it with follow-ups — A.1 is closed: GEOID bind stamps plan.dataset so an
+ACS1 county override builds a key-redacted URL with MOE; remaining A.2 (geo-only
+override defaults acs5 even on an ACS1 question) and A.3 (reject_unknown_override
+fail-open on missing availability matrix) stay follow-ups.
