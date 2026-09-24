@@ -4,7 +4,7 @@
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
 is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
 the result pane renders one normalized GEOID/MOE table (CC-35 Done);
-`AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90).
+`AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
