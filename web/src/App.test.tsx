@@ -542,3 +542,118 @@ describe("App result", () => {
     }
   });
 });
+
+describe("App workspace", () => {
+  it("presents chat and canvas as distinct landmarks, stacked in that order", () => {
+    render(<App askFn={() => Promise.resolve(harris)} />);
+    const chat = screen.getByRole("region", { name: "census-concierge" });
+    const canvas = screen.getByRole("region", { name: "Working dataset" });
+    expect(chat).not.toBe(canvas);
+    expect(chat.querySelector("form")).toBeTruthy();
+    expect(canvas.querySelector("form")).toBeNull();
+    const workspace = document.querySelector("main.workspace") as HTMLElement;
+    expect([...workspace.children]).toEqual([chat, canvas]);
+  });
+
+  it("keeps the prior result visible while a later question is loading", async () => {
+    const user = userEvent.setup({ delay: null });
+    let finishSecond: (value: AskResponse) => void = () => undefined;
+    const askFn = vi
+      .fn<(question: string) => Promise<AskResponse>>()
+      .mockResolvedValueOnce(harris)
+      .mockImplementationOnce(
+        () =>
+          new Promise<AskResponse>((resolve) => {
+            finishSecond = resolve;
+          }),
+      );
+    render(<App askFn={askFn} />);
+    const input = screen.getByLabelText("Question");
+    await user.type(input, "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    await user.clear(input);
+    await user.type(input, "median rent in Houston");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(pane().dataset.state).toBe("loading");
+    expect(screen.getByText(/looking up tables/i)).toBeTruthy();
+    expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
+    expect(screen.getByText("Total population")).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
+    expect(screen.getAllByText("0500000US48201").length).toBeGreaterThan(0);
+    expect(screen.getByText(/B01001 — related table/)).toBeTruthy();
+    expect(screen.getByText("Harris County has 4,838,303 people.")).toBeTruthy();
+    expect(screen.getByText("Active question: population of Harris County")).toBeTruthy();
+    finishSecond(rentFailure);
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+  });
+
+  it("replaces the active result only after a successful response", async () => {
+    const user = userEvent.setup({ delay: null });
+    const askFn = vi
+      .fn<(question: string) => Promise<AskResponse>>()
+      .mockResolvedValueOnce(harris)
+      .mockResolvedValueOnce(rentFailure);
+    render(<App askFn={askFn} />);
+    const input = screen.getByLabelText("Question");
+    await user.type(input, "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() =>
+      expect(screen.getByText("Active question: population of Harris County")).toBeTruthy(),
+    );
+    await user.clear(input);
+    await user.type(input, "median rent in nowhere");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByText("Active question: median rent in nowhere")).toBeTruthy();
+    expect(screen.queryByText("Active question: population of Harris County")).toBeNull();
+    expect(document.querySelector(".census-url")?.textContent).toContain("B25064_001E");
+    expect(screen.queryByText("4,838,303")).toBeNull();
+  });
+
+  it("keeps the prior result and shows a later failure separately", async () => {
+    const user = userEvent.setup({ delay: null });
+    const askFn = vi
+      .fn<(question: string) => Promise<AskResponse>>()
+      .mockResolvedValueOnce(harris)
+      .mockRejectedValueOnce(new Error("network down"));
+    render(<App askFn={askFn} />);
+    const input = screen.getByLabelText("Question");
+    await user.type(input, "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    await user.clear(input);
+    await user.type(input, "median rent in Houston");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("network down"));
+    expect(pane().dataset.state).toBe("result");
+    expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
+    expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
+    expect(screen.getByText("Total population")).toBeTruthy();
+    expect(screen.getByText(/B01001 — related table/)).toBeTruthy();
+    expect(screen.getByText("Active question: population of Harris County")).toBeTruthy();
+  });
+
+  it("moves keyboard focus to canvas status after submit and to the alert after an error", async () => {
+    const user = userEvent.setup({ delay: null });
+    let finish: (value: AskResponse) => void = () => undefined;
+    const pending = new Promise<AskResponse>((resolve) => {
+      finish = resolve;
+    });
+    const askFn = vi
+      .fn<(question: string) => Promise<AskResponse>>()
+      .mockImplementationOnce(() => pending)
+      .mockRejectedValueOnce(new Error("network down"));
+    render(<App askFn={askFn} />);
+    const input = screen.getByLabelText("Question");
+    await user.type(input, "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    expect(document.activeElement).toBe(screen.getByText(/looking up tables/i));
+    finish(harris);
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    await user.clear(input);
+    await user.type(input, "median rent in Houston");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("alert")));
+  });
+});

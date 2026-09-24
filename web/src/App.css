@@ -14,9 +14,37 @@ body {
 }
 
 #root {
-  max-width: 44rem;
-  margin: 0 auto;
-  padding: 1.5rem 1rem 3rem;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+@media (min-width: 48rem) {
+  .workspace {
+    grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr);
+  }
+
+  .chat {
+    border-right: 1px solid #d7d4c8;
+  }
+
+  .pane {
+    border-width: 0;
+  }
+}
+
+.chat,
+.pane {
+  min-width: 0;
+  overflow-x: hidden;
+  padding: 1.5rem 1rem 2rem;
 }
 
 h1 {
@@ -61,11 +89,18 @@ form button:disabled {
 }
 
 .pane {
-  padding: 1rem 1.1rem;
-  border-radius: 6px;
+  padding: 1.5rem 1.1rem 2rem;
+  border-radius: 0;
   border: 1px solid #d7d4c8;
+  border-width: 1px 0 0;
   background: #fff;
   overflow-x: hidden;
+}
+
+[role="alert"]:focus,
+.pane p[tabindex="-1"]:focus {
+  outline: 2px solid #3d4a6b;
+  outline-offset: 2px;
 }
 
 .pane[data-state="idle"] {
