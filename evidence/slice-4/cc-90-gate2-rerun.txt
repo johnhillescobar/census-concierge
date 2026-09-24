@@ -1,0 +1,255 @@
+Gate 2 re-run transcript — CC-90 ResultPlan (after 98578b3)
+branch: feat/cc-90-result-plan
+HEAD: 98578b3
+feat: 8f224cb; Gate 1: 3ca8854; prior Gate 2: af16e1d
+fix: 98578b3 keep /ask shipping when ResultPlan validation fails
+base: origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+  docs/requirements.md, docs/ask-path.md, docs/slices.md,
+  docs/playbooks/review-pr.md, .cursor/rules/40-census-domain.mdc,
+  evidence/slice-4/cc-90-gate2.txt
+no E2E; no PR; no product-code edits
+untracked left alone: evidence/slice-4/cc-37-preflight.md
+prior Gate 2 (af16e1d): ResultPlan.consistent() can raise; assemble /
+  plan_from_record did not catch it (would 500 POST /ask). Follow-up:
+  do not let a ValidationError 500 assemble.
+
+=== commands ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-90-result-plan
+
+$ git rev-parse HEAD
+exit: 0
+98578b3a1f4627392111645222fa16b9ecf58697
+
+$ git status
+exit: 0
+On branch feat/cc-90-result-plan
+Your branch is ahead of 'origin/main' by 4 commits.
+  (use "git push" to publish your local commits)
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	evidence/slice-4/cc-37-preflight.md
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+$ git log --oneline origin/main...HEAD
+exit: 0
+98578b3 fix(CC-90): keep /ask shipping when ResultPlan validation fails
+af16e1d chore(CC-90): record Gate 2 cold review
+3ca8854 chore(CC-90): record Gate 1 mutation check
+8f224cb feat(CC-90): return an executable ResultPlan on every AskResponse
+
+$ git diff --stat origin/main...HEAD
+exit: 0
+ api/src/ask.py                      |  41 ++--
+ api/src/contract.py                 | 145 +++++++------
+ api/src/fetch.py                    |   6 +-
+ api/src/guards.py                   |   9 +-
+ api/src/tools.py                    |  91 ++++----
+ api/tests/test_ask_loop.py          |  24 ++-
+ api/tests/test_ask_route.py         |  28 ++-
+ api/tests/test_generated_client.py  |   1 +
+ api/tests/test_guards.py            |   4 +
+ api/tests/test_plan.py              | 351 ++++++++++++++++++++++++++++++
+ api/tests/test_static_frontend.py   |   9 +
+ docs/ARCHITECTURE.md                |   9 +-
+ docs/ask-path.md                    |  18 +-
+ docs/requirements.md                |   3 +-
+ evidence/slice-4/cc-90-gate1.txt    | 412 ++++++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-90-gate2.txt    | 253 ++++++++++++++++++++++
+ evidence/slice-4/cc-90-preflight.md |  66 ++++++
+ packages/client/openapi.json        | 104 +++++++--
+ packages/client/schema.d.ts         |  84 ++++++--
+ web/src/App.test.tsx                |  24 ++-
+ web/src/ask.test.ts                 |   9 +
+ web/src/display.test.ts             |  11 +-
+ 22 files changed, 1503 insertions(+), 199 deletions(-)
+
+$ git show 98578b3 --stat
+exit: 0
+ api/src/contract.py    | 24 +++++++++++++++---------
+ api/tests/test_plan.py | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 9 deletions(-)
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               3995 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           394 <= 400
+  ok    web src LOC               1301 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1587 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.664 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.842 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit: 0
+140 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+...................................................                      [100%]
+483 passed in 10.43s
+
+$ npm.cmd --prefix web test
+exit: 0
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (3 tests) 12ms
+ ✓ src/display.test.ts (26 tests) 15ms
+ ✓ src/App.test.tsx (19 tests) 894ms
+
+ Test Files  3 passed (3)
+      Tests  48 passed (48)
+   Start at  20:07:36
+   Duration  4.66s (transform 126ms, setup 708ms, collect 600ms, tests 921ms, environment 2.13s, prepare 393ms)
+
+$ npm.cmd --prefix web run typecheck
+exit: 0
+
+> typecheck
+> tsc --noEmit
+
+npm ci not required; existing web/node_modules used. No EBUSY.
+
+=== Pass A — generic bugs (cold read of origin/main...HEAD; extra attention to 98578b3) ===
+
+500 path: closed. plan_from_record wraps ResultPlan(...) in try/except
+ValidationError (Pydantic wraps the model_validator ValueError). assemble
+still calls plan_from_record uncaught, but plan_from_record now always
+returns a ResultPlan. Fallback is ResultPlan(table_id, dataset,
+allow_overlapping_acs5) with empty geographies/variables/years, so
+consistent() cannot re-raise ACS1+ZCTA. Direct ResultPlan(...) still
+rejects ACS1+ZCTA (test_plan_rejects_acs1_zcta). test_acs1_zcta_record
+_still_ships_the_url pins assemble: urls[] present, key= absent,
+plan.table_id and plan.dataset set, plan.geographies == [].
+
+New bug: nothing that 500s. Catching every ValidationError (wrong
+variable, years not requested, ACS1+ZCTA) strips years/variables/geos
+from the plan even when only geos were illegal. AskResponse.urls, year
+buckets, and legs still come from series_from_record, independent of
+plan. Incomplete plan on that path; not a dropped URL.
+
+Residual from prior Gate 2 (not a 500): ResultPlan.consistent still uses
+exact membership zcta in (level, for_spec) and legal_predicate(...,
+entries=[]). A GeoSpec with empty level and for_spec="zip code
+tabulation area:90210" is still not recognized. Live resolve_geography
+sets level. Fallback ResultPlan itself cannot raise (empty geos, empty
+variables, empty requested_years).
+
+No off-by-one, key leak, or wrong-year fill found on the fix. json.dumps
+of the fallback plan has no key=/SECRET. CensusURL still redacts; plan
+does not carry URLs.
+
+=== Pass B — project invariants (review-pr.md); machines first ===
+
+Machines: all exit 0 (budgets, invariants --base origin/main, ruff check,
+ruff format --check, mypy api/src, pytest -q -m "not integration" 483
+passed, npm --prefix web test 48 passed, npm --prefix web run typecheck).
+No budget raise (api src 3995/4000, domain models 9/15, no ceiling raised
+/ floor lowered vs origin/main). No invariant break.
+
+Claim: every AskResponse carries a ResultPlan from executed artifacts
+(not answer prose). Applying an override is CC-89. After 98578b3, an
+ACS1 ZCTA on the record no longer 500s POST /ask; the URL still ships.
+Evidence: E2E not run in this gate (downstream). pytest/vitest is not
+make demo.
+Scope: belongs to slice 4 / CC-11 backend ResultPlan. Not later-slice
+work (no AskRequest override, plan-strip UI, two-pane shell, CSV, PDF,
+persistence, auth, follow-ups). 22 files vs ~15: prior Gate 2's 21 plus
+evidence/slice-4/cc-90-gate2.txt. Fix commit is two files (contract.py,
+test_plan.py). Drive-by line cuts from the feat still fit under 4000 LOC;
+budget not raised.
+Silent-wrong-answer: URL, MOE, GEOID, universe, alternatives still on
+AskResponse, including Census fetch failure and the ACS1+ZCTA assemble
+path (urls[] asserted). Plan does not include Census URLs; redaction
+stays on CensusURL. Numbers are not passed back through the model. No
+blocking clarification. No silent vintage/geo repair: destaggered years
+stay in requested_years and out of plan.years on the happy path;
+allow_overlapping_acs5 is recorded, not applied from the UI. On the
+ValidationError fallback, plan.years/variables/geos are empty while
+AskResponse year buckets and urls[] still reflect the record — incomplete
+plan, not a substituted geography or vintage.
+Shape: one new domain model (ResultPlan) on the HTTP boundary from the
+feat. No new tool, route, graph node, or forbidden module name. The
+try/except is inline in plan_from_record (same pattern as take_chart /
+ChartSpec), not a second validate_plan() module. docs/ARCHITECTURE.md,
+docs/ask-path.md, docs/requirements.md updated in the feat commit. Fix
+did not change catalogs. ResultPlan.consistent still does not consult
+geography.json (entries=[]).
+Tests: assemble of an ACS1 ZCTA record still ships urls[]; direct
+ResultPlan(...) still raises. Behavior, not prompt wording or LLM prose.
+No ticket-named tests. No constant-table retrieval fake. New test_plan.py
+is not make demo.
+
+Follow-ups (none are silent-wrong-answer on the live ask path):
+- ACS1+ZCTA matcher is still exact membership + empty entries; leftover
+  from prior Gate 2, no longer a 500.
+- ValidationError fallback drops years/variables/geos even when only geos
+  were illegal; URLs and year buckets still ship on AskResponse.
+- E2E / make demo is the next phase.
+
+=== verdict ===
+Ship it with follow-ups — every AskResponse includes an executable
+ResultPlan from executed artifacts; assemble no longer 500s when
+ResultPlan validation fails (URL still ships). Leftover ACS1+ZCTA
+matcher and a stripped fallback plan are follow-ups, not silent-wrong-
+answer.
