@@ -52,6 +52,20 @@ describe("ask", () => {
     });
   });
 
+  it("POSTs an optional plan override beside the question", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => harris,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await ask("population of Harris County", harris.plan);
+    expect(fetchMock).toHaveBeenCalledWith("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "population of Harris County", plan: harris.plan }),
+    });
+  });
+
   it("throws on a non-2xx response", async () => {
     vi.stubGlobal(
       "fetch",

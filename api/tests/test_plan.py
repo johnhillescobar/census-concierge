@@ -386,3 +386,20 @@ def test_plan_rejects_margin_ids() -> None:
 def test_plan_rejects_years_that_were_not_requested() -> None:
     with pytest.raises(ValidationError, match="requested"):
         ResultPlan(requested_years=[2024], years=[2023, 2024])
+
+
+def test_geoid_reconstructs_census_clauses() -> None:
+    from src.contract import clauses_from_geoid
+
+    assert clauses_from_geoid("0500000US48201") == ("county", "county:201", "state:48")
+    assert clauses_from_geoid("1600000US4805000") == ("place", "place:05000", "state:48")
+    assert clauses_from_geoid("0400000US48") == ("state", "state:48", "")
+    assert clauses_from_geoid("860Z200US90210") == (
+        "zip code tabulation area",
+        "zip code tabulation area:90210",
+        "",
+    )
+    assert clauses_from_geoid("0100000US") == ("us", "us:1", "")
+    assert clauses_from_geoid("0500000US48") is None
+    assert clauses_from_geoid("county:201") is None
+    assert clauses_from_geoid("") is None

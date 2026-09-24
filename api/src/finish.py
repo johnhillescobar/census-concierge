@@ -92,6 +92,9 @@ async def finish_tools(
     redo = _wrong_listing(record, question) or _wrong_versus(record, question)
     redo = redo or _wrong_parentless(record, question, year)
     redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
+    plan = getattr(record, "override", None)
+    if plan is not None and plan.geographies:
+        redo = False
     if not url or redo:
         pin = pinned_table(question)
         search = tools.get("search_tables")
@@ -110,7 +113,11 @@ async def finish_tools(
                 geo, {"id": "resolve_geography", "args": {"query": "nationwide"}}, record
             )
         status = getattr(record, "geo_status", None) or {}
-        table = pin or (str(record.pool[0]["table_id"]) if record.pool else "")
+        table = (
+            (plan.table_id if plan is not None else "")
+            or pin
+            or (str(record.pool[0]["table_id"]) if record.pool else "")
+        )
         build = tools.get("build_url")
         if (
             build is not None

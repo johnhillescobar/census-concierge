@@ -64,8 +64,10 @@ destaggers **all** comparison legs to non-overlapping ACS5. A 204/404 ACS1
 geography falls back to ACS5 and sets `acs1_geography_ineligible` even when
 the requested years are not a series.
 
-`allow_overlapping_acs5` is on `ResultPlan` and fetch / `plan_years`. It is not
-on `AskRequest` or the UI; applying an override is CC-89.
+`allow_overlapping_acs5` is on `ResultPlan`, fetch / `plan_years`, and an
+optional `AskRequest.plan` override. Consecutive ACS5 still warns
+`overlapping_vintage`. Geography overrides are rebound from GEOID; submitted
+`for`/`in` is not authority. Invalid overrides are HTTP 422 before `run_ask`.
 
 ## Geography
 

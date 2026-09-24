@@ -4,7 +4,8 @@
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
 is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
 the result pane renders one normalized GEOID/MOE table (CC-35 Done);
-`AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done).
+`AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
+optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
@@ -46,7 +47,7 @@ api/src/geo.py               resolve_geography → GeoSpec list
 api/src/geo_list.py          state FIPS + NAME listings
 api/src/census_url.py        CensusURL; default form never carries &key=
 api/src/prompts.py           one system prompt
-api/src/contract.py          AskResponse; ResultPlan; ChartSpec; GeoSpec
+api/src/contract.py          AskRequest.plan; AskResponse; ResultPlan; ChartSpec; GeoSpec
 web/                         Vite + React chat pane
 packages/client/             generated; CI fails if stale
 ```
@@ -72,6 +73,8 @@ Availability: `index_store/availability.json.gz` (not parquet).
 One route: `POST /ask` → `run_ask`. Four tools. `AskResponse` fields and the
 series/geo/comparison rules: `docs/ask-path.md`. `plan` is the executed table,
 estimate variables, years, and `GeoSpec`s — not parsed from answer prose.
+An optional `AskRequest.plan` pins those fields on the next `POST /ask`; the
+four-tool loop still runs, and model args cannot undo the pin.
 `Alternative` carries title and universe. Optional `chart` is a `ChartSpec` (line/bar roles over
 `rows`); invalid model chart output is discarded (`chart_unavailable`).
 `ambiguous_place` carries ranked `GeoSpec` candidates. Start:

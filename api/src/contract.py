@@ -19,19 +19,39 @@ def clause_codes(*clauses: str) -> dict[str, str]:
     return parsed
 
 
-class AskRequest(BaseModel):
-    question: str = Field(
-        min_length=1,
-        description="The user's question. Leading and trailing whitespace is stripped.",
-    )
+_AFF = {
+    "010": (("us", 1),),
+    "040": (("state", 2),),
+    "050": (("state", 2), ("county", 3)),
+    "140": (("state", 2), ("county", 3), ("tract", 6)),
+    "150": (("state", 2), ("county", 3), ("tract", 6), ("block group", 1)),
+    "160": (("state", 2), ("place", 5)),
+    "860": (("zip code tabulation area", 5),),
+}
 
-    @field_validator("question")
-    @classmethod
-    def question_is_not_blank(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("question must not be blank")
-        return stripped
+
+def clauses_from_geoid(geoid: str) -> tuple[str, str, str] | None:
+    text = geoid.strip().upper()
+    if "US" not in text:
+        return None
+    head, _, rest = text.partition("US")
+    parts = _AFF.get(head[:3])
+    if not parts:
+        return None
+    if head[:3] == "010":
+        return ("us", "us:1", "") if rest == "" else None
+    codes: list[tuple[str, str]] = []
+    index = 0
+    for name, width in parts:
+        chunk = rest[index : index + width]
+        if len(chunk) != width:
+            return None
+        codes.append((name, chunk))
+        index += width
+    if index != len(rest):
+        return None
+    *parents, last = codes
+    return last[0], f"{last[0]}:{last[1]}", "+".join(f"{n}:{v}" for n, v in parents)
 
 
 class GeoSpec(BaseModel):
@@ -196,6 +216,133 @@ def plan_from_record(record: Any) -> ResultPlan:
             return ResultPlan.model_validate({**fields, "geographies": []})
         except ValidationError:
             return ResultPlan(table_id=table_id, dataset=dataset, allow_overlapping_acs5=overlap)
+
+
+def override_years(plan: ResultPlan | None) -> list[int]:
+    if plan is None:
+        return []
+    return list(plan.requested_years or plan.years)
+
+
+def bind_override_geographies(plan: ResultPlan) -> ResultPlan:
+    if not plan.geographies:
+        return plan
+    bound = []
+    for geo in plan.geographies:
+        parsed = clauses_from_geoid(geo.geoid)
+        if parsed is None:
+            raise ValueError("geography override requires an executable GEOID")
+        level, for_spec, in_spec = parsed
+        bound.append(
+            GeoSpec.model_validate(
+                {**geo.model_dump(), "level": level, "for_spec": for_spec, "in_spec": in_spec}
+            )
+        )
+    return ResultPlan.model_validate({**plan.model_dump(), "geographies": bound})
+
+
+def apply_override(record: Any, plan: ResultPlan | None) -> None:
+    if plan is None:
+        return
+    plan = bind_override_geographies(plan)
+    record.override = plan
+    record.allow_overlapping_acs5 = plan.allow_overlapping_acs5
+    if not plan.geographies:
+        return
+    record.geographies = list(plan.geographies)
+    record.geography = record.geographies[0]
+    record.geo_status = {
+        "legal": True,
+        "detail": "",
+        "nested": True,
+        "compare": len(plan.geographies) > 1,
+    }
+
+
+def pin_tool_args(name: str, args: dict[str, Any], plan: ResultPlan | None) -> dict[str, Any]:
+    if plan is None:
+        return args
+    out = dict(args)
+    years = override_years(plan)
+    if name == "build_url":
+        if plan.table_id:
+            out["table_id"] = plan.table_id
+        if plan.variables:
+            out["variables"] = list(plan.variables)
+        out["dataset"] = plan.dataset
+        if years:
+            out["vintage"] = max(years)
+        out.pop("for_spec", None)
+        out.pop("in_spec", None)
+    elif name == "fetch_data" and years:
+        out["years"] = years
+    return out
+
+
+def missing_override_table(plan: ResultPlan, lookup: Any, latest: int) -> str:
+    if not plan.table_id:
+        return ""
+    years = override_years(plan) or [latest]
+    found = [lookup(plan.dataset, year, plan.table_id) for year in years]
+    if not any(found):
+        return "table_id"
+    suffixes = {
+        item[:-1] + "E" if item.endswith("M") else item
+        for facts in found
+        if facts
+        for item in facts.get("variables") or []
+    }
+    for var in plan.variables:
+        suffix = var.removeprefix(f"{plan.table_id}_")
+        suffix = suffix[:-1] + "E" if suffix.endswith("M") else suffix
+        if suffix not in suffixes:
+            return "variables"
+    return ""
+
+
+def reject_unknown_override(plan: ResultPlan | None) -> str:
+    if plan is None or not plan.table_id:
+        return ""
+    try:
+        from src.retrieval.availability import load
+
+        matrix = load()
+    except OSError:
+        return ""
+
+    def lookup(dataset: str, year: int, table_id: str) -> Any:
+        table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
+        return table if isinstance(table, dict) else None
+
+    latest = max(
+        (int(year) for group in matrix["datasets"].values() for year in group), default=2024
+    )
+    return missing_override_table(plan, lookup, latest)
+
+
+class AskRequest(BaseModel):
+    question: str = Field(
+        min_length=1,
+        description="The user's question. Leading and trailing whitespace is stripped.",
+    )
+    plan: ResultPlan | None = Field(
+        default=None,
+        description="Optional typed override of table, years, geography, and overlapping ACS5.",
+    )
+
+    @field_validator("question")
+    @classmethod
+    def question_is_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("question must not be blank")
+        return stripped
+
+    @model_validator(mode="after")
+    def bind_plan_geographies(self) -> AskRequest:
+        if self.plan is not None:
+            self.plan = bind_override_geographies(self.plan)
+        return self
 
 
 class AskResponse(BaseModel):

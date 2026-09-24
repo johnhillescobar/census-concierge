@@ -1,14 +1,4 @@
-"""Which tables and variables exist in which vintage, and under what universe.
-
-A lookup, not a search. The semantic index is deliberately vintage-agnostic —
-a discontinued table must stay findable — so this is where the "does it exist
-in 2019?" question is answered. Slice 3's guards join on it rather than asking
-the model to remember: `vintage_gap_2020` and the universe half of
-`universe_mismatch` are reads from this file.
-
-Variable IDs are stored as suffixes under their table (`B01003` + `001E`),
-which drops the table prefix from roughly half a million strings.
-"""
+"""Which tables and variables exist in which vintage, and under what universe."""
 
 from __future__ import annotations
 
@@ -61,12 +51,7 @@ def build() -> dict[str, Any]:
 
 
 def union_tables(matrix: dict[str, Any]) -> dict[str, metadata.Table]:
-    """Every table that ever existed, described by its most recent vintage.
-
-    The union is the point: a table dropped after 2019 is still the right answer
-    to a question about 2018, so it has to be in the semantic index. Taking the
-    newest description keeps titles current for everything still published.
-    """
+    """Every table that ever existed, described by its most recent vintage."""
     latest: dict[str, tuple[int, metadata.Table]] = {}
     for vintages in matrix["datasets"].values():
         for year_text, tables in vintages.items():

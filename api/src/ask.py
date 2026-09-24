@@ -15,7 +15,16 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.census_url import CensusURL, redact_text
-from src.contract import Alternative, AskResponse, GeoSpec, plan_from_record, take_chart
+from src.contract import (
+    Alternative,
+    AskResponse,
+    GeoSpec,
+    apply_override,
+    override_years,
+    pin_tool_args,
+    plan_from_record,
+    take_chart,
+)
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import finish_tools
 from src.geo import ResolveGeographyTool
@@ -23,12 +32,7 @@ from src.geo_list import list_census_names
 from src.guards import finish_aggregation
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
-from src.tools import (
-    BuildUrlResult,
-    BuildUrlTool,
-    SearchTablesResult,
-    SearchTablesTool,
-)
+from src.tools import BuildUrlResult, BuildUrlTool, SearchTablesResult, SearchTablesTool
 from src.vintages import latest_vintages, moe_rows, requested_years, stamp_provenance
 
 MAX_TURNS = 8
@@ -54,6 +58,7 @@ class ExecutionRecord:
     geo_status: dict[str, str | bool] | None = None
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
+    override: Any = None
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
@@ -75,6 +80,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         )
         record.pool = list(hits)
     elif name == "resolve_geography":
+        if record.override and record.override.geographies:
+            return
         previous = record.geography
         pull = artifact.get if isinstance(artifact, dict) else None
         get = pull or (lambda k, d=None: getattr(artifact, k, d))
@@ -108,7 +115,10 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
 
 def _allowed(record: ExecutionRecord) -> set[str]:
     ids = {str(hit["table_id"]) for hit in record.pool}
-    return ids | {str(m) for hit in record.pool for m in hit.get("members") or []}
+    ids.update(str(m) for hit in record.pool for m in hit.get("members") or [])
+    ids.add(getattr(record.override, "table_id", "") or "")
+    ids.discard("")
+    return ids
 
 
 # A-I race/ethnicity iteration, optional Puerto Rico suffix. Not a PR-only table.
@@ -118,13 +128,7 @@ _RACE = re.compile(r"^[BC]\d{5}[A-I](?:PR)?$")
 def _rows_with_geoid(
     rows: list[dict[str, str | None]], fallback: str
 ) -> list[dict[str, str | None]]:
-    copied = [dict(row) for row in rows]
-    if not fallback:
-        return copied
-    for row in copied:
-        if not row.get("GEO_ID"):
-            row["GEO_ID"] = fallback
-    return copied
+    return [{**row, "GEO_ID": row.get("GEO_ID") or fallback} for row in rows]
 
 
 def _response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
@@ -144,35 +148,37 @@ def _how_differs(
     other_title: str = "",
     selected_title: str = "",
 ) -> str:
-    if (
-        selected_id
-        and family_id(other_id) == family_id(selected_id)
-        and (_RACE.match(other_id) or _RACE.match(selected_id))
-    ):
+    if not selected_id:
+        return "related table"
+    same = family_id(other_id) == family_id(selected_id)
+    if same and (_RACE.match(other_id) or _RACE.match(selected_id)):
         return "race iteration"
-    if member_of and selected_id:
-        anchor = selected_id
-        same_family = (
-            member_of == anchor
-            or other_id == member_of
-            or family_id(member_of) == family_id(anchor)
-            or family_id(other_id) == family_id(anchor)
+    if member_of and (
+        member_of == selected_id
+        or other_id == member_of
+        or family_id(member_of) == family_id(selected_id)
+        or same
+    ):
+        if _RACE.match(other_id):
+            return "race iteration"
+        letters = {other_id[:1], selected_id[:1]}
+        collapsed = letters == {"B", "C"} or (
+            other_id.startswith("C")
+            and member_of.startswith("B")
+            or other_id.startswith("B")
+            and member_of.startswith("C")
         )
-        if same_family:
-            if _RACE.match(other_id):
-                return "race iteration"
-            if {other_id[:1], selected_id[:1]} == {"B", "C"} or (
-                (other_id.startswith("C") and member_of.startswith("B"))
-                or (other_id.startswith("B") and member_of.startswith("C"))
-            ):
-                return "collapsed table"
+        if collapsed:
+            return "collapsed table"
     if selected_universe and other_universe and selected_universe != other_universe:
         return "universe"
-    if other_title and selected_title and other_id[1:3] == selected_id[1:3]:
-        other_median = "median" in other_title.casefold()
-        selected_median = "median" in selected_title.casefold()
-        if other_median != selected_median:
-            return "distribution versus median"
+    if (
+        other_title
+        and selected_title
+        and other_id[1:3] == selected_id[1:3]
+        and ("median" in other_title.casefold()) != ("median" in selected_title.casefold())
+    ):
+        return "distribution versus median"
     return "related table"
 
 
@@ -252,18 +258,17 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
     ok = False
     content = ""
     try:
-        message = await tool.ainvoke(
-            {
-                "type": "tool_call",
-                "name": name,
-                "args": call.get("args") or {},
-                "id": call.get("id") or name,
-            }
-        )
-        content = str(getattr(message, "content", message))
-        artifact = getattr(message, "artifact", None)
-        ok = _artifact_ok(artifact)
-        _absorb(record, name, artifact)
+        args = pin_tool_args(name, call.get("args") or {}, record.override)
+        if name == "resolve_geography" and record.override and record.override.geographies:
+            content, ok = "override geography", True
+        else:
+            message = await tool.ainvoke(
+                {"type": "tool_call", "name": name, "args": args, "id": call.get("id") or name}
+            )
+            content = str(getattr(message, "content", message))
+            artifact = getattr(message, "artifact", None)
+            ok = _artifact_ok(artifact)
+            _absorb(record, name, artifact)
     except Exception as exc:  # noqa: BLE001 - contained tool failure goes back to the model
         content = f"{name} failed: {redact_text(str(exc))}"
         ok = False
@@ -362,7 +367,9 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             table_facts=facts,
-            question_years=lambda: requested_years(record.question, latest("acs5")),
+            question_years=lambda: (
+                override_years(record.override) or requested_years(record.question, latest("acs5"))
+            ),
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }
@@ -374,8 +381,10 @@ async def run_ask(
     complete: CompleteFn | None = None,
     tools: dict[str, BaseTool] | None = None,
     record: ExecutionRecord | None = None,
+    override: Any = None,
 ) -> AskResponse:
     record = record or ExecutionRecord()
+    apply_override(record, override)
     record.question = record.question or question
     tools = tools or default_tools(record)
     openai_tools = [convert_to_openai_tool(tool) for tool in tools.values()]

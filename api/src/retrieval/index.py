@@ -1,14 +1,4 @@
-"""Load the built index and answer `search(question, k)`.
-
-Nothing here builds anything. The artifact is produced offline by `build.py`
-and, in production, downloaded into the image as a pinned release asset
-(DESIGN section 5). Building at import or at request time would need an API key
-at container start and would make every deploy a different index.
-
-The loaded index is cached at module scope. That is the one piece of
-module-level state this project sanctions, and only because it is read-only:
-there is nothing per-user in it to leak.
-"""
+"""Load the built index and answer `search(question, k)`."""
 
 from __future__ import annotations
 
@@ -95,11 +85,7 @@ def _ranked(scores: dict[int, float], limit: int) -> list[int]:
 
 
 def search(question: str, k: int = 5, store: Path = STORE) -> list[str]:
-    """Table IDs, best first. The eval harness picks this up by name.
-
-    Ranking only. It does not choose — the agent does that, from these
-    candidates and their universes.
-    """
+    """Table IDs, best first. Ranking only — the agent chooses."""
     index = load(store)
     depth = max(k * 10, 50)
 

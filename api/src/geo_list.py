@@ -159,12 +159,7 @@ def _name_hit(token: str, head: str) -> bool:
 
 
 def filter_rows(token: str, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Match the NAME head (before the comma), never the state suffix.
-
-    A leading token is the whole head or the head plus a Census class
-    (`Springfield city`, `Queens County`). `Queens Gate CDP` is a different
-    published name. A later whole word still matches (`West Springfield`).
-    """
+    """Match the NAME head (before the comma), never the state suffix."""
     if not token:
         return []
     hits: list[dict[str, str]] = []
