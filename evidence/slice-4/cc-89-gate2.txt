@@ -1,0 +1,221 @@
+Gate 2 transcript — CC-89 typed plan overrides
+branch: feat/cc-89-plan-overrides
+HEAD: 4c2affc825186c83e334d36ad6a1d437aa117a2a (Gate 1 evidence)
+feat: f722cbb feat(CC-89): validate and pin typed plan overrides on POST /ask
+base: origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read (order): CLAUDE.md, docs/playbooks/run-slice.md,
+  docs/playbooks/review-pr.md, .claude/PLAN.md, docs/requirements.md,
+  docs/ask-path.md, docs/ARCHITECTURE.md, docs/slices.md,
+  evidence/slice-4/cc-89-preflight.md, evidence/slice-4/cc-89-gate1.txt,
+  .cursor/rules/40-census-domain.mdc
+no implement; no E2E; no PR; no test mutation; this file is uncommitted
+
+=== git ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-89-plan-overrides
+
+$ git rev-parse HEAD
+exit: 0
+4c2affc825186c83e334d36ad6a1d437aa117a2a
+
+$ git log --oneline origin/main..HEAD
+exit: 0
+4c2affc chore(CC-89): record Gate 1 tests and mutation check
+f722cbb feat(CC-89): validate and pin typed plan overrides on POST /ask
+
+$ git diff origin/main...HEAD --stat
+exit: 0
+ api/src/ask.py                      | 115 +++++++++++---------
+ api/src/contract.py                 | 173 +++++++++++++++++++++++++++---
+ api/src/fetch.py                    |  93 ++++++----------
+ api/src/finish.py                   |   9 +-
+ api/src/geo_list.py                 |   7 +-
+ api/src/guards.py                   |   6 +-
+ api/src/main.py                     |  17 ++-
+ api/src/retrieval/availability.py   |  19 +---
+ api/src/retrieval/build.py          |  45 +-------
+ api/src/retrieval/index.py          |  18 +---
+ api/src/retrieval/metadata.py       |  56 ++--------
+ api/src/retrieval/synthetic.py      |  15 +--
+ api/src/retrieval/text.py           |  25 +----
+ api/src/tools.py                    |  14 ++-
+ api/tests/ask_fixtures.py           |  69 ++++++------
+ api/tests/test_ask_route.py         | 143 ++++++++++++++++++++++++-
+ api/tests/test_plan.py              |  17 +++
+ api/tests/test_plan_override.py     | 194 +++++++++++++++++++++++++++++++++
+ api/tests/test_static_frontend.py   |   4 +-
+ docs/ARCHITECTURE.md                |   7 +-
+ docs/ask-path.md                    |   6 +-
+ docs/requirements.md                |   2 +-
+ evidence/slice-4/cc-89-gate1.txt    | 208 ++++++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-89-preflight.md |  80 ++++++++++++++
+ packages/client/openapi.json        |  11 ++
+ packages/client/schema.d.ts         |   2 +
+ web/src/ask.test.ts                 |  14 +++
+ web/src/ask.ts                      |   5 +-
+ 28 files changed, 1023 insertions(+), 351 deletions(-)
+
+=== Pass B machines (review-pr.md first; raw output) ===
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               1315 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1591 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         16.692 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.808 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit: 0
+141 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 43%]
+........................................................................ [ 57%]
+........................................................................ [ 72%]
+........................................................................ [ 86%]
+..................................................................       [100%]
+498 passed in 12.57s
+
+$ uv run python scripts/generate_client.py --check
+exit: 0
+openapi-typescript 7.9.1
+packages/client is up to date.
+
+(not in the playbook machine list; run because Pass A hunts OpenAPI drift)
+
+=== Pass A probe (dataset vs allowed_geographies; cwd api/) ===
+
+$ uv run python -c "..."
+exit: 0
+plan.dataset acs1
+geo.dataset before bind acs5
+geo.dataset after bind acs5
+for/in county:201 state:48
+allowed_geographies {('county:201', 'state:48', 'acs5')}
+pinned build args {'table_id': 'B01003', 'dataset': 'acs1'}
+build triple ('county:201', 'state:48', 'acs1')
+triple in allowed False
+wants_acs1 True
+finish would pass {'table_id': 'B01003', 'dataset': 'acs1'}
+pin overwrites to {'table_id': 'B01003', 'dataset': 'acs1'}
+
+=== Pass B narrative (machines cannot check) ===
+
+Claim: a caller can POST optional AskRequest.plan (the CC-90 ResultPlan) on
+the existing /ask route and those fields are validated then pinned through
+the four-tool loop; model args cannot undo them.
+
+Evidence: E2E is not this phase. Gate 1 mutation transcript is on disk.
+No make demo / make eval scoreboard in this PR yet.
+
+Scope: slice 4 / CC-11, ticket CC-89. One route, four tools, zero graph
+nodes. Reuses ResultPlan (no second override shape). No plan-strip UI
+(CC-37), no two-pane shell (CC-88), no fifth tool, no extra route, no
+persistence, no follow-up language, no wildcards without GEOID. Budgets
+not raised (api src LOC 4000/4000). 28 files: product helpers plus
+docstring compaction to pay LOC, tests, catalogs, generated client,
+evidence. Compaction is the pre-flight constraint, not a sibling feature.
+
+Silent-wrong-answer: GEOID rebound from AFFGEOID; submitted for/in is
+discarded. MOE pairing still runs on a successful build. overlapping_vintage
+still fires when allow_overlapping_acs5 is True. CensusURL still redacts
+&key=. No blocking clarification. Dataset pin is the miss — see findings.
+
+Shape: AskRequest.plan is ResultPlan. ARCHITECTURE.md / ask-path.md /
+requirements.md updated in the feat commit.
+
+Tests: behavioral; Gate 1 labeled all new tests GOOD. Gap: no fixture
+where plan.dataset is acs1 and geos are GEOID-only (GeoSpec.dataset
+defaults acs5). That is why Pass A landed.
+
+=== Pass A findings ===
+
+1. Dual path: plan.dataset vs GeoSpec.dataset. bind_override_geographies
+   rewrites for/in from GEOID but leaves geo.dataset at the GeoSpec default
+   acs5. pin_tool_args always sets build_url dataset from plan.dataset.
+   BuildUrlTool.allowed_geographies is keyed on (for_spec, in_spec,
+   geo.dataset). An explicit dataset=acs1 override with a county GEOID
+   (legal ACS1) therefore fails build_url: pinned triple
+   ('county:201', 'state:48', 'acs1') is not in allowed
+   {('county:201', 'state:48', 'acs5')}. Probe output above. HTTP 200 with
+   empty urls[], not 422. finish.py will pass dataset=acs1 on rebuild; pin
+   keeps acs1; allowed_geographies still rejects. This is the ACS1 edit on
+   a ResultPlan whose geos still carry dataset=acs5 from the prior ACS5
+   resolve — the path CC-89 exists to serve before CC-37.
+
+2. finish.py vs pin_tool_args on ACS1 repair: when plan.geographies is
+   set, finish forces redo=False, which drops the wants_acs1 rebuild.
+   pin_tool_args still always writes plan.dataset (ResultPlan default acs5).
+   A geo-only override on an ACS1 question therefore pins ACS5. When the
+   client does set dataset=acs1, finding 1 blocks the build instead.
+
+3. reject_unknown_override returns "" on OSError (matrix missing), so
+   unknown table_id is not 422 before run_ask on that path. Fail-open.
+
+=== Pass B findings ===
+
+1. Same as Pass A.1 — silent-wrong-answer / URL missing on a legal ACS1
+   geography override (review-pr: URL present on every branch, including
+   failure; empty urls[] here is a failed build of a legal request, not
+   "no legal URL existed"). Dataset is a ResultPlan field this ticket
+   claims to pin.
+
+2. Machines: nothing (all exit 0; budgets not weakened).
+
+=== Verdict ===
+
+not yet — pin_tool_args pins plan.dataset=acs1 but allowed_geographies
+still keys on GeoSpec.dataset (default acs5 after GEOID bind), so an ACS1
+plan override with a county GEOID never builds a URL.
