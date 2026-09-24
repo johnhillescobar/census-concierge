@@ -1,0 +1,412 @@
+CC-90 Gate 1 -- tests + mutation check
+commit: 8f224cbb53aa0695811c9c86b3b7f1a8eff2d486 feat(CC-90): return an executable ResultPlan on every AskResponse
+branch: feat/cc-90-result-plan
+ticket: CC-90
+make: not found; ran the Makefile check recipe
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== Makefile check recipe (python side) ==========
+========== uv run ruff check . ==========
+[1;32mAll checks passed![0m
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+140 files already formatted
+
+exit: 0
+
+NOTE: ruff originally failed on throwaway _cc90_gate1_runner.py (E501). That file was deleted and ruff was re-run against the commit tree.
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 44%]
+........................................................................ [ 59%]
+........................................................................ [ 74%]
+........................................................................ [ 89%]
+..................................................                       [100%]
+482 passed in 12.22s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+âœ¨ openapi-typescript 7.9.1
+ðŸš€ C:\Users\johnh\AppData\Local\Temp\tmpt0bj_q8c\openapi.json â†’ C:\Users\johnh\AppData\Local\Temp\tmpt0bj_q8c\schema.d.ts [69.3ms]
+packages/client is up to date.
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               3989 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           394 <= 400
+  ok    web src LOC               1301 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1587 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.664 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.842 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== npm --prefix web ci ==========
+skipped: Dropbox EBUSY on web/node_modules (same as CC-35 Gate 1). Used existing node_modules.
+
+========== npm --prefix web test ==========
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ âœ“ src/ask.test.ts (3 tests) 9ms
+ âœ“ src/display.test.ts (26 tests) 22ms
+ âœ“ src/App.test.tsx (19 tests) 1500ms
+
+ Test Files  3 passed (3)
+      Tests  48 passed (48)
+   Start at  19:50:51
+   Duration  5.62s (transform 211ms, setup 896ms, collect 738ms, tests 1.53s, environment 2.68s, prepare 429ms)
+
+
+exit: 0
+
+========== npm --prefix web run typecheck ==========
+
+> typecheck
+> tsc --noEmit
+
+
+exit: 0
+
+# Mutation check: revert one behaviour, run only the relevant test(s), confirm FAIL, restore.
+
+===== MUTATION: variables not recovered from CensusURL =====
+test: api/tests/test_plan.py::test_one_year_county_plan_matches_the_built_url api/tests/test_plan.py::test_failed_fetch_still_returns_the_built_plan api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+
+$ uv run pytest -q api/tests/test_plan.py::test_one_year_county_plan_matches_the_built_url api/tests/test_plan.py::test_failed_fetch_still_returns_the_built_plan api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe --tb=line
+
+GOOD
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['B01003_001E']
+      
+      Right contains one more item: 'B01003_001E'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:61: AssertionError: assert [] == ['B01003_001E']
+E   AssertionError: assert [] == ['B25064_001E']
+      
+      Right contains one more item: 'B25064_001E'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:184: AssertionError: assert [] == ['B25064_001E']
+E   AssertionError: assert [] == ['B01003_001E']
+      
+      Right contains one more item: 'B01003_001E'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:65: AssertionError: assert [] == ['B01003_001E']
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_one_year_county_plan_matches_the_built_url
+FAILED api/tests/test_plan.py::test_failed_fetch_still_returns_the_built_plan
+FAILED api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+3 failed in 0.49s
+
+# GOOD  variables not recovered from CensusURL  (3 failed in 0.49s)
+
+===== MUTATION: years taken from requested instead of attempted =====
+test: api/tests/test_plan.py::test_series_plan_omits_the_2020_gap api/tests/test_plan.py::test_nonoverlapping_acs5_plan_does_not_list_omitted_years
+
+$ uv run pytest -q api/tests/test_plan.py::test_series_plan_omits_the_2020_gap api/tests/test_plan.py::test_nonoverlapping_acs5_plan_does_not_list_omitted_years --tb=line
+
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   assert [2017, 2018, ...21, 2022, ...] == [2017, 2018, ...22, 2023, ...]
+      
+      At index 3 diff: 2020 != 2021
+      Left contains one more item: 2024
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:106: assert [2017, 2018, ...21, 2022, ...] == [2017, 2018, ...22, 2023, ...]
+E   assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+      
+      At index 1 diff: 2018 != 2022
+      Left contains 5 more items, first extra item: 2019
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:244: assert [2017, 2018, ...21, 2022, ...] == [2017, 2022]
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_series_plan_omits_the_2020_gap - assert [...
+FAILED api/tests/test_plan.py::test_nonoverlapping_acs5_plan_does_not_list_omitted_years
+2 failed in 0.27s
+
+# GOOD  years taken from requested instead of attempted  (2 failed in 0.27s)
+
+===== MUTATION: comparison geographies not truncated to two =====
+test: api/tests/test_plan.py::test_comparison_plan_keeps_two_ordered_geographies
+
+$ uv run pytest -q api/tests/test_plan.py::test_comparison_plan_keeps_two_ordered_geographies --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['place:05000...state:48', ''] == ['place:05000', 'state:48']
+      
+      Left contains one more item: ''
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:153: AssertionError: assert ['place:05000...state:48', ''] == ['place:05000', 'state:48']
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_comparison_plan_keeps_two_ordered_geographies
+1 failed in 0.19s
+
+# GOOD  comparison geographies not truncated to two  (1 failed in 0.19s)
+
+===== MUTATION: omitted years filled from the URL year =====
+test: api/tests/test_plan.py::test_omitted_years_are_not_filled_from_the_url
+
+$ uv run pytest -q api/tests/test_plan.py::test_omitted_years_are_not_filled_from_the_url --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   pydantic_core._pydantic_core.ValidationError: 1 validation error for ResultPlan
+      Value error, effective years were not requested [type=value_error, input_value={'table_id': 'B23025', 'v...verlapping_acs5': False}, input_type=dict]
+        For further information visit https://errors.pydantic.dev/2.13/v/value_error
+C:\Users\johnh\Dropbox\Python\census-concierge\api\src\contract.py:182: pydantic_core._pydantic_core.ValidationError: 1 validation error for ResultPlan
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_omitted_years_are_not_filled_from_the_url
+1 failed in 0.18s
+
+# GOOD  omitted years filled from the URL year  (1 failed in 0.18s)
+
+===== MUTATION: built URL without fetch has no year =====
+test: api/tests/test_plan.py::test_built_url_without_fetch_keeps_the_url_year
+
+$ uv run pytest -q api/tests/test_plan.py::test_built_url_without_fetch_keeps_the_url_year --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert [] == [2024]
+      
+      Right contains one more item: 2024
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:255: assert [] == [2024]
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_built_url_without_fetch_keeps_the_url_year
+1 failed in 0.25s
+
+# GOOD  built URL without fetch has no year  (1 failed in 0.25s)
+
+===== MUTATION: ACS1 ZCTA accepted =====
+test: api/tests/test_plan.py::test_plan_rejects_acs1_zcta
+
+$ uv run pytest -q api/tests/test_plan.py::test_plan_rejects_acs1_zcta --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   Failed: DID NOT RAISE ValidationError
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:296: Failed: DID NOT RAISE ValidationError
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_plan_rejects_acs1_zcta - Failed: DID NOT ...
+1 failed in 0.18s
+
+# GOOD  ACS1 ZCTA accepted  (1 failed in 0.18s)
+
+===== MUTATION: variables from another table or margin IDs accepted =====
+test: api/tests/test_plan.py::test_plan_rejects_variable_from_another_table api/tests/test_plan.py::test_plan_rejects_margin_ids
+
+$ uv run pytest -q api/tests/test_plan.py::test_plan_rejects_variable_from_another_table api/tests/test_plan.py::test_plan_rejects_margin_ids --tb=line
+
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   Failed: DID NOT RAISE ValidationError
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:306: Failed: DID NOT RAISE ValidationError
+E   Failed: DID NOT RAISE ValidationError
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:311: Failed: DID NOT RAISE ValidationError
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_plan_rejects_variable_from_another_table
+FAILED api/tests/test_plan.py::test_plan_rejects_margin_ids - Failed: DID NOT...
+2 failed in 0.17s
+
+# GOOD  variables from another table or margin IDs accepted  (2 failed in 0.17s)
+
+===== MUTATION: effective years not required to have been requested =====
+test: api/tests/test_plan.py::test_plan_rejects_years_that_were_not_requested
+
+$ uv run pytest -q api/tests/test_plan.py::test_plan_rejects_years_that_were_not_requested --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   Failed: DID NOT RAISE ValidationError
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:316: Failed: DID NOT RAISE ValidationError
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_plan_rejects_years_that_were_not_requested
+1 failed in 0.31s
+
+# GOOD  effective years not required to have been requested  (1 failed in 0.31s)
+
+===== MUTATION: overlapping override dropped from the plan =====
+test: api/tests/test_plan.py::test_overlapping_override_is_on_the_plan
+
+$ uv run pytest -q api/tests/test_plan.py::test_overlapping_override_is_on_the_plan --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert False is True
+     +  where False = ResultPlan(table_id='B19013', variables=[], dataset='acs5', years=[], requested_years=[], geographies=[], allow_overlapping_acs5=False).allow_overlapping_acs5
+     +    where ResultPlan(table_id='B19013', variables=[], dataset='acs5', years=[], requested_years=[], geographies=[], allow_overlapping_acs5=False) = AskResponse(answer='x', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[], omitted_...cs5', years=[], requested_years=[], geographies=[], allow_overlapping_acs5=False), chart=None, chart_unavailable=False).plan
+     +      where AskResponse(answer='x', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], failed_years=[], omitted_...cs5', years=[], requested_years=[], geographies=[], allow_overlapping_acs5=False), chart=None, chart_unavailable=False) = assemble('x', ExecutionRecord(pool=[], geography=None, geographies=[], url=None, table_id='B19013', universe='', rows=[], timings=[]... geo_status=None, fetch=None, allow_overlapping_acs5=True, table_facts=None, published_vintages=None, retained_urls=[]))
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:285: AssertionError: assert False is True
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_overlapping_override_is_on_the_plan - Ass...
+1 failed in 0.18s
+
+# GOOD  overlapping override dropped from the plan  (1 failed in 0.18s)
+
+===== MUTATION: geographies not copied from the record =====
+test: api/tests/test_plan.py::test_wildcard_plan_is_one_star_geography api/tests/test_plan.py::test_one_year_county_plan_matches_the_built_url
+
+$ uv run pytest -q api/tests/test_plan.py::test_wildcard_plan_is_one_star_geography api/tests/test_plan.py::test_one_year_county_plan_matches_the_built_url --tb=line
+
+GOOD
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['county:*']
+      
+      Right contains one more item: 'county:*'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:214: AssertionError: assert [] == ['county:*']
+E   IndexError: list index out of range
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:65: IndexError: list index out of range
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_wildcard_plan_is_one_star_geography - Ass...
+FAILED api/tests/test_plan.py::test_one_year_county_plan_matches_the_built_url
+2 failed in 0.25s
+
+# GOOD  geographies not copied from the record  (2 failed in 0.25s)
+
+===== MUTATION: empty record invents a table id =====
+test: api/tests/test_plan.py::test_empty_record_still_has_a_plan
+
+$ uv run pytest -q api/tests/test_plan.py::test_empty_record_still_has_a_plan --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'B01003' == ''
+      
+      + B01003
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_plan.py:290: AssertionError: assert 'B01003' == ''
+=========================== short test summary info ===========================
+FAILED api/tests/test_plan.py::test_empty_record_still_has_a_plan - Assertion...
+1 failed in 0.24s
+
+# GOOD  empty record invents a table id  (1 failed in 0.24s)
+
+===== MUTATION: Alternative title and universe not copied from pool hits =====
+test: api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ
+
+$ uv run pytest -q api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '' == 'Median Household Income'
+      
+      - Median Household Income
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:922: AssertionError: assert '' == 'Median Household Income'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_alternatives_say_how_they_differ - As...
+1 failed in 0.38s
+
+# GOOD  Alternative title and universe not copied from pool hits  (1 failed in 0.38s)
+
+===== MUTATION: guard-supplied B19001 missing published labels =====
+test: api/tests/test_guards.py::test_combined_median_is_not_invented
+
+$ uv run pytest -q api/tests/test_guards.py::test_combined_median_is_not_invented --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '' == 'Household Income'
+      
+      - Household Income
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_guards.py:652: AssertionError: assert '' == 'Household Income'
+=========================== short test summary info ===========================
+FAILED api/tests/test_guards.py::test_combined_median_is_not_invented - Asser...
+1 failed in 0.28s
+
+# GOOD  guard-supplied B19001 missing published labels  (1 failed in 0.28s)
+
+===== MUTATION: ResultPlan not on AskResponse =====
+test: api/tests/test_ask_route.py::test_openapi_documents_post_ask
+
+$ uv run pytest -q api/tests/test_ask_route.py::test_openapi_documents_post_ask --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['answer', 'u...d_years', ...] == ['answer', 'u...d_years', ...]
+      
+      Right contains one more item: 'plan'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_route.py:58: AssertionError: assert ['answer', 'u...d_years', ...] == ['answer', 'u...d_years', ...]
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_route.py::test_openapi_documents_post_ask - Asserti...
+1 failed in 0.37s
+
+# GOOD  ResultPlan not on AskResponse  (1 failed in 0.37s)
+
+========== git status after restore ==========
+?? evidence/slice-4/cc-37-preflight.md
+?? evidence/slice-4/cc-90-gate1.txt
+
+Gate 1 verdict: machines PASS; mutations 14 GOOD / 0 BAD of 14
