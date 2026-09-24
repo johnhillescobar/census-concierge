@@ -177,15 +177,21 @@ def plan_from_record(record: Any) -> ResultPlan:
         geos = geos[:2]
     dataset = str(getattr(fetch, "dataset", "") or "") or (url.dataset if url else "")
     vintages = getattr(record, "vintages", None) or []
-    return ResultPlan(
-        table_id=str(getattr(record, "table_id", "") or table),
-        variables=[f"{table}_{item}" for item in suffixes] if table else [],
-        dataset=dataset or (vintages[0][0] if vintages else "acs5"),
-        years=years,
-        requested_years=requested,
-        geographies=geos,
-        allow_overlapping_acs5=bool(getattr(record, "allow_overlapping_acs5", False)),
-    )
+    table_id = str(getattr(record, "table_id", "") or table)
+    dataset = dataset or (vintages[0][0] if vintages else "acs5")
+    overlap = bool(getattr(record, "allow_overlapping_acs5", False))
+    try:
+        return ResultPlan(
+            table_id=table_id,
+            variables=[f"{table}_{item}" for item in suffixes] if table else [],
+            dataset=dataset,
+            years=years,
+            requested_years=requested,
+            geographies=geos,
+            allow_overlapping_acs5=overlap,
+        )
+    except ValidationError:
+        return ResultPlan(table_id=table_id, dataset=dataset, allow_overlapping_acs5=overlap)
 
 
 class AskResponse(BaseModel):

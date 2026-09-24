@@ -292,6 +292,40 @@ def test_empty_record_still_has_a_plan() -> None:
     assert plan.geographies == []
 
 
+def test_acs1_zcta_record_still_ships_the_url() -> None:
+    url = CensusURL(
+        "https://api.census.gov/data/2023/acs/acs1"
+        "?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=zip code tabulation area:90210"
+    )
+    geo = GeoSpec(
+        level="zip code tabulation area",
+        for_spec="zip code tabulation area:90210",
+        dataset="acs1",
+        vintage=2023,
+    )
+    response = assemble(
+        "Census returned HTTP 400.",
+        ExecutionRecord(
+            table_id="B01003",
+            url=url,
+            geographies=[geo],
+            fetch=_fetch(
+                ok=False,
+                urls=[str(url)],
+                requested_years=[2023],
+                attempted_years=[2023],
+                failed_years=[2023],
+                dataset="acs1",
+            ),
+        ),
+    )
+    assert response.urls == [str(url)]
+    assert "key=" not in response.urls[0]
+    assert response.plan.table_id == "B01003"
+    assert response.plan.dataset == "acs1"
+    assert response.plan.geographies == []
+
+
 def test_plan_rejects_acs1_zcta() -> None:
     with pytest.raises(ValidationError, match="ZCTA"):
         ResultPlan(
