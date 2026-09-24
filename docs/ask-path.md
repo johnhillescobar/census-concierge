@@ -108,7 +108,8 @@ published medians is declined (`median_not_aggregatable`).
 
 ## UI
 
-One Vite pane. After `npm --prefix web run build`, FastAPI serves `web/dist`
+Two Vite panes: chat (form and answer) and one active canvas dataset.
+After `npm --prefix web run build`, FastAPI serves `web/dist`
 at `/` from the same origin as `POST /ask`. Census URLs are visible and
 copyable (redacted). Sentinels render as `—`. The active dataset is one
 normalized table (GEOID, estimate, matching MOE) from `AskResponse` rows;

@@ -1,11 +1,12 @@
 # ARCHITECTURE — the system as it IS
 
-**Status (2026-09-23).** Slices 0–3 are built and their epics are Done
+**Status (2026-09-24).** Slices 0–3 are built and their epics are Done
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
 is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
 the result pane renders one normalized GEOID/MOE table (CC-35 Done);
 `AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
-optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done).
+optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done);
+the UI is a two-pane living workspace (chat + one active canvas dataset).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
@@ -48,7 +49,7 @@ api/src/geo_list.py          state FIPS + NAME listings
 api/src/census_url.py        CensusURL; default form never carries &key=
 api/src/prompts.py           one system prompt
 api/src/contract.py          AskRequest.plan; AskResponse; ResultPlan; ChartSpec; GeoSpec
-web/                         Vite + React chat pane
+web/                         Vite + React two-pane workspace
 packages/client/             generated; CI fails if stale
 ```
 
@@ -84,16 +85,22 @@ four-tool loop still runs, and model args cannot undo the pin.
 
 ## Chat UI
 
-One pane. Dev server proxies `/ask` to `:8000`. Built `web/dist` is served at
-`GET /` from the same origin. Canvas is slice 4.
+Two panes. Chat keeps the question form and the natural-language answer.
+The canvas is one active `AskResponse`: idle / loading / result / error.
+A new submit leaves the current dataset visible until a successful response
+replaces it; a failed request keeps that dataset and surfaces the failure
+in chat. Refresh is not persistence. Narrow viewports stack chat above
+canvas (`overflow-x: hidden` on the workspace); from `48rem` the panes sit
+side by side. Dev server proxies `/ask` to `:8000`. Built `web/dist` is
+served at `GET /` from the same origin.
 
-The result pane renders one frontend-normalized table from `AskResponse`
+The canvas renders one frontend-normalized table from `AskResponse`
 (`normalizeActiveDataset` in `web/src/display.ts`): one visible row per
 geography × year/period × estimate variable, with GEOID, dataset, vintage,
 period, table, variable, raw estimate, and matching 90% MOE. Scalar and
 multi-row answers share that model. Census sentinels and missing MOE are
-unavailable (`—`), never zero. Chart and CSV consume the same rows; they
-must not re-parse `AskResponse`.
+unavailable (`—`), never zero. Chart, plan strip, and CSV consume that same
+`AskResponse`; they must not keep a second copy.
 
 ## Data
 
