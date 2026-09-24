@@ -1,11 +1,4 @@
-"""HTTP models for POST /ask.
-
-One boundary, one pair of models. Rows stay untyped dicts — a census row that
-becomes five models through five layers is how the predecessor grew. Alternatives
-and warnings are typed because the TypeScript client (slice 2) generates from
-this schema; `urls[]` is one redacted Census URL per attempted request, or the
-built URL when every vintage is omitted.
-"""
+"""HTTP models for POST /ask. One boundary; rows stay untyped dicts."""
 
 from __future__ import annotations
 
@@ -61,10 +54,9 @@ class GeoSpec(BaseModel):
 
 class Alternative(BaseModel):
     table_id: str = Field(description="ACS table ID.")
-    reason: str = Field(
-        description="How this table differs: universe, distribution versus median, "
-        "collapsed table, race iteration, or related table."
-    )
+    title: str = Field(description="Published table title.")
+    universe: str = Field(description="Published universe of this table.")
+    reason: str = Field(description="How this table differs from the selection.")
 
 
 class AskWarning(BaseModel):
@@ -136,60 +128,85 @@ class ChartSpec(BaseModel):
         return self
 
 
+class ResultPlan(BaseModel):
+    """Executed table, variables, years, and geographies. Not extracted from prose."""
+
+    table_id: str = Field("", description="Selected ACS table ID.")
+    variables: list[str] = Field(default_factory=list, description="Estimate IDs (E) from the URL.")
+    dataset: str = Field("acs5", description="acs5 or acs1 actually requested.")
+    years: list[int] = Field(default_factory=list, description="Vintages a request was issued for.")
+    requested_years: list[int] = Field(default_factory=list, description="Fetch request years.")
+    geographies: list[GeoSpec] = Field(default_factory=list, description="Ordered resolved geos.")
+    allow_overlapping_acs5: bool = Field(False, description="Consecutive ACS5 explicitly allowed.")
+
+    @model_validator(mode="after")
+    def consistent(self) -> ResultPlan:
+        from src.geo import legal_predicate
+
+        zcta = "zip code tabulation area"
+        geo = next((g for g in self.geographies if zcta in (g.level, g.for_spec)), None)
+        wild = bool(geo and geo.for_spec.endswith(":*"))
+        if (
+            self.dataset == "acs1"
+            and geo
+            and legal_predicate(geo.level or zcta, frozenset(), wildcard=wild, entries=[]) is None
+        ):
+            raise ValueError("ACS1 is not published for ZCTA")
+        prefix = f"{self.table_id}_"
+        if any(
+            not item.endswith("E") or (self.table_id and not item.startswith(prefix))
+            for item in self.variables
+        ):
+            raise ValueError("variable outside selected table")
+        if self.requested_years and set(self.years) - set(self.requested_years):
+            raise ValueError("effective years were not requested")
+        return self
+
+
+def plan_from_record(record: Any) -> ResultPlan:
+    fetch, url = getattr(record, "fetch", None), getattr(record, "url", None)
+    table, suffixes = url.estimate_table() if url is not None else ("", [])
+    if fetch is not None:
+        years = list(fetch.attempted_years)
+        requested = list(fetch.requested_years)
+    else:
+        years = [url.year] if url is not None else []
+        requested = years
+    geos = list(getattr(record, "geographies", None) or [])
+    if (getattr(record, "geo_status", None) or {}).get("compare"):
+        geos = geos[:2]
+    dataset = str(getattr(fetch, "dataset", "") or "") or (url.dataset if url else "")
+    vintages = getattr(record, "vintages", None) or []
+    return ResultPlan(
+        table_id=str(getattr(record, "table_id", "") or table),
+        variables=[f"{table}_{item}" for item in suffixes] if table else [],
+        dataset=dataset or (vintages[0][0] if vintages else "acs5"),
+        years=years,
+        requested_years=requested,
+        geographies=geos,
+        allow_overlapping_acs5=bool(getattr(record, "allow_overlapping_acs5", False)),
+    )
+
+
 class AskResponse(BaseModel):
     answer: str = Field(description="Natural-language answer.")
-    urls: list[str] = Field(
-        description=(
-            "Key-redacted Census API URLs, one per attempted request, in requested order. "
-            "When every requested vintage is omitted, this is the built URL so the request "
-            "is still editable."
-        )
-    )
-    requested_years: list[int] = Field(
-        description="Years asked of fetch_data, de-duplicated in first-requested order."
-    )
-    attempted_years: list[int] = Field(
-        description="Unique vintages for which a Census request was issued."
-    )
-    succeeded_years: list[int] = Field(
-        description="Unique attempted vintages with at least one successful HTTP call."
-    )
-    failed_years: list[int] = Field(
-        description="Unique attempted vintages with at least one failed or timed-out call."
-    )
+    urls: list[str] = Field(description="Key-redacted Census API URLs, one per attempted request.")
+    requested_years: list[int] = Field(description="Years asked of fetch_data.")
+    attempted_years: list[int] = Field(description="Vintages a Census request was issued for.")
+    succeeded_years: list[int] = Field(description="Attempted vintages that returned rows.")
+    failed_years: list[int] = Field(description="Attempted vintages that failed or timed out.")
     omitted_years: list[int] = Field(description="Requested years that were not attempted.")
-    omission_reasons: list[str] = Field(
-        description="Reason code per omitted year, same order as omitted_years."
-    )
-    legs: list[RequestLeg] = Field(
-        description="Per-request outcome in requested order, including failed legs."
-    )
-    rows: list[dict[str, str | None]] = Field(
-        description="Census rows as returned. Each row carries GEO_ID (AFFGEOID); "
-        "empty when the row is a combined total rather than a published area."
-    )
-    moe: list[dict[str, str | None]] = Field(
-        description="Per-row 90% margins, keyed to each estimate's matching M variable."
-    )
-    geoid: str = Field(
-        description="AFFGEOID of the selected geography; empty when many areas are returned."
-    )
+    omission_reasons: list[str] = Field(description="Reason code per omitted year.")
+    legs: list[RequestLeg] = Field(description="Per-request outcome in requested order.")
+    rows: list[dict[str, str | None]] = Field(description="Census rows; each carries GEO_ID.")
+    moe: list[dict[str, str | None]] = Field(description="Per-row 90% margins keyed to each M.")
+    geoid: str = Field(description="AFFGEOID of the selected geography; empty if many.")
     universe: str = Field(description="Published universe of the selected table.")
     table_id: str = Field(description="Selected ACS table ID.")
-    alternatives: list[Alternative] = Field(
-        description="Related tables with the reason they differ from the selection."
-    )
-    comparisons: list[Comparison] = Field(
-        description="Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag."
-    )
-    warnings: list[AskWarning] = Field(
-        description="Non-blocking guards: overlapping_vintage, moe_not_significant, "
-        "geography_unsupported, ambiguous_place, universe_mismatch, "
-        "median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, "
-        "geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, "
-        "boundary_change_2020, measure_unavailable, variable_not_in_vintage, "
-        "shared_sample."
-    )
+    alternatives: list[Alternative] = Field(description="Related tables, with why they differ.")
+    comparisons: list[Comparison] = Field(description="Paired estimates with MOE_diff.")
+    warnings: list[AskWarning] = Field(description="Non-blocking guards (docs/requirements.md).")
+    plan: ResultPlan = Field(description="Executed table, years, and geographies for this answer.")
     chart: ChartSpec | None = Field(default=None, description="Validated chart roles, or null.")
     chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
 

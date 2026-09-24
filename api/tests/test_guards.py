@@ -648,6 +648,10 @@ def test_combined_median_is_not_invented() -> None:
     values = {row.get("B19013_001E") for row in response.rows}
     assert values == {"40000", "80000", "50000"}
     assert any(item.table_id == "B19001" for item in response.alternatives)
+    bracket = next(item for item in response.alternatives if item.table_id == "B19001")
+    assert bracket.title == "Household Income"
+    assert bracket.universe == "Households"
+    assert bracket.reason == "distribution versus median"
 
 
 def test_bracket_alternative_is_not_duplicated() -> None:

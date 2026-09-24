@@ -27,6 +27,15 @@ EMPTY = {
     "alternatives": [],
     "comparisons": [],
     "warnings": [],
+    "plan": {
+        "table_id": "",
+        "variables": [],
+        "dataset": "acs5",
+        "years": [],
+        "requested_years": [],
+        "geographies": [],
+        "allow_overlapping_acs5": False,
+    },
     "chart": None,
     "chart_unavailable": False,
 }

@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi.testclient import TestClient
-from src.contract import AskResponse
+from src.contract import AskResponse, ResultPlan
 from src.main import app
 
 client = TestClient(app)
@@ -33,6 +33,7 @@ CONTRACT_FIELDS = (
     "alternatives",
     "comparisons",
     "warnings",
+    "plan",
     "chart",
     "chart_unavailable",
 )
@@ -68,7 +69,18 @@ def test_openapi_documents_post_ask() -> None:
     assert "description" in response["properties"]["urls"]
     assert response["properties"]["legs"]["items"] == {"$ref": "#/components/schemas/RequestLeg"}
     alternative = schema["components"]["schemas"]["Alternative"]
-    assert alternative["required"] == ["table_id", "reason"]
+    assert alternative["required"] == ["table_id", "title", "universe", "reason"]
+    plan = schema["components"]["schemas"]["ResultPlan"]
+    assert set(plan["properties"]) == {
+        "table_id",
+        "variables",
+        "dataset",
+        "years",
+        "requested_years",
+        "geographies",
+        "allow_overlapping_acs5",
+    }
+    assert response["properties"]["plan"]["$ref"] == "#/components/schemas/ResultPlan"
     warning = schema["components"]["schemas"]["AskWarning"]
     assert warning["required"] == ["code", "detail"]
     comparison = schema["components"]["schemas"]["Comparison"]
@@ -121,6 +133,16 @@ def test_missing_question_is_a_validation_error() -> None:
     assert response.status_code == 422
 
 
+EMPTY_PLAN = {
+    "table_id": "",
+    "variables": [],
+    "dataset": "acs5",
+    "years": [],
+    "requested_years": [],
+    "geographies": [],
+    "allow_overlapping_acs5": False,
+}
+
 EMPTY_CONTRACT = {
     "answer": "",
     "urls": [],
@@ -139,6 +161,7 @@ EMPTY_CONTRACT = {
     "alternatives": [],
     "comparisons": [],
     "warnings": [],
+    "plan": EMPTY_PLAN,
     "chart": None,
     "chart_unavailable": False,
 }
@@ -180,6 +203,7 @@ def test_valid_question_reaches_the_ask_loop(monkeypatch: Any) -> None:
             alternatives=[],
             comparisons=[],
             warnings=[],
+            plan=ResultPlan(),
         )
 
     monkeypatch.setattr("src.main.run_ask", fake_loop)

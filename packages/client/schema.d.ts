@@ -29,7 +29,7 @@ export interface components {
         Alternative: {
             /**
              * Reason
-             * @description How this table differs: universe, distribution versus median, collapsed table, race iteration, or related table.
+             * @description How this table differs from the selection.
              */
             reason: string;
             /**
@@ -37,6 +37,16 @@ export interface components {
              * @description ACS table ID.
              */
             table_id: string;
+            /**
+             * Title
+             * @description Published table title.
+             */
+            title: string;
+            /**
+             * Universe
+             * @description Published universe of this table.
+             */
+            universe: string;
         };
         /** AskRequest */
         AskRequest: {
@@ -50,7 +60,7 @@ export interface components {
         AskResponse: {
             /**
              * Alternatives
-             * @description Related tables with the reason they differ from the selection.
+             * @description Related tables, with why they differ.
              */
             alternatives: components["schemas"]["Alternative"][];
             /**
@@ -60,7 +70,7 @@ export interface components {
             answer: string;
             /**
              * Attempted Years
-             * @description Unique vintages for which a Census request was issued.
+             * @description Vintages a Census request was issued for.
              */
             attempted_years: number[];
             /** @description Validated chart roles, or null. */
@@ -73,34 +83,34 @@ export interface components {
             chart_unavailable: boolean;
             /**
              * Comparisons
-             * @description Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.
+             * @description Paired estimates with MOE_diff.
              */
             comparisons: components["schemas"]["Comparison"][];
             /**
              * Failed Years
-             * @description Unique attempted vintages with at least one failed or timed-out call.
+             * @description Attempted vintages that failed or timed out.
              */
             failed_years: number[];
             /**
              * Geoid
-             * @description AFFGEOID of the selected geography; empty when many areas are returned.
+             * @description AFFGEOID of the selected geography; empty if many.
              */
             geoid: string;
             /**
              * Legs
-             * @description Per-request outcome in requested order, including failed legs.
+             * @description Per-request outcome in requested order.
              */
             legs: components["schemas"]["RequestLeg"][];
             /**
              * Moe
-             * @description Per-row 90% margins, keyed to each estimate's matching M variable.
+             * @description Per-row 90% margins keyed to each M.
              */
             moe: {
                 [key: string]: string | null;
             }[];
             /**
              * Omission Reasons
-             * @description Reason code per omitted year, same order as omitted_years.
+             * @description Reason code per omitted year.
              */
             omission_reasons: string[];
             /**
@@ -108,21 +118,23 @@ export interface components {
              * @description Requested years that were not attempted.
              */
             omitted_years: number[];
+            /** @description Executed table, years, and geographies for this answer. */
+            plan: components["schemas"]["ResultPlan"];
             /**
              * Requested Years
-             * @description Years asked of fetch_data, de-duplicated in first-requested order.
+             * @description Years asked of fetch_data.
              */
             requested_years: number[];
             /**
              * Rows
-             * @description Census rows as returned. Each row carries GEO_ID (AFFGEOID); empty when the row is a combined total rather than a published area.
+             * @description Census rows; each carries GEO_ID.
              */
             rows: {
                 [key: string]: string | null;
             }[];
             /**
              * Succeeded Years
-             * @description Unique attempted vintages with at least one successful HTTP call.
+             * @description Attempted vintages that returned rows.
              */
             succeeded_years: number[];
             /**
@@ -137,12 +149,12 @@ export interface components {
             universe: string;
             /**
              * Urls
-             * @description Key-redacted Census API URLs, one per attempted request, in requested order. When every requested vintage is omitted, this is the built URL so the request is still editable.
+             * @description Key-redacted Census API URLs, one per attempted request.
              */
             urls: string[];
             /**
              * Warnings
-             * @description Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage, shared_sample.
+             * @description Non-blocking guards (docs/requirements.md).
              */
             warnings: components["schemas"]["AskWarning"][];
         };
@@ -346,6 +358,50 @@ export interface components {
              * @description Vintage end year for this Census request.
              */
             year: number;
+        };
+        /**
+         * ResultPlan
+         * @description Executed table, variables, years, and geographies. Not extracted from prose.
+         */
+        ResultPlan: {
+            /**
+             * Allow Overlapping Acs5
+             * @description Consecutive ACS5 explicitly allowed.
+             * @default false
+             */
+            allow_overlapping_acs5: boolean;
+            /**
+             * Dataset
+             * @description acs5 or acs1 actually requested.
+             * @default acs5
+             */
+            dataset: string;
+            /**
+             * Geographies
+             * @description Ordered resolved geos.
+             */
+            geographies?: components["schemas"]["GeoSpec"][];
+            /**
+             * Requested Years
+             * @description Fetch request years.
+             */
+            requested_years?: number[];
+            /**
+             * Table Id
+             * @description Selected ACS table ID.
+             * @default
+             */
+            table_id: string;
+            /**
+             * Variables
+             * @description Estimate IDs (E) from the URL.
+             */
+            variables?: string[];
+            /**
+             * Years
+             * @description Vintages a request was issued for.
+             */
+            years?: number[];
         };
         /** ValidationError */
         ValidationError: {
