@@ -401,6 +401,7 @@ def test_geoid_reconstructs_census_clauses() -> None:
     )
     assert clauses_from_geoid("0100000US") == ("us", "us:1", "")
     assert clauses_from_geoid("0500000US48") is None
+    assert clauses_from_geoid("0500000USABCDE") is None
     assert clauses_from_geoid("county:201") is None
     assert clauses_from_geoid("") is None
 

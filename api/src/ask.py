@@ -384,8 +384,8 @@ async def run_ask(
     override: Any = None,
 ) -> AskResponse:
     record = record or ExecutionRecord()
-    apply_override(record, override)
     record.question = record.question or question
+    apply_override(record, override)
     tools = tools or default_tools(record)
     openai_tools = [convert_to_openai_tool(tool) for tool in tools.values()]
     acs5, acs1 = latest_vintages()

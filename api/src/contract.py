@@ -44,7 +44,7 @@ def clauses_from_geoid(geoid: str) -> tuple[str, str, str] | None:
     index = 0
     for name, width in parts:
         chunk = rest[index : index + width]
-        if len(chunk) != width:
+        if len(chunk) != width or not chunk.isdigit():
             return None
         codes.append((name, chunk))
         index += width
@@ -242,6 +242,11 @@ def bind_override_geographies(plan: ResultPlan) -> ResultPlan:
 def apply_override(record: Any, plan: ResultPlan | None) -> None:
     if plan is None:
         return
+    if "dataset" not in plan.model_fields_set:
+        from src.vintages import wants_acs1
+
+        if wants_acs1(getattr(record, "question", "") or ""):
+            plan.dataset = "acs1"
     plan = bind_override_geographies(plan)
     record.override = plan
     record.allow_overlapping_acs5 = plan.allow_overlapping_acs5
@@ -312,9 +317,7 @@ def reject_unknown_override(plan: ResultPlan | None) -> str:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
         return table if isinstance(table, dict) else None
 
-    latest = max(
-        (int(year) for group in matrix["datasets"].values() for year in group), default=2024
-    )
+    latest = max((int(year) for year in matrix["datasets"].get(plan.dataset, {})), default=2024)
     return missing_override_table(plan, lookup, latest)
 
 

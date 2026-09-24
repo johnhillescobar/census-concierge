@@ -251,6 +251,26 @@ def test_geography_override_without_geoid_is_rejected_before_ask(monkeypatch: An
     assert "GEOID" in response.text
 
 
+def test_nonnumeric_geoid_override_is_rejected_before_ask(monkeypatch: Any) -> None:
+    called: list[str] = []
+
+    async def fake_loop(question: str, override: object = None) -> AskResponse:
+        called.append(question)
+        return AskResponse(**EMPTY_CONTRACT)
+
+    monkeypatch.setattr("src.main.run_ask", fake_loop)
+    response = client.post(
+        "/ask",
+        json={
+            "question": "population of Harris County",
+            "plan": {"geographies": [{"geoid": "0500000USABCDE"}]},
+        },
+    )
+    assert response.status_code == 422
+    assert called == []
+    assert "GEOID" in response.text
+
+
 def test_acs1_zcta_override_is_rejected_before_ask(monkeypatch: Any) -> None:
     called: list[str] = []
 
@@ -320,6 +340,34 @@ def test_unknown_variable_override_is_rejected_before_ask(monkeypatch: Any) -> N
     )
     assert response.status_code == 422
     assert called == []
+
+
+def test_acs1_table_override_uses_that_dataset_latest_vintage(monkeypatch: Any) -> None:
+    called: list[str] = []
+
+    async def fake_loop(question: str, override: object = None) -> AskResponse:
+        called.append(question)
+        return AskResponse(**EMPTY_CONTRACT)
+
+    monkeypatch.setattr("src.main.run_ask", fake_loop)
+    monkeypatch.setattr(
+        "src.retrieval.availability.load",
+        lambda: {
+            "datasets": {
+                "acs5": {"2024": {"B01003": {"variables": ["001E"]}}},
+                "acs1": {"2023": {"B01003": {"variables": ["001E"]}}},
+            }
+        },
+    )
+    response = client.post(
+        "/ask",
+        json={
+            "question": "1-year ACS population",
+            "plan": {"table_id": "B01003", "dataset": "acs1"},
+        },
+    )
+    assert response.status_code == 200
+    assert called == ["1-year ACS population"]
 
 
 def test_typed_plan_override_reaches_the_ask_loop(monkeypatch: Any) -> None:
