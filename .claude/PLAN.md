@@ -35,7 +35,9 @@ is **To Do** in Jira; [CC-34](https://johnhillescobar.atlassian.net/browse/CC-34
 Done (ChartSpec; floors met; p95 over-ceiling recorded not promoted;
 `evidence/slice-4/cc-34-e2e-post.txt`). [CC-35](https://johnhillescobar.atlassian.net/browse/CC-35)
 Done (GEOID/MOE table; floors met; p95 over-ceiling recorded not promoted;
-`evidence/slice-4/cc-35-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
+`evidence/slice-4/cc-35-e2e-post.txt`). [CC-90](https://johnhillescobar.atlassian.net/browse/CC-90)
+Done (ResultPlan; floors met; p95 over-ceiling recorded not promoted;
+`evidence/slice-4/cc-90-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
 foundations. Spike CC-9 before slice 5.
 
 ---
