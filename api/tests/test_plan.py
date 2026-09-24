@@ -403,3 +403,14 @@ def test_geoid_reconstructs_census_clauses() -> None:
     assert clauses_from_geoid("0500000US48") is None
     assert clauses_from_geoid("county:201") is None
     assert clauses_from_geoid("") is None
+
+
+def test_geoid_bind_copies_plan_dataset() -> None:
+    from src.contract import bind_override_geographies
+
+    plan = ResultPlan.model_validate(
+        {"dataset": "acs1", "geographies": [{"geoid": "0500000US48201"}]}
+    )
+    bound = bind_override_geographies(plan)
+    assert bound.geographies[0].dataset == "acs1"
+    assert bound.geographies[0].for_spec == "county:201"

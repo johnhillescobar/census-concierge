@@ -233,11 +233,9 @@ def bind_override_geographies(plan: ResultPlan) -> ResultPlan:
         if parsed is None:
             raise ValueError("geography override requires an executable GEOID")
         level, for_spec, in_spec = parsed
-        bound.append(
-            GeoSpec.model_validate(
-                {**geo.model_dump(), "level": level, "for_spec": for_spec, "in_spec": in_spec}
-            )
-        )
+        spec = {**geo.model_dump(), "level": level, "for_spec": for_spec}
+        spec.update(in_spec=in_spec, dataset=plan.dataset)
+        bound.append(GeoSpec.model_validate(spec))
     return ResultPlan.model_validate({**plan.model_dump(), "geographies": bound})
 
 

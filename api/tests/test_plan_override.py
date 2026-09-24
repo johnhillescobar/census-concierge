@@ -179,6 +179,31 @@ async def test_combined_table_geography_year_override() -> None:
     assert response.plan.geographies[0].for_spec == "county:031"
 
 
+async def test_acs1_dataset_override_builds_a_county_url() -> None:
+    record = ExecutionRecord()
+    plan = ResultPlan.model_validate(
+        {
+            "table_id": "B01003",
+            "dataset": "acs1",
+            "geographies": [{"geoid": "0500000US48201"}],
+        }
+    )
+    apply_override(record, plan)
+    response = await run_ask(
+        "population of Harris County",
+        complete=_complete(_script("B01003", "Harris County, Texas")),
+        tools=_tools(record),
+        record=record,
+        override=plan,
+    )
+    assert response.urls
+    assert "/acs/acs1" in response.urls[0]
+    assert "B01003_001M" in response.urls[0]
+    assert parse_qs(urlsplit(response.urls[0]).query)["for"] == ["county:201"]
+    assert response.plan.dataset == "acs1"
+    assert response.plan.geographies[0].dataset == "acs1"
+
+
 async def test_race_iteration_override_is_a_deliberate_selection() -> None:
     record = ExecutionRecord()
     plan = ResultPlan(table_id="B19013B", geographies=[_harris()])
