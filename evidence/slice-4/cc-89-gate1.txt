@@ -1,0 +1,208 @@
+CC-89 Gate 1 -- tests + mutation check
+commit: f722cbb feat(CC-89): validate and pin typed plan overrides on POST /ask
+branch: feat/cc-89-plan-overrides
+ticket: CC-89
+make: not found; ran the Makefile check recipe
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== Makefile check recipe (python side) ==========
+========== uv run ruff check . ==========
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+141 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+498 passed in 17.82s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+openapi-typescript 7.9.1
+packages/client is up to date.
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               1315 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1591 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         16.692 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.808 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== npm --prefix web test ==========
+Test Files  3 passed (3)
+Tests  49 passed (49)
+
+exit: 0
+
+========== npm --prefix web run typecheck ==========
+tsc --noEmit
+
+exit: 0
+
+========== MUTATIONS ==========
+
+===== MUTATION: bind_override_geographies returns the submitted plan unchanged =====
+tests: test_geography_override_without_geoid_is_rejected_before_ask
+       test_geography_override_ignores_browser_for_in_and_model_place
+
+GOOD
+FF.  (geoid reconstruct unit test still hits clauses_from_geoid directly)
+assert 200 == 422
+assert ['county:999'] == ['county:031']
+
+# GOOD  bind_override_geographies returns the submitted plan unchanged  (2 failed)
+
+===== MUTATION: reject_unknown_override always returns empty =====
+tests: test_unknown_table_override_is_rejected_before_ask
+       test_unknown_variable_override_is_rejected_before_ask
+
+GOOD
+FF
+assert 200 == 422
+assert 200 == 422
+
+# GOOD  reject_unknown_override always returns empty  (2 failed)
+
+===== MUTATION: clauses_from_geoid always returns None =====
+tests: test_geoid_reconstructs_census_clauses
+       test_geography_override_ignores_browser_for_in_and_model_place
+       test_typed_plan_override_reaches_the_ask_loop
+
+GOOD
+FFF
+assert None == ('county', 'county:201', 'state:48')
+ValueError: geography override requires an executable GEOID
+assert 422 == 200
+
+# GOOD  clauses_from_geoid always returns None  (3 failed)
+
+===== MUTATION: apply_override does not copy allow_overlapping_acs5 =====
+test: test_overlapping_override_fetches_consecutive_years_and_warns
+
+GOOD
+F
+assert False is True  (plan.allow_overlapping_acs5)
+
+# GOOD  apply_override does not copy allow_overlapping_acs5  (1 failed)
+
+===== MUTATION: apply_override forces allow_overlapping_acs5 True =====
+test: test_overlapping_override_off_restores_destagger
+
+GOOD
+F
+assert True is False
+
+# GOOD  apply_override forces allow_overlapping_acs5 True  (1 failed)
+
+===== MUTATION: pin_tool_args returns args unchanged =====
+tests: test_table_override_wins_over_model_args
+       test_combined_table_geography_year_override
+       test_geoid_reconstructs_census_clauses
+
+GOOD (partial dual path)
+.F.
+combined: assert [2024, 2022] == [2022]
+table_override still passed: finish.py rebuilds from plan.table_id when the
+model's B01003 build is rejected (search pool empty; _allowed is override only).
+
+# GOOD  pin_tool_args returns args unchanged  (combined years 1 failed)
+# note   table_id also enforced in finish.py; see next mutation
+
+===== MUTATION: pin table_id skipped, finish ignores plan.table_id, _allowed omits override =====
+tests: test_table_override_wins_over_model_args
+       test_combined_table_geography_year_override
+       test_race_iteration_override_is_a_deliberate_selection
+
+GOOD
+FFF.
+assert 'B01003' == 'B19013'
+IndexError on urls[0] (no rebuilt URL)
+assert 'B19013' == 'B19013B'
+
+# GOOD  table override dual path (pin + finish + allow-list)  (3 failed)
+
+===== MUTATION: post_ask calls run_ask without override=body.plan =====
+test: test_typed_plan_override_reaches_the_ask_loop
+
+GOOD
+F
+assert None is not None
+
+# GOOD  post_ask calls run_ask without override  (1 failed)
+
+===== MUTATION: ResultPlan.consistent skips ACS1 ZCTA rejection =====
+test: test_acs1_zcta_override_is_rejected_before_ask
+
+GOOD
+F
+assert 200 == 422
+
+# GOOD  ResultPlan.consistent skips ACS1 ZCTA rejection  (1 failed)
+
+===== MUTATION: web ask() JSON-stringifies question only =====
+test: web/src/ask.test.ts POSTs an optional plan override beside the question
+
+GOOD
+1 failed | 3 passed
+body omitted plan
+
+# GOOD  web ask() JSON-stringifies question only  (1 failed)
+
+========== SUMMARY ==========
+All new CC-89 tests are GOOD against the behaviour they cover.
+No BAD tests.
+498 passed / 49 web passed after restore.
+api src LOC 4000/4000; largest file 398/400. Budgets not raised.

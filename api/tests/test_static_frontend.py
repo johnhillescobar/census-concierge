@@ -71,7 +71,7 @@ def test_built_assets_are_same_origin(tmp_path: Path) -> None:
 
 
 def test_post_ask_still_works_when_the_ui_is_mounted(tmp_path: Path, monkeypatch: Any) -> None:
-    async def fake_loop(question: str) -> AskResponse:
+    async def fake_loop(question: str, **_: Any) -> AskResponse:
         _ = question
         return AskResponse(**EMPTY)
 
@@ -100,7 +100,7 @@ def test_docs_still_work_when_the_ui_is_mounted(tmp_path: Path) -> None:
 
 
 def test_missing_dist_does_not_take_down_ask(tmp_path: Path, monkeypatch: Any) -> None:
-    async def fake_loop(question: str) -> AskResponse:
+    async def fake_loop(question: str, **_: Any) -> AskResponse:
         _ = question
         return AskResponse(**EMPTY)
 

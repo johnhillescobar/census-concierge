@@ -14,10 +14,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 
 from src.ask import run_ask
-from src.contract import AskRequest, AskResponse
+from src.contract import AskRequest, AskResponse, reject_unknown_override
 
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
@@ -27,7 +28,19 @@ def create_app(dist: Path | None = None) -> FastAPI:
 
     @application.post("/ask", response_model=AskResponse, operation_id="ask")
     async def post_ask(body: AskRequest) -> AskResponse:
-        return await run_ask(body.question)
+        field = reject_unknown_override(body.plan)
+        if field:
+            raise RequestValidationError(
+                [
+                    {
+                        "type": "value_error",
+                        "loc": ("body", "plan", field),
+                        "msg": f"Value error, invalid {field} override",
+                        "input": getattr(body.plan, field),
+                    }
+                ]
+            )
+        return await run_ask(body.question, override=body.plan)
 
     root = WEB_DIST if dist is None else dist
     if root.is_dir():

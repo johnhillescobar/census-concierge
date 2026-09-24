@@ -1,15 +1,4 @@
-"""ACS metadata: fetch once, cache to disk, read from cache.
-
-Everything in slice 0 is a join over three files per vintage — `groups.json`,
-`variables.json`, `geography.json`. None of them needs an API key and none of
-them runs at request time: the index is built offline and shipped as a pinned
-artifact (DESIGN section 5).
-
-`geography.json` is the authority on which `for`/`in` combinations are legal.
-The agent looks them up here rather than reasoning about nesting from memory —
-an invented `for=zcta:*&in=county:X` returns a 400 the model then "fixes" by
-inventing a different wrong call.
-"""
+"""ACS metadata: fetch once, cache to disk, read from cache."""
 
 from __future__ import annotations
 
@@ -54,13 +43,7 @@ class Variable:
 
 @dataclass(frozen=True)
 class GeoLevel:
-    """One row of `geography.json` — a level and what it must nest inside.
-
-    The file repeats a name at several summary levels (`county` is 050, 313,
-    316, 322, 324). Callers that need a legal `for`/`in` form must scan every
-    row, not a name-keyed dict: last-wins on `county` is 324 and rejects
-    `for=county:*&in=state:41`.
-    """
+    """One geography.json row. Scan every row; names repeat across summary levels."""
 
     name: str
     code: str
@@ -87,20 +70,7 @@ def is_subject_table(table_id: str) -> bool:
 
 
 def family_id(table_id: str) -> str:
-    """`B19013A` -> `B19013`. `C16001` -> `C16001`.
-
-    A race iteration is its parent table under a filter, and a Puerto Rico
-    variant is the same table for one geography. They carry near-identical
-    titles and universes, so indexing them separately puts 500-odd
-    near-duplicates in a 1,458-table corpus, where they crowd out the very
-    table they are derived from: "crowded housing" ranked `B25014G` above
-    `B25014`.
-
-    Collapsing them is not a ranking trick. It is the table-family structure
-    from the domain rules, and the members become the `alternatives[]` a
-    response owes the user — the `C` collapsed tables stay separate because
-    they are genuinely different tables, not filtered views.
-    """
+    """B19013A -> B19013. Race iterations share a parent document."""
     match = _FAMILY.match(table_id)
     return match.group(1) if match else table_id
 
@@ -120,10 +90,7 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 def fetch(client: httpx.Client, dataset: str, year: int, name: str) -> dict[str, Any] | None:
-    """Download one metadata file, or read the cached copy. None means 404.
-
-    A 404 is how the caller discovers where a dataset stops; it is not an error.
-    """
+    """Download one metadata file, or read the cached copy. None means 404."""
     path = cache_path(dataset, year, name)
     if path.exists():
         return _read(path)
@@ -141,13 +108,7 @@ def fetch(client: httpx.Client, dataset: str, year: int, name: str) -> dict[str,
 
 
 def fetch_all(*, first: int = FIRST_VINTAGE) -> dict[str, list[int]]:
-    """Cache every file for every vintage in scope. Returns what exists.
-
-    Probes the whole range and never stops at the first miss. ACS1 has a hole
-    at 2020 — the standard release was never issued — and stopping there would
-    silently drop 2021 onward. A missing vintage in the middle of a range is
-    the fact this product has to report, not a reason to stop looking.
-    """
+    """Cache every file for every vintage in scope. Returns what exists."""
     found: dict[str, list[int]] = {}
     horizon = datetime.now(UTC).year + 1
     with httpx.Client(timeout=120.0, follow_redirects=True) as client:
@@ -189,12 +150,7 @@ def tables(dataset: str, year: int) -> dict[str, Table]:
 
 
 def variables(dataset: str, year: int) -> dict[str, Variable]:
-    """Estimate variables only.
-
-    `variables.json` also carries `for`, `in`, `ucgid` and the `M`/`EA`/`MA`
-    companions. The `E` variables are what a question is about; the margins are
-    fetched alongside at request time and add nothing to retrieval.
-    """
+    """Estimate variables only. Margins are paired at fetch time."""
     payload = _read(cache_path(dataset, year, "variables"))
     result: dict[str, Variable] = {}
     for variable_id, meta in payload.get("variables", {}).items():

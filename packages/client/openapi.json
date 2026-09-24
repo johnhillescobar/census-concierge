@@ -35,6 +35,17 @@
       },
       "AskRequest": {
         "properties": {
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultPlan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional typed override of table, years, geography, and overlapping ACS5."
+          },
           "question": {
             "description": "The user's question. Leading and trailing whitespace is stripped.",
             "minLength": 1,

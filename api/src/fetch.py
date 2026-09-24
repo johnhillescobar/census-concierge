@@ -59,14 +59,7 @@ class FetchDataResult(ToolResult):
 
 
 def unique_years(years: list[int]) -> list[int]:
-    """De-duplicate, keeping first-requested order."""
-    seen: set[int] = set()
-    out: list[int] = []
-    for year in years:
-        if year not in seen:
-            seen.add(year)
-            out.append(year)
-    return out
+    return list(dict.fromkeys(years))
 
 
 def _kept_urls(record: Any) -> list[str]:
@@ -92,31 +85,26 @@ def clear_series(record: Any) -> None:
     record.fetch = None
 
 
+_SERIES = (
+    "requested_years",
+    "attempted_years",
+    "succeeded_years",
+    "failed_years",
+    "omitted_years",
+    "omission_reasons",
+    "legs",
+)
+
+
 def series_from_record(record: Any) -> dict[str, Any]:
     kept = _kept_urls(record)
     artifact = getattr(record, "fetch", None)
     built = getattr(record, "url", None)
     urls = [str(built)] if built else kept
-    years: dict[str, Any] = {
-        "requested_years": [],
-        "attempted_years": [],
-        "succeeded_years": [],
-        "failed_years": [],
-        "omitted_years": [],
-        "omission_reasons": [],
-        "legs": [],
-    }
+    years: dict[str, Any] = {key: [] for key in _SERIES}
     if isinstance(artifact, FetchDataResult):
         urls = list(artifact.urls) or urls
-        years = {
-            "requested_years": list(artifact.requested_years),
-            "attempted_years": list(artifact.attempted_years),
-            "succeeded_years": list(artifact.succeeded_years),
-            "failed_years": list(artifact.failed_years),
-            "omitted_years": list(artifact.omitted_years),
-            "omission_reasons": list(artifact.omission_reasons),
-            "legs": list(artifact.legs),
-        }
+        years = {key: list(getattr(artifact, key)) for key in _SERIES}
     return {"urls": [str(CensusURL(url)) for url in urls if url], **years}
 
 
@@ -149,12 +137,7 @@ def _rows_from_payload(payload: Any) -> list[dict[str, str | None]] | None:
 
 
 def _tag_year(rows: list[dict[str, str | None]], year: int) -> list[dict[str, str | None]]:
-    tagged: list[dict[str, str | None]] = []
-    for row in rows:
-        item = dict(row)
-        item["year"] = str(year)
-        tagged.append(item)
-    return tagged
+    return [{**row, "year": str(year)} for row in rows]
 
 
 def _pack(
@@ -276,40 +259,30 @@ class FetchDataTool(BaseTool):
         self, template: CensusURL, year: int, for_spec: str = ""
     ) -> tuple[RequestLeg, list[dict[str, str | None]]]:
         census_url = template.with_year(year)
-        redacted = str(census_url)
+        parsed: list[dict[str, str | None]] | None = None
         try:
             status, payload = self._get(census_url.with_key(self.census_key()))
+            parsed = _rows_from_payload(payload) if status == 200 else None
+            detail = (
+                ""
+                if parsed
+                else redact_text(
+                    str(payload if isinstance(payload, str) else f"HTTP {status}")[:300]
+                )
+            )
         except (httpx.HTTPError, ValueError, TypeError, json.JSONDecodeError) as exc:
-            return (
-                RequestLeg(
-                    year=year,
-                    url=redacted,
-                    ok=False,
-                    status_code=0,
-                    detail=redact_text(str(exc)),
-                    for_spec=for_spec,
-                ),
-                [],
-            )
-        parsed = _rows_from_payload(payload) if status == 200 else None
-        if parsed is None:
-            raw = payload if isinstance(payload, str) else f"HTTP {status}"
-            return (
-                RequestLeg(
-                    year=year,
-                    url=redacted,
-                    ok=False,
-                    status_code=status,
-                    detail=redact_text(str(raw)[:300]),
-                    for_spec=for_spec,
-                ),
-                [],
-            )
+            status, detail = 0, redact_text(str(exc))
+        rows = _tag_year(parsed, year) if parsed else []
         return (
             RequestLeg(
-                year=year, url=redacted, ok=True, status_code=status, detail="", for_spec=for_spec
+                year=year,
+                url=str(census_url),
+                ok=bool(parsed),
+                status_code=status,
+                detail=detail,
+                for_spec=for_spec,
             ),
-            _tag_year(parsed, year),
+            rows,
         )
 
     async def _arun(self, years: list[int] | None = None) -> tuple[str, FetchDataResult]:

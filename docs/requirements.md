@@ -12,7 +12,7 @@ None of these block: warn (or decline a computation) and still ship the answer.
 | **GEOID** | AFFGEOID `GEO_ID` on fetched rows. Names do not join to TIGER. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
 | **Alternatives** | Related tables with title, universe, and why they differ. |
-| **Plan** | `ResultPlan` from executed artifacts (table, estimate IDs, years, `GeoSpec`s). Never parsed from answer prose. |
+| **Plan** | `ResultPlan` from executed artifacts (table, estimate IDs, years, `GeoSpec`s). Never parsed from answer prose. Optional `AskRequest.plan` pins the next `POST /ask`. |
 
 A silently short series is the same failure as a wrong one: dropped years, geographies, or variables are named, with a reason.
 

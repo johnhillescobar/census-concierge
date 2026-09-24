@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.ask import ExecutionRecord
-from src.contract import GeoSpec
+from src.ask import ExecutionRecord, _allowed
+from src.contract import GeoSpec, override_years
 from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
 from src.retrieval.metadata import GeoLevel
@@ -73,6 +73,11 @@ def _describe(table_id: str) -> dict[str, object] | None:
             "title": "Median Household Income",
             "universe": "Households",
             "members": ["B19013A", "B19013B"],
+        },
+        "B19013B": {
+            "title": "Median Household Income (Black or African American)",
+            "universe": "Black or African American householders",
+            "members": [],
         },
         "B17001": {
             "title": "Poverty Status in the Past 12 Months",
@@ -369,40 +374,38 @@ def _harris(**fields: object) -> GeoSpec:
 
 
 def _tools(record: ExecutionRecord) -> dict[str, Any]:
-    facts = {
-        "acs5": {
-            2024: {
-                "B01003": {"universe": "Total population", "variables": ["001E"]},
-                "B19013": {"universe": "Households", "variables": ["001E"]},
-                "B17001": {
-                    "universe": "Population for whom poverty status is determined",
-                    "variables": ["001E", "002E"],
-                },
-                "B25064": {
-                    "universe": "Renter-occupied housing units paying cash rent",
-                    "variables": ["001E"],
-                },
-                "B19113": {"universe": "Families", "variables": ["001E"]},
-                "B19001": {"universe": "Households", "variables": ["001E"]},
-                "B28001": {"universe": "Households", "variables": ["001E"]},
-                "B27001": {
-                    "universe": "Civilian noninstitutionalized population",
-                    "variables": ["001E"],
-                },
-                "B28002": {"universe": "Households", "variables": ["001E"]},
-            }
-        }
+    yearly = {
+        "B01003": {"universe": "Total population", "variables": ["001E"]},
+        "B19013": {"universe": "Households", "variables": ["001E"]},
+        "B19013B": {
+            "universe": "Black or African American householders",
+            "variables": ["001E"],
+        },
+        "B17001": {
+            "universe": "Population for whom poverty status is determined",
+            "variables": ["001E", "002E"],
+        },
+        "B25064": {
+            "universe": "Renter-occupied housing units paying cash rent",
+            "variables": ["001E"],
+        },
+        "B19113": {"universe": "Families", "variables": ["001E"]},
+        "B19001": {"universe": "Households", "variables": ["001E"]},
+        "B28001": {"universe": "Households", "variables": ["001E"]},
+        "B27001": {
+            "universe": "Civilian noninstitutionalized population",
+            "variables": ["001E"],
+        },
+        "B28002": {"universe": "Households", "variables": ["001E"]},
     }
+    facts = {"acs5": {year: yearly for year in range(2016, 2025)}}
     facts["acs1"] = facts["acs5"]
 
     return {
         "search_tables": SearchTablesTool(search=_search, describe=_describe),
         "resolve_geography": _geo_tool(),
         "build_url": BuildUrlTool(
-            allowed_tables=lambda: (
-                {hit["table_id"] for hit in record.pool}
-                | {member for hit in record.pool for member in hit.get("members") or []}
-            ),
+            allowed_tables=lambda: _allowed(record),
             latest_vintage=lambda dataset: 2024,
             table_facts=lambda dataset, year, table_id: (
                 facts.get(dataset, {}).get(year, {}).get(table_id)
@@ -418,7 +421,13 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 record.geographies[:2] if (record.geo_status or {}).get("compare") else []
             ),
             census_key=lambda: "secret",
-            question_years=lambda: requested_years(record.question, 2024),
+            question_years=lambda: (
+                override_years(record.override) or requested_years(record.question, 2024)
+            ),
+            published=lambda dataset: (
+                set(range(2016, 2025)) - ({2020} if dataset == "acs1" else set())
+            ),
+            allow_overlapping_acs5=bool(record.allow_overlapping_acs5),
             http_get=lambda url: (
                 200,
                 [

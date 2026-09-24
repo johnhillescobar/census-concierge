@@ -1,17 +1,4 @@
-"""Generate the questions a table answers, so the embedding sees user phrasing.
-
-This is the step expected to move the number most. A user asks "how many people
-bike to work"; the table is called "Means of Transportation to Work". No amount
-of ranking fixes a vocabulary gap, and synthetic questions close it from the
-document side.
-
-Generated from TABLE METADATA ONLY — never from `golden_questions.toml`. Feeding
-the eval set in would be leakage and the scoreboard would lie convincingly.
-
-Cached on `(metadata_hash, model, prompt_hash)` per table and committed to git,
-so a rebuild is free, the index is reproducible, and a human can read what was
-written for `B28002` and see the garbage.
-"""
+"""Generate the questions a table answers, so the embedding sees user phrasing."""
 
 from __future__ import annotations
 

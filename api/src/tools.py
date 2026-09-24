@@ -237,15 +237,13 @@ class BuildUrlTool(BaseTool):
         variables = list(variables or [])
         year = vintage if vintage is not None else self.latest_vintage(dataset)
         allowed = self.allowed_tables()
-        if not allowed:
-            return _build_fail(table_id, dataset, year, "call search_tables before build_url")
-        if table_id not in allowed:
-            return _build_fail(
-                table_id,
-                dataset,
-                year,
-                f"{table_id} is not in the search pool or its family members",
+        if not allowed or table_id not in allowed:
+            detail = (
+                "call search_tables before build_url"
+                if not allowed
+                else f"{table_id} is not in the search pool or its family members"
             )
+            return _build_fail(table_id, dataset, year, detail)
         facts = self.table_facts(dataset, year, table_id)
         if facts is None:
             return _build_fail(table_id, dataset, year, f"{table_id} is not in {dataset} {year}")

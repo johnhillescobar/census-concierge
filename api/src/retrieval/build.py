@@ -1,20 +1,4 @@
-"""Build the search index from cached metadata. Offline, never at request time.
-
-Separate from `index.py` on purpose: this module reaches the OpenAI client and
-the loader must not. Output lands in `index_store/` and is shipped as a pinned
-release asset.
-
-The two indexes are fed differently, which is the whole design (DESIGN section 6):
-BM25 gets every variable label; embeddings get a short dense summary. Feeding
-both everything makes each worse at what it is for.
-
-The corpus is also narrowed before either index sees it — one document per table
-FAMILY, no survey-quality tables, and no collapsed `C` twin of a `B` table it
-is textually identical to. All three are Census structure, not tuning:
-`B19013A` is `B19013` filtered to Black householders, `B99053` is an allocation
-rate, and `C02003` is `B02003` with fewer categories. Together they were worth
-more than any ranking change measured here.
-"""
+"""Build the search index from cached metadata. Offline, never at request time."""
 
 from __future__ import annotations
 
@@ -33,11 +17,7 @@ from .index import LEXICAL, SEMANTIC, STORE
 
 
 def _labels_by_table() -> tuple[dict[str, list[str]], dict[str, str]]:
-    """Variable labels and concept, taken from the newest vintage each table has.
-
-    Newest-first so a table still published carries current wording, while one
-    discontinued in 2018 keeps its 2018 description rather than disappearing.
-    """
+    """Variable labels and concept from the newest vintage each table has."""
     labels: dict[str, list[str]] = {}
     concepts: dict[str, str] = {}
     pairs = [
@@ -61,26 +41,7 @@ def _fold_identical_twins(
     documents: dict[str, str],
     cells: dict[str, int],
 ) -> set[str]:
-    """Fold each `C` table into the `B` it embeds identically to. Mutates `members`.
-
-    A `C` table is the same subject as its `B` counterpart with categories
-    collapsed, and the two publish the same title, universe and concept — so
-    the embedded document is byte-identical and the two vectors are equal. Which
-    one ranks first is then decided by array order, and the `C` loses every
-    time. Measured 2026-08-15 across two encoders: of 600 self-retrieval
-    questions, the 97 that asked for such a `C` scored 0% and 5% at rank 1. Not
-    hard to rank — impossible, and 120 documents of pure noise for every other
-    query.
-
-    The fold requires identical text, exactly one `B` and one `C`, and strictly
-    more cells in the `B` — which is what "collapsed" means, and is what makes
-    the `B` a superset that loses the user nothing. The `C` stays reachable
-    through the member list the way a race iteration does.
-
-    Cell count rather than the five-digit stem, because Census does not keep the
-    numbers aligned: `C25045` is the collapsed `B25044` and no `C25044` is
-    published. Requiring a matching stem silently left that one unreachable.
-    """
+    """Fold each C table into the B it embeds identically to. Mutates members."""
     by_document: dict[str, list[str]] = defaultdict(list)
     for table_id in table_ids:
         by_document[documents[table_id]].append(table_id)

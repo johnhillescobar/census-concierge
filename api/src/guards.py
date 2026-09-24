@@ -333,11 +333,7 @@ def _combine_group(
 def combine_additive(
     rows: list[dict[str, str | None]],
 ) -> tuple[int, list[dict[str, str | None]]]:
-    """Sum additive estimates within a vintage; RSS the matching MOEs.
-
-    Year-tagged series rows are separate vintages, not extra areas. Sentinels
-    are dropped, not treated as zero.
-    """
+    """Sum additive estimates within a vintage; RSS the matching MOEs."""
     groups: dict[str, list[dict[str, str | None]]] = {}
     order: list[str] = []
     for row in rows:

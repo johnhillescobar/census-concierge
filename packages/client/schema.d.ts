@@ -50,6 +50,8 @@ export interface components {
         };
         /** AskRequest */
         AskRequest: {
+            /** @description Optional typed override of table, years, geography, and overlapping ACS5. */
+            plan?: components["schemas"]["ResultPlan"] | null;
             /**
              * Question
              * @description The user's question. Leading and trailing whitespace is stripped.

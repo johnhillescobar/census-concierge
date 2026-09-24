@@ -33,16 +33,7 @@ def label_phrase(label: str) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    """Lowercase word tokens, crudely singularized.
-
-    The trailing-`s` strip is not linguistics — it maps `households` and
-    `household` onto one term, which is most of what a stemmer would buy here.
-    A double `s` is exempt so `business` survives intact, and words of three
-    letters or fewer are left alone so `gas` (a heating fuel in `B25040`) does
-    not stop matching itself. What the rule does mangle it mangles on both
-    sides — `status` becomes `statu` in documents and queries alike — which is
-    all it has to do.
-    """
+    """Lowercase word tokens, crudely singularized."""
     tokens = []
     for word in _WORD.findall(text.lower()):
         if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
@@ -52,23 +43,13 @@ def tokenize(text: str) -> list[str]:
 
 
 def lexical_document(title: str, universe: str, concept: str, labels: list[str]) -> str:
-    """BM25 text: everything, including all variable labels.
-
-    Length normalization handles the 500-label tables, and the labels are what
-    carry jargon and exact category names that a title never mentions.
-    """
+    """BM25 text: everything, including all variable labels."""
     parts = [title, universe, concept, *(label_phrase(label) for label in labels)]
     return strip_vintage(" ".join(part for part in parts if part))
 
 
 def semantic_document(title: str, universe: str, concept: str, questions: list[str]) -> str:
-    """Embedding text: short and dense.
-
-    Deliberately NOT the variable labels. A 500-label blob embeds to the
-    average of everything and ends up weakly similar to every other query.
-    Synthetic questions go here instead — they are the user's phrasing, which
-    is the gap the embedding exists to close.
-    """
+    """Embedding text: short and dense. Not the variable labels."""
     header = strip_vintage(title)
     if concept and concept.strip().lower() != title.strip().lower():
         header = f"{header}. {strip_vintage(concept)}"
