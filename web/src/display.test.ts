@@ -40,9 +40,18 @@ const harris: AskResponse = {
   geoid: "0500000US48201",
   universe: "Total population",
   table_id: "B01003",
-  alternatives: [{ table_id: "B01001", reason: "related table" }],
+  alternatives: [{ table_id: "B01001", title: "", universe: "", reason: "related table" }],
   warnings: [],
   comparisons: [],
+  plan: {
+    table_id: "B01003",
+    variables: ["B01003_001E"],
+    dataset: "acs5",
+    years: [2024],
+    requested_years: [2024],
+    geographies: [],
+    allow_overlapping_acs5: false,
+  },
   chart_unavailable: false,
 };
 

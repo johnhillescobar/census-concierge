@@ -399,7 +399,14 @@ def finish_aggregation(
     extra: list[Alternative] = []
     if any(item.code == "median_not_aggregatable" for item in warnings):
         if _household_income_median(record) and _BRACKET_TABLE not in already:
-            extra.append(Alternative(table_id=_BRACKET_TABLE, reason="distribution versus median"))
+            extra.append(
+                Alternative(
+                    table_id=_BRACKET_TABLE,
+                    title="Household Income",
+                    universe="Households",
+                    reason="distribution versus median",
+                )
+            )
         return warnings, rows, extra, compared
     if not _wants_combination(record.question) or not _additive_measure(record):
         return warnings, rows, extra, compared

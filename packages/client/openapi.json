@@ -4,7 +4,7 @@
       "Alternative": {
         "properties": {
           "reason": {
-            "description": "How this table differs: universe, distribution versus median, collapsed table, race iteration, or related table.",
+            "description": "How this table differs from the selection.",
             "title": "Reason",
             "type": "string"
           },
@@ -12,10 +12,22 @@
             "description": "ACS table ID.",
             "title": "Table Id",
             "type": "string"
+          },
+          "title": {
+            "description": "Published table title.",
+            "title": "Title",
+            "type": "string"
+          },
+          "universe": {
+            "description": "Published universe of this table.",
+            "title": "Universe",
+            "type": "string"
           }
         },
         "required": [
           "table_id",
+          "title",
+          "universe",
           "reason"
         ],
         "title": "Alternative",
@@ -39,7 +51,7 @@
       "AskResponse": {
         "properties": {
           "alternatives": {
-            "description": "Related tables with the reason they differ from the selection.",
+            "description": "Related tables, with why they differ.",
             "items": {
               "$ref": "#/components/schemas/Alternative"
             },
@@ -52,7 +64,7 @@
             "type": "string"
           },
           "attempted_years": {
-            "description": "Unique vintages for which a Census request was issued.",
+            "description": "Vintages a Census request was issued for.",
             "items": {
               "type": "integer"
             },
@@ -77,7 +89,7 @@
             "type": "boolean"
           },
           "comparisons": {
-            "description": "Paired estimates with MOE_diff, 90% conclusion, and shared-sample flag.",
+            "description": "Paired estimates with MOE_diff.",
             "items": {
               "$ref": "#/components/schemas/Comparison"
             },
@@ -85,7 +97,7 @@
             "type": "array"
           },
           "failed_years": {
-            "description": "Unique attempted vintages with at least one failed or timed-out call.",
+            "description": "Attempted vintages that failed or timed out.",
             "items": {
               "type": "integer"
             },
@@ -93,12 +105,12 @@
             "type": "array"
           },
           "geoid": {
-            "description": "AFFGEOID of the selected geography; empty when many areas are returned.",
+            "description": "AFFGEOID of the selected geography; empty if many.",
             "title": "Geoid",
             "type": "string"
           },
           "legs": {
-            "description": "Per-request outcome in requested order, including failed legs.",
+            "description": "Per-request outcome in requested order.",
             "items": {
               "$ref": "#/components/schemas/RequestLeg"
             },
@@ -106,7 +118,7 @@
             "type": "array"
           },
           "moe": {
-            "description": "Per-row 90% margins, keyed to each estimate's matching M variable.",
+            "description": "Per-row 90% margins keyed to each M.",
             "items": {
               "additionalProperties": {
                 "anyOf": [
@@ -124,7 +136,7 @@
             "type": "array"
           },
           "omission_reasons": {
-            "description": "Reason code per omitted year, same order as omitted_years.",
+            "description": "Reason code per omitted year.",
             "items": {
               "type": "string"
             },
@@ -139,8 +151,12 @@
             "title": "Omitted Years",
             "type": "array"
           },
+          "plan": {
+            "$ref": "#/components/schemas/ResultPlan",
+            "description": "Executed table, years, and geographies for this answer."
+          },
           "requested_years": {
-            "description": "Years asked of fetch_data, de-duplicated in first-requested order.",
+            "description": "Years asked of fetch_data.",
             "items": {
               "type": "integer"
             },
@@ -148,7 +164,7 @@
             "type": "array"
           },
           "rows": {
-            "description": "Census rows as returned. Each row carries GEO_ID (AFFGEOID); empty when the row is a combined total rather than a published area.",
+            "description": "Census rows; each carries GEO_ID.",
             "items": {
               "additionalProperties": {
                 "anyOf": [
@@ -166,7 +182,7 @@
             "type": "array"
           },
           "succeeded_years": {
-            "description": "Unique attempted vintages with at least one successful HTTP call.",
+            "description": "Attempted vintages that returned rows.",
             "items": {
               "type": "integer"
             },
@@ -184,7 +200,7 @@
             "type": "string"
           },
           "urls": {
-            "description": "Key-redacted Census API URLs, one per attempted request, in requested order. When every requested vintage is omitted, this is the built URL so the request is still editable.",
+            "description": "Key-redacted Census API URLs, one per attempted request.",
             "items": {
               "type": "string"
             },
@@ -192,7 +208,7 @@
             "type": "array"
           },
           "warnings": {
-            "description": "Non-blocking guards: overlapping_vintage, moe_not_significant, geography_unsupported, ambiguous_place, universe_mismatch, median_not_aggregatable, moe_aggregation_degraded, zcta_not_zip, geography_not_nested, acs1_geography_ineligible, vintage_gap_2020, boundary_change_2020, measure_unavailable, variable_not_in_vintage, shared_sample.",
+            "description": "Non-blocking guards (docs/requirements.md).",
             "items": {
               "$ref": "#/components/schemas/AskWarning"
             },
@@ -217,7 +233,8 @@
           "table_id",
           "alternatives",
           "comparisons",
-          "warnings"
+          "warnings",
+          "plan"
         ],
         "title": "AskResponse",
         "type": "object"
@@ -494,6 +511,63 @@
           "detail"
         ],
         "title": "RequestLeg",
+        "type": "object"
+      },
+      "ResultPlan": {
+        "description": "Executed table, variables, years, and geographies. Not extracted from prose.",
+        "properties": {
+          "allow_overlapping_acs5": {
+            "default": false,
+            "description": "Consecutive ACS5 explicitly allowed.",
+            "title": "Allow Overlapping Acs5",
+            "type": "boolean"
+          },
+          "dataset": {
+            "default": "acs5",
+            "description": "acs5 or acs1 actually requested.",
+            "title": "Dataset",
+            "type": "string"
+          },
+          "geographies": {
+            "description": "Ordered resolved geos.",
+            "items": {
+              "$ref": "#/components/schemas/GeoSpec"
+            },
+            "title": "Geographies",
+            "type": "array"
+          },
+          "requested_years": {
+            "description": "Fetch request years.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Requested Years",
+            "type": "array"
+          },
+          "table_id": {
+            "default": "",
+            "description": "Selected ACS table ID.",
+            "title": "Table Id",
+            "type": "string"
+          },
+          "variables": {
+            "description": "Estimate IDs (E) from the URL.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables",
+            "type": "array"
+          },
+          "years": {
+            "description": "Vintages a request was issued for.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "title": "ResultPlan",
         "type": "object"
       },
       "ValidationError": {

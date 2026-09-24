@@ -1,8 +1,4 @@
-"""Ask-loop tools: schemas plus search_tables and build_url.
-
-resolve_geography lives in `geo.py` so legality stays next to geography.json.
-fetch_data lives in `fetch.py` so year and geography fan-out stay off this file's line cap.
-"""
+"""Ask-loop tools: schemas plus search_tables and build_url."""
 
 from __future__ import annotations
 
@@ -141,6 +137,27 @@ def pair_margins(variable_ids: list[str]) -> list[str]:
     return out
 
 
+def _build_fail(
+    table_id: str,
+    dataset: str,
+    year: int,
+    detail: str,
+    variables: list[str] | None = None,
+    universe: str = "",
+) -> tuple[str, BuildUrlResult]:
+    fail = BuildUrlResult(
+        ok=False,
+        url="",
+        table_id=table_id,
+        variables=list(variables or []),
+        dataset=dataset,
+        vintage=year,
+        detail=detail,
+        universe=universe,
+    )
+    return fail.detail, fail
+
+
 class SearchTablesTool(BaseTool):
     name: str = "search_tables"
     description: str = "Find candidate ACS tables for a question."
@@ -221,39 +238,17 @@ class BuildUrlTool(BaseTool):
         year = vintage if vintage is not None else self.latest_vintage(dataset)
         allowed = self.allowed_tables()
         if not allowed:
-            result = BuildUrlResult(
-                ok=False,
-                url="",
-                table_id=table_id,
-                variables=[],
-                dataset=dataset,
-                vintage=year,
-                detail="call search_tables before build_url",
-            )
-            return result.detail, result
+            return _build_fail(table_id, dataset, year, "call search_tables before build_url")
         if table_id not in allowed:
-            result = BuildUrlResult(
-                ok=False,
-                url="",
-                table_id=table_id,
-                variables=[],
-                dataset=dataset,
-                vintage=year,
-                detail=f"{table_id} is not in the search pool or its family members",
+            return _build_fail(
+                table_id,
+                dataset,
+                year,
+                f"{table_id} is not in the search pool or its family members",
             )
-            return result.detail, result
         facts = self.table_facts(dataset, year, table_id)
         if facts is None:
-            result = BuildUrlResult(
-                ok=False,
-                url="",
-                table_id=table_id,
-                variables=[],
-                dataset=dataset,
-                vintage=year,
-                detail=f"{table_id} is not in {dataset} {year}",
-            )
-            return result.detail, result
+            return _build_fail(table_id, dataset, year, f"{table_id} is not in {dataset} {year}")
         suffixes: list[str] = list(facts.get("variables") or [])
         if not variables:
             variables = [f"{table_id}_001E"]
@@ -280,33 +275,23 @@ class BuildUrlTool(BaseTool):
                 normalized.append(full)
         variables = normalized
         if missing:
-            result = BuildUrlResult(
-                ok=False,
-                url="",
-                table_id=table_id,
-                variables=variables,
-                dataset=dataset,
-                vintage=year,
-                detail=f"variables not in {dataset} {year}: {missing}",
+            return _build_fail(
+                table_id, dataset, year, f"variables not in {dataset} {year}: {missing}", variables
             )
-            return result.detail, result
         paired = pair_margins(variables)
         geography = self.last_geography()
         for_clause = (for_spec or "").strip() or (geography.for_spec if geography else "")
         in_clause = (in_spec or "").strip() or (geography.in_spec if geography else "")
         allowed_geo = self.allowed_geographies()
         if not for_clause or (for_clause, in_clause, dataset) not in allowed_geo:
-            result = BuildUrlResult(
-                ok=False,
-                url="",
-                table_id=table_id,
-                variables=paired,
-                dataset=dataset,
-                vintage=year,
-                detail="resolve_geography before build_url, or pass a for_spec from its matches",
-                universe=str(facts.get("universe") or ""),
+            return _build_fail(
+                table_id,
+                dataset,
+                year,
+                "resolve_geography before build_url, or pass a for_spec from its matches",
+                paired,
+                str(facts.get("universe") or ""),
             )
-            return result.detail, result
         get_cols = ["NAME", "GEO_ID", *paired]
         query = f"get={','.join(get_cols)}&for={for_clause}"
         if in_clause:

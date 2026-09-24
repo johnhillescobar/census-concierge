@@ -61,6 +61,12 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
     assert response.table_id == "B01003"
     assert response.universe == "Total population"
     assert response.geoid == "0500000US48201"
+    assert response.plan.table_id == "B01003"
+    assert response.plan.variables == ["B01003_001E"]
+    assert response.plan.dataset == "acs5"
+    assert response.plan.years == [2024]
+    assert response.plan.geographies[0].for_spec == "county:201"
+    assert response.plan.geographies[0].in_spec == "state:48"
     assert "key=" not in response.urls[0]
     parts = urlsplit(response.urls[0])
     assert parts.path == "/data/2024/acs/acs5"
@@ -911,13 +917,17 @@ def test_alternatives_say_how_they_differ() -> None:
             "members": [],
         },
     ]
-    by_id = {item.table_id: item.reason for item in assemble("x", record).alternatives}
-    assert by_id["B19013A"] == "race iteration"
-    assert by_id["B19113"] == "universe"
-    assert by_id["B19001"] == "distribution versus median"
-    assert by_id["C15003"] == "related table"
-    assert by_id["C25045"] == "related table"
-    assert by_id["B11001"] == "related table"
+    by_id = {item.table_id: item for item in assemble("x", record).alternatives}
+    assert by_id["B19013A"].reason == "race iteration"
+    assert by_id["B19013A"].title == "Median Household Income"
+    assert by_id["B19013A"].universe == "Households"
+    assert by_id["B19113"].reason == "universe"
+    assert by_id["B19113"].title == "Median Family Income"
+    assert by_id["B19113"].universe == "Families"
+    assert by_id["B19001"].reason == "distribution versus median"
+    assert by_id["C15003"].reason == "related table"
+    assert by_id["C25045"].reason == "related table"
+    assert by_id["B11001"].reason == "related table"
     assert "B19013" not in by_id
 
 

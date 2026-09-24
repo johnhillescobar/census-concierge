@@ -34,6 +34,7 @@ CONTRACT_FIELDS = (
     "alternatives",
     "comparisons",
     "warnings",
+    "plan",
     "chart",
     "chart_unavailable",
 )

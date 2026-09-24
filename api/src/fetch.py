@@ -1,8 +1,4 @@
-"""fetch_data: one tool, optional years, bounded concurrent Census GETs.
-
-Comparison GeoSpecs fan out the same way years do: rewrite for/in on the built
-URL. A wildcard spec stays one GET.
-"""
+"""fetch_data: one tool, optional years, bounded concurrent Census GETs."""
 
 from __future__ import annotations
 

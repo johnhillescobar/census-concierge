@@ -36,12 +36,14 @@ containment stops — it does not invent nested `for`/`in`.
 `AskResponse`: `answer`, `urls[]` (one key-redacted URL per attempted request),
 `legs[]` (`for_spec` identifies the geography), year buckets (`requested` /
 `attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`,
-`universe`, `table_id`, `alternatives[]`, `comparisons[]`, `warnings[]`,
-optional `chart` (`ChartSpec`: `type`, `x`, `y`, `series_by`, `title`,
-`show_moe`; no Vega/SVG/code) and `chart_unavailable` when a model chart
-failed validation. Rows are dicts. There is no `http_ok`. Empty `urls` means
-no legal URL was produced by `build_url` or an attempted fetch — not that
-finish cleared the current pointer.
+`universe`, `table_id`, `plan` (`ResultPlan`: selected table, estimate IDs from
+the built URL, attempted years, requested years, ordered `GeoSpec`s,
+`allow_overlapping_acs5`), `alternatives[]` (table ID, published title, universe,
+why they differ), `comparisons[]`, `warnings[]`, optional `chart` (`ChartSpec`:
+`type`, `x`, `y`, `series_by`, `title`, `show_moe`; no Vega/SVG/code) and
+`chart_unavailable` when a model chart failed validation. Rows are dicts. There
+is no `http_ok`. Empty `urls` means no legal URL was produced by `build_url` or
+an attempted fetch — not that finish cleared the current pointer.
 
 `CensusURL` redacts `&key=` in `__str__` / the response; `with_key()` is the
 httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
@@ -62,8 +64,8 @@ destaggers **all** comparison legs to non-overlapping ACS5. A 204/404 ACS1
 geography falls back to ACS5 and sets `acs1_geography_ineligible` even when
 the requested years are not a series.
 
-`allow_overlapping_acs5` exists on fetch / `plan_years`. It is not on
-`AskRequest` or the UI; exposing it is a slice-4 plan-strip typed field.
+`allow_overlapping_acs5` is on `ResultPlan` and fetch / `plan_years`. It is not
+on `AskRequest` or the UI; applying an override is CC-89.
 
 ## Geography
 

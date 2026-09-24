@@ -1,8 +1,4 @@
-"""The ask loop: _openai_complete() then dispatch(), no graph.
-
-Tools are constructed per request and handed an ExecutionRecord. That is
-per-request state, not a module global.
-"""
+"""The ask loop: _openai_complete() then dispatch(), no graph."""
 
 from __future__ import annotations
 
@@ -19,7 +15,7 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 
 from src.census_url import CensusURL, redact_text
-from src.contract import Alternative, AskResponse, GeoSpec, take_chart
+from src.contract import Alternative, AskResponse, GeoSpec, plan_from_record, take_chart
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import finish_tools
 from src.geo import ResolveGeographyTool
@@ -202,36 +198,28 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
     for hit in record.pool:
         table_id = str(hit["table_id"])
         members = [str(member) for member in (hit.get("members") or [])]
+        title, universe = str(hit.get("title") or ""), str(hit.get("universe") or "")
         parent = table_id if record.table_id in members else ""
-        if table_id != record.table_id:
+        for other, member_of in ((table_id, parent), *((m, table_id) for m in members)):
+            if other == record.table_id:
+                continue
+            own = other == table_id
             alternatives.append(
                 Alternative(
-                    table_id=table_id,
+                    table_id=other,
+                    title=title,
+                    universe=universe,
                     reason=_how_differs(
-                        table_id,
+                        other,
                         record.table_id,
-                        member_of=parent,
-                        other_universe=str(hit.get("universe") or ""),
+                        member_of=member_of,
+                        other_universe=universe if own else "",
                         selected_universe=selected_universe,
-                        other_title=str(hit.get("title") or ""),
+                        other_title=title if own else "",
                         selected_title=selected_title,
                     ),
                 )
             )
-        for member_id in members:
-            if member_id != record.table_id:
-                alternatives.append(
-                    Alternative(
-                        table_id=member_id,
-                        reason=_how_differs(
-                            member_id,
-                            record.table_id,
-                            member_of=table_id,
-                            selected_universe=selected_universe,
-                            selected_title=selected_title,
-                        ),
-                    )
-                )
     fallback = record.geography.geoid if record.geography else ""
     rows = _rows_with_geoid(record.rows, fallback)
     warnings, rows, extra, compared = finish_aggregation(
@@ -251,6 +239,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         geoid=_response_geoid(rows, fallback),
         universe=selected_universe,
         table_id=record.table_id,
+        plan=plan_from_record(record),
         alternatives=alternatives,
         comparisons=compared,
         warnings=warnings,
