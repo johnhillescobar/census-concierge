@@ -1,0 +1,146 @@
+CC-88 Gate 1 -- tests + mutation check
+commit: 6f7d559 feat(CC-88): keep one active dataset in a two-pane workspace
+branch: feat/cc-88-two-pane
+ticket: CC-88
+make: not found; ran the Makefile check recipe
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== Makefile check recipe (python side) ==========
+========== uv run ruff check . ==========
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+143 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+503 passed in 28.36s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+openapi-typescript 7.9.1
+packages/client is up to date.
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               1471 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1593 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.566 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.817 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== npm --prefix web test ==========
+Test Files  3 passed (3)
+Tests  54 passed (54)
+
+exit: 0
+
+========== npm --prefix web run typecheck ==========
+tsc --noEmit
+
+exit: 0
+
+========== MUTATIONS ==========
+
+===== MUTATION: clear-result-on-submit (setResult(null) + setActiveQuestion("")) =====
+tests: keeps the prior result visible while a later question is loading
+       keeps the prior result and shows a later failure separately
+
+GOOD
+2 failed | 22 skipped
+.census-url textContent was undefined (toContain B01003_001E)
+.census-url textContent was undefined (toContain B01003_001E)
+
+# GOOD  clear-result-on-submit  (2 failed)
+
+===== MUTATION: drop aria-labelledby on chat and canvas sections =====
+test: presents chat and canvas as distinct landmarks, stacked in that order
+
+GOOD
+1 failed | 23 skipped
+Unable to find an accessible element with the role "region" and name "census-concierge"
+
+# GOOD  drop aria-labelledby on chat and canvas sections  (1 failed)
+
+===== MUTATION: omit setActiveQuestion on success =====
+test: replaces the active result only after a successful response
+
+GOOD
+1 failed | 23 skipped
+Unable to find an element with the text: Active question: population of Harris County
+
+# GOOD  omit setActiveQuestion on success  (1 failed)
+
+===== MUTATION: remove loading/error focus effects =====
+test: moves keyboard focus to canvas status after submit and to the alert after an error
+
+GOOD
+1 failed | 23 skipped
+expected <button type="submit" disabled> to be <p tabindex="-1">Looking up tables…</p>
+
+# GOOD  remove loading/error focus effects  (1 failed)
+
+===== MUTATION: error paragraph without role=alert =====
+test: keeps the prior result and shows a later failure separately
+
+GOOD
+1 failed | 23 skipped
+Unable to find role="alert"
+
+# GOOD  error paragraph without role=alert  (1 failed)
+
+========== RESTORE ==========
+All five mutations restored. npm test: 54 passed. tsc --noEmit: clean.
+HEAD remains 6f7d559.
