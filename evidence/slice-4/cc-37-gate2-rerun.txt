@@ -1,0 +1,283 @@
+Gate 2 re-run transcript — CC-37 editable plan strip (fix commit)
+branch: feat/cc-37-plan-strip
+HEAD: 25aa97f5b9c687bb69d321c3bca2df9cf965d4e6
+fix: 25aa97f fix(CC-37): show variables 422 on the table control and restore strip focus
+gate2 record: 4899796 chore(CC-37): record Gate 2; plan-strip follow-ups noted
+feat: 1463803 feat(CC-37): let researchers edit the plan strip and rerun without retyping
+base: origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read (order): CLAUDE.md, docs/playbooks/run-slice.md,
+  .claude/PLAN.md, docs/playbooks/review-pr.md, docs/requirements.md,
+  docs/ask-path.md, .claude/skills/review-pr/SKILL.md,
+  .claude/skills/run-slice/SKILL.md, docs/ARCHITECTURE.md,
+  .cursor/rules/20-web-typescript.mdc,
+  evidence/slice-4/cc-37-gate2.txt, evidence/slice-4/cc-37-gate1-fix.txt
+no implement; no E2E; no PR; no merge; this file is uncommitted
+
+=== git ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-37-plan-strip
+
+$ git rev-parse HEAD
+exit: 0
+25aa97f5b9c687bb69d321c3bca2df9cf965d4e6
+
+$ git log --oneline origin/main..HEAD
+exit: 0
+25aa97f fix(CC-37): show variables 422 on the table control and restore strip focus
+4899796 chore(CC-37): record Gate 2; plan-strip follow-ups noted
+f4d0692 chore(CC-37): record Gate 1 tests and mutation check
+1463803 feat(CC-37): let researchers edit the plan strip and rerun without retyping
+afc9ef0 chore(CC-37): record plan-strip pre-flight claims
+
+$ git diff origin/main...HEAD --stat
+exit: 0
+ docs/ARCHITECTURE.md                 |   9 +-
+ docs/ask-path.md                     |   9 +-
+ evidence/slice-4/cc-37-gate1-fix.txt |  31 ++++
+ evidence/slice-4/cc-37-gate1.txt     | 284 +++++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-37-gate2.txt     | 252 ++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-37-preflight.md  |  72 +++++++++
+ web/src/App.css                      | 117 +++++++++++++-
+ web/src/App.plan.test.tsx            | 280 +++++++++++++++++++++++++++++++++
+ web/src/App.test.tsx                 |  20 ++-
+ web/src/App.tsx                      |  68 +++++---
+ web/src/PlanStrip.test.tsx           | 118 ++++++++++++++
+ web/src/PlanStrip.tsx                | 294 +++++++++++++++++++++++++++++++++++
+ web/src/ask.test.ts                  |  68 +++++++-
+ web/src/ask.ts                       |  90 ++++++++++-
+ web/src/plan.test.ts                 | 134 ++++++++++++++++
+ web/src/plan.ts                      | 107 +++++++++++++
+ 16 files changed, 1911 insertions(+), 42 deletions(-)
+
+$ git show 25aa97f --stat
+exit: 0
+ evidence/slice-4/cc-37-gate1-fix.txt | 31 ++++++++++++++++
+ web/src/App.css                      |  6 ++++
+ web/src/App.plan.test.tsx            | 26 +++++++++++---
+ web/src/App.tsx                      |  1 +
+ web/src/PlanStrip.test.tsx           |  2 +-
+ web/src/PlanStrip.tsx                | 69 ++++++++++++++++++++++++++++++------
+ web/src/ask.test.ts                  | 21 +++++++++++
+ web/src/ask.ts                       |  6 ++++
+ 8 files changed, 146 insertions(+), 16 deletions(-)
+
+=== Previous Gate 2 follow-ups (evidence/slice-4/cc-37-gate2.txt) ===
+
+1. loc-named `variables` maps to table_id — FIXED.
+   fieldFromDetail returns "table_id" when named === "variables".
+   ask.test: "maps a variables 422 onto the table control".
+   FieldNote for table_id shows while editing. allow_overlapping_acs5
+   maps to "plan" (catch-all while editing).
+
+2. aria-invalid + focus after plan 422/network — FIXED for named
+   table/dataset/years controls and catch-all alert. PlanStrip focuses
+   the matching ref; App.plan.test asserts aria-invalid="true" and
+   document.activeElement on the Table input. Network/empty field
+   focuses the role=alert. Geography fieldset is focused on a
+   geographies 422 but still has no aria-invalid / aria-describedby
+   (FieldNote still renders). Residual, not the original no-op.
+
+3. alternative button names include title/universe — FIXED.
+   aria-label={alternativeName(tableId, title, universe)}.
+   PlanStrip.test looks up "B01001 — Sex by Age — Total population".
+   Visible label remains table ID; title/universe stay sibling spans.
+   Empty title/universe still expose table ID only (filter(Boolean)),
+   so App.test "B01001" still matches.
+
+4. chat error cleared on successful plan apply — FIXED.
+   runAsk success always setError(""). App.plan.test: failed later
+   question then successful alternative click drops "network down".
+
+=== Pass A — generic bugs (cold read of origin/main...HEAD, code only) ===
+
+Diff read in full (web/src + docs UI paragraphs). Hunted: stale state,
+a11y, 422 mapping, plan POST question, geography for/in text, blocking
+clarification, duplicated AskResponse copies, focus races, previous
+four follow-ups.
+
+Findings:
+
+- Previous four follow-ups are fixed as listed above.
+- Residual: geography fieldset on a geographies 422 gets focus and a
+  FieldNote, but no aria-invalid / aria-describedby. Not a silent
+  wrong Census number and not the original "apply looks like a no-op".
+
+Hunted, nothing:
+
+- plan POST sending the wrong question: onApply uses activeQuestion.
+  New question submit passes plan=undefined. Chat input rewrite is
+  ignored (App.plan.test).
+- geography for/in text: no for=/in= textbox; picker is checkboxes
+  over returned GeoSpecs keyed by GEOID.
+- blocking clarification: none.
+- duplicated AskResponse copies: one result state. PlanDraft is form
+  state. Chart/CSV still consume the same AskResponse.
+- loading focus stealing the 422 target: runAsk clears planError,
+  App focuses "Looking up tables…", then on 422 state returns to
+  result and PlanStrip error effect focuses the control (tested).
+- variables loc hole: gone. Catch-all while editing still covers
+  field "" and "plan".
+- stale chat error after successful plan apply: gone.
+
+=== Pass B machines (review-pr.md first; raw output) ===
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               2520 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1601 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)          18.55 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.808 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit: 0
+145 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 19.41s
+
+$ npm test   # from web/; existing node_modules (no npm ci; Dropbox EBUSY)
+exit: 0
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/plan.test.ts (6 tests) 8ms
+ ✓ src/ask.test.ts (7 tests) 71ms
+ ✓ src/display.test.ts (26 tests) 52ms
+ ✓ src/PlanStrip.test.tsx (3 tests) 642ms
+ ✓ src/App.plan.test.tsx (10 tests) 3953ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  863ms
+   ✓ plan refinement > posts a geography pick from returned candidates  364ms
+   ✓ plan refinement > posts dataset, year list, and overlapping-ACS5 together  467ms
+   ✓ plan refinement > keeps the prior result when the override is rejected and shows the field error  542ms
+   ✓ plan refinement > uses the original question even if the chat input changed  375ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  318ms
+ ✓ src/App.test.tsx (24 tests) 4911ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  334ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  337ms
+   ✓ App result > does not present a Census missing sentinel as a numeric MOE  305ms
+   ✓ App result > replaces every previous table row when a new result arrives  446ms
+
+ Test Files  6 passed (6)
+      Tests  76 passed (76)
+   Start at  20:29:34
+   Duration  11.54s (transform 916ms, setup 4.73s, collect 2.99s, tests 9.64s, environment 8.08s, prepare 1.18s)
+
+$ npm run typecheck   # from web/
+exit: 0
+
+> typecheck
+> tsc --noEmit
+
+npm ci not run; existing web/node_modules used.
+
+=== Pass B — project invariants (review-pr.md); machines first ===
+
+Machines: all exit 0. No budget raise (api src still 4000/4000, no api
+edit; web src 2520/3000; p95 18.55 from latest.json, not this UI change).
+No invariant break vs origin/main.
+
+Claim: a researcher can edit the executed plan on the canvas (table,
+dataset, requested years, geography picker over returned GeoSpecs,
+overlapping ACS5) or click a related table, and POST /ask reruns with the
+original question plus that ResultPlan; a 422 or network failure keeps
+the prior dataset and shows the error on the strip.
+Evidence: E2E is not this phase. Gate 1 mutation transcript is on disk
+(cc-37-gate1.txt and cc-37-gate1-fix.txt). pytest/vitest is not make demo.
+
+Scope: slice 4 / CC-11, ticket CC-37 plan strip. 16 files vs ~15: four
+are evidence transcripts/preflight, not product. Product is 2 docs + 10
+web files. Not later-slice work (no persistence, follow-up language,
+PDF, auth). No new route or tool. Evidence files are the pipeline.
+docs/ARCHITECTURE.md and docs/ask-path.md updated in the feat commit.
+
+Silent-wrong-answer: no /ask change. URL, MOE, GEOID, universe still
+render from the same AskResponse via ActiveDataset, including while a
+refinement is in flight and after a rejected override. No new Census URL
+formatter (redaction stays on CensusURL). Numbers do not pass back
+through the model. Geography override POSTs picker GeoSpecs; backend
+still rebinds from GEOID. Consecutive ACS5 is an explicit checkbox;
+overlapping_vintage still ships on success. Guards still do not block.
+No silent vintage/geo repair in the client.
+
+Shape: no new tool, route, graph node, Pydantic model, or forbidden
+module name. PlanStrip reads result.plan / alternatives / warning
+candidates; it is not a second AskResponse copy. Client remains
+generated; GeoSpec type is imported from it.
+
+Tests: behavior (original question, GEOID picker, 422 field error,
+aria-invalid, chat-error clear, keep prior dataset, no for/in textbox).
+No prompt-wording assertions, no ticket-named test file, no constant-
+table retrieval fake.
+
+422 mapping: loc-named table_id/dataset/years/geographies, variables →
+table_id, allow_overlapping_acs5 → plan, message fallbacks for GEOID /
+year / ZCTA|ACS1 / variable. Matches the previous follow-up.
+
+=== Verdict ===
+
+Ship it — a researcher can change table, years, dataset, geography, or
+overlapping ACS5 on the canvas and rerun without retyping the question;
+a rejected override keeps the prior dataset and the previous Gate 2
+holes (variables loc, strip focus/aria-invalid on named controls,
+alternative accessible names, stale chat error) are closed.
