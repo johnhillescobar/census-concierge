@@ -83,7 +83,7 @@ describe("PlanStrip", () => {
     expect(screen.getByText(/Springfield city, Missouri \(1600000US2970000\)/)).toBeTruthy();
     expect(screen.getByText("not allowed")).toBeTruthy();
     expect(screen.queryByText(/B99999|Alaska/)).toBeNull();
-    expect(screen.getByRole("button", { name: "B01001" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B01001 — Sex by Age — Total population" })).toBeTruthy();
     expect(screen.getByText("Sex by Age")).toBeTruthy();
     expect(screen.getByText("age breakdown of the same universe")).toBeTruthy();
   });

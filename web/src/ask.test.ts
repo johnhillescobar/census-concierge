@@ -126,4 +126,25 @@ describe("ask", () => {
     expect(error.field).toBe("geographies");
     expect(error.message).toMatch(/GEOID/i);
   });
+
+  it("maps a variables 422 onto the table control", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          detail: [
+            {
+              loc: ["body", "plan", "variables"],
+              msg: "Value error, invalid variables override",
+            },
+          ],
+        }),
+      }),
+    );
+    const error = await ask("median household income", harris.plan).catch((cause) => cause);
+    expect(error.field).toBe("table_id");
+    expect(error.message).toBe("invalid variables override");
+  });
 });

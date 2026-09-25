@@ -189,6 +189,7 @@ export function App({ askFn = ask }: AppProps) {
       const response = await askFn(text, plan);
       setResult(response);
       setActiveQuestion(text);
+      setError("");
       setState("result");
       return true;
     } catch (cause) {

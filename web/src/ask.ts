@@ -41,6 +41,12 @@ export function fieldFromDetail(detail: unknown): string {
   if (named === "requested_years") {
     return "years";
   }
+  if (named === "variables") {
+    return "table_id";
+  }
+  if (named === "allow_overlapping_acs5") {
+    return "plan";
+  }
   if (named) {
     return named;
   }

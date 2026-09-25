@@ -177,7 +177,7 @@ describe("plan refinement", () => {
       .mockResolvedValueOnce(springfield)
       .mockResolvedValueOnce(updated);
     const user = await askFirst(askFn);
-    await user.click(screen.getByRole("button", { name: "B01001" }));
+    await user.click(screen.getByRole("button", { name: /^B01001/ }));
     await waitFor(() => expect(askFn).toHaveBeenCalledTimes(2));
     expect(askFn.mock.calls[1]?.[0]).toBe("Population of Springfield");
     expect(askFn.mock.calls[1]?.[1]).toEqual(expect.objectContaining({ table_id: "B01001", variables: [] }));
@@ -196,7 +196,7 @@ describe("plan refinement", () => {
           }),
       );
     const user = await askFirst(askFn);
-    await user.click(screen.getByRole("button", { name: "B01001" }));
+    await user.click(screen.getByRole("button", { name: /^B01001/ }));
     expect(document.querySelector(".pane")?.getAttribute("data-state")).toBe("loading");
     expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
     expect(screen.getByRole("cell", { name: "169,176" })).toBeTruthy();
@@ -216,6 +216,8 @@ describe("plan refinement", () => {
     await user.type(screen.getByLabelText("Table"), "NOPE");
     await user.click(screen.getByRole("button", { name: "Apply" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("invalid table_id override"));
+    expect(screen.getByLabelText("Table").getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByLabelText("Table"));
     expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
     expect(screen.getByRole("cell", { name: "169,176" })).toBeTruthy();
     expect(screen.getByLabelText("Table")).toBeTruthy();
@@ -227,7 +229,7 @@ describe("plan refinement", () => {
       .mockResolvedValueOnce(springfield)
       .mockRejectedValueOnce(new AskError("Could not reach the API"));
     const user = await askFirst(askFn);
-    await user.click(screen.getByRole("button", { name: "B01001" }));
+    await user.click(screen.getByRole("button", { name: /^B01001/ }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Could not reach the API"));
     expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
     expect(screen.getByRole("cell", { name: "169,176" })).toBeTruthy();
@@ -254,9 +256,25 @@ describe("plan refinement", () => {
     const user = await askFirst(askFn);
     await user.clear(screen.getByLabelText("Question"));
     await user.type(screen.getByLabelText("Question"), "please ignore this rewrite");
-    await user.click(screen.getByRole("button", { name: "B01001" }));
+    await user.click(screen.getByRole("button", { name: /^B01001/ }));
     await waitFor(() => expect(askFn).toHaveBeenCalledTimes(2));
     expect(askFn.mock.calls[1]?.[0]).toBe("Population of Springfield");
     expect(askFn.mock.calls[1]?.[0]).not.toMatch(/rewrite/i);
+  });
+
+  it("clears a chat error after a successful plan apply", async () => {
+    const askFn = vi
+      .fn<(question: string, plan?: ResultPlan) => Promise<AskResponse>>()
+      .mockResolvedValueOnce(springfield)
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce(springfield);
+    const user = await askFirst(askFn);
+    await user.clear(screen.getByLabelText("Question"));
+    await user.type(screen.getByLabelText("Question"), "median rent in Houston");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("network down"));
+    await user.click(screen.getByRole("button", { name: /^B01001/ }));
+    await waitFor(() => expect(askFn).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText("network down")).toBeNull();
   });
 });
