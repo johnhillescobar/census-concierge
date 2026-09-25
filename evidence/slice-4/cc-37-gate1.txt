@@ -1,0 +1,284 @@
+CC-37 Gate 1 -- tests + mutation check
+commit: 1463803 feat(CC-37): let researchers edit the plan strip and rerun without retyping
+branch: feat/cc-37-plan-strip
+ticket: CC-37
+make: not found; ran the Makefile check recipe
+web: skipped npm ci (node_modules exists; Dropbox EBUSY)
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== Makefile check recipe (python side) ==========
+========== uv run ruff check . ==========
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+145 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 31.49s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+openapi-typescript 7.9.1
+packages/client is up to date.
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               2431 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1601 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)          18.55 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.808 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit: 0
+
+========== npm test (from web/; skipped npm ci) ==========
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ Test Files  6 passed (6)
+      Tests  74 passed (74)
+   Duration  13.60s
+
+exit: 0
+
+========== npm run typecheck (from web/) ==========
+
+> typecheck
+> tsc --noEmit
+
+exit: 0
+
+========== MUTATIONS ==========
+
+===== MUTATION: ask() throws a generic Error on 422 without reading detail / without AskError.field =====
+tests: surfaces a 422 as a field-specific AskError
+       maps a GEOID 422 onto geographies even when loc is only body
+
+GOOD
+ Tests  2 failed | 4 skipped (6)
+ expected Error: ask failed (422) to be an instance of AskError
+ expected undefined to be 'geographies'
+
+# GOOD  ask() throws a generic Error on 422 without reading detail  (2 failed)
+
+===== MUTATION: planFromDraft / tableOverride keeps variables from the previous table =====
+tests: builds an override from selected GEOIDs, never from typed for/in
+       drops estimate IDs that belong to a previous table
+       selecting an alternative overrides table_id without retyping
+
+GOOD
+ Tests  3 failed | 12 skipped (15)
+ expected [ 'B01003_001E' ] to deeply equal []
+ expected [ 'B01003_001E' ] to deeply equal []
+ expected { table_id: 'B01001', variables: ['B01003_001E'] } to deeply equal ObjectContaining{ variables: [] }
+
+# GOOD  tableOverride keeps previous-table variables  (3 failed)
+
+===== MUTATION: draftFromPlan uses plan.years instead of requested_years =====
+test: initializes requested years from the plan, not the destaggered fetch
+
+GOOD
+ Tests  1 failed | 5 skipped (6)
+ expected '2017, 2022' to be '2017, 2018, 2019, 2020, 2021, 2022, 2023'
+
+# GOOD  draftFromPlan uses plan.years  (1 failed)
+
+===== MUTATION: geographyChoices ignores warning candidates =====
+tests: offers returned geos plus warning candidates, keyed by GEOID
+       does not offer a for/in text box
+       posts a geography pick from returned candidates
+
+GOOD
+ Tests  3 failed | 15 skipped (18)
+ expected [ '1600000US2970000' ] to deeply equal [ '1600000US2970000', '1600000US1772000' ]
+ Unable to find a label with the text of: /Springfield city, Illinois/
+ Unable to find a label with the text of: /Springfield city, Illinois/
+
+# GOOD  geographyChoices ignores warning candidates  (3 failed)
+
+===== MUTATION: App runAsk never passes plan as the second askFn argument =====
+tests: posts a table edit with the original question, not rewritten prompt text
+       posts a geography pick from returned candidates
+       posts dataset, year list, and overlapping-ACS5 together
+       selecting an alternative overrides table_id without retyping
+
+GOOD
+ Tests  4 failed | 5 skipped (9)
+ expected undefined to deeply equal ObjectContaining{ table_id: 'B19013' }
+ expected undefined to deeply equal [ '1600000US1772000' ]
+ expected undefined to deeply equal ObjectContaining{ dataset: 'acs1' }
+ expected undefined to deeply equal ObjectContaining{ table_id: 'B01001' }
+
+# GOOD  runAsk never passes plan  (4 failed)
+
+===== MUTATION: Plan apply uses the chat input instead of activeQuestion =====
+tests: posts a table edit with the original question, not rewritten prompt text
+       uses the original question even if the chat input changed
+
+GOOD
+ Tests  1 failed | 1 passed | 7 skipped (9)
+ expected 'please ignore this rewrite' to be 'Population of Springfield'
+ (table-edit still passes: chat input was unchanged after first ask)
+
+# GOOD  Plan apply uses the chat input  (1 failed)
+
+===== MUTATION: PlanStrip cancel still calls onApply =====
+tests: enters edit mode, restores the draft on cancel, and returns focus to the strip
+       does not send a plan when the editor is cancelled
+
+GOOD
+ Tests  2 failed | 10 skipped (12)
+ expected "spy" to not be called at all, but actually been called 1 times
+ expected "spy" to be called 1 times, but got 2 times
+
+# GOOD  PlanStrip cancel still calls onApply  (2 failed)
+
+===== MUTATION: alternatives are not buttons / do not call tableOverride =====
+tests: renders the returned plan, not answer prose
+       selecting an alternative overrides table_id without retyping
+       App.test.tsx button assertions (B01001 / B25063)
+
+GOOD
+ PlanStrip + App.plan: Tests  2 failed | 34 skipped (36)
+ App.test.tsx: Tests  4 failed | 1 passed | 19 skipped (24)
+ Unable to find an accessible element with the role "button" and name "B01001"
+
+# GOOD  alternatives are not buttons  (6 failed across files)
+
+===== MUTATION: a for/in textbox is added, geography picker omitted =====
+tests: does not offer a for/in text box
+       posts a geography pick from returned candidates
+
+GOOD
+ Tests  2 failed | 10 skipped (12)
+ expected <input aria-label="for="> to be null
+ Unable to find a label with the text of: /Springfield city, Missouri/
+
+# GOOD  for/in textbox added, geography picker omitted  (2 failed)
+
+===== MUTATION: prior result is cleared when a refinement starts (setResult(null)) =====
+test: keeps the prior table visible while a refinement is in flight
+
+GOOD
+ Tests  1 failed | 8 skipped (9)
+ .census-url textContent was undefined (toContain B01003_001E)
+
+# GOOD  setResult(null) when a refinement starts  (1 failed)
+
+===== MUTATION: 422/network plan failure replaces or clears the canvas dataset =====
+tests: keeps the prior result when the override is rejected and shows the field error
+       keeps the prior result when the refinement cannot reach the API
+
+GOOD
+ Tests  2 failed | 7 skipped (9)
+ Unable to find role="alert"
+ pane data-state="error"; census-url gone
+
+# GOOD  422/network plan failure clears the canvas  (2 failed)
+
+===== MUTATION: overlapping_vintage warning is hidden after success =====
+test: posts dataset, year list, and overlapping-ACS5 together
+
+GOOD
+ Tests  1 failed | 8 skipped (9)
+ Unable to find an element with the text: /overlapping_vintage/
+
+# GOOD  overlapping_vintage warning hidden after success  (1 failed)
+
+===== MUTATION: parseYearList does not expand a closed range =====
+test: accepts comma lists and expands a closed range
+
+GOOD
+ Tests  1 failed | 1 passed | 4 skipped (6)
+ expected null to deeply equal [ 2017, 2018, 2019 ]
+
+# GOOD  parseYearList does not expand a closed range  (1 failed)
+
+===== MUTATION: parseYearList accepts tokens that are not years =====
+test: rejects tokens that are not years
+
+GOOD
+ Tests  1 failed | 1 passed | 4 skipped (6)
+ expected [ 2024 ] to be null
+
+# GOOD  parseYearList accepts non-year tokens  (1 failed)
+
+===== MUTATION: PlanStrip table cell renders answer prose instead of plan.table_id =====
+test: renders the returned plan, not answer prose
+
+GOOD
+ Tests  1 failed | 2 skipped (3)
+ Unable to find an element with the text: B01003
+ (summary showed "Prose that names B99999 in Alaska.")
+
+# GOOD  PlanStrip renders answer prose  (1 failed)
+
+========== RESTORE ==========
+All 15 mutations restored. git status --short: clean. HEAD remains 1463803.
+npm test after restore: Test Files  6 passed (6); Tests  74 passed (74). tsc --noEmit: clean.
+
+========== SUMMARY ==========
+Makefile check recipe: pass (python + web). Budgets not raised.
+Mutations: 15 GOOD, 0 BAD.

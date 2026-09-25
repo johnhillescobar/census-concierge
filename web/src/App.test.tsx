@@ -141,7 +141,8 @@ describe("App result", () => {
     expect(screen.getByRole("cell", { name: "123" })).toBeTruthy();
     expect(screen.getAllByText("0500000US48201").length).toBeGreaterThan(0);
     expect(screen.getByText("Total population")).toBeTruthy();
-    expect(screen.getByText(/B01001 — related table/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B01001" })).toBeTruthy();
+    expect(screen.getByText("related table")).toBeTruthy();
   });
 
   it("copies the visible Census URL without a key parameter", async () => {
@@ -192,10 +193,11 @@ describe("App result", () => {
     expect(screen.getByText("No estimates returned.")).toBeTruthy();
     expect(document.querySelector(".census-url")?.textContent).toContain("B25064_001E");
     expect(screen.getByRole("button", { name: "Copy URL" })).toBeTruthy();
-    expect(screen.getByText("B25064")).toBeTruthy();
+    expect(screen.getAllByText("B25064").length).toBeGreaterThan(0);
     expect(screen.getByText("Renter-occupied housing units paying cash rent")).toBeTruthy();
     expect(screen.getByText("1600000US4805000")).toBeTruthy();
-    expect(screen.getByText(/B25063 — distribution versus median/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B25063" })).toBeTruthy();
+    expect(screen.getByText("distribution versus median")).toBeTruthy();
   });
 
   it("labels every geography instead of presenting the first row as the answer", async () => {
@@ -549,8 +551,10 @@ describe("App workspace", () => {
     const chat = screen.getByRole("region", { name: "census-concierge" });
     const canvas = screen.getByRole("region", { name: "Working dataset" });
     expect(chat).not.toBe(canvas);
-    expect(chat.querySelector("form")).toBeTruthy();
-    expect(canvas.querySelector("form")).toBeNull();
+    expect(chat.querySelector("form.ask-form")).toBeTruthy();
+    expect(chat.querySelector('input[aria-label="Question"]')).toBeTruthy();
+    expect(canvas.querySelector("form.ask-form")).toBeNull();
+    expect(canvas.querySelector('input[aria-label="Question"]')).toBeNull();
     const workspace = document.querySelector("main.workspace") as HTMLElement;
     expect([...workspace.children]).toEqual([chat, canvas]);
   });
@@ -581,7 +585,8 @@ describe("App workspace", () => {
     expect(screen.getByText("Total population")).toBeTruthy();
     expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
     expect(screen.getAllByText("0500000US48201").length).toBeGreaterThan(0);
-    expect(screen.getByText(/B01001 — related table/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B01001" })).toBeTruthy();
+    expect(screen.getByText("related table")).toBeTruthy();
     expect(screen.getByText("Harris County has 4,838,303 people.")).toBeTruthy();
     expect(screen.getByText("Active question: population of Harris County")).toBeTruthy();
     finishSecond(rentFailure);
@@ -630,7 +635,8 @@ describe("App workspace", () => {
     expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
     expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
     expect(screen.getByText("Total population")).toBeTruthy();
-    expect(screen.getByText(/B01001 — related table/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "B01001" })).toBeTruthy();
+    expect(screen.getByText("related table")).toBeTruthy();
     expect(screen.getByText("Active question: population of Harris County")).toBeTruthy();
   });
 

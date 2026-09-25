@@ -6,7 +6,8 @@ is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
 the result pane renders one normalized GEOID/MOE table (CC-35 Done);
 `AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
 optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done);
-the UI is a two-pane living workspace (chat + one active canvas dataset) (CC-88 Done).
+the UI is a two-pane living workspace (chat + one active canvas dataset) (CC-88 Done);
+the canvas plan strip edits that `ResultPlan` and reruns `POST /ask` (CC-37).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing
@@ -99,8 +100,10 @@ The canvas renders one frontend-normalized table from `AskResponse`
 geography × year/period × estimate variable, with GEOID, dataset, vintage,
 period, table, variable, raw estimate, and matching 90% MOE. Scalar and
 multi-row answers share that model. Census sentinels and missing MOE are
-unavailable (`—`), never zero. Chart, plan strip, and CSV consume that same
-`AskResponse`; they must not keep a second copy.
+unavailable (`—`), never zero. The plan strip reads `AskResponse.plan` and
+related `alternatives` / `ambiguous_place` candidates; apply POSTs the original
+question plus that `ResultPlan`. Chart and CSV consume that same `AskResponse`;
+they must not keep a second copy.
 
 ## Data
 

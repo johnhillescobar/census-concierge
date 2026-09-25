@@ -1,0 +1,31 @@
+CC-37 Gate 1 (fix commit) -- mutation check of Gate 2 follow-up tests
+branch: feat/cc-37-plan-strip
+HEAD before fix commit: 4899796
+
+# GOOD = test fails against the broken implementation.
+
+===== MUTATION: fieldFromDetail leaves loc-named variables unmapped =====
+test: maps a variables 422 onto the table control
+GOOD
+1 failed | 6 skipped
+expected 'variables' to be 'table_id'
+
+===== MUTATION: successful plan apply does not clear chat error =====
+test: clears a chat error after a successful plan apply
+GOOD
+expected network-down alert to be null; received role=alert "network down"
+
+===== MUTATION: table input has no aria-invalid =====
+test: keeps the prior result when the override is rejected and shows the field error
+GOOD
+expected null to be 'true' (aria-invalid)
+
+===== MUTATION: alternativeName returns table ID only =====
+test: renders the returned plan, not answer prose
+GOOD
+Unable to find button name "B01001 — Sex by Age — Total population" (name was "B01001")
+
+========== RESTORE ==========
+All four mutations restored. npm test: 76 passed. tsc --noEmit: clean.
+
+Mutations: 4 GOOD, 0 BAD.
