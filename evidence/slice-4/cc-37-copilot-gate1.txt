@@ -1,0 +1,20 @@
+CC-37 Copilot follow-up — mutation check
+commit target: PlanStrip empty-plan guards + geography aria-invalid
+branch: feat/cc-37-plan-strip
+
+# GOOD = test fails against the broken implementation.
+
+# GOOD  parseYearList returns [] for a blank field
+#   plan.test.ts rejects a blank years field: expected [] to be null
+#   PlanStrip does not apply an empty years field: onApply called with requested_years []
+
+# GOOD  onSubmit does not reject zero geography selections
+#   PlanStrip does not apply with every geography unchecked: onApply called with geographies []
+
+# GOOD  geography fieldset lacks aria-invalid / aria-describedby
+#   PlanStrip marks the geography group invalid: expected null to be 'true'
+
+# GOOD  onSubmit does not reject an empty table ID
+#   PlanStrip does not apply an empty table field: onApply called with table_id ""
+
+Mutations: 4 GOOD, 0 BAD.

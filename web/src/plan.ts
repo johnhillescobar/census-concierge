@@ -15,7 +15,7 @@ export function formatYearList(years: number[]): string {
 export function parseYearList(text: string): number[] | null {
   const trimmed = text.trim();
   if (!trimmed) {
-    return [];
+    return null;
   }
   const years: number[] = [];
   for (const part of trimmed.split(/[\s,]+/).filter(Boolean)) {

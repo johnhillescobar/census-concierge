@@ -89,6 +89,11 @@ describe("parseYearList", () => {
   it("rejects tokens that are not years", () => {
     expect(parseYearList("2024 and later")).toBeNull();
   });
+
+  it("rejects a blank years field", () => {
+    expect(parseYearList("")).toBeNull();
+    expect(parseYearList("  ")).toBeNull();
+  });
 });
 
 describe("plan draft", () => {

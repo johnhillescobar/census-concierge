@@ -55,11 +55,13 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PlanDraft>(() => draftFromPlan(result));
   const [localError, setLocalError] = useState("");
+  const [localField, setLocalField] = useState("");
 
   useEffect(() => {
     setDraft(draftFromPlan(result));
     setEditing(false);
     setLocalError("");
+    setLocalField("");
   }, [result]);
 
   useEffect(() => {
@@ -70,13 +72,13 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
 
   const choices = geographyChoices(result);
   const omitted = omittedYears(result);
-  const yearsMessage = localError || (field === "years" ? error : "");
-  const stripMessage = localError ? "" : error;
-  const stripField = localError ? "" : field;
-  const yearsInvalid = Boolean(localError) || stripField === "years";
+  const stripField = localError ? localField : field;
+  const stripMessage = localError || error;
+  const yearsInvalid = stripField === "years" && Boolean(stripMessage);
+  const geoInvalid = stripField === "geographies" && Boolean(stripMessage);
 
   useEffect(() => {
-    const active = localError ? "years" : field;
+    const active = localError ? localField : field;
     if (!localError && !error) {
       return;
     }
@@ -91,11 +93,12 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
     } else {
       catchAllRef.current?.focus();
     }
-  }, [error, field, localError]);
+  }, [error, field, localError, localField]);
 
   function startEdit() {
     setDraft(draftFromPlan(result));
     setLocalError("");
+    setLocalField("");
     onClearError();
     setEditing(true);
   }
@@ -103,6 +106,7 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
   function cancel() {
     setDraft(draftFromPlan(result));
     setLocalError("");
+    setLocalField("");
     onClearError();
     setEditing(false);
     stripRef.current?.focus();
@@ -110,6 +114,7 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
 
   async function applyPlan(plan: ResultPlan) {
     setLocalError("");
+    setLocalField("");
     const ok = await onApply(plan);
     if (ok) {
       setEditing(false);
@@ -122,9 +127,20 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
     if (busy) {
       return;
     }
+    if (!draft.tableId.trim()) {
+      setLocalField("table_id");
+      setLocalError("Enter a table ID");
+      return;
+    }
     const requested = parseYearList(draft.requestedYears);
     if (requested === null) {
+      setLocalField("years");
       setLocalError("Enter years as 2024 or 2017-2023");
+      return;
+    }
+    if (choices.length > 0 && draft.geoids.length === 0) {
+      setLocalField("geographies");
+      setLocalError("Select at least one geography");
       return;
     }
     await applyPlan(planFromDraft(result, draft, requested));
@@ -193,10 +209,16 @@ export function PlanStrip({ result, busy, error, field, onApply, onClearError }:
           <FieldNote
             id="plan-error-years"
             name="years"
-            field={localError ? "years" : stripField}
-            message={yearsMessage}
+            field={stripField}
+            message={stripMessage}
           />
-          <fieldset ref={geoRef} tabIndex={-1} className="plan-geos">
+          <fieldset
+            ref={geoRef}
+            tabIndex={-1}
+            className="plan-geos"
+            aria-invalid={geoInvalid}
+            aria-describedby={geoInvalid ? "plan-error-geographies" : undefined}
+          >
             <legend>Geography</legend>
             {choices.length === 0 ? (
               <p>No executable geographies in this result.</p>

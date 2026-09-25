@@ -115,4 +115,69 @@ describe("PlanStrip", () => {
     expect(screen.queryByRole("textbox", { name: /for|in clause/i })).toBeNull();
     expect(screen.getByLabelText(/Springfield city, Illinois/)).toBeTruthy();
   });
+
+  it("marks the geography group invalid when the API names geographies", async () => {
+    const user = userEvent.setup({ delay: null });
+    const view = render(
+      <PlanStrip result={result} busy={false} error="" field="" onApply={async () => true} onClearError={() => undefined} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit plan" }));
+    view.rerender(
+      <PlanStrip
+        result={result}
+        busy={false}
+        error="geography override requires an executable GEOID"
+        field="geographies"
+        onApply={async () => true}
+        onClearError={() => undefined}
+      />,
+    );
+    const geos = screen.getByRole("group", { name: "Geography" });
+    await waitFor(() => expect(geos.getAttribute("aria-invalid")).toBe("true"));
+    expect(geos.getAttribute("aria-describedby")).toBe("plan-error-geographies");
+    expect(screen.getByRole("alert").textContent).toBe("geography override requires an executable GEOID");
+    expect(document.activeElement).toBe(geos);
+  });
+
+  it("does not apply with every geography unchecked", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onApply = vi.fn(async () => true);
+    render(
+      <PlanStrip result={result} busy={false} error="" field="" onApply={onApply} onClearError={() => undefined} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit plan" }));
+    await user.click(screen.getByLabelText(/Springfield city, Missouri/));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toBe("Select at least one geography");
+    expect(screen.getByRole("group", { name: "Geography" }).getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("does not apply an empty years field", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onApply = vi.fn(async () => true);
+    render(
+      <PlanStrip result={result} busy={false} error="" field="" onApply={onApply} onClearError={() => undefined} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit plan" }));
+    await user.clear(screen.getByLabelText("Requested years"));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Requested years").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("alert").textContent).toBe("Enter years as 2024 or 2017-2023");
+  });
+
+  it("does not apply an empty table field", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onApply = vi.fn(async () => true);
+    render(
+      <PlanStrip result={result} busy={false} error="" field="" onApply={onApply} onClearError={() => undefined} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Edit plan" }));
+    await user.clear(screen.getByLabelText("Table"));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Table").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("alert").textContent).toBe("Enter a table ID");
+  });
 });
