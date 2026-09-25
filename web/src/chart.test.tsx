@@ -89,7 +89,7 @@ describe("chartView", () => {
       ["2021", "2022", "2023"],
       { value: 0 },
     ]);
-    expect(chartView({ ...spec, title: "FY2024 revenue" }, rows, false).title).toBe("FY2024 revenue");
+    expect(chartView({ ...spec, title: "FY2024 revenue" }, rows, false)).toMatchObject({ kind: "spec", title: "FY2024 revenue" });
   });
 
   it("splits two variable series with stable labels", () => {
