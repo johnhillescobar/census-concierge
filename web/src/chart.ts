@@ -124,7 +124,10 @@ function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Re
       },
       {
         mark: { type: "errorbar" },
-        encoding: { y: { field: "low", type: "quantitative" }, y2: { field: "high" } },
+        encoding: {
+          y: { field: "low", type: "quantitative", title: yTitle },
+          y2: { field: "high" },
+        },
       },
     ],
   };

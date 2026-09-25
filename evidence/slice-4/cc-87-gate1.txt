@@ -1,0 +1,898 @@
+CC-87 Gate 1 -- tests + mutation check
+commit: 7ee23a6 CC-87: render ChartSpec as Vega-Lite SVG with MOE.
+branch: feat/cc-87-charts
+ticket: CC-87
+make: not found; ran the Makefile check recipe
+web: skipped npm ci (node_modules exists; Dropbox EBUSY)
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== Makefile check recipe (python side) ==========
+
+========== uv run ruff check . ==========
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+147 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 13.62s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+âœ¨ openapi-typescript 7.9.1
+ðŸš€ C:\Users\johnh\AppData\Local\Temp\tmpbkoovacp\openapi.json â†’ C:\Users\johnh\AppData\Local\Temp\tmpbkoovacp\schema.d.ts [74.9ms]
+packages/client is up to date.
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               2957 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1604 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.306 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.817 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== npm test (from web/; skipped npm ci) ==========
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ âœ“ src/chart.test.ts (9 tests) 13ms
+ âœ“ src/ask.test.ts (7 tests) 13ms
+ âœ“ src/plan.test.ts (7 tests) 7ms
+ âœ“ src/display.test.ts (26 tests) 29ms
+ âœ“ src/PlanStrip.test.tsx (7 tests) 514ms
+ âœ“ src/App.plan.test.tsx (10 tests) 1628ms
+   âœ“ plan refinement > posts a table edit with the original question, not rewritten prompt text  387ms
+ âœ“ src/App.test.tsx (25 tests) 2216ms
+
+ Test Files  7 passed (7)
+      Tests  91 passed (91)
+   Start at  05:57:49
+   Duration  7.41s (transform 538ms, setup 2.85s, collect 3.20s, tests 4.42s, environment 9.71s, prepare 1.52s)
+
+
+exit: 0
+
+========== npm run typecheck (from web/) ==========
+> typecheck
+> tsc --noEmit
+
+
+exit: 0
+
+========== npm run build (from web/) ==========
+> build
+> tsc --noEmit && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+âœ“ 657 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.40 kB â”‚ gzip:   0.27 kB
+dist/assets/index-BcYkb4gz.css    3.94 kB â”‚ gzip:   1.25 kB
+dist/assets/index-DSK1NQAR.js   241.07 kB â”‚ gzip:  75.71 kB
+dist/assets/embed-DRm-O2Oz.js   861.06 kB â”‚ gzip: 297.66 kB
+âœ“ built in 3.56s
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+exit: 0
+
+========== MUTATIONS ==========
+
+===== MUTATION: skip incrementing segment on a missing year (gap interpolation) =====
+test: does not interpolate a missing year or a Census sentinel
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 11ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   × chartView > does not interpolate a missing year or a Census sentinel 10ms
+     → expected [ [ '2019', 100, +0 ], …(1) ] to deeply equal [ [ '2019', 100, +0 ], …(1) ]
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  05:59:28
+   Duration  3.27s (transform 85ms, setup 172ms, collect 31ms, tests 11ms, environment 549ms, prepare 229ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > does not interpolate a missing year or a Census sentinel
+AssertionError: expected [ [ '2019', 100, +0 ], …(1) ] to deeply equal [ [ '2019', 100, +0 ], …(1) ]
+
+- Expected
++ Received
+
+@@ -5,8 +5,8 @@
+      0,
+    ],
+    [
+      "2021",
+      120,
+-     1,
++     0,
+    ],
+  ]
+
+  src/chart.test.ts:108:77
+    106|       row({ year: "2021", period: "2021", estimate: "120", moe: "10" }…
+    107|     ]);
+    108|     expect(points.map((point) => [point.x, point.estimate, point.segme…
+       |                                                                             ^
+    109|       ["2019", 100, 0],
+    110|       ["2021", 120, 1],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  skip incrementing segment on a missing year (gap interpolation)  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: drop the 12-series / 500-point table fallback =====
+test: falls back to the table above 12 series or 500 points
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 15ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   × chartView > falls back to the table above 12 series or 500 points 13ms
+     → expected { kind: 'spec', title: 'Rent', …(1) } to match object { kind: 'table', …(1) }
+(9 matching properties omitted from actual)
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  05:59:34
+   Duration  3.31s (transform 62ms, setup 199ms, collect 72ms, tests 15ms, environment 586ms, prepare 135ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > falls back to the table above 12 series or 500 points
+AssertionError: expected { kind: 'spec', title: 'Rent', …(1) } to match object { kind: 'table', …(1) }
+(9 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "kind": "table",
+-   "message": /use the table/i,
++   "kind": "spec",
+  }
+
+  src/chart.test.ts:124:72
+    122|   it("falls back to the table above 12 series or 500 points", () => {
+    123|     const geos = Array.from({ length: 13 }, (_, i) => row({ name: `G${…
+    124|     expect(chartView({ ...BAR, series_by: "geography" }, geos, false))…
+       |                                                                        ^
+    125|       kind: "table",
+    126|       message: /use the table/i,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  drop the 12-series / 500-point table fallback  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: set low/high to the estimate (no MOE interval) =====
+tests: maps a line spec onto year/period, estimate, and 90% MOE bounds
+       maps a bar spec onto geography categories
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 2 failed | 7 skipped) 12ms
+   × chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds 9ms
+     → expected [ { x: '2015-2019', …(5) } ] to deeply equal [ { x: '2015-2019', …(5) } ]
+   × chartView > maps a bar spec onto geography categories 2ms
+     → expected [ [ 'Austin', 100, 100, 100 ], …(1) ] to deeply equal [ [ 'Austin', 100, 92, 108 ], …(1) ]
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 skipped (9)
+   Start at  05:59:40
+   Duration  3.25s (transform 53ms, setup 181ms, collect 71ms, tests 12ms, environment 571ms, prepare 87ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+AssertionError: expected [ { x: '2015-2019', …(5) } ] to deeply equal [ { x: '2015-2019', …(5) } ]
+
+- Expected
++ Received
+
+  [
+    {
+      "estimate": 100,
+-     "high": 110,
+-     "low": 90,
++     "high": 100,
++     "low": 100,
+      "segment": 0,
+      "series": "Estimate",
+      "x": "2015-2019",
+    },
+  ]
+
+  src/chart.test.ts:45:20
+     43|   it("maps a line spec onto year/period, estimate, and 90% MOE bounds"…
+     44|     const points = values(LINE, [row({ year: "2019", period: "2015-201…
+     45|     expect(points).toEqual([
+       |                    ^
+     46|       { x: "2015-2019", estimate: 100, low: 90, high: 110, series: "Es…
+     47|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/chart.test.ts > chartView > maps a bar spec onto geography categories
+AssertionError: expected [ [ 'Austin', 100, 100, 100 ], …(1) ] to deeply equal [ [ 'Austin', 100, 92, 108 ], …(1) ]
+
+- Expected
++ Received
+
+  [
+    [
+      "Austin",
+      100,
+-     92,
+-     108,
++     100,
++     100,
+    ],
+    [
+      "Dallas",
++     200,
+      200,
+-     188,
+-     212,
++     200,
+    ],
+  ]
+
+  src/chart.test.ts:69:85
+     67|       row({ name: "Dallas", geoid: "1600000US4819000", estimate: "200"…
+     68|     ]);
+     69|     expect(points.map((point) => [point.x, point.estimate, point.low, …
+       |                                                                                     ^
+     70|       ["Austin", 100, 92, 108],
+     71|       ["Dallas", 200, 188, 212],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+# GOOD  set low/high to the estimate (no MOE interval)  (Tests  2 failed | 7 skipped (9))
+
+===== MUTATION: coerce a null bar estimate to 0 =====
+test: keeps a bar category with a missing estimate as null, not zero
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 9ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   × chartView > keeps a bar category with a missing estimate as null, not zero 8ms
+     → expected [ { x: 'Austin', estimate: +0, …(4) } ] to deeply equal [ { x: 'Austin', …(5) } ]
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  05:59:46
+   Duration  3.17s (transform 49ms, setup 179ms, collect 30ms, tests 9ms, environment 513ms, prepare 103ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > keeps a bar category with a missing estimate as null, not zero
+AssertionError: expected [ { x: 'Austin', estimate: +0, …(4) } ] to deeply equal [ { x: 'Austin', …(5) } ]
+
+- Expected
++ Received
+
+@@ -1,8 +1,8 @@
+  [
+    {
+-     "estimate": null,
++     "estimate": 0,
+      "high": null,
+      "low": null,
+      "segment": 0,
+      "series": "Estimate",
+      "x": "Austin",
+
+  src/chart.test.ts:117:20
+    115|   it("keeps a bar category with a missing estimate as null, not zero",…
+    116|     const points = values(BAR, [row({ name: "Austin", estimate: null, …
+    117|     expect(points).toEqual([
+       |                    ^
+    118|       { x: "Austin", estimate: null, low: null, high: null, series: "E…
+    119|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  coerce a null bar estimate to 0  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: spread extra API fields into the Vega spec (so a data.url leaks) =====
+test: shows a chart error for an invalid spec or a failed model chart
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 10ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   × chartView > shows a chart error for an invalid spec or a failed model chart 9ms
+     → expected '{"kind":"spec","title":"Population","…' not to contain 'example.invalid'
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  05:59:53
+   Duration  3.54s (transform 124ms, setup 206ms, collect 36ms, tests 10ms, environment 634ms, prepare 230ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > shows a chart error for an invalid spec or a failed model chart
+AssertionError: expected '{"kind":"spec","title":"Population","…' not to contain 'example.invalid'
+
+Expected: "example.invalid"
+Received: "{"kind":"spec","title":"Population","spec":{"title":"Population","description":"Population","width":"container","autosize":{"type":"fit","contains":"padding"},"data":{"url":"https://example.invalid/chart.json"},"encoding":{"x":{"field":"x","type":"ordinal","title":"Period"},"color":{"field":"series","type":"nominal","title":"Geography","scale":{"domain":["Estimate"]},"legend":null}},"layer":[{"mark":{"type":"line","point":true},"encoding":{"y":{"field":"estimate","type":"quantitative","title":"Total population"},"detail":{"field":"segment","type":"nominal"}}},{"mark":{"type":"errorbar"},"encoding":{"y":{"field":"low","type":"quantitative"},"y2":{"field":"high"}}}],"type":"line","x":"year","y":"estimate","show_moe":true,"series_by":null}}"
+
+  src/chart.test.ts:139:38
+    137|     const view = chartView(sneaky, [row({ year: "2019", period: "2019"…
+    138|     expect(view.kind).toBe("spec");
+    139|     expect(JSON.stringify(view)).not.toContain("example.invalid");
+       |                                      ^
+    140|     expect(JSON.stringify(view)).not.toMatch(/"url"\s*:/);
+    141|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  spread extra API fields into the Vega spec (so a data.url leaks)  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: stop rendering ResultChart so chart_unavailable does not keep a visible notice with the table =====
+test: keeps the estimates table when the chart cannot be drawn
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/App.test.tsx (25 tests | 1 failed | 24 skipped) 220ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   ↓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   ↓ App result > renders a missing MOE as unavailable rather than zero or another row's margin
+   ↓ App result > replaces every previous table row when a new result arrives
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+   × App result > keeps the estimates table when the chart cannot be drawn 219ms
+     → Unable to find an accessible element with the role "status"
+
+Unable to find an accessible element with the role "status"
+(testing-library accessibility dump omitted)
+Unable to find an accessible element with the role "status"
+(testing-library accessibility dump omitted)
+
+# GOOD  stop rendering ResultChart so chart_unavailable does not keep a visible notice with the table  (Tests  ?)
+
+===== MUTATION: seriesLabel ignores series_by (always Estimate) =====
+tests: splits two geography series with stable labels
+       splits two variable series with stable labels
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 2 failed | 7 skipped) 16ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   × chartView > splits two geography series with stable labels 13ms
+     → expected [ 'Estimate' ] to deeply equal [ 'Austin', 'Dallas' ]
+   × chartView > splits two variable series with stable labels 2ms
+     → expected [ 'Estimate' ] to deeply equal [ 'B01001_001E', 'B01003_001E' ]
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 skipped (9)
+   Start at  06:00:06
+   Duration  3.90s (transform 79ms, setup 376ms, collect 47ms, tests 16ms, environment 904ms, prepare 95ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > splits two geography series with stable labels
+AssertionError: expected [ 'Estimate' ] to deeply equal [ 'Austin', 'Dallas' ]
+
+- Expected
++ Received
+
+  [
+-   "Austin",
+-   "Dallas",
++   "Estimate",
+  ]
+
+  src/chart.test.ts:83:70
+     81|       row({ name: "Dallas", geoid: "d", year: "2021", period: "2021", …
+     82|     ]);
+     83|     expect([...new Set(points.map((point) => point.series))].sort()).t…
+       |                                                                      ^
+     84|     const view = chartView(spec, [row({ name: "Austin" }), row({ name:…
+     85|     if (view.kind === "spec") {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/chart.test.ts > chartView > splits two variable series with stable labels
+AssertionError: expected [ 'Estimate' ] to deeply equal [ 'B01001_001E', 'B01003_001E' ]
+
+- Expected
++ Received
+
+  [
+-   "B01001_001E",
+-   "B01003_001E",
++   "Estimate",
+  ]
+
+  src/chart.test.ts:99:70
+     97|       row({ variable: "B01001_001E", name: "Austin", estimate: "9", mo…
+     98|     ]);
+     99|     expect([...new Set(points.map((point) => point.series))].sort()).t…
+       |                                                                      ^
+    100|   });
+    101| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+# GOOD  seriesLabel ignores series_by (always Estimate)  (Tests  2 failed | 7 skipped (9))
+
+===== MUTATION: EMBED_OPTIONS enables Vega actions =====
+test: disables Vega actions so CSV is the only export
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 9ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   × chartView > disables Vega actions so CSV is the only export 8ms
+     → expected { actions: true, renderer: 'svg' } to deeply equal { actions: false, renderer: 'svg' }
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  06:00:14
+   Duration  3.42s (transform 51ms, setup 256ms, collect 71ms, tests 9ms, environment 619ms, prepare 93ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > disables Vega actions so CSV is the only export
+AssertionError: expected { actions: true, renderer: 'svg' } to deeply equal { actions: false, renderer: 'svg' }
+
+- Expected
++ Received
+
+  {
+-   "actions": false,
++   "actions": true,
+    "renderer": "svg",
+  }
+
+  src/chart.test.ts:144:27
+    142| 
+    143|   it("disables Vega actions so CSV is the only export", () => {
+    144|     expect(EMBED_OPTIONS).toEqual({ actions: false, renderer: "svg" });
+       |                           ^
+    145|   });
+    146| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  EMBED_OPTIONS enables Vega actions  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: isChartSpec accepts a bar spec with year on x (invalid pairing) =====
+test: shows a chart error for an invalid spec or a failed model chart
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 8ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   × chartView > shows a chart error for an invalid spec or a failed model chart 7ms
+     → expected 'spec' to be 'error' // Object.is equality
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  06:00:21
+   Duration  3.16s (transform 47ms, setup 178ms, collect 29ms, tests 8ms, environment 543ms, prepare 91ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > shows a chart error for an invalid spec or a failed model chart
+AssertionError: expected 'spec' to be 'error' // Object.is equality
+
+Expected: "error"
+Received: "spec"
+
+  src/chart.test.ts:133:85
+    131| 
+    132|   it("shows a chart error for an invalid spec or a failed model chart"…
+    133|     expect(chartView({ ...LINE, type: "bar" } as ChartSpec, [row({})],…
+       |                                                                                     ^
+    134|     expect(chartView(null, [row({})], true).kind).toBe("error");
+    135|     expect(chartView(null, [row({})], false).kind).toBe("empty");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  isChartSpec accepts a bar spec with year on x (invalid pairing)  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: chartView treats chart_unavailable as empty instead of error =====
+test: shows a chart error for an invalid spec or a failed model chart
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 9ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   × chartView > shows a chart error for an invalid spec or a failed model chart 8ms
+     → expected 'empty' to be 'error' // Object.is equality
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  06:00:27
+   Duration  3.46s (transform 61ms, setup 210ms, collect 35ms, tests 9ms, environment 675ms, prepare 127ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > shows a chart error for an invalid spec or a failed model chart
+AssertionError: expected 'empty' to be 'error' // Object.is equality
+
+Expected: "error"
+Received: "empty"
+
+  src/chart.test.ts:134:51
+    132|   it("shows a chart error for an invalid spec or a failed model chart"…
+    133|     expect(chartView({ ...LINE, type: "bar" } as ChartSpec, [row({})],…
+    134|     expect(chartView(null, [row({})], true).kind).toBe("error");
+       |                                                   ^
+    135|     expect(chartView(null, [row({})], false).kind).toBe("empty");
+    136|     const sneaky = { ...LINE, data: { url: "https://example.invalid/ch…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  chartView treats chart_unavailable as empty instead of error  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: xLabel uses year instead of period =====
+test: maps a line spec onto year/period, estimate, and 90% MOE bounds
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 11ms
+   × chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds 10ms
+     → expected [ { x: '2019', estimate: 100, …(4) } ] to deeply equal [ { x: '2015-2019', …(5) } ]
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  06:00:33
+   Duration  3.08s (transform 51ms, setup 196ms, collect 34ms, tests 11ms, environment 517ms, prepare 85ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+AssertionError: expected [ { x: '2019', estimate: 100, …(4) } ] to deeply equal [ { x: '2015-2019', …(5) } ]
+
+- Expected
++ Received
+
+@@ -3,8 +3,8 @@
+      "estimate": 100,
+      "high": 110,
+      "low": 90,
+      "segment": 0,
+      "series": "Estimate",
+-     "x": "2015-2019",
++     "x": "2019",
+    },
+  ]
+
+  src/chart.test.ts:45:20
+     43|   it("maps a line spec onto year/period, estimate, and 90% MOE bounds"…
+     44|     const points = values(LINE, [row({ year: "2019", period: "2015-201…
+     45|     expect(points).toEqual([
+       |                    ^
+     46|       { x: "2015-2019", estimate: 100, low: 90, high: 110, series: "Es…
+     47|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  xLabel uses year instead of period  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: omit the errorbar layer from the Vega spec =====
+test: maps a line spec onto year/period, estimate, and 90% MOE bounds
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 9ms
+   × chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds 8ms
+     → expected undefined to be 'errorbar' // Object.is equality
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  06:00:39
+   Duration  3.25s (transform 48ms, setup 185ms, collect 68ms, tests 9ms, environment 568ms, prepare 93ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+AssertionError: expected undefined to be 'errorbar' // Object.is equality
+
+- Expected: 
+"errorbar"
+
++ Received: 
+undefined
+
+  src/chart.test.ts:59:35
+     57|       expect(encoding.color.legend).toBeNull();
+     58|       expect(layer[0]?.mark.type).toBe("line");
+     59|       expect(layer[1]?.mark.type).toBe("errorbar");
+       |                                   ^
+     60|       expect(layer[0]?.encoding.y?.title).toBe("Total population");
+     61|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  omit the errorbar layer from the Vega spec  (Tests  1 failed | 8 skipped (9))
+
+===== MUTATION: include a missing year as estimate 0 (sentinel interpolation) =====
+test: does not interpolate a missing year or a Census sentinel
+
+GOOD
+RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests | 1 failed | 8 skipped) 10ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series with stable labels
+   ↓ chartView > splits two variable series with stable labels
+   × chartView > does not interpolate a missing year or a Census sentinel 9ms
+     → expected [ [ '2019', 100, +0 ], …(2) ] to deeply equal [ [ '2019', 100, +0 ], …(1) ]
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  06:00:45
+   Duration  3.24s (transform 56ms, setup 174ms, collect 95ms, tests 10ms, environment 570ms, prepare 85ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > does not interpolate a missing year or a Census sentinel
+AssertionError: expected [ [ '2019', 100, +0 ], …(2) ] to deeply equal [ [ '2019', 100, +0 ], …(1) ]
+
+- Expected
++ Received
+
+@@ -3,10 +3,15 @@
+      "2019",
+      100,
+      0,
+    ],
+    [
++     "2020",
++     0,
++     0,
++   ],
++   [
+      "2021",
+      120,
+-     1,
++     0,
+    ],
+  ]
+
+  src/chart.test.ts:108:77
+    106|       row({ year: "2021", period: "2021", estimate: "120", moe: "10" }…
+    107|     ]);
+    108|     expect(points.map((point) => [point.x, point.estimate, point.segme…
+       |                                                                             ^
+    109|       ["2019", 100, 0],
+    110|       ["2021", 120, 1],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+# GOOD  include a missing year as estimate 0 (sentinel interpolation)  (Tests  1 failed | 8 skipped (9))
+
+========== RESTORE ==========
+All 13 mutations restored. git status --short: clean of src (HEAD remains 7ee23a6).
+
+npm test after restore:
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+  src/chart.test.ts (9 tests) 12ms
+  src/plan.test.ts (7 tests) 9ms
+  src/ask.test.ts (7 tests) 20ms
+  src/display.test.ts (26 tests) 29ms
+  src/PlanStrip.test.tsx (7 tests) 481ms
+  src/App.plan.test.tsx (10 tests) 1721ms
+    plan refinement > posts a table edit with the original question, not rewritten prompt text  366ms
+  src/App.test.tsx (25 tests) 2508ms
+
+ Test Files  7 passed (7)
+      Tests  91 passed (91)
+   Start at  06:01:31
+   Duration  7.63s (transform 495ms, setup 2.86s, collect 3.15s, tests 4.78s, environment 8.34s, prepare 1.45s)
+
+
+exit: 0
+
+tsc --noEmit after restore:
+> typecheck
+> tsc --noEmit
+
+
+exit: 0
+
+========== SUMMARY ==========
+Makefile check recipe: pass (python + web test/typecheck/build). Budgets not raised.
+Mutations: 13 GOOD, 0 BAD.

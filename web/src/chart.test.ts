@@ -58,6 +58,7 @@ describe("chartView", () => {
       expect(layer[0]?.mark.type).toBe("line");
       expect(layer[1]?.mark.type).toBe("errorbar");
       expect(layer[0]?.encoding.y?.title).toBe("Total population");
+      expect((layer[1]?.encoding as { y?: { title: string } }).y?.title).toBe("Total population");
     }
   });
 
