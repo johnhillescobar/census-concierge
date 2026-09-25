@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ask, type AskResponse } from "./ask";
+import { ask, AskError, type AskResponse } from "./ask";
 
 const harris: AskResponse = {
   answer: "Harris County has 4,838,303 people.",
@@ -80,5 +80,50 @@ describe("ask", () => {
   it("throws a network error when fetch itself fails", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     await expect(ask("population of Harris County")).rejects.toThrow("Could not reach the API");
+  });
+
+  it("surfaces a 422 as a field-specific AskError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          detail: [
+            {
+              type: "value_error",
+              loc: ["body", "plan", "table_id"],
+              msg: "Value error, invalid table_id override",
+            },
+          ],
+        }),
+      }),
+    );
+    const error = await ask("median household income", harris.plan).catch((cause) => cause);
+    expect(error).toBeInstanceOf(AskError);
+    expect(error.message).toBe("invalid table_id override");
+    expect(error.status).toBe(422);
+    expect(error.field).toBe("table_id");
+  });
+
+  it("maps a GEOID 422 onto geographies even when loc is only body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        json: async () => ({
+          detail: [
+            {
+              loc: ["body"],
+              msg: "Value error, geography override requires an executable GEOID",
+            },
+          ],
+        }),
+      }),
+    );
+    const error = await ask("population of Harris County", harris.plan).catch((cause) => cause);
+    expect(error.field).toBe("geographies");
+    expect(error.message).toMatch(/GEOID/i);
   });
 });

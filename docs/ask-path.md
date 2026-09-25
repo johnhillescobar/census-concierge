@@ -113,5 +113,10 @@ After `npm --prefix web run build`, FastAPI serves `web/dist`
 at `/` from the same origin as `POST /ask`. Census URLs are visible and
 copyable (redacted). Sentinels render as `—`. The active dataset is one
 normalized table (GEOID, estimate, matching MOE) from `AskResponse` rows;
-a one-row scalar uses that same table. Canvas, `ChartSpec`, and the
-plan strip are slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11)).
+a one-row scalar uses that same table. The canvas plan strip shows the
+executed `ResultPlan` (dataset, requested vs fetched years, table,
+geographies with GEOID, overlapping ACS5). Edits and alternative clicks
+POST that plan with the original question; they do not rewrite prompt
+text. Geography is a picker over returned `GeoSpec`s. A 422 or network
+failure keeps the prior dataset and shows the error on the strip.
+`ChartSpec` and CSV also read this `AskResponse`.

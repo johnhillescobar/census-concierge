@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ask, type AskResponse } from "./ask";
+import { ask, AskError, type AskResponse, type ResultPlan } from "./ask";
+import { PlanStrip } from "./PlanStrip";
 import {
   censusFetchFailed,
   censusUrls,
@@ -11,7 +12,7 @@ import {
 } from "./display";
 
 type AppProps = {
-  askFn?: (question: string) => Promise<AskResponse>;
+  askFn?: (question: string, plan?: ResultPlan) => Promise<AskResponse>;
 };
 
 const TABLE_HEADERS = [
@@ -132,18 +133,6 @@ function ActiveDataset({
           No Census URL was built.
         </p>
       )}
-      <h2>Alternatives</h2>
-      {result.alternatives.length > 0 ? (
-        <ul className="alts">
-          {result.alternatives.map((alt) => (
-            <li key={`${alt.table_id}:${alt.reason}`}>
-              {alt.table_id} — {alt.reason}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>None in this response.</p>
-      )}
       {result.warnings.length > 0 ? (
         <>
           <h2>Warnings</h2>
@@ -167,6 +156,8 @@ export function App({ askFn = ask }: AppProps) {
   const [result, setResult] = useState<AskResponse | null>(null);
   const [activeQuestion, setActiveQuestion] = useState("");
   const [copied, setCopied] = useState(false);
+  const [planError, setPlanError] = useState("");
+  const [planField, setPlanField] = useState("");
   const loadingRef = useRef<HTMLParagraphElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
@@ -182,25 +173,40 @@ export function App({ askFn = ask }: AppProps) {
     }
   }, [error]);
 
-  async function onSubmit(event: FormEvent) {
-    event.preventDefault();
-    const text = question.trim();
+  async function runAsk(text: string, plan: ResultPlan | undefined, source: "question" | "plan") {
     if (!text || state === "loading") {
-      return;
+      return false;
     }
     const keepResult = result !== null;
     setState("loading");
-    setError("");
     setCopied(false);
+    setPlanError("");
+    setPlanField("");
+    if (source === "question") {
+      setError("");
+    }
     try {
-      const response = await askFn(text);
+      const response = await askFn(text, plan);
       setResult(response);
       setActiveQuestion(text);
       setState("result");
+      return true;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "ask failed");
+      const message = cause instanceof Error ? cause.message : "ask failed";
+      if (source === "plan") {
+        setPlanError(message);
+        setPlanField(cause instanceof AskError ? cause.field : "");
+      } else {
+        setError(message);
+      }
       setState(keepResult ? "result" : "error");
+      return false;
     }
+  }
+
+  async function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    await runAsk(question.trim(), undefined, "question");
   }
 
   async function onCopyUrl() {
@@ -223,7 +229,7 @@ export function App({ askFn = ask }: AppProps) {
         <p className="lede">
           Ask a Census question. The table, URL, and related tables come back together.
         </p>
-        <form onSubmit={onSubmit}>
+        <form className="ask-form" onSubmit={onSubmit}>
           <input
             aria-label="Question"
             value={question}
@@ -257,7 +263,22 @@ export function App({ askFn = ask }: AppProps) {
             Looking up tables…
           </p>
         ) : null}
-        {result ? <ActiveDataset result={result} copied={copied} onCopyUrl={onCopyUrl} /> : null}
+        {result ? (
+          <>
+            <PlanStrip
+              result={result}
+              busy={state === "loading"}
+              error={planError}
+              field={planField}
+              onApply={(plan) => runAsk(activeQuestion, plan, "plan")}
+              onClearError={() => {
+                setPlanError("");
+                setPlanField("");
+              }}
+            />
+            <ActiveDataset result={result} copied={copied} onCopyUrl={onCopyUrl} />
+          </>
+        ) : null}
       </section>
     </main>
   );

@@ -58,13 +58,13 @@ h1 {
   color: #5c5a52;
 }
 
-form {
+.ask-form {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
 }
 
-form input {
+.ask-form input {
   flex: 1;
   padding: 0.55rem 0.7rem;
   font: inherit;
@@ -72,7 +72,10 @@ form input {
   border-radius: 4px;
 }
 
-form button {
+.ask-form button,
+.plan-actions button,
+.plan-strip > button,
+.alts button {
   padding: 0.55rem 0.9rem;
   font: inherit;
   font-weight: 600;
@@ -83,7 +86,10 @@ form button {
   cursor: pointer;
 }
 
-form button:disabled {
+.ask-form button:disabled,
+.plan-actions button:disabled,
+.plan-strip > button:disabled,
+.alts button:disabled {
   opacity: 0.55;
   cursor: wait;
 }
@@ -195,6 +201,103 @@ form button:disabled {
 .warnings {
   margin: 0 0 1rem;
   padding-left: 1.1rem;
+}
+
+.alts li {
+  display: grid;
+  gap: 0.15rem 0.6rem;
+  grid-template-columns: auto 1fr;
+  margin: 0 0 0.65rem;
+}
+
+.alts button {
+  grid-row: 1 / span 3;
+  align-self: start;
+}
+
+.plan-strip {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 0.8rem 0.35rem;
+  border: 1px solid #d7d4c8;
+  border-radius: 4px;
+  background: #faf9f5;
+}
+
+.plan-strip:focus {
+  outline: 2px solid #3d4a6b;
+  outline-offset: 2px;
+}
+
+.plan-summary {
+  display: grid;
+  gap: 0.35rem 1rem;
+  grid-template-columns: 9.5rem 1fr;
+  margin: 0 0 0.75rem;
+}
+
+.plan-summary dt {
+  color: #5c5a52;
+  font-weight: 600;
+}
+
+.plan-summary dd {
+  margin: 0;
+}
+
+.plan-form {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+}
+
+.plan-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.plan-form input,
+.plan-form select {
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  border: 1px solid #b9b6ab;
+  border-radius: 4px;
+}
+
+.plan-note {
+  margin: 0;
+  color: #5c5a52;
+  font-size: 0.9rem;
+}
+
+.plan-geos {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d7d4c8;
+  border-radius: 4px;
+}
+
+.plan-geos label {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+.plan-overlap {
+  display: flex !important;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.plan-field-error {
+  margin: 0;
+  color: #6b1d1d;
 }
 
 h2 {
