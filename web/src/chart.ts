@@ -41,6 +41,26 @@ function xLabel(row: DatasetRow, x: ChartSpec["x"]): string {
   return x === "year" ? row.period || row.year : row.name || row.geoid;
 }
 
+function chartTitle(spec: ChartSpec, rows: DatasetRow[]): string {
+  const tableId = rows.find((row) => row.tableId)?.tableId || "";
+  const universe = rows.find((row) => row.universe)?.universe || "";
+  const raw = spec.title.trim();
+  if (raw && raw !== tableId && !/^[A-Z]{1,3}\d{2,5}/i.test(raw)) return raw;
+  const names = [...new Set(rows.map((row) => row.name).filter(Boolean))].sort();
+  return universe && names.length > 0 && names.length <= 3
+    ? `${universe} — ${names.join(" and ")}`
+    : universe || raw || tableId || "Estimate";
+}
+
+function xDomain(spec: ChartSpec, rows: DatasetRow[]): string[] {
+  const rank = new Map<string, number>();
+  for (const row of rows) {
+    const label = xLabel(row, spec.x);
+    if (!rank.has(label)) rank.set(label, spec.x === "year" ? (yearOf(row) ?? rank.size) : rank.size);
+  }
+  return [...rank.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([k]) => k);
+}
+
 function bounds(estimate: number | null, moe: number | null): { low: number | null; high: number | null } {
   return estimate == null || moe == null ? { low: null, high: null } : { low: estimate - moe, high: estimate + moe };
 }
@@ -95,17 +115,21 @@ export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
 
 function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Record<string, unknown> {
   const series = [...new Set(points.map((point) => point.series))].sort();
+  const domain = xDomain(spec, rows);
   const yTitle = rows.find((row) => row.universe)?.universe || "Estimate";
   const xTitle = spec.x === "year" ? (rows.some((row) => row.period) ? "Period" : "Year") : "Geography";
   const legendTitle = spec.series_by === "variable" ? "Variable" : "Geography";
+  const dodge = spec.type === "bar" && series.length > 1;
+  const title = chartTitle(spec, rows);
   return {
-    title: spec.title,
-    description: spec.title,
+    title,
+    description: title,
     width: "container",
     autosize: { type: "fit", contains: "padding" },
     data: { values: points },
     encoding: {
-      x: { field: "x", type: "ordinal", title: xTitle },
+      x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { domain } },
+      xOffset: dodge ? { field: "series" } : { value: 0 },
       color: {
         field: "series",
         type: "nominal",
@@ -155,5 +179,6 @@ export function chartView(
   if (points.length === 0) {
     return { kind: "error", message: ERROR_NOTICE };
   }
-  return { kind: "spec", title: spec.title, spec: vegaSpec(spec, points, rows) };
+  const drawn = vegaSpec(spec, points, rows);
+  return { kind: "spec", title: String(drawn.title), spec: drawn };
 }

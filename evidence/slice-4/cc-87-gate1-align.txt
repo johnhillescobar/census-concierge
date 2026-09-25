@@ -1,0 +1,517 @@
+CC-87 Gate 1 (alignment + human title) -- tests + mutation check
+branch: feat/cc-87-charts
+HEAD: ffa860394c73bda181f405aeb8c5a112da7fec7b
+working tree: uncommitted chart.ts / chart.test.ts / ARCHITECTURE.md
+# GOOD = test fails against the broken implementation
+# BAD  = test still passes
+
+web: skipped npm ci (node_modules exists; Dropbox EBUSY)
+
+backup: C:\Users\johnh\AppData\Local\Temp\cc87-chart.ts.gate1bak
+chart.ts SHA256 before mutations: 08B11CEB450B64BD13B0B259245B5090ED811554B20572781C54B096EC2BC309
+
+========== Part A -- tests (green baseline) ==========
+
+========== uv run ruff check . ==========
+
+[1;32mAll checks passed![0m
+
+exit: 0
+
+
+========== uv run ruff format --check . ==========
+
+148 files already formatted
+
+exit: 0
+
+
+========== uv run mypy api/src ==========
+
+Success: no issues found in 24 source files
+
+exit: 0
+
+
+========== uv run pytest -q -m "not integration" ==========
+
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 25.12s
+
+exit: 0
+
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+
+exit: 0
+
+
+========== uv run python scripts/generate_client.py --check ==========
+
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpejmeqkt5\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpejmeqkt5\schema.d.ts [63ms]
+packages/client is up to date.
+
+exit: 0
+
+
+========== uv run python scripts/check_budgets.py ==========
+
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               3000 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1604 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.306 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.817 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+
+========== npm test (web/) ==========
+
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/chart.test.ts (9 tests) 56ms
+ ✓ src/plan.test.ts (7 tests) 38ms
+ ✓ src/ask.test.ts (7 tests) 44ms
+ ✓ src/display.test.ts (26 tests) 79ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 1460ms
+   ✓ PlanStrip > renders the returned plan, not answer prose  437ms
+   ✓ PlanStrip > enters edit mode, restores the draft on cancel, and returns focus to the strip  329ms
+ ✓ src/App.plan.test.tsx (10 tests) 4510ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  1003ms
+   ✓ plan refinement > posts a geography pick from returned candidates  380ms
+   ✓ plan refinement > posts dataset, year list, and overlapping-ACS5 together  503ms
+   ✓ plan refinement > keeps the prior result when the override is rejected and shows the field error  372ms
+   ✓ plan refinement > does not send a plan when the editor is cancelled  305ms
+   ✓ plan refinement > uses the original question even if the chat input changed  549ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  552ms
+ ✓ src/App.test.tsx (25 tests) 6961ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  457ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  319ms
+   ✓ App result > replaces every previous table row when a new result arrives  614ms
+   ✓ App workspace > keeps the prior result visible while a later question is loading  578ms
+   ✓ App workspace > replaces the active result only after a successful response  407ms
+   ✓ App workspace > keeps the prior result and shows a later failure separately  536ms
+   ✓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error  619ms
+
+ Test Files  7 passed (7)
+      Tests  91 passed (91)
+   Start at  07:24:20
+   Duration  14.67s (transform 994ms, setup 7.61s, collect 4.17s, tests 13.15s, environment 11.44s, prepare 1.88s)
+
+
+exit: 0
+
+
+========== npm run typecheck (web/) ==========
+
+
+> typecheck
+> tsc --noEmit
+
+
+exit: 0
+
+========== Part B -- mutation-check ONLY the new assertions ==========
+# GOOD = test fails against the broken implementation
+# BAD  = test still passes
+
+---------- MUTATION: omit shared ordinal x domain ----------
+remove sort: domain and scale: { domain } from encoding.x; leave field/type/title. Expect FAIL on encoding.x.scale.domain / sort.
+
+
+========== apply mutation: omit-shared-x-domain ==========
+
+applied omit-shared-x-domain: replaced 'x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { domain } },' -> 'x: { field: "x", type: "ordinal", title: xTitle },'
+
+exit: 0
+
+
+========== npx vitest run src/chart.test.ts -t "splits two geography series on a shared year domain" ==========
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.ts (9 tests | 1 failed | 8 skipped) 8ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   × chartView > splits two geography series on a shared year domain 6ms
+     → Cannot read properties of undefined (reading 'domain')
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  07:24:40
+   Duration  3.49s (transform 159ms, setup 232ms, collect 136ms, tests 8ms, environment 612ms, prepare 91ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > splits two geography series on a shared year domain
+TypeError: Cannot read properties of undefined (reading 'domain')
+ ❯ src/chart.test.ts:97:31
+     95|       expect(encoding.color.scale.domain).toEqual(["Austin", "Dallas"]…
+     96|       expect(encoding.color.legend.title).toBe("Geography");
+     97|       expect(encoding.x.scale.domain).toEqual(["2021", "2022", "2023"]…
+       |                               ^
+     98|       expect(encoding.x.sort).toEqual(["2021", "2022", "2023"]);
+     99|       expect(encoding.xOffset).toEqual({ value: 0 });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+exit: 1
+
+GOOD: test failed against broken implementation (exit 1)
+
+
+========== restore chart.ts from backup ==========
+
+restored C:\Users\johnh\Dropbox\Python\census-concierge\web\src\chart.ts from C:\Users\johnh\AppData\Local\Temp\cc87-chart.ts.gate1bak
+
+exit: 0
+
+---------- MUTATION: drop line overlay lock ----------
+xOffset always { field: series } so lines also dodge. Expect FAIL on encoding.xOffset === { value: 0 }.
+
+
+========== apply mutation: drop-line-overlay-lock ==========
+
+applied drop-line-overlay-lock: replaced 'xOffset: dodge ? { field: "series" } : { value: 0 },' -> 'xOffset: { field: "series" },'
+
+exit: 0
+
+
+========== npx vitest run src/chart.test.ts -t "splits two geography series on a shared year domain" ==========
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.ts (9 tests | 1 failed | 8 skipped) 11ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   × chartView > splits two geography series on a shared year domain 10ms
+     → expected { field: 'series' } to deeply equal { value: +0 }
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  07:24:47
+   Duration  3.48s (transform 168ms, setup 265ms, collect 118ms, tests 11ms, environment 487ms, prepare 92ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > splits two geography series on a shared year domain
+AssertionError: expected { field: 'series' } to deeply equal { value: +0 }
+
+- Expected
++ Received
+
+  {
+-   "value": 0,
++   "field": "series",
+  }
+
+ ❯ src/chart.test.ts:99:32
+     97|       expect(encoding.x.scale.domain).toEqual(["2021", "2022", "2023"]…
+     98|       expect(encoding.x.sort).toEqual(["2021", "2022", "2023"]);
+     99|       expect(encoding.xOffset).toEqual({ value: 0 });
+       |                                ^
+    100|     }
+    101|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+exit: 1
+
+GOOD: test failed against broken implementation (exit 1)
+
+
+========== restore chart.ts from backup ==========
+
+restored C:\Users\johnh\Dropbox\Python\census-concierge\web\src\chart.ts from C:\Users\johnh\AppData\Local\Temp\cc87-chart.ts.gate1bak
+
+exit: 0
+
+---------- MUTATION: drop bar clustering ----------
+force dodge = false so xOffset is { value: 0 } even for multi-series bars. Expect FAIL on xOffset { field: series }.
+
+
+========== apply mutation: drop-bar-clustering ==========
+
+applied drop-bar-clustering: replaced 'const dodge = spec.type === "bar" && series.length > 1;' -> 'const dodge = false;'
+
+exit: 0
+
+
+========== npx vitest run src/chart.test.ts -t "splits two variable series with stable labels" ==========
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.ts (9 tests | 1 failed | 8 skipped) 12ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series on a shared year domain
+   × chartView > splits two variable series with stable labels 11ms
+     → expected { value: +0 } to deeply equal { field: 'series' }
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  07:24:53
+   Duration  3.50s (transform 140ms, setup 240ms, collect 90ms, tests 12ms, environment 504ms, prepare 94ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > splits two variable series with stable labels
+AssertionError: expected { value: +0 } to deeply equal { field: 'series' }
+
+- Expected
++ Received
+
+  {
+-   "field": "series",
++   "value": 0,
+  }
+
+ ❯ src/chart.test.ts:115:78
+    113|     const view = chartView(spec, rows, false);
+    114|     if (view.kind === "spec") {
+    115|       expect((view.spec.encoding as { xOffset: { field: string } }).xO…
+       |                                                                              ^
+    116|     }
+    117|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+exit: 1
+
+GOOD: test failed against broken implementation (exit 1)
+
+
+========== restore chart.ts from backup ==========
+
+restored C:\Users\johnh\Dropbox\Python\census-concierge\web\src\chart.ts from C:\Users\johnh\AppData\Local\Temp\cc87-chart.ts.gate1bak
+
+exit: 0
+
+---------- MUTATION: title stays the raw ChartSpec title / table id ----------
+set title/description and chartView title back to spec.title. Expect FAIL on view.title === Total population -- Austin and Dallas.
+
+
+========== apply mutation: raw-title ==========
+
+applied raw-title: replaced '  const title = chartTitle(spec, rows);\n  return {\n    title,\n    description: title,' -> '  return {\n    title: spec.title,\n    description: spec.title,'
+applied raw-title: replaced '  return { kind: "spec", title: String(drawn.title), spec: drawn };' -> '  return { kind: "spec", title: spec.title, spec: drawn };'
+
+exit: 0
+
+
+========== npx vitest run src/chart.test.ts -t "splits two geography series on a shared year domain" ==========
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.ts (9 tests | 1 failed | 8 skipped) 43ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   × chartView > splits two geography series on a shared year domain 39ms
+     → expected 'B01003' to be 'Total population — Austin and Dallas' // Object.is equality
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  07:25:00
+   Duration  4.34s (transform 156ms, setup 655ms, collect 153ms, tests 43ms, environment 639ms, prepare 117ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.ts > chartView > splits two geography series on a shared year domain
+AssertionError: expected 'B01003' to be 'Total population — Austin and Dallas' // Object.is equality
+
+Expected: "Total population — Austin and Dallas"
+Received: "B01003"
+
+ ❯ src/chart.test.ts:93:26
+     91|         color: { scale: { domain: string[] }; legend: { title: string …
+     92|       };
+     93|       expect(view.title).toBe("Total population — Austin and Dallas");
+       |                          ^
+     94|       expect(view.spec.title).toBe(view.title);
+     95|       expect(encoding.color.scale.domain).toEqual(["Austin", "Dallas"]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+exit: 1
+
+GOOD: test failed against broken implementation (exit 1)
+
+
+========== restore chart.ts from backup ==========
+
+restored C:\Users\johnh\Dropbox\Python\census-concierge\web\src\chart.ts from C:\Users\johnh\AppData\Local\Temp\cc87-chart.ts.gate1bak
+
+exit: 0
+
+chart.ts SHA256 after restore: 08B11CEB450B64BD13B0B259245B5090ED811554B20572781C54B096EC2BC309
+
+========== git diff web/src/chart.ts (must match start: uncommitted alignment still present) ==========
+
+diff --git a/web/src/chart.ts b/web/src/chart.ts
+index e54fdf4..6b11176 100644
+--- a/web/src/chart.ts
++++ b/web/src/chart.ts
+@@ -41,6 +41,26 @@ function xLabel(row: DatasetRow, x: ChartSpec["x"]): string {
+   return x === "year" ? row.period || row.year : row.name || row.geoid;
+ }
+ 
++function chartTitle(spec: ChartSpec, rows: DatasetRow[]): string {
++  const tableId = rows.find((row) => row.tableId)?.tableId || "";
++  const universe = rows.find((row) => row.universe)?.universe || "";
++  const raw = spec.title.trim();
++  if (raw && raw !== tableId && !/^[A-Z]{1,3}\d{2,5}/i.test(raw)) return raw;
++  const names = [...new Set(rows.map((row) => row.name).filter(Boolean))].sort();
++  return universe && names.length > 0 && names.length <= 3
++    ? `${universe} — ${names.join(" and ")}`
++    : universe || raw || tableId || "Estimate";
++}
++
++function xDomain(spec: ChartSpec, rows: DatasetRow[]): string[] {
++  const rank = new Map<string, number>();
++  for (const row of rows) {
++    const label = xLabel(row, spec.x);
++    if (!rank.has(label)) rank.set(label, spec.x === "year" ? (yearOf(row) ?? rank.size) : rank.size);
++  }
++  return [...rank.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([k]) => k);
++}
++
+ function bounds(estimate: number | null, moe: number | null): { low: number | null; high: number | null } {
+   return estimate == null || moe == null ? { low: null, high: null } : { low: estimate - moe, high: estimate + moe };
+ }
+@@ -95,17 +115,21 @@ export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
+ 
+ function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Record<string, unknown> {
+   const series = [...new Set(points.map((point) => point.series))].sort();
++  const domain = xDomain(spec, rows);
+   const yTitle = rows.find((row) => row.universe)?.universe || "Estimate";
+   const xTitle = spec.x === "year" ? (rows.some((row) => row.period) ? "Period" : "Year") : "Geography";
+   const legendTitle = spec.series_by === "variable" ? "Variable" : "Geography";
++  const dodge = spec.type === "bar" && series.length > 1;
++  const title = chartTitle(spec, rows);
+   return {
+-    title: spec.title,
+-    description: spec.title,
++    title,
++    description: title,
+     width: "container",
+     autosize: { type: "fit", contains: "padding" },
+     data: { values: points },
+     encoding: {
+-      x: { field: "x", type: "ordinal", title: xTitle },
++      x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { domain } },
++      xOffset: dodge ? { field: "series" } : { value: 0 },
+       color: {
+         field: "series",
+         type: "nominal",
+@@ -155,5 +179,6 @@ export function chartView(
+   if (points.length === 0) {
+     return { kind: "error", message: ERROR_NOTICE };
+   }
+-  return { kind: "spec", title: spec.title, spec: vegaSpec(spec, points, rows) };
++  const drawn = vegaSpec(spec, points, rows);
++  return { kind: "spec", title: String(drawn.title), spec: drawn };
+ }
+
+exit: 0
+
+
+========== npx vitest run src/chart.test.ts (restored code) ==========
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/chart.test.ts (9 tests) 17ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  07:25:09
+   Duration  4.59s (transform 97ms, setup 308ms, collect 68ms, tests 17ms, environment 1.42s, prepare 207ms)
+
+
+exit: 0
+
+Mutations: 4 GOOD, 0 BAD. Baseline: pass.

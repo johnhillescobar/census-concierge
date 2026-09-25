@@ -102,7 +102,8 @@ geography × year/period × estimate variable, with GEOID, dataset, vintage,
 period, table, variable, raw estimate, and matching 90% MOE. Scalar and
 multi-row answers share that model. Census sentinels and missing MOE are
 unavailable (`—`), never zero. A `ChartSpec` on that response is translated
-into Vega-Lite SVG (`web/src/chart.ts`) over the same rows; `chart_unavailable`
+into Vega-Lite SVG (`web/src/chart.ts`) over the same rows, with one shared x
+domain so comparison series overlay (lines) or cluster (bars); `chart_unavailable`
 or an over-limit series count shows a notice and keeps the table. The plan
 strip reads `AskResponse.plan` and
 related `alternatives` / `ambiguous_place` candidates; apply POSTs the original

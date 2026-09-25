@@ -73,31 +73,47 @@ describe("chartView", () => {
     ]);
   });
 
-  it("splits two geography series with stable labels", () => {
-    const spec: ChartSpec = { ...LINE, series_by: "geography" };
-    const points = values(spec, [
-      row({ name: "Austin", geoid: "a", year: "2019", period: "2019", estimate: "1", moe: "1" }),
-      row({ name: "Dallas", geoid: "d", year: "2019", period: "2019", estimate: "2", moe: "1" }),
+  it("splits two geography series on a shared year domain", () => {
+    const spec: ChartSpec = { ...LINE, series_by: "geography", title: "B01003" };
+    const rows = [
+      row({ name: "Dallas", geoid: "d", year: "2022", period: "2022", estimate: "2", moe: "1" }),
+      row({ name: "Dallas", geoid: "d", year: "2021", period: "2021", estimate: "1", moe: "1" }),
       row({ name: "Austin", geoid: "a", year: "2021", period: "2021", estimate: "3", moe: "1" }),
-      row({ name: "Dallas", geoid: "d", year: "2021", period: "2021", estimate: "4", moe: "1" }),
-    ]);
+      row({ name: "Austin", geoid: "a", year: "2023", period: "2023", estimate: "4", moe: "1" }),
+    ];
+    const points = values(spec, rows);
     expect([...new Set(points.map((point) => point.series))].sort()).toEqual(["Austin", "Dallas"]);
-    const view = chartView(spec, [row({ name: "Austin" }), row({ name: "Dallas", geoid: "d" })], false);
+    const view = chartView(spec, rows, false);
     if (view.kind === "spec") {
-      const color = (view.spec.encoding as { color: { scale: { domain: string[] }; legend: { title: string } } })
-        .color;
-      expect(color.scale.domain).toEqual(["Austin", "Dallas"]);
-      expect(color.legend.title).toBe("Geography");
+      const encoding = view.spec.encoding as {
+        x: { scale: { domain: string[] }; sort: string[] };
+        xOffset: { value: number };
+        color: { scale: { domain: string[] }; legend: { title: string } };
+      };
+      expect(view.title).toBe("Total population — Austin and Dallas");
+      expect(view.spec.title).toBe(view.title);
+      expect(encoding.color.scale.domain).toEqual(["Austin", "Dallas"]);
+      expect(encoding.color.legend.title).toBe("Geography");
+      expect(encoding.x.scale.domain).toEqual(["2021", "2022", "2023"]);
+      expect(encoding.x.sort).toEqual(["2021", "2022", "2023"]);
+      expect(encoding.xOffset).toEqual({ value: 0 });
     }
   });
 
   it("splits two variable series with stable labels", () => {
     const spec: ChartSpec = { ...BAR, series_by: "variable" };
-    const points = values(spec, [
+    const rows = [
       row({ variable: "B01003_001E", name: "Austin", estimate: "10", moe: "1" }),
       row({ variable: "B01001_001E", name: "Austin", estimate: "9", moe: "1" }),
+    ];
+    expect([...new Set(values(spec, rows).map((point) => point.series))].sort()).toEqual([
+      "B01001_001E",
+      "B01003_001E",
     ]);
-    expect([...new Set(points.map((point) => point.series))].sort()).toEqual(["B01001_001E", "B01003_001E"]);
+    const view = chartView(spec, rows, false);
+    if (view.kind === "spec") {
+      expect((view.spec.encoding as { xOffset: { field: string } }).xOffset).toEqual({ field: "series" });
+    }
   });
 
   it("does not interpolate a missing year or a Census sentinel", () => {
