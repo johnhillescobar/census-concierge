@@ -6,7 +6,7 @@ is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
 the result pane renders one normalized GEOID/MOE table (CC-35 Done);
 `AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
 optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done);
-the UI is a two-pane living workspace (chat + one active canvas dataset).
+the UI is a two-pane living workspace (chat + one active canvas dataset) (CC-88 Done).
 
 This file is not a design document. Intent: `.claude/DESIGN.md`. Order:
 `.claude/PLAN.md`. **When they disagree, this file is right.** A shape-changing

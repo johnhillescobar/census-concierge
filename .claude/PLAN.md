@@ -39,7 +39,9 @@ Done (GEOID/MOE table; floors met; p95 over-ceiling recorded not promoted;
 Done (ResultPlan; floors met; p95 over-ceiling recorded not promoted;
 `evidence/slice-4/cc-90-e2e-post.txt`). [CC-89](https://johnhillescobar.atlassian.net/browse/CC-89)
 Done (plan overrides; floors met; p95 over-ceiling recorded not promoted;
-`evidence/slice-4/cc-89-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
+`evidence/slice-4/cc-89-e2e-post.txt`). [CC-88](https://johnhillescobar.atlassian.net/browse/CC-88)
+Done (two-pane workspace; floors met; p95 18.550s;
+`evidence/slice-4/cc-88-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
 foundations. Spike CC-9 before slice 5.
 
 ---
