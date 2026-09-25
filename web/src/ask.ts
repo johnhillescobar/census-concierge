@@ -3,6 +3,7 @@ import type { components } from "../../packages/client/schema";
 export type Alternative = components["schemas"]["Alternative"];
 export type AskWarning = components["schemas"]["AskWarning"];
 export type AskResponse = components["schemas"]["AskResponse"];
+export type ChartSpec = components["schemas"]["ChartSpec"];
 export type ResultPlan = components["schemas"]["ResultPlan"];
 export type GeoSpec = components["schemas"]["GeoSpec"];
 

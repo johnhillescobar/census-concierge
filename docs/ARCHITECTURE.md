@@ -1,9 +1,10 @@
 # ARCHITECTURE — the system as it IS
 
-**Status (2026-09-24).** Slices 0–3 are built and their epics are Done
+**Status (2026-09-25).** Slices 0–3 are built and their epics are Done
 (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
 is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
-the result pane renders one normalized GEOID/MOE table (CC-35 Done);
+the canvas translates that spec into Vega-Lite SVG over the normalized table
+(CC-87); the result pane renders one normalized GEOID/MOE table (CC-35 Done);
 `AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
 optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done);
 the UI is a two-pane living workspace (chat + one active canvas dataset) (CC-88 Done);
@@ -100,10 +101,17 @@ The canvas renders one frontend-normalized table from `AskResponse`
 geography × year/period × estimate variable, with GEOID, dataset, vintage,
 period, table, variable, raw estimate, and matching 90% MOE. Scalar and
 multi-row answers share that model. Census sentinels and missing MOE are
-unavailable (`—`), never zero. The plan strip reads `AskResponse.plan` and
+unavailable (`—`), never zero. A `ChartSpec` on that response is translated
+into Vega-Lite SVG (`web/src/chart.ts`) over the same rows, with one shared x
+domain so comparison series overlay (lines) or cluster (bars); `chart_unavailable`
+or an over-limit series count or embed failure shows a notice and keeps the table.
+Homonymous Census NAMEs stay separate series (GEOID in the label); a `ChartSpec`
+that omits `series_by` is inferred from the rows or declined if both geography
+and variable vary. The plan
+strip reads `AskResponse.plan` and
 related `alternatives` / `ambiguous_place` candidates; apply POSTs the original
-question plus that `ResultPlan`. Chart and CSV consume that same `AskResponse`;
-they must not keep a second copy.
+question plus that `ResultPlan`. CSV consumes that same `AskResponse`;
+it must not keep a second copy.
 
 ## Data
 

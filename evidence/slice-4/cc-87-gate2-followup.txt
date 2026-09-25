@@ -1,0 +1,344 @@
+Gate 2 re-run transcript — CC-87 follow-up (06ee54a)
+ticket: CC-87
+slice: 4
+PR: https://github.com/johnhillescobar/census-concierge/pull/84
+branch: feat/cc-87-charts (pushed)
+HEAD: 06ee54a63c2ee1910554e3fe1c79bc6877279c6f
+base: origin/main @ 737c88477bdacedae3535c0aa25df29d360e3671
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+  docs/playbooks/review-pr.md, docs/requirements.md, docs/ask-path.md,
+  docs/slices.md, .cursor/rules/40-census-domain.mdc, docs/ARCHITECTURE.md
+no E2E; no PR comments; no product-code edits; no commit
+did not overwrite: evidence/slice-4/cc-87-gate2.txt, cc-87-gate2-align.txt
+npm ci skipped: web/node_modules exists
+working tree at start: clean
+
+=== identity ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-87-charts
+
+$ git rev-parse HEAD
+exit: 0
+06ee54a63c2ee1910554e3fe1c79bc6877279c6f
+
+$ git rev-parse origin/main
+exit: 0
+737c88477bdacedae3535c0aa25df29d360e3671
+
+$ git status
+exit: 0
+On branch feat/cc-87-charts
+Your branch is up to date with 'origin/feat/cc-87-charts'.
+
+nothing to commit, working tree clean
+
+$ git log --oneline origin/main...HEAD
+exit: 0
+06ee54a CC-87: keep homonymous places, inferred series, and embed failures from drawing a wrong chart.
+1e1ed8e Merge origin/main into feat/cc-87-charts
+eaa1c88 CC-87: align comparison series on a shared x domain and use human chart titles.
+ffa8603 CC-87: keep axis titles on MOE layers and record live chart proof.
+7ee23a6 CC-87: render ChartSpec as Vega-Lite SVG with MOE.
+
+$ git diff --stat origin/main...HEAD
+exit: 0
+ .claude/PLAN.md                           |    3 +-
+ docs/ARCHITECTURE.md                      |   18 +-
+ docs/ask-path.md                          |    4 +-
+ evidence/latest.json                      | 2196 +++++----
+ evidence/slice-4/cc-87-aligned-series.png |  Bin 0 -> 14520 bytes
+ evidence/slice-4/cc-87-aligned-table.png  |  Bin 0 -> 30671 bytes
+ evidence/slice-4/cc-87-austin-dallas.json |   43 +
+ evidence/slice-4/cc-87-austin-dallas.png  |  Bin 0 -> 419114 bytes
+ evidence/slice-4/cc-87-e2e-pre.txt        | 7550 +++++++++++++++++++++++++++++
+ evidence/slice-4/cc-87-gate1-align.txt    |  517 ++
+ evidence/slice-4/cc-87-gate1-followup.txt |  358 ++
+ evidence/slice-4/cc-87-gate1.txt          |  898 ++++
+ evidence/slice-4/cc-87-gate2-align.txt    | 1241 +++++
+ evidence/slice-4/cc-87-gate2.txt          |  289 ++
+ evidence/slice-4/cc-87-human-title.png    |  Bin 0 -> 16103 bytes
+ evidence/slice-4/cc-87-invalid-spec.png   |  Bin 0 -> 404900 bytes
+ evidence/slice-4/cc-87-live-proof.md      |   35 +
+ evidence/slice-4/cc-87-multiyear.png      |  Bin 0 -> 260293 bytes
+ evidence/slice-4/cc-87-preflight.md       |   61 +
+ web/package-lock.json                     |  977 +++-
+ web/package.json                          |    5 +-
+ web/src/App.css                           |   10 +
+ web/src/App.test.tsx                      |   15 +
+ web/src/App.tsx                           |    2 +
+ web/src/ResultChart.tsx                   |   46 +
+ web/src/ask.ts                            |    1 +
+ web/src/chart.test.tsx                    |  154 +
+ web/src/chart.ts                          |  201 +
+ web/src/test-setup.ts                     |    4 +
+ 29 files changed, 13510 insertions(+), 1118 deletions(-)
+
+$ git diff --name-only origin/main...HEAD
+exit: 0
+.claude/PLAN.md
+docs/ARCHITECTURE.md
+docs/ask-path.md
+evidence/latest.json
+evidence/slice-4/cc-87-aligned-series.png
+evidence/slice-4/cc-87-aligned-table.png
+evidence/slice-4/cc-87-austin-dallas.json
+evidence/slice-4/cc-87-austin-dallas.png
+evidence/slice-4/cc-87-e2e-pre.txt
+evidence/slice-4/cc-87-gate1-align.txt
+evidence/slice-4/cc-87-gate1-followup.txt
+evidence/slice-4/cc-87-gate1.txt
+evidence/slice-4/cc-87-gate2-align.txt
+evidence/slice-4/cc-87-gate2.txt
+evidence/slice-4/cc-87-human-title.png
+evidence/slice-4/cc-87-invalid-spec.png
+evidence/slice-4/cc-87-live-proof.md
+evidence/slice-4/cc-87-multiyear.png
+evidence/slice-4/cc-87-preflight.md
+web/package-lock.json
+web/package.json
+web/src/App.css
+web/src/App.test.tsx
+web/src/App.tsx
+web/src/ResultChart.tsx
+web/src/ask.ts
+web/src/chart.test.tsx
+web/src/chart.ts
+web/src/test-setup.ts
+
+$ git diff origin/main...HEAD -- budgets.toml
+exit: 0
+
+
+$ git show 06ee54a --stat --format=fuller
+exit: 0
+commit 06ee54a63c2ee1910554e3fe1c79bc6877279c6f
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Fri Sep 25 15:28:03 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Fri Sep 25 15:28:03 2026 -0500
+
+    CC-87: keep homonymous places, inferred series, and embed failures from drawing a wrong chart.
+
+    Springfield-style NAMEs stay separate via GEOID; mixed geography/variable specs and last-wins collisions decline to the table; Vega embed failures notice instead of leaving a blank.
+
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ docs/ARCHITECTURE.md                      |   5 +-
+ docs/ask-path.md                          |   4 +-
+ evidence/slice-4/cc-87-gate1-followup.txt | 358 ++++++++++++++++++++++++++++++
+ web/src/ResultChart.tsx                   |  50 ++---
+ web/src/{chart.test.ts => chart.test.tsx} | 115 +++++-----
+ web/src/chart.ts                          |  73 +++---
+ 6 files changed, 482 insertions(+), 123 deletions(-)
+
+=== machines (review-pr.md: run first; non-zero ends the review) ===
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               2996 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1604 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.306 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.817 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .
+exit: 0
+All checks passed!
+
+$ uv run ruff format --check .
+exit: 0
+148 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 20.17s
+
+$ npm test
+cwd: web/
+exit: 0
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/ask.test.ts (7 tests) 21ms
+ ✓ src/display.test.ts (26 tests) 39ms
+ ✓ src/plan.test.ts (7 tests) 10ms
+ ✓ src/chart.test.tsx (9 tests) 177ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 874ms
+ ✓ src/App.plan.test.tsx (10 tests) 3087ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  685ms
+   ✓ plan refinement > posts dataset, year list, and overlapping-ACS5 together  351ms
+   ✓ plan refinement > uses the original question even if the chat input changed  336ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  308ms
+ ✓ src/App.test.tsx (25 tests) 4318ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  312ms
+   ✓ App result > replaces every previous table row when a new result arrives  337ms
+   ✓ App workspace > keeps the prior result visible while a later question is loading  332ms
+
+ Test Files  7 passed (7)
+      Tests  91 passed (91)
+   Start at  15:29:28
+   Duration  11.88s (transform 882ms, setup 4.54s, collect 3.69s, tests 8.53s, environment 16.81s, prepare 2.98s)
+
+$ npm run typecheck
+cwd: web/
+exit: 2
+
+> typecheck
+> tsc --noEmit
+
+src/chart.test.tsx(92,73): error TS2339: Property 'title' does not exist on type 'ChartView'.
+  Property 'title' does not exist on type '{ kind: "empty"; }'.
+
+review-pr.md: a non-zero machine exit ends the review. CI (.github/workflows/check.yml)
+runs `npm --prefix web run typecheck` after `npm test`. This HEAD would fail CI.
+
+=== pass 1 — generic bugs (cold read of origin/main...HEAD, especially 06ee54a) ===
+
+Read: web/src/chart.ts, web/src/ResultChart.tsx, web/src/chart.test.tsx,
+web/src/App.tsx (ActiveDataset), web/src/test-setup.ts, docs/ARCHITECTURE.md,
+docs/ask-path.md. Code only; no implementation intent.
+
+Checklist vs 06ee54a product code:
+
+- interpolated gaps: nothing. Line path walks integer years, bumps `segment`
+  on a missing/null estimate, and Vega `detail: segment` breaks the line.
+  Sentinel 2020 is omitted from points (test: 2019 segment 0, 2021 segment 1).
+  No zero fill.
+
+- wrong scale / merged homonyms: nothing on the drawn series. `geoName`
+  suffixes GEOID when another row shares NAME with a different id. Bar
+  categories and geography series labels both go through that. Shared x
+  domain is still the ordered unique x labels.
+
+- last-wins silent overwrite: nothing for mixed identity. Same year (line)
+  or same x (bar) with a different geoid or variable returns `[]`, and
+  `chartView` then errors to the table. Same-identity duplicates still
+  last-win (line Map) or double-push (bar); that is not mixing two places.
+
+- mixed geo+variable drawn as one series: nothing on the omitted-`series_by`
+  path. `seriesBy` returns false when both geography and variable vary, and
+  `chartView` errors. Explicit `series_by: "variable"` with two geos at the
+  same year also empties points (tested). Residual (not a merge of two
+  live series): an explicit `series_by: "geography"` with two variables at
+  *different* years would still draw as one geography series; not in the
+  06ee54a tests.
+
+- wrong MOE: nothing. `bounds` is estimate ± moe; missing either side is
+  null, not zero. Errorbar layer reads `low`/`high`. `show_moe !== true`
+  rejects the spec.
+
+- leaking data.url: nothing. `vegaSpec` builds `data: { values: points }`
+  and does not spread ChartSpec. Extra `data.url` on a sneaky spec is
+  dropped (tested).
+
+- enabling Vega actions: nothing. `EMBED_OPTIONS = { actions: false,
+  renderer: "svg" }` and that object is what `ResultChart` passes to embed.
+
+- unhandled embed rejection: nothing on the happy/fail path. The
+  `import("vega-embed")` chain has `.catch(() => { if (!drop) setFailed(true) })`.
+  Failed embed swaps the chart for `CHART_FAIL` and App.tsx still renders
+  EstimatesTable + URLs. Residual: `failed` is not in the effect deps, so
+  a failed embed unmounts the chart div without re-running cleanup until
+  `payload` changes; not a wrong chart.
+
+- raised budgets: nothing. `budgets.toml` is untouched vs origin/main.
+  `check_invariants --base origin/main` reports `budget increases` ok.
+  web src LOC is 2996 <= 3000 (tight, not a raise).
+
+- dropped URL / GEOID / universe / table: nothing. ActiveDataset still
+  renders table_id, universe, GEOID, EstimatesTable, and the Census URL
+  block after ResultChart. Chart failure keeps the table
+  (web/src/App.test.tsx).
+
+Pass 1 product-code: nothing that draws a silent-wrong chart on the listed
+items. The typecheck break is in the new test file (pass 2), not in chart.ts
+or ResultChart.tsx.
+
+=== pass 2 — project invariants (review-pr.md) ===
+
+Machines first. `npm run typecheck` exited 2. Review stops here per
+review-pr.md ("These are not advisory. If any exits non-zero the review
+is over until it does not.").
+
+The failure is HEAD's own test, introduced in 06ee54a when
+`chart.test.ts` was renamed to `chart.test.tsx` and line 92 reads
+`.title` on a `ChartView` union without narrowing `kind === "spec"`:
+
+  expect(chartView({ ...spec, title: "FY2024 revenue" }, rows, false).title)
+
+`web/tsconfig.json` includes `src`, so tsc typechecks tests. Vitest does
+not, which is why `npm test` was green and typecheck was not.
+
+Not evaluated further (claim, evidence quote, ~15-file scope, silent-wrong
+response-path, shape, tests-as-done): the playbook ends the review on a
+red machine. Observation only, not a second reason: this Gate 2 does not
+quote `make demo` / `make eval` because those are downstream of Gate 2.
+
+=== verdict ===
+
+do not ship
+
+Single most important reason: `npm run typecheck` fails on
+web/src/chart.test.tsx:92 (ChartView.title without a kind guard). CI runs
+that command. Pass 1 found nothing on interpolated gaps, merged homonyms,
+last-wins mixed identity, mixed geo+variable as one series, wrong MOE,
+data.url leak, Vega actions, unhandled embed rejection, raised budgets, or
+dropped URL/GEOID/universe/table.
+
+Pass 1: nothing (product chart path).
+Pass 2: typecheck non-zero; review ended.

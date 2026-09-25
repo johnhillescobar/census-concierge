@@ -543,6 +543,21 @@ describe("App result", () => {
       expect(screen.getByRole("columnheader", { name: header })).toBeTruthy();
     }
   });
+
+  it("keeps the estimates table when the chart cannot be drawn", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(
+      <App askFn={() => Promise.resolve({ ...harris, chart_unavailable: true })} />,
+    );
+    await user.type(screen.getByLabelText("Question"), "population of Harris County");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(pane().dataset.state).toBe("result"));
+    expect(screen.getByRole("status").textContent).toMatch(/chart could not be drawn/i);
+    expect(document.querySelector(".chart")).toBeNull();
+    expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
+    expect(screen.getByRole("cell", { name: "123" })).toBeTruthy();
+    expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
+  });
 });
 
 describe("App workspace", () => {

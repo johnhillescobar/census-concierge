@@ -1,0 +1,289 @@
+Gate 2 transcript — CC-87 Vega-Lite chart renderer
+branch: feat/cc-87-charts
+HEAD: 7ee23a621310dced6ee803820fe4a110ed1659ef
+base: origin/main @ d84a788804bbaed895602ee77c60de1fba46069c
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+catalogs read: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+  docs/requirements.md, docs/ask-path.md, docs/playbooks/review-pr.md,
+  .cursor/rules/40-census-domain.mdc
+no E2E; no PR; no product-code edits
+untracked left alone: evidence/slice-4/cc-87-gate1.txt
+npm ci skipped: web/node_modules exists
+
+=== commands ===
+
+$ git rev-parse --abbrev-ref HEAD
+exit: 0
+feat/cc-87-charts
+
+$ git rev-parse HEAD
+exit: 0
+7ee23a621310dced6ee803820fe4a110ed1659ef
+
+$ git status
+exit: 0
+On branch feat/cc-87-charts
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	evidence/slice-4/cc-87-gate1.txt
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+$ git log --oneline origin/main...HEAD
+exit: 0
+7ee23a6 CC-87: render ChartSpec as Vega-Lite SVG with MOE.
+
+$ git diff --stat origin/main...HEAD
+exit: 0
+ .claude/PLAN.md                     |   3 +-
+ docs/ARCHITECTURE.md                |  14 +-
+ docs/ask-path.md                    |   4 +-
+ evidence/slice-4/cc-87-preflight.md |  61 +++
+ web/package-lock.json               | 977 +++++++++++++++++++++++++++++++++++-
+ web/package.json                    |   5 +-
+ web/src/App.css                     |  10 +
+ web/src/App.test.tsx                |  15 +
+ web/src/App.tsx                     |   2 +
+ web/src/ResultChart.tsx             |  56 +++
+ web/src/ask.ts                      |   1 +
+ web/src/chart.test.ts               | 146 ++++++
+ web/src/chart.ts                    | 156 ++++++
+ web/src/test-setup.ts               |   4 +
+ 14 files changed, 1441 insertions(+), 13 deletions(-)
+
+$ git diff --name-only origin/main...HEAD
+exit: 0
+.claude/PLAN.md
+docs/ARCHITECTURE.md
+docs/ask-path.md
+evidence/slice-4/cc-87-preflight.md
+web/package-lock.json
+web/package.json
+web/src/App.css
+web/src/App.test.tsx
+web/src/App.tsx
+web/src/ResultChart.tsx
+web/src/ask.ts
+web/src/chart.test.ts
+web/src/chart.ts
+web/src/test-setup.ts
+
+$ git diff origin/main...HEAD -- budgets.toml
+exit: 0
+
+
+$ uv run python scripts/check_budgets.py
+exit: 0
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               2957 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1604 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.306 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.817 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+exit: 0
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+
+All invariants held.
+
+$ uv run ruff check .; uv run ruff format --check .
+exit: 0
+All checks passed!
+147 files already formatted
+
+$ uv run mypy api/src
+exit: 0
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+exit: 0
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 12.54s
+
+$ npm --prefix web test
+exit: 0
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/plan.test.ts (7 tests) 9ms
+ ✓ src/chart.test.ts (9 tests) 13ms
+ ✓ src/ask.test.ts (7 tests) 16ms
+ ✓ src/display.test.ts (26 tests) 32ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 475ms
+ ✓ src/App.plan.test.tsx (10 tests) 1548ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  368ms
+ ✓ src/App.test.tsx (25 tests) 2181ms
+
+ Test Files  7 passed (7)
+      Tests  91 passed (91)
+   Start at  06:05:09
+   Duration  7.42s (transform 425ms, setup 3.04s, collect 3.24s, tests 4.27s, environment 9.64s, prepare 1.42s)
+
+$ npm --prefix web run typecheck
+exit: 0
+
+> typecheck
+> tsc --noEmit
+
+
+=== pass A — generic bugs (code only, origin/main...HEAD) ===
+
+Looked at: web/src/chart.ts, web/src/ResultChart.tsx, web/src/App.tsx,
+web/src/ask.ts, web/src/chart.test.ts, web/src/App.test.tsx,
+web/src/test-setup.ts, web/src/App.css, web/package.json,
+docs/ARCHITECTURE.md, docs/ask-path.md. No API Python in the diff.
+
+Interpolation of gaps: nothing.
+  Line path walks every calendar year between min and max; a missing year or
+  a null/non-numeric estimate increments `segment` and is not pushed.
+  Null estimates are omitted from line points (not replaced with 0).
+  Layer uses `detail: { field: "segment" }` so Vega does not connect across
+  the gap. Test: 2019 / sentinel 2020 / 2021 → segments 0 and 1, no zero.
+
+Wrong MOE: nothing.
+  `low`/`high` are estimate ± moe. Missing estimate or missing moe → null
+  bounds, not 0. `isChartSpec` requires `show_moe === true`. Errorbar layer
+  is always present on a drawn spec. Table still renders matching MOE.
+
+Leaking data.url: nothing.
+  Vega spec is built in `vegaSpec()` with `data: { values: points }` only.
+  ChartSpec fields are read by name; extra `data.url` on a sneaky object is
+  not copied. Test asserts JSON has no `"url"` key and drops example.invalid.
+
+Enabling Vega actions: nothing.
+  `EMBED_OPTIONS = { actions: false, renderer: "svg" }` and ResultChart
+  passes that object into `vega-embed`. Test asserts the constant.
+
+Raising budgets: nothing.
+  `budgets.toml` is not in the diff. `check_invariants --base origin/main`
+  reports `ok budget increases`. web src LOC 2957 <= 3000.
+
+Dropped data on the canvas table / URLs / GEOID / universe: nothing.
+  App still renders EstimatesTable, census URLs, GEOID, universe.
+  `chart_unavailable` shows a notice, `.chart` is absent, estimate and MOE
+  cells and the Census URL remain (App.test.tsx).
+
+Security: nothing.
+  No new Census URL formatter (redaction stays on existing `censusUrls`).
+  No `data.url` fetch. Title is not interpolated into JS. vega-embed is a
+  dynamic import of a lockfile-pinned package.
+
+Other (not blocking):
+  1. Line `byYear.set(year, row)` last-wins. Two rows in the same series
+     and year keep one point. Backend `take_chart` (not in this diff) sets
+     `series_by: geography` on its own fallback when there are multiple
+     GEOIDs, but a model ChartSpec with `series_by: null` and multiple
+     geos would still validate there and collapse here. Table stays complete.
+  2. x encoding is ordinal with no `sort`. A single series is emitted in
+     year order; two series with disjoint years can get first-seen x order.
+  3. Geography x/series labels are `name || geoid`, not GEOID. Homonymous
+     places can merge on the chart. Table still has GEOID.
+  4. ResultChart has no rejection handler on `import("vega-embed")` /
+     embed(). vitest mocks vega-embed, so the live SVG/actions path is not
+     executed in unit tests.
+
+=== pass B — project invariants (review-pr.md order) ===
+
+Machines: all exit 0. Review continues.
+
+Claim:
+  A user with a validated `AskResponse.chart` now sees a Vega-Lite SVG
+  (line or bar, error bars from 90% MOE) over the same normalized rows
+  as the GEOID/estimate/MOE table. `chart_unavailable` or an over-limit
+  series/point count notices and keeps the table and URL.
+  make eval / make demo: not this phase (Gate 2 only). No scoreboard
+  claimed on the branch.
+
+Scope:
+  Belongs to slice 4 CC-87 (PLAN.md Now: Vega-Lite SVG from ChartSpec).
+  Not in this slice: memory, auth, PDF. Ticket out-of-scope also names
+  CSV, maps, PNG/SVG download, raising budgets, recreating ChartSpec /
+  DatasetRow. None of those are in the diff.
+  14 files (~15). Lockfile is the npm chart deps. No drive-by API or
+  retrieval work. PLAN.md only marks CC-87 In Progress.
+
+Silent-wrong-answer:
+  URL, MOE, GEOID, universe: still on ActiveDataset including fetch-failed
+  and incomplete-years notices. Chart is additive above the table.
+  `&key=`: no new URL path; ChartSpec extra=forbid on the API (unchanged);
+  frontend does not spread API JSON into embed.
+  Numbers through the model: no API change; y is the column role
+  `estimate`, values come from `DatasetRow`.
+  Blocking clarification: nothing added.
+  Silent repair of vintage/geography: nothing. Overlapping ACS5 is still
+  refused as a chart by existing `take_chart` (`overlapping_vintage` →
+  chart null). Frontend does not interpolate omitted years.
+
+Shape:
+  No new tool, route, Pydantic model, or `.add_node()`. ChartSpec already
+  existed (CC-34). ARCHITECTURE.md updated in this commit (canvas
+  translates ChartSpec → Vega-Lite SVG; CSV remains the second consumer
+  of AskResponse). ask-path UI paragraph updated. No `*_manager` /
+  orchestrator / factory module.
+
+Tests:
+  chart.test.ts asserts translator behaviour (MOE bounds, gap segments,
+  null-not-zero, series labels, 12/500 caps, no data.url, actions:false).
+  No prompt-wording or LLM-prose assertions. No ticket-named test file.
+  No retrieval fake. vega-embed is mocked in test-setup.ts, so SVG
+  rendering and the embed options at the call site are not executed.
+  A passing vitest run is not demo evidence.
+
+=== verdict ===
+
+Ship it with follow-ups — machines passed and the renderer does not
+interpolate gaps, leak data.url, enable Vega actions, raise a budget, or
+drop URL/MOE/GEOID/universe from the canvas.
+
+Follow-ups (none are silent-wrong-answer on the response contract):
+  1. Line last-wins per year within a series if ChartSpec does not split
+     (model `series_by: null` + multiple geos/variables).
+  2. Ordinal x has no explicit sort (disjoint years across series).
+  3. Chart geography labels use name, not GEOID.
+  4. Embed failures are unhandled; unit tests mock vega-embed.
+  5. ask-path.md does not mention the 12-series / 500-row table fallback
+     (ARCHITECTURE.md does).

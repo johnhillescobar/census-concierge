@@ -1,0 +1,1241 @@
+Gate 2 transcript — CC-87 Vega-Lite chart renderer (alignment re-run)
+branch: feat/cc-87-charts
+ticket: CC-87
+slice: 4
+HEAD: ffa860394c73bda181f405aeb8c5a112da7fec7b
+base: origin/main @ d84a788804bbaed895602ee77c60de1fba46069c
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+working tree: uncommitted alignment/title patch on docs/ARCHITECTURE.md, web/src/chart.ts, web/src/chart.test.ts
+catalogs read: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+  docs/playbooks/review-pr.md, docs/requirements.md, docs/ask-path.md,
+  docs/slices.md, .cursor/rules/40-census-domain.mdc, docs/ARCHITECTURE.md
+  plus on-disk web/src/chart.ts, web/src/chart.test.ts, web/src/ResultChart.tsx
+no E2E; no PR; no product-code edits
+do not overwrite: evidence/slice-4/cc-87-gate2.txt
+untracked left alone: evidence PNGs, evidence/slice-4/cc-87-gate1-align.txt
+npm ci skipped: web/node_modules exists = True
+
+=== commands ===
+$ git rev-parse --abbrev-ref HEAD
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 511
+feat/cc-87-charts
+
+
+$ git rev-parse HEAD
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 366
+ffa860394c73bda181f405aeb8c5a112da7fec7b
+
+
+$ git status
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 401
+On branch feat/cc-87-charts
+Your branch is ahead of 'origin/main' by 2 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   docs/ARCHITECTURE.md
+	modified:   web/src/chart.test.ts
+	modified:   web/src/chart.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	evidence/slice-4/cc-87-aligned-series.png
+	evidence/slice-4/cc-87-aligned-table.png
+	evidence/slice-4/cc-87-gate1-align.txt
+	evidence/slice-4/cc-87-gate2-align.txt
+	evidence/slice-4/cc-87-human-title.png
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+
+$ git log --oneline origin/main...HEAD
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 323
+ffa8603 CC-87: keep axis titles on MOE layers and record live chart proof.
+7ee23a6 CC-87: render ChartSpec as Vega-Lite SVG with MOE.
+
+
+$ git log --format=%H%x09%s origin/main...HEAD
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 313
+ffa860394c73bda181f405aeb8c5a112da7fec7b	CC-87: keep axis titles on MOE layers and record live chart proof.
+7ee23a621310dced6ee803820fe4a110ed1659ef	CC-87: render ChartSpec as Vega-Lite SVG with MOE.
+
+
+$ git rev-parse origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 392
+d84a788804bbaed895602ee77c60de1fba46069c
+
+
+$ git diff --stat origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 327
+ .claude/PLAN.md                           |   3 +-
+ docs/ARCHITECTURE.md                      |  15 +-
+ docs/ask-path.md                          |   4 +-
+ evidence/slice-4/cc-87-austin-dallas.json |  43 ++
+ evidence/slice-4/cc-87-austin-dallas.png  | Bin 0 -> 419114 bytes
+ evidence/slice-4/cc-87-gate1.txt          | 898 +++++++++++++++++++++++++++
+ evidence/slice-4/cc-87-gate2.txt          | 289 +++++++++
+ evidence/slice-4/cc-87-invalid-spec.png   | Bin 0 -> 404900 bytes
+ evidence/slice-4/cc-87-live-proof.md      |  35 ++
+ evidence/slice-4/cc-87-multiyear.png      | Bin 0 -> 260293 bytes
+ evidence/slice-4/cc-87-preflight.md       |  61 ++
+ web/package-lock.json                     | 977 +++++++++++++++++++++++++++++-
+ web/package.json                          |   5 +-
+ web/src/App.css                           |  10 +
+ web/src/App.test.tsx                      |  15 +
+ web/src/App.tsx                           |   2 +
+ web/src/ResultChart.tsx                   |  56 ++
+ web/src/ask.ts                            |   1 +
+ web/src/chart.test.ts                     | 163 +++++
+ web/src/chart.ts                          | 184 ++++++
+ web/src/test-setup.ts                     |   4 +
+ 21 files changed, 2752 insertions(+), 13 deletions(-)
+
+
+$ git diff --stat
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 796
+ docs/ARCHITECTURE.md  |  3 ++-
+ web/src/chart.test.ts | 44 ++++++++++++++++++++++++++++++--------------
+ web/src/chart.ts      | 33 +++++++++++++++++++++++++++++----
+ 3 files changed, 61 insertions(+), 19 deletions(-)
+
+
+$ git diff --cached --stat
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 327
+
+
+
+$ git diff --name-only origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 406
+.claude/PLAN.md
+docs/ARCHITECTURE.md
+docs/ask-path.md
+evidence/slice-4/cc-87-austin-dallas.json
+evidence/slice-4/cc-87-austin-dallas.png
+evidence/slice-4/cc-87-gate1.txt
+evidence/slice-4/cc-87-gate2.txt
+evidence/slice-4/cc-87-invalid-spec.png
+evidence/slice-4/cc-87-live-proof.md
+evidence/slice-4/cc-87-multiyear.png
+evidence/slice-4/cc-87-preflight.md
+web/package-lock.json
+web/package.json
+web/src/App.css
+web/src/App.test.tsx
+web/src/App.tsx
+web/src/ResultChart.tsx
+web/src/ask.ts
+web/src/chart.test.ts
+web/src/chart.ts
+web/src/test-setup.ts
+
+
+$ git diff --name-only
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 346
+docs/ARCHITECTURE.md
+web/src/chart.test.ts
+web/src/chart.ts
+
+
+$ git diff origin/main -- budgets.toml
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 322
+$ git diff -- docs/ARCHITECTURE.md web/src/chart.ts web/src/chart.test.ts
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 352
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index 1c76714..5479614 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -102,7 +102,8 @@ geography ├ù year/period ├ù estimate variable, with GEOID, dataset, vintage,
+ period, table, variable, raw estimate, and matching 90% MOE. Scalar and
+ multi-row answers share that model. Census sentinels and missing MOE are
+ unavailable (`ΓÇö`), never zero. A `ChartSpec` on that response is translated
+-into Vega-Lite SVG (`web/src/chart.ts`) over the same rows; `chart_unavailable`
++into Vega-Lite SVG (`web/src/chart.ts`) over the same rows, with one shared x
++domain so comparison series overlay (lines) or cluster (bars); `chart_unavailable`
+ or an over-limit series count shows a notice and keeps the table. The plan
+ strip reads `AskResponse.plan` and
+ related `alternatives` / `ambiguous_place` candidates; apply POSTs the original
+diff --git a/web/src/chart.test.ts b/web/src/chart.test.ts
+index 795b6d4..492d716 100644
+--- a/web/src/chart.test.ts
++++ b/web/src/chart.test.ts
+@@ -73,31 +73,47 @@ describe("chartView", () => {
+     ]);
+   });
+ 
+-  it("splits two geography series with stable labels", () => {
+-    const spec: ChartSpec = { ...LINE, series_by: "geography" };
+-    const points = values(spec, [
+-      row({ name: "Austin", geoid: "a", year: "2019", period: "2019", estimate: "1", moe: "1" }),
+-      row({ name: "Dallas", geoid: "d", year: "2019", period: "2019", estimate: "2", moe: "1" }),
++  it("splits two geography series on a shared year domain", () => {
++    const spec: ChartSpec = { ...LINE, series_by: "geography", title: "B01003" };
++    const rows = [
++      row({ name: "Dallas", geoid: "d", year: "2022", period: "2022", estimate: "2", moe: "1" }),
++      row({ name: "Dallas", geoid: "d", year: "2021", period: "2021", estimate: "1", moe: "1" }),
+       row({ name: "Austin", geoid: "a", year: "2021", period: "2021", estimate: "3", moe: "1" }),
+-      row({ name: "Dallas", geoid: "d", year: "2021", period: "2021", estimate: "4", moe: "1" }),
+-    ]);
++      row({ name: "Austin", geoid: "a", year: "2023", period: "2023", estimate: "4", moe: "1" }),
++    ];
++    const points = values(spec, rows);
+     expect([...new Set(points.map((point) => point.series))].sort()).toEqual(["Austin", "Dallas"]);
+-    const view = chartView(spec, [row({ name: "Austin" }), row({ name: "Dallas", geoid: "d" })], false);
++    const view = chartView(spec, rows, false);
+     if (view.kind === "spec") {
+-      const color = (view.spec.encoding as { color: { scale: { domain: string[] }; legend: { title: string } } })
+-        .color;
+-      expect(color.scale.domain).toEqual(["Austin", "Dallas"]);
+-      expect(color.legend.title).toBe("Geography");
++      const encoding = view.spec.encoding as {
++        x: { scale: { domain: string[] }; sort: string[] };
++        xOffset: { value: number };
++        color: { scale: { domain: string[] }; legend: { title: string } };
++      };
++      expect(view.title).toBe("Total population ΓÇö Austin and Dallas");
++      expect(view.spec.title).toBe(view.title);
++      expect(encoding.color.scale.domain).toEqual(["Austin", "Dallas"]);
++      expect(encoding.color.legend.title).toBe("Geography");
++      expect(encoding.x.scale.domain).toEqual(["2021", "2022", "2023"]);
++      expect(encoding.x.sort).toEqual(["2021", "2022", "2023"]);
++      expect(encoding.xOffset).toEqual({ value: 0 });
+     }
+   });
+ 
+   it("splits two variable series with stable labels", () => {
+     const spec: ChartSpec = { ...BAR, series_by: "variable" };
+-    const points = values(spec, [
++    const rows = [
+       row({ variable: "B01003_001E", name: "Austin", estimate: "10", moe: "1" }),
+       row({ variable: "B01001_001E", name: "Austin", estimate: "9", moe: "1" }),
++    ];
++    expect([...new Set(values(spec, rows).map((point) => point.series))].sort()).toEqual([
++      "B01001_001E",
++      "B01003_001E",
+     ]);
+-    expect([...new Set(points.map((point) => point.series))].sort()).toEqual(["B01001_001E", "B01003_001E"]);
++    const view = chartView(spec, rows, false);
++    if (view.kind === "spec") {
++      expect((view.spec.encoding as { xOffset: { field: string } }).xOffset).toEqual({ field: "series" });
++    }
+   });
+ 
+   it("does not interpolate a missing year or a Census sentinel", () => {
+diff --git a/web/src/chart.ts b/web/src/chart.ts
+index e54fdf4..6b11176 100644
+--- a/web/src/chart.ts
++++ b/web/src/chart.ts
+@@ -41,6 +41,26 @@ function xLabel(row: DatasetRow, x: ChartSpec["x"]): string {
+   return x === "year" ? row.period || row.year : row.name || row.geoid;
+ }
+ 
++function chartTitle(spec: ChartSpec, rows: DatasetRow[]): string {
++  const tableId = rows.find((row) => row.tableId)?.tableId || "";
++  const universe = rows.find((row) => row.universe)?.universe || "";
++  const raw = spec.title.trim();
++  if (raw && raw !== tableId && !/^[A-Z]{1,3}\d{2,5}/i.test(raw)) return raw;
++  const names = [...new Set(rows.map((row) => row.name).filter(Boolean))].sort();
++  return universe && names.length > 0 && names.length <= 3
++    ? `${universe} ΓÇö ${names.join(" and ")}`
++    : universe || raw || tableId || "Estimate";
++}
++
++function xDomain(spec: ChartSpec, rows: DatasetRow[]): string[] {
++  const rank = new Map<string, number>();
++  for (const row of rows) {
++    const label = xLabel(row, spec.x);
++    if (!rank.has(label)) rank.set(label, spec.x === "year" ? (yearOf(row) ?? rank.size) : rank.size);
++  }
++  return [...rank.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([k]) => k);
++}
++
+ function bounds(estimate: number | null, moe: number | null): { low: number | null; high: number | null } {
+   return estimate == null || moe == null ? { low: null, high: null } : { low: estimate - moe, high: estimate + moe };
+ }
+@@ -95,17 +115,21 @@ export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
+ 
+ function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Record<string, unknown> {
+   const series = [...new Set(points.map((point) => point.series))].sort();
++  const domain = xDomain(spec, rows);
+   const yTitle = rows.find((row) => row.universe)?.universe || "Estimate";
+   const xTitle = spec.x === "year" ? (rows.some((row) => row.period) ? "Period" : "Year") : "Geography";
+   const legendTitle = spec.series_by === "variable" ? "Variable" : "Geography";
++  const dodge = spec.type === "bar" && series.length > 1;
++  const title = chartTitle(spec, rows);
+   return {
+-    title: spec.title,
+-    description: spec.title,
++    title,
++    description: title,
+     width: "container",
+     autosize: { type: "fit", contains: "padding" },
+     data: { values: points },
+     encoding: {
+-      x: { field: "x", type: "ordinal", title: xTitle },
++      x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { domain } },
++      xOffset: dodge ? { field: "series" } : { value: 0 },
+       color: {
+         field: "series",
+         type: "nominal",
+@@ -155,5 +179,6 @@ export function chartView(
+   if (points.length === 0) {
+     return { kind: "error", message: ERROR_NOTICE };
+   }
+-  return { kind: "spec", title: spec.title, spec: vegaSpec(spec, points, rows) };
++  const drawn = vegaSpec(spec, points, rows);
++  return { kind: "spec", title: String(drawn.title), spec: drawn };
+ }
+$ git show --stat --format=fuller ffa8603
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 392
+commit ffa860394c73bda181f405aeb8c5a112da7fec7b
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Fri Sep 25 06:19:15 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Fri Sep 25 06:19:15 2026 -0500
+
+    CC-87: keep axis titles on MOE layers and record live chart proof.
+    
+    Error bars were inheriting a 'low' field name into the y-axis title; title it with the universe instead. Persist Gate 1/2 transcripts and the Austin/Dallas browser proof.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ evidence/slice-4/cc-87-austin-dallas.json |  43 ++
+ evidence/slice-4/cc-87-austin-dallas.png  | Bin 0 -> 419114 bytes
+ evidence/slice-4/cc-87-gate1.txt          | 898 ++++++++++++++++++++++++++++++
+ evidence/slice-4/cc-87-gate2.txt          | 289 ++++++++++
+ evidence/slice-4/cc-87-invalid-spec.png   | Bin 0 -> 404900 bytes
+ evidence/slice-4/cc-87-live-proof.md      |  35 ++
+ evidence/slice-4/cc-87-multiyear.png      | Bin 0 -> 260293 bytes
+ web/src/chart.test.ts                     |   1 +
+ web/src/chart.ts                          |   5 +-
+ 9 files changed, 1270 insertions(+), 1 deletion(-)
+$ git show --stat --format=fuller 7ee23a6
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 416
+commit 7ee23a621310dced6ee803820fe4a110ed1659ef
+Author:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+AuthorDate: Fri Sep 25 05:54:53 2026 -0500
+Commit:     John Hill Escobar <johnhillescobar@users.noreply.github.com>
+CommitDate: Fri Sep 25 05:54:53 2026 -0500
+
+    CC-87: render ChartSpec as Vega-Lite SVG with MOE.
+    
+    Translate the validated spec over the normalized table so a researcher can inspect a multi-series comparison without losing estimates, GEOIDs, or URLs.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+
+ .claude/PLAN.md                     |   3 +-
+ docs/ARCHITECTURE.md                |  14 +-
+ docs/ask-path.md                    |   4 +-
+ evidence/slice-4/cc-87-preflight.md |  61 +++
+ web/package-lock.json               | 977 +++++++++++++++++++++++++++++++++++-
+ web/package.json                    |   5 +-
+ web/src/App.css                     |  10 +
+ web/src/App.test.tsx                |  15 +
+ web/src/App.tsx                     |   2 +
+ web/src/ResultChart.tsx             |  56 +++
+ web/src/ask.ts                      |   1 +
+ web/src/chart.test.ts               | 146 ++++++
+ web/src/chart.ts                    | 156 ++++++
+ web/src/test-setup.ts               |   4 +
+ 14 files changed, 1441 insertions(+), 13 deletions(-)
+$ git diff origin/main -- web/src/chart.ts
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 417
+diff --git a/web/src/chart.ts b/web/src/chart.ts
+new file mode 100644
+index 0000000..6b11176
+--- /dev/null
++++ b/web/src/chart.ts
+@@ -0,0 +1,184 @@
++import type { ChartSpec } from "./ask";
++import type { DatasetRow } from "./display";
++
++export const CHART_SERIES_MAX = 12;
++export const CHART_POINTS_MAX = 500;
++export const EMBED_OPTIONS = { actions: false, renderer: "svg" as const };
++
++export type ChartPoint = {
++  x: string;
++  estimate: number | null;
++  low: number | null;
++  high: number | null;
++  series: string;
++  segment: number;
++};
++
++export type ChartView =
++  | { kind: "empty" }
++  | { kind: "table"; message: string }
++  | { kind: "error"; message: string }
++  | { kind: "spec"; title: string; spec: Record<string, unknown> };
++
++const TABLE_NOTICE = "Too many series or points to chart. Use the table.";
++const ERROR_NOTICE = "This chart specification is not supported. The table below is complete.";
++
++function num(raw: string | null): number | null {
++  return raw != null && /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : null;
++}
++
++function yearOf(row: DatasetRow): number | null {
++  return row.year && /^\d+$/.test(row.year) ? Number(row.year) : null;
++}
++
++function seriesLabel(row: DatasetRow, by: ChartSpec["series_by"]): string {
++  if (by === "variable") return row.variable;
++  if (by === "geography") return row.name || row.geoid;
++  return "Estimate";
++}
++
++function xLabel(row: DatasetRow, x: ChartSpec["x"]): string {
++  return x === "year" ? row.period || row.year : row.name || row.geoid;
++}
++
++function chartTitle(spec: ChartSpec, rows: DatasetRow[]): string {
++  const tableId = rows.find((row) => row.tableId)?.tableId || "";
++  const universe = rows.find((row) => row.universe)?.universe || "";
++  const raw = spec.title.trim();
++  if (raw && raw !== tableId && !/^[A-Z]{1,3}\d{2,5}/i.test(raw)) return raw;
++  const names = [...new Set(rows.map((row) => row.name).filter(Boolean))].sort();
++  return universe && names.length > 0 && names.length <= 3
++    ? `${universe} ΓÇö ${names.join(" and ")}`
++    : universe || raw || tableId || "Estimate";
++}
++
++function xDomain(spec: ChartSpec, rows: DatasetRow[]): string[] {
++  const rank = new Map<string, number>();
++  for (const row of rows) {
++    const label = xLabel(row, spec.x);
++    if (!rank.has(label)) rank.set(label, spec.x === "year" ? (yearOf(row) ?? rank.size) : rank.size);
++  }
++  return [...rank.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([k]) => k);
++}
++
++function bounds(estimate: number | null, moe: number | null): { low: number | null; high: number | null } {
++  return estimate == null || moe == null ? { low: null, high: null } : { low: estimate - moe, high: estimate + moe };
++}
++
++function isChartSpec(value: ChartSpec | null | undefined): value is ChartSpec {
++  if (value == null || value.y !== "estimate" || value.show_moe !== true) return false;
++  return value.type === "line" ? value.x === "year" : value.type === "bar" && value.x === "geography";
++}
++
++export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
++  const groups = new Map<string, DatasetRow[]>();
++  for (const row of rows) {
++    const key = seriesLabel(row, spec.series_by);
++    const list = groups.get(key);
++    if (list) list.push(row);
++    else groups.set(key, [row]);
++  }
++  const points: ChartPoint[] = [];
++  for (const [series, list] of groups) {
++    if (spec.type === "line") {
++      const byYear = new Map<number, DatasetRow>();
++      for (const row of list) {
++        const year = yearOf(row);
++        if (year != null) byYear.set(year, row);
++      }
++      const years = [...byYear.keys()].sort((a, b) => a - b);
++      if (years.length === 0) continue;
++      let segment = 0;
++      let open = false;
++      for (let year = years[0]; year <= years[years.length - 1]; year += 1) {
++        const row = byYear.get(year);
++        const estimate = row ? num(row.estimate) : null;
++        if (estimate == null) {
++          if (open) {
++            segment += 1;
++            open = false;
++          }
++          continue;
++        }
++        points.push({ x: xLabel(row!, spec.x), estimate, series, segment, ...bounds(estimate, num(row!.moe)) });
++        open = true;
++      }
++    } else {
++      for (const row of list) {
++        const estimate = num(row.estimate);
++        points.push({ x: xLabel(row, spec.x), estimate, series, segment: 0, ...bounds(estimate, num(row.moe)) });
++      }
++    }
++  }
++  return points;
++}
++
++function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Record<string, unknown> {
++  const series = [...new Set(points.map((point) => point.series))].sort();
++  const domain = xDomain(spec, rows);
++  const yTitle = rows.find((row) => row.universe)?.universe || "Estimate";
++  const xTitle = spec.x === "year" ? (rows.some((row) => row.period) ? "Period" : "Year") : "Geography";
++  const legendTitle = spec.series_by === "variable" ? "Variable" : "Geography";
++  const dodge = spec.type === "bar" && series.length > 1;
++  const title = chartTitle(spec, rows);
++  return {
++    title,
++    description: title,
++    width: "container",
++    autosize: { type: "fit", contains: "padding" },
++    data: { values: points },
++    encoding: {
++      x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { domain } },
++      xOffset: dodge ? { field: "series" } : { value: 0 },
++      color: {
++        field: "series",
++        type: "nominal",
++        title: legendTitle,
++        scale: { domain: series },
++        legend: series.length > 1 ? { title: legendTitle } : null,
++      },
++    },
++    layer: [
++      {
++        mark: spec.type === "line" ? { type: "line", point: true } : { type: "bar" },
++        encoding: {
++          y: { field: "estimate", type: "quantitative", title: yTitle },
++          ...(spec.type === "line" ? { detail: { field: "segment", type: "nominal" } } : {}),
++        },
++      },
++      {
++        mark: { type: "errorbar" },
++        encoding: {
++          y: { field: "low", type: "quantitative", title: yTitle },
++          y2: { field: "high" },
++        },
++      },
++    ],
++  };
++}
++
++export function chartView(
++  spec: ChartSpec | null | undefined,
++  rows: DatasetRow[],
++  unavailable: boolean,
++): ChartView {
++  if (unavailable) {
++    return { kind: "error", message: "Chart could not be drawn. The table below is complete." };
++  }
++  if (spec == null) {
++    return { kind: "empty" };
++  }
++  if (!isChartSpec(spec)) {
++    return { kind: "error", message: ERROR_NOTICE };
++  }
++  const series = new Set(rows.map((row) => seriesLabel(row, spec.series_by)));
++  if (series.size > CHART_SERIES_MAX || rows.length > CHART_POINTS_MAX) {
++    return { kind: "table", message: TABLE_NOTICE };
++  }
++  const points = chartPoints(spec, rows);
++  if (points.length === 0) {
++    return { kind: "error", message: ERROR_NOTICE };
++  }
++  const drawn = vegaSpec(spec, points, rows);
++  return { kind: "spec", title: String(drawn.title), spec: drawn };
++}
+$ git diff origin/main -- web/src/chart.test.ts
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 382
+diff --git a/web/src/chart.test.ts b/web/src/chart.test.ts
+new file mode 100644
+index 0000000..492d716
+--- /dev/null
++++ b/web/src/chart.test.ts
+@@ -0,0 +1,163 @@
++import { describe, expect, it } from "vitest";
++import type { ChartSpec } from "./ask";
++import { chartView, EMBED_OPTIONS, type ChartPoint } from "./chart";
++import type { DatasetRow } from "./display";
++
++const LINE: ChartSpec = {
++  type: "line",
++  x: "year",
++  y: "estimate",
++  title: "Population",
++  show_moe: true,
++  series_by: null,
++};
++const BAR: ChartSpec = { ...LINE, type: "bar", x: "geography", title: "Rent" };
++
++function row(partial: Partial<DatasetRow>): DatasetRow {
++  return {
++    dataset: "acs5",
++    year: "2024",
++    period: "2020-2024",
++    tableId: "B01003",
++    variable: "B01003_001E",
++    geoid: "1600000US4805000",
++    name: "Austin",
++    estimate: "100",
++    moe: "10",
++    universe: "Total population",
++    ...partial,
++  };
++}
++
++function values(spec: ChartSpec | null | undefined, rows: DatasetRow[], unavailable = false): ChartPoint[] {
++  const view = chartView(spec, rows, unavailable);
++  expect(view.kind).toBe("spec");
++  if (view.kind !== "spec") {
++    return [];
++  }
++  const data = view.spec.data as { values: ChartPoint[] };
++  return data.values;
++}
++
++describe("chartView", () => {
++  it("maps a line spec onto year/period, estimate, and 90% MOE bounds", () => {
++    const points = values(LINE, [row({ year: "2019", period: "2015-2019", estimate: "100", moe: "10" })]);
++    expect(points).toEqual([
++      { x: "2015-2019", estimate: 100, low: 90, high: 110, series: "Estimate", segment: 0 },
++    ]);
++    const view = chartView(LINE, [row({ year: "2019", period: "2015-2019" })], false);
++    expect(view.kind).toBe("spec");
++    if (view.kind === "spec") {
++      expect(JSON.stringify(view.spec)).not.toMatch(/"url"\s*:/);
++      expect(view.spec).not.toHaveProperty("signals");
++      expect(view.title).toBe("Population");
++      const encoding = view.spec.encoding as { x: { title: string }; color: { legend: null } };
++      const layer = view.spec.layer as { mark: { type: string }; encoding: { y?: { title: string } } }[];
++      expect(encoding.x.title).toBe("Period");
++      expect(encoding.color.legend).toBeNull();
++      expect(layer[0]?.mark.type).toBe("line");
++      expect(layer[1]?.mark.type).toBe("errorbar");
++      expect(layer[0]?.encoding.y?.title).toBe("Total population");
++      expect((layer[1]?.encoding as { y?: { title: string } }).y?.title).toBe("Total population");
++    }
++  });
++
++  it("maps a bar spec onto geography categories", () => {
++    const points = values(BAR, [
++      row({ name: "Austin", geoid: "1600000US4805000", estimate: "100", moe: "8" }),
++      row({ name: "Dallas", geoid: "1600000US4819000", estimate: "200", moe: "12" }),
++    ]);
++    expect(points.map((point) => [point.x, point.estimate, point.low, point.high])).toEqual([
++      ["Austin", 100, 92, 108],
++      ["Dallas", 200, 188, 212],
++    ]);
++  });
++
++  it("splits two geography series on a shared year domain", () => {
++    const spec: ChartSpec = { ...LINE, series_by: "geography", title: "B01003" };
++    const rows = [
++      row({ name: "Dallas", geoid: "d", year: "2022", period: "2022", estimate: "2", moe: "1" }),
++      row({ name: "Dallas", geoid: "d", year: "2021", period: "2021", estimate: "1", moe: "1" }),
++      row({ name: "Austin", geoid: "a", year: "2021", period: "2021", estimate: "3", moe: "1" }),
++      row({ name: "Austin", geoid: "a", year: "2023", period: "2023", estimate: "4", moe: "1" }),
++    ];
++    const points = values(spec, rows);
++    expect([...new Set(points.map((point) => point.series))].sort()).toEqual(["Austin", "Dallas"]);
++    const view = chartView(spec, rows, false);
++    if (view.kind === "spec") {
++      const encoding = view.spec.encoding as {
++        x: { scale: { domain: string[] }; sort: string[] };
++        xOffset: { value: number };
++        color: { scale: { domain: string[] }; legend: { title: string } };
++      };
++      expect(view.title).toBe("Total population ΓÇö Austin and Dallas");
++      expect(view.spec.title).toBe(view.title);
++      expect(encoding.color.scale.domain).toEqual(["Austin", "Dallas"]);
++      expect(encoding.color.legend.title).toBe("Geography");
++      expect(encoding.x.scale.domain).toEqual(["2021", "2022", "2023"]);
++      expect(encoding.x.sort).toEqual(["2021", "2022", "2023"]);
++      expect(encoding.xOffset).toEqual({ value: 0 });
++    }
++  });
++
++  it("splits two variable series with stable labels", () => {
++    const spec: ChartSpec = { ...BAR, series_by: "variable" };
++    const rows = [
++      row({ variable: "B01003_001E", name: "Austin", estimate: "10", moe: "1" }),
++      row({ variable: "B01001_001E", name: "Austin", estimate: "9", moe: "1" }),
++    ];
++    expect([...new Set(values(spec, rows).map((point) => point.series))].sort()).toEqual([
++      "B01001_001E",
++      "B01003_001E",
++    ]);
++    const view = chartView(spec, rows, false);
++    if (view.kind === "spec") {
++      expect((view.spec.encoding as { xOffset: { field: string } }).xOffset).toEqual({ field: "series" });
++    }
++  });
++
++  it("does not interpolate a missing year or a Census sentinel", () => {
++    const points = values(LINE, [
++      row({ year: "2019", period: "2019", estimate: "100", moe: "10" }),
++      row({ year: "2020", period: "2020", estimate: null, moe: null }),
++      row({ year: "2021", period: "2021", estimate: "120", moe: "10" }),
++    ]);
++    expect(points.map((point) => [point.x, point.estimate, point.segment])).toEqual([
++      ["2019", 100, 0],
++      ["2021", 120, 1],
++    ]);
++    expect(points.some((point) => point.estimate === 0)).toBe(false);
++  });
++
++  it("keeps a bar category with a missing estimate as null, not zero", () => {
++    const points = values(BAR, [row({ name: "Austin", estimate: null, moe: null })]);
++    expect(points).toEqual([
++      { x: "Austin", estimate: null, low: null, high: null, series: "Estimate", segment: 0 },
++    ]);
++  });
++
++  it("falls back to the table above 12 series or 500 points", () => {
++    const geos = Array.from({ length: 13 }, (_, i) => row({ name: `G${i}`, geoid: String(i) }));
++    expect(chartView({ ...BAR, series_by: "geography" }, geos, false)).toMatchObject({
++      kind: "table",
++      message: /use the table/i,
++    });
++    const many = Array.from({ length: 501 }, (_, i) => row({ year: String(2000 + i), period: String(2000 + i) }));
++    expect(chartView(LINE, many, false).kind).toBe("table");
++  });
++
++  it("shows a chart error for an invalid spec or a failed model chart", () => {
++    expect(chartView({ ...LINE, type: "bar" } as ChartSpec, [row({})], false).kind).toBe("error");
++    expect(chartView(null, [row({})], true).kind).toBe("error");
++    expect(chartView(null, [row({})], false).kind).toBe("empty");
++    const sneaky = { ...LINE, data: { url: "https://example.invalid/chart.json" } } as ChartSpec;
++    const view = chartView(sneaky, [row({ year: "2019", period: "2019" })], false);
++    expect(view.kind).toBe("spec");
++    expect(JSON.stringify(view)).not.toContain("example.invalid");
++    expect(JSON.stringify(view)).not.toMatch(/"url"\s*:/);
++  });
++
++  it("disables Vega actions so CSV is the only export", () => {
++    expect(EMBED_OPTIONS).toEqual({ actions: false, renderer: "svg" });
++  });
++});
+$ git diff origin/main -- docs/ARCHITECTURE.md docs/ask-path.md .claude/PLAN.md web/src/ResultChart.tsx web/src/App.tsx web/src/App.test.tsx web/src/ask.ts web/src/test-setup.ts web/src/App.css web/package.json
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 434
+diff --git a/.claude/PLAN.md b/.claude/PLAN.md
+index f2ce432..4bd2630 100644
+--- a/.claude/PLAN.md
++++ b/.claude/PLAN.md
+@@ -41,7 +41,8 @@ Done (ResultPlan; floors met; p95 over-ceiling recorded not promoted;
+ Done (plan overrides; floors met; p95 over-ceiling recorded not promoted;
+ `evidence/slice-4/cc-89-e2e-post.txt`). [CC-88](https://johnhillescobar.atlassian.net/browse/CC-88)
+ Done (two-pane workspace; floors met; p95 18.550s;
+-`evidence/slice-4/cc-88-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
++`evidence/slice-4/cc-88-e2e-post.txt`). [CC-87](https://johnhillescobar.atlassian.net/browse/CC-87)
++In Progress (Vega-Lite SVG from `ChartSpec`). CC-77 waits on CC-11 table/plan-strip
+ foundations. Spike CC-9 before slice 5.
+ 
+ ---
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index eecf65a..5479614 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -1,9 +1,10 @@
+ # ARCHITECTURE ΓÇö the system as it IS
+ 
+-**Status (2026-09-24).** Slices 0ΓÇô3 are built and their epics are Done
++**Status (2026-09-25).** Slices 0ΓÇô3 are built and their epics are Done
+ (`docs/slices.md`). Post-slice-3 reliability (CC-91) is Done. Slice 4 (CC-11)
+ is in progress: `AskResponse.chart` is a validated `ChartSpec` (CC-34 Done);
+-the result pane renders one normalized GEOID/MOE table (CC-35 Done);
++the canvas translates that spec into Vega-Lite SVG over the normalized table
++(CC-87); the result pane renders one normalized GEOID/MOE table (CC-35 Done);
+ `AskResponse.plan` is a `ResultPlan` assembled from executed artifacts (CC-90 Done);
+ optional `AskRequest.plan` overrides are validated and pinned on `POST /ask` (CC-89 Done);
+ the UI is a two-pane living workspace (chat + one active canvas dataset) (CC-88 Done);
+@@ -100,10 +101,14 @@ The canvas renders one frontend-normalized table from `AskResponse`
+ geography ├ù year/period ├ù estimate variable, with GEOID, dataset, vintage,
+ period, table, variable, raw estimate, and matching 90% MOE. Scalar and
+ multi-row answers share that model. Census sentinels and missing MOE are
+-unavailable (`ΓÇö`), never zero. The plan strip reads `AskResponse.plan` and
++unavailable (`ΓÇö`), never zero. A `ChartSpec` on that response is translated
++into Vega-Lite SVG (`web/src/chart.ts`) over the same rows, with one shared x
++domain so comparison series overlay (lines) or cluster (bars); `chart_unavailable`
++or an over-limit series count shows a notice and keeps the table. The plan
++strip reads `AskResponse.plan` and
+ related `alternatives` / `ambiguous_place` candidates; apply POSTs the original
+-question plus that `ResultPlan`. Chart and CSV consume that same `AskResponse`;
+-they must not keep a second copy.
++question plus that `ResultPlan`. CSV consumes that same `AskResponse`;
++it must not keep a second copy.
+ 
+ ## Data
+ 
+diff --git a/docs/ask-path.md b/docs/ask-path.md
+index 6225fda..2498231 100644
+--- a/docs/ask-path.md
++++ b/docs/ask-path.md
+@@ -119,4 +119,6 @@ geographies with GEOID, overlapping ACS5). Edits and alternative clicks
+ POST that plan with the original question; they do not rewrite prompt
+ text. Geography is a picker over returned `GeoSpec`s. A 422 or network
+ failure keeps the prior dataset and shows the error on the strip.
+-`ChartSpec` and CSV also read this `AskResponse`.
++`ChartSpec` and CSV also read this `AskResponse`. A validated `chart` renders
++as frontend Vega-Lite SVG over the normalized rows; a failed spec notices and
++keeps the table.
+diff --git a/web/package.json b/web/package.json
+index 307c056..0436f08 100644
+--- a/web/package.json
++++ b/web/package.json
+@@ -11,7 +11,10 @@
+   },
+   "dependencies": {
+     "react": "^19.1.1",
+-    "react-dom": "^19.1.1"
++    "react-dom": "^19.1.1",
++    "vega": "^6.4.0",
++    "vega-embed": "^7.3.0",
++    "vega-lite": "^6.4.3"
+   },
+   "devDependencies": {
+     "@testing-library/react": "^16.3.0",
+diff --git a/web/src/App.css b/web/src/App.css
+index 5684b93..e29366e 100644
+--- a/web/src/App.css
++++ b/web/src/App.css
+@@ -336,6 +336,16 @@ h2 {
+   border-bottom: 1px solid #d7d4c8;
+ }
+ 
++.chart {
++  width: 100%;
++  min-height: 18rem;
++  margin: 0 0 1rem;
++}
++
++.chart .vega-embed {
++  width: 100%;
++}
++
+ .geo-table th {
+   color: #5c5a52;
+ }
+diff --git a/web/src/App.test.tsx b/web/src/App.test.tsx
+index fdfdcd5..06333f9 100644
+--- a/web/src/App.test.tsx
++++ b/web/src/App.test.tsx
+@@ -543,6 +543,21 @@ describe("App result", () => {
+       expect(screen.getByRole("columnheader", { name: header })).toBeTruthy();
+     }
+   });
++
++  it("keeps the estimates table when the chart cannot be drawn", async () => {
++    const user = userEvent.setup({ delay: null });
++    render(
++      <App askFn={() => Promise.resolve({ ...harris, chart_unavailable: true })} />,
++    );
++    await user.type(screen.getByLabelText("Question"), "population of Harris County");
++    await user.click(screen.getByRole("button", { name: "Ask" }));
++    await waitFor(() => expect(pane().dataset.state).toBe("result"));
++    expect(screen.getByRole("status").textContent).toMatch(/chart could not be drawn/i);
++    expect(document.querySelector(".chart")).toBeNull();
++    expect(screen.getByRole("cell", { name: "4,838,303" })).toBeTruthy();
++    expect(screen.getByRole("cell", { name: "123" })).toBeTruthy();
++    expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
++  });
+ });
+ 
+ describe("App workspace", () => {
+diff --git a/web/src/App.tsx b/web/src/App.tsx
+index ee20ab4..6dfa08c 100644
+--- a/web/src/App.tsx
++++ b/web/src/App.tsx
+@@ -1,5 +1,6 @@
+ import { FormEvent, useEffect, useRef, useState } from "react";
+ import { ask, AskError, type AskResponse, type ResultPlan } from "./ask";
++import { ResultChart } from "./ResultChart";
+ import { PlanStrip } from "./PlanStrip";
+ import {
+   censusFetchFailed,
+@@ -113,6 +114,7 @@ function ActiveDataset({
+           </>
+         ) : null}
+       </dl>
++      <ResultChart spec={result.chart} rows={dataset} unavailable={result.chart_unavailable} />
+       <EstimatesTable rows={dataset} />
+       <h2>Census API URL</h2>
+       {urls.length > 0 ? (
+diff --git a/web/src/ResultChart.tsx b/web/src/ResultChart.tsx
+new file mode 100644
+index 0000000..937609e
+--- /dev/null
++++ b/web/src/ResultChart.tsx
+@@ -0,0 +1,56 @@
++import { useEffect, useRef } from "react";
++import type { ChartSpec } from "./ask";
++import { chartView, EMBED_OPTIONS } from "./chart";
++import type { DatasetRow } from "./display";
++
++export function ResultChart({
++  spec,
++  rows,
++  unavailable,
++}: {
++  spec?: ChartSpec | null;
++  rows: DatasetRow[];
++  unavailable: boolean;
++}) {
++  const view = chartView(spec, rows, unavailable);
++  const node = useRef<HTMLDivElement>(null);
++  const payload = view.kind === "spec" ? JSON.stringify(view.spec) : "";
++
++  useEffect(() => {
++    const el = node.current;
++    if (!payload || !el) {
++      return;
++    }
++    let drop = false;
++    let stop = () => undefined as void;
++    void import("vega-embed").then((mod) => {
++      if (drop) {
++        return;
++      }
++      return mod.default(el, JSON.parse(payload) as Record<string, unknown>, EMBED_OPTIONS).then((result) => {
++        if (drop) {
++          result.finalize();
++          return;
++        }
++        stop = () => result.finalize();
++      });
++    });
++    return () => {
++      drop = true;
++      stop();
++      el.replaceChildren();
++    };
++  }, [payload]);
++
++  if (view.kind === "empty") {
++    return null;
++  }
++  if (view.kind !== "spec") {
++    return (
++      <p className="notice" role="status">
++        {view.message}
++      </p>
++    );
++  }
++  return <div ref={node} className="chart" role="img" aria-label={view.title} />;
++}
+diff --git a/web/src/ask.ts b/web/src/ask.ts
+index 9d39447..9b56d19 100644
+--- a/web/src/ask.ts
++++ b/web/src/ask.ts
+@@ -3,6 +3,7 @@ import type { components } from "../../packages/client/schema";
+ export type Alternative = components["schemas"]["Alternative"];
+ export type AskWarning = components["schemas"]["AskWarning"];
+ export type AskResponse = components["schemas"]["AskResponse"];
++export type ChartSpec = components["schemas"]["ChartSpec"];
+ export type ResultPlan = components["schemas"]["ResultPlan"];
+ export type GeoSpec = components["schemas"]["GeoSpec"];
+ 
+diff --git a/web/src/test-setup.ts b/web/src/test-setup.ts
+index b3f5d87..c961f01 100644
+--- a/web/src/test-setup.ts
++++ b/web/src/test-setup.ts
+@@ -1,6 +1,10 @@
+ import { cleanup } from "@testing-library/react";
+ import { afterEach, vi } from "vitest";
+ 
++vi.mock("vega-embed", () => ({
++  default: vi.fn(() => Promise.resolve({ finalize: vi.fn() })),
++}));
++
+ afterEach(() => {
+   cleanup();
+   vi.restoreAllMocks();
+$ uv run python scripts/check_budgets.py
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 545
+
+BUDGETS
+
+  ok    api src LOC               4000 <= 4000
+  ok    api src files               24 <= 40
+  ok    largest file LOC           398 <= 400
+  ok    web src LOC               3000 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1604 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         18.306 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.817 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+$ uv run python scripts/check_invariants.py --base origin/main
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 658
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+$ uv run ruff check .
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 174
+[1;32mAll checks passed![0m
+$ uv run ruff format --check .
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 172
+148 files already formatted
+$ uv run mypy api/src
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 1458
+Success: no issues found in 24 source files
+$ uv run pytest -q -m "not integration"
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge
+exit: 0
+elapsed_ms: 27765
+........................................................................ [ 14%]
+........................................................................ [ 28%]
+........................................................................ [ 42%]
+........................................................................ [ 57%]
+........................................................................ [ 71%]
+........................................................................ [ 85%]
+.......................................................................  [100%]
+503 passed in 25.58s
+$ npm test
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge\web
+exit: 0
+elapsed_ms: 18407
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ Γ£ô src/chart.test.ts (9 tests) 16ms
+ Γ£ô src/plan.test.ts (7 tests) 26ms
+ Γ£ô src/ask.test.ts (7 tests) 83ms
+ Γ£ô src/display.test.ts (26 tests) 75ms
+ Γ£ô src/PlanStrip.test.tsx (7 tests) 3280ms
+   Γ£ô PlanStrip > renders the returned plan, not answer prose  610ms
+   Γ£ô PlanStrip > enters edit mode, restores the draft on cancel, and returns focus to the strip  1187ms
+   Γ£ô PlanStrip > does not offer a for/in text box  300ms
+   Γ£ô PlanStrip > does not apply with every geography unchecked  379ms
+ Γ£ô src/App.plan.test.tsx (10 tests) 6767ms
+   Γ£ô plan refinement > posts a table edit with the original question, not rewritten prompt text  2545ms
+   Γ£ô plan refinement > posts a geography pick from returned candidates  982ms
+   Γ£ô plan refinement > posts dataset, year list, and overlapping-ACS5 together  493ms
+   Γ£ô plan refinement > keeps the prior result when the override is rejected and shows the field error  384ms
+   Γ£ô plan refinement > does not send a plan when the editor is cancelled  333ms
+   Γ£ô plan refinement > uses the original question even if the chat input changed  642ms
+   Γ£ô plan refinement > clears a chat error after a successful plan apply  660ms
+ Γ£ô src/App.test.tsx (25 tests) 9675ms
+   Γ£ô App pane states > starts idle, with no Census URL  471ms
+   Γ£ô App pane states > shows a loading state distinct from idle while the request is in flight  1287ms
+   Γ£ô App pane states > shows an error state distinct from idle when the API is unreachable  580ms
+   Γ£ô App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  940ms
+   Γ£ô App result > copies the visible Census URL without a key parameter  424ms
+   Γ£ô App result > replaces every previous table row when a new result arrives  812ms
+   Γ£ô App result > keeps the estimates table keyboard-reachable with semantic headers  342ms
+   Γ£ô App result > keeps the estimates table when the chart cannot be drawn  379ms
+   Γ£ô App workspace > keeps the prior result visible while a later question is loading  486ms
+   Γ£ô App workspace > replaces the active result only after a successful response  529ms
+   Γ£ô App workspace > keeps the prior result and shows a later failure separately  544ms
+   Γ£ô App workspace > moves keyboard focus to canvas status after submit and to the alert after an error  630ms
+
+ Test Files  7 passed (7)
+      Tests  91 passed (91)
+   Start at  07:29:44
+   Duration  16.33s (transform 1.19s, setup 4.97s, collect 6.02s, tests 19.92s, environment 9.97s, prepare 1.82s)
+$ npm run typecheck
+cwd: C:\Users\johnh\Dropbox\Python\census-concierge\web
+exit: 0
+elapsed_ms: 3075
+
+> typecheck
+> tsc --noEmit
+=== pass 1 — generic bugs (cold read, working tree vs origin/main) ===
+
+Looked at: git diff origin/main (working tree), git diff unstaged, git log
+origin/main...HEAD (7ee23a6 + ffa8603), on-disk web/src/chart.ts,
+web/src/chart.test.ts, web/src/ResultChart.tsx, App.tsx chart mount,
+test-setup.ts vega-embed mock, docs/ARCHITECTURE.md. No API Python in the
+product diff (ffa8603 is chart y-titles + evidence).
+
+Interpolation of gaps: nothing.
+  Line path still walks every calendar year between min and max; missing year
+  or null/non-numeric estimate increments segment and is not pushed.
+  xDomain includes those row labels as ordinal ticks; it does not invent
+  estimates. Layer detail=segment still breaks the line. Test: 2019 /
+  sentinel 2020 / 2021 -> segments 0 and 1, no zero.
+
+Wrong scale / misaligned comparison series: nothing blocking.
+  Uncommitted patch sets x.sort and x.scale.domain from xDomain. Year rank
+  is numeric row.year (not first-seen). Test with Dallas 2022 before 2021
+  and Austin missing 2022 expects domain [2021, 2022, 2023].
+  Lines: xOffset { value: 0 } (overlay). Bars with 2+ series: xOffset
+  { field: "series" } (dodge). Both asserted.
+
+Wrong MOE: nothing.
+  low/high remain estimate +/- moe; missing either -> null bounds, not 0.
+  isChartSpec still requires show_moe === true. Errorbar layer always
+  present on a drawn spec. ffa8603 titles that layer y with universe so
+  Vega does not inherit the field name "low". Test asserts both layer y
+  titles are "Total population".
+
+Leaking data.url: nothing.
+  Vega spec still built in vegaSpec() with data.values = points only.
+  Extra data.url on a sneaky ChartSpec is not copied. Test still asserts
+  no "url" key and drops example.invalid.
+
+Enabling Vega actions: nothing.
+  EMBED_OPTIONS = { actions: false, renderer: "svg" }; ResultChart passes
+  that object. Test asserts the constant.
+
+Raising budgets: nothing.
+  budgets.toml is not in the diff. check_invariants --base origin/main:
+  ok budget increases. web src LOC 3000 <= 3000 (at the cap, not over).
+  api src LOC also 4000 <= 4000 (unchanged by this PR's Python).
+
+Dropped URL / GEOID / universe / table on the canvas: nothing.
+  ResultChart sits above EstimatesTable and Census API URL. chart_unavailable
+  still notices and keeps estimate, MOE, and URL (App.test.tsx).
+
+Title regex: not a wrong chart, follow-up only.
+  Human title "Population" is kept (test). Table-id titles (B01003) are
+  replaced with universe -- names when 1-3 named geos exist.
+  Pattern /^[A-Z]{1,3}\d{2,5}/i is unanchored at the end, so FY2024 / US2020
+  / H2010-style prefixes would also be replaced. Chart values are untouched.
+
+Other (not blocking):
+  1. Line byYear.set(year, row) last-wins inside a series.
+  2. Geography x/series labels are name || geoid. Homonyms can merge on
+     the chart. Table still has GEOID.
+  3. ResultChart has no rejection handler on import("vega-embed") / embed().
+     vitest mocks vega-embed, so live SVG/actions are not executed.
+  4. Bar + series_by=geography would dodge despite one bar per category
+     (model can emit that; take_chart fallback does not).
+
+=== pass 2 — project invariants (review-pr.md) ===
+
+Machines: all exit 0. Review continues.
+  check_budgets.py
+  check_invariants.py --base origin/main
+  ruff check .
+  ruff format --check .
+  mypy api/src
+  pytest -q -m "not integration"  (503 passed)
+  npm test  (91 passed)
+  npm run typecheck
+
+The claim:
+  A user with a validated AskResponse.chart now sees a Vega-Lite SVG
+  (line or bar, 90% MOE error bars) over the same normalized rows as the
+  GEOID/estimate/MOE table. Comparison series share one x domain: lines
+  overlay, multi-series bars cluster. Table-id chart titles become
+  universe plus place names. chart_unavailable or over-limit series/points
+  notices and keeps the table and URL.
+  make eval / make demo: not this phase (Gate 2 only). No scoreboard
+  claimed on this re-run.
+
+Is the evidence real?
+  Gate 2 does not run eval/demo. ffa8603 records live chart proof under
+  evidence/slice-4/; this review did not Read those transcripts/PNGs.
+
+Scope:
+  Belongs to slice 4 CC-87 (PLAN.md Now: Vega-Lite SVG from ChartSpec).
+  Not in this slice: memory, auth, PDF. CSV is a later CC-11 item; not in
+  this diff as a feature.
+  git diff --stat origin/main: 21 files. Over ~15 because ffa8603 added
+  Gate 1/2 transcripts, live-proof markdown, JSON, and PNGs. Product code
+  stays the chart renderer + docs + lockfile. Uncommitted patch is three
+  already-touched files (ARCHITECTURE, chart.ts, chart.test.ts). No
+  drive-by API or retrieval work.
+
+Silent-wrong-answer:
+  URL, MOE, GEOID, universe: still on ActiveDataset including fetch-failed
+  and incomplete-years notices. Chart is additive above the table.
+  &key=: no new URL formatter; frontend does not spread API JSON into embed.
+  Numbers through the model: no API change; y is the column role estimate;
+  values come from DatasetRow.
+  Blocking clarification: nothing added.
+  Silent repair of vintage/geography: nothing. take_chart (not in this
+  diff) still refuses x=year when overlapping_vintage is in warnings.
+  Frontend does not interpolate omitted years. Overlapping ACS5 is not
+  silently charted by this translator.
+
+Shape:
+  No new tool, route, Pydantic model, or .add_node(). ChartSpec already
+  existed (CC-34). ARCHITECTURE.md updated in 7ee23a6 and again in the
+  uncommitted patch (shared x domain; overlay vs cluster). ask-path.md UI
+  paragraph updated in 7ee23a6. No *_manager / orchestrator / factory.
+
+Tests:
+  chart.test.ts asserts translator behaviour (MOE bounds, gap segments,
+  null-not-zero, shared year domain, xOffset overlay vs dodge, derived
+  title, 12/500 caps, no data.url, actions:false, both layer y titles).
+  No prompt-wording or LLM-prose assertions. No ticket-named test file.
+  No retrieval fake. vega-embed is mocked in test-setup.ts.
+  A passing vitest run is not demo evidence.
+
+=== verdict ===
+
+Ship it with follow-ups — machines passed; the alignment patch gives
+comparison series a shared ordinal domain (lines overlay, bars dodge);
+MOE error bars keep a universe axis title; the renderer does not
+interpolate gaps, leak data.url, enable Vega actions, raise a budget, or
+drop URL/MOE/GEOID/universe from the canvas.
+
+Follow-ups (none are silent-wrong-answer on the response contract):
+  1. web src LOC is exactly 3000; any added line fails check_budgets.
+  2. Title regex can treat FY2024 / US2020-style prefixes as table IDs.
+  3. Line last-wins per year within a series if ChartSpec does not split.
+  4. Chart geography labels use name, not GEOID.
+  5. Embed failures are unhandled; unit tests mock vega-embed.
+  6. ask-path.md still does not mention the 12-series / 500-row fallback
+     (ARCHITECTURE.md does).

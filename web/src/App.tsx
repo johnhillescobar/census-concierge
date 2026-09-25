@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { ask, AskError, type AskResponse, type ResultPlan } from "./ask";
+import { ResultChart } from "./ResultChart";
 import { PlanStrip } from "./PlanStrip";
 import {
   censusFetchFailed,
@@ -113,6 +114,7 @@ function ActiveDataset({
           </>
         ) : null}
       </dl>
+      <ResultChart spec={result.chart} rows={dataset} unavailable={result.chart_unavailable} />
       <EstimatesTable rows={dataset} />
       <h2>Census API URL</h2>
       {urls.length > 0 ? (

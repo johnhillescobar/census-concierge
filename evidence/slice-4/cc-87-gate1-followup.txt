@@ -1,0 +1,358 @@
+CC-87 Gate 1 (follow-up: homonym, series_by, last-wins, title regex, embed fail)
+branch: feat/cc-87-charts
+chart.ts SHA256 before: 11ad6332297b63f50149d08eda1a92429449a29e6b304380dd046d3b75806a40
+ResultChart.tsx SHA256 before: 94c2e21ab8edba579c889cd45f89f8b48031d195752c8cc3a14dc050d472dd0b
+# GOOD = test fails against the broken implementation
+# BAD  = test still passes
+
+========== baseline ==========
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/chart.test.tsx (9 tests) 91ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  15:25:26
+   Duration  3.79s (transform 86ms, setup 236ms, collect 77ms, tests 91ms, environment 730ms, prepare 138ms)
+
+exit: 0
+
+---------- MUTATION: homonym-labels-drop-geoid ----------
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.tsx (9 tests | 1 failed | 8 skipped) 11ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   × chartView > maps a bar spec onto geography categories 10ms
+     → expected 'error' to be 'spec' // Object.is equality
+   ↓ chartView > splits two geography series on a shared year domain
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  15:25:33
+   Duration  4.09s (transform 107ms, setup 310ms, collect 87ms, tests 11ms, environment 1.07s, prepare 125ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.tsx > chartView > maps a bar spec onto geography categories
+AssertionError: expected 'error' to be 'spec' // Object.is equality
+
+Expected: "spec"
+Received: "error"
+
+ ❯ values src/chart.test.tsx:29:21
+     27| function values(spec: ChartSpec | null | undefined, rows: DatasetRow[]…
+     28|   const view = chartView(spec, rows, unavailable);
+     29|   expect(view.kind).toBe("spec");
+       |                     ^
+     30|   return view.kind === "spec" ? (view.spec.data as { values: ChartPoin…
+     31| }
+ ❯ src/chart.test.tsx:56:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+exit: 1
+GOOD: test failed against broken implementation (homonym-labels-drop-geoid)
+
+---------- MUTATION: omit-series-by-inference ----------
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.tsx (9 tests | 1 failed | 8 skipped) 11ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   × chartView > splits two geography series on a shared year domain 10ms
+     → expected 'error' to be 'spec' // Object.is equality
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  15:25:40
+   Duration  4.05s (transform 98ms, setup 280ms, collect 78ms, tests 11ms, environment 753ms, prepare 136ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.tsx > chartView > splits two geography series on a shared year domain
+AssertionError: expected 'error' to be 'spec' // Object.is equality
+
+Expected: "spec"
+Received: "error"
+
+ ❯ values src/chart.test.tsx:29:21
+     27| function values(spec: ChartSpec | null | undefined, rows: DatasetRow[]…
+     28|   const view = chartView(spec, rows, unavailable);
+     29|   expect(view.kind).toBe("spec");
+       |                     ^
+     30|   return view.kind === "spec" ? (view.spec.data as { values: ChartPoin…
+     31| }
+ ❯ src/chart.test.tsx:74:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+exit: 1
+GOOD: test failed against broken implementation (omit-series-by-inference)
+
+---------- MUTATION: allow-mixed-geo-and-variable ----------
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.tsx (9 tests | 1 failed | 8 skipped) 11ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series on a shared year domain
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   × chartView > shows a chart error for an invalid spec or a failed model chart 10ms
+     → expected 'spec' to be 'error' // Object.is equality
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  15:25:48
+   Duration  3.68s (transform 86ms, setup 253ms, collect 71ms, tests 11ms, environment 772ms, prepare 137ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.tsx > chartView > shows a chart error for an invalid spec or a failed model chart
+AssertionError: expected 'spec' to be 'error' // Object.is equality
+
+Expected: "error"
+Received: "spec"
+
+ ❯ src/chart.test.tsx:139:126
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+exit: 1
+GOOD: test failed against broken implementation (allow-mixed-geo-and-variable)
+
+---------- MUTATION: line-last-wins-same-year ----------
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.tsx (9 tests | 1 failed | 8 skipped) 10ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series on a shared year domain
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   × chartView > shows a chart error for an invalid spec or a failed model chart 9ms
+     → expected 'spec' to be 'error' // Object.is equality
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  15:25:54
+   Duration  3.56s (transform 74ms, setup 216ms, collect 66ms, tests 10ms, environment 689ms, prepare 126ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.tsx > chartView > shows a chart error for an invalid spec or a failed model chart
+AssertionError: expected 'spec' to be 'error' // Object.is equality
+
+Expected: "error"
+Received: "spec"
+
+ ❯ src/chart.test.tsx:140:191
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+exit: 1
+GOOD: test failed against broken implementation (line-last-wins-same-year)
+
+---------- MUTATION: loose-title-regex ----------
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.tsx (9 tests | 1 failed | 8 skipped) 13ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   × chartView > splits two geography series on a shared year domain 12ms
+     → expected 'Total population — Austin and Dallas' to be 'FY2024 revenue' // Object.is equality
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   ↓ chartView > disables Vega actions so CSV is the only export
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+   Start at  15:26:01
+   Duration  3.93s (transform 86ms, setup 206ms, collect 72ms, tests 13ms, environment 821ms, prepare 197ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.tsx > chartView > splits two geography series on a shared year domain
+AssertionError: expected 'Total population — Austin and Dallas' to be 'FY2024 revenue' // Object.is equality
+
+Expected: "FY2024 revenue"
+Received: "Total population — Austin and Dallas"
+
+ ❯ src/chart.test.tsx:92:80
+     90|       { value: 0 },
+     91|     ]);
+     92|     expect(chartView({ ...spec, title: "FY2024 revenue" }, rows, false…
+       |                                                                                ^
+     93|   });
+     94| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+exit: 1
+GOOD: test failed against broken implementation (loose-title-regex)
+
+---------- MUTATION: unhandled-embed-rejection ----------
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ❯ src/chart.test.tsx (9 tests | 1 failed | 8 skipped) 1054ms
+   ↓ chartView > maps a line spec onto year/period, estimate, and 90% MOE bounds
+   ↓ chartView > maps a bar spec onto geography categories
+   ↓ chartView > splits two geography series on a shared year domain
+   ↓ chartView > splits two variable series with stable labels
+   ↓ chartView > does not interpolate a missing year or a Census sentinel
+   ↓ chartView > keeps a bar category with a missing estimate as null, not zero
+   ↓ chartView > falls back to the table above 12 series or 500 points
+   ↓ chartView > shows a chart error for an invalid spec or a failed model chart
+   × chartView > disables Vega actions so CSV is the only export 1051ms
+     → Unable to find role="status"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-label[39m=[32m"Population"[39m
+      [33mclass[39m=[32m"chart"[39m
+      [33mrole[39m=[32m"img"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Population"[39m
+        [33mclass[39m=[32m"chart"[39m
+        [33mrole[39m=[32m"img"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 skipped (9)
+     Errors  1 error
+   Start at  15:26:11
+   Duration  9.52s (transform 176ms, setup 709ms, collect 149ms, tests 1.05s, environment 2.09s, prepare 354ms)
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/chart.test.tsx > chartView > disables Vega actions so CSV is the only export
+TestingLibraryElementError: Unable to find role="status"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-label[39m=[32m"Population"[39m
+      [33mclass[39m=[32m"chart"[39m
+      [33mrole[39m=[32m"img"[39m
+    [36m/>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Population"[39m
+        [33mclass[39m=[32m"chart"[39m
+        [33mrole[39m=[32m"img"[39m
+      [36m/>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/chart.test.tsx:152:11
+    150|     vi.mocked((await import("vega-embed")).default).mockRejectedValueO…
+    151|     render(<ResultChart spec={LINE} rows={[row({ year: "2019", period:…
+    152|     await waitFor(() => expect(screen.getByRole("status").textContent)…
+       |           ^
+    153|   });
+    154| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: vega
+ ❯ src/chart.test.tsx:150:92
+    148|   it("disables Vega actions so CSV is the only export", async () => {
+    149|     expect(EMBED_OPTIONS).toEqual({ actions: false, renderer: "svg" });
+    150|     vi.mocked((await import("vega-embed")).default).mockRejectedValueO…
+       |                                                                                            ^
+    151|     render(<ResultChart spec={LINE} rows={[row({ year: "2019", period:…
+    152|     await waitFor(() => expect(screen.getByRole("status").textContent)…
+ ❯ processTicksAndRejections node:internal/process/task_queues:105:5
+ ❯ node_modules/@vitest/runner/dist/chunk-hooks.js:752:20
+
+This error originated in "src/chart.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "disables Vega actions so CSV is the only export". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+exit: 1
+GOOD: test failed against broken implementation (unhandled-embed-rejection)
+
+chart.ts SHA256 after restore: 11ad6332297b63f50149d08eda1a92429449a29e6b304380dd046d3b75806a40
+ResultChart.tsx SHA256 after restore: 94c2e21ab8edba579c889cd45f89f8b48031d195752c8cc3a14dc050d472dd0b
+match backup chart: True
+match backup result: True
+
+========== restored tests ==========
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/web
+
+ ✓ src/chart.test.tsx (9 tests) 76ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  15:26:25
+   Duration  3.91s (transform 88ms, setup 231ms, collect 73ms, tests 76ms, environment 693ms, prepare 142ms)
+
+exit: 0
