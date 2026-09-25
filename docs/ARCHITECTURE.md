@@ -104,7 +104,10 @@ multi-row answers share that model. Census sentinels and missing MOE are
 unavailable (`—`), never zero. A `ChartSpec` on that response is translated
 into Vega-Lite SVG (`web/src/chart.ts`) over the same rows, with one shared x
 domain so comparison series overlay (lines) or cluster (bars); `chart_unavailable`
-or an over-limit series count shows a notice and keeps the table. The plan
+or an over-limit series count or embed failure shows a notice and keeps the table.
+Homonymous Census NAMEs stay separate series (GEOID in the label); a `ChartSpec`
+that omits `series_by` is inferred from the rows or declined if both geography
+and variable vary. The plan
 strip reads `AskResponse.plan` and
 related `alternatives` / `ambiguous_place` candidates; apply POSTs the original
 question plus that `ResultPlan`. CSV consumes that same `AskResponse`;

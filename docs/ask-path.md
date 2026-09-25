@@ -120,5 +120,5 @@ POST that plan with the original question; they do not rewrite prompt
 text. Geography is a picker over returned `GeoSpec`s. A 422 or network
 failure keeps the prior dataset and shows the error on the strip.
 `ChartSpec` and CSV also read this `AskResponse`. A validated `chart` renders
-as frontend Vega-Lite SVG over the normalized rows; a failed spec notices and
-keeps the table.
+as frontend Vega-Lite SVG over the normalized rows; a failed spec, embed, or
+over-limit series notices and keeps the table. Geography series are keyed by GEOID.

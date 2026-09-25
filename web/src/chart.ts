@@ -4,6 +4,7 @@ import type { DatasetRow } from "./display";
 export const CHART_SERIES_MAX = 12;
 export const CHART_POINTS_MAX = 500;
 export const EMBED_OPTIONS = { actions: false, renderer: "svg" as const };
+export const CHART_FAIL = "Chart could not be drawn. The table below is complete.";
 
 export type ChartPoint = {
   x: string;
@@ -31,21 +32,34 @@ function yearOf(row: DatasetRow): number | null {
   return row.year && /^\d+$/.test(row.year) ? Number(row.year) : null;
 }
 
-function seriesLabel(row: DatasetRow, by: ChartSpec["series_by"]): string {
-  if (by === "variable") return row.variable;
-  if (by === "geography") return row.name || row.geoid;
-  return "Estimate";
+function geoName(rows: DatasetRow[], row: DatasetRow): string {
+  const name = row.name || row.geoid;
+  const id = row.geoid || row.name;
+  return rows.some((other) => (other.geoid || other.name) !== id && (other.name || other.geoid) === name)
+    ? `${name} (${id})`
+    : name;
 }
 
-function xLabel(row: DatasetRow, x: ChartSpec["x"]): string {
-  return x === "year" ? row.period || row.year : row.name || row.geoid;
+function seriesBy(spec: ChartSpec, rows: DatasetRow[]): ChartSpec["series_by"] | false {
+  if (spec.series_by) return spec.series_by;
+  const geos = new Set(rows.map((row) => row.geoid)).size > 1;
+  const vars = new Set(rows.map((row) => row.variable)).size > 1;
+  return geos && vars ? false : geos ? "geography" : vars ? "variable" : null;
+}
+
+function seriesLabel(row: DatasetRow, by: ChartSpec["series_by"], rows: DatasetRow[]): string {
+  return by === "variable" ? row.variable : by === "geography" ? geoName(rows, row) : "Estimate";
+}
+
+function xLabel(row: DatasetRow, x: ChartSpec["x"], rows: DatasetRow[]): string {
+  return x === "year" ? row.period || row.year : geoName(rows, row);
 }
 
 function chartTitle(spec: ChartSpec, rows: DatasetRow[]): string {
   const tableId = rows.find((row) => row.tableId)?.tableId || "";
   const universe = rows.find((row) => row.universe)?.universe || "";
   const raw = spec.title.trim();
-  if (raw && raw !== tableId && !/^[A-Z]{1,3}\d{2,5}/i.test(raw)) return raw;
+  if (raw && raw !== tableId && !/^[BC]\d{5}[A-I]?$/i.test(raw)) return raw;
   const names = [...new Set(rows.map((row) => row.name).filter(Boolean))].sort();
   return universe && names.length > 0 && names.length <= 3
     ? `${universe} — ${names.join(" and ")}`
@@ -55,7 +69,7 @@ function chartTitle(spec: ChartSpec, rows: DatasetRow[]): string {
 function xDomain(spec: ChartSpec, rows: DatasetRow[]): string[] {
   const rank = new Map<string, number>();
   for (const row of rows) {
-    const label = xLabel(row, spec.x);
+    const label = xLabel(row, spec.x, rows);
     if (!rank.has(label)) rank.set(label, spec.x === "year" ? (yearOf(row) ?? rank.size) : rank.size);
   }
   return [...rank.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([k]) => k);
@@ -73,7 +87,7 @@ function isChartSpec(value: ChartSpec | null | undefined): value is ChartSpec {
 export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
   const groups = new Map<string, DatasetRow[]>();
   for (const row of rows) {
-    const key = seriesLabel(row, spec.series_by);
+    const key = seriesLabel(row, spec.series_by, rows);
     const list = groups.get(key);
     if (list) list.push(row);
     else groups.set(key, [row]);
@@ -84,7 +98,10 @@ export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
       const byYear = new Map<number, DatasetRow>();
       for (const row of list) {
         const year = yearOf(row);
-        if (year != null) byYear.set(year, row);
+        if (year == null) continue;
+        const prev = byYear.get(year);
+        if (prev && (prev.geoid !== row.geoid || prev.variable !== row.variable)) return [];
+        byYear.set(year, row);
       }
       const years = [...byYear.keys()].sort((a, b) => a - b);
       if (years.length === 0) continue;
@@ -100,13 +117,18 @@ export function chartPoints(spec: ChartSpec, rows: DatasetRow[]): ChartPoint[] {
           }
           continue;
         }
-        points.push({ x: xLabel(row!, spec.x), estimate, series, segment, ...bounds(estimate, num(row!.moe)) });
+        points.push({ x: xLabel(row!, spec.x, rows), estimate, series, segment, ...bounds(estimate, num(row!.moe)) });
         open = true;
       }
     } else {
+      const seen = new Map<string, DatasetRow>();
       for (const row of list) {
+        const x = xLabel(row, spec.x, rows);
+        const prev = seen.get(x);
+        if (prev && (prev.geoid !== row.geoid || prev.variable !== row.variable)) return [];
+        seen.set(x, row);
         const estimate = num(row.estimate);
-        points.push({ x: xLabel(row, spec.x), estimate, series, segment: 0, ...bounds(estimate, num(row.moe)) });
+        points.push({ x, estimate, series, segment: 0, ...bounds(estimate, num(row.moe)) });
       }
     }
   }
@@ -162,23 +184,18 @@ export function chartView(
   rows: DatasetRow[],
   unavailable: boolean,
 ): ChartView {
-  if (unavailable) {
-    return { kind: "error", message: "Chart could not be drawn. The table below is complete." };
-  }
-  if (spec == null) {
-    return { kind: "empty" };
-  }
-  if (!isChartSpec(spec)) {
-    return { kind: "error", message: ERROR_NOTICE };
-  }
-  const series = new Set(rows.map((row) => seriesLabel(row, spec.series_by)));
+  if (unavailable) return { kind: "error", message: CHART_FAIL };
+  if (spec == null) return { kind: "empty" };
+  if (!isChartSpec(spec)) return { kind: "error", message: ERROR_NOTICE };
+  const by = seriesBy(spec, rows);
+  if (by === false) return { kind: "error", message: ERROR_NOTICE };
+  const drawn = { ...spec, series_by: by };
+  const series = new Set(rows.map((row) => seriesLabel(row, by, rows)));
   if (series.size > CHART_SERIES_MAX || rows.length > CHART_POINTS_MAX) {
     return { kind: "table", message: TABLE_NOTICE };
   }
-  const points = chartPoints(spec, rows);
-  if (points.length === 0) {
-    return { kind: "error", message: ERROR_NOTICE };
-  }
-  const drawn = vegaSpec(spec, points, rows);
-  return { kind: "spec", title: String(drawn.title), spec: drawn };
+  const points = chartPoints(drawn, rows);
+  if (points.length === 0) return { kind: "error", message: ERROR_NOTICE };
+  const vega = vegaSpec(drawn, points, rows);
+  return { kind: "spec", title: String(vega.title), spec: vega };
 }
