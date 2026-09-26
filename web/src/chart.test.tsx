@@ -87,9 +87,17 @@ describe("chartView", () => {
       "Geography",
       ["2021", "2022", "2023"],
       ["2021", "2022", "2023"],
-      { value: 0 },
+      undefined,
     ]);
     expect(chartView({ ...spec, title: "FY2024 revenue" }, rows, false)).toMatchObject({ kind: "spec", title: "FY2024 revenue" });
+  });
+
+  it("does not dodge a multi-geography bar chart, and pins its scale to band so bars align with ticks", () => {
+    const rows = [row({ name: "Chicago", geoid: "c1" }), row({ name: "Los Angeles", geoid: "c2" })];
+    const view = chartView(BAR, rows, false);
+    if (view.kind !== "spec") throw new Error("expected a spec");
+    const encoding = view.spec.encoding as { xOffset?: { field?: string }; x: { scale: { type: string } } };
+    expect([encoding.xOffset, encoding.x.scale.type]).toEqual([undefined, "band"]);
   });
 
   it("splits two variable series with stable labels", () => {
