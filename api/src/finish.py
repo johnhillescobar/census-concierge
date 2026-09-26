@@ -63,10 +63,13 @@ def _wrong_listing(record: Any, question: str) -> bool:
 
 
 def _wrong_comparison(record: Any, question: str) -> bool:
+    status = getattr(record, "geo_status", None) or {}
+    queries = list(getattr(record, "geo_queries", None) or [])
+    if len(queries) >= 2 and not status.get("compare"):
+        return True
     sides = split_comparison(question)
     if sides is None:
         return False
-    status = getattr(record, "geo_status", None) or {}
     return int(status.get("compare_count", 0) or 0) < len(sides)
 
 
@@ -110,7 +113,13 @@ async def finish_tools(
         ):
             await dispatch(search, {"id": "search_tables", "args": {"question": question}}, record)
         if geo is not None and (redo or not record.geographies):
-            args: dict[str, Any] = {"query": _listing_query(question)}
+            status = getattr(record, "geo_status", None) or {}
+            queries = list(getattr(record, "geo_queries", None) or [])
+            args: dict[str, Any] = (
+                {"places": queries}
+                if len(queries) >= 2 and not status.get("compare")
+                else {"query": _listing_query(question)}
+            )
             if wants_acs1(question):
                 args["dataset"] = "acs1"
             await dispatch(geo, {"id": "resolve_geography", "args": args}, record)

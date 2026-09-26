@@ -768,11 +768,12 @@ async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
     assert [row.for_spec for row in fetch.last_geographies()] == ["place:70000", "state:48"]
 
 
-async def test_and_phrased_comparison_keeps_both_legs_including_an_ambiguous_one() -> None:
+async def test_and_phrased_comparison_resolves_both_geographies() -> None:
     question = "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": question}}, record)
+    places = {"places": ["Austin city, Texas", "Dallas city, Texas"]}
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
     assert record.geo_status["compare_count"] == 2
@@ -786,11 +787,12 @@ async def test_and_phrased_comparison_keeps_both_legs_including_an_ambiguous_one
     assert [row.for_spec for row in fetch.last_geographies()] == ["place:4805000", "place:19000"]
 
 
-async def test_and_phrased_comparison_across_states_keeps_both_legs() -> None:
+async def test_and_phrased_comparison_across_states() -> None:
     question = "Compare the population of Detroit city, Michigan and Phoenix city, Arizona."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": question}}, record)
+    places = {"places": ["Detroit city, Michigan", "Phoenix city, Arizona"]}
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
     assert record.geo_status["compare_count"] == 2
@@ -802,14 +804,15 @@ async def test_and_phrased_comparison_across_states_keeps_both_legs() -> None:
     assert [row.in_spec for row in fetch.last_geographies()] == ["state:26", "state:04"]
 
 
-async def test_three_way_and_list_comparison_keeps_all_three_legs() -> None:
+async def test_three_way_and_list_comparison() -> None:
     question = (
         "Compare the population of Austin city, Texas, Houston city, Texas, "
         "and San Antonio city, Texas since 2019."
     )
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": question}}, record)
+    places = {"places": ["Austin city, Texas", "Houston city, Texas", "San Antonio city, Texas"]}
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
     assert record.geo_status["compare_count"] == 3
@@ -827,6 +830,36 @@ async def test_three_way_and_list_comparison_keeps_all_three_legs() -> None:
         "place:4805000",
         "place:35000",
         "place:65000",
+    ]
+
+
+async def test_bare_unqualified_city_names_resolve_all_places() -> None:
+    """AC8 (CC-100): the question names no state anywhere. Old code (PR #86)
+    had no `places` field at all -- resolve_geography would only ever see
+    this as a single `query` string, and its regex list-splitter needs a
+    state/DC anchor to find clause boundaries, so it would resolve one place
+    and silently drop the rest."""
+    question = "Compare the population of Chicago, Los Angeles and New York City since 2017."
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    places = {"places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["compare"] is True
+    assert record.geo_status["compare_count"] == 3
+    assert [row.for_spec for row in record.geographies] == [
+        "place:1714000",
+        "place:0644000",
+        "place:3651000",
+    ]
+    response = assemble(question, record)
+    assert response.warnings == []
+    fetch = tools["fetch_data"]
+    assert fetch.last_geographies is not None
+    assert [row.for_spec for row in fetch.last_geographies()] == [
+        "place:1714000",
+        "place:0644000",
+        "place:3651000",
     ]
 
 
@@ -873,6 +906,69 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
     assert "ambiguous_place" in warnings_by_code
     assert "Lake Dallas city, Texas" in warnings_by_code["ambiguous_place"].detail
     assert response.answer == "Austin and Dallas compared."
+
+
+async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparison() -> None:
+    """Gate 2 finding: two sequential resolve_geography calls naming the SAME
+    place ("Springfield" -> "Springfield, Illinois", disambiguating rather
+    than adding a leg) must not be replayed as a fabricated two-way
+    comparison the question never asked for."""
+    question = "What is the population of Springfield, Illinois?"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [{"id": "0", "name": "search_tables", "args": {"question": question}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "1", "name": "resolve_geography", "args": {"query": "Springfield"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "2",
+                    "name": "resolve_geography",
+                    "args": {"query": "Springfield, Illinois"},
+                }
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+        {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+        {"content": "Springfield, Illinois has this population.", "tool_calls": []},
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(question, complete=complete, tools=tools, record=record)
+    assert [row.for_spec for row in response.plan.geographies] == ["place:72000"]
+
+
+async def test_bare_name_and_its_own_city_stay_two_distinct_legs() -> None:
+    """Gate 2 re-run finding: track_geo_query's refinement check must not
+    collide "New York" (the bare state) with "New York City, NY" (a
+    different place) the way a plain substring check would -- a real
+    state-vs-its-namesake-city comparison must keep both legs."""
+    record = ExecutionRecord(question="Compare New York and New York City, NY.")
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "New York"}}, record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"query": "New York City, NY"}},
+        record,
+    )
+    assert record.geo_queries == ["New York", "New York City, NY"]
 
 
 async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None:

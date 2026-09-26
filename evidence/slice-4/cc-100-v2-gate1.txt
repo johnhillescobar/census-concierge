@@ -1,0 +1,258 @@
+Gate 1 — CC-100 v2 (bare unqualified place names)
+Branch: fix/cc-100-bare-place-names, commit under test: 9ba060a
+"CC-100: retire regex list-splitting for comparisons; segment via model-supplied `places`"
+
+Baseline (before any mutation), full suite:
+cd api && uv run python -m pytest -q
+519 passed
+
+Mutation-check convention: revert ONE specific behavior, run ONLY the named
+test, confirm it fails (GOOD) or does not (BAD), then restore that exact
+edit before moving to the next mutation. Edits made with the Edit tool and
+restored with `git checkout -- <file>` (working tree is otherwise clean).
+
+====================================================================
+
+MUTATION 1 — neuter `places` handling in geo.py's ResolveGeographyTool._arun
+Covers tests: #1-4
+  test_bare_unqualified_city_names_resolve_all_places
+  test_and_phrased_comparison_resolves_both_geographies
+  test_and_phrased_comparison_across_states
+  test_three_way_and_list_comparison
+
+Edit (api/src/geo.py, in _arun):
+  - legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
+  + legs: list[str] = []  # MUTATION: places input ignored
+
+Command:
+  cd api && uv run python -m pytest -q \
+    tests/test_ask_loop.py::test_bare_unqualified_city_names_resolve_all_places \
+    tests/test_ask_loop.py::test_and_phrased_comparison_resolves_both_geographies \
+    tests/test_ask_loop.py::test_and_phrased_comparison_across_states \
+    tests/test_ask_loop.py::test_three_way_and_list_comparison
+
+Result: GOOD — all 4 failed under the mutation (assert False is True on
+record.geo_status["compare"], since with places ignored and no `query` text
+supplied by these tests, split_comparison("") also returns None, so no
+comparison path is taken at all).
+
+--- real pytest failure output ---
+FAILED tests\test_ask_loop.py::test_bare_unqualified_city_names_resolve_all_places
+  assert record.geo_status["compare"] is True
+  E       assert False is True
+FAILED tests\test_ask_loop.py::test_and_phrased_comparison_resolves_both_geographies
+  assert record.geo_status["compare"] is True
+  E       assert False is True
+FAILED tests\test_ask_loop.py::test_and_phrased_comparison_across_states
+  assert record.geo_status["compare"] is True
+  E       assert False is True
+FAILED tests\test_ask_loop.py::test_three_way_and_list_comparison
+  assert record.geo_status["compare"] is True
+  E       assert False is True
+4 failed in 0.75s
+-------------------------------------
+
+Restore: git checkout -- src/geo.py  (clean; only mutation reverted)
+
+====================================================================
+
+MUTATION 2 — disable geo_queries bookkeeping in ask.py's _absorb
+Covers test #5: test_sequential_single_place_calls_are_repaired_by_finish_tools
+(pre-existing test; now depends on the NEW geo_queries mechanism instead of
+the retired regex splitter)
+
+Edit (api/src/ask.py, in _absorb):
+  - elif query and record.geographies:
+  + elif False and query and record.geographies:  # MUTATION: never record geo_queries
+        record.geo_queries.append(query)
+
+Command:
+  cd api && uv run python -m pytest -q \
+    tests/test_ask_loop.py::test_sequential_single_place_calls_are_repaired_by_finish_tools
+
+Result: GOOD — failed under the mutation. With geo_queries never populated,
+finish.py's _wrong_comparison falls back to split_comparison(question) on
+the full sentence "Compare the population of Austin city, Texas and Dallas
+city, Texas since 2017.", which (post-retirement) only recognizes literal
+versus/compare-to keyword splits, not "and"/comma lists, so it returns None
+and the repair never fires -- the second sequential resolve_geography call
+for Dallas overwrote Austin's leg with no comparison recovery.
+
+--- real pytest failure output ---
+FAILED tests\test_ask_loop.py::test_sequential_single_place_calls_are_repaired_by_finish_tools
+  assert [row.for_spec for row in response.plan.geographies] == ["place:4805000", "place:19000"]
+  AssertionError: assert ['place:19000', 'place:40516'] == ['place:48050...'place:19000']
+    At index 0 diff: 'place:19000' != 'place:4805000'
+1 failed in 0.55s
+-------------------------------------
+
+Restore: git checkout -- src/ask.py  (clean; only mutation reverted)
+
+====================================================================
+
+MUTATION 3 — reinstate the retired _STATE_END-anchored regex splitter
+Covers test #6: test_split_comparison_does_not_segment_and_or_comma_lists
+(new test; asserts the retired mechanism is actually gone, so per the task
+brief this mutation restores the OLD splitter from `main` and confirms the
+new test then fails against it, rather than reverting new code to nothing)
+
+Edit (api/src/geo.py):
+  + import STATES from src.geo_list
+  + reinstated _ALT, _DC_NAMES, _END, _STATE_END, _LIST_SEP module-level
+    regexes (verbatim from `main`)
+  + split_comparison(): after the versus/compare-to checks, reinstated the
+    old _WILDCARD/_WITHIN guard + _STATE_END.finditer clause-boundary split
+    (verbatim from `main`), replacing the current `return None`
+
+Command:
+  cd api && uv run python -m pytest -q \
+    tests/test_ask_tools.py::test_split_comparison_does_not_segment_and_or_comma_lists
+
+Result: GOOD — failed under the mutation. split_comparison() on "Compare the
+population of Kansas City, Kansas and St. Louis city, Missouri." returned
+["Compare the population of Kansas City, Kansas", "St. Louis city,
+Missouri"] instead of None, i.e. the old state-anchor list-splitter is doing
+exactly the segmentation AC9 says is retired -- confirms the new test is a
+real regression guard against that specific mechanism, not a vacuous check.
+
+--- real pytest failure output ---
+FAILED tests\test_ask_tools.py::test_split_comparison_does_not_segment_and_or_comma_lists
+  assert split_comparison(...) is None
+  AssertionError: assert ['Compare the population of Kansas City, Kansas', 'St. Louis city, Missouri'] is None
+1 failed in 0.53s
+-------------------------------------
+
+Restore: git checkout -- src/geo.py  (clean; only mutation reverted)
+
+====================================================================
+
+MUTATION 4 — revert the chart-title fix in contract.py's take_chart
+Covers tests: #7, #8
+  test_comparison_chart_has_one_series_per_geography_with_correct_title (AC10)
+  test_comparison_table_has_a_row_per_geography (AC11)
+
+Edit (api/src/contract.py, in take_chart):
+  - table_id = str((rows[0].get("table_id") if rows else "") or "")
+  - names = sorted({str(row.get("NAME") or "") for row in rows} - {""})
+  - by_geo = f"{table_id}: {', '.join(names)}" if names else table_id
+  - ... title = by_geo if series else table_id (line chart) / title=by_geo (bar chart)
+  + title = str((rows[0].get("table_id") if rows else "") or "")  # MUTATION: no geo names
+  + ... title=title everywhere (table_id only, geography names dropped)
+
+Command:
+  cd api && uv run python -m pytest -q \
+    tests/test_chart.py::test_comparison_chart_has_one_series_per_geography_with_correct_title \
+    tests/test_chart.py::test_comparison_table_has_a_row_per_geography
+
+Result:
+  test #7 (chart title, AC10): GOOD -- failed under the mutation.
+    'Chicago city, Illinois' not in chart.title == 'B01003' (generic
+    table-id-only title, exactly the pre-fix defect AC10 targets).
+  test #8 (table completeness, AC11): BAD (did not fail) -- see note below.
+
+Note on test #8: this is an accurate finding, not a mistake in the mutation.
+test_comparison_table_has_a_row_per_geography seeds `ExecutionRecord(rows=
+[CHICAGO, LOS_ANGELES, NEW_YORK], ...)` directly and calls `assemble()`.
+`assemble()` builds `response.rows`/`response.moe` from `record.rows` via
+`_rows_with_geoid` / `moe_rows` / `stamp_provenance` (api/src/ask.py:240-256)
+-- none of which take_chart touches, and none of which this commit changed.
+Per the pre-flight notes (evidence/slice-4/cc-100-v2-preflight.md): "AC11
+(table completeness) is a consequence of the core fix, not a separate
+mechanism" -- i.e. in the real pipeline, row/MOE completeness for a
+comparison flows from `record.geographies`/`compare_count` set by
+resolve_geography (mutation 1's territory), not from take_chart. This
+particular unit test bypasses that pipeline by seeding `record.rows`
+directly, so no code changed in 9ba060a can make it fail: it is a valid
+regression guard on pre-existing row/moe assembly behavior, correctly
+passing before and after this commit, but it does not itself prove any NEW
+behavior from this commit. Confirmed by inspection (not by finding a
+mutation that flips it), since the code path it exercises is untouched by
+the diff.
+
+--- real pytest failure output ---
+FAILED tests\test_chart.py::test_comparison_chart_has_one_series_per_geography_with_correct_title
+    for place in (CHICAGO, LOS_ANGELES, NEW_YORK):
+>       assert place["NAME"] in response.chart.title
+    AssertionError: assert 'Chicago city, Illinois' in 'B01003'
+tests\test_chart.py::test_comparison_table_has_a_row_per_geography PASSED (not reverted by this mutation)
+1 failed, 1 passed in 0.36s
+-------------------------------------
+
+Restore: git checkout -- src/contract.py  (clean; only mutation reverted)
+(This mutation was applied, verified, and restored via a tagged
+`git stash push -u -m "gate1-mut4-wip"` / `git stash apply <sha>` /
+`git stash drop stash@{0}` round-trip mid-check, used only to inspect the
+diff without disturbing the shared stash stack; final restored state was
+confirmed byte-identical to the originally-applied edit.)
+
+====================================================================
+
+SUMMARY OF MUTATIONS
+  1. GOOD  places-handling in geo.py._arun               (tests #1-4)
+  2. GOOD  geo_queries bookkeeping in ask.py._absorb      (test #5)
+  3. GOOD  _STATE_END regex splitter retirement in geo.py (test #6)
+  4. GOOD  #7 (chart title, AC10) / BAD-not-a-flaw #8 (AC11, see note above:
+           test #8 exercises a code path unchanged by this commit and is a
+           valid but non-discriminating regression guard for this diff)
+
+Net: 7 of 8 mutation targets GOOD; 1 target (#8's assigned mutation site)
+correctly did not fail, with cause identified (untouched code path), not a
+gap in coverage of this commit's actual behavior change.
+
+====================================================================
+
+FULL SUITE (after all mutations restored):
+  cd api && uv run python -m pytest -q
+  519 passed in 6.15s
+  git status --short: only evidence/slice-4/cc-100-v2-gate1.txt untracked
+  (working tree otherwise clean; every mutation was reverted with
+  `git checkout -- <file>` before this run)
+
+LINT:
+  cd api && uv run ruff check .
+  All checks passed!
+
+TYPES:
+  uv run mypy api/src   (from repo root)
+  Success: no issues found in 24 source files
+
+BUDGETS:
+  uv run python scripts/check_budgets.py   (from repo root)
+  All budgets met (api src LOC 4059/4100, largest file LOC 409/410,
+  answered_rate 0.825 >= 0.7, synthetic_alignment 0.544 >= 0.5, etc.)
+
+GATE 1 VERDICT: PASS. All new/changed tests exercise real, reverted-and-
+restored behavior except test #8, which is a correct but non-discriminating
+guard for this specific commit (see MUTATION 4 note) -- not a false-positive
+test, just not evidence of *this* diff's correctness on its own; its actual
+coverage (row/MOE completeness for a multi-geo comparison through the real
+pipeline) is exercised end-to-end by test #1
+(test_bare_unqualified_city_names_resolve_all_places), which does assert
+fetch_data received all 3 legs.
+
+====================================================================
+
+POST-GATE-1 FIX (same session, before Gate 2): the finding above (test #8
+non-discriminating for this diff) was real and worth fixing rather than
+just documenting. Both test_comparison_chart_has_one_series_per_geography_
+with_correct_title and test_comparison_table_has_a_row_per_geography were
+rewritten to resolve their 3-geography fixture through the actual
+resolve_geography(places=[...]) call (via a shared
+_resolved_bare_name_comparison() helper) instead of constructing
+ExecutionRecord.rows by hand, so both tests now exercise this commit's real
+code path end to end.
+
+Re-verified by hand (same convention as above, one mutation at a time):
+  - Reverted geo.py's `places` handling -> BOTH tests now fail
+    (record.geo_status["compare_count"] == 0, not 3). GOOD.
+  - Restored geo.py (`git checkout -- api/src/geo.py`).
+  - Reverted contract.py's chart-title fix -> the chart test fails
+    ("Chicago city, Illinois" not in title "B01003"); the table test still
+    passes (expected -- it doesn't touch chart title, and is now covered by
+    the geo.py mutation above instead). GOOD / correctly unaffected.
+  - Restored contract.py (`git checkout -- api/src/contract.py`).
+  - Full suite green: 519 passed. Budgets, lint, format, mypy all clean
+    (api src LOC 4059/4100, largest file 409/410, no budget raised).
+
+Both tests in test_chart.py are now genuinely pinned to this diff. Gate 1
+finding closed, not just noted.

@@ -1057,6 +1057,7 @@ def test_dict_geo_artifact_preserves_nested_false() -> None:
             "detail": "tract does not nest in place (Denver)",
             "nested": False,
         },
+        {},
     )
     assert record.geo_status is not None
     assert record.geo_status["nested"] is False
@@ -1466,6 +1467,7 @@ def test_failed_rebuild_keeps_the_previous_url() -> None:
             vintage=2024,
             detail="not in pool",
         ),
+        {},
     )
     response = assemble("unresolved", record)
     assert record.url is None

@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
+from ask_fixtures import _tools
 from pydantic import ValidationError
-from src.ask import ExecutionRecord, assemble
+from src.ask import ExecutionRecord, assemble, dispatch
 from src.contract import ChartSpec
 
 AUSTIN = {
@@ -43,6 +44,27 @@ HARRIS = {
     "year": "2024",
     "B01003_001E": "4838303",
     "B01003_001M": "123",
+}
+CHICAGO = {
+    "NAME": "Chicago city, Illinois",
+    "GEO_ID": "1600000US1714000",
+    "year": "2024",
+    "B01003_001E": "2665039",
+    "B01003_001M": "312",
+}
+LOS_ANGELES = {
+    "NAME": "Los Angeles city, California",
+    "GEO_ID": "1600000US0644000",
+    "year": "2024",
+    "B01003_001E": "3820914",
+    "B01003_001M": "298",
+}
+NEW_YORK = {
+    "NAME": "New York city, New York",
+    "GEO_ID": "1600000US3651000",
+    "year": "2024",
+    "B01003_001E": "8336817",
+    "B01003_001M": "441",
 }
 
 BAR = {
@@ -88,6 +110,17 @@ def test_two_geographies_keep_a_bar_chart() -> None:
     assert [row["GEO_ID"] for row in response.rows] == [AUSTIN["GEO_ID"], TEXAS["GEO_ID"]]
 
 
+def test_unsafe_geography_name_falls_back_to_a_plain_title() -> None:
+    """Gate 2 finding: NAME comes from live Census data, unsanitized, before
+    being joined into the fallback chart title -- a name that trips
+    title_is_plain_text must degrade to the table_id, not crash the response."""
+    unsafe = {**AUSTIN, "NAME": "<script>alert(1)</script>"}
+    record = ExecutionRecord(rows=[unsafe, TEXAS], table_id="B25064")
+    response = assemble("Austin is higher.", record)
+    assert response.chart is not None
+    assert response.chart.title == "B25064"
+
+
 def test_geography_series_over_years_is_kept() -> None:
     austin_2019 = {**AUSTIN, "year": "2019", "B25064_001E": "1600"}
     texas_2019 = {**TEXAS, "year": "2019", "B25064_001E": "1300"}
@@ -98,6 +131,51 @@ def test_geography_series_over_years_is_kept() -> None:
     assert response.chart.series_by == "geography"
     assert response.chart.x == "year"
     assert len(response.rows) == 4
+
+
+_COMPARE_QUESTION = "Compare the population of Chicago, Los Angeles, and New York City since 2017."
+_BY_GEOID = {row["GEO_ID"]: row for row in (CHICAGO, LOS_ANGELES, NEW_YORK)}
+
+
+async def _resolved_bare_name_comparison() -> ExecutionRecord:
+    """Resolve the AC8 fixture (no state named anywhere) via the real
+    `places` mechanism, then attach rows keyed to what actually resolved --
+    so the chart/table tests below exercise this change end to end instead
+    of asserting on hand-picked rows nothing here produced."""
+    record = ExecutionRecord(question=_COMPARE_QUESTION, table_id="B01003")
+    tools = _tools(record)
+    places = {"places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
+    await dispatch(tools["resolve_geography"], {"id": "1", "args": places}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["compare_count"] == 3
+    record.rows = [_BY_GEOID[geo.geoid] for geo in record.geographies[:3]]
+    return record
+
+
+async def test_comparison_chart_has_one_series_per_geography_with_correct_title() -> None:
+    """AC10 (CC-100): a resolved N-way comparison with no model-supplied chart
+    JSON must fall back to a chart naming every compared place, never a
+    generic table-id-only title."""
+    record = await _resolved_bare_name_comparison()
+    response = assemble(_COMPARE_QUESTION, record)
+    assert response.chart is not None
+    assert response.chart.type == "bar"
+    assert response.chart.x == "geography"
+    assert {row["GEO_ID"] for row in response.rows} == set(_BY_GEOID)
+    for place in _BY_GEOID.values():
+        assert place["NAME"] in response.chart.title
+    assert response.chart.title != "B01003"
+
+
+async def test_comparison_table_has_a_row_per_geography() -> None:
+    """AC11 (CC-100): table completeness is verified independently of the
+    chart -- rows and moe are built from a different path than the chart."""
+    record = await _resolved_bare_name_comparison()
+    response = assemble(_COMPARE_QUESTION, record)
+    assert len(response.rows) == 3
+    assert {row["GEO_ID"] for row in response.rows} == set(_BY_GEOID)
+    assert {row["GEO_ID"] for row in response.moe} == set(_BY_GEOID)
+    assert all(row.get("B01003_001M") for row in response.moe)
 
 
 def test_variable_series_is_kept() -> None:
