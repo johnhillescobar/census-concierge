@@ -9,7 +9,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from src.compare import parentless_tracts
-from src.geo import split_versus
+from src.geo import split_comparison
 from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
 
@@ -62,12 +62,18 @@ def _wrong_listing(record: Any, question: str) -> bool:
     return not geos or geos[0].level != wanted
 
 
-def _wrong_versus(record: Any, question: str) -> bool:
-    if split_versus(question) is None:
+def _wrong_comparison(record: Any, question: str) -> bool:
+    sides = split_comparison(question)
+    if sides is None:
         return False
     status = getattr(record, "geo_status", None) or {}
-    geos = list(getattr(record, "geographies", []) or [])
-    return not status.get("compare") or len(geos) < 2
+    return int(status.get("compare_count", 0) or 0) < len(sides)
+
+
+def degraded_answer(record: Any) -> str:
+    names = sorted({str(row.get("NAME") or "") for row in record.rows} - {""})
+    place = f" for {', '.join(names)}" if names else ""
+    return f"Recovered {record.table_id} data{place} after a retry; see the table and URL below."
 
 
 def _wrong_parentless(record: Any, question: str, year: int) -> bool:
@@ -89,7 +95,7 @@ async def finish_tools(
     year = _latest(record)
     geo = tools.get("resolve_geography")
     url = getattr(record, "url", None)
-    redo = _wrong_listing(record, question) or _wrong_versus(record, question)
+    redo = _wrong_listing(record, question) or _wrong_comparison(record, question)
     redo = redo or _wrong_parentless(record, question, year)
     redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
     plan = getattr(record, "override", None)
@@ -131,6 +137,7 @@ async def finish_tools(
                 args["dataset"] = "acs1"
             await dispatch(build, {"id": "build_url", "args": args}, record)
     fetch = tools.get("fetch_data")
-    if fetch is not None and record.url is not None and record.fetch is None:
+    fetch_failed = record.fetch is not None and not record.fetch.ok
+    if fetch is not None and record.url is not None and (record.fetch is None or fetch_failed):
         years = requested_years(question, year)
         await dispatch(fetch, {"id": "fetch_data", "args": {"years": years}}, record)

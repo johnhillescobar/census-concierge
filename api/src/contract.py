@@ -193,8 +193,9 @@ def plan_from_record(record: Any) -> ResultPlan:
         years = [url.year] if url is not None else []
         requested = years
     geos = list(getattr(record, "geographies", None) or [])
-    if (getattr(record, "geo_status", None) or {}).get("compare"):
-        geos = geos[:2]
+    status = getattr(record, "geo_status", None) or {}
+    if status.get("compare"):
+        geos = geos[: int(status.get("compare_count") or 2)]
     dataset = str(getattr(fetch, "dataset", "") or "") or (url.dataset if url else "")
     vintages = getattr(record, "vintages", None) or []
     table_id = str(getattr(record, "table_id", "") or table)

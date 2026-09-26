@@ -24,6 +24,7 @@ from src.geo import (
     nests_in,
     place_token,
     rank_matches,
+    split_comparison,
 )
 from src.geo_list import list_census_names
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
@@ -1868,4 +1869,37 @@ def test_geo_entries_keeps_every_county_row(
         json.dump(payload, handle)
     entries = geo_entries("acs5", 2023)
     assert [entry.code for entry in entries] == ["050", "324"]
+
+
+def test_split_comparison_still_splits_versus_and_compare_to() -> None:
+    assert split_comparison("Austin versus Dallas") == ["Austin", "Dallas"]
+    assert split_comparison("compare Austin to Dallas") == ["Austin", "Dallas"]
+
+
+def test_split_comparison_splits_an_and_joined_list_by_state() -> None:
+    assert split_comparison(
+        "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
+    ) == ["Compare the population of Austin city, Texas", "Dallas city, Texas"]
+    assert split_comparison(
+        "Compare the population of Austin city, Texas, Houston city, Texas, "
+        "and San Antonio city, Texas since 2019."
+    ) == [
+        "Compare the population of Austin city, Texas",
+        "Houston city, Texas",
+        "San Antonio city, Texas",
+    ]
+    assert split_comparison(
+        "Compare the population of Chicago city, Illinois and Phoenix city, Arizona since 2019."
+    ) == ["Compare the population of Chicago city, Illinois", "Phoenix city, Arizona"]
+
+
+def test_split_comparison_ignores_wildcard_and_within_listing_queries() -> None:
+    assert split_comparison("all counties in Texas and Louisiana") is None
+    assert split_comparison("tracts within Harris County, Texas and Travis County, Texas") is None
+
+
+def test_split_comparison_returns_none_for_a_single_place() -> None:
+    assert split_comparison("population of Harris County, Texas") is None
+    assert split_comparison("population of Austin city, Texas") is None
+    assert split_comparison("population of Washington, DC") is None
     assert geo_levels("acs5", 2023)["county"].code == "324"

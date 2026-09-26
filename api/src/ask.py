@@ -26,7 +26,7 @@ from src.contract import (
     take_chart,
 )
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
-from src.finish import finish_tools
+from src.finish import degraded_answer, finish_tools
 from src.geo import ResolveGeographyTool
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
@@ -55,7 +55,7 @@ class ExecutionRecord:
     consecutive_failures: dict[str, int] = field(default_factory=dict)
     question: str = ""
     vintages: list[tuple[str, int]] = field(default_factory=list)
-    geo_status: dict[str, str | bool] | None = None
+    geo_status: dict[str, str | bool | int] | None = None
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
     override: Any = None
@@ -92,6 +92,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
             "detail": str(get("detail", "") or ""),
             "nested": get("nested", True) is not False,
             "compare": bool(get("compare", False)),
+            "compare_count": int(get("compare_count", 0) or 0),
         }
         record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
@@ -362,7 +363,9 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
             last_geographies=lambda: (
-                record.geographies[:2] if (record.geo_status or {}).get("compare") else []
+                record.geographies[: int((record.geo_status or {}).get("compare_count") or 2)]
+                if (record.geo_status or {}).get("compare")
+                else []
             ),
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
@@ -437,4 +440,6 @@ async def run_ask(
     except RuntimeError as exc:
         answer = answer or str(exc)
     await finish_tools(dispatch, tools, record)
+    if record.rows and re.match(r"^[a-z_]+ failed twice$", answer):
+        answer = degraded_answer(record)
     return assemble(answer, record)

@@ -235,6 +235,38 @@ def _list_geographies(
                 "population": "974447",
             },
             {
+                "name": "Dallas city, Texas",
+                "level": "place",
+                "for": "place:19000",
+                "in": "state:48",
+                "geoid": "1600000US4819000",
+                "population": "1304379",
+            },
+            {
+                "name": "Lake Dallas city, Texas",
+                "level": "place",
+                "for": "place:40516",
+                "in": "state:48",
+                "geoid": "1600000US4840516",
+                "population": "6499",
+            },
+            {
+                "name": "Houston city, Texas",
+                "level": "place",
+                "for": "place:35000",
+                "in": "state:48",
+                "geoid": "1600000US4835000",
+                "population": "2304580",
+            },
+            {
+                "name": "San Antonio city, Texas",
+                "level": "place",
+                "for": "place:65000",
+                "in": "state:48",
+                "geoid": "1600000US4865000",
+                "population": "1495295",
+            },
+            {
                 "name": "Ann Arbor city, Michigan",
                 "level": "place",
                 "for": "place:03000",
@@ -418,7 +450,9 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
             last_geographies=lambda: (
-                record.geographies[:2] if (record.geo_status or {}).get("compare") else []
+                record.geographies[: int((record.geo_status or {}).get("compare_count") or 2)]
+                if (record.geo_status or {}).get("compare")
+                else []
             ),
             census_key=lambda: "secret",
             question_years=lambda: (

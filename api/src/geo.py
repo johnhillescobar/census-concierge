@@ -13,6 +13,7 @@ from pydantic import ConfigDict
 from src.compare import parentless_tracts, unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
+    STATES,
     filter_rows,
     find_state,
     named_rows,
@@ -54,6 +55,11 @@ _WITHIN = re.compile(
 )
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
 _COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
+# Clause boundaries anchor on state names, not raw commas: "Austin city, Texas" has one.
+_STATE_ALT = "|".join(re.escape(n) for n, *_ in sorted(STATES, key=lambda s: -len(s[0])))
+_DC_NAMES = r"district of columbia|washington,\s*d\.?c\.?|washington\s+d\.?c\.?"
+_STATE_CLAUSE_END = re.compile(rf"\b(?:{_STATE_ALT}|{_DC_NAMES})\b", re.IGNORECASE)
+_LIST_SEP = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 _NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
 )
@@ -73,6 +79,10 @@ class ResolveGeographyResult(ToolResult):
     detail: str
     nested: bool = True
     compare: bool = False
+    # Leading `specs` entries that are genuine one-per-place picks; entries
+    # after this count are leftover ambiguous candidates, not places to
+    # fetch. Only meaningful when `compare` is True.
+    compare_count: int = 0
 
 
 ListGeographies = Callable[..., list[dict[str, str]]]
@@ -87,6 +97,19 @@ def _fail(
         specs=[], wildcard=wildcard, legal=False, detail=detail, nested=nested
     )
     return detail, hit
+
+
+def _compare_result(
+    specs: list[GeoSpec], extra: list[GeoSpec], *, legal: bool, detail: str = ""
+) -> ResolveGeographyResult:
+    return ResolveGeographyResult(
+        specs=specs + extra,
+        wildcard=False,
+        legal=legal,
+        detail=detail,
+        compare=True,
+        compare_count=len(specs),
+    )
 
 
 def legal_predicate(
@@ -126,16 +149,26 @@ def detect_level(text: str) -> str | None:
     return None
 
 
-def split_versus(query: str) -> tuple[str, str] | None:
+def split_comparison(query: str) -> list[str] | None:
+    # 2+ compared places -> their clauses; versus/compare-to/list, in that order.
     parts = [part.strip() for part in _VERSUS.split(query, maxsplit=1)]
     if len(parts) == 2 and all(parts):
-        return parts[0], parts[1]
+        return parts
     match = _COMPARE_TO.match(query)
-    if match:
-        left, right = match.group(1).strip(), match.group(2).strip()
-        if left and right:
-            return left, right
-    return None
+    if match and (left := match.group(1).strip()) and (right := match.group(2).strip()):
+        return [left, right]
+    if _WILDCARD.search(query) or _WITHIN.search(query):
+        return None
+    ends = [m.end() for m in _STATE_CLAUSE_END.finditer(query)]
+    if len(ends) < 2:
+        return None
+    clauses: list[str] = []
+    start = 0
+    for i, end in enumerate(ends):
+        clauses.append(query[start:end].strip())
+        if i < len(ends) - 1:
+            start = m.end() if (m := _LIST_SEP.match(query, end)) else end
+    return clauses if all(clauses) else None
 
 
 def _nation(query: str) -> bool:
@@ -182,20 +215,18 @@ class ResolveGeographyTool(BaseTool):
         packed = parentless_tracts(query, dataset=dataset, year=year)
         if packed:
             detail, specs = packed
-            hit = ResolveGeographyResult(
-                specs=specs, wildcard=False, legal=False, detail=detail, compare=True
-            )
-            return detail, hit
-        sides = split_versus(query)
+            return detail, _compare_result(specs, [], legal=False, detail=detail)
+        sides = split_comparison(query)
         if sides:
             hits = [(await self._resolve(side, None, dataset, year, entries))[1] for side in sides]
             if all(hit.legal and hit.specs for hit in hits):
                 specs = [hit.specs[0] for hit in hits]
                 extra = [row for hit in hits for row in hit.specs[1:]]
-                result = ResolveGeographyResult(
-                    specs=specs + extra, wildcard=False, legal=True, detail="", compare=True
+                summary = " vs ".join(spec.for_spec for spec in specs)
+                return (
+                    f"{len(specs)} geographies: {summary}",
+                    _compare_result(specs, extra, legal=True),
                 )
-                return f"2 geographies: {specs[0].for_spec} vs {specs[1].for_spec}", result
             for hit in hits:
                 if hit.legal and hit.specs:
                     return f"1 geography: {hit.specs[0].for_spec}", hit
