@@ -12,7 +12,7 @@
 api_src_loc          = 4100   # non-blank, non-comment lines under api/src
 api_src_files        = 40
 max_file_loc         = 410    # any single file
-web_src_loc          = 3000
+web_src_loc          = 3010
 doc_lines            = 1800   # PRESCRIPTIVE docs only: CLAUDE.md, DESIGN,
                               # PLAN, .cursor/rules, .cursor/commands,
                               # .claude/skills, docs/playbooks, and the four
@@ -89,3 +89,4 @@ synthetic_alignment_min = 0.50
 # 2026-09-11  [quality] synthetic_self_retrieval_min 0.95 -> synthetic_alignment_min 0.50  questions no longer embedded; rank-1 self-retrieval duplicated golden-set ranking; mean own-doc cosine 0.544 on n=600 sample
 # 2026-09-25  [size] api_src_loc 4000 -> 4100  CC-100: fixing multi-geography comparisons silently dropping every place but the last required a real N-way comparison-list splitter in geo.py, not just a tweak; measured 4036 after simplification, cap raised with headroom
 # 2026-09-25  [size] max_file_loc  400 -> 410  same fix, geo.py measured 405/400 after consolidating duplicate constructor calls into a shared helper
+# 2026-09-26  [size] web_src_loc  3000 -> 3010  fixing bar/errorbar x-axis misalignment (dodge firing on plain geography comparisons, and xOffset disabling Vega-Lite's default band-centering) needed a mutation-checked test; measured 3003 after trimming, headroom was already down to 4 lines on main; user approved the raise
