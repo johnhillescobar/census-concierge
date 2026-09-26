@@ -1,0 +1,393 @@
+CC-100 Gate 2 RE-RUN — cold-context review of the fix commit
+Branch: fix/cc-100-multi-geo-comparison
+Diff reviewed: main...HEAD (51a3608, 0f1314a, a92adc7). Scrutiny focused on
+a92adc7 "CC-100: fix Gate 2 findings -- override path compare_count,
+DC/state-name splitter, concurrent leg resolution.", the fix commit for the
+first Gate 2 run's findings 1 and 2 (evidence/slice-4/cc-100-gate2.txt).
+Reviewer: fresh subagent, no prior context beyond the repo itself (CLAUDE.md,
+docs/playbooks/run-slice.md, .claude/PLAN.md, docs/ask-path.md,
+evidence/slice-4/cc-100-preflight.md, evidence/slice-4/cc-100-gate2.txt, read
+first, per instructions).
+
+This is the one permitted re-run per docs/playbooks/run-slice.md ("Stop after
+one re-run; still fix what it finds").
+
+NOTE ON THIS FILE: this evidence file was written once, then found missing
+partway through the review (the working tree had `api/src/geo.py` modified
+out-of-band by a concurrent process/session, uncommitted, not part of
+a92adc7 -- see the note at the end of this file). It was rewritten from the
+findings already gathered against a92adc7 (the commit under review), which
+were captured before the concurrent edit appeared, plus the code-review
+skill's result, which arrived after this reviewer's initial hand-off and is
+folded in below with independent verification of each of its claims.
+
+====================================================================
+PASS 1 — generic bugs, code only, verified by direct execution
+====================================================================
+
+Two independent passes against a92adc7, both by direct execution rather than
+by trusting the commit message:
+
+(a) This reviewer's own manual pass, run first.
+(b) Skill(code-review, args="a92adc7 high"), launched as a background fork
+    per the brief; its result arrived after this reviewer had already
+    written up (a) and handed off once. Every claim in (b) was independently
+    re-verified by this reviewer before being folded in (re-ran the exact
+    repro commands quoted below).
+
+--- Finding 1 (apply_override missing compare_count) -- RESOLVED ---
+
+api/src/contract.py:243-264 `apply_override` now sets both `"compare"` and
+`"compare_count": len(plan.geographies)`. Reproduced live with a 3-geography
+override (place:05000/35000/65000, state:48):
+
+  apply_override(record, plan)
+  record.geo_status == {'legal': True, 'detail': '', 'nested': True,
+                         'compare': True, 'compare_count': 3}
+  guards.ambiguous_place(record) -> None   (no spurious warning)
+
+`plan_from_record` (contract.py:198) and `fetch_data`'s `last_geographies`
+lambda (ask.py:366) both now default the missing-key case to `or 0` (unified
+with guards.py's existing 0-default, which was untouched by this commit
+because it was already 0 before). Reproduced live via `default_tools()`:
+`fetch.last_geographies()` returns all 3 `for_spec`s
+(`place:05000`, `place:35000`, `place:65000`), not truncated to 2.
+`test_three_geography_override_is_not_truncated_to_two` in
+api/tests/test_plan_override.py exercises exactly this and is
+mutation-worthy: reverting only the `"compare_count": len(plan.geographies)`
+line reintroduces the 0-default truncation this test asserts against.
+
+--- Finding 2 (DC/state-name splitter) -- RESOLVED for the cited cases ---
+
+api/src/geo.py:58-65 (as committed in a92adc7): `_STATE_CLAUSE_END` now tries
+the self-contained DC pattern first and requires a leading comma
+(`,\s*\b(?:{_STATE_ALT})\b`) for the bare-state branch. Reproduced live, all
+cases from the first Gate 2 run's finding 2:
+
+  "Kansas City, Kansas and St. Louis city, Missouri since 2019."
+    -> ['...Kansas City, Kansas', 'St. Louis city, Missouri']          (2, correct)
+  "Washington, D.C. and Seattle city, Washington since 2018."
+    -> ['...Washington, D.C.', 'Seattle city, Washington']              (2, correct)
+  "Delaware, Ohio and Indiana, Pennsylvania since 2019."
+    -> ['...Delaware, Ohio', 'Indiana, Pennsylvania']                   (2, correct)
+
+Also probed additional DC/state-name shapes not in the original finding
+(New York city/Boston, DC as the last item in a 3-way list, "Washington, DC"
+without periods, "District of Columbia" spelled out, mixed with counties) --
+all split correctly. `test_split_comparison_keeps_a_state_name_inside_a_place_together`
+covers the three original cases and is mutation-worthy: reverted against
+51a3608 (git worktree diff, not just static reading), the old regex produces
+the malformed 3-clause splits the first Gate 2 run quoted verbatim
+(e.g. ['...Washington', 'D.C. and Seattle city, Washington']).
+
+--- Finding 3 (sequential resolution) -- RESOLVED ---
+
+geo.py:224-228 (as committed in a92adc7) now uses `asyncio.gather(*(self._resolve(side, ...)
+for side in sides))` and unpacks `hits = [hit for _detail, hit in resolved]`,
+which preserves `sides` order regardless of completion order (verified with
+a standalone asyncio.gather order-preservation probe, and via the existing
+`test_two_way_.../test_three_way_and_list_comparison_keeps_all_three_legs`
+tests in test_ask_loop.py, which assert `for_spec` order Austin/Houston/San
+Antonio and `in_spec` order Michigan/Arizona -- both pass against the
+concurrent implementation).
+
+--- Finding 4 (inconsistent defaults) -- RESOLVED (value), NOT resolved (duplication) ---
+
+ask.py:366, contract.py:198, guards.py:217 all now default a missing
+`compare_count` to 0 (grepped and confirmed; guards.py already used 0 before
+this commit, ask.py and contract.py changed from 2 to 0 in a92adc7). The
+*values* no longer disagree. However, per the code-review skill's finding
+(re-verified below), the `int(status.get("compare_count", 0) or 0)` idiom is
+still copy-pasted, now across five sites (ask.py:95, ask.py:366,
+contract.py:198, guards.py:217, finish.py:70) rather than three -- confirmed
+by grep. Not a functional bug today (all five agree on 0), but the
+duplication itself is the mechanism the commit's own message blames for the
+original gap, and it is unchanged, just now consistently-valued.
+
+--- Finding 5 (retry-gate over-firing) -- correctly left as non-blocking follow-up ---
+
+api/src/finish.py was not touched by a92adc7 (confirmed via
+`git log -- api/src/finish.py` on the a92adc7..HEAD range). The widened
+`record.fetch is None or not record.fetch.ok` retry gate from 51a3608 stands
+exactly as the first Gate 2 run described it. Not reintroduced as a new
+blocking issue; correctly deferred.
+
+--- NEW findings from this re-run (not in the original gate2.txt) ---
+
+3-NEW-1. [Blocking -- silent-wrong-answer, found independently by both this
+reviewer and the code-review skill] Requiring a leading comma before the
+bare-state alternative (`,\s*\b(?:{_STATE_ALT})\b`) breaks bare
+state-vs-state comparisons joined by "and"/comma with no place name and no
+comma before the first state -- a shape that worked correctly before this
+commit. Verified directly:
+
+  git worktree (51a3608, pre-a92adc7):
+    split_comparison("Compare the population of Georgia and Alabama since 2019.")
+      -> ['Compare the population of Georgia', 'Alabama']   (correct, 2 clauses)
+
+  a92adc7 as committed:
+    split_comparison("Compare the population of Georgia and Alabama since 2019.")
+      -> None
+    split_comparison("Compare the population of Texas and Oklahoma since 2019.")
+      -> None
+    split_comparison("Compare the population of Ohio and Indiana since 2019.")
+      -> None
+    split_comparison("Compare median income in California and Texas since 2019.")
+      -> None
+    split_comparison("Compare Texas, Ohio, and Illinois since 2019.")
+      -> None   (bare-state LIST also affected, not just pairs -- code-review's
+                 second example, independently reproduced)
+
+Traced the consequence end-to-end, not just the regex return value:
+- `ResolveGeographyTool._arun` (geo.py:223-240): when `split_comparison`
+  returns None, it falls through to `self._resolve(query, ...)` on the WHOLE
+  original question text as a single geography lookup.
+- `find_state("Compare the population of Georgia and Alabama since 2019.")`
+  returns `('alabama', '01')` -- confirmed live -- i.e. it silently keeps only
+  the second-mentioned state.
+- The single-geography path (geo.py:294-306) then returns one legal `state`
+  spec for Alabama with `compare=False` -- there is no comparison flag, no
+  `ambiguous_place` warning, no dropped-place signal of any kind. Georgia is
+  gone from the response with nothing on the record to indicate a comparison
+  was ever attempted.
+- `finish.py:_wrong_comparison` (line 65-70) cannot redo this either:
+  `sides = split_comparison(question); if sides is None: return False` --
+  the same None return that broke the direct-resolve path also disables the
+  finish-time repair path, for the same reason.
+
+This reproduces CC-100's own original bug class ("and"-phrased comparison
+silently drops every place but one, no warning") for a plausible, common
+input shape this ticket's own scope explicitly claims to cover ("'and'/a
+comma list" per docs/ask-path.md) -- bare US-state-vs-state comparisons with
+no leading comma and no place-level qualifier. "versus"/"compared to"
+phrasing for the same states is unaffected (`_VERSUS` is tried first and
+does not depend on `_STATE_CLAUSE_END`); only the "and"/comma-list path is
+affected. No test in the diff, and no golden-set/demo question, exercises a
+bare state-vs-state "and" comparison, so this shipped undetected by every
+machine check that ran green.
+
+3-NEW-2. [Non-blocking, narrow -- silent malformed clauses] The `(?!\w)`
+lookahead added to `_DC_NAMES` "so an optional period doesn't force a
+backtrack" still backtracks when a DC clause is immediately followed by a
+word character with no separating space (e.g. no space before "and").
+Reproduced directly:
+
+  split_comparison("Compare the population of Washington, D.C.and Seattle "
+                    "city, Washington since 2019.")
+    -> ['Compare the population of Washington, D.C', '.and Seattle city, Washington']
+
+Clause 1 loses its trailing period; clause 2 gains a stray leading `.` and no
+separating space -- both malformed geography queries handed to `_resolve`.
+Narrower than 3-NEW-1 (requires no space before "and", an unusual but not
+impossible typo/model-output shape) and contradicts the stated purpose of
+the `(?!\w)` change. No test covers this shape either.
+
+3-NEW-3. [Non-blocking, resource waste] `asyncio.gather(*(self._resolve(side,
+...) for side in sides))` (geo.py:225, no `return_exceptions=True`) does not
+cancel sibling legs when one leg's coroutine raises. `_resolve` reaches
+`list_census_names` via `await asyncio.to_thread(self.list_geographies, ...)`
+(geo_list.py), a real live Census HTTP call; per Python's documented
+`asyncio.gather` behavior (confirmed against the library, not assumed): on a
+raised exception with `return_exceptions=False` (the default here), the
+other awaitables are not cancelled and keep running with their results
+discarded. A failed leg in an N-way comparison now costs up to N wasted live
+Census calls instead of the old sequential comprehension's short-circuit
+after the first failure. Not a correctness bug (the caller still sees the
+exception) and bounded by N (small), but a real latency/traffic regression
+for the failure path of exactly the feature this ticket adds.
+
+3-NEW-4. [Minor, code quality, drift risk] `_DC_NAMES` in geo.py duplicates
+logic that `api/src/geo_list.py`'s existing `_DC` regex (confirmed present,
+geo_list.py:67) and `find_state` already solve for the identical
+"Washington, D.C. must win over the state named Washington" ambiguity --
+`find_state` is even imported into geo.py already (line 18) but not reused
+for this boundary regex. Two independently-maintained DC patterns can now
+drift (one already has the 3-NEW-2 backtrack bug the other does not).
+
+3-NEW-5 (restates 4, sharper): the `compare_count` fallback-default idiom is
+duplicated across five call sites (see Finding 4 above) rather than one
+shared accessor. Values agree today; a sixth or seventh caller guessing a
+different default would reintroduce the exact bug class this ticket exists
+to close, with no single place to catch it.
+
+====================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+====================================================================
+
+--- Machines (run first; a non-zero exit ends the review) ---
+All run against a92adc7 as committed (HEAD), before the out-of-band working-
+tree edit noted below appeared:
+
+$ uv run python scripts/check_budgets.py
+BUDGETS
+  ok    api src LOC               4042 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               2996 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1630 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.955 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate              0.8 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+All budgets met.
+EXIT: 0
+
+Note: "largest file LOC" is exactly at the ceiling (410 <= 410) -- not
+exceeded, zero headroom. Worth a human's attention on the next change to
+that file.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+INVARIANTS
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+All invariants held.
+EXIT: 0
+
+$ uv run pytest -q -m "not integration"
+517 passed in 30.60s
+EXIT: 0
+
+$ uv run ruff check .
+All checks passed!
+EXIT: 0
+
+$ uv run ruff format --check .
+150 files already formatted
+EXIT: 0
+
+$ uv run mypy api/src
+Success: no issues found in 24 source files
+EXIT: 0
+
+All machines green against a92adc7. `check_invariants --base origin/main`
+confirms this diff raises no budget (budgets.toml untouched by a92adc7,
+confirmed via `git diff main...HEAD -- budgets.toml`, empty).
+
+--- The claim ---
+
+Unchanged from the first Gate 2 run's framing: an "and"/comma-phrased
+multi-place comparison no longer silently drops every place but the
+last-resolved one. a92adc7 additionally claims to fix the override-path
+truncation and the DC/state-name mis-split the first Gate 2 run found. Both
+of those specific claims hold under direct execution. The claim as stated in
+docs/ask-path.md is still broader than what the code delivers: bare
+state-vs-state "and" comparisons are a real counter-example found in this
+re-run (3-NEW-1).
+
+--- Scope ---
+
+a92adc7 alone: 4 source/test files touched (ask.py, contract.py, geo.py, plus
+3 test files) + the prior gate2.txt evidence file. Tight to exactly the sites
+the first Gate 2 run named. The full main...HEAD diff is 17 files (5 src, 7
+tests, 2 docs, 3 evidence) -- consistent with the first Gate 2 run's scope
+assessment, nothing added "while we were in there."
+
+--- Silent-wrong-answer review ---
+
+URL/MOE/GEOID/universe/&key= redaction: unaffected by a92adc7. Guard-vs-
+blocking-question: unaffected; no new clarification prompt; "blocking
+clarification" invariant passed. Silent repair: Finding 1's fix closes
+exactly the invisible drop the first Gate 2 run flagged. 3-NEW-1 is itself a
+silent-wrong-answer regression of the same character.
+
+--- Shape ---
+
+No new tool, route, Pydantic model, or graph node. docs/ARCHITECTURE.md
+correctly untouched.
+
+--- Tests ---
+
+No prompt-wording or LLM-prose assertions. No retrieval fake returning a
+fixed table. The two tests directly targeting the original blocking findings
+assert concrete structural facts and are mutation-worthy (confirmed by code
+trace for the first, by running the actual pre-fix regex in a git worktree
+for the second). No test in this diff covers 3-NEW-1, 3-NEW-2, or 3-NEW-3.
+
+====================================================================
+FINDINGS (this re-run, both passes combined and cross-verified)
+====================================================================
+
+1. [RESOLVED] apply_override missing compare_count (orig. finding 1).
+2. [RESOLVED for cited cases] DC/state-name splitter (orig. finding 2).
+3. [RESOLVED] Sequential N-way resolution (orig. finding 3) -- now concurrent,
+   order preserved.
+4. [RESOLVED (value), unresolved (duplication)] compare_count defaults --
+   unified to 0, but the fallback idiom is still copy-pasted, now across five
+   sites instead of three (orig. finding 4, restated as 3-NEW-5).
+5. [Non-blocking, unchanged] Retry-gate over-firing (orig. finding 5) --
+   untouched, not reintroduced as new-blocking.
+6. [NEW, BLOCKING -- silent-wrong-answer] 3-NEW-1: bare state-vs-state "and"/
+   comma comparisons ("Georgia and Alabama", "Texas and Oklahoma", "Texas,
+   Ohio, and Illinois") now silently collapse to one geography with no
+   warning, where they worked correctly before a92adc7. Independently found
+   by both passes; verified end-to-end (regex, `_arun` fallback, `find_state`
+   result, `finish.py`'s repair path also disabled for the same reason).
+7. [NEW, non-blocking, narrow] 3-NEW-2: `(?!\w)` lookahead in `_DC_NAMES`
+   still backtracks and mis-splits when a DC clause has no space before
+   "and" ("Washington, D.C.and Seattle..."), contradicting its stated
+   purpose.
+8. [NEW, non-blocking, resource waste] 3-NEW-3: N-way `asyncio.gather`
+   without `return_exceptions=True` doesn't cancel sibling legs on a failed
+   leg, wasting up to N live Census calls on any multi-way resolution
+   failure.
+9. [NEW, minor, code quality] 3-NEW-4: `_DC_NAMES` duplicates
+   `geo_list.py`'s existing `_DC`/`find_state` DC-disambiguation logic
+   instead of reusing it; the two have already drifted (3-NEW-2's bug is
+   specific to the new copy).
+
+====================================================================
+VERDICT
+====================================================================
+
+Not yet. The two originally-blocking findings (apply_override compare_count,
+DC/state-name splitter) are genuinely fixed and independently reproduced by
+direct execution from two separate review passes. But the state-name-
+splitter fix itself introduces a new silent-wrong-answer regression
+(finding 6 / 3-NEW-1): bare state-vs-state "and"/comma comparisons with no
+leading comma now silently collapse to a single geography with no warning --
+the same bug class CC-100 exists to close, for a real and plausible input
+shape squarely inside this ticket's stated scope. Per
+docs/playbooks/review-pr.md, silent-wrong-answer findings block. Findings
+7-9 are follow-ups, not blockers, but 7 and 9 point at the same regex site as
+the blocking finding and are worth fixing in the same pass rather than
+separately.
+
+This was the one permitted re-run; the next fix needs its own test coverage
+and, per the playbook, does not earn a second re-run unless the fix itself
+is non-trivial.
+
+====================================================================
+PROCESS NOTE (not a code finding)
+====================================================================
+
+CORRECTED: partway through this review, `api/src/geo.py` was found modified
+in the working tree, uncommitted -- the caller's own follow-on fix for
+finding 6/3-NEW-1 below, made directly in the same session that requested
+this Gate 2 rerun, not a third party. This file was separately found missing
+at one point and had to be rewritten from the findings already gathered
+against a92adc7 plus the code-review skill's independently-arrived result.
+Reflog evidence (checked by the caller) shows a `git reset` to HEAD in this
+same working directory around that time -- most likely this review's own
+`git worktree`/comparison-against-commit-51a3608 step, run without isolating
+it from the caller's shared working tree, briefly discarding the caller's
+then-uncommitted edit and this untracked evidence file before the caller
+redid both. Not a code finding on the reviewed commit; recorded here only so
+this file doesn't misattribute the edit to an unidentified concurrent party.

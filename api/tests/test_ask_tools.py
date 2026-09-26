@@ -1915,3 +1915,14 @@ def test_split_comparison_keeps_a_state_name_inside_a_place_together() -> None:
     assert split_comparison(
         "Compare the population of Delaware, Ohio and Indiana, Pennsylvania since 2019."
     ) == ["Compare the population of Delaware, Ohio", "Indiana, Pennsylvania"]
+
+
+def test_split_comparison_splits_a_bare_state_versus_state_list() -> None:
+    assert split_comparison("Compare the population of Georgia and Alabama since 2019.") == [
+        "Compare the population of Georgia",
+        "Alabama",
+    ]
+    assert split_comparison("Compare the population of Texas and Oklahoma since 2019.") == [
+        "Compare the population of Texas",
+        "Oklahoma",
+    ]

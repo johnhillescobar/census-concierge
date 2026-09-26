@@ -55,14 +55,14 @@ _WITHIN = re.compile(
 )
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
 _COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
-# Clause boundaries anchor on ", <state>" (a bare state name inside a place's
-# own name, e.g. "Kansas City", must not count), tried before the bare-state
-# alternation so "Washington, D.C." doesn't match just "Washington" first.
-_STATE_ALT = "|".join(re.escape(n) for n, *_ in sorted(STATES, key=lambda s: -len(s[0])))
-_DC_NAMES = (
-    r"\bdistrict of columbia(?!\w)|\bwashington,\s*d\.?c\.?(?!\w)|\bwashington\s+d\.?c\.?(?!\w)"
-)
-_STATE_CLAUSE_END = re.compile(rf"(?:{_DC_NAMES})|,\s*\b(?:{_STATE_ALT})\b", re.IGNORECASE)
+# Clause boundaries: DC's compound name first (else bare "Washington" wins);
+# ", <state>" always ends a clause; a bare state name (e.g. a state-vs-state
+# comparison with no city) only ends one when followed by a separator/end,
+# not by more name text -- else "Kansas City" would split after "Kansas".
+_ALT = "|".join(re.escape(n) for n, *_ in sorted(STATES, key=lambda s: -len(s[0])))
+_DC_NAMES = r"\bdistrict of columbia(?!\w)|\bwashington(?:,\s*|\s+)d\.?c\.?(?!\w)"
+_END = r"(?=\s+and\b|\s+since\b|\s*[.?!]|\s*$)"
+_STATE_END = re.compile(rf"(?i:(?:{_DC_NAMES})|,\s*\b(?:{_ALT})\b|\b(?:{_ALT})\b{_END})")
 _LIST_SEP = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 _NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
@@ -163,7 +163,7 @@ def split_comparison(query: str) -> list[str] | None:
         return [left, right]
     if _WILDCARD.search(query) or _WITHIN.search(query):
         return None
-    ends = [m.end() for m in _STATE_CLAUSE_END.finditer(query)]
+    ends = [m.end() for m in _STATE_END.finditer(query)]
     if len(ends) < 2:
         return None
     clauses: list[str] = []
