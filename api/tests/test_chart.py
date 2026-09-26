@@ -44,6 +44,27 @@ HARRIS = {
     "B01003_001E": "4838303",
     "B01003_001M": "123",
 }
+CHICAGO = {
+    "NAME": "Chicago city, Illinois",
+    "GEO_ID": "1600000US1714000",
+    "year": "2024",
+    "B01003_001E": "2665039",
+    "B01003_001M": "312",
+}
+LOS_ANGELES = {
+    "NAME": "Los Angeles city, California",
+    "GEO_ID": "1600000US0644000",
+    "year": "2024",
+    "B01003_001E": "3820914",
+    "B01003_001M": "298",
+}
+NEW_YORK = {
+    "NAME": "New York city, New York",
+    "GEO_ID": "1600000US3651000",
+    "year": "2024",
+    "B01003_001E": "8336817",
+    "B01003_001M": "441",
+}
 
 BAR = {
     "type": "bar",
@@ -98,6 +119,37 @@ def test_geography_series_over_years_is_kept() -> None:
     assert response.chart.series_by == "geography"
     assert response.chart.x == "year"
     assert len(response.rows) == 4
+
+
+def test_comparison_chart_has_one_series_per_geography_with_correct_title() -> None:
+    """AC10 (CC-100): a resolved N-way comparison with no model-supplied chart
+    JSON must fall back to a chart naming every compared place, never a
+    generic table-id-only title."""
+    record = ExecutionRecord(rows=[CHICAGO, LOS_ANGELES, NEW_YORK], table_id="B01003")
+    response = assemble("Chicago, Los Angeles, and New York compared.", record)
+    assert response.chart is not None
+    assert response.chart.type == "bar"
+    assert response.chart.x == "geography"
+    assert {row["GEO_ID"] for row in response.rows} == {
+        CHICAGO["GEO_ID"],
+        LOS_ANGELES["GEO_ID"],
+        NEW_YORK["GEO_ID"],
+    }
+    for place in (CHICAGO, LOS_ANGELES, NEW_YORK):
+        assert place["NAME"] in response.chart.title
+    assert response.chart.title != "B01003"
+
+
+def test_comparison_table_has_a_row_per_geography() -> None:
+    """AC11 (CC-100): table completeness is verified independently of the
+    chart -- rows and moe are built from a different path than the chart."""
+    record = ExecutionRecord(rows=[CHICAGO, LOS_ANGELES, NEW_YORK], table_id="B01003")
+    response = assemble("Chicago, Los Angeles, and New York compared.", record)
+    wanted = {CHICAGO["GEO_ID"], LOS_ANGELES["GEO_ID"], NEW_YORK["GEO_ID"]}
+    assert len(response.rows) == 3
+    assert {row["GEO_ID"] for row in response.rows} == wanted
+    assert {row["GEO_ID"] for row in response.moe} == wanted
+    assert all(row.get("B01003_001M") for row in response.moe)
 
 
 def test_variable_series_is_kept() -> None:

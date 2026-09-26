@@ -62,6 +62,11 @@ class ExecutionRecord:
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
+    # Single-place resolve_geography queries, most recent last. finish_tools
+    # replays these as one `places` call when the model resolved legs of a
+    # comparison one at a time instead of together -- mechanical bookkeeping
+    # of what was actually asked, not a re-parse of the question's prose.
+    geo_queries: list[str] = field(default_factory=list)
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -71,7 +76,7 @@ def _artifact_ok(artifact: Any) -> bool:
     return ok is not False
 
 
-def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
+def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, Any]) -> None:
     if artifact is None:
         return
     if name == "search_tables":
@@ -97,6 +102,11 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any) -> None:
         record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
             clear_series(record)
+        query = str(args.get("query") or "").strip()
+        if record.geo_status["compare"] or get("wildcard", False) or args.get("places"):
+            record.geo_queries = []
+        elif query and record.geographies:
+            record.geo_queries.append(query)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)
@@ -269,7 +279,7 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
             content = str(getattr(message, "content", message))
             artifact = getattr(message, "artifact", None)
             ok = _artifact_ok(artifact)
-            _absorb(record, name, artifact)
+            _absorb(record, name, artifact, args)
     except Exception as exc:  # noqa: BLE001 - contained tool failure goes back to the model
         content = f"{name} failed: {redact_text(str(exc))}"
         ok = False

@@ -35,7 +35,17 @@ class SearchTablesResult(ToolResult):
 
 
 class ResolveGeographyInput(ToolInput):
-    query: str = Field(description="Place, county, or a wildcard like 'all counties in Oregon'.")
+    query: str = Field(
+        default="", description="Place, county, or a wildcard like 'all counties in Oregon'."
+    )
+    places: list[str] | None = Field(
+        default=None,
+        description=(
+            "For a 2+ way comparison: every compared place, each already canonicalized as "
+            "'Place, ST' (infer the state yourself even if the question named none, e.g. "
+            "'Chicago' -> 'Chicago, IL'). One call resolves all of them; omit query."
+        ),
+    )
     level: str | None = Field(
         default=None, description="geography.json name if already known, else omit."
     )

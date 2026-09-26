@@ -13,7 +13,6 @@ from pydantic import ConfigDict
 from src.compare import parentless_tracts, unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
-    STATES,
     filter_rows,
     find_state,
     named_rows,
@@ -55,15 +54,6 @@ _WITHIN = re.compile(
 )
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
 _COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
-# Clause boundaries: DC's compound name first (else bare "Washington" wins);
-# ", <state>" always ends a clause; a bare state name (e.g. a state-vs-state
-# comparison with no city) only ends one when followed by a separator/end,
-# not by more name text -- else "Kansas City" would split after "Kansas".
-_ALT = "|".join(re.escape(n) for n, *_ in sorted(STATES, key=lambda s: -len(s[0])))
-_DC_NAMES = r"\bdistrict of columbia(?!\w)|\bwashington(?:,\s*|\s+)d\.?c\.?(?!\w)"
-_END = r"(?=\s+and\b|\s+since\b|\s*[.?!]|\s*$)"
-_STATE_END = re.compile(rf"(?i:(?:{_DC_NAMES})|,\s*\b(?:{_ALT})\b|\b(?:{_ALT})\b{_END})")
-_LIST_SEP = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 _NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
 )
@@ -154,25 +144,17 @@ def detect_level(text: str) -> str | None:
 
 
 def split_comparison(query: str) -> list[str] | None:
-    # 2+ compared places -> their clauses; versus/compare-to/list, in that order.
+    # Two-way keyword split only. Segmenting an arbitrary comma/"and" list of
+    # places by inferring prose boundaries is the model's job (see `places`
+    # on ResolveGeographyInput) -- it knows Los Angeles is in California
+    # without a regex having to guess where one place name ends.
     parts = [part.strip() for part in _VERSUS.split(query, maxsplit=1)]
     if len(parts) == 2 and all(parts):
         return parts
     match = _COMPARE_TO.match(query)
     if match and (left := match.group(1).strip()) and (right := match.group(2).strip()):
         return [left, right]
-    if _WILDCARD.search(query) or _WITHIN.search(query):
-        return None
-    ends = [m.end() for m in _STATE_END.finditer(query)]
-    if len(ends) < 2:
-        return None
-    clauses: list[str] = []
-    start = 0
-    for i, end in enumerate(ends):
-        clauses.append(query[start:end].strip())
-        if i < len(ends) - 1:
-            start = m.end() if (m := _LIST_SEP.match(query, end)) else end
-    return clauses if all(clauses) else None
+    return None
 
 
 def _nation(query: str) -> bool:
@@ -206,7 +188,8 @@ class ResolveGeographyTool(BaseTool):
 
     async def _arun(
         self,
-        query: str,
+        query: str = "",
+        places: list[str] | None = None,
         level: str | None = None,
         dataset: str = "acs5",
         vintage: int | None = None,
@@ -220,7 +203,8 @@ class ResolveGeographyTool(BaseTool):
         if packed:
             detail, specs = packed
             return detail, _compare_result(specs, [], legal=False, detail=detail)
-        sides = split_comparison(query)
+        legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
+        sides = legs if len(legs) >= 2 else split_comparison(query)
         if sides:
             resolved = await asyncio.gather(
                 *(self._resolve(side, None, dataset, year, entries) for side in sides)
@@ -237,7 +221,7 @@ class ResolveGeographyTool(BaseTool):
             for hit in hits:
                 if hit.legal and hit.specs:
                     return f"1 geography: {hit.specs[0].for_spec}", hit
-        return await self._resolve(query, level, dataset, year, entries)
+        return await self._resolve(legs[0] if legs else query, level, dataset, year, entries)
 
     async def _resolve(
         self,

@@ -1877,23 +1877,6 @@ def test_split_comparison_still_splits_versus_and_compare_to() -> None:
     assert split_comparison("compare Austin to Dallas") == ["Austin", "Dallas"]
 
 
-def test_split_comparison_splits_an_and_joined_list_by_state() -> None:
-    assert split_comparison(
-        "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
-    ) == ["Compare the population of Austin city, Texas", "Dallas city, Texas"]
-    assert split_comparison(
-        "Compare the population of Austin city, Texas, Houston city, Texas, "
-        "and San Antonio city, Texas since 2019."
-    ) == [
-        "Compare the population of Austin city, Texas",
-        "Houston city, Texas",
-        "San Antonio city, Texas",
-    ]
-    assert split_comparison(
-        "Compare the population of Chicago city, Illinois and Phoenix city, Arizona since 2019."
-    ) == ["Compare the population of Chicago city, Illinois", "Phoenix city, Arizona"]
-
-
 def test_split_comparison_ignores_wildcard_and_within_listing_queries() -> None:
     assert split_comparison("all counties in Texas and Louisiana") is None
     assert split_comparison("tracts within Harris County, Texas and Travis County, Texas") is None
@@ -1905,24 +1888,14 @@ def test_split_comparison_returns_none_for_a_single_place() -> None:
     assert split_comparison("population of Washington, DC") is None
 
 
-def test_split_comparison_keeps_a_state_name_inside_a_place_together() -> None:
-    assert split_comparison(
-        "Compare the population of Kansas City, Kansas and St. Louis city, Missouri since 2019."
-    ) == ["Compare the population of Kansas City, Kansas", "St. Louis city, Missouri"]
-    assert split_comparison(
-        "Compare the population of Washington, D.C. and Seattle city, Washington since 2019."
-    ) == ["Compare the population of Washington, D.C.", "Seattle city, Washington"]
-    assert split_comparison(
-        "Compare the population of Delaware, Ohio and Indiana, Pennsylvania since 2019."
-    ) == ["Compare the population of Delaware, Ohio", "Indiana, Pennsylvania"]
-
-
-def test_split_comparison_splits_a_bare_state_versus_state_list() -> None:
-    assert split_comparison("Compare the population of Georgia and Alabama since 2019.") == [
-        "Compare the population of Georgia",
-        "Alabama",
-    ]
-    assert split_comparison("Compare the population of Texas and Oklahoma since 2019.") == [
-        "Compare the population of Texas",
-        "Oklahoma",
-    ]
+def test_split_comparison_does_not_segment_and_or_comma_lists() -> None:
+    """Retired (AC9 CC-100): segmenting an arbitrary list of places by inferring
+    prose boundaries is the model's job now (see `places` on
+    ResolveGeographyInput), not a regex clause-boundary anchor here."""
+    assert (
+        split_comparison(
+            "Compare the population of Kansas City, Kansas and St. Louis city, Missouri."
+        )
+        is None
+    )
+    assert split_comparison("Compare the population of Georgia and Alabama since 2019.") is None

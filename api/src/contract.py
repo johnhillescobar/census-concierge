@@ -403,12 +403,15 @@ def take_chart(
     geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
     estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
     if spec is None and not unavailable:
-        title = str((rows[0].get("table_id") if rows else "") or "")
+        table_id = str((rows[0].get("table_id") if rows else "") or "")
+        names = sorted({str(row.get("NAME") or "") for row in rows} - {""})
+        by_geo = f"{table_id}: {', '.join(names)}" if names else table_id
         if len(years) > 1:
             series: Literal["geography"] | None = "geography" if len(geos) > 1 else None
+            title = by_geo if series else table_id
             spec = ChartSpec(type="line", x="year", y="estimate", title=title, series_by=series)
         elif len(geos) > 1:
-            spec = ChartSpec(type="bar", x="geography", y="estimate", title=title)
+            spec = ChartSpec(type="bar", x="geography", y="estimate", title=by_geo)
     if spec is None:
         return {**none, "chart_unavailable": unavailable}
     fits = (spec.x != "year" or len(years) > 1) and (spec.x != "geography" or len(geos) > 1)

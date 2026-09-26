@@ -219,6 +219,22 @@ def _list_geographies(
                 "population": "8336817",
             },
             {
+                "name": "Chicago city, Illinois",
+                "level": "place",
+                "for": "place:1714000",
+                "in": "state:17",
+                "geoid": "1600000US1714000",
+                "population": "2665039",
+            },
+            {
+                "name": "Los Angeles city, California",
+                "level": "place",
+                "for": "place:0644000",
+                "in": "state:06",
+                "geoid": "1600000US0644000",
+                "population": "3820914",
+            },
+            {
                 "name": "Albany city, New York",
                 "level": "place",
                 "for": "place:3601000",
