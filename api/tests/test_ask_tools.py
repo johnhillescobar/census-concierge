@@ -1869,6 +1869,7 @@ def test_geo_entries_keeps_every_county_row(
         json.dump(payload, handle)
     entries = geo_entries("acs5", 2023)
     assert [entry.code for entry in entries] == ["050", "324"]
+    assert geo_levels("acs5", 2023)["county"].code == "324"
 
 
 def test_split_comparison_still_splits_versus_and_compare_to() -> None:
@@ -1902,4 +1903,15 @@ def test_split_comparison_returns_none_for_a_single_place() -> None:
     assert split_comparison("population of Harris County, Texas") is None
     assert split_comparison("population of Austin city, Texas") is None
     assert split_comparison("population of Washington, DC") is None
-    assert geo_levels("acs5", 2023)["county"].code == "324"
+
+
+def test_split_comparison_keeps_a_state_name_inside_a_place_together() -> None:
+    assert split_comparison(
+        "Compare the population of Kansas City, Kansas and St. Louis city, Missouri since 2019."
+    ) == ["Compare the population of Kansas City, Kansas", "St. Louis city, Missouri"]
+    assert split_comparison(
+        "Compare the population of Washington, D.C. and Seattle city, Washington since 2019."
+    ) == ["Compare the population of Washington, D.C.", "Seattle city, Washington"]
+    assert split_comparison(
+        "Compare the population of Delaware, Ohio and Indiana, Pennsylvania since 2019."
+    ) == ["Compare the population of Delaware, Ohio", "Indiana, Pennsylvania"]

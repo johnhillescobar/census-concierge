@@ -363,7 +363,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         "fetch_data": FetchDataTool(
             last_url=lambda: record.url,
             last_geographies=lambda: (
-                record.geographies[: int((record.geo_status or {}).get("compare_count") or 2)]
+                record.geographies[: int((record.geo_status or {}).get("compare_count") or 0)]
                 if (record.geo_status or {}).get("compare")
                 else []
             ),

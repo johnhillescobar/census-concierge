@@ -55,10 +55,14 @@ _WITHIN = re.compile(
 )
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
 _COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
-# Clause boundaries anchor on state names, not raw commas: "Austin city, Texas" has one.
+# Clause boundaries anchor on ", <state>" (a bare state name inside a place's
+# own name, e.g. "Kansas City", must not count), tried before the bare-state
+# alternation so "Washington, D.C." doesn't match just "Washington" first.
 _STATE_ALT = "|".join(re.escape(n) for n, *_ in sorted(STATES, key=lambda s: -len(s[0])))
-_DC_NAMES = r"district of columbia|washington,\s*d\.?c\.?|washington\s+d\.?c\.?"
-_STATE_CLAUSE_END = re.compile(rf"\b(?:{_STATE_ALT}|{_DC_NAMES})\b", re.IGNORECASE)
+_DC_NAMES = (
+    r"\bdistrict of columbia(?!\w)|\bwashington,\s*d\.?c\.?(?!\w)|\bwashington\s+d\.?c\.?(?!\w)"
+)
+_STATE_CLAUSE_END = re.compile(rf"(?:{_DC_NAMES})|,\s*\b(?:{_STATE_ALT})\b", re.IGNORECASE)
 _LIST_SEP = re.compile(r"\s*,\s*(?:and\s+)?|\s+and\s+", re.IGNORECASE)
 _NOISE = frozenset(
     {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
@@ -218,7 +222,10 @@ class ResolveGeographyTool(BaseTool):
             return detail, _compare_result(specs, [], legal=False, detail=detail)
         sides = split_comparison(query)
         if sides:
-            hits = [(await self._resolve(side, None, dataset, year, entries))[1] for side in sides]
+            resolved = await asyncio.gather(
+                *(self._resolve(side, None, dataset, year, entries) for side in sides)
+            )
+            hits = [hit for _detail, hit in resolved]
             if all(hit.legal and hit.specs for hit in hits):
                 specs = [hit.specs[0] for hit in hits]
                 extra = [row for hit in hits for row in hit.specs[1:]]

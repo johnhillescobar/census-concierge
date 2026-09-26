@@ -195,7 +195,7 @@ def plan_from_record(record: Any) -> ResultPlan:
     geos = list(getattr(record, "geographies", None) or [])
     status = getattr(record, "geo_status", None) or {}
     if status.get("compare"):
-        geos = geos[: int(status.get("compare_count") or 2)]
+        geos = geos[: int(status.get("compare_count") or 0)]
     dataset = str(getattr(fetch, "dataset", "") or "") or (url.dataset if url else "")
     vintages = getattr(record, "vintages", None) or []
     table_id = str(getattr(record, "table_id", "") or table)
@@ -260,6 +260,7 @@ def apply_override(record: Any, plan: ResultPlan | None) -> None:
         "detail": "",
         "nested": True,
         "compare": len(plan.geographies) > 1,
+        "compare_count": len(plan.geographies),
     }
 
 
