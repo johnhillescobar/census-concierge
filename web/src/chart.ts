@@ -141,7 +141,7 @@ function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Re
   const yTitle = rows.find((row) => row.universe)?.universe || "Estimate";
   const xTitle = spec.x === "year" ? (rows.some((row) => row.period) ? "Period" : "Year") : "Geography";
   const legendTitle = spec.series_by === "variable" ? "Variable" : "Geography";
-  const dodge = spec.type === "bar" && series.length > 1;
+  const dodge = spec.type === "bar" && new Set(points.map((point) => point.x)).size < points.length;
   const title = chartTitle(spec, rows);
   return {
     title,
@@ -150,8 +150,8 @@ function vegaSpec(spec: ChartSpec, points: ChartPoint[], rows: DatasetRow[]): Re
     autosize: { type: "fit", contains: "padding" },
     data: { values: points },
     encoding: {
-      x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { domain } },
-      xOffset: dodge ? { field: "series" } : { value: 0 },
+      x: { field: "x", type: "ordinal", title: xTitle, sort: domain, scale: { type: "band", domain } },
+      ...(dodge ? { xOffset: { field: "series" } } : {}),
       color: {
         field: "series",
         type: "nominal",
