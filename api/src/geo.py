@@ -159,11 +159,14 @@ def split_comparison(query: str) -> list[str] | None:
 
 def track_geo_query(queries: list[str], query: str) -> list[str]:
     """Append `query` as a new comparison leg, or replace the last entry if
-    it only refines the same place ("Springfield" -> "Springfield, Illinois")
-    rather than naming a second, different one."""
+    it only adds a state/qualifier to the SAME name ("Springfield" ->
+    "Springfield, Illinois") -- matched by the name before any comma, not a
+    bare substring (which would also, wrongly, match "New York" against
+    "New York City, NY", a different place)."""
     if queries:
-        folded, prior = query.casefold(), queries[-1].casefold()
-        if folded in prior or prior in folded:
+        head = query.split(",", 1)[0].strip().casefold()
+        prior_head = queries[-1].split(",", 1)[0].strip().casefold()
+        if head == prior_head:
             return [*queries[:-1], query]
     return [*queries, query]
 

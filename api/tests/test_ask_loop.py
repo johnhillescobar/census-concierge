@@ -955,6 +955,22 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
     assert [row.for_spec for row in response.plan.geographies] == ["place:72000"]
 
 
+async def test_bare_name_and_its_own_city_stay_two_distinct_legs() -> None:
+    """Gate 2 re-run finding: track_geo_query's refinement check must not
+    collide "New York" (the bare state) with "New York City, NY" (a
+    different place) the way a plain substring check would -- a real
+    state-vs-its-namesake-city comparison must keep both legs."""
+    record = ExecutionRecord(question="Compare New York and New York City, NY.")
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "New York"}}, record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"query": "New York City, NY"}},
+        record,
+    )
+    assert record.geo_queries == ["New York", "New York City, NY"]
+
+
 async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None:
     """dispatch() raises "build_url failed twice" before search_tables ever ran;
     finish_tools then recovers the table and real rows. The stale failure string
