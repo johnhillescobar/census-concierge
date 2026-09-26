@@ -908,6 +908,53 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
     assert response.answer == "Austin and Dallas compared."
 
 
+async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparison() -> None:
+    """Gate 2 finding: two sequential resolve_geography calls naming the SAME
+    place ("Springfield" -> "Springfield, Illinois", disambiguating rather
+    than adding a leg) must not be replayed as a fabricated two-way
+    comparison the question never asked for."""
+    question = "What is the population of Springfield, Illinois?"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [{"id": "0", "name": "search_tables", "args": {"question": question}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "1", "name": "resolve_geography", "args": {"query": "Springfield"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "2",
+                    "name": "resolve_geography",
+                    "args": {"query": "Springfield, Illinois"},
+                }
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+        {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+        {"content": "Springfield, Illinois has this population.", "tool_calls": []},
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(question, complete=complete, tools=tools, record=record)
+    assert [row.for_spec for row in response.plan.geographies] == ["place:72000"]
+
+
 async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None:
     """dispatch() raises "build_url failed twice" before search_tables ever ran;
     finish_tools then recovers the table and real rows. The stale failure string

@@ -1,0 +1,314 @@
+Gate 2 — CC-100 v2 (bare unqualified place names)
+Branch: fix/cc-100-bare-place-names, 2 commits ahead of main:
+  9ba060a CC-100: retire regex list-splitting for comparisons; segment via model-supplied `places`
+  36ef5cc evidence(CC-100): record Gate 1, fix a non-discriminating AC10/AC11 test
+
+Diff reviewed: `git diff main...fix/cc-100-bare-place-names` (13 files, 549
+insertions / 78 deletions, including two evidence files). Touched source:
+api/src/ask.py, api/src/contract.py, api/src/finish.py, api/src/geo.py,
+api/src/prompts.py, api/src/tools.py. Touched tests: ask_fixtures.py,
+test_ask_loop.py, test_ask_tools.py, test_chart.py, test_guards.py.
+
+Read first: CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+docs/ask-path.md, evidence/slice-4/cc-100-v2-preflight.md,
+evidence/slice-4/cc-100-v2-gate1.txt.
+
+Housekeeping note: this agent's worktree was checked out on an unrelated
+branch (`worktree-agent-ad6de9e8d07cac1d2`, at f9819dd) rather than
+fix/cc-100-bare-place-names (the branch was already checked out in the main
+repo checkout, so it could not be checked out here too). All machine runs
+below were done from a `git checkout --detach 36ef5cc...` of the target
+branch tip inside this same worktree, then the worktree was returned to its
+original branch (`worktree-agent-ad6de9e8d07cac1d2` @ f9819dd) before this
+file was written. No files outside evidence/slice-4/cc-100-v2-gate2.txt were
+left modified.
+
+====================================================================
+PASS 1 — generic bugs, cold-context code review
+====================================================================
+
+Read api/src/ask.py, api/src/geo.py, api/src/finish.py, api/src/contract.py,
+api/src/tools.py, api/src/prompts.py, api/src/compare.py in full (diff +
+surrounding untouched code) with no assumption of intent, focused on the
+four interaction points named in the review brief. One hypothesis was
+confirmed by writing a throwaway reproduction test against the actual target
+commit (checked out via detached HEAD, run with `uv run pytest`, then
+deleted — not part of any commit).
+
+--------------------------------------------------------------------
+FINDING 1 — SEVERITY: HIGH (silent wrong answer, confirmed by reproduction)
+api/src/ask.py:104-107 (`_absorb`'s geo_queries bookkeeping) interacting with
+api/src/finish.py:65-73 (`_wrong_comparison`) and :115-125 (repair args)
+--------------------------------------------------------------------
+
+`_absorb` appends the current `query` to `record.geo_queries` on ANY
+single-place, non-compare, non-wildcard, non-`places` resolve_geography call
+that legally resolves to at least one geography:
+
+    query = str(args.get("query") or "").strip()
+    if record.geo_status["compare"] or get("wildcard", False) or args.get("places"):
+        record.geo_queries = []
+    elif query and record.geographies:
+        record.geo_queries.append(query)
+
+This has no way to distinguish "two calls that named two different places
+because the model is assembling a comparison one leg at a time" (the
+intended repair target) from "two calls that named the SAME logical place,
+because the first one was ambiguous and the model refined it with a second,
+more specific query" (an ordinary single-place disambiguation, not a
+comparison at all). Both produce `len(record.geo_queries) == 2` with
+`geo_status["compare"] == False`, which is exactly the trigger
+`_wrong_comparison` uses:
+
+    if len(queries) >= 2 and not status.get("compare"):
+        return True
+
+Unlike the mechanism this replaces — the old `_wrong_comparison` used
+`split_comparison(question)` on the actual question TEXT, so a
+non-comparison question could never trigger a "wrong comparison" repair, no
+matter how many resolve_geography calls happened — this new count-only check
+runs BEFORE any text-based check and does not require the question to look
+like a comparison at all. That textual safety net is what this diff removes
+for this code path.
+
+Confirmed by reproduction (scratch test against commit 36ef5cc, deleted
+afterward, not part of any commit): question "population of Springfield,
+Illinois". The model calls resolve_geography("Springfield") — ambiguous,
+resolves several candidates, first pick is Springfield, Missouri — then
+refines with resolve_geography("Springfield, Illinois"), which resolves
+correctly and legally. Both calls are legal, non-wildcard, non-compare,
+non-`places`, so both queries land in `record.geo_queries`. The model then
+builds the URL and fetches for the (correct) Illinois geography and stops.
+`finish_tools` still runs unconditionally (`run_ask` calls it regardless of
+whether the model already produced a URL). `_wrong_comparison` returns True
+(`len(queries) == 2`, `compare` False) even though the question named one
+place and used no comparison language whatsoever. finish then replays
+`resolve_geography(places=["Springfield", "Springfield, Illinois"])`, which
+legally resolves BOTH as a two-way comparison and overwrites the record:
+
+    response.plan.geographies ==
+      [GeoSpec(for_spec='place:70000', name='Springfield city, Missouri', ...),
+       GeoSpec(for_spec='place:72000', name='Springfield city, Illinois', ...)]
+
+The final answer is a fabricated two-place comparison between Springfield,
+Missouri (the model's own superseded, wrong first guess) and Springfield,
+Illinois (the place actually asked about), complete with a `comparisons[]`
+MOE_diff entry between two unrelated cities that share a name — for a
+question that asked about exactly one place and never suggested a
+comparison. This is precisely what docs/playbooks/review-pr.md's
+silent-wrong-answer section calls out ("did anything start silently
+repairing input... that is a warning on the answer, never an invisible
+fix") — here the "repair" itself manufactures the wrong answer, with no
+warning distinguishing it from a real comparison.
+
+Not covered by any test in this diff: test_ask_loop.py adds
+`test_sequential_single_place_calls_are_repaired_by_finish_tools`, but that
+fixture uses two calls for two genuinely different places forming a real
+comparison ("Austin city, Texas" then "Dallas city, Texas"). No test in this
+diff exercises two sequential single-place calls for the SAME place (an
+ambiguous-then-refined lookup), which is the case that breaks.
+
+--------------------------------------------------------------------
+FINDING 2 — SEVERITY: MEDIUM (crash risk, not silent-wrong-answer)
+api/src/contract.py, `take_chart`'s deterministic fallback (~line 405-412)
+--------------------------------------------------------------------
+
+The model-supplied chart path guards `ChartSpec` construction:
+
+    if saw:
+        try:
+            spec = ChartSpec.model_validate(payload)
+        except ValidationError:
+            unavailable = True
+
+The new deterministic fallback a few lines below builds a title from live
+Census `NAME` data and constructs `ChartSpec` directly, with no such guard:
+
+    names = sorted({str(row.get("NAME") or "") for row in rows} - {""})
+    by_geo = f"{table_id}: {', '.join(names)}" if names else table_id
+    ...
+    spec = ChartSpec(type="line", x="year", y="estimate", title=title, series_by=series)
+    ...
+    spec = ChartSpec(type="bar", x="geography", y="estimate", title=by_geo)
+
+`ChartSpec.title_is_plain_text` rejects any title matching
+`_UNSAFE_TITLE = re.compile(r"<[^>]+>|javascript:", re.I)`. Census NAME
+values are very unlikely to contain `<` or `javascript:` today, but this is
+untrusted external data (fetched live from the Census API) flowing straight
+into a validator that the sibling code path treats as fallible, while this
+path treats it as infallible. If it ever trips, the `ValidationError`
+propagates out of `take_chart` uncaught, which would fail the whole `/ask`
+response (no URL, no rows, nothing) instead of degrading to
+`chart_unavailable` the way an invalid model-supplied chart does. Low
+likelihood, easy fix (wrap in the same try/except), inconsistent as written.
+
+--------------------------------------------------------------------
+Reviewed and found NOT to be bugs (the four points named in the brief):
+--------------------------------------------------------------------
+- `record.override` interaction: `_absorb`'s resolve_geography branch
+  early-returns before touching geo_queries when
+  `record.override.geographies` is set — but `dispatch` (api/src/ask.py:272)
+  already short-circuits `tool.ainvoke`/`_absorb` entirely in that case
+  ("override geography", ok=True, no _absorb call at all), so the early
+  return inside `_absorb` is unreachable dead code for that exact condition,
+  pre-existing on main, not introduced or worsened by this diff.
+- Wildcard-adjacent resolves: `_fail(...)` always threads `wildcard=` through
+  on the failure paths that matter (nesting failures), so a failed wildcard
+  query still sets `wildcard=True` on the artifact and correctly resets
+  `geo_queries`. No stale accumulation across a wildcard boundary.
+- `geo.py` `_arun`'s `legs[0] if legs else query` fallback: correct for a
+  single-entry `places` list (falls through `sides = split_comparison(query)`
+  since `len(legs) < 2`, then resolves `legs[0]`); `args.get("places")` in
+  ask.py's reset check is keyed off the raw args dict, not the parsed
+  `legs`, so it still resets correctly for a 1-entry list.
+- `parentless_tracts(query, ...)` with `query=""` and only `places` set: the
+  underlying regex (`_TRACT_VS.search("")`) simply returns no match on an
+  empty string; no exception, no incorrect tract-pair detection.
+
+====================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+====================================================================
+
+Machines run first (against the actual target commit, checked out via
+`git checkout --detach 36ef5cc...` in this worktree, per the housekeeping
+note above):
+
+  $ uv run python scripts/check_budgets.py
+  All budgets met. (api src LOC 4059/4100, largest file LOC 409/410,
+  system prompt tokens 324/1200, answered_rate 0.825 >= 0.7,
+  synthetic_alignment 0.544 >= 0.5, p95 latency 17.955 <= 20, all others ok)
+
+  $ uv run python scripts/check_invariants.py --base origin/main
+  All invariants held. (banned agent frameworks, sqlite, contextvars,
+  ticket-named tests, prompt assertions, forbidden module names, blocking
+  clarification, census key in artifacts, empty secret defaults, key
+  attached only via CensusURL, mandatory catalogs, budget increases — all ok)
+
+  $ uv run ruff check .
+  All checks passed!
+
+  $ uv run ruff format --check .
+  52 files already formatted
+
+  $ uv run mypy api/src
+  Success: no issues found in 24 source files
+
+  $ uv run pytest -q -m "not integration"
+  519 passed in 11.82s
+
+All five machines exit zero. No budget raised (`check_invariants --base
+origin/main` — the one check that fails on a weakened budget — passed
+clean; `budgets.toml` itself is untouched by the diff).
+
+Checklist beyond the machines:
+
+- Scope: 11 source/test files touched (+2 evidence files), under the ~15
+  file guideline. Nothing added "while we were in there" — every changed
+  line traces to the places/geo_queries redesign or its tests.
+- Test naming: none of the new/renamed tests are ticket-named
+  (`test_bare_unqualified_city_names_resolve_all_places`,
+  `test_and_phrased_comparison_resolves_both_geographies`,
+  `test_three_way_and_list_comparison`, etc. — all describe behavior, not a
+  ticket number); confirmed independently of the `ticket-named tests`
+  invariant, which also passed.
+- Module naming: no new module added; no `*_manager`/`*_orchestrator`/
+  `*_factory`/`*_policy`/`*_strategy`/`*_service` introduced.
+- Blocking clarification: `resolve_geography`'s new `places` field and the
+  `finish.py` repair path do not ask the user anything; ambiguous results
+  still surface as `ambiguous_place` warnings with ranked candidates, not a
+  question. `check_invariants`'s blocking-clarification check also passed.
+- No new tool, no new route: `resolve_geography` gained an input field, not
+  a sibling tool — matches CLAUDE.md's "an existing tool is also a
+  plausible answer -> one tool with a parameter" guidance directly.
+- No new Pydantic model added at a fourth boundary; `ResolveGeographyInput`
+  and `ResolveGeographyResult` both already existed and only gained/lost
+  fields (`places` added to input; nothing removed from the result).
+- **Docs drift — FINDING 3, SEVERITY: MEDIUM.** `docs/ask-path.md`'s
+  "Finish path" section (paragraph beginning "An \"incomplete comparison\"
+  is detected by `geo.split_comparison()`...") still describes the RETIRED
+  mechanism as current: it says the detector is anchored "on state-name
+  boundaries" and that "finish redoes resolution with the full question
+  text so it merges in one call instead." Neither is true after this diff —
+  `split_comparison`'s state-anchored list splitter is deleted outright
+  (api/src/geo.py), and finish's repair call now sends
+  `{"places": record.geo_queries}`, not the question text. The "Geography"
+  section's line "`versus` / `compared to` / `compare … to` emits one
+  executable spec per side" also has no mention of the new `places` field
+  on `resolve_geography`, which is now the primary way multi-place
+  comparisons are meant to resolve per `prompts.py`'s own new instruction.
+  This diff changes the geography-resolution contract (CLAUDE.md: "Read the
+  catalog that matches the work... docs/ask-path.md (`/ask`)"; "If you
+  change the shape, update it in the same commit") and did not update this
+  catalog — confirmed by `git diff main...fix/cc-100-bare-place-names --
+  docs/` returning empty.
+- Silent-wrong-answer review: URL/MOE/GEOID/universe still present on every
+  branch (unchanged by this diff — verified no branch it touches removes
+  any of these fields); `&key=` redaction untouched (no new URL formatting
+  added); numbers still never pass back through the model (`places` is
+  place names, not estimate values). The one thing that *does* silently
+  repair input in a new way is FINDING 1 above, which is a blocking finding
+  per this playbook's own rule ("none may be silent-wrong-answer findings,
+  which block").
+
+====================================================================
+SUMMARY
+====================================================================
+
+Pass 1 (generic bugs): 2 findings — FINDING 1 (HIGH, confirmed by
+reproduction) and FINDING 2 (MEDIUM).
+Pass 2 (project invariants): all 5 machines clean, no budget raised; 1
+finding — FINDING 3 (MEDIUM, docs/ask-path.md not updated for the changed
+geography-resolution contract).
+
+Verdict for the PR body: **Not yet** — FINDING 1 is a silent-wrong-answer
+regression (this playbook's own gate: such findings block, they are not a
+follow-up) and must be fixed, with a new mutation-checked test for the
+"same place, refined twice" case, before this ships. FINDING 2 and FINDING 3
+should be fixed in the same pass since Gate 2 is being re-run anyway.
+
+====================================================================
+FIXES APPLIED (same session, before re-review)
+====================================================================
+
+FINDING 1 (HIGH, geo_queries over-accumulates on a same-place refinement):
+Fixed with api/src/geo.py's new `track_geo_query(queries, query)`: a later
+single-place query that is a case-insensitive substring superset/subset of
+the prior tracked query ("Springfield" <-> "Springfield, Illinois") replaces
+the last entry instead of appending -- deterministic string comparison
+between two tool-call args the model already produced, not prose-boundary
+inference over the question. api/src/ask.py's `_absorb` now calls this
+helper instead of a bare `.append()`.
+New test: api/tests/test_ask_loop.py::
+test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparison
+(full run_ask loop, scripted "Springfield" then "Springfield, Illinois",
+asserts response.plan.geographies has exactly one entry). Mutation-checked:
+reverted track_geo_query to bare append -> test failed with
+['place:70000', 'place:72000'] (both legs kept) instead of ['place:72000'].
+Restored, re-verified green.
+Known residual limitation (documented, not fixed): the substring heuristic
+would misclassify a genuine comparison between a state and a same-named
+city ("Texas" vs "Texas City") as a refinement. Judged acceptable: rare,
+deterministic-code-only recovery was already out of scope per AC9 for
+anything not keyword- or bookkeeping-detectable, and the reporter's AC12
+manual pass is the actual backstop for phrasing this specific.
+
+FINDING 2 (MEDIUM, unguarded ChartSpec construction could crash on an
+unsafe NAME): Fixed with a local `_safe(**fields)` closure in
+`take_chart`'s fallback branch that retries with `title=table_id` on
+`ValidationError`, mirroring the guard the model-supplied chart path already
+had a few lines above.
+New test: api/tests/test_chart.py::
+test_unsafe_geography_name_falls_back_to_a_plain_title (a NAME containing
+`<script>...</script>`; asserts assemble() does not raise and the chart
+title degrades to the table_id). Mutation-checked: reverted `_safe` to call
+ChartSpec directly -> test failed with the exact ValidationError Gate 2
+predicted. Restored, re-verified green.
+
+FINDING 3 (MEDIUM, docs/ask-path.md stale): Rewrote the "Finish path"
+paragraph (no longer describes the retired state-anchor splitter or "full
+question text" replay; now describes `places`, the `geo_queries` tracking,
+and the refinement collapse) and added one line to "Geography" naming the
+new `places` field. `doc_lines` budget: 1638/1800 (was 1630), no cap raised.
+
+Full suite after all three fixes: 521 passed. Budgets, lint, format, mypy,
+and check_invariants.py --base origin/main all clean, no budget raised.

@@ -110,6 +110,17 @@ def test_two_geographies_keep_a_bar_chart() -> None:
     assert [row["GEO_ID"] for row in response.rows] == [AUSTIN["GEO_ID"], TEXAS["GEO_ID"]]
 
 
+def test_unsafe_geography_name_falls_back_to_a_plain_title() -> None:
+    """Gate 2 finding: NAME comes from live Census data, unsanitized, before
+    being joined into the fallback chart title -- a name that trips
+    title_is_plain_text must degrade to the table_id, not crash the response."""
+    unsafe = {**AUSTIN, "NAME": "<script>alert(1)</script>"}
+    record = ExecutionRecord(rows=[unsafe, TEXAS], table_id="B25064")
+    response = assemble("Austin is higher.", record)
+    assert response.chart is not None
+    assert response.chart.title == "B25064"
+
+
 def test_geography_series_over_years_is_kept() -> None:
     austin_2019 = {**AUSTIN, "year": "2019", "B25064_001E": "1600"}
     texas_2019 = {**TEXAS, "year": "2019", "B25064_001E": "1300"}

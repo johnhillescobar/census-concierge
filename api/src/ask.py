@@ -27,7 +27,7 @@ from src.contract import (
 )
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import degraded_answer, finish_tools
-from src.geo import ResolveGeographyTool
+from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
 from src.prompts import system_prompt
@@ -106,7 +106,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         if record.geo_status["compare"] or get("wildcard", False) or args.get("places"):
             record.geo_queries = []
         elif query and record.geographies:
-            record.geo_queries.append(query)
+            record.geo_queries = track_geo_query(record.geo_queries, query)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)

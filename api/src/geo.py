@@ -157,6 +157,17 @@ def split_comparison(query: str) -> list[str] | None:
     return None
 
 
+def track_geo_query(queries: list[str], query: str) -> list[str]:
+    """Append `query` as a new comparison leg, or replace the last entry if
+    it only refines the same place ("Springfield" -> "Springfield, Illinois")
+    rather than naming a second, different one."""
+    if queries:
+        folded, prior = query.casefold(), queries[-1].casefold()
+        if folded in prior or prior in folded:
+            return [*queries[:-1], query]
+    return [*queries, query]
+
+
 def _nation(query: str) -> bool:
     if _WILDCARD.search(query) or _WITHIN.search(query):
         return False
