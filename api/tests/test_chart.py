@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
+from ask_fixtures import _tools
 from pydantic import ValidationError
-from src.ask import ExecutionRecord, assemble
+from src.ask import ExecutionRecord, assemble, dispatch
 from src.contract import ChartSpec
 
 AUSTIN = {
@@ -121,34 +122,48 @@ def test_geography_series_over_years_is_kept() -> None:
     assert len(response.rows) == 4
 
 
-def test_comparison_chart_has_one_series_per_geography_with_correct_title() -> None:
+_COMPARE_QUESTION = "Compare the population of Chicago, Los Angeles, and New York City since 2017."
+_BY_GEOID = {row["GEO_ID"]: row for row in (CHICAGO, LOS_ANGELES, NEW_YORK)}
+
+
+async def _resolved_bare_name_comparison() -> ExecutionRecord:
+    """Resolve the AC8 fixture (no state named anywhere) via the real
+    `places` mechanism, then attach rows keyed to what actually resolved --
+    so the chart/table tests below exercise this change end to end instead
+    of asserting on hand-picked rows nothing here produced."""
+    record = ExecutionRecord(question=_COMPARE_QUESTION, table_id="B01003")
+    tools = _tools(record)
+    places = {"places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
+    await dispatch(tools["resolve_geography"], {"id": "1", "args": places}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["compare_count"] == 3
+    record.rows = [_BY_GEOID[geo.geoid] for geo in record.geographies[:3]]
+    return record
+
+
+async def test_comparison_chart_has_one_series_per_geography_with_correct_title() -> None:
     """AC10 (CC-100): a resolved N-way comparison with no model-supplied chart
     JSON must fall back to a chart naming every compared place, never a
     generic table-id-only title."""
-    record = ExecutionRecord(rows=[CHICAGO, LOS_ANGELES, NEW_YORK], table_id="B01003")
-    response = assemble("Chicago, Los Angeles, and New York compared.", record)
+    record = await _resolved_bare_name_comparison()
+    response = assemble(_COMPARE_QUESTION, record)
     assert response.chart is not None
     assert response.chart.type == "bar"
     assert response.chart.x == "geography"
-    assert {row["GEO_ID"] for row in response.rows} == {
-        CHICAGO["GEO_ID"],
-        LOS_ANGELES["GEO_ID"],
-        NEW_YORK["GEO_ID"],
-    }
-    for place in (CHICAGO, LOS_ANGELES, NEW_YORK):
+    assert {row["GEO_ID"] for row in response.rows} == set(_BY_GEOID)
+    for place in _BY_GEOID.values():
         assert place["NAME"] in response.chart.title
     assert response.chart.title != "B01003"
 
 
-def test_comparison_table_has_a_row_per_geography() -> None:
+async def test_comparison_table_has_a_row_per_geography() -> None:
     """AC11 (CC-100): table completeness is verified independently of the
     chart -- rows and moe are built from a different path than the chart."""
-    record = ExecutionRecord(rows=[CHICAGO, LOS_ANGELES, NEW_YORK], table_id="B01003")
-    response = assemble("Chicago, Los Angeles, and New York compared.", record)
-    wanted = {CHICAGO["GEO_ID"], LOS_ANGELES["GEO_ID"], NEW_YORK["GEO_ID"]}
+    record = await _resolved_bare_name_comparison()
+    response = assemble(_COMPARE_QUESTION, record)
     assert len(response.rows) == 3
-    assert {row["GEO_ID"] for row in response.rows} == wanted
-    assert {row["GEO_ID"] for row in response.moe} == wanted
+    assert {row["GEO_ID"] for row in response.rows} == set(_BY_GEOID)
+    assert {row["GEO_ID"] for row in response.moe} == set(_BY_GEOID)
     assert all(row.get("B01003_001M") for row in response.moe)
 
 
