@@ -41,6 +41,11 @@ Evidence: `evidence/slice-1/`. Selector is `rerank.choose` inside
 `url` → `urls[]`; vintage policy; ZCTA / nesting / aggregation / `MOE_diff`.
 answered_rate 0.825, p95 17.116s. Evidence: `evidence/slice-3/`. Live behavior:
 `docs/ask-path.md`. Residual misses: CC-91, not a reopening of CC-2.
+[CC-100](https://johnhillescobar.atlassian.net/browse/CC-100) fixed a
+regression in this slice's own comparisons feature: an "and"/comma-phrased
+multi-place question (as opposed to "versus"/"compared to") silently dropped
+every place but the last-resolved one, with no warning. Bug fix, not a
+reopening — see `docs/ask-path.md`'s Finish path section.
 
 ## Decisions recorded as Done (do not implement)
 

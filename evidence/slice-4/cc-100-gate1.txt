@@ -1,0 +1,325 @@
+CC-100 Gate 1 -- tests + mutation check
+commit: 51a3608 CC-100: stop multi-geography comparisons from silently dropping every place but the last.
+branch: fix/cc-100-multi-geo-comparison
+ticket: CC-100
+make: not found; ran the Makefile check recipe
+
+# GOOD = test fails against the broken implementation (the check works).
+# BAD  = test still passes (delete or rewrite it).
+
+========== uv run ruff check . ==========
+All checks passed!
+
+exit: 0
+
+========== uv run ruff format --check . ==========
+150 files already formatted
+
+exit: 0
+
+========== uv run mypy api/src ==========
+Success: no issues found in 24 source files
+
+exit: 0
+
+========== uv run pytest -q -m "not integration" ==========
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 41%]
+........................................................................ [ 55%]
+........................................................................ [ 69%]
+........................................................................ [ 83%]
+........................................................................ [ 97%]
+...........                                                              [100%]
+515 passed in 12.40s
+
+exit: 0
+
+========== uv run python scripts/check_invariants.py --base origin/main ==========
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+
+exit: 0
+
+========== uv run python scripts/generate_client.py --check ==========
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmp7j38xze2\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp7j38xze2\schema.d.ts [70.5ms]
+packages/client is up to date.
+
+exit: 0
+
+========== uv run python scripts/check_budgets.py ==========
+
+BUDGETS
+
+  ok    api src LOC               4036 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           405 <= 410
+  ok    web src LOC               2996 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1630 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.955 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate              0.8 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit: 0
+
+========== npm --prefix web ci ==========
+already installed, ran npm test/typecheck directly
+
+========== npm --prefix web test ==========
+
+> test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/johnh/Dropbox/Python/census-concierge/web[39m
+
+ [32m✓[39m src/plan.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/ask.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/display.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/chart.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32m✓[39m src/PlanStrip.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 518[2mms[22m[39m
+ [32m✓[39m src/App.plan.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 1697[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mposts a table edit with the original question, not rewritten prompt text [33m 374[2mms[22m[39m
+ [32m✓[39m src/App.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 2442[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m      Tests [22m [1m[32m91 passed[39m[22m[90m (91)[39m
+[2m   Start at [22m 21:48:50
+[2m   Duration [22m 8.29s[2m (transform 587ms, setup 3.71s, collect 3.57s, tests 4.85s, environment 13.56s, prepare 1.70s)[22m
+
+
+exit: 0
+
+========== npm --prefix web run typecheck ==========
+
+> typecheck
+> tsc --noEmit
+
+
+exit: 0
+
+# Mutation check: revert one behaviour, run only the relevant test(s), confirm FAIL, restore.
+
+===== MUTATION: split_comparison drops "and"/comma-list detection, versus/compare-to only =====
+test: api/tests/test_ask_tools.py::test_split_comparison_splits_an_and_joined_list_by_state api/tests/test_ask_loop.py -k "and_phrased or three_way or sequential_single_place"
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_split_comparison_splits_an_and_joined_list_by_state api/tests/test_ask_loop.py -k "and_phrased or three_way or sequential_single_place" --tb=line
+
+GOOD
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+E   assert False is True
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:777: assert False is True
+E   assert False is True
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:795: assert False is True
+E   assert False is True
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:814: assert False is True
+E   AssertionError: assert ['place:19000', 'place:40516'] == ['place:48050...'place:19000']
+      
+      At index 0 diff: 'place:19000' != 'place:4805000'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:871: AssertionError: assert ['place:19000', 'place:40516'] == ['place:48050...'place:19000']
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_and_phrased_comparison_keeps_both_legs_including_an_ambiguous_one
+FAILED api/tests/test_ask_loop.py::test_and_phrased_comparison_across_states_keeps_both_legs
+FAILED api/tests/test_ask_loop.py::test_three_way_and_list_comparison_keeps_all_three_legs
+FAILED api/tests/test_ask_loop.py::test_sequential_single_place_calls_are_repaired_by_finish_tools
+4 failed, 46 deselected in 0.85s
+
+# GOOD  and/comma-list comparisons no longer resolved  (4 failed, 46 deselected in 0.85s)
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_split_comparison_splits_an_and_joined_list_by_state --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert None == ['Compare the population of Austin city, Texas', 'Dallas city, Texas']
+     +  where None = split_comparison('Compare the population of Austin city, Texas and Dallas city, Texas since 2017.')
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:1880: AssertionError: assert None == ['Compare the population of Austin city, Texas', 'Dallas city, Texas']
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_split_comparison_splits_an_and_joined_list_by_state
+1 failed in 0.24s
+
+# GOOD  split_comparison unit test also fails standalone  (see above)
+
+===== MUTATION: split_comparison's wildcard/within guard removed =====
+test: api/tests/test_ask_tools.py::test_split_comparison_ignores_wildcard_and_within_listing_queries
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_split_comparison_ignores_wildcard_and_within_listing_queries --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['all counties in Texas', 'Louisiana'] is None
+     +  where ['all counties in Texas', 'Louisiana'] = split_comparison('all counties in Texas and Louisiana')
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_tools.py:1897: AssertionError: assert ['all counties in Texas', 'Louisiana'] is None
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_tools.py::test_split_comparison_ignores_wildcard_and_within_listing_queries
+1 failed in 0.21s
+
+# GOOD  wildcard/within guard removed  (1 failed in 0.21s)
+
+===== MUTATION: finish.py _wrong_comparison always returns False (redo never fires) =====
+test: api/tests/test_ask_loop.py::test_sequential_single_place_calls_are_repaired_by_finish_tools
+
+$ uv run pytest -q api/tests/test_ask_loop.py::test_sequential_single_place_calls_are_repaired_by_finish_tools --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['place:19000', 'place:40516'] == ['place:48050...'place:19000']
+      
+      At index 0 diff: 'place:19000' != 'place:4805000'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:871: AssertionError: assert ['place:19000', 'place:40516'] == ['place:48050...'place:19000']
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_sequential_single_place_calls_are_repaired_by_finish_tools
+1 failed in 0.64s
+
+# GOOD  finish.py redo trigger disabled  (1 failed in 0.64s)
+
+===== MUTATION: fetch_data.last_geographies and plan_from_record hardcode [:2] again =====
+test: api/tests/test_ask_loop.py::test_three_way_and_list_comparison_keeps_all_three_legs (and_phrased 2-way tests as negative control)
+
+$ uv run pytest -q api/tests/test_ask_loop.py -k "three_way or and_phrased" --tb=line
+
+GOOD
+..F                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['place:48050...'place:35000'] == ['place:48050...'place:65000']
+      
+      Right contains one more item: 'place:65000'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:819: AssertionError: assert ['place:48050...'place:35000'] == ['place:48050...'place:65000']
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_three_way_and_list_comparison_keeps_all_three_legs
+1 failed, 2 passed, 46 deselected in 0.48s
+
+# GOOD  [:2] hardcode restored, 3-way test fails, 2-way tests unaffected  (1 failed, 2 passed in 0.48s)
+
+===== MUTATION: ambiguous_place threshold hardcoded back to <=2 =====
+test: api/tests/test_ask_loop.py::test_three_way_and_list_comparison_keeps_all_three_legs
+
+$ uv run pytest -q api/tests/test_ask_loop.py::test_three_way_and_list_comparison_keeps_all_three_legs --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [AskWarning(c...: '65000'})])] == []
+      
+      Left contains one more item: AskWarning(code='ambiguous_place', detail='3 matching geographies: Austin city, Texas; Houston city, Texas; San Antoni...', for_spec='place:65000', in_spec='state:48', dataset='acs5', vintage=2024, codes={'state': '48', 'place': '65000'})])
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:818: AssertionError: assert [AskWarning(c...: '65000'})])] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_three_way_and_list_comparison_keeps_all_three_legs
+1 failed in 0.54s
+
+# GOOD  ambiguous_place threshold hardcoded to 2 falsely warns on a clean 3-way comparison  (1 failed in 0.54s)
+
+===== MUTATION: degraded-answer fallback removed entirely =====
+test: api/tests/test_ask_loop.py::test_answer_is_not_left_as_a_raw_tool_failure_after_recovery api/tests/test_ask_loop.py::test_answer_stays_a_visible_failure_when_recovery_also_fails (negative control)
+
+$ uv run pytest -q api/tests/test_ask_loop.py -k "not_left_as_a_raw or stays_a_visible" --tb=line
+
+GOOD
+F.                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'build_url failed twice' != 'build_url failed twice'
+     +  where 'build_url failed twice' = AskResponse(answer='build_url failed twice', urls=['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_0...age=2024, codes={'state': '48', 'county': '201'})], allow_overlapping_acs5=False), chart=None, chart_unavailable=False).answer
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:910: AssertionError: assert 'build_url failed twice' != 'build_url failed twice'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_answer_is_not_left_as_a_raw_tool_failure_after_recovery
+1 failed, 1 passed, 47 deselected in 0.81s
+
+# GOOD  degraded-answer fallback missing, AC4's negative control unaffected  (1 failed, 1 passed in 0.81s)
+
+===== MUTATION (anti-gaming, AC4): degraded-answer replaces answer unconditionally, ignoring record.rows =====
+test: api/tests/test_ask_loop.py::test_answer_stays_a_visible_failure_when_recovery_also_fails
+
+$ uv run pytest -q api/tests/test_ask_loop.py::test_answer_stays_a_visible_failure_when_recovery_also_fails --tb=line
+
+GOOD
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'Recovered  d...nd URL below.' == 'build_url failed twice'
+      
+      - build_url failed twice
+      + Recovered  data after a retry; see the table and URL below.
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_ask_loop.py:939: AssertionError: assert 'Recovered  d...nd URL below.' == 'build_url failed twice'
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_loop.py::test_answer_stays_a_visible_failure_when_recovery_also_fails
+1 failed in 0.78s
+
+# GOOD  unconditional replacement (no rows guard) papers over a genuine failure, caught  (1 failed in 0.78s)
+
+===== MUTATION: fetch retry gate back to "record.fetch is None" only =====
+test: api/tests/test_finish.py (both tests: retry-after-failure, and its does-not-refetch negative control)
+
+$ uv run pytest -q api/tests/test_finish.py --tb=line
+
+GOOD
+F.                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert False is True
+     +  where False = FetchDataResult(ok=False, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=c... succeeded_years=[], failed_years=[2024], omitted_years=[], omission_reasons=[], dataset='acs5', acs1_ineligible=False).ok
+     +    where FetchDataResult(ok=False, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=c... succeeded_years=[], failed_years=[2024], omitted_years=[], omission_reasons=[], dataset='acs5', acs1_ineligible=False) = ExecutionRecord(pool=[{'table_id': 'B01003', 'title': 'Total Population', 'members': []}], geography=GeoSpec(level='co...gible=False), allow_overlapping_acs5=False, override=None, table_facts=None, published_vintages=None, retained_urls=[]).fetch
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_finish.py:50: AssertionError: assert False is True
+=========================== short test summary info ===========================
+FAILED api/tests/test_finish.py::test_finish_tools_retries_fetch_after_a_failed_but_non_none_attempt
+1 failed, 1 passed in 0.44s
+
+# GOOD  retry gate too strict, retry test fails, negative control unaffected  (1 failed, 1 passed in 0.44s)
+
+===== MUTATION: fetch retry gate always refires (no is-None/ok guard at all) =====
+test: api/tests/test_finish.py (both tests)
+
+$ uv run pytest -q api/tests/test_finish.py --tb=line
+
+GOOD
+.F                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [{'NAME': 'Ha...: '123', ...}] == [{'NAME': 'Ha...: '123', ...}]
+      
+      At index 0 diff: {'NAME': 'Harris County, Texas', 'GEO_ID': '0500000US48201', 'B01003_001E': '9999999', 'B01003_001M': '123', 'state': '48', 'county': '201', 'year': '2024'} != {'NAME': 'Harris County, Texas', 'GEO_ID': '0500000US48201', 'B01003_001E': '4838303', 'B01003_001M': '123', 'state': '48', 'county': '201', 'year': '2024'}
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\api\tests\test_finish.py:78: AssertionError: assert [{'NAME': 'Ha...: '123', ...}] == [{'NAME': 'Ha...: '123', ...}]
+=========================== short test summary info ===========================
+FAILED api/tests/test_finish.py::test_finish_tools_does_not_refetch_an_already_successful_attempt
+1 failed, 1 passed in 0.62s
+
+# GOOD  over-eager gate refetches a healthy result, negative control catches it  (1 failed, 1 passed in 0.62s)
+
+========== git status after restore ==========
+?? evidence/slice-4/cc-100-gate1.txt
+?? evidence/slice-4/cc-100-preflight.md
+
+Gate 1 verdict: machines PASS (515 pytest + 91 vitest, ruff, mypy, invariants, budgets, client-check); mutations 9 GOOD / 0 BAD of 9 (covering all 12 new tests, 2 with anti-gaming negative controls)

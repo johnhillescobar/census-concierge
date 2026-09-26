@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 from ask_fixtures import _harris, _tools
-from src.ask import ExecutionRecord, run_ask
+from src.ask import ExecutionRecord, assemble, run_ask
 from src.contract import ResultPlan, apply_override
 
 
@@ -60,6 +60,31 @@ async def test_table_override_wins_over_model_args() -> None:
     assert "B19013_001E" in response.urls[0]
     assert "B19013_001M" in response.urls[0]
     assert parse_qs(urlsplit(response.urls[0]).query)["for"] == ["county:201"]
+
+
+def test_three_geography_override_is_not_truncated_to_two() -> None:
+    """apply_override() must set compare_count, or plan_from_record()/fetch_data's
+    fan-out silently drop the 3rd (or later) place -- the exact bug this ticket
+    (CC-100) exists to fix, reachable here through the override path instead."""
+    record = ExecutionRecord()
+    plan = ResultPlan.model_validate(
+        {
+            "geographies": [
+                {"for_spec": "place:05000", "in_spec": "state:48", "geoid": "1600000US4805000"},
+                {"for_spec": "place:35000", "in_spec": "state:48", "geoid": "1600000US4835000"},
+                {"for_spec": "place:65000", "in_spec": "state:48", "geoid": "1600000US4865000"},
+            ]
+        }
+    )
+    apply_override(record, plan)
+    assert record.geo_status is not None
+    assert record.geo_status["compare_count"] == 3
+    response = assemble("x", record)
+    assert [row.for_spec for row in response.plan.geographies] == [
+        "place:05000",
+        "place:35000",
+        "place:65000",
+    ]
 
 
 async def test_geography_override_ignores_browser_for_in_and_model_place() -> None:

@@ -374,7 +374,13 @@ def test_parent_place_exposes_shared_sample_and_conclusion() -> None:
         ),
         GeoSpec(name="Texas", level="state", for_spec="state:48", geoid="0400000US48"),
     ]
-    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    record.geo_status = {
+        "legal": True,
+        "detail": "",
+        "nested": True,
+        "compare": True,
+        "compare_count": 2,
+    }
     record.rows = [
         {"GEO_ID": "1600000US4805000", "B25064_001E": "1729", "B25064_001M": "14"},
         {"GEO_ID": "0400000US48", "B25064_001E": "1403", "B25064_001M": "4"},
@@ -473,7 +479,13 @@ def test_comparison_legs_are_not_ambiguous_places() -> None:
         ),
         GeoSpec(name="Texas", level="state", for_spec="state:48"),
     ]
-    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": True}
+    record.geo_status = {
+        "legal": True,
+        "detail": "",
+        "nested": True,
+        "compare": True,
+        "compare_count": 2,
+    }
     assert _codes(record) == ["shared_sample"]
 
 

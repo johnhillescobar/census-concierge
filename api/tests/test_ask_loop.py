@@ -768,6 +768,177 @@ async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
     assert [row.for_spec for row in fetch.last_geographies()] == ["place:70000", "state:48"]
 
 
+async def test_and_phrased_comparison_keeps_both_legs_including_an_ambiguous_one() -> None:
+    question = "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": question}}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["compare"] is True
+    assert record.geo_status["compare_count"] == 2
+    assert [row.for_spec for row in record.geographies[:2]] == ["place:4805000", "place:19000"]
+    response = assemble(question, record)
+    assert [item.code for item in response.warnings] == ["ambiguous_place"]
+    assert "Lake Dallas city, Texas" in response.warnings[0].detail
+    assert [row.for_spec for row in response.plan.geographies] == ["place:4805000", "place:19000"]
+    fetch = tools["fetch_data"]
+    assert fetch.last_geographies is not None
+    assert [row.for_spec for row in fetch.last_geographies()] == ["place:4805000", "place:19000"]
+
+
+async def test_and_phrased_comparison_across_states_keeps_both_legs() -> None:
+    question = "Compare the population of Detroit city, Michigan and Phoenix city, Arizona."
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": question}}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["compare"] is True
+    assert record.geo_status["compare_count"] == 2
+    assert len(record.geographies) == 2
+    response = assemble(question, record)
+    assert response.warnings == []
+    fetch = tools["fetch_data"]
+    assert fetch.last_geographies is not None
+    assert [row.in_spec for row in fetch.last_geographies()] == ["state:26", "state:04"]
+
+
+async def test_three_way_and_list_comparison_keeps_all_three_legs() -> None:
+    question = (
+        "Compare the population of Austin city, Texas, Houston city, Texas, "
+        "and San Antonio city, Texas since 2019."
+    )
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": question}}, record)
+    assert record.geo_status is not None
+    assert record.geo_status["compare"] is True
+    assert record.geo_status["compare_count"] == 3
+    assert len(record.geographies) == 3
+    response = assemble(question, record)
+    assert response.warnings == []
+    assert [row.for_spec for row in response.plan.geographies] == [
+        "place:4805000",
+        "place:35000",
+        "place:65000",
+    ]
+    fetch = tools["fetch_data"]
+    assert fetch.last_geographies is not None
+    assert [row.for_spec for row in fetch.last_geographies()] == [
+        "place:4805000",
+        "place:35000",
+        "place:65000",
+    ]
+
+
+async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> None:
+    """The exact reported bug: the model resolves each named place with its own
+    call (never phrasing "versus"), which used to leave only the last one."""
+    question = "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [{"id": "0", "name": "search_tables", "args": {"question": question}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "1", "name": "resolve_geography", "args": {"query": "Austin city, Texas"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "2", "name": "resolve_geography", "args": {"query": "Dallas city, Texas"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+        {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+        {"content": "Austin and Dallas compared.", "tool_calls": []},
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(question, complete=complete, tools=tools, record=record)
+    assert [row.for_spec for row in response.plan.geographies] == ["place:4805000", "place:19000"]
+    warnings_by_code = {item.code: item for item in response.warnings}
+    assert "ambiguous_place" in warnings_by_code
+    assert "Lake Dallas city, Texas" in warnings_by_code["ambiguous_place"].detail
+    assert response.answer == "Austin and Dallas compared."
+
+
+async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None:
+    """dispatch() raises "build_url failed twice" before search_tables ever ran;
+    finish_tools then recovers the table and real rows. The stale failure string
+    must not be the final `answer` once real data exists."""
+    question = "population of Harris County, Texas"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [
+                {"id": "1", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+            ],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "2", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
+        },
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(question, complete=complete, tools=tools, record=record)
+    assert response.rows
+    assert response.answer != "build_url failed twice"
+    assert not response.answer.endswith("failed twice")
+
+
+async def test_answer_stays_a_visible_failure_when_recovery_also_fails() -> None:
+    """Same forced failure, but the question can't be searched or resolved either
+    - finish_tools cannot recover real data, so `answer` must not be papered over."""
+    question = "zzqqxx flimflam noplace"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    queue: list[dict[str, Any]] = [
+        {
+            "content": "",
+            "tool_calls": [{"id": "1", "name": "build_url", "args": {"table_id": "BOGUS"}}],
+        },
+        {
+            "content": "",
+            "tool_calls": [{"id": "2", "name": "build_url", "args": {"table_id": "BOGUS"}}],
+        },
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        _ = messages, openai_tools
+        return queue.pop(0)
+
+    response = await run_ask(question, complete=complete, tools=tools, record=record)
+    assert response.rows == []
+    assert response.answer == "build_url failed twice"
+
+
 async def test_unauthorized_geography_cannot_reach_fetch() -> None:
     record = ExecutionRecord()
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]

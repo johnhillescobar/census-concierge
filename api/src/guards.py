@@ -46,7 +46,7 @@ _ZCTA_CODE = re.compile(r"\b(\d{5})\b")
 class GuardRecord(Protocol):
     question: str
     vintages: list[tuple[str, int]]
-    geo_status: dict[str, str | bool] | None
+    geo_status: dict[str, str | bool | int] | None
     geographies: list[GeoSpec]
     rows: list[dict[str, str | None]]
     table_id: str
@@ -213,7 +213,8 @@ def geography_not_nested(record: GuardRecord) -> AskWarning | None:
 
 def ambiguous_place(record: GuardRecord) -> AskWarning | None:
     matches = record.geographies
-    if (record.geo_status or {}).get("compare") and len(matches) <= 2:
+    status = record.geo_status or {}
+    if status.get("compare") and len(matches) <= int(status.get("compare_count", 0) or 0):
         return None
     if len(matches) <= 1:
         return None

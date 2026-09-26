@@ -31,6 +31,26 @@ retries: search (including a wording pin if the pool missed it); resolve
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
 
+An "incomplete comparison" is detected by `geo.split_comparison()`
+([CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)): 2+ named
+places joined by "versus"/"compared to"/"compare X to Y", or by "and"/a
+comma list, anchored on state-name boundaries so a place's own comma
+("Austin city, Texas") is never mistaken for a list separator. If the model
+resolved each place as a separate `resolve_geography` call — the common case
+for "and" phrasing, since nothing forces it into one call — `geo_status`'s
+`compare_count` (genuine per-place picks; entries after it are leftover
+ambiguous candidates) will read below the number of places the question
+named, and finish redoes resolution with the full question text so it merges
+in one call instead. `fetch_data`'s retry gate is `record.fetch is None or not
+record.fetch.ok`, not bare `is None` — a fetch that already failed doesn't
+block finish's own retry.
+
+If a tool fails twice in a row, `run_ask` catches that and — if `finish_tools`
+went on to recover real rows anyway — replaces the raw `"<tool> failed
+twice"` string with a plain, deterministic sentence built from the record
+(never a second model call). If nothing was recovered, the raw failure stays
+visible rather than being papered over.
+
 ## Contract
 
 `AskResponse`: `answer`, `urls[]` (one key-redacted URL per attempted request),

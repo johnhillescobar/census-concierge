@@ -140,7 +140,13 @@ def test_comparison_plan_keeps_two_ordered_geographies() -> None:
         table_id="B25064",
         url=austin_url,
         geographies=[austin, texas, GeoSpec(level="place", name="spare")],
-        geo_status={"legal": True, "detail": "", "nested": True, "compare": True},
+        geo_status={
+            "legal": True,
+            "detail": "",
+            "nested": True,
+            "compare": True,
+            "compare_count": 2,
+        },
         fetch=_fetch(
             urls=[str(austin_url), str(texas_url)],
             requested_years=[2024],

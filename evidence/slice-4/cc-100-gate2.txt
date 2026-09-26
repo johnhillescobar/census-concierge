@@ -1,0 +1,309 @@
+CC-100 Gate 2 — cold-context review
+Branch: fix/cc-100-multi-geo-comparison
+Diff reviewed: main...HEAD (commits 51a3608, 0f1314a; budget-raise commit
+5cd0625 already landed on main and is NOT part of this diff)
+Reviewer: fresh subagent, no prior context on this ticket beyond the repo
+itself (CLAUDE.md, docs/playbooks/run-slice.md, .claude/PLAN.md,
+docs/ask-path.md, evidence/slice-4/cc-100-preflight.md, read first).
+
+====================================================================
+PASS 1 — generic bugs, code only (code-review skill, high effort,
+target "main...HEAD high", run as a background fork)
+====================================================================
+
+Command: Skill(code-review, args="main...HEAD high")
+Result (verbatim JSON from the skill's completed run):
+
+[
+  {
+    "file": "api/src/contract.py",
+    "line": 258,
+    "summary": "apply_override sets geo_status[\"compare\"] but never sets \"compare_count\", so a plan override with 3+ geographies silently loses legs.",
+    "failure_scenario": "A client re-runs a saved 3-way comparison plan (e.g. Austin/Houston/San Antonio) via AskRequest.plan; apply_override sets compare=True with no compare_count. ask.py's fetch_data.last_geographies and contract.py's plan_from_record both fall back to `int(status.get(\"compare_count\") or 2)`, silently truncating the fetch and the returned plan to only the first 2 of 3 legs -- reproduced directly: with a 3-geography override, fetch resolves to only 2 for_specs. Separately, guards.py's ambiguous_place defaults compare_count to 0 in this same path, so `len(matches) <= 0` is false and a legitimate 3-way override spuriously raises an ambiguous_place warning -- also reproduced directly (evaluate() returns ['ambiguous_place'] for a clean 3-place override). This is the exact multi-geo-dropping bug class CC-100 exists to fix, reintroduced via the override path."
+  },
+  {
+    "file": "api/src/geo.py",
+    "line": 58,
+    "summary": "_STATE_CLAUSE_END tries the generic state-name alternation before the DC-specific one, so \"Washington, D.C.\" as one leg of an and/comma-joined comparison is mis-split at bare \"Washington\".",
+    "failure_scenario": "split_comparison(\"Compare the population of Washington, D.C. and Portland, Oregon since 2019.\") returns ['Compare the population of Washington', 'D.C. and Portland, Oregon'] (verified by running it) instead of splitting cleanly on the D.C./Portland boundary -- because Python regex alternation is first-match, and \"Washington\" (the state) sits in _STATE_ALT ahead of _DC_NAMES in `(?:{_STATE_ALT}|{_DC_NAMES})`, so it matches and ends the clause before the D.C. suffix is ever considered. api/src/geo_list.py's find_state/_DC already special-cases exactly this ordering hazard (\"Washington, DC must win over the state named Washington\") but that fix was not reused here, making the new _DC_NAMES branch effectively dead code. No test exercises DC as one of several 'and'/comma-listed comparison places, so this ships untested."
+  },
+  {
+    "file": "api/src/geo.py",
+    "line": 221,
+    "summary": "N-way comparison legs from split_comparison are resolved sequentially with awaited calls instead of concurrently.",
+    "failure_scenario": "`hits = [(await self._resolve(side, ...))[1] for side in sides]` performs each leg's asyncio.to_thread geography lookup one after another; a 3-way \"Austin, Houston, and San Antonio\" comparison (the feature this PR adds) now takes ~3x the latency of a single lookup instead of using asyncio.gather, working against the project's enforced p95-latency budget in CLAUDE.md."
+  },
+  {
+    "file": "api/src/ask.py",
+    "line": 366,
+    "summary": "The `int(status.get(\"compare_count\") or 2)` / `or 0` slicing idiom is duplicated with inconsistent literal defaults across ask.py, contract.py, and guards.py instead of a single shared helper.",
+    "failure_scenario": "ask.py and contract.py default missing compare_count to 2 while guards.py defaults it to 0; this drift is what let the apply_override gap (finding above) ship unnoticed, and any future caller of geo_status will need to independently guess the right default rather than calling one function that encodes it once."
+  }
+]
+
+Both top findings were reproduced by the skill through direct execution (not
+just static reading): running split_comparison on a "Washington, D.C. and
+Portland, Oregon" query, and running apply_override with a 3-geography plan
+through evaluate()/the fetch_data slicing lambda.
+
+====================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+====================================================================
+
+--- Machines (run first; a non-zero exit ends the review) ---
+
+$ uv run python scripts/check_budgets.py
+BUDGETS
+  ok    api src LOC               4036 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           405 <= 410
+  ok    web src LOC               2996 <= 3000
+  ok    system prompt tokens       251 <= 1200
+  ok    doc lines                 1630 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.955 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate              0.8 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+All budgets met.
+EXIT: 0
+
+$ uv run python scripts/check_invariants.py --base origin/main
+INVARIANTS
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+All invariants held.
+EXIT: 0
+
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 41%]
+........................................................................ [ 55%]
+........................................................................ [ 69%]
+........................................................................ [ 83%]
+...........                                                              [100%]
+515 passed in 12.63s
+EXIT: 0
+
+$ uv run ruff check .
+All checks passed!
+EXIT: 0
+
+$ uv run ruff format --check .
+150 files already formatted
+EXIT: 0
+
+$ uv run mypy api/src
+Success: no issues found in 24 source files
+EXIT: 0
+
+All machines green. Budget-increase check (--base origin/main) confirms this
+diff itself raises no budget (the earlier raise in 5cd0625 already landed on
+main and is excluded from this comparison range, as instructed).
+
+--- The claim ---
+
+User-facing claim (from the commit message / docs/ask-path.md): an
+"and"/comma-phrased multi-place comparison ("Austin, Houston, and San
+Antonio since 2019") no longer silently drops every place but the
+last-resolved one; it now keeps all named legs, the same way "versus"
+phrasing already did. Traced against the diff: holds for the path this
+diff actually exercises (a fresh /ask call whose model resolves each place
+with its own resolve_geography call, or whose combined query the new
+split_comparison splits correctly) -- see Pass 1 finding #1 above for a case
+where it does NOT hold (the override/re-run path) and Pass 1 finding #2 for a
+class of place names where the new splitter itself is wrong.
+
+--- Scope ---
+
+14 files touched (api/src x5, api/tests x5, docs x2, evidence x2) -- under
+the ~15-file guideline. Nothing added "while we were in there"; the diff is
+tightly the four sites the preflight doc named (geo.py, ask.py, finish.py,
+contract.py, guards.py) plus tests and docs. Belongs to the current slice
+(Slice 4 / CC-11's comparisons work); preflight frames it correctly as a bug
+fix under CC-56 (capability change earned by a demonstrated failure), not
+scope creep.
+
+--- Silent-wrong-answer review ---
+
+- URL/MOE/GEOID/universe: unaffected by this diff; still assembled the same
+  way in assemble() (api/src/ask.py) for every response path, including the
+  finish_tools recovery path and the new degraded_answer() fallback.
+- &key= redaction: unaffected -- this diff adds no new URL formatting path;
+  degraded_answer() only reads record.rows (Census row dicts, already
+  redaction-safe) and record.table_id, never a URL or exception text.
+  Confirmed by reading finish.py:73-76 and the call site in ask.py:443-444.
+- Numbers through the model: unaffected; degraded_answer() builds its string
+  from record data, never a second model call (matches the ask-path.md
+  description).
+- Guard-vs-blocking-question: the new/changed logic (compare_count
+  threading, ambiguous_place threshold) only affects which warnings attach
+  and how many geographies are kept -- it does not introduce any new
+  clarification prompt. check_invariants' "blocking clarification" check
+  passed.
+- Silent repair: the finish_tools redo (_wrong_comparison) is exactly the
+  kind of repair the project requires to be visible -- and it is: a
+  successful redo still surfaces via ambiguous_place / geo_status as before;
+  nothing here invents a fetch or hides a substituted geography from the
+  response. However, see Pass 1 finding #1: the override path's silent
+  truncation to 2 IS an invisible, undocumented drop of a place -- no
+  warning is raised for the truncation itself (a spurious, unrelated
+  ambiguous_place warning fires instead, for the wrong reason).
+
+--- Shape ---
+
+No new tool, no new route, no new Pydantic model, no new graph node. The
+diff is orchestration-only inside the four existing tools, exactly as the
+preflight doc's Decision section scoped it. ResolveGeographyResult gained one
+field (compare_count: int) and ExecutionRecord/GuardRecord's geo_status type
+widened from dict[str, str | bool] to dict[str, str | bool | int] -- both
+additive, not structural. docs/ARCHITECTURE.md was not touched; correctly so,
+since the tool-calling loop's shape (four tools, one loop, no graph node) did
+not change -- only docs/ask-path.md (the execution-record catalog) and
+docs/slices.md (board note) were updated, which matches what changed.
+
+--- Tests ---
+
+- No assertions on prompt wording or LLM prose. The two tests asserting an
+  exact `response.answer` string do so against a fake `complete()` test
+  double's fixed return value, not real model output -- not a violation.
+- No retrieval fake returning the same table unconditionally; ask_fixtures.py
+  adds real per-place rows (Dallas, Lake Dallas, Houston, San Antonio) to the
+  existing geography fixture rather than special-casing the test's answer.
+  check_invariants' "ticket-named tests" and "prompt assertions" checks
+  passed; test file names (test_ask_loop.py, test_finish.py, etc.) are
+  generic.
+- Every new test is mutation-checked per evidence/slice-4/cc-100-gate1.txt
+  (not re-verified here; Gate 1 already ran that).
+- Gap confirmed independently by both this reviewer and the Pass-1 skill: no
+  test exercises (a) the AskRequest.plan override path with 3+ geographies,
+  or (b) any comparison leg whose place name is/contains a US state name
+  (Washington D.C., Kansas City, Delaware OH, Indiana PA, New York City).
+  Both gaps map directly to the two live bugs found.
+
+====================================================================
+FINDINGS (Gate 2, both passes combined)
+====================================================================
+
+1. [Functional -- reintroduces the bug class CC-100 fixes, via the override
+   path] `apply_override` in api/src/contract.py:243-263 sets
+   `geo_status["compare"]` but never sets `"compare_count"`. Every downstream
+   reader of `geo_status.compare_count` was updated by this diff to key off
+   that field, but all three fall back to a hardcoded default when it is
+   missing, and the defaults do not even agree with each other:
+     - api/src/ask.py:366 (fetch_data.last_geographies) and
+       api/src/contract.py:198 (plan_from_record) default to 2.
+     - api/src/guards.py:217 (ambiguous_place) defaults to 0.
+   Reproduced directly: an AskRequest.plan override carrying 3 geographies
+   (e.g. re-running an edited plan strip for an Austin/Houston/San Antonio
+   comparison -- the "editable plan strip; re-run on override" feature named
+   in .claude/PLAN.md, already shipped as CC-89) has record.geographies with
+   all 3 entries, but plan_from_record() and the fetch fan-out both truncate
+   to 2 (confirmed by direct execution: `plan_from_record` returns 2
+   geographies, and the fetch tool's `last_geographies()` slice is length 2,
+   for a 3-geography override). Separately, guards.py's 0-default means
+   `ambiguous_place`'s early-return never fires for this same override, so a
+   clean 3-way override also gets a spurious ambiguous_place warning. No
+   warning is raised for the truncation itself -- the drop is invisible,
+   which is exactly what CLAUDE.md's "silently repairing input" trap warns
+   against, and exactly the failure class this ticket exists to close.
+
+2. [Functional, untested -- degrades the new comparison feature for a common
+   class of real place names] `split_comparison`'s state-anchored "and"/
+   comma-list splitting in api/src/geo.py over- or mis-splits whenever a
+   compared place's own name is, or contains, a US state name. Confirmed by
+   direct execution:
+     - "Kansas City, Kansas and St. Louis city, Missouri" ->
+       ['...Kansas', 'City, Kansas', 'St. Louis city, Missouri'] (3 malformed
+       clauses instead of 2).
+     - "Washington, D.C. and Seattle city, Washington" ->
+       ['...Washington', 'D.C. and Seattle city, Washington'] (clause 1 loses
+       ", D.C."; clause 2 is garbled).
+     - Same failure for "Delaware, Ohio", "Indiana, Pennsylvania", and
+       "New York city, New York and Boston city, Massachusetts".
+   Root cause: `_STATE_CLAUSE_END = re.compile(rf"\b(?:{_STATE_ALT}|{_DC_NAMES})\b", ...)`
+   puts `_STATE_ALT` (which already contains the literal "washington") ahead
+   of `_DC_NAMES` in the alternation. Python's `|` is first-match-wins per
+   start position, not longest-match, so the bare "washington" branch always
+   wins before the "washington, d.c." branch is ever tried -- making the new
+   `_DC_NAMES` alternatives for the comma/space-joined "Washington D.C." form
+   dead code. `api/src/geo_list.py`'s existing `find_state`/DC handling
+   already solved this exact ordering hazard elsewhere in the codebase (its
+   own DC regex is tried and matched correctly, per
+   `test_find_state_recognizes_dc_before_the_state_named_washington`-style
+   coverage in test_ask_tools.py's find_state tests), but that solution was
+   not reused for the new clause-boundary regex. Since a place-per-clause
+   that fails to resolve legally falls out of the "all(hit.legal and
+   hit.specs for hit in hits)" check in ResolveGeographyTool._arun, this
+   over-splitting is likely to fall back to keeping only the first
+   successfully-resolved single leg -- i.e. it can regress into the original
+   "drops every place but one" bug for this whole class of place names, most
+   notably "Washington, D.C.", an extremely common comparison target. No
+   test in this diff exercises a state-named place, or DC, as one leg of an
+   "and"/comma comparison.
+
+3. [Non-blocking, latency] `ResolveGeographyTool._arun` resolves N-way
+   comparison legs sequentially: `hits = [(await self._resolve(side, None,
+   dataset, year, entries))[1] for side in sides]` (api/src/geo.py:221) awaits
+   each leg in turn rather than concurrently (e.g. `asyncio.gather`). Each
+   leg's `_resolve` can call `list_census_names`, a real live `httpx.get`
+   against the Census API (api/src/geo_list.py:206-209), so a 3+-way
+   comparison -- the feature this diff newly supports -- now costs roughly N
+   sequential Census round-trips where the pre-existing 2-way "versus" path
+   cost 2. p95 latency is already measured at 17.955s against a 20s budget
+   ceiling (budgets.toml), so this is a real latency risk for exactly the
+   multi-place case this ticket adds, not a theoretical one. Not a
+   correctness bug and not blocking Gate 2, but worth a follow-up.
+
+4. [Minor, code quality] The `int(status.get("compare_count") or 2)` /
+   `int(status.get("compare_count", 0) or 0)` fallback idiom is copy-pasted
+   across api/src/ask.py:366, api/src/contract.py:198, and
+   api/src/guards.py:217 with two different, uncoordinated default literals
+   (2 in the first two, 0 in the third). This duplication is the direct
+   mechanical cause of finding 1 shipping unnoticed -- a single shared
+   accessor (or making the field non-optional wherever geo_status is
+   constructed) would have surfaced the apply_override gap immediately.
+
+5. [Minor, non-blocking, unverified by tests] finish.py's widened fetch
+   retry gate (`record.fetch is None or not record.fetch.ok`, api/src/finish.py:141)
+   fires on ANY failed main-loop fetch, not only the comparison-repair case
+   it was written for. For a genuinely non-recoverable failure (bad
+   variable/table combination, persistent upstream error), finish_tools now
+   always issues one extra, identical, live Census fetch call before giving
+   up -- doubling Census API traffic and latency on every hard fetch
+   failure, where before this diff it did not retry at all in that case. This
+   is bounded (finish_tools runs once per request, not a loop) and the two
+   intended cases are tested (test_finish.py: retry recovers a genuinely
+   fixable failure; a successful fetch is never re-fetched), but no test
+   covers a failure that is retried and still fails, so the extra live call
+   in that branch is unverified by this diff's test suite.
+
+====================================================================
+VERDICT
+====================================================================
+
+Not yet. Findings 1 and 2 are silent-wrong-answer regressions (both
+independently reproduced by direct execution, not just static reading):
+finding 1 reintroduces CC-100's own bug class through the plan-override/
+re-run path that this diff's tests never exercise; finding 2 reintroduces it
+through the new "and"/comma splitter for an entire class of common,
+real-world place names (state-named cities, and "Washington, D.C." above
+all). Per docs/playbooks/review-pr.md, silent-wrong-answer findings block.
+Findings 3-5 are follow-ups, not blockers.
