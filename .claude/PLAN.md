@@ -43,8 +43,11 @@ Done (plan overrides; floors met; p95 over-ceiling recorded not promoted;
 Done (two-pane workspace; floors met; p95 18.550s;
 `evidence/slice-4/cc-88-e2e-post.txt`). [CC-87](https://johnhillescobar.atlassian.net/browse/CC-87)
 Done (Vega-Lite SVG from `ChartSpec`; floors met; p95 17.955s;
-`evidence/slice-4/cc-87-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
-foundations. Spike CC-9 before slice 5.
+`evidence/slice-4/cc-87-e2e-post.txt`). [CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)
+Done (bare-place-name multi-place comparison regression fix; floors met;
+answered_rate long_tail 0.858 (was 0.833), overall 0.892; p95 19.058s (was
+17.780s, ceiling 20s); `evidence/slice-4/cc-100-v2-e2e-post.txt`). CC-77 waits
+on CC-11 table/plan-strip foundations. Spike CC-9 before slice 5.
 
 ---
 
