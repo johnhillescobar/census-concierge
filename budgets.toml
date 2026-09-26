@@ -9,9 +9,9 @@
 # "what's the population of New York City?" in under 75 seconds.
 
 [size]
-api_src_loc          = 4000   # non-blank, non-comment lines under api/src
+api_src_loc          = 4100   # non-blank, non-comment lines under api/src
 api_src_files        = 40
-max_file_loc         = 400    # any single file
+max_file_loc         = 410    # any single file
 web_src_loc          = 3000
 doc_lines            = 1800   # PRESCRIPTIVE docs only: CLAUDE.md, DESIGN,
                               # PLAN, .cursor/rules, .cursor/commands,
@@ -87,3 +87,5 @@ synthetic_alignment_min = 0.50
 # 2026-09-10  [size] doc_lines  1600 -> 1800  room for the run-slice pipeline (playbook + Claude Code skill + Cursor command + the mutation rule), ported from job_serach_agent; the not-counted evidence lives in docs/process-evidence.md
 # 2026-09-11  [quality] retrieval_at_1_min removed; retrieval_at_10_min 0.90 and selector_at_1_min 0.70 added  slice 0 is retrieve-then-select; gemini rerank 79.5% @1 (5 runs) while raw @1 stays 47.5%; experiment axis B pre-registered this split
 # 2026-09-11  [quality] synthetic_self_retrieval_min 0.95 -> synthetic_alignment_min 0.50  questions no longer embedded; rank-1 self-retrieval duplicated golden-set ranking; mean own-doc cosine 0.544 on n=600 sample
+# 2026-09-25  [size] api_src_loc 4000 -> 4100  CC-100: fixing multi-geography comparisons silently dropping every place but the last required a real N-way comparison-list splitter in geo.py, not just a tweak; measured 4036 after simplification, cap raised with headroom
+# 2026-09-25  [size] max_file_loc  400 -> 410  same fix, geo.py measured 405/400 after consolidating duplicate constructor calls into a shared helper
