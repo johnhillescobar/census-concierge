@@ -736,6 +736,151 @@ async def test_all_tracts_in_michigan_stay_illegal() -> None:
     assert message.artifact.specs[0].in_spec == "state:26"
 
 
+async def test_multi_state_wildcard_resolves_every_named_parent() -> None:
+    """CC-101: "all counties in Texas and Louisiana" used to silently collapse
+    to Louisiana only (find_state's last-match tie-break). Both parents must
+    come back as their own leg."""
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "all counties in Texas and Louisiana",
+                "parents": ["Texas", "Louisiana"],
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is True
+    assert artifact.compare is True
+    assert artifact.compare_count == 2
+    assert [(row.for_spec, row.in_spec) for row in artifact.specs[:2]] == [
+        ("county:*", "state:48"),
+        ("county:*", "state:22"),
+    ]
+
+
+async def test_three_state_wildcard_resolves_every_named_parent() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "all counties in Texas, Louisiana, and Oklahoma",
+                "parents": ["Texas", "Louisiana", "Oklahoma"],
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is True
+    assert artifact.compare_count == 3
+    assert [row.in_spec for row in artifact.specs[:3]] == ["state:48", "state:22", "state:40"]
+
+
+async def test_counties_within_two_states_also_resolves_both() -> None:
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "counties within Texas and Louisiana",
+                "parents": ["Texas", "Louisiana"],
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is True
+    assert [row.in_spec for row in artifact.specs[:2]] == ["state:48", "state:22"]
+
+
+async def test_multi_state_wildcard_fails_explicitly_not_silently() -> None:
+    """One bad parent name must not make the good one silently stand in for
+    it -- an explicit failure naming only the parent that actually failed."""
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "all counties in Texas and Atlantis",
+                "parents": ["Texas", "Atlantis"],
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is False
+    assert artifact.specs == []
+    assert "Atlantis" in artifact.detail
+    assert "Texas" not in artifact.detail
+
+
+async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> None:
+    """CC-73 regression guard: a single-state wildcard must resolve exactly
+    as before even when the model also populates `parents` with one entry."""
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "all counties in Oregon", "parents": ["Oregon"]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is False
+    assert artifact.specs[0].for_spec == "county:*"
+    assert artifact.specs[0].in_spec == "state:41"
+
+
+async def test_versus_query_ignores_a_mistaken_parents_field() -> None:
+    """AC14: a genuine comparison must never be routed into wildcard-parent
+    handling, even if `parents` is (wrongly) populated alongside it."""
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"query": "Austin versus Dallas", "parents": ["Texas", "Louisiana"]},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is True
+    assert artifact.wildcard is False
+    assert artifact.specs[0].for_spec == "place:4805000"
+    assert artifact.specs[1].for_spec == "place:19000"
+
+
+async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
+    """AC14: a wildcard-phrased query with 2+ `parents` must never fall into
+    the `sides = legs if len(legs) >= 2 ...` comparison branch, even if
+    `places` is also (wrongly) populated."""
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "all counties in Texas and Louisiana",
+                "places": ["Chicago, IL", "Los Angeles, CA"],
+                "parents": ["Texas", "Louisiana"],
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.compare is True
+    assert [row.for_spec for row in artifact.specs[:2]] == ["county:*", "county:*"]
+    assert [row.in_spec for row in artifact.specs[:2]] == ["state:48", "state:22"]
+
+
 @pytest.mark.parametrize(
     "query",
     [

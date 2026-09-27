@@ -112,6 +112,11 @@ dataset/vintage, `for`/`in`).
 A 2+ way comparison instead names every place in `places` — each already
 canonicalized as "Place, ST" by the model itself, regardless of whether the
 question named a state — resolved concurrently and merged the same way.
+A wildcard listing naming 2+ parents ("all counties in Texas and Louisiana")
+takes `parents` instead — a field distinct from `places` so a wildcard clause
+and a comparison list can never be routed into each other's branch (CC-101).
+Each parent substitutes into the same query as its own leg; a single bad
+parent name fails the whole call rather than silently keeping the others.
 A named-county parent of a tract wildcard is `for=tract:*` without listing
 tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is

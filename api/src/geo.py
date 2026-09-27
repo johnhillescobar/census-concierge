@@ -13,6 +13,8 @@ from pydantic import ConfigDict
 from src.compare import parentless_tracts, unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
+    WILDCARD,
+    WITHIN,
     filter_rows,
     find_state,
     named_rows,
@@ -41,17 +43,6 @@ _LEVELS = {
     "zip": "zip code tabulation area",
 }
 
-_WILDCARD = re.compile(
-    r"\b(?:all|every|each)\s+(counties|county|places|place|tracts|tract|"
-    r"block groups|block group|"
-    r"zctas|zcta|zip codes|zips)\s+in\s+(.+)",
-    re.IGNORECASE,
-)
-_WITHIN = re.compile(
-    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|zip|"
-    r"counties|county|places?|cities|city)(?:\s+\d{5})?\s+(?:within|inside)\s+(?:the\s+)?(.+)",
-    re.IGNORECASE,
-)
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
 _COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
 _NOISE = frozenset(
@@ -172,7 +163,7 @@ def track_geo_query(queries: list[str], query: str) -> list[str]:
 
 
 def _nation(query: str) -> bool:
-    if _WILDCARD.search(query) or _WITHIN.search(query):
+    if WILDCARD.search(query) or WITHIN.search(query):
         return False
     if detect_level(query) is not None or find_state(query) is not None:
         return False
@@ -204,6 +195,7 @@ class ResolveGeographyTool(BaseTool):
         self,
         query: str = "",
         places: list[str] | None = None,
+        parents: list[str] | None = None,
         level: str | None = None,
         dataset: str = "acs5",
         vintage: int | None = None,
@@ -217,6 +209,17 @@ class ResolveGeographyTool(BaseTool):
         if packed:
             detail, specs = packed
             return detail, _compare_result(specs, [], legal=False, detail=detail)
+        names = [name.strip() for name in parents if name and name.strip()] if parents else []
+        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
+            picks = await asyncio.gather(
+                *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+            )
+            bad = [n for i, n in enumerate(names) if not (picks[i][1].legal and picks[i][1].specs)]
+            if bad:
+                return _fail(f"unresolved wildcard parent(s): {', '.join(bad)}", wildcard=True)
+            specs = [hit.specs[0] for _d, hit in picks]
+            extra = [row for _d, hit in picks for row in hit.specs[1:]]
+            return f"{len(specs)} wildcard geographies", _compare_result(specs, extra, legal=True)
         legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
         sides = legs if len(legs) >= 2 else split_comparison(query)
         if sides:
@@ -244,6 +247,7 @@ class ResolveGeographyTool(BaseTool):
         dataset: str,
         year: int,
         entries: list[GeoLevel],
+        parent_override: str | None = None,
     ) -> tuple[str, ResolveGeographyResult]:
         if level is None and _nation(query):
             spec = GeoSpec(
@@ -256,9 +260,9 @@ class ResolveGeographyTool(BaseTool):
             )
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
             return f"1 geography: {spec.for_spec}", result
-        wildcard_match = _WILDCARD.search(query) or _WITHIN.search(query)
+        wildcard_match = WILDCARD.search(query) or WITHIN.search(query)
         wildcard = wildcard_match is not None
-        parent_text = wildcard_match.group(2) if wildcard_match else query
+        parent_text = parent_override or (wildcard_match.group(2) if wildcard_match else query)
         state = find_state(parent_text)
         known = {entry.name for entry in entries}
         if level:
