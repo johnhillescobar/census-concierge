@@ -1,0 +1,469 @@
+CC-101 Gate 1 transcript
+Branch under test: fix/cc-101-multi-state-wildcard (commit 141ff10)
+======================================================================
+141ff10dded24a4390032c368349b501df295a1f
+
+== Mutation 1: test_multi_state_wildcard_resolves_every_named_parent ==
+Reverts: parent_override plumbing in _resolve() (api/src/geo.py:265) -- each
+parallel leg falls back to parsing the full 'Texas and Louisiana' group again,
+reproducing find_state()'s original last-match collapse for every leg.
+--- diff applied ---
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..3618146 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -262,7 +262,7 @@ class ResolveGeographyTool(BaseTool):
+             return f"1 geography: {spec.for_spec}", result
+         wildcard_match = WILDCARD.search(query) or WITHIN.search(query)
+         wildcard = wildcard_match is not None
+-        parent_text = parent_override or (wildcard_match.group(2) if wildcard_match else query)
++        parent_text = wildcard_match.group(2) if wildcard_match else query  # MUTATION: parent_override ignored
+         state = find_state(parent_text)
+         known = {entry.name for entry in entries}
+         if level:
+--- test run: pytest tests/test_ask_tools.py::test_multi_state_wildcard_resolves_every_named_parent -q ---
+Using CPython 3.12.12
+Creating virtual environment at: C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a6a21d2e43972af5f\.venv
+   Building census-concierge-api @ file:///C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a6a21d2e43972af5f/api
+      Built census-concierge-api @ file:///C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a6a21d2e43972af5f/api
+Installed 72 packages in 1.28s
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_multi_state_wildcard_resolves_every_named_parent ____________
+
+    async def test_multi_state_wildcard_resolves_every_named_parent() -> None:
+        """CC-101: "all counties in Texas and Louisiana" used to silently collapse
+        to Louisiana only (find_state's last-match tie-break). Both parents must
+        come back as their own leg."""
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {
+                    "query": "all counties in Texas and Louisiana",
+                    "parents": ["Texas", "Louisiana"],
+                },
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.legal is True
+E       AssertionError: assert False is True
+E        +  where False = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail='unresolved wildcard parent(s): Texas, Louisiana', nested=True, compare=False, compare_count=0).legal
+
+tests\test_ask_tools.py:756: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_multi_state_wildcard_resolves_every_named_parent
+1 failed in 3.50s
+exit code: 1
+--- restored api/src/geo.py via git checkout -- ---
+(diff --stat above empty confirms clean restore)
+
+== Mutation 2: test_three_state_wildcard_resolves_every_named_parent ==
+Reverts: the new branch parent-count gate (api/src/geo.py:213) narrowed from
+"2 or more parents" to "exactly 2 parents", so a 3-state wildcard falls through
+to the old single-resolve path instead of resolving all three legs.
+--- diff applied ---
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..e60a27d 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -210,7 +210,7 @@ class ResolveGeographyTool(BaseTool):
+             detail, specs = packed
+             return detail, _compare_result(specs, [], legal=False, detail=detail)
+         names = [name.strip() for name in parents if name and name.strip()] if parents else []
+-        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
++        if len(names) == 2 and (WILDCARD.search(query) or WITHIN.search(query)):  # MUTATION: exactly 2, not >=2
+             picks = await asyncio.gather(
+                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+             )
+test run: pytest tests/test_ask_tools.py::test_three_state_wildcard_resolves_every_named_parent -q
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_three_state_wildcard_resolves_every_named_parent ____________
+
+    async def test_three_state_wildcard_resolves_every_named_parent() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {
+                    "query": "all counties in Texas, Louisiana, and Oklahoma",
+                    "parents": ["Texas", "Louisiana", "Oklahoma"],
+                },
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.legal is True
+E       AssertionError: assert False is True
+E        +  where False = ResolveGeographyResult(specs=[], wildcard=False, legal=False, detail='county does not nest in (Texas, Louisiana, and Oklahoma)', nested=False, compare=False, compare_count=0).legal
+
+tests\test_ask_tools.py:779: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_three_state_wildcard_resolves_every_named_parent
+1 failed in 0.32s
+restored api/src/geo.py via git checkout --
+(empty diff above confirms clean restore)
+
+== Mutation 3: test_counties_within_two_states_also_resolves_both ==
+Reverts: the WITHIN-regex arm of the gate (api/src/geo.py:213) -- drops
+"WITHIN.search(query)" from the OR, so a "counties within X and Y" phrasing
+no longer qualifies for multi-parent handling and falls back to the old
+single-resolve path (last-match state collapse).
+diff applied:
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..999e2d2 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -210,7 +210,7 @@ class ResolveGeographyTool(BaseTool):
+             detail, specs = packed
+             return detail, _compare_result(specs, [], legal=False, detail=detail)
+         names = [name.strip() for name in parents if name and name.strip()] if parents else []
+-        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
++        if len(names) >= 2 and (WILDCARD.search(query)):  # MUTATION: WITHIN arm dropped
+             picks = await asyncio.gather(
+                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+             )
+test run: pytest tests/test_ask_tools.py::test_counties_within_two_states_also_resolves_both -q
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_counties_within_two_states_also_resolves_both ______________
+
+    async def test_counties_within_two_states_also_resolves_both() -> None:
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {
+                    "query": "counties within Texas and Louisiana",
+                    "parents": ["Texas", "Louisiana"],
+                },
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.legal is True
+E       AssertionError: assert False is True
+E        +  where False = ResolveGeographyResult(specs=[], wildcard=False, legal=False, detail='county does not nest in (Texas and Louisiana)', nested=False, compare=False, compare_count=0).legal
+
+tests\test_ask_tools.py:798: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_counties_within_two_states_also_resolves_both
+1 failed in 0.37s
+restored api/src/geo.py via git checkout --
+(empty diff above confirms clean restore)
+
+== Mutation 4: test_multi_state_wildcard_fails_explicitly_not_silently ==
+Reverts: the explicit whole-call failure on a bad parent (api/src/geo.py:217-219)
+-- instead of failing the call, silently drops legs that did not resolve and
+keeps building the result from whichever legs did (the exact silent-partial-
+success behavior the ticket says must never happen).
+diff applied:
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..91a25f5 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -214,11 +214,10 @@ class ResolveGeographyTool(BaseTool):
+             picks = await asyncio.gather(
+                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+             )
+-            bad = [n for i, n in enumerate(names) if not (picks[i][1].legal and picks[i][1].specs)]
+-            if bad:
+-                return _fail(f"unresolved wildcard parent(s): {', '.join(bad)}", wildcard=True)
+-            specs = [hit.specs[0] for _d, hit in picks]
+-            extra = [row for _d, hit in picks for row in hit.specs[1:]]
++            # MUTATION: silently drop legs that failed instead of failing the whole call
++            good = [hit for _d, hit in picks if hit.legal and hit.specs]
++            specs = [hit.specs[0] for hit in good]
++            extra = [row for hit in good for row in hit.specs[1:]]
+             return f"{len(specs)} wildcard geographies", _compare_result(specs, extra, legal=True)
+         legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
+         sides = legs if len(legs) >= 2 else split_comparison(query)
+test run: pytest tests/test_ask_tools.py::test_multi_state_wildcard_fails_explicitly_not_silently -q
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_multi_state_wildcard_fails_explicitly_not_silently ___________
+
+    async def test_multi_state_wildcard_fails_explicitly_not_silently() -> None:
+        """One bad parent name must not make the good one silently stand in for
+        it -- an explicit failure naming only the parent that actually failed."""
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {
+                    "query": "all counties in Texas and Atlantis",
+                    "parents": ["Texas", "Atlantis"],
+                },
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.legal is False
+E       AssertionError: assert True is False
+E        +  where True = ResolveGeographyResult(specs=[GeoSpec(level='county', name='all counties in Texas and Atlantis', geoid='', for_spec='c...es={'state': '48', 'county': '*'})], wildcard=False, legal=True, detail='', nested=True, compare=True, compare_count=1).legal
+
+tests\test_ask_tools.py:818: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_multi_state_wildcard_fails_explicitly_not_silently
+1 failed in 0.32s
+restored api/src/geo.py via git checkout --
+(empty diff above confirms clean restore)
+
+== Mutation 5: test_single_parent_wildcard_is_unaffected_by_the_parents_field ==
+Reverts: the >=2 parent-count floor (api/src/geo.py:213) -- widened to >=1, so a
+single-state wildcard with one parents[] entry (CC-73 shape) now also enters the
+new multi-parent/compare branch instead of the old single-resolve path.
+diff applied:
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..4c3b64c 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -210,7 +210,7 @@ class ResolveGeographyTool(BaseTool):
+             detail, specs = packed
+             return detail, _compare_result(specs, [], legal=False, detail=detail)
+         names = [name.strip() for name in parents if name and name.strip()] if parents else []
+-        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
++        if len(names) >= 1 and (WILDCARD.search(query) or WITHIN.search(query)):  # MUTATION: floor of 1, not 2
+             picks = await asyncio.gather(
+                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+             )
+test run: pytest tests/test_ask_tools.py::test_single_parent_wildcard_is_unaffected_by_the_parents_field -q
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_single_parent_wildcard_is_unaffected_by_the_parents_field ________
+
+    async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> None:
+        """CC-73 regression guard: a single-state wildcard must resolve exactly
+        as before even when the model also populates `parents` with one entry."""
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "all counties in Oregon", "parents": ["Oregon"]},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.compare is False
+E       AssertionError: assert True is False
+E        +  where True = ResolveGeographyResult(specs=[GeoSpec(level='county', name='all counties in Oregon', geoid='', for_spec='county:*', in...es={'state': '41', 'county': '*'})], wildcard=False, legal=True, detail='', nested=True, compare=True, compare_count=1).compare
+
+tests\test_ask_tools.py:837: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_single_parent_wildcard_is_unaffected_by_the_parents_field
+1 failed in 0.31s
+restored api/src/geo.py via git checkout --
+(empty diff above confirms clean restore)
+
+== Mutation 6: test_versus_query_ignores_a_mistaken_parents_field ==
+Reverts: the wildcard-shape guard (api/src/geo.py:213) -- drops the
+"WILDCARD.search(query) or WITHIN.search(query)" requirement entirely, so a
+genuine comparison query ("Austin versus Dallas") with a (wrongly) populated
+parents[] of 2+ is routed into wildcard-parent handling instead of the
+versus/compare branch.
+diff applied:
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..10a3d37 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -210,7 +210,7 @@ class ResolveGeographyTool(BaseTool):
+             detail, specs = packed
+             return detail, _compare_result(specs, [], legal=False, detail=detail)
+         names = [name.strip() for name in parents if name and name.strip()] if parents else []
+-        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
++        if len(names) >= 2:  # MUTATION: wildcard-shape check dropped
+             picks = await asyncio.gather(
+                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+             )
+test run: pytest tests/test_ask_tools.py::test_versus_query_ignores_a_mistaken_parents_field -q
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_versus_query_ignores_a_mistaken_parents_field ______________
+
+    async def test_versus_query_ignores_a_mistaken_parents_field() -> None:
+        """AC14: a genuine comparison must never be routed into wildcard-parent
+        handling, even if `parents` is (wrongly) populated alongside it."""
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"query": "Austin versus Dallas", "parents": ["Texas", "Louisiana"]},
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+>       assert artifact.compare is True
+E       AssertionError: assert False is True
+E        +  where False = ResolveGeographyResult(specs=[], wildcard=True, legal=False, detail='unresolved wildcard parent(s): Texas, Louisiana', nested=True, compare=False, compare_count=0).compare
+
+tests\test_ask_tools.py:855: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_versus_query_ignores_a_mistaken_parents_field
+1 failed in 0.33s
+restored api/src/geo.py via git checkout --
+(empty diff above confirms clean restore)
+
+== Mutation 7: test_wildcard_parents_win_over_a_stale_places_field ==
+Reverts: parents-branch priority over places (api/src/geo.py:213) -- adds a
+"not (places and len(places) >= 2)" guard so a stale/co-populated places[]
+field defeats the wildcard-parents branch and the query falls through to the
+legs/comparison branch instead, exactly the priority bug AC14 forbids.
+diff applied:
+diff --git a/api/src/geo.py b/api/src/geo.py
+index 6214442..071fccb 100644
+--- a/api/src/geo.py
++++ b/api/src/geo.py
+@@ -210,7 +210,11 @@ class ResolveGeographyTool(BaseTool):
+             detail, specs = packed
+             return detail, _compare_result(specs, [], legal=False, detail=detail)
+         names = [name.strip() for name in parents if name and name.strip()] if parents else []
+-        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
++        if (
++            len(names) >= 2
++            and (WILDCARD.search(query) or WITHIN.search(query))
++            and not (places and len(places) >= 2)  # MUTATION: stale places[] wins
++        ):
+             picks = await asyncio.gather(
+                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
+             )
+test run: pytest tests/test_ask_tools.py::test_wildcard_parents_win_over_a_stale_places_field -q
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_wildcard_parents_win_over_a_stale_places_field _____________
+
+    async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
+        """AC14: a wildcard-phrased query with 2+ `parents` must never fall into
+        the `sides = legs if len(legs) >= 2 ...` comparison branch, even if
+        `places` is also (wrongly) populated."""
+        tool = _geo_tool()
+        message = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {
+                    "query": "all counties in Texas and Louisiana",
+                    "places": ["Chicago, IL", "Los Angeles, CA"],
+                    "parents": ["Texas", "Louisiana"],
+                },
+                "id": "c1",
+            }
+        )
+        artifact = message.artifact
+        assert artifact.compare is True
+>       assert [row.for_spec for row in artifact.specs[:2]] == ["county:*", "county:*"]
+E       AssertionError: assert ['place:17140...lace:0644000'] == ['county:*', 'county:*']
+E         
+E         At index 0 diff: 'place:1714000' != 'county:*'
+E         Use -v to get more diff
+
+tests\test_ask_tools.py:880: AssertionError
+=========================== short test summary info ===========================
+FAILED tests\test_ask_tools.py::test_wildcard_parents_win_over_a_stale_places_field
+1 failed in 0.39s
+restored api/src/geo.py via git checkout --
+(empty diff above confirms clean restore)
+?? evidence/slice-4/cc-101-gate1.txt
+(empty status above confirms working tree fully clean, all 7 mutations reverted)
+
+======================================================================
+All 7 new tests against unmutated (correct) code -- sanity check
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a6a21d2e43972af5f\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a6a21d2e43972af5f
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 122 items / 115 deselected / 7 selected
+
+tests\test_ask_tools.py::test_multi_state_wildcard_resolves_every_named_parent PASSED [ 14%]
+tests\test_ask_tools.py::test_three_state_wildcard_resolves_every_named_parent PASSED [ 28%]
+tests\test_ask_tools.py::test_counties_within_two_states_also_resolves_both PASSED [ 42%]
+tests\test_ask_tools.py::test_multi_state_wildcard_fails_explicitly_not_silently PASSED [ 57%]
+tests\test_ask_tools.py::test_single_parent_wildcard_is_unaffected_by_the_parents_field PASSED [ 71%]
+tests\test_ask_tools.py::test_versus_query_ignores_a_mistaken_parents_field PASSED [ 85%]
+tests\test_ask_tools.py::test_wildcard_parents_win_over_a_stale_places_field PASSED [100%]
+
+====================== 7 passed, 115 deselected in 0.31s ======================
+
+======================================================================
+AC15 re-verification: find_state() untouched -- DC/Kansas City collision guard
+.                                                                        [100%]
+1 passed in 0.20s
+
+======================================================================
+Full suite: pytest -q -m "not integration" (project convention: 529 passed before this change)
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 68%]
+........................................................................ [ 81%]
+........................................................................ [ 95%]
+.........................                                                [100%]
+529 passed in 20.90s
+
+Note: only api/tests/test_ask_tools.py changed among test files on this branch
+(145 insertions, 0 deletions -- purely additive, confirmed via git diff --numstat
+b2219fe..141ff10). The 7 new CC-101 tests are plain async defs, no parametrize,
+so each adds exactly one collected item. 529 passed here = pre-CC-101 baseline
+(522) + the 7 new tests, all passing. Zero regressions.
+
+======================================================================
+scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4099 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3003 <= 3010
+  ok    system prompt tokens       357 <= 1200
+  ok    doc lines                 1646 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         19.058 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.858 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+0
+exit code above (0 = pass)
+
+======================================================================
+mypy src
+Success: no issues found in 24 source files
+
+======================================================================
+ruff check .
+All checks passed!
+
+======================================================================
+ruff format --check .
+52 files already formatted
+
+======================================================================
+Summary
+
+All 7 new tests mutation-checked: each targeted mutation made its test fail
+with a real assertion error (not a collection error); each was restored via
+"git checkout -- api/src/geo.py" and confirmed byte-identical before the next.
+All 7 pass against the unmutated code. AC15 (find_state untouched, DC/Kansas
+City collision guard) re-verified green. Full suite: 529 passed, 0 failed.
+Budgets, mypy, ruff check, and ruff format --check all pass with zero changes
+to budgets.toml. Final git status: clean except this evidence file.
