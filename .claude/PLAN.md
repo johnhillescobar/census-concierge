@@ -50,8 +50,10 @@ answered_rate long_tail 0.858 (was 0.833), overall 0.892; p95 19.058s (was
 [CC-101](https://johnhillescobar.atlassian.net/browse/CC-101) Done (multi-state
 wildcard geography resolution fix; floors met; answered_rate long_tail 0.833
 (floor 0.7), overall 0.871; p95 17.886s (ceiling 20s);
-`evidence/slice-4/cc-101-e2e-post.txt`). CC-77 waits on CC-11 table/plan-strip
-foundations. Spike CC-9 before slice 5.
+`evidence/slice-4/cc-101-e2e-post.txt`). [CC-49](https://johnhillescobar.atlassian.net/browse/CC-49)
+Done (CSV export; floors met; answered_rate 0.825 (overall 0.866); p95
+over-ceiling recorded not promoted; `evidence/slice-4/cc-49-e2e-post.txt`).
+CC-77 waits on CC-11 table/plan-strip foundations. Spike CC-9 before slice 5.
 
 ---
 
