@@ -1,0 +1,252 @@
+CC-49 Gate 2 — cold review
+Branch: feat/cc-49-csv-export (8e76641, 9a2841d) vs origin/main
+Reviewed: 2026-09-28
+
+=================================================================
+PASS 1 — generic bugs (/code-review medium --diff origin/main...feat/cc-49-csv-export -- web/src)
+=================================================================
+
+Invocation: Skill("code-review", args="medium --diff origin/main...feat/cc-49-csv-export -- web/src")
+Ran as a forked background task; raw findings returned:
+
+  No existing pattern reused; this is the only download implementation. Given
+  the small, well-tested diff, findings finalized as:
+
+  [
+    {
+      "file": "web/src/csv.ts",
+      "line": 30,
+      "summary": "The CSV Blob is built as UTF-8 without a byte-order-mark, so Excel (the default viewer for this product's GIS/non-profit users) misrenders non-ASCII characters when the file is double-clicked open.",
+      "failure_scenario": "A tract or place name with an accented character (the codebase's own test fixture uses \"Añasco, Tract \\\"5\\\"\") exports fine as UTF-8 text, but opening the .csv directly in Excel on Windows (the common path for this file type, not a text editor) shows \"Añasco\" as mojibake because Excel assumes ANSI/Latin-1 for CSV without a UTF-8 BOM; prepending '\\ufeff' to the Blob content would fix it."
+    },
+    {
+      "file": "web/src/csv.ts",
+      "line": 29,
+      "summary": "downloadCsv() clicks an <a download> element that is never appended to the document, which is unreliable in Safari/WebKit.",
+      "failure_scenario": "A user on Safari clicks \"Download CSV\"; because the anchor was created with document.createElement but never inserted into the DOM before click(), WebKit can silently no-op the download instead of saving the file (a long-documented WebKit quirk), leaving the user with no file and no error."
+    }
+  ]
+
+Independent manual cold read (same diff), supplementing the skill's pass:
+
+  - web/src/csv.ts:6-9 (csvField): formula-like text (leading =, +, -, @) is
+    written to CSV cells unescaped by design (csv.test.ts asserts this: "leaves
+    comma-free, quote-free, formula-like text unescaped"). This is the classic
+    CSV/formula-injection shape (CWE-1236) if a cell is ever attacker-influenced.
+    Low practical risk here: every field in a DatasetRow (dataset, tableId,
+    variable, geoid, name, universe) is Census-Bureau-controlled metadata or a
+    NAME string from the Census API, never free text a user types. Noted as a
+    hygiene follow-up, not a live vector today.
+  - Column-order audit: CSV_HEADERS is
+    ["dataset","vintage","period","table_id","variable","GEO_ID","NAME","estimate","moe","universe"]
+    and csvRow()'s array is
+    [row.dataset, row.year, row.period, row.tableId, row.variable, row.geoid, row.name, row.estimate ?? "", row.moe ?? "", row.universe]
+    — positionally verified 1:1 against the ticket's required order
+    (dataset, vintage, period, table_id, variable, GEO_ID, NAME, estimate, moe,
+    universe). No mis-ordering found.
+  - No bugs found in rowsToCsv's RFC 4180 escaping (quote-on comma/quote/CR/LF,
+    doubled internal quotes, \r\n line endings) — matches csv.test.ts fixtures
+    exactly, independently re-derived by hand against the sanitizeSegment /
+    csvFilename regex.
+  - No correctness bug in csvFilename's path-traversal handling: the allowed
+    character set is [A-Za-z0-9_-] only (no '.', no '/'), so
+    "../../etc/passwd" reduces to "etc-passwd", never a directory segment.
+  - No mutation-shared-state bug: EstimatesTable and ResultChart both format
+    DatasetRow.estimate/.moe for *display* (formatCensusNumber, chart.ts's
+    num()) without writing back onto the row objects; rowsToCsv reads the same
+    array's raw fields, so a comma-grouped display number can never leak into
+    a CSV cell (verified by reading web/src/display.ts, web/src/chart.ts, and
+    the EstimatesTable render body).
+
+=================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md)
+=================================================================
+
+--- Machines (run against the branch tip, commit 9a2841d, checked out
+    detached since feat/cc-49-csv-export is already checked out in the
+    primary worktree; identical tree) ---
+
+$ uv run python scripts/check_budgets.py
+BUDGETS
+  ok    api src LOC               4100 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3100 <= 3100
+  ok    system prompt tokens       371 <= 1200
+  ok    doc lines                 1650 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.886 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.833 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+All budgets met.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+INVARIANTS
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+All invariants held.
+
+$ uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+153 files already formatted
+
+$ uv run mypy api/src
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 67%]
+........................................................................ [ 81%]
+........................................................................ [ 95%]
+..........................                                               [100%]
+530 passed in 24.92s
+
+$ cd web && npm test
+ ✓ src/csv.test.ts (5 tests) 46ms
+ ✓ src/plan.test.ts (7 tests) 29ms
+ ✓ src/ask.test.ts (7 tests) 54ms
+ ✓ src/display.test.ts (26 tests) 90ms
+ ✓ src/chart.test.tsx (10 tests) 227ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 1253ms
+ ✓ src/App.plan.test.tsx (10 tests) 4635ms
+ ✓ src/App.test.tsx (25 tests) 6597ms
+ Test Files  8 passed (8)
+      Tests  97 passed (97)
+
+$ cd web && npm run typecheck
+> tsc --noEmit
+(no output — exit 0)
+
+All machines green. No non-zero exit anywhere in this pass.
+
+--- The claim ---
+
+User-facing: a researcher looking at a result in the canvas can click
+"Download CSV" and get the same normalized rows the table/chart already show
+(GEOID, dataset, vintage, period, table, variable, estimate, MOE, universe) as
+a spreadsheet-ready file, named after the table/dataset/vintage, with no
+separate export pipeline to drift from the on-screen data.
+
+--- Scope ---
+
+- Belongs to slice 4 (CC-11) per .claude/PLAN.md's checklist item "CSV
+  export" and CC-49's own pre-flight/Gate 1 evidence. Not later-slice work.
+- 8 files touched (App.tsx, App.test.tsx, App.plan.test.tsx, csv.ts,
+  csv.test.ts, test-setup.ts, plus the two evidence files) — well under ~15.
+- Nothing added "while we were in there": the diff is exactly the CSV
+  serializer/filename/download trio, the button wiring, its tests, and the
+  jsdom createObjectURL shim the pre-flight already flagged as necessary.
+  No unrelated refactors, no drive-by renames.
+
+--- Silent-wrong-answer review ---
+
+- URL / MOE / GEOID / universe: unaffected on every existing branch — CSV is
+  a new, additive rendering of the same AskResponse; it doesn't touch the URL
+  panel, the warnings list, or the table. Verified App.tsx still renders the
+  Census URL block and warnings unconditionally, unchanged in this diff.
+- The new CSV branch itself: MOE and GEOID are present as their own columns
+  (moe, GEO_ID) and universe is a column too — nothing dropped relative to
+  what the table already shows. Estimate/MOE cells use the same
+  already-sentinel-resolved DatasetRow.estimate/.moe (null -> ""), never "0"
+  or a raw Census sentinel digit string (display.ts's censusRaw() already
+  nulls the sentinel set before normalizeActiveDataset builds the row; csv.ts
+  only turns that null into an empty cell).
+- `&key=` redaction: untouched — CSV never reads response.urls or builds a
+  Census URL; redaction still happens once, in display.ts's redactCensusUrl,
+  on the existing URL panel. No new place a key could leak.
+- Numbers through the model: CSV reads DatasetRow.estimate/.moe, which are
+  fetched Census values placed into the row by normalizeActiveDataset — the
+  model never touches these fields (model output only supplies table_id /
+  chart spec / plan elsewhere in the existing pipeline, unchanged here).
+- No new blocking clarification: the Download CSV button is inert UI: it
+  either renders (dataset.length > 0) or doesn't (App.test.tsx asserts it is
+  absent on the Census-fetch-failure fixture, where dataset.length === 0 and
+  "No estimates returned." is shown instead). It never blocks a response.
+- No silent input repair: csvFilename sanitizes only the *filename* (cosmetic,
+  local to the download, never shown as a data value); no fetched value, plan
+  field, or geography is corrected or substituted.
+
+--- Shape ---
+
+- No new tool, route, Pydantic model, or `.add_node()` — this is a pure
+  frontend module (web/src/csv.ts) plus a button. No backend touched.
+- No banned module-name suffix (`csv.ts` is not a `*_manager` /
+  `*_orchestrator` / `*_factory` / `*_policy` / `*_strategy` / `*_service`).
+  `scripts/check_invariants.py`'s "forbidden module names" check also passed.
+- docs/ARCHITECTURE.md already stated, ahead of this PR, "CSV consumes that
+  same `AskResponse`; it must not keep a second copy" (Chat UI section). The
+  shipped code honors it: ActiveDataset computes
+  `const dataset = normalizeActiveDataset(result)` exactly once and passes
+  that same array to ResultChart, EstimatesTable, and
+  `rowsToCsv(dataset)` — confirmed by reading App.tsx; no second
+  normalizeActiveDataset call or parallel row-building path exists anywhere
+  in the diff. `git diff origin/main...feat/cc-49-csv-export --
+  docs/ARCHITECTURE.md` is empty: the doc was pre-written for this shape and
+  needs no update — what shipped matches what it already said.
+
+--- Tests ---
+
+- Behavior, not wording: csv.test.ts asserts on the literal CSV bytes
+  (headers, one full RFC 4180 row, escaping edge cases) and on
+  csvFilename's/downloadCsv's observable outputs (returned string, anchor
+  .download, .click() call, revokeObjectURL call) — no assertion on prompt
+  text or LLM prose (this diff touches no LLM path at all).
+- No fake that would hide a broken serializer: Gate 1's evidence
+  (evidence/slice-4/cc-49-gate1.txt) already mutation-tested rowsToCsv,
+  csvFilename, and downloadCsv (mutations M10-M12 flip anchor.download /
+  .click() / revokeObjectURL and the corresponding tests fail; the button's
+  zero-row guard has its own mutation, M14). Not re-run here per the Gate 2
+  scope (Gate 1 already passed) — spot-checked only that the same test file
+  and assertions are still present in the diff (they are).
+- `web_src_loc` is exactly 3100/3100 (see machine output above) — at the
+  ceiling, not over it. `budgets.toml` has zero diff against origin/main
+  (`git diff origin/main...feat/cc-49-csv-export -- budgets.toml` is empty)
+  and `check_invariants --base origin/main`'s "budget increases" check
+  passed, so no ceiling was quietly raised to make CC-49 fit; the two raise
+  log lines visible in budgets.toml (2026-09-26, 2026-09-27) both predate
+  this branch and are already on origin/main.
+
+=================================================================
+Findings summary
+=================================================================
+
+Pass 1 (generic bugs): two findings from /code-review, one from independent
+read — all follow-ups, none blocking:
+  1. web/src/csv.ts:~30 — Blob has no UTF-8 BOM; Excel (the likely viewer for
+     this audience) can mis-render non-ASCII NAME values (e.g. "Añasco") as
+     mojibake on double-click-open, even though the file bytes are correct.
+  2. web/src/csv.ts:~29 — the download <a> is never appended to
+     document.body before .click(); a long-documented WebKit/Safari quirk can
+     silently no-op the download with no error shown to the user.
+  3. web/src/csv.ts:6-9 — formula-like cell text (leading =/+/-/@) is left
+     unescaped by design (asserted in csv.test.ts); classic CSV-injection
+     shape, low practical risk since every field is Census-Bureau-controlled
+     metadata rather than user-typed text.
+
+Pass 2 (project invariants): nothing wrong. Machines all green, scope in
+bounds, URL/MOE/GEOID/universe untouched and the new CSV branch carries all
+four, `&key=` redaction path untouched, no numbers pass through the model, no
+new blocking clarification, no shape/doc drift, web_src_loc at ceiling with
+budgets.toml unchanged from origin/main.
