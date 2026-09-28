@@ -4,16 +4,10 @@ import { CSV_HEADERS, csvFilename, downloadCsv, rowsToCsv } from "./csv";
 
 function row(partial: Partial<DatasetRow>): DatasetRow {
   return {
-    dataset: "acs5",
-    year: "2022",
-    period: "2018-2022",
-    tableId: "B17001",
-    variable: "B17001_002E",
-    geoid: "1400000US26163518300",
+    dataset: "acs5", year: "2022", period: "2018-2022", tableId: "B17001",
+    variable: "B17001_002E", geoid: "1400000US26163518300",
     name: 'Añasco, Tract "5"\nline two, cont.',
-    estimate: "123456",
-    moe: null,
-    universe: "Population for whom poverty status is determined",
+    estimate: "123456", moe: null, universe: "Population for whom poverty status is determined",
     ...partial,
   };
 }
@@ -30,11 +24,8 @@ describe("rowsToCsv", () => {
     );
   });
 
-  it("leaves comma-free, quote-free, formula-like text unescaped", () => {
+  it("leaves formula-like text unescaped and preserves identifiers with leading zeros, unformatted", () => {
     expect(rowsToCsv([row({ name: "=1+1" })])).toContain(",=1+1,");
-  });
-
-  it("preserves identifiers with leading zeros verbatim, unformatted", () => {
     const csv = rowsToCsv([row({ geoid: "0400000US01", variable: "B01001_001E" })]);
     expect(csv).toContain(",0400000US01,");
     expect(csv).toContain(",B01001_001E,");
@@ -49,13 +40,20 @@ describe("csvFilename", () => {
 });
 
 describe("downloadCsv", () => {
-  it("clicks an anchor carrying the filename, then revokes the object URL", () => {
+  it("attaches the filenamed anchor to the DOM before clicking, prepends a UTF-8 BOM, cleans up, and revokes the URL", () => {
     const anchor = document.createElement("a");
-    const clickSpy = vi.spyOn(anchor, "click").mockImplementation(() => undefined);
+    let attachedAtClick = false;
+    const clickSpy = vi.spyOn(anchor, "click").mockImplementation(() => (attachedAtClick = document.body.contains(anchor)));
     vi.spyOn(document, "createElement").mockReturnValue(anchor);
+    const BlobSpy = vi.fn((parts: unknown[]) => ({ parts }));
+    vi.stubGlobal("Blob", BlobSpy);
     downloadCsv("B17001-acs5-2022.csv", "a,b\r\n1,2\r\n");
+    vi.unstubAllGlobals();
     expect(anchor.download).toBe("B17001-acs5-2022.csv");
+    expect(BlobSpy.mock.calls[0]?.[0]).toEqual(["\ufeff", "a,b\r\n1,2\r\n"]);
+    expect(attachedAtClick).toBe(true);
     expect(clickSpy).toHaveBeenCalledOnce();
+    expect(document.body.contains(anchor)).toBe(false);
     expect(URL.revokeObjectURL).toHaveBeenCalled();
   });
 });

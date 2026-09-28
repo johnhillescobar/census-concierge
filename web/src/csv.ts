@@ -18,17 +18,15 @@ export function rowsToCsv(rows: DatasetRow[]): string {
   return [CSV_HEADERS.join(","), ...rows.map(csvRow)].map((line) => `${line}\r\n`).join("");
 }
 
-function sanitizeSegment(value: string): string {
-  return value.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "export";
-}
-
 export function csvFilename(tableId: string, dataset: string, vintage: string): string {
-  return `${[tableId, dataset, vintage].map(sanitizeSegment).join("-")}.csv`;
+  const clean = (value: string) => value.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "export";
+  return `${[tableId, dataset, vintage].map(clean).join("-")}.csv`;
 }
 
 export function downloadCsv(filename: string, csv: string): void {
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const url = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
   const anchor = Object.assign(document.createElement("a"), { href: url, download: filename });
-  anchor.click();
+  document.body.appendChild(anchor).click();
+  anchor.remove();
   URL.revokeObjectURL(url);
 }
