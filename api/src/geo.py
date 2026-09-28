@@ -209,7 +209,7 @@ class ResolveGeographyTool(BaseTool):
         if packed:
             detail, specs = packed
             return detail, _compare_result(specs, [], legal=False, detail=detail)
-        names = [name.strip() for name in parents if name and name.strip()] if parents else []
+        names = [n.strip() if n and n.strip() else "(blank)" for n in parents] if parents else []
         if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
             picks = await asyncio.gather(
                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)

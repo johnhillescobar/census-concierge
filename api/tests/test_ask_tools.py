@@ -821,6 +821,28 @@ async def test_multi_state_wildcard_fails_explicitly_not_silently() -> None:
     assert "Texas" not in artifact.detail
 
 
+async def test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse() -> None:
+    """A blank parent name must not drop out of the 2+ count and reroute
+    through the single-query path, which would silently collapse to one state."""
+    tool = _geo_tool()
+    message = await tool.ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "query": "all counties in Texas and Louisiana",
+                "parents": ["Texas", ""],
+            },
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    assert artifact.legal is False
+    assert artifact.specs == []
+    assert "(blank)" in artifact.detail
+    assert "Texas" not in artifact.detail
+
+
 async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> None:
     """CC-73 regression guard: a single-state wildcard must resolve exactly
     as before even when the model also populates `parents` with one entry."""
