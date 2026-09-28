@@ -1,0 +1,1078 @@
+CC-49 Gate 1 -- tests and mutation check
+branch feat/cc-49-csv-export, commit 8e76641
+Raw transcript. No editorializing below this line.
+
+==============================================================================
+SECTION 1: make check equivalent (lint, types, pytest, invariants, budgets, client, web-test)
+==============================================================================
+
+--- uv run ruff check . && uv run ruff format --check . ---
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+All checks passed!
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+153 files already formatted
+
+
+--- uv run mypy api/src ---
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Success: no issues found in 24 source files
+
+
+--- uv run pytest -q -m "not integration" ---
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 67%]
+........................................................................ [ 81%]
+........................................................................ [ 95%]
+..........................                                               [100%]
+530 passed in 10.81s
+
+
+--- npm --prefix web ci ---
+
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 258 packages, and audited 259 packages in 18s
+
+44 packages are looking for funding
+  run `npm fund` for details
+
+2 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+
+--- npm --prefix web test (vitest run) ---
+
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ✓ src/csv.test.ts (5 tests) 39ms
+ ✓ src/plan.test.ts (7 tests) 38ms
+ ✓ src/ask.test.ts (7 tests) 47ms
+ ✓ src/display.test.ts (26 tests) 134ms
+ ✓ src/chart.test.tsx (10 tests) 239ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 1432ms
+   ✓ PlanStrip > renders the returned plan, not answer prose  432ms
+   ✓ PlanStrip > enters edit mode, restores the draft on cancel, and returns focus to the strip  440ms
+ ✓ src/App.plan.test.tsx (10 tests) 4376ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  873ms
+   ✓ plan refinement > posts a geography pick from returned candidates  408ms
+   ✓ plan refinement > posts dataset, year list, and overlapping-ACS5 together  486ms
+   ✓ plan refinement > keeps the prior result when the override is rejected and shows the field error  359ms
+   ✓ plan refinement > does not send a plan when the editor is cancelled  341ms
+   ✓ plan refinement > uses the original question even if the chat input changed  600ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  599ms
+ ✓ src/App.test.tsx (25 tests) 6503ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  316ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  306ms
+   ✓ App result > replaces every previous table row when a new result arrives  556ms
+   ✓ App result > keeps the estimates table keyboard-reachable with semantic headers  322ms
+   ✓ App workspace > keeps the prior result visible while a later question is loading  483ms
+   ✓ App workspace > replaces the active result only after a successful response  448ms
+   ✓ App workspace > keeps the prior result and shows a later failure separately  473ms
+   ✓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error  508ms
+
+ Test Files  8 passed (8)
+      Tests  97 passed (97)
+   Start at  05:44:07
+   Duration  16.77s (transform 5.98s, setup 11.04s, collect 10.36s, tests 12.81s, environment 28.62s, prepare 3.15s)
+
+
+
+--- npm --prefix web run typecheck (tsc --noEmit) ---
+
+
+> typecheck
+> tsc --noEmit
+
+
+
+--- uv run python scripts/check_invariants.py --base origin/main ---
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+
+
+--- uv run python scripts/generate_client.py --check ---
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpklpoo8ga\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpklpoo8ga\schema.d.ts [72.1ms]
+packages/client is up to date.
+
+
+--- uv run python scripts/check_budgets.py ---
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+BUDGETS
+
+  ok    api src LOC               4100 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3100 <= 3100
+  ok    system prompt tokens       371 <= 1200
+  ok    doc lines                 1650 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.886 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.833 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+
+web_src_loc: measured 3100 <= 3100 (ceiling). budgets.toml NOT modified in this gate.
+
+==============================================================================
+SECTION 2: adversarial-matrix coverage judgment (matrix items -> existing tests)
+==============================================================================
+
+Matrix items named for this ticket, and the test that exercises each:
+
+- RFC 4180 quoting of commas/quotes/newlines
+    csv.test.ts > rowsToCsv > "writes required headers, then one RFC 4180 row
+    per DatasetRow, verbatim" -- fixture NAME field carries a comma, an
+    embedded double quote, and an embedded newline together; full-string
+    byte-exact assertion.
+- verbatim identifier preservation including leading zeros
+    csv.test.ts > rowsToCsv > "preserves identifiers with leading zeros
+    verbatim, unformatted" -- GEOID "0400000US01", variable "B01001_001E".
+- raw unformatted numeric strings
+    covered by the same "writes required headers..." test: estimate
+    "123456" is asserted verbatim (no thousands separator).
+- missing values as empty cells rather than zero/sentinel
+    covered by the same test: moe: null renders as an empty CSV cell
+    ("123456,,Population...").
+- filename sanitization/determinism
+    csv.test.ts > csvFilename > "joins table/dataset/vintage, strips unsafe
+    characters, falls back on empty fields" -- path-traversal input and an
+    empty vintage field both exercised. determinism follows from purity (no
+    I/O, no Date/Math.random in csvFilename/rowsToCsv) and was not given a
+    separate test.
+- post-refinement replacement
+    App.plan.test.tsx > "posts a table edit with the original question, not
+    rewritten prompt text" -- CSV button title updates from B01003 to B19013
+    after a successful table override.
+- failed-refinement retention
+    App.plan.test.tsx > "keeps the prior result when the override is
+    rejected and shows the field error" -- CSV button title still reads
+    B01003 after a rejected (422) override. A second test, "keeps the prior
+    result when the refinement cannot reach the API", exercises the same
+    catch-block code path (network failure instead of validation failure)
+    without a CSV assertion; both failure sources hit the identical `catch`
+    branch in App.tsx's runAsk (result state is only ever written on the
+    success path), so retention is not a second, independently-implemented
+    behavior -- one assertion is sufficient to mutation-check it (confirmed
+    below, mutation 16).
+- no export control with zero rows
+    App.test.tsx > "keeps URL and table metadata on Census fetch failure,
+    with a visible notice" -- rentFailure fixture has rows: [], and the
+    Download CSV button is asserted absent (queryByRole -> null).
+
+Judged gap considered and NOT added: an estimate:null -> empty-cell case
+parallel to the existing moe:null case. Same one-line `?? ""` pattern,
+already exercised for moe in the primary rowsToCsv test; and mutating that
+fallback to a *removal* (dropping `?? ""` entirely) has no observable effect
+at all here, since `Array.prototype.join` already coerces `null`/`undefined`
+to "" -- confirmed while designing mutation 5, which therefore changes the
+fallback's *value* (`?? "0"`) rather than removing it, and that is the
+mutation that is actually a real regression risk. A second, symmetric test
+for `estimate` would duplicate that same one-line ternary with no new
+defect class covered; skipped as low-value, not as a budget dodge (see next
+paragraph -- there is no budget room for it either way).
+
+No test was added in this gate. web_src_loc is measured at exactly
+3100/3100 on this branch (see SECTION 1) -- zero headroom -- and every
+*.ts/*.tsx file counted by scripts/check_budgets.py's `web_files` glob
+includes test files, so a new test line would put the branch over budget.
+Per CLAUDE.md ("Never raise a budget... say so and ask"), budgets.toml was
+left untouched and no new test line was written. Coverage was judged
+adequate against the named matrix (above); if a reviewer disagrees on the
+estimate:null case, closing it needs either a budget raise (human decision)
+or trimming an existing line elsewhere to net zero -- flagged here rather
+than done silently.
+
+==============================================================================
+SECTION 3: mutation check, one behavior at a time
+==============================================================================
+
+Every new test in this gate (all of csv.test.ts is new; the additive
+assertions in App.test.tsx and App.plan.test.tsx are new lines in existing
+tests) was mutation-checked: revert one behavior in web/src/csv.ts or
+web/src/App.tsx, run ONLY the test(s) that behavior backs (`npx vitest run
+<file> -t "<test name>"`), confirm the targeted test fails and nothing else
+in that run passes it by accident, then restore the source file exactly
+(verified with `git diff` after every restore -- see end of section).
+
+GOOD below means: the mutation was introduced, the targeted test failed for
+the expected reason, and the source was restored byte-identical afterward.
+No mutation in this gate went uncaught.
+------------------------------------------------------------------------------
+M01 -- header text mutated (CSV_HEADERS "GEO_ID" -> "geoid")
+  reverted in : web/src/csv.ts: CSV_HEADERS entry
+  target test : csv.test.ts > rowsToCsv > "writes required headers..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 8ms
+   × rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim 7ms
+     → expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+
+Expected: "dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe"
+Received: "dataset,vintage,period,table_id,variable,geoid,NAME,estimate,moe,universe"
+
+ ❯ src/csv.test.ts:23:35
+     21| describe("rowsToCsv", () => {
+     22|   it("writes required headers, then one RFC 4180 row per DatasetRow, v…
+     23|     expect(CSV_HEADERS.join(",")).toBe(
+       |                                   ^
+     24|       "dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,m…
+     25|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:36:06
+   Duration  3.14s (transform 100ms, setup 231ms, collect 54ms, tests 8ms, environment 600ms, prepare 105ms)
+
+------------------------------------------------------------------------------
+M02 -- csvField stops quoting entirely (always returns raw value)
+  reverted in : web/src/csv.ts: csvField()
+  target test : csv.test.ts > rowsToCsv > "writes required headers..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 9ms
+   × rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim 8ms
+     → expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+
+- Expected
++ Received
+
+  dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe
+- acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"Añasco, Tract ""5""
++ acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,Añasco, Tract "5"
+- line two, cont.",123456,,Population for whom poverty status is determined
++ line two, cont.,123456,,Population for whom poverty status is determined
+
+
+ ❯ src/csv.test.ts:26:34
+     24|       "dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,m…
+     25|     );
+     26|     expect(rowsToCsv([row({})])).toBe(
+       |                                  ^
+     27|       `${CSV_HEADERS.join(",")}\r\n` +
+     28|         'acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:36:27
+   Duration  3.42s (transform 123ms, setup 283ms, collect 58ms, tests 9ms, environment 699ms, prepare 125ms)
+
+------------------------------------------------------------------------------
+M03 -- csvField stops doubling embedded quotes when it does quote
+  reverted in : web/src/csv.ts: csvField()
+  target test : csv.test.ts > rowsToCsv > "writes required headers..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 9ms
+   × rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim 8ms
+     → expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+
+- Expected
++ Received
+
+  dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe
+- acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"Añasco, Tract ""5""
++ acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"Añasco, Tract "5"
+  line two, cont.",123456,,Population for whom poverty status is determined
+
+
+ ❯ src/csv.test.ts:26:34
+     24|       "dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,m…
+     25|     );
+     26|     expect(rowsToCsv([row({})])).toBe(
+       |                                  ^
+     27|       `${CSV_HEADERS.join(",")}\r\n` +
+     28|         'acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:36:44
+   Duration  3.13s (transform 89ms, setup 214ms, collect 43ms, tests 9ms, environment 597ms, prepare 105ms)
+
+------------------------------------------------------------------------------
+M04 -- estimate gets thousands-comma formatting instead of raw digits
+  reverted in : web/src/csv.ts: csvRow()
+  target test : csv.test.ts > rowsToCsv > "writes required headers..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 20ms
+   × rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim 19ms
+     → expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+
+- Expected
++ Received
+
+  dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe
+  acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"Añasco, Tract ""5""
+- line two, cont.",123456,,Population for whom poverty status is determined
++ line two, cont.","123,456",,Population for whom poverty status is determined
+
+
+ ❯ src/csv.test.ts:26:34
+     24|       "dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,m…
+     25|     );
+     26|     expect(rowsToCsv([row({})])).toBe(
+       |                                  ^
+     27|       `${CSV_HEADERS.join(",")}\r\n` +
+     28|         'acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:37:05
+   Duration  3.41s (transform 114ms, setup 250ms, collect 86ms, tests 20ms, environment 681ms, prepare 154ms)
+
+------------------------------------------------------------------------------
+M05 -- missing MOE falls back to "0" instead of an empty cell
+  reverted in : web/src/csv.ts: csvRow()
+  target test : csv.test.ts > rowsToCsv > "writes required headers..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 8ms
+   × rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim 7ms
+     → expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to be 'dataset,vintage,period,table_id,varia…' // Object.is equality
+
+- Expected
++ Received
+
+  dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe
+  acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"Añasco, Tract ""5""
+- line two, cont.",123456,,Population for whom poverty status is determined
++ line two, cont.",123456,0,Population for whom poverty status is determined
+
+
+ ❯ src/csv.test.ts:26:34
+     24|       "dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,m…
+     25|     );
+     26|     expect(rowsToCsv([row({})])).toBe(
+       |                                  ^
+     27|       `${CSV_HEADERS.join(",")}\r\n` +
+     28|         'acs5,2022,2018-2022,B17001,B17001_002E,1400000US26163518300,"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:37:26
+   Duration  3.22s (transform 99ms, setup 271ms, collect 48ms, tests 8ms, environment 608ms, prepare 102ms)
+
+------------------------------------------------------------------------------
+M06 -- csvField quotes every field regardless of content
+  reverted in : web/src/csv.ts: csvField()
+  target test : csv.test.ts > rowsToCsv > "leaves comma-free, quote-free, formula-like text unescaped"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 37ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   × rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped 32ms
+     → expected 'dataset,vintage,period,table_id,varia…' to contain ',=1+1,'
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to contain ',=1+1,'
+
+- Expected
++ Received
+
+- ,=1+1,
++ dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe
++ "acs5","2022","2018-2022","B17001","B17001_002E","1400000US26163518300","=1+1","123456","","Population for whom poverty status is determined"
++
+
+ ❯ src/csv.test.ts:34:48
+     32| 
+     33|   it("leaves comma-free, quote-free, formula-like text unescaped", () …
+     34|     expect(rowsToCsv([row({ name: "=1+1" })])).toContain(",=1+1,");
+       |                                                ^
+     35|   });
+     36| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:37:47
+   Duration  3.61s (transform 118ms, setup 338ms, collect 73ms, tests 37ms, environment 725ms, prepare 117ms)
+
+------------------------------------------------------------------------------
+M07 -- GEOID has leading zeros stripped before being written
+  reverted in : web/src/csv.ts: csvRow()
+  target test : csv.test.ts > rowsToCsv > "preserves identifiers with leading zeros verbatim, unformatted"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 27ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   × rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted 24ms
+     → expected 'dataset,vintage,period,table_id,varia…' to contain ',0400000US01,'
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+AssertionError: expected 'dataset,vintage,period,table_id,varia…' to contain ',0400000US01,'
+
+- Expected
++ Received
+
+- ,0400000US01,
++ dataset,vintage,period,table_id,variable,GEO_ID,NAME,estimate,moe,universe
++ acs5,2022,2018-2022,B17001,B01001_001E,400000US01,"Añasco, Tract ""5""
++ line two, cont.",123456,,Population for whom poverty status is determined
++
+
+ ❯ src/csv.test.ts:39:17
+     37|   it("preserves identifiers with leading zeros verbatim, unformatted",…
+     38|     const csv = rowsToCsv([row({ geoid: "0400000US01", variable: "B010…
+     39|     expect(csv).toContain(",0400000US01,");
+       |                 ^
+     40|     expect(csv).toContain(",B01001_001E,");
+     41|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:38:07
+   Duration  4.01s (transform 139ms, setup 553ms, collect 78ms, tests 27ms, environment 915ms, prepare 156ms)
+
+------------------------------------------------------------------------------
+M08 -- sanitizeSegment stops stripping unsafe filename characters
+  reverted in : web/src/csv.ts: sanitizeSegment()
+  target test : csv.test.ts > csvFilename > "joins table/dataset/vintage..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 24ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   × csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields 21ms
+     → expected '../../etc/passwd-acs5-export.csv' to be 'etc-passwd-acs5-export.csv' // Object.is equality
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+AssertionError: expected '../../etc/passwd-acs5-export.csv' to be 'etc-passwd-acs5-export.csv' // Object.is equality
+
+Expected: "etc-passwd-acs5-export.csv"
+Received: "../../etc/passwd-acs5-export.csv"
+
+ ❯ src/csv.test.ts:47:57
+     45|   it("joins table/dataset/vintage, strips unsafe characters, falls bac…
+     46|     expect(csvFilename("B17001", "acs5", "2022")).toBe("B17001-acs5-20…
+     47|     expect(csvFilename("../../etc/passwd", "acs5", "")).toBe("etc-pass…
+       |                                                         ^
+     48|   });
+     49| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:38:29
+   Duration  3.55s (transform 100ms, setup 239ms, collect 52ms, tests 24ms, environment 879ms, prepare 113ms)
+
+------------------------------------------------------------------------------
+M09 -- sanitizeSegment drops the "export" fallback for an empty segment
+  reverted in : web/src/csv.ts: sanitizeSegment()
+  target test : csv.test.ts > csvFilename > "joins table/dataset/vintage..."
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 14ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   × csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields 13ms
+     → expected 'etc-passwd-acs5-.csv' to be 'etc-passwd-acs5-export.csv' // Object.is equality
+   ↓ downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+AssertionError: expected 'etc-passwd-acs5-.csv' to be 'etc-passwd-acs5-export.csv' // Object.is equality
+
+Expected: "etc-passwd-acs5-export.csv"
+Received: "etc-passwd-acs5-.csv"
+
+ ❯ src/csv.test.ts:47:57
+     45|   it("joins table/dataset/vintage, strips unsafe characters, falls bac…
+     46|     expect(csvFilename("B17001", "acs5", "2022")).toBe("B17001-acs5-20…
+     47|     expect(csvFilename("../../etc/passwd", "acs5", "")).toBe("etc-pass…
+       |                                                         ^
+     48|   });
+     49| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:38:48
+   Duration  3.52s (transform 107ms, setup 250ms, collect 54ms, tests 14ms, environment 712ms, prepare 138ms)
+
+------------------------------------------------------------------------------
+M10 -- downloadCsv stops setting anchor.download
+  reverted in : web/src/csv.ts: downloadCsv()
+  target test : csv.test.ts > downloadCsv > "clicks an anchor carrying the filename, then revokes the object URL"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 9ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   × downloadCsv > clicks an anchor carrying the filename, then revokes the object URL 8ms
+     → expected '' to be 'B17001-acs5-2022.csv' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+AssertionError: expected '' to be 'B17001-acs5-2022.csv' // Object.is equality
+
+- Expected
++ Received
+
+- B17001-acs5-2022.csv
+
+ ❯ src/csv.test.ts:57:29
+     55|     vi.spyOn(document, "createElement").mockReturnValue(anchor);
+     56|     downloadCsv("B17001-acs5-2022.csv", "a,b\r\n1,2\r\n");
+     57|     expect(anchor.download).toBe("B17001-acs5-2022.csv");
+       |                             ^
+     58|     expect(clickSpy).toHaveBeenCalledOnce();
+     59|     expect(URL.revokeObjectURL).toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:39:11
+   Duration  3.33s (transform 104ms, setup 238ms, collect 45ms, tests 9ms, environment 616ms, prepare 129ms)
+
+------------------------------------------------------------------------------
+M11 -- downloadCsv stops calling anchor.click()
+  reverted in : web/src/csv.ts: downloadCsv()
+  target test : csv.test.ts > downloadCsv > "clicks an anchor carrying the filename, then revokes the object URL"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 23ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   × downloadCsv > clicks an anchor carrying the filename, then revokes the object URL 20ms
+     → expected "click" to be called once, but got 0 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+AssertionError: expected "click" to be called once, but got 0 times
+ ❯ src/csv.test.ts:58:22
+     56|     downloadCsv("B17001-acs5-2022.csv", "a,b\r\n1,2\r\n");
+     57|     expect(anchor.download).toBe("B17001-acs5-2022.csv");
+     58|     expect(clickSpy).toHaveBeenCalledOnce();
+       |                      ^
+     59|     expect(URL.revokeObjectURL).toHaveBeenCalled();
+     60|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:39:32
+   Duration  3.62s (transform 126ms, setup 321ms, collect 60ms, tests 23ms, environment 735ms, prepare 173ms)
+
+------------------------------------------------------------------------------
+M12 -- downloadCsv stops calling URL.revokeObjectURL()
+  reverted in : web/src/csv.ts: downloadCsv()
+  target test : csv.test.ts > downloadCsv > "clicks an anchor carrying the filename, then revokes the object URL"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/csv.test.ts (5 tests | 1 failed | 4 skipped) 21ms
+   ↓ rowsToCsv > writes required headers, then one RFC 4180 row per DatasetRow, verbatim
+   ↓ rowsToCsv > leaves comma-free, quote-free, formula-like text unescaped
+   ↓ rowsToCsv > preserves identifiers with leading zeros verbatim, unformatted
+   ↓ csvFilename > joins table/dataset/vintage, strips unsafe characters, falls back on empty fields
+   × downloadCsv > clicks an anchor carrying the filename, then revokes the object URL 19ms
+     → expected "spy" to be called at least once
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/csv.test.ts > downloadCsv > clicks an anchor carrying the filename, then revokes the object URL
+AssertionError: expected "spy" to be called at least once
+ ❯ src/csv.test.ts:59:33
+     57|     expect(anchor.download).toBe("B17001-acs5-2022.csv");
+     58|     expect(clickSpy).toHaveBeenCalledOnce();
+     59|     expect(URL.revokeObjectURL).toHaveBeenCalled();
+       |                                 ^
+     60|   });
+     61| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  05:39:53
+   Duration  3.56s (transform 117ms, setup 240ms, collect 67ms, tests 21ms, environment 767ms, prepare 122ms)
+
+------------------------------------------------------------------------------
+M13 -- CSV button title hardcodes a fixed table id instead of result.table_id
+  reverted in : web/src/App.tsx: ActiveDataset() csvFile computation
+  target test : App.test.tsx > App result > "renders URL, estimate with MOE, GEOID, universe, and an alternative"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/App.test.tsx (25 tests | 1 failed | 24 skipped) 899ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   × App result > renders URL, estimate with MOE, GEOID, universe, and an alternative 895ms
+     → expected 'FIXED-export-export.csv' to contain 'B01003'
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   ↓ App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   ↓ App result > renders a missing MOE as unavailable rather than zero or another row's margin
+   ↓ App result > replaces every previous table row when a new result arrives
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+   ↓ App result > keeps the estimates table when the chart cannot be drawn
+   ↓ App workspace > presents chat and canvas as distinct landmarks, stacked in that order
+   ↓ App workspace > keeps the prior result visible while a later question is loading
+   ↓ App workspace > replaces the active result only after a successful response
+   ↓ App workspace > keeps the prior result and shows a later failure separately
+   ↓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+AssertionError: expected 'FIXED-export-export.csv' to contain 'B01003'
+
+Expected: "B01003"
+Received: "FIXED-export-export.csv"
+
+ ❯ src/App.test.tsx:146:72
+    144|     expect(screen.getByRole("button", { name: "B01001" })).toBeTruthy(…
+    145|     expect(screen.getByText("related table")).toBeTruthy();
+    146|     expect(screen.getByRole("button", { name: "Download CSV" }).title)…
+       |                                                                        ^
+    147|   });
+    148| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 24 skipped (25)
+   Start at  05:40:21
+   Duration  5.81s (transform 401ms, setup 711ms, collect 775ms, tests 899ms, environment 972ms, prepare 143ms)
+
+------------------------------------------------------------------------------
+M14 -- Download CSV button stops hiding at zero rows (guard replaced with `true`)
+  reverted in : web/src/App.tsx: ActiveDataset() button guard
+  target test : App.test.tsx > App result > "keeps URL and table metadata on Census fetch failure, with a visible notice"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/App.test.tsx (25 tests | 1 failed | 24 skipped) 578ms
+   ↓ App pane states > starts idle, with no Census URL
+   ↓ App pane states > shows a loading state distinct from idle while the request is in flight
+   ↓ App pane states > shows an error state distinct from idle when the API is unreachable
+   ↓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative
+   ↓ App result > copies the visible Census URL without a key parameter
+   ↓ App result > keeps the copy control when clipboard write is denied
+   × App result > keeps URL and table metadata on Census fetch failure, with a visible notice 574ms
+     → expected <button type="button" …(1)></button> to be null
+   ↓ App result > labels every geography instead of presenting the first row as the answer
+   ↓ App result > renders every estimate variable for every geography
+   ↓ App result > does not present a Census missing sentinel as a numeric MOE
+   ↓ App result > does not treat an empty URL as a successful Census URL
+   ↓ App result > shows every attempted URL and copies them without a key
+   ↓ App result > labels the year when more than one vintage was attempted
+   ↓ App result > notices when some requested years were not fetched
+   ↓ App result > shows dataset and period on a series point
+   ↓ App result > does not label an HTTP failure as unreachable
+   ↓ App result > renders a missing MOE as unavailable rather than zero or another row's margin
+   ↓ App result > replaces every previous table row when a new result arrives
+   ↓ App result > keeps the estimates table keyboard-reachable with semantic headers
+   ↓ App result > keeps the estimates table when the chart cannot be drawn
+   ↓ App workspace > presents chat and canvas as distinct landmarks, stacked in that order
+   ↓ App workspace > keeps the prior result visible while a later question is loading
+   ↓ App workspace > replaces the active result only after a successful response
+   ↓ App workspace > keeps the prior result and shows a later failure separately
+   ↓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.test.tsx > App result > keeps URL and table metadata on Census fetch failure, with a visible notice
+AssertionError: expected <button type="button" …(1)></button> to be null
+
+- Expected: 
+null
+
++ Received: 
+<button
+  title="B25064-export-export.csv"
+  type="button"
+>
+  Download CSV
+</button>
+
+ ❯ src/App.test.tsx:202:68
+    200|     expect(screen.getByRole("button", { name: "B25063" })).toBeTruthy(…
+    201|     expect(screen.getByText("distribution versus median")).toBeTruthy(…
+    202|     expect(screen.queryByRole("button", { name: "Download CSV" })).toB…
+       |                                                                    ^
+    203|   });
+    204| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 24 skipped (25)
+   Start at  05:40:48
+   Duration  5.05s (transform 386ms, setup 532ms, collect 652ms, tests 578ms, environment 807ms, prepare 164ms)
+
+------------------------------------------------------------------------------
+M15 -- CSV button title hardcodes the ORIGINAL table id (B01003), never picks up a refined table
+  reverted in : web/src/App.tsx: ActiveDataset() csvFile computation
+  target test : App.plan.test.tsx > plan refinement > "posts a table edit with the original question, not rewritten prompt text"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/App.plan.test.tsx (10 tests | 1 failed | 9 skipped) 883ms
+   × plan refinement > posts a table edit with the original question, not rewritten prompt text 880ms
+     → expected 'B01003-export-export.csv' to contain 'B19013'
+   ↓ plan refinement > posts a geography pick from returned candidates
+   ↓ plan refinement > posts dataset, year list, and overlapping-ACS5 together
+   ↓ plan refinement > selecting an alternative overrides table_id without retyping
+   ↓ plan refinement > keeps the prior table visible while a refinement is in flight
+   ↓ plan refinement > keeps the prior result when the override is rejected and shows the field error
+   ↓ plan refinement > keeps the prior result when the refinement cannot reach the API
+   ↓ plan refinement > does not send a plan when the editor is cancelled
+   ↓ plan refinement > uses the original question even if the chat input changed
+   ↓ plan refinement > clears a chat error after a successful plan apply
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.plan.test.tsx > plan refinement > posts a table edit with the original question, not rewritten prompt text
+AssertionError: expected 'B01003-export-export.csv' to contain 'B19013'
+
+Expected: "B19013"
+Received: "B01003-export-export.csv"
+
+ ❯ src/App.plan.test.tsx:121:72
+    119|     );
+    120|     expect(document.querySelector(".plan-summary")?.textContent).toCon…
+    121|     expect(screen.getByRole("button", { name: "Download CSV" }).title)…
+       |                                                                        ^
+    122|   });
+    123| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  05:41:12
+   Duration  4.98s (transform 323ms, setup 244ms, collect 633ms, tests 883ms, environment 743ms, prepare 150ms)
+
+------------------------------------------------------------------------------
+M16 -- a rejected plan-source error also corrupts result.table_id (stops retaining the prior result for the CSV title)
+  reverted in : web/src/App.tsx: runAsk() catch block, source === "plan" branch
+  target test : App.plan.test.tsx > plan refinement > "keeps the prior result when the override is rejected and shows the field error"
+  result      : GOOD -- mutation caught, test failed as expected; source restored byte-identical
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ❯ src/App.plan.test.tsx (10 tests | 1 failed | 9 skipped) 1016ms
+   ↓ plan refinement > posts a table edit with the original question, not rewritten prompt text
+   ↓ plan refinement > posts a geography pick from returned candidates
+   ↓ plan refinement > posts dataset, year list, and overlapping-ACS5 together
+   ↓ plan refinement > selecting an alternative overrides table_id without retyping
+   ↓ plan refinement > keeps the prior table visible while a refinement is in flight
+   × plan refinement > keeps the prior result when the override is rejected and shows the field error 1013ms
+     → expected 'export-export-export.csv' to contain 'B01003'
+   ↓ plan refinement > keeps the prior result when the refinement cannot reach the API
+   ↓ plan refinement > does not send a plan when the editor is cancelled
+   ↓ plan refinement > uses the original question even if the chat input changed
+   ↓ plan refinement > clears a chat error after a successful plan apply
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/App.plan.test.tsx > plan refinement > keeps the prior result when the override is rejected and shows the field error
+AssertionError: expected 'export-export-export.csv' to contain 'B01003'
+
+Expected: "B01003"
+Received: "export-export-export.csv"
+
+ ❯ src/App.plan.test.tsx:225:72
+    223|     expect(screen.getByRole("cell", { name: "169,176" })).toBeTruthy();
+    224|     expect(screen.getByLabelText("Table")).toBeTruthy();
+    225|     expect(screen.getByRole("button", { name: "Download CSV" }).title)…
+       |                                                                        ^
+    226|   });
+    227| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  05:41:36
+   Duration  5.23s (transform 325ms, setup 361ms, collect 577ms, tests 1.02s, environment 749ms, prepare 135ms)
+
+==============================================================================
+SECTION 4: post-mutation-check re-run (confirms restoration was exact)
+==============================================================================
+
+--- git diff --stat web/src/csv.ts web/src/App.tsx ---
+--- git status --short web/src/csv.ts web/src/App.tsx ---
+(no output -- both files byte-identical to commit 8e76641, clean status)
+
+--- npm --prefix web test (vitest run), after all 16 mutations restored ---
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a7afe437c75874154/web
+
+ ✓ src/csv.test.ts (5 tests) 39ms
+ ✓ src/plan.test.ts (7 tests) 38ms
+ ✓ src/ask.test.ts (7 tests) 47ms
+ ✓ src/display.test.ts (26 tests) 134ms
+ ✓ src/chart.test.tsx (10 tests) 239ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 1432ms
+   ✓ PlanStrip > renders the returned plan, not answer prose  432ms
+   ✓ PlanStrip > enters edit mode, restores the draft on cancel, and returns focus to the strip  440ms
+ ✓ src/App.plan.test.tsx (10 tests) 4376ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  873ms
+   ✓ plan refinement > posts a geography pick from returned candidates  408ms
+   ✓ plan refinement > posts dataset, year list, and overlapping-ACS5 together  486ms
+   ✓ plan refinement > keeps the prior result when the override is rejected and shows the field error  359ms
+   ✓ plan refinement > does not send a plan when the editor is cancelled  341ms
+   ✓ plan refinement > uses the original question even if the chat input changed  600ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  599ms
+ ✓ src/App.test.tsx (25 tests) 6503ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  316ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  306ms
+   ✓ App result > replaces every previous table row when a new result arrives  556ms
+   ✓ App result > keeps the estimates table keyboard-reachable with semantic headers  322ms
+   ✓ App workspace > keeps the prior result visible while a later question is loading  483ms
+   ✓ App workspace > replaces the active result only after a successful response  448ms
+   ✓ App workspace > keeps the prior result and shows a later failure separately  473ms
+   ✓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error  508ms
+
+ Test Files  8 passed (8)
+      Tests  97 passed (97)
+   Start at  05:44:07
+   Duration  16.77s (transform 5.98s, setup 11.04s, collect 10.36s, tests 12.81s, environment 28.62s, prepare 3.15s)
+
+
+--- uv run python scripts/check_budgets.py, after all restorations ---
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+BUDGETS
+
+  ok    api src LOC               4100 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3100 <= 3100
+  ok    system prompt tokens       371 <= 1200
+  ok    doc lines                 1650 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.886 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.833 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+GOOD -- all 97 web tests pass, web_src_loc still 3100/3100, no diff on the mutated files.
+
+==============================================================================
+VERDICT: GOOD
+==============================================================================
+make check equivalent (lint, mypy, pytest, invariants --base origin/main,
+generate_client --check, budgets, npm ci / test / typecheck) all pass.
+16 mutations across web/src/csv.ts and web/src/App.tsx, one behavior at a
+time, each caught by exactly the test named for it, each source file
+restored byte-identical (confirmed by git diff) before the next mutation.
+No new test was added; SECTION 2 records why (adequate coverage of the
+named matrix, plus zero web_src_loc headroom at the 3100/3100 ceiling).

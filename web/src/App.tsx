@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { ask, AskError, type AskResponse, type ResultPlan } from "./ask";
 import { ResultChart } from "./ResultChart";
 import { PlanStrip } from "./PlanStrip";
+import { csvFilename, downloadCsv, rowsToCsv } from "./csv";
 import {
   censusFetchFailed,
   censusUrls,
@@ -87,6 +88,8 @@ function ActiveDataset({
   const geoidLabel =
     result.geoid || (geoids.length > 1 ? `${geoids.length} areas` : geoids[0] || "—");
   const datasetLabel = dataset.find((row) => row.dataset)?.dataset;
+  const vintage = dataset.find((row) => row.year)?.year ?? "";
+  const csvFile = csvFilename(result.table_id || "", datasetLabel || "", vintage);
 
   return (
     <>
@@ -116,6 +119,11 @@ function ActiveDataset({
       </dl>
       <ResultChart spec={result.chart} rows={dataset} unavailable={result.chart_unavailable} />
       <EstimatesTable rows={dataset} />
+      {dataset.length > 0 ? (
+        <button type="button" title={csvFile} onClick={() => downloadCsv(csvFile, rowsToCsv(dataset))}>
+          Download CSV
+        </button>
+      ) : null}
       <h2>Census API URL</h2>
       {urls.length > 0 ? (
         <div className="url-row">
