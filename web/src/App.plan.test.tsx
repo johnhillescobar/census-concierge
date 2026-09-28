@@ -118,6 +118,7 @@ describe("plan refinement", () => {
       expect.objectContaining({ table_id: "B19013", requested_years: [2024] }),
     );
     expect(document.querySelector(".plan-summary")?.textContent).toContain("B19013");
+    expect(screen.getByRole("button", { name: "Download CSV" }).title).toContain("B19013");
   });
 
   it("posts a geography pick from returned candidates", async () => {
@@ -221,6 +222,7 @@ describe("plan refinement", () => {
     expect(document.querySelector(".census-url")?.textContent).toContain("B01003_001E");
     expect(screen.getByRole("cell", { name: "169,176" })).toBeTruthy();
     expect(screen.getByLabelText("Table")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download CSV" }).title).toContain("B01003");
   });
 
   it("keeps the prior result when the refinement cannot reach the API", async () => {

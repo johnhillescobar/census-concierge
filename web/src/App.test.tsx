@@ -143,6 +143,7 @@ describe("App result", () => {
     expect(screen.getByText("Total population")).toBeTruthy();
     expect(screen.getByRole("button", { name: "B01001" })).toBeTruthy();
     expect(screen.getByText("related table")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download CSV" }).title).toContain("B01003");
   });
 
   it("copies the visible Census URL without a key parameter", async () => {
@@ -198,6 +199,7 @@ describe("App result", () => {
     expect(screen.getByText("1600000US4805000")).toBeTruthy();
     expect(screen.getByRole("button", { name: "B25063" })).toBeTruthy();
     expect(screen.getByText("distribution versus median")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Download CSV" })).toBeNull();
   });
 
   it("labels every geography instead of presenting the first row as the answer", async () => {
