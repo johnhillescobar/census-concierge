@@ -1,0 +1,220 @@
+CC-101 Gate 2 transcript
+Branch under review: fix/cc-101-multi-state-wildcard (commit 6cdc679)
+Diff scope: origin/main...fix/cc-101-multi-state-wildcard
+======================================================================
+
+MECHANICAL CHECKS (docs/playbooks/review-pr.md, run against a detached temp
+worktree at 6cdc679, since fix/cc-101-multi-state-wildcard was already
+checked out in the main working copy)
+
+  uv run python scripts/check_budgets.py           PASS (0) -- all budgets met,
+                                                     api_src_loc 4099/4100 and
+                                                     geo.py 410/410 both at
+                                                     exact ceiling, as flagged
+                                                     in pre-flight
+  uv run python scripts/check_invariants.py --base origin/main   PASS (0) --
+                                                     all 12 invariants held,
+                                                     including "budget
+                                                     increases" (none raised)
+  uv run ruff check .                               PASS (0)
+  uv run ruff format --check .                      PASS (0)
+  uv run mypy api/src                               PASS (0) -- no issues,
+                                                     24 source files
+  uv run pytest -q -m "not integration"             PASS (0) -- 529 passed,
+                                                     0 failed
+
+All mechanical checks green. Proceeding past the "machines first" gate.
+
+======================================================================
+PASS 1 -- generic bugs (cold read of api/src/geo.py, geo_list.py, tools.py,
+prompts.py)
+
+Verified clean (no bug):
+- No off-by-one/ordering bug in the new asyncio.gather branch: `picks` from
+  asyncio.gather preserves input order, and `bad = [n for i, n in
+  enumerate(names) if not (picks[i][1].legal and picks[i][1].specs)]` pairs
+  each name with its own result correctly.
+- `parent_override` threads through every read of `parent_text` in
+  `_resolve()` -- it is assigned once (`parent_text = parent_override or
+  (wildcard_match.group(2) if wildcard_match else query)`) and every
+  downstream use (`find_state(parent_text)`, `detect_level(parent_text)`,
+  `place_token(parent_text, ...)`, the two `_fail(...)` messages, and the
+  `us = re.search(..., parent_text, ...)` check) reads that same local, so
+  there is no path that silently falls back to the original `query` text.
+- The `bad` partial-failure check requires both `.legal` and non-empty
+  `.specs`, not `.legal` alone. This matters: `_resolve()`'s final
+  `named_rows` matching branch (unrelated pre-existing code, not reachable
+  from the wildcard-parent branch since `wildcard_match` is always truthy
+  there) can return `legal=True` with `specs=[]` for a bare place-name miss.
+  Because `bad`'s check is defensively `legal and specs`, that quirk cannot
+  produce a false negative here even though it's a latent trap for a future
+  caller of `_resolve()`.
+- WILDCARD/WITHIN regex relocation: `git grep -n "_WILDCARD\|_WITHIN"` against
+  the branch tree returns no hits anywhere in `api/`. All three usage sites
+  (`_nation()`, the new `_arun` gate, and `_resolve`'s `wildcard_match` line)
+  were updated to the public `WILDCARD`/`WITHIN` names from `geo_list.py`.
+  Clean relocation, nothing missed.
+- AC14 (parents vs places never cross-route) is correct in the code, not just
+  in the tests: the wildcard-parents branch is a single early-return `if`
+  ahead of the `legs`/`split_comparison` branch, so when both are
+  ill-advisedly populated, parents wins deterministically (matches Gate 1's
+  mutation-checked `test_wildcard_parents_win_over_a_stale_places_field`).
+- Redaction: no changes to `census_url.py` or any `&key=` formatting path;
+  confirmed untouched by file list and by the passing "census key in
+  artifacts" / "key attached only via CensusURL" invariant checks.
+
+Findings (non-blocking, but real):
+
+1. Every per-parent wildcard leg gets an identical `GeoSpec.name`. In the
+   wildcard-spec-building block of `_resolve()` (unchanged code, now called
+   once per parent), `spec.name = query.strip()` -- the full original
+   question text, not scoped to the parent being resolved. For "all counties
+   in Texas and Louisiana" with parents=["Texas","Louisiana"], both resulting
+   specs get `name="all counties in Texas and Louisiana"`. `for_spec`/
+   `in_spec` still differ correctly (state FIPS differs), so the URL and data
+   are correct -- this is not a silent-wrong-answer. But `ambiguous_place`'s
+   fallback formatting (`row.name or f"{row.for_spec} {row.in_spec}"`) and
+   the frontend's geography picker (`docs/ask-path.md`: "Geography is a
+   picker over returned GeoSpecs") both read `.name` as the human label, so a
+   user looking at the plan strip cannot visually tell the Texas leg from the
+   Louisiana leg apart by name -- only by clicking in to see `for_spec`/
+   `in_spec`. Worth a follow-up to set `spec.name` from the resolved parent
+   (e.g. "all counties in Texas") rather than the shared raw query.
+
+2. The `parents` field's Pydantic description and the `prompts.py` ROLE
+   addition only demonstrate the "in" connector: `"all counties in Texas and
+   Louisiana"` / `"each parent as it reads after 'in'"`. The code correctly
+   handles the WITHIN-phrased case too (`WILDCARD.search(query) or
+   WITHIN.search(query)`, mutation-checked via
+   `test_counties_within_two_states_also_resolves_both`), but nothing in the
+   prompt or field description tells the model that "counties within Texas
+   and Louisiana" also needs `parents` populated. A model that pattern-matches
+   the example literally may never populate `parents` for "within"-phrased
+   multi-state wildcards, silently falling through to the pre-CC-101
+   last-match collapse for that one connector -- mechanically fixed, but
+   possibly unreachable in practice depending on how literally the model
+   reads the two-sentence hint. This is exactly the kind of gap AC16's
+   "varying connectors" test list is meant to catch at PR time; flagging it
+   here since nothing in this diff verifies real model behavior against the
+   WITHIN phrasing (Gate 1's test calls the tool directly with `parents`
+   already supplied, which proves the code path, not the prompt).
+
+3. Minor, cosmetic: `_fail(f"unresolved wildcard parent(s): {', '.join(bad)}"
+   ...)` joins raw parent names with ", ". If a parent name itself contained
+   a comma (e.g. a malformed model output), the resulting detail string would
+   be ambiguous about parent boundaries. No security/redaction concern (these
+   are place names, never touch `&key=`), and not reachable through normal
+   "Place, ST" canonicalization prompted elsewhere, but worth a one-line note
+   since the prompt explicitly asks for bare state names here, not "Place,
+   ST" pairs, so there's slightly less structural guarantee than the
+   `places` field enjoys.
+
+4. Minor: duplicate parent names (e.g. a hypothetical `parents=["Texas",
+   "Texas"]`) are not deduplicated before the `asyncio.gather` fan-out --
+   produces two identical legs rather than an error or a merge. Unlikely in
+   practice and not a correctness bug (the duplicate leg is still correct
+   data, just redundant), so not blocking.
+
+======================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md, CLAUDE.md "Do not")
+
+- No blocking clarification question introduced. The new branch's only
+  failure mode is `_fail(...)` -- legal=False with a detail string, the same
+  existing failure shape every other branch in this tool already uses. It
+  never asks the model/user a question; it reports "unresolved wildcard
+  parent(s): X" as a normal tool failure for `finish_tools`/guards to react
+  to, consistent with "show candidates as results," never a blocking prompt.
+- No new module named `*_manager`/`*_orchestrator`/`*_factory`/`*_policy`/
+  `*_strategy`/`*_service`: confirmed by `git diff --name-status` -- zero new
+  files (`A` status only on the two evidence docs), every source change is a
+  modification to an existing module.
+- No `.add_node()` / graph node added: budgets confirm `graph nodes 0 <= 8`,
+  unchanged from baseline; this fix is entirely inside one existing tool's
+  `_arun`/`_resolve`, no LangGraph involvement.
+- No validator-of-a-validator: no new validation module; `_fail` is the
+  same single-layer failure path used everywhere else in `geo.py`.
+- Census key redaction untouched (see Pass 1 above; also machine-verified by
+  `check_invariants.py`'s two key-related checks).
+- No premature abstraction: the only new "helper" is a `parent_override`
+  parameter added to the existing `_resolve()` function, which already had
+  two call sites before this change (the top-level `_nation`-adjacent path
+  and the `legs`/comparison fan-out) and now gains N more via the same
+  `asyncio.gather` pattern already used one branch below it. This is reuse of
+  an existing function via a new optional parameter, not a new abstraction
+  introduced ahead of a second caller -- it's the textbook correct order per
+  "introduce an abstraction only after a second caller exists."
+- Shape: no new tool, no new route, no new Pydantic model (just one new
+  optional field on an existing input model), no ARCHITECTURE.md-relevant
+  shape change -- `docs/ARCHITECTURE.md` doesn't enumerate tool fields, only
+  tool identity, and the tool count/identity is unchanged (4/6 tools, budget
+  confirms). Correctly left unedited.
+- Scope: 8 files touched (well under the ~15 guideline), all within the
+  stated CC-101 boundary; nothing added "while we were in there."
+- Tests: no assertions on prompt wording or LLM prose in the new tests (all
+  assert on `ResolveGeographyResult` fields -- `legal`, `compare`,
+  `compare_count`, `for_spec`, `detail` -- never on generated text a model
+  produced). No retrieval-style fake returning the same table for every
+  input; this is geography resolution against real `geography.json` fixture
+  data via the existing test harness, matching the pattern of the
+  surrounding suite.
+- AC16 (Jira comment with a multi-parent wildcard test list, 2 and 3+
+  parents varying connectors, plus a CC-100 comparison spot-check): nothing
+  in this diff sets that up, and nothing should -- the ticket explicitly
+  scopes AC16 to PR time, not Gate 2. Flagging only so it isn't dropped
+  before merge, and noting it pairs directly with Pass-1 finding #2 above
+  (the WITHIN-connector prompt gap): the AC16 test list should specifically
+  include a real end-to-end "within" question, not just "in"-phrased ones,
+  since that is the one connector this review could not confirm the model
+  actually exercises via the prompt as written.
+
+======================================================================
+AC13 VERIFICATION (CC-100 tests unmodified in intent)
+
+`git diff origin/main...fix/cc-101-multi-state-wildcard -- api/tests/`:
+145 insertions, 0 deletions (confirmed via --numstat). `git diff ... --
+api/tests/ | grep -E "^-[^-]"` returns nothing -- there is no removed or
+changed line in any pre-existing test anywhere in `api/tests/`. Only file
+touched is `api/tests/test_ask_tools.py`, and the diff is a single
+contiguous block of 7 new `async def test_...` functions appended after
+line 736 (`test_all_tracts_in_michigan_stay_illegal`). Every hunk is pure
+addition.
+
+VERDICT: AC13 holds. No pre-existing test, including
+`test_bare_unqualified_city_names_resolve_all_places` and
+`test_split_comparison_ignores_wildcard_and_within_listing_queries`, was
+edited to make this change pass.
+
+======================================================================
+AC15 VERIFICATION (find_state() untouched)
+
+`git diff origin/main...fix/cc-101-multi-state-wildcard --numstat --
+api/src/geo_list.py`: 12 insertions, 0 deletions. `git diff ... --
+api/src/geo_list.py | grep -E "^-[^-]"` returns nothing -- zero lines
+removed anywhere in the file. The only change is the WILDCARD/WITHIN
+regex constants added near the top (relocated from geo.py). Since nothing
+in the file was deleted or altered, `find_state()`'s body -- including its
+last-match tie-break loop, the exact bug source this ticket fixes upstream
+of -- is byte-identical to `origin/main`.
+
+Also re-checked live: Gate 1's evidence
+(`evidence/slice-4/cc-101-gate1.txt`) re-ran
+`test_washington_dc_is_not_washington_state` (DC-vs-Washington-state,
+Kansas-City-vs-Kansas collision guard) against the unmutated branch and it
+passed. Did not find a distinct NYC-vs-"New York" collision test by that
+exact name in this pass; the DC/Kansas City test is the one collision guard
+this codebase currently carries by that description, and it is unaffected.
+
+VERDICT: AC15 holds. `find_state()` itself was not modified -- verified by
+diff, not by trusting the commit message.
+
+======================================================================
+OVERALL
+
+No silent-wrong-answer findings. No invariant violations. Both machine
+gates and the full test suite pass at the branch tip with zero budget
+headroom spent. Four Pass-1 findings, all non-blocking: two worth a
+follow-up before wide rollout (spec.name collision across legs; the
+WITHIN-connector prompt gap, which should specifically be covered by
+AC16's pre-merge test list), two cosmetic (comma-in-parent-name message
+ambiguity; no parent dedup). AC13 and AC15 both verified by literal diff,
+not by trusting the commit messages.

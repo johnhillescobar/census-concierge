@@ -8,6 +8,18 @@ import httpx
 
 from src.census_url import CENSUS_API, CensusURL
 
+WILDCARD = re.compile(
+    r"\b(?:all|every|each)\s+(counties|county|places|place|tracts|tract|"
+    r"block groups|block group|"
+    r"zctas|zcta|zip codes|zips)\s+in\s+(.+)",
+    re.IGNORECASE,
+)
+WITHIN = re.compile(
+    r"\b(?:census\s+)?(tracts?|block groups?|zctas?|zip codes?|zips?|zip|"
+    r"counties|county|places?|cities|city)(?:\s+\d{5})?\s+(?:within|inside)\s+(?:the\s+)?(.+)",
+    re.IGNORECASE,
+)
+
 # Name, USPS, FIPS. USPS is matched only after a comma so OR does not eat "for".
 STATES: tuple[tuple[str, str, str], ...] = (
     ("alabama", "AL", "01"),
