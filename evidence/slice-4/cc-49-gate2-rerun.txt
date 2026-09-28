@@ -1,0 +1,256 @@
+CC-49 Gate 2 re-run — fix commit only
+Branch: feat/cc-49-csv-export
+Reviewed commit: 61dceb7 "fix(CC-49): Gate 2 follow-ups - BOM, attach-before-click,
+filename inlining" (parent 4bcb45e), on top of everything the first Gate 2
+pass (evidence/slice-4/cc-49-gate2.txt, commits 8e76641/9a2841d/4bcb45e)
+already covered. This is the one re-run the playbook allows after a
+non-trivial fix (docs/playbooks/run-slice.md, "Fixes are new code") — it does
+not repeat the first pass and does not chase further fixes itself.
+Reviewed: 2026-09-28
+
+=================================================================
+PASS 1 — generic bugs
+=================================================================
+
+--- Skill("code-review", args="medium --diff 4bcb45e..61dceb7 -- web/src/csv.ts web/src/csv.test.ts") ---
+Ran as a forked background task, scoped to only the two files the fix commit
+touched. Raw result:
+
+  Reviewed the diff for `web/src/csv.ts` and `web/src/csv.test.ts` (commits
+  4bcb45e..61dceb7): adds a UTF-8 BOM to the CSV Blob, appends the anchor to
+  the DOM before `.click()` and removes it afterward, and reorganizes tests
+  to match. Traced the only caller (`web/src/App.tsx`, unchanged call
+  signature), verified the test's `Blob`/`URL.createObjectURL` stubbing is
+  consistent with `web/src/test-setup.ts`, and checked that no invariant or
+  guard was dropped relative to the prior version (the BOM/attach-before-click
+  changes are net additions, not removals of existing behavior). No
+  correctness, cleanup, altitude, or CLAUDE.md-convention issues survived
+  verification.
+
+  Findings: []
+
+--- Independent manual cold read of web/src/csv.ts end-to-end (not just the diff) ---
+
+  - BOM escape sequence: line 27 is `new Blob(["﻿", csv], ...)`. Confirmed
+    this is the six-character JS escape sequence `\`, `u`, `f`, `e`, `f`, `f`
+    sitting in source text, not a raw invisible U+FEFF codepoint embedded in
+    the file. Confirmed two ways: (a) visual inspection of the Read tool's
+    output, which shows the literal backslash-u-f-e-f-f characters; (b) the
+    direct byte check below (part of the assignment, not just inspection) —
+    `chr(0xfeff) in data` is False for both csv.ts and csv.test.ts. No mistake
+    of the kind the task worried about (tool-call escaping turning `﻿`
+    into a literal embedded byte) occurred.
+  - `document.body.appendChild(anchor).click()` (line 29): `Node.appendChild`
+    returns the appended node per the DOM spec, so this is exactly
+    `document.body.appendChild(anchor); anchor.click();` in one expression —
+    does what it looks like it does, no aliasing or no-op risk.
+  - Ordering of `anchor.remove()` (line 30) then `URL.revokeObjectURL(url)`
+    (line 31): remove-then-revoke. `.click()` has already run synchronously
+    on line 29, so the browser has already read `anchor.href` and initiated
+    the download before either cleanup call runs; removing the anchor from
+    the DOM does not cancel an already-triggered download, and revoking the
+    blob URL after removal doesn't change anything the download needed the
+    anchor element for. The two cleanup calls are independent of each other's
+    order — swapping them would not change behavior. (The pre-existing
+    risk that some older WebKit builds want a delay before revoking a blob
+    URL used for a same-tick download is unchanged by this diff — it was
+    already an immediate revoke before the fix commit, and is out of this
+    fix's scope.)
+  - `sanitizeSegment` inlined as `clean` inside `csvFilename` (lines 21-24):
+    byte-for-byte the same regex pair (`replace(/[^A-Za-z0-9_-]+/g, "-")` then
+    `replace(/^-+|-+$/g, "")`) with the same `|| "export"` fallback, just
+    renamed and given function-expression syntax instead of a top-level
+    `function` declaration. No behavior change versus the pre-fix version
+    reviewed in the first Gate 2 pass — verified by re-deriving
+    `csvFilename("../../etc/passwd", "acs5", "")` by hand: non-alnum runs
+    `../../ ` and `/` collapse to single dashes, leading dashes strip, giving
+    `etc-passwd-acs5-export.csv` — matches csv.test.ts's assertion exactly,
+    and matches the pre-fix module-level function's behavior on the same
+    input (unit-tested in the first Gate 1 pass).
+  - Formula-like-text follow-up (item 3 from the first Gate 2 pass): left
+    unescaped, as the fix commit says. Re-read the argument cold rather than
+    accepting the commit message: every `DatasetRow` field
+    (`dataset, year, period, tableId, variable, geoid, name, estimate, moe,
+    universe`) is populated in `web/src/display.ts`'s `normalizeActiveDataset`
+    from the Census API response — `name` is the Census `NAME` variable, not
+    user-entered text, and no other UI path lets a user type a value that
+    flows into a `DatasetRow` before it reaches `rowsToCsv`. Agree this is a
+    defensible non-fix: formula-injection escaping guards a boundary
+    (user-typed text reaching a spreadsheet) that does not exist here. Not a
+    gap; correctly left as a documented follow-up, not a blocker.
+
+=================================================================
+PASS 2 — project invariants (docs/playbooks/review-pr.md), scoped to 61dceb7
+=================================================================
+
+--- Machines, run against the branch tip (61dceb7) ---
+
+$ uv run python scripts/check_budgets.py
+  ok    api src LOC               4100 <= 4100
+  ok    api src files               24 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3098 <= 3100
+  ok    system prompt tokens       371 <= 1200
+  ok    doc lines                 1650 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   1 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models                9 <= 15
+  ok    direct dependencies          7 <= 25
+  ok    p95 latency (s)         17.886 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.833 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+All budgets met.
+web_src_loc dropped from 3100/3100 (first Gate 2 pass, commit 9a2841d) to
+3098/3100 after the fix commit — inlining sanitizeSegment removed one line
+net versus the BOM/attach-before-click additions. Still under the ceiling,
+not raised.
+
+$ uv run python scripts/check_invariants.py --base origin/main
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget increases
+All invariants held.
+
+$ uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+153 files already formatted
+
+$ uv run mypy api/src
+Success: no issues found in 24 source files
+
+$ uv run pytest -q -m "not integration"
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 67%]
+........................................................................ [ 81%]
+........................................................................ [ 95%]
+..........................                                               [100%]
+530 passed in 15.70s
+
+$ npm --prefix web test -- --run
+ ✓ src/csv.test.ts (4 tests) 20ms
+ ✓ src/ask.test.ts (7 tests) 25ms
+ ✓ src/plan.test.ts (7 tests) 14ms
+ ✓ src/display.test.ts (26 tests) 47ms
+ ✓ src/chart.test.tsx (10 tests) 165ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 883ms
+ ✓ src/App.plan.test.tsx (10 tests) 3097ms
+ ✓ src/App.test.tsx (25 tests) 5010ms
+ Test Files  8 passed (8)
+      Tests  96 passed (96)
+(web/node_modules was absent in this fresh worktree; `npm ci` was run first
+to install it — not itself part of the review, noted for reproducibility.)
+
+$ npm --prefix web run typecheck
+> tsc --noEmit
+(no output — exit 0)
+
+All machines green. No non-zero exit anywhere in this re-run.
+
+--- Direct raw-BOM-byte check (not a stylistic guess) ---
+
+$ python -c "data = open('web/src/csv.ts', encoding='utf-8').read(); print(chr(0xfeff) in data)"
+False
+$ python -c "data = open('web/src/csv.test.ts', encoding='utf-8').read(); print(chr(0xfeff) in data)"
+False
+
+No raw BOM byte in either file. The BOM only ever appears as the four-character
+escape sequence ﻿ in source text, which JS/TS parses into a single
+U+FEFF character in the runtime string prepended to the Blob — correct.
+
+--- Mutation-checkability of the two fixes, verified by inspection ---
+
+csv.test.ts's single downloadCsv test
+("attaches the filenamed anchor to the DOM before clicking, prepends a UTF-8
+BOM, cleans up, and revokes the URL") carries three independent assertions,
+each tied to one specific line of the fix:
+
+  1. BOM: `expect(BlobSpy.mock.calls[0]?.[0]).toEqual(["﻿", "a,b\r\n1,2\r\n"])`.
+     Revert csv.ts:27 to `new Blob([csv], ...)` (pre-fix) and the captured
+     Blob constructor arg becomes `["a,b\r\n1,2\r\n"]` — fails the `toEqual`.
+  2. Attach-before-click: `attachedAtClick` is set inside the mocked
+     `anchor.click()` to `document.body.contains(anchor)` at the moment
+     click() runs. Revert csv.ts:29 to the pre-fix bare `anchor.click()`
+     (never appended) and `attachedAtClick` stays `false` —
+     `expect(attachedAtClick).toBe(true)` fails.
+  3. Cleanup: `expect(document.body.contains(anchor)).toBe(false)` after
+     downloadCsv returns. Revert csv.ts:30 (drop `anchor.remove()`) and the
+     anchor stays attached — this assertion fails.
+
+Reverting any one of the three fix lines independently fails one of these
+three assertions without touching the others; the test is not a bundle that
+could pass with only two of three fixes present. Agree it is mutation-checkable
+as claimed. Did not re-run the mutations (Gate 1 already did; not repeated per
+the Gate 2-rerun scope), only confirmed by line-by-line inspection above.
+
+--- Scope ---
+
+Two files changed, both already touched by the reviewed feature (no new files,
+no drive-by edits elsewhere). Formula-injection intentionally left unfixed —
+correctly scoped as a follow-up rather than silently expanding this fix commit
+to cover it.
+
+--- Silent-wrong-answer review ---
+
+Not applicable to this diff: no URL, MOE, GEOID, or universe field is read,
+written, or rendered by csv.ts; this fix touches only Blob construction and
+DOM attachment timing around an already-reviewed CSV export. Nothing new to
+check here beyond what the first Gate 2 pass already covered for the CSV
+branch as a whole.
+
+=================================================================
+Findings summary
+=================================================================
+
+Pass 1 (generic bugs): code-review skill returned zero findings on the fix
+commit; independent manual read found none either. BOM escape, appendChild
+return value, remove/revoke ordering, and the sanitizeSegment inlining are
+all correct and behavior-preserving.
+
+Pass 2 (project invariants): all machines green. web_src_loc 3098/3100
+(headroom widened slightly versus the 3100/3100 at the first Gate 2 pass, not
+narrowed — inlining sanitizeSegment saved a line). budgets.toml has zero diff
+against origin/main; check_invariants --base origin/main's "budget increases"
+check passed. No raw BOM byte in either file. Both fixed behaviors (BOM,
+attach-before-click/remove) are each covered by an assertion that fails on
+its own if that one line is reverted — real mutation coverage, not shared
+brittleness. Formula-injection remains a documented, non-blocking follow-up;
+agree with the fix commit's rationale for leaving it (every DatasetRow field
+is Census-Bureau-controlled, never user-typed text at this boundary).
+
+Nothing new found in this re-run. Both of the first Gate 2 pass's two
+addressed follow-ups (BOM, attach-before-click) are genuinely fixed and
+genuinely tested; the third (formula-injection) remains correctly
+unaddressed and non-blocking.
+
+=================================================================
+Verdict
+=================================================================
+
+Ship it with follow-ups:
+  1. web/src/csv.ts:6-9 — formula-like cell text (leading =/+/-/@) is left
+     unescaped by design; classic CSV-injection shape, low practical risk
+     since every DatasetRow field is Census-Bureau-controlled metadata, not
+     user-typed text. Carried over unchanged from the first Gate 2 pass;
+     this re-run agrees it is a defensible non-fix, not a gap.
+
+Per docs/playbooks/run-slice.md, this is the one Gate 2 re-run after a
+non-trivial fix; it stops here regardless of findings. This re-run found
+nothing new to fix.
