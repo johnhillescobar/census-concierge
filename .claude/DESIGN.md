@@ -115,6 +115,42 @@ nothing.
 - ~~**Embedding / vector store**~~ — numpy `.npz`, embeddings-only `search()`.
   `docs/retrieval.md`.
 - ~~**StateGraph for the loop**~~ — hand-rolled `_openai_complete` then
-  `dispatch`. Still open: CC-9, whether LangGraph's checkpointer can sit under
-  that loop without a graph. If not, ~30 lines.
+  `dispatch`.
+- ~~**Persistence: LangGraph checkpointer vs direct**~~ — **direct psycopg**
+  (CC-9, decided 2026-09-29). The checkpointer does run under the hand-rolled
+  loop with no `StateGraph`, but only by hand-building `Checkpoint` internals
+  (`channel_values`/`channel_versions`). It has no `user_id` ownership and no
+  TTL, so CC-6's `expires_at` and ownership would be bolted on across its four
+  tables, and every write appends a row. Direct: one table, ~19 lines including
+  ownership-checked upsert, 48h read filter and purge; 2 new packages against
+  ~15. Interrupts and time-travel are not needed by slices 5-8 (no blocking
+  clarification). Switching later is cheap from direct (state is plain JSON),
+  costlier from the checkpointer (msgpack blobs). Windows note: psycopg async
+  needs a `SelectorEventLoop`, not the default Proactor loop. Fork-from-latest
+  (below) means one state row per thread is enough; no per-turn history rows.
+- **Phase 2 foundations (after slice 8; decided 2026-09-29, NOT built before
+  then).** The app becomes a conversation over *agent state*: turns, datasets
+  fetched by Census URLs, derived datasets, charts. Tools/skills/MCPs run
+  deterministic typed computations (add/subtract columns, correlation,
+  regression); the agent never writes code. Guards (MOE, universe, overlapping
+  vintages) ride along as warnings and never block a calculation.
+  - Datasets, charts, PDFs and CSVs live in object storage; Postgres holds
+    threads and artifact references only. Slice 5 (CC-6) keeps rows inline in
+    the state; object storage arrives with slice 7 (PDF).
+  - A thread and all its artifacts expire together, 48h. Delete objects first,
+    then rows, idempotently; a bucket lifecycle rule is the backstop.
+  - Fork = new thread from the *latest* state, fresh 48h, artifacts *copied*
+    (no shared references, so a parent expiring cannot break a fork).
+  - `thread_id` is generated with title `New Chat`; the user renames later.
+  - A derived dataset records lineage (operation, inputs, parameters), so "the
+    URL is the product" extends to "the lineage is the product".
+  - No abstraction before a second caller: slices 5-8 add data-model fields
+    only (ids, `title`, `expires_at`), not an artifact store or compute layer.
+  - Loop stays hand-rolled through phase 2 (agreed 2026-09-29). Revisit
+    LangGraph only when a named phase 2 workflow (durable multi-step plans
+    with retry/resume) fails without it. State is plain JSON, so wrapping the
+    same tools in a graph later does not touch stored threads.
+  - The 48h clock runs from the creation of each `thread_id` (decided
+    2026-09-29), never reset by activity. A fork is a new thread: its copied
+    artifacts get their own fresh 48h.
 - ~~**ACS vintages**~~ — ACS5 and ACS1, 2016 through latest (no ACS1 2020).
