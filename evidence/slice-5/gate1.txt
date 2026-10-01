@@ -1,0 +1,1551 @@
+Gate 1 transcript, CC-40, commit 2ed3a47 plus one added test (test_open_pool_purges_expired_rows). Raw pytest output under each label; labels added by the driver from the exit code.
+GOOD = mutated test FAILED (exit != 0). BAD = test PASSED against its mutation (not a check).
+
+==============================================================================
+BASELINE (no mutation, DATABASE_URL set)
+==============================================================================
+exit=0
+.............                                                            [100%]
+============================== warnings summary ===============================
+api/tests/test_store.py::test_foreign_user_gets_none_like_a_missing_thread
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 1 warning in 1.78s
+
+==============================================================================
+MUTATION 1: drop user_id filter in load/append
+  file=api/src/store.py test=test_foreign_user_gets_none_like_a_missing_thread
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_foreign_user_gets_none_like_a_missing_thread ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1e50cf677d0>
+
+    async def test_foreign_user_gets_none_like_a_missing_thread(pool: AsyncConnectionPool) -> None:
+        owner, other = uuid4(), uuid4()
+        thread = (await store.create(pool, owner))["thread_id"]
+>       assert await store.load(pool, thread, other) is None
+E       AssertionError: assert {'thread_id': UUID('5f802d5d-59bf-424c-aa80-3e86640ff157'), 'title': 'New Chat', 'state': {'turns': []}, 'created_at': datetime.datetime(2026, 10, 1, 1, 22, 16, 387290, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), ...} is None
+
+api\tests\test_store.py:96: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_foreign_user_gets_none_like_a_missing_thread
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.71s
+
+==============================================================================
+MUTATION 2: drop thread_id filter (any of the user's threads)
+  file=api/src/store.py test=test_foreign_user_gets_none_like_a_missing_thread
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_foreign_user_gets_none_like_a_missing_thread ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x162ffae3860>
+
+    async def test_foreign_user_gets_none_like_a_missing_thread(pool: AsyncConnectionPool) -> None:
+        owner, other = uuid4(), uuid4()
+        thread = (await store.create(pool, owner))["thread_id"]
+        assert await store.load(pool, thread, other) is None
+        assert await store.append(pool, thread, other, turn()) is None
+>       assert await store.load(pool, uuid4(), owner) is None
+E       AssertionError: assert {'thread_id': UUID('7d155944-9fa7-4fc2-bb02-36bcee9b5c51'), 'title': 'New Chat', 'state': {'turns': []}, 'created_at': datetime.datetime(2026, 10, 1, 1, 22, 18, 451854, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), ...} is None
+
+api\tests\test_store.py:98: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_foreign_user_gets_none_like_a_missing_thread
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.69s
+
+==============================================================================
+MUTATION 3: drop expires_at filter in load/append
+  file=api/src/store.py test=test_expired_thread_is_none_before_any_purge
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_expired_thread_is_none_before_any_purge _________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1b8aaf99ee0>
+
+    async def test_expired_thread_is_none_before_any_purge(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        await expire(pool, thread, "-1 second")
+>       assert await store.load(pool, thread, user) is None
+E       AssertionError: assert {'thread_id': UUID('d4b4a8aa-5178-4cbb-ac02-aa7c05693288'), 'title': 'New Chat', 'state': {'turns': []}, 'created_at': datetime.datetime(2026, 10, 1, 1, 22, 21, 139721, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), ...} is None
+
+api\tests\test_store.py:106: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_expired_thread_is_none_before_any_purge
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.08s
+
+==============================================================================
+MUTATION 4: load only: ignore expiry (append still filtered)
+  file=api/src/store.py test=test_expired_thread_is_none_before_any_purge
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_expired_thread_is_none_before_any_purge _________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x20bd75ceab0>
+
+    async def test_expired_thread_is_none_before_any_purge(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        await expire(pool, thread, "-1 second")
+>       assert await store.load(pool, thread, user) is None
+E       AssertionError: assert {'thread_id': UUID('0447bfa6-bafa-440c-b2a9-c7532e9b1ed6'), 'title': 'New Chat', 'state': {'turns': []}, 'created_at': datetime.datetime(2026, 10, 1, 1, 22, 23, 927576, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), ...} is None
+
+api\tests\test_store.py:106: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_expired_thread_is_none_before_any_purge
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.75s
+
+==============================================================================
+MUTATION 5: append only: ignore expiry (load still filtered)
+  file=api/src/store.py test=test_expired_thread_is_none_before_any_purge
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_expired_thread_is_none_before_any_purge _________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x23bff8de540>
+
+    async def test_expired_thread_is_none_before_any_purge(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        await expire(pool, thread, "-1 second")
+        assert await store.load(pool, thread, user) is None
+>       assert await store.append(pool, thread, user, turn()) is None
+E       AssertionError: assert 'appended' is None
+
+api\tests\test_store.py:107: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_expired_thread_is_none_before_any_purge
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.06s
+
+==============================================================================
+MUTATION 6: non-atomic append (read, modify in Python, write back)
+  file=api/src/store.py test=test_concurrent_appends_lose_nothing
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_concurrent_appends_lose_nothing _____________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1e90f59f9b0>
+
+    async def test_concurrent_appends_lose_nothing(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        results = await asyncio.gather(
+            store.append(pool, thread, user, turn(1)), store.append(pool, thread, user, turn(2))
+        )
+        assert results == ["appended", "appended"]
+        loaded = await store.load(pool, thread, user)
+        assert loaded is not None
+>       assert sorted(t["question"] for t in loaded["state"]["turns"]) == ["q1", "q2"]
+E       AssertionError: assert ['q2'] == ['q1', 'q2']
+E         
+E         At index 0 diff: 'q2' != 'q1'
+E         Right contains one more item: 'q2'
+E         Use -v to get more diff
+
+api\tests\test_store.py:119: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_concurrent_appends_lose_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.04s
+
+==============================================================================
+MUTATION 7: remove turn cap
+  file=api/src/store.py test=test_turn_cap_rejects_the_next_turn_and_stores_nothing
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_turn_cap_rejects_the_next_turn_and_stores_nothing ____________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x23d481df920>
+
+    async def test_turn_cap_rejects_the_next_turn_and_stores_nothing(
+        pool: AsyncConnectionPool,
+    ) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        for n in range(store.MAX_TURNS):
+            assert await store.append(pool, thread, user, turn(n)) == "appended"
+>       assert await store.append(pool, thread, user, turn(99)) == "full"
+E       AssertionError: assert 'appended' == 'full'
+E         
+E         - full
+E         + appended
+
+api\tests\test_store.py:129: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_turn_cap_rejects_the_next_turn_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.10s
+
+==============================================================================
+MUTATION 8: cap off by one (< becomes <=)
+  file=api/src/store.py test=test_turn_cap_rejects_the_next_turn_and_stores_nothing
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_turn_cap_rejects_the_next_turn_and_stores_nothing ____________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1b218656ab0>
+
+    async def test_turn_cap_rejects_the_next_turn_and_stores_nothing(
+        pool: AsyncConnectionPool,
+    ) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        for n in range(store.MAX_TURNS):
+            assert await store.append(pool, thread, user, turn(n)) == "appended"
+>       assert await store.append(pool, thread, user, turn(99)) == "full"
+E       AssertionError: assert 'appended' == 'full'
+E         
+E         - full
+E         + appended
+
+api\tests\test_store.py:129: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_turn_cap_rejects_the_next_turn_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.03s
+
+==============================================================================
+MUTATION 9: cap off by one low (cap is MAX_TURNS - 1)
+  file=api/src/store.py test=test_turn_cap_rejects_the_next_turn_and_stores_nothing
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_turn_cap_rejects_the_next_turn_and_stores_nothing ____________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1ef44c0bcb0>
+
+    async def test_turn_cap_rejects_the_next_turn_and_stores_nothing(
+        pool: AsyncConnectionPool,
+    ) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        for n in range(store.MAX_TURNS):
+>           assert await store.append(pool, thread, user, turn(n)) == "appended"
+E           AssertionError: assert 'full' == 'appended'
+E             
+E             - appended
+E             + full
+
+api\tests\test_store.py:128: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_turn_cap_rejects_the_next_turn_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.13s
+
+==============================================================================
+MUTATION 10: append at cap returns None instead of 'full'
+  file=api/src/store.py test=test_turn_cap_rejects_the_next_turn_and_stores_nothing
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_turn_cap_rejects_the_next_turn_and_stores_nothing ____________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x20ae8be6540>
+
+    async def test_turn_cap_rejects_the_next_turn_and_stores_nothing(
+        pool: AsyncConnectionPool,
+    ) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        for n in range(store.MAX_TURNS):
+            assert await store.append(pool, thread, user, turn(n)) == "appended"
+>       assert await store.append(pool, thread, user, turn(99)) == "full"
+E       AssertionError: assert None == 'full'
+
+api\tests\test_store.py:129: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_turn_cap_rejects_the_next_turn_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.02s
+
+==============================================================================
+MUTATION 11: append extends expires_at
+  file=api/src/store.py test=test_append_sets_updated_at_and_never_moves_expiry
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_append_sets_updated_at_and_never_moves_expiry ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x22a4bd86540>
+
+    async def test_append_sets_updated_at_and_never_moves_expiry(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        await expire(pool, thread, "1 hour")
+        before = await store.load(pool, thread, user)
+        await store.append(pool, thread, user, turn())
+        after = await store.load(pool, thread, user)
+>       assert before and after and after["expires_at"] == before["expires_at"]
+E       AssertionError: assert ({'thread_id': UUID('9a3910bd-36c7-4636-b54e-a7917e584d35'), 'title': 'New Chat', 'state': {'turns': []}, 'created_at': datetime.datetime(2026, 10, 1, 1, 22, 44, 963307, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), ...} and {'thread_id': UUID('9a3910bd-36c7-4636-b54e-a7917e584d35'), 'title': 'New Chat', 'state': {'turns': [{'plan': None, 'q... 't'}]}, 'created_at': datetime.datetime(2026, 10, 1, 1, 22, 44, 963307, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')), ...} and datetime.datetime(2026, 10, 3, 1, 22, 44, 976192, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')) == datetime.datetime(2026, 10, 1, 2, 22, 44, 970485, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')))
+
+api\tests\test_store.py:142: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_append_sets_updated_at_and_never_moves_expiry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.90s
+
+==============================================================================
+MUTATION 12: append does not set updated_at
+  file=api/src/store.py test=test_append_sets_updated_at_and_never_moves_expiry
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_append_sets_updated_at_and_never_moves_expiry ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1e729e39ee0>
+
+    async def test_append_sets_updated_at_and_never_moves_expiry(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        await expire(pool, thread, "1 hour")
+        before = await store.load(pool, thread, user)
+        await store.append(pool, thread, user, turn())
+        after = await store.load(pool, thread, user)
+        assert before and after and after["expires_at"] == before["expires_at"]
+        async with pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT updated_at > created_at FROM conversations WHERE thread_id = %s", (thread,)
+            )
+            row = await cur.fetchone()
+>       assert row == (True,)
+E       assert (False,) == (True,)
+E         
+E         At index 0 diff: False != True
+E         Use -v to get more diff
+
+api\tests\test_store.py:148: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_append_sets_updated_at_and_never_moves_expiry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.71s
+
+==============================================================================
+MUTATION 13: purge deletes everything (no WHERE)
+  file=api/src/store.py test=test_purge_deletes_only_expired_rows
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_purge_deletes_only_expired_rows _____________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x251664eb770>
+
+    async def test_purge_deletes_only_expired_rows(pool: AsyncConnectionPool) -> None:
+        await store.purge(pool)
+        user = uuid4()
+        gone = [(await store.create(pool, user))["thread_id"] for _ in range(2)]
+        keep = (await store.create(pool, user))["thread_id"]
+        for thread in gone:
+            await expire(pool, thread, "-1 second")
+        await expire(pool, keep, "1 hour")
+>       assert await store.purge(pool) == 2
+E       assert 1 == 2
+
+api\tests\test_store.py:159: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_purge_deletes_only_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.65s
+
+==============================================================================
+MUTATION 14: purge deletes rows expiring within 5s (one-second test)
+  file=api/src/store.py test=test_purge_leaves_a_row_expiring_in_one_second
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_purge_leaves_a_row_expiring_in_one_second ________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x22dd8566540>
+
+    async def test_purge_leaves_a_row_expiring_in_one_second(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        await expire(pool, thread, "2 seconds")
+        await store.purge(pool)
+>       assert await store.load(pool, thread, user) is not None
+E       assert None is not None
+
+api\tests\test_store.py:168: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_purge_leaves_a_row_expiring_in_one_second
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.78s
+
+==============================================================================
+MUTATION 15: purge deletes nothing (expires_at <= now() - 1 hour)
+  file=api/src/store.py test=test_purge_deletes_only_expired_rows
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_purge_deletes_only_expired_rows _____________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1e6f9dfb920>
+
+    async def test_purge_deletes_only_expired_rows(pool: AsyncConnectionPool) -> None:
+        await store.purge(pool)
+        user = uuid4()
+        gone = [(await store.create(pool, user))["thread_id"] for _ in range(2)]
+        keep = (await store.create(pool, user))["thread_id"]
+        for thread in gone:
+            await expire(pool, thread, "-1 second")
+        await expire(pool, keep, "1 hour")
+>       assert await store.purge(pool) == 2
+E       assert 0 == 2
+
+api\tests\test_store.py:159: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_purge_deletes_only_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.03s
+
+==============================================================================
+MUTATION 16: purge returns 0 instead of rowcount
+  file=api/src/store.py test=test_purge_deletes_only_expired_rows
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_purge_deletes_only_expired_rows _____________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x27866839ee0>
+
+    async def test_purge_deletes_only_expired_rows(pool: AsyncConnectionPool) -> None:
+        await store.purge(pool)
+        user = uuid4()
+        gone = [(await store.create(pool, user))["thread_id"] for _ in range(2)]
+        keep = (await store.create(pool, user))["thread_id"]
+        for thread in gone:
+            await expire(pool, thread, "-1 second")
+        await expire(pool, keep, "1 hour")
+>       assert await store.purge(pool) == 2
+E       assert 0 == 2
+
+api\tests\test_store.py:159: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_purge_deletes_only_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.74s
+
+==============================================================================
+MUTATION 17: create does not purge
+  file=api/src/store.py test=test_create_purges_expired_rows
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_create_purges_expired_rows _______________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x23cec3db950>
+
+    async def test_create_purges_expired_rows(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        old = (await store.create(pool, user))["thread_id"]
+        await expire(pool, old, "-1 second")
+        await store.create(pool, user)
+        async with pool.connection() as conn:
+            cur = await conn.execute("SELECT count(*) FROM conversations WHERE thread_id = %s", (old,))
+>           assert await cur.fetchone() == (0,)
+E           assert (1,) == (0,)
+E             
+E             At index 0 diff: 1 != 0
+E             Use -v to get more diff
+
+api\tests\test_store.py:178: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_create_purges_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.76s
+
+==============================================================================
+MUTATION 18: open_pool does not purge (startup)
+  file=api/src/store.py test=test_open_pool_purges_expired_rows
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_open_pool_purges_expired_rows ______________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x268934de540>
+
+    async def test_open_pool_purges_expired_rows(pool: AsyncConnectionPool) -> None:
+        old = (await store.create(pool, uuid4()))["thread_id"]
+        await expire(pool, old, "-1 second")
+        assert URL
+        second = await store.open_pool(URL)
+        try:
+            async with second.connection() as conn:
+                cur = await conn.execute(
+                    "SELECT count(*) FROM conversations WHERE thread_id = %s", (old,)
+                )
+>               assert await cur.fetchone() == (0,)
+E               assert (1,) == (0,)
+E                 
+E                 At index 0 diff: 1 != 0
+E                 Use -v to get more diff
+
+api\tests\test_store.py:191: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_open_pool_purges_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.98s
+
+==============================================================================
+MUTATION 19: create sets 72h expiry (insert override)
+  file=api/src/store.py test=test_create_expires_in_48_hours
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_create_expires_in_48_hours _______________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x22ec3349ee0>
+
+    async def test_create_expires_in_48_hours(pool: AsyncConnectionPool) -> None:
+        created = await store.create(pool, uuid4())
+        hours = (created["expires_at"] - created["created_at"]).total_seconds() / 3600
+>       assert abs(hours - 48) < 0.01
+E       assert 24.0 < 0.01
+E        +  where 24.0 = abs((72.0 - 48))
+
+api\tests\test_store.py:199: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_create_expires_in_48_hours
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.84s
+
+==============================================================================
+MUTATION 20: create sets title 'Untitled' (insert override)
+  file=api/src/store.py test=test_create_expires_in_48_hours
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_create_expires_in_48_hours _______________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1bda38df8c0>
+
+    async def test_create_expires_in_48_hours(pool: AsyncConnectionPool) -> None:
+        created = await store.create(pool, uuid4())
+        hours = (created["expires_at"] - created["created_at"]).total_seconds() / 3600
+        assert abs(hours - 48) < 0.01
+>       assert created["title"] == "New Chat"
+E       AssertionError: assert 'Untitled' == 'New Chat'
+E         
+E         - New Chat
+E         + Untitled
+
+api\tests\test_store.py:200: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_create_expires_in_48_hours
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.96s
+
+==============================================================================
+MUTATION 21: schema default 48h -> 24h (table dropped first)
+  file=api/src/store.py test=test_create_expires_in_48_hours
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_create_expires_in_48_hours _______________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x265286eb9b0>
+
+    async def test_create_expires_in_48_hours(pool: AsyncConnectionPool) -> None:
+        created = await store.create(pool, uuid4())
+        hours = (created["expires_at"] - created["created_at"]).total_seconds() / 3600
+>       assert abs(hours - 48) < 0.01
+E       assert 24.0 < 0.01
+E        +  where 24.0 = abs((24.0 - 48))
+
+api\tests\test_store.py:199: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_create_expires_in_48_hours
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 1.00s
+
+==============================================================================
+MUTATION 22: schema default title -> 'Untitled' (table dropped first)
+  file=api/src/store.py test=test_create_expires_in_48_hours
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________________ test_create_expires_in_48_hours _______________________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x1cf91716540>
+
+    async def test_create_expires_in_48_hours(pool: AsyncConnectionPool) -> None:
+        created = await store.create(pool, uuid4())
+        hours = (created["expires_at"] - created["created_at"]).total_seconds() / 3600
+        assert abs(hours - 48) < 0.01
+>       assert created["title"] == "New Chat"
+E       AssertionError: assert 'Untitled' == 'New Chat'
+E         
+E         - New Chat
+E         + Untitled
+
+api\tests\test_store.py:200: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_create_expires_in_48_hours
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.81s
+
+==============================================================================
+MUTATION 23: round trip lossy: response dropped to {}
+  file=api/src/store.py test=test_populated_response_round_trips_without_a_key
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_populated_response_round_trips_without_a_key ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x192fa79f950>
+
+    async def test_populated_response_round_trips_without_a_key(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        response = populated_response()
+        stored = {
+            "question": "q",
+            "plan": None,
+            "response": response.model_dump(mode="json"),
+            "created_at": "t",
+        }
+        await store.append(pool, thread, user, stored)
+        loaded = await store.load(pool, thread, user)
+        assert loaded is not None
+        back = loaded["state"]["turns"][0]
+>       assert AskResponse.model_validate(back["response"]) == response
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 18 validation errors for AskResponse
+E       answer
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       urls
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       requested_years
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       attempted_years
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       succeeded_years
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       failed_years
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       omitted_years
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       omission_reasons
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       legs
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       rows
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       moe
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       geoid
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       universe
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       table_id
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       alternatives
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       comparisons
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       warnings
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       plan
+E         Field required [type=missing, input_value={}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+
+api\tests\test_store.py:217: ValidationError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_populated_response_round_trips_without_a_key
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.92s
+
+==============================================================================
+MUTATION 24: round trip lossy: moe/legs/chart dropped from response
+  file=api/src/store.py test=test_populated_response_round_trips_without_a_key
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_populated_response_round_trips_without_a_key ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x2355fda7890>
+
+    async def test_populated_response_round_trips_without_a_key(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        response = populated_response()
+        stored = {
+            "question": "q",
+            "plan": None,
+            "response": response.model_dump(mode="json"),
+            "created_at": "t",
+        }
+        await store.append(pool, thread, user, stored)
+        loaded = await store.load(pool, thread, user)
+        assert loaded is not None
+        back = loaded["state"]["turns"][0]
+>       assert AskResponse.model_validate(back["response"]) == response
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for AskResponse
+E       legs
+E         Field required [type=missing, input_value={'plan': {'years': [2023]...art_unavailable': False}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+E       moe
+E         Field required [type=missing, input_value={'plan': {'years': [2023]...art_unavailable': False}, input_type=dict]
+E           For further information visit https://errors.pydantic.dev/2.13/v/missing
+
+api\tests\test_store.py:217: ValidationError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_populated_response_round_trips_without_a_key
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.75s
+
+==============================================================================
+MUTATION 25: stored state leaks key= into state
+  file=api/src/store.py test=test_populated_response_round_trips_without_a_key
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_populated_response_round_trips_without_a_key ______________
+
+pool = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x2d90d556540>
+
+    async def test_populated_response_round_trips_without_a_key(pool: AsyncConnectionPool) -> None:
+        user = uuid4()
+        thread = (await store.create(pool, user))["thread_id"]
+        response = populated_response()
+        stored = {
+            "question": "q",
+            "plan": None,
+            "response": response.model_dump(mode="json"),
+            "created_at": "t",
+        }
+        await store.append(pool, thread, user, stored)
+        loaded = await store.load(pool, thread, user)
+        assert loaded is not None
+        back = loaded["state"]["turns"][0]
+        assert AskResponse.model_validate(back["response"]) == response
+>       assert "key=" not in str(loaded["state"])
+E       assert 'key=' not in "{'turns': [..._at': 't'}]}"
+E         
+E         'key=' is contained here:
+E           {'turns': [{'leak': 'https://x?key=SECRET', 'plan': None, 'question': 'q', 'response': {'moe': [{'GEO_ID': '1600000US2622000', 'B17001_002M': '5'}, {'GEO_ID': '1600000US2622001', 'B17001_002M': '6'}], 'legs': [{'ok': True, 'url': 'https://api.census.gov/data/2023/acs/acs5?get=B17001_002E', 'year': 2023, 'detail': '', 'for_spec': '', 'status_code': 200}], 'plan': {'years': [2023], 'dataset': 'acs5', 'table_id': 'B17001', 'variables': ['B17001_002E'], 'geographies': [{'name': 'Detroit city, Michigan', 'codes': {'place': '22000', 'state': '26'}, 'geoid': '1600000US262...
+E         
+E         ...Full output truncated (2 lines hidden), use '-vv' to show
+
+api\tests\test_store.py:218: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_populated_response_round_trips_without_a_key
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.88s
+
+==============================================================================
+MUTATION 26: lifespan opens pool even when DATABASE_URL unset
+  file=api/src/main.py test=test_app_starts_without_database_url
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_app_starts_without_database_url _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002AE2EBEB380>
+
+    def test_app_starts_without_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        app = create_app()
+>       with TestClient(app) as client:
+             ^^^^^^^^^^^^^^^
+
+api\tests\test_store.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\starlette\testclient.py:698: in __enter__
+    portal.call(self.wait_startup)
+.venv\Lib\site-packages\anyio\from_thread.py:338: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:733: in wait_startup
+    await receive()
+.venv\Lib\site-packages\starlette\testclient.py:724: in receive
+    self.task.result()
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:714: in lifespan
+    await self.app(scope, self.stream_receive.receive, self.stream_send.send)
+.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:151: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:49: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2726: in app
+    await self.lifespan(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:648: in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+api\src\main.py:34: in lifespan
+    app.state.pool = await open_pool(url)
+                     ^^^^^^^^^^^^^^^^^^^^
+api\src\store.py:50: in open_pool
+    await pool.open(wait=True)
+.venv\Lib\site-packages\psycopg_pool\pool_async.py:438: in open
+    await self.wait(timeout=timeout)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <psycopg_pool.pool_async.AsyncConnectionPool 'pool-1' at 0x2ae2ebea2d0>
+timeout = 30.0
+
+    async def wait(self, timeout: float = 30.0) -> None:
+        """
+        Wait for the pool to be full (with `min_size` connections) after creation.
+    
+        Close the pool, and raise `PoolTimeout`, if not ready within *timeout*
+        sec.
+    
+        Calling this method is not mandatory: you can try and use the pool
+        immediately after its creation. The first client will be served as soon
+        as a connection is ready. You can use this method if you prefer your
+        program to terminate in case the environment is not configured
+        properly, rather than trying to stay up the hardest it can.
+        """
+        self._check_open_getconn()
+    
+        async with self._lock:
+            assert not self._pool_full_event
+            if len(self._pool) >= self._min_size:
+                return
+            self._pool_full_event = AEvent()
+    
+        logger.info("waiting for pool %r initialization", self.name)
+        if not await self._pool_full_event.wait_timeout(timeout):
+            await self.close()  # stop all the tasks
+>           raise PoolTimeout(f"pool initialization incomplete after {timeout} sec")
+E           psycopg_pool.PoolTimeout: pool initialization incomplete after 30.0 sec
+
+.venv\Lib\site-packages\psycopg_pool\pool_async.py:199: PoolTimeout
+------------------------------ Captured log call ------------------------------
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+WARNING  psycopg.pool:pool_async.py:758 error connecting in 'pool-1': Psycopg cannot use the 'ProactorEventLoop' to run in async mode. Please use a compatible event loop, for instance by running 'asyncio.run(..., loop_factory=asyncio.SelectorEventLoop(selectors.SelectSelector()))'
+============================== warnings summary ===============================
+api/tests/test_store.py::test_app_starts_without_database_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 30.89s
+
+==============================================================================
+MUTATION 27: lifespan sets pool to a sentinel when unset
+  file=api/src/main.py test=test_app_starts_without_database_url
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_app_starts_without_database_url _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001EA76FAB350>
+
+    def test_app_starts_without_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        app = create_app()
+>       with TestClient(app) as client:
+             ^^^^^^^^^^^^^^^
+
+api\tests\test_store.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\starlette\testclient.py:709: in __exit__
+    self.exit_stack.close()
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:618: in close
+    self.__exit__(None, None, None)
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:610: in __exit__
+    raise exc_details[1]
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:595: in __exit__
+    if cb(*exc_details):
+       ^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:478: in _exit_wrapper
+    callback(*args, **kwds)
+.venv\Lib\site-packages\starlette\testclient.py:702: in wait_shutdown
+    portal.call(self.wait_shutdown)
+.venv\Lib\site-packages\anyio\from_thread.py:338: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:749: in wait_shutdown
+    await receive()
+.venv\Lib\site-packages\starlette\testclient.py:739: in receive
+    self.task.result()
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:714: in lifespan
+    await self.app(scope, self.stream_receive.receive, self.stream_send.send)
+.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:151: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:49: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2726: in app
+    await self.lifespan(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:648: in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:217: in __aexit__
+    await anext(self.gen)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+app = <fastapi.applications.FastAPI object at 0x000001EA76FAB0E0>
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        url = os.environ.get("DATABASE_URL")
+        app.state.pool = await open_pool(url) if url else object()
+        try:
+            yield
+        finally:
+            if app.state.pool is not None:
+>               await app.state.pool.close()
+                      ^^^^^^^^^^^^^^^^^^^^
+E               AttributeError: 'object' object has no attribute 'close'
+
+api\src\main.py:39: AttributeError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_app_starts_without_database_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.79s
+
+==============================================================================
+MUTATION 28: lifespan reads os.environ['DATABASE_URL'] (KeyError when unset)
+  file=api/src/main.py test=test_app_starts_without_database_url
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_app_starts_without_database_url _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022337CAAFF0>
+
+    def test_app_starts_without_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        app = create_app()
+>       with TestClient(app) as client:
+             ^^^^^^^^^^^^^^^
+
+api\tests\test_store.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv\Lib\site-packages\starlette\testclient.py:698: in __enter__
+    portal.call(self.wait_startup)
+.venv\Lib\site-packages\anyio\from_thread.py:338: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:733: in wait_startup
+    await receive()
+.venv\Lib\site-packages\starlette\testclient.py:724: in receive
+    self.task.result()
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\starlette\testclient.py:714: in lifespan
+    await self.app(scope, self.stream_receive.receive, self.stream_send.send)
+.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\errors.py:151: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\middleware\exceptions.py:49: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv\Lib\site-packages\fastapi\routing.py:2726: in app
+    await self.lifespan(scope, receive, send)
+.venv\Lib\site-packages\starlette\routing.py:648: in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+api\src\main.py:33: in lifespan
+    url = os.environ["DATABASE_URL"]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = environ({'AI_AGENT': 'claude-code_2-1-286_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\johnh\\...TEST_VERSION': '9.1.1', 'PYTEST_CURRENT_TEST': 'api/tests/test_store.py::test_app_starts_without_database_url (call)'})
+key = 'DATABASE_URL'
+
+>   ???
+E   KeyError: 'DATABASE_URL'
+
+<frozen os>:714: KeyError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_app_starts_without_database_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.84s
+
+==============================================================================
+MUTATION 29: require_pool returns None instead of raising
+  file=api/src/store.py test=test_app_starts_without_database_url
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_app_starts_without_database_url _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DF5AF7B500>
+
+    def test_app_starts_without_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        app = create_app()
+        with TestClient(app) as client:
+            assert app.state.pool is None
+            assert client.post("/ask", json={"question": " "}).status_code == 422
+>           with pytest.raises(store.PersistenceNotConfigured):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE PersistenceNotConfigured
+
+api\tests\test_store.py:227: Failed
+============================== warnings summary ===============================
+api/tests/test_store.py::test_app_starts_without_database_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.59s
+
+==============================================================================
+MUTATION 30: require_pool raises a different exception type
+  file=api/src/store.py test=test_app_starts_without_database_url
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_app_starts_without_database_url _____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022339E8B560>
+
+    def test_app_starts_without_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        app = create_app()
+        with TestClient(app) as client:
+            assert app.state.pool is None
+            assert client.post("/ask", json={"question": " "}).status_code == 422
+            with pytest.raises(store.PersistenceNotConfigured):
+>               store.require_pool(app)
+
+api\tests\test_store.py:228: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+app = <fastapi.applications.FastAPI object at 0x0000022339E8B2C0>
+
+    def require_pool(app: FastAPI) -> AsyncConnectionPool:
+        pool: AsyncConnectionPool | None = getattr(app.state, "pool", None)
+        if pool is None:
+>           raise RuntimeError("persistence not configured: DATABASE_URL is unset")
+E           RuntimeError: persistence not configured: DATABASE_URL is unset
+
+api\src\store.py:44: RuntimeError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_app_starts_without_database_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.72s
+
+==============================================================================
+MUTATION 31: require_pool always raises
+  file=api/src/store.py test=test_require_pool_returns_the_app_pool
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_require_pool_returns_the_app_pool ____________________
+
+    def test_require_pool_returns_the_app_pool() -> None:
+        app = FastAPI()
+        app.state.pool = sentinel = object()
+>       assert store.require_pool(app) is sentinel
+               ^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_store.py:234: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+app = <fastapi.applications.FastAPI object at 0x00000270B66493A0>
+
+    def require_pool(app: FastAPI) -> AsyncConnectionPool:
+        pool: AsyncConnectionPool | None = getattr(app.state, "pool", None)
+        if True:
+>           raise PersistenceNotConfigured("persistence not configured: DATABASE_URL is unset")
+E           src.store.PersistenceNotConfigured: persistence not configured: DATABASE_URL is unset
+
+api\src\store.py:44: PersistenceNotConfigured
+============================== warnings summary ===============================
+api/tests/test_store.py::test_require_pool_returns_the_app_pool
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.61s
+
+==============================================================================
+MUTATION 32: require_pool returns a fresh object, not app.state.pool
+  file=api/src/store.py test=test_require_pool_returns_the_app_pool
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________________ test_require_pool_returns_the_app_pool ____________________
+
+    def test_require_pool_returns_the_app_pool() -> None:
+        app = FastAPI()
+        app.state.pool = sentinel = object()
+>       assert store.require_pool(app) is sentinel
+E       assert <object object at 0x00000198CED8B690> is <object object at 0x00000198CED8B650>
+E        +  where <object object at 0x00000198CED8B690> = <function require_pool at 0x00000198D48A3380>(<fastapi.applications.FastAPI object at 0x00000198D4D63380>)
+E        +    where <function require_pool at 0x00000198D48A3380> = store.require_pool
+
+api\tests\test_store.py:234: AssertionError
+============================== warnings summary ===============================
+api/tests/test_store.py::test_require_pool_returns_the_app_pool
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 failed, 1 warning in 0.78s
+
+==============================================================================
+DATABASE_URL unset, CI unset: store tests must SKIP with a reason
+==============================================================================
+exit=0
+sssssssssss..                                                            [100%]
+============================== warnings summary ===============================
+api/tests/test_store.py::test_foreign_user_gets_none_like_a_missing_thread
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+SKIPPED [1] api\tests\test_store.py:93: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:102: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:110: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:122: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:135: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:151: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:163: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:171: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:181: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:196: DATABASE_URL unset; start Postgres per the README to run store tests
+SKIPPED [1] api\tests\test_store.py:203: DATABASE_URL unset; start Postgres per the README to run store tests
+2 passed, 11 skipped, 1 warning in 0.41s
+
+==============================================================================
+DATABASE_URL unset, CI=true: store tests must FAIL
+==============================================================================
+exit=1
+EEEEEEEEEEE..                                                            [100%]
+=================================== ERRORS ====================================
+_____ ERROR at setup of test_foreign_user_gets_none_like_a_missing_thread _____
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+_______ ERROR at setup of test_expired_thread_is_none_before_any_purge ________
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+___________ ERROR at setup of test_concurrent_appends_lose_nothing ____________
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+__ ERROR at setup of test_turn_cap_rejects_the_next_turn_and_stores_nothing ___
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+____ ERROR at setup of test_append_sets_updated_at_and_never_moves_expiry _____
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+___________ ERROR at setup of test_purge_deletes_only_expired_rows ____________
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+______ ERROR at setup of test_purge_leaves_a_row_expiring_in_one_second _______
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+______________ ERROR at setup of test_create_purges_expired_rows ______________
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+____________ ERROR at setup of test_open_pool_purges_expired_rows _____________
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+______________ ERROR at setup of test_create_expires_in_48_hours ______________
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+_____ ERROR at setup of test_populated_response_round_trips_without_a_key _____
+
+    @pytest.fixture
+    async def pool() -> AsyncIterator[AsyncConnectionPool]:
+        if not URL:
+            if os.environ.get("CI") == "true":
+>               pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
+E               Failed: DATABASE_URL must be set in CI; store tests never skip there
+
+api\tests\test_store.py:29: Failed
+============================== warnings summary ===============================
+api/tests/test_store.py::test_foreign_user_gets_none_like_a_missing_thread
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 1 warning, 11 errors in 0.80s
+
+==============================================================================
+NOTES (author notes, not pytest output)
+==============================================================================
+- Gap found and closed: with the original 12 tests, mutation "open_pool does not
+  purge (startup)" PASSED (BAD) because test_create_purges_expired_rows is
+  satisfied by create()'s own purge. Added test_open_pool_purges_expired_rows;
+  it fails against that mutation (see mutation list).
+- Not listed as a mutation: purge boundary "<=" -> "<". It is an equivalent
+  mutant in practice: a row expires_at == now() exactly cannot be set up, because
+  purge's now() is always later than any earlier statement's. The "row expiring
+  in 2 seconds is kept" test and the "-1 second row is deleted" test bracket the
+  boundary from both sides; mutations 13-16 cover them.
+- Schema-default mutations drop the conversations table before and after the run
+  (IF NOT EXISTS would otherwise keep the old defaults). The table is recreated
+  on the next open_pool.

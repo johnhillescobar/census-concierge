@@ -1,0 +1,22 @@
+GATE 2 RE-RUN - CC-40 (feat/cc-40-conversation-store, fix commit HEAD; diff b0f13c4..HEAD, then origin/main..HEAD)
+
+== Pass 1: cold read of the fix diff ==
+All four earlier findings are resolved:
+- pool close on failed startup: open_pool closes on any exception and re-raises; test spies the pool.
+- swallowed startup error: lifespan sets pool None, catches, logs only type(exc).__name__ (no URL/credentials leak);
+  /ask stays up; conversation calls raise PersistenceNotConfigured.
+- pg_advisory_xact_lock(40001) inside conn.transaction() wraps DDL; released at commit; 8-way concurrent test.
+- coalesce(state->'turns','[]') in both jsonb_set and cap check; '[]' resolves to jsonb.
+Findings:
+- LOW  api/src/main.py:36-41   A transient DB outage at boot disables persistence for the whole process lifetime (no retry); needs a restart. Acceptable for slice 5; note for CC-41 ops.
+- LOW  api/src/store.py:101    coalesce does not cover a JSON null ('{"turns": null}'); jsonb_array_length would raise on the scalar (500). Not reachable via store API.
+- INFO api/src/store.py:55     STARTUP_TIMEOUT 10s is also the worst-case boot delay when DATABASE_URL points at an unreachable host.
+
+== Pass 2 ==
+check_invariants.py --base origin/main : all 12 ok (budget increases ok)
+check_budgets.py --structural-only     : all ok (budgets.toml untouched)
+pytest api/tests/test_store.py with DATABASE_URL: 17 passed
+Acceptance criteria vs origin/main..HEAD: all met (store API, SQL ownership/expiry, atomic append, cap 50, purge, round trip, no key=, lifespan/503 path, CI postgres:16, one dep). Unmet: nothing.
+Scope: no routes, no graph node, no banned module names, ARCHITECTURE.md updated.
+
+Verdict: Ship it. No blocking findings.

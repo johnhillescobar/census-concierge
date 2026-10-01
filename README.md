@@ -57,6 +57,12 @@ make demo    # npm ci + build web/dist, then end-to-end against that same proces
 uv run python scripts/e2e_capture.py --slice 4 --ticket CC-N --phase pre   # eval+demo transcript
 uv run python scripts/plot_e2e_latency.py --pre <sha> --post origin/main   # latency histogram + ECDF
 uv run uvicorn src.main:app --reload   # POST /ask; GET / is the UI after `npm --prefix web run build`
+# Conversations need Postgres. Without it (or if it is unreachable at startup), /ask still works.
+# There are no conversation routes yet (CC-41), so nothing exposes the store over HTTP today.
+docker run -d --name cc-pg -e POSTGRES_PASSWORD=pg -p 5432:5432 postgres:16
+export DATABASE_URL=postgresql://postgres:pg@localhost:5432/postgres   # PowerShell: $env:DATABASE_URL=...
+# Windows without --reload: psycopg async needs the selector loop
+uv run uvicorn src.main:app --loop src.loop:selector_factory
 npm --prefix web install && npm --prefix web run dev   # Vite; proxies /ask
 uv run python scripts/generate_client.py   # regenerate packages/client; --check in make check
 ```

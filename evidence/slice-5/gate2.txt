@@ -1,0 +1,29 @@
+GATE 2 - CC-40 (feat/cc-40-conversation-store, origin/main..HEAD)
+
+== Pass 1: /code-review (generic bugs) ==
+Findings (code-review skill; read-only, did not run code):
+- MED  api/src/main.py:34   lifespan opens pool wait=True; on Windows with DATABASE_URL set and default Proactor loop (no --loop flag) startup hangs/fails and takes /ask down too.
+- LOW  api/src/store.py:55  open_pool does not close pool if SCHEMA/purge raises (pool leak; app fails to boot on bad URL).
+- LOW  api/src/store.py:55  CREATE TABLE/INDEX IF NOT EXISTS without advisory lock; multi-worker startup can race (pg_type unique violation).
+- LOW  api/src/store.py:96  append reports "full" if UPDATE hit 0 rows on a live thread for any reason (e.g. null/missing turns array); cannot distinguish.
+Nothing else found (SQL ownership/expiry/cap are in-statement; params bound, no injection; f-string only interpolates the constant _LIVE).
+
+== Pass 2: project invariants (review-pr.md) ==
+check_invariants.py --base origin/main : exit 0, all 12 ok incl. "budget increases" (budgets.toml untouched)
+check_budgets.py --structural-only     : exit 0, all ok (api src LOC 4196<=4250, files 26<=40, deps 8<=25, routes 1<=10)
+pytest api/tests/test_store.py with DATABASE_URL: 13 passed
+pytest, DATABASE_URL unset: 2 passed, 11 skipped (reason stated)
+CI=true, DATABASE_URL unset: 11 errors via pytest.fail (never skip)  -> AC met
+
+Acceptance criteria vs diff: all met.
+ store API/pool-as-arg; user_id+thread_id SQL filter; expires_at>now() in SQL; atomic jsonb_set append
+ (concurrency test); expires_at untouched; cap 50 -> "full"; purge (startup + every create, boundary tests);
+ round trip + no "key="; lifespan pool, unset DATABASE_URL starts, PersistenceNotConfigured; check.yml
+ postgres:16 + healthcheck + DATABASE_URL; conftest event_loop_policy, loop.selector_factory, README;
+ one new dep psycopg[binary,pool]; budgets.toml unchanged.
+Unmet criteria: nothing.
+Scope/shape: no routes, no new graph node, no banned module names, ARCHITECTURE.md updated, 11 files. Nothing.
+Silent-wrong-answer (URL/MOE/GEOID/universe): no response path touched. Nothing.
+Minor note: purge boundary test uses 2s rather than the AC's 1s (still proves the boundary; not a finding).
+
+Verdict: Ship it with follow-ups (no blocking findings).
