@@ -11,6 +11,9 @@ process. There is no CORS middleware: the UI and POST /ask share the origin.
 
 from __future__ import annotations
 
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -19,12 +22,23 @@ from fastapi.staticfiles import StaticFiles
 
 from src.ask import run_ask
 from src.contract import AskRequest, AskResponse, reject_unknown_override
+from src.store import open_pool
 
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
 def create_app(dist: Path | None = None) -> FastAPI:
-    application = FastAPI(title="census-concierge", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        url = os.environ.get("DATABASE_URL")
+        app.state.pool = await open_pool(url) if url else None
+        try:
+            yield
+        finally:
+            if app.state.pool is not None:
+                await app.state.pool.close()
+
+    application = FastAPI(title="census-concierge", version="0.1.0", lifespan=lifespan)
 
     @application.post("/ask", response_model=AskResponse, operation_id="ask")
     async def post_ask(body: AskRequest) -> AskResponse:
