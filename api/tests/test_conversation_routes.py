@@ -268,3 +268,32 @@ async def test_without_a_database_the_routes_are_503_and_ask_still_answers(
             assert (await send(client, method, path, hdr(uuid4()))).status_code == 503
         assert (await client.post("/ask", json=BODY)).status_code == 200
     assert ask.calls == [BODY["question"]]
+
+
+async def test_a_bad_header_is_422_even_when_there_is_no_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main, "run_ask", FakeAsk())
+    app = create_app()
+    app.state.pool = None
+    async with client_for(app) as client:
+        for method, path in ROUTES:
+            r = await send(client, method, path, {"x-user-id": "not-a-uuid"})
+            assert r.status_code == 422
+
+
+@pytest.mark.parametrize(("lost", "status"), [(None, 404), ("full", 409)])
+async def test_losing_a_race_after_run_ask_maps_to_the_same_errors(
+    h: Harness, monkeypatch: pytest.MonkeyPatch, lost: str | None, status: int
+) -> None:
+    user = uuid4()
+    thread = await h.new(user)
+
+    async def lose(*_: Any) -> str | None:
+        return lost
+
+    monkeypatch.setattr(main, "append", lose)
+    r = await h.turn(thread, user)
+    assert r.status_code == status
+    assert h.ask.calls == [BODY["question"]]  # the spend happened; nothing was stored
+    assert (await h.get(thread, user)).json()["turns"] == []

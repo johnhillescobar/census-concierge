@@ -42,10 +42,16 @@ from src.store import (
 
 log = logging.getLogger(__name__)
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
-NOT_FOUND = HTTPException(404, "conversation not found")
 
 
-def pool_of(request: Request) -> AsyncConnectionPool:
+def not_found() -> HTTPException:
+    return HTTPException(404, "conversation not found")
+
+
+User = Annotated[UUID, Header(alias="x-user-id")]
+
+
+def pool_of(request: Request, _user: User) -> AsyncConnectionPool:  # header 422 before 503
     try:
         return require_pool(request.app)
     except PersistenceNotConfigured as exc:
@@ -53,7 +59,6 @@ def pool_of(request: Request) -> AsyncConnectionPool:
 
 
 Pool = Annotated[AsyncConnectionPool, Depends(pool_of)]
-User = Annotated[UUID, Header(alias="x-user-id")]
 
 
 async def answer(body: AskRequest) -> AskResponse:
@@ -100,16 +105,16 @@ def create_app(dist: Path | None = None) -> FastAPI:
         response_model=ConversationInfo,
         operation_id="create_conversation",
     )
-    async def post_conversation(pool: Pool, user: User) -> dict[str, Any]:
+    async def post_conversation(user: User, pool: Pool) -> dict[str, Any]:
         return await create(pool, user)
 
     @application.post(
         "/conversations/{thread_id}/turns", response_model=AskResponse, operation_id="append_turn"
     )
-    async def post_turn(thread_id: UUID, body: AskRequest, pool: Pool, user: User) -> AskResponse:
+    async def post_turn(thread_id: UUID, body: AskRequest, user: User, pool: Pool) -> AskResponse:
         found = await load(pool, thread_id, user)  # before run_ask: no model spend on a bad thread
         if found is None:
-            raise NOT_FOUND
+            raise not_found()
         if len(found["state"]["turns"]) >= MAX_TURNS:
             raise HTTPException(409, "conversation full")
         response = await answer(body)
@@ -118,16 +123,16 @@ def create_app(dist: Path | None = None) -> FastAPI:
         )
         status = await append(pool, thread_id, user, turn.model_dump(mode="json"))
         if status != "appended":  # lost a race with expiry or another append
-            raise NOT_FOUND if status is None else HTTPException(409, "conversation full")
+            raise not_found() if status is None else HTTPException(409, "conversation full")
         return response
 
     @application.get(
         "/conversations/{thread_id}", response_model=Conversation, operation_id="get_conversation"
     )
-    async def get_conversation(thread_id: UUID, pool: Pool, user: User) -> dict[str, Any]:
+    async def get_conversation(thread_id: UUID, user: User, pool: Pool) -> dict[str, Any]:
         found = await load(pool, thread_id, user)
         if found is None:
-            raise NOT_FOUND
+            raise not_found()
         return {**found, "turns": found["state"]["turns"]}
 
     root = WEB_DIST if dist is None else dist
