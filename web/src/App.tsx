@@ -171,17 +171,18 @@ export function App({ askFn = askInThread, loadFn = loadLatestTurn }: AppProps) 
   const [planField, setPlanField] = useState("");
   const loadingRef = useRef<HTMLParagraphElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const asked = useRef(false); // a late restore must not overwrite a newer ask
 
   useEffect(() => {
     loadFn().then(
       (turn) => {
-        if (turn) {
+        if (turn && !asked.current) {
           setResult(turn.response);
           setActiveQuestion(turn.question);
           setState("result");
         }
       },
-      (cause) => setError(cause instanceof Error ? cause.message : "restore failed"),
+      (cause) => !asked.current && setError(cause instanceof Error ? cause.message : "restore failed"),
     );
   }, []);
 
@@ -202,6 +203,7 @@ export function App({ askFn = askInThread, loadFn = loadLatestTurn }: AppProps) 
       return false;
     }
     const keepResult = result !== null;
+    asked.current = true;
     setState("loading");
     setCopied(false);
     setPlanError("");

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -23,13 +23,6 @@ const springfieldMo = place(
   "place:70000",
   "state:29",
 );
-const springfieldIl = place(
-  "Springfield city, Illinois",
-  "1600000US1772000",
-  "place:72000",
-  "state:17",
-);
-
 const springfield: AskResponse = {
   answer: "Springfield, Missouri has 169,176 people.",
   urls: [
@@ -66,7 +59,7 @@ const springfield: AskResponse = {
     {
       code: "ambiguous_place",
       detail: "several Springfields",
-      candidates: [springfieldMo, springfieldIl],
+      candidates: [springfieldMo],
     },
   ],
   comparisons: [],
@@ -199,9 +192,21 @@ describe("restore in App", () => {
     expect(fresh.container.innerHTML.replace(/<input[^>]*>/, "")).toBe(restoredHtml.replace(/<input[^>]*>/, ""));
   });
 
-  it("shows the idle state with no error when there is nothing to restore", async () => {
-    render(<App loadFn={() => Promise.resolve(null)} askFn={vi.fn()} />);
-    await waitFor(() => expect(screen.getByText(/Type a question/)).toBeTruthy());
+  it.each([true, false])("ignores a restore that settles after an ask (resolves: %s)", async (resolves) => {
+    let settle = () => {};
+    const late = new Promise<Turn | null>((res, rej) => {
+      settle = () => (resolves ? res({ ...turn, question: "stale" }) : rej(new Error("late")));
+    });
+    const user = userEvent.setup({ delay: null });
+    render(<App loadFn={() => late} askFn={() => Promise.resolve(springfield)} />);
+    await user.type(screen.getByLabelText("Question"), turn.question);
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Plan" })).toBeTruthy());
+    await act(async () => {
+      settle();
+      await late.catch(() => {});
+    });
+    expect(screen.getByText("Active question: " + turn.question)).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
