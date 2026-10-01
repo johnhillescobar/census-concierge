@@ -178,6 +178,21 @@ async def test_create_purges_expired_rows(pool: AsyncConnectionPool) -> None:
         assert await cur.fetchone() == (0,)
 
 
+async def test_open_pool_purges_expired_rows(pool: AsyncConnectionPool) -> None:
+    old = (await store.create(pool, uuid4()))["thread_id"]
+    await expire(pool, old, "-1 second")
+    assert URL
+    second = await store.open_pool(URL)
+    try:
+        async with second.connection() as conn:
+            cur = await conn.execute(
+                "SELECT count(*) FROM conversations WHERE thread_id = %s", (old,)
+            )
+            assert await cur.fetchone() == (0,)
+    finally:
+        await second.close()
+
+
 async def test_create_expires_in_48_hours(pool: AsyncConnectionPool) -> None:
     created = await store.create(pool, uuid4())
     hours = (created["expires_at"] - created["created_at"]).total_seconds() / 3600
