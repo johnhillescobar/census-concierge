@@ -37,13 +37,15 @@ _LIVE = "thread_id = %(thread_id)s AND user_id = %(user_id)s AND expires_at > no
 
 
 class PersistenceNotConfigured(RuntimeError):
-    """`DATABASE_URL` was not set, so there is no pool."""
+    """There is no pool: `DATABASE_URL` is unset, or the database could not be opened at startup."""
 
 
 def require_pool(app: FastAPI) -> AsyncConnectionPool:
     pool: AsyncConnectionPool | None = getattr(app.state, "pool", None)
     if pool is None:
-        raise PersistenceNotConfigured("persistence not configured: DATABASE_URL is unset")
+        raise PersistenceNotConfigured(
+            "persistence unavailable: DATABASE_URL is unset or the database could not be opened"
+        )
     return pool
 
 
