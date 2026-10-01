@@ -1,0 +1,46 @@
+# CC-41 Gate 2 (cold review) - branch feat/cc-41-conversation-routes
+Machines: check_invariants --base origin/main: all ok EXCEPT "budget increases" (api_src_loc 4250 -> 4300).
+  EXPECTED: owner-approved standalone commit "budget(CC-41)". NOTE FOR OWNER: that raise must land on main as its own
+  commit before this PR is mergeable. Not a code finding.
+check_budgets: all met (api src LOC 4286 <= 4300, routes 4/10, files 26/40, largest file 410 <= 410 -- zero headroom).
+ruff check / format --check: clean. mypy api/src: clean. pytest -m "not integration" (DATABASE_URL set): 565 passed.
+OpenAPI: packages/client diff is additions only (0 removed lines in openapi.json and schema.d.ts); /ask entry untouched.
+Windows evidence: evidence/slice-5/cc-41-windows-loop.txt present (selector loop, 201/200/404). Captured at HEAD b0c43aa
+  (code unchanged since; later commits evidence/docs only).
+
+Acceptance criteria vs code/tests: all covered (header 422 loc, 201 shape + 48h + purge, turn == /ask and stored,
+checks before run_ask with zero-call assertion, identical 404, 409, invalid override same 422 nothing stored, failed
+run_ask 500 nothing stored, append keeps expires_at, GET shape/order, GET leaves updated_at, 503 + /ask 200, routes 4/10).
+
+## Pass 1 findings (generic bugs)
+HIGH: nothing
+MEDIUM: nothing
+LOW
+- api/src/main.py:44 NOT_FOUND is a module-level HTTPException instance raised on every request. Shared mutable
+  exception: __traceback__ accumulates across raises (slow leak) and it conflicts with the "no module-level mutable
+  state" rule. Fix: build a fresh HTTPException per raise (a tiny function).
+- api/src/main.py:46-51,70 (User header) A malformed X-User-Id yields FastAPI's default 422 that echoes the
+  value in "input" (verified: {"input":"secret-bad"}). Only a client-sent invalid value, never a stored/valid id, so
+  the "never in a body" criterion holds for valid ids; the test uses valid UUIDs only, so this is untested.
+- api/src/main.py:46-51 Pool dependency is resolved before the header, so with DATABASE_URL unset a missing/invalid
+  header returns 503, not 422 (verified). AC only specifies 422 with a DB; noting ordering.
+- api/src/main.py:114-118 Lost-race branches (append returns None/"full" after run_ask) are untested; the answer is
+  discarded and model spend wasted, correct but no test exercises the lines.
+- api/src/main.py:112 Turn.created_at uses the app clock, other timestamps the DB clock; skew only cosmetic.
+- api/src/store.py:51-60 Conversation response model re-validates stored jsonb as AskResponse on every GET; a later
+  AskResponse change (new required field) would 500 GET for old rows within the 48h window. Not a bug today
+  (round trip verified by populated_response test, no float/NaN fields).
+Checked and OK: pre-check/append race (append is a single atomic UPDATE with ownership+expiry+cap in WHERE; fallthrough
+maps correctly); ownership/expiry/fullness before run_ask; 404/409/422/500/503 mapping; no partial turn on any error
+path (store only after run_ask returns); X-User-Id absent from bodies/logs/exceptions (valid ids); jsonb datetimes/
+ResultPlan round trip; GET does not touch updated_at.
+
+## Pass 2 findings (project invariants, review-pr.md)
+HIGH: nothing (no silent-wrong-answer path: turn returns the same AskResponse, URL/MOE/GEOID/universe untouched;
+  no key redaction change; no clarification question; no new graph node/tool)
+MEDIUM: nothing
+LOW
+- budgets.toml / api/src/store.py,main.py: largest file main.py/store at 410? check_budgets shows largest file 410 <= 410
+  (zero headroom) and api_src_loc 4286/4300 (14 lines). Next slice change will need another owner raise. Informational.
+- Scope: 3 routes + models only; 14 files (< ~15). Test files renamed assertions for the new route list. Nothing out of scope.
+Verdict: Ship it with follow-ups (land the budget commit on main first; fix the shared NOT_FOUND instance).
