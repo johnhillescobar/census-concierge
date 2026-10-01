@@ -1,0 +1,35 @@
+# CC-41 Windows: uvicorn --loop src.loop:selector_factory, no --reload
+# captured: 2026-10-01T12:01:38Z  HEAD: b0c43aa2f97d0f756d09e1e371af4dcbc1eb6351
+# command: uv run uvicorn src.main:app --loop src.loop:selector_factory --port 8765
+## POST /conversations
+HTTP/1.1 201 Created
+date: Thu, 01 Oct 2026 12:01:47 GMT
+server: uvicorn
+content-length: 157
+content-type: application/json
+
+{"thread_id":"e3046cc4-30ba-4e32-9cca-8e9c6bcab333","title":"New Chat","created_at":"2026-10-01T12:01:47.466188Z","expires_at":"2026-10-03T12:01:47.466188Z"}
+## GET /conversations/<thread_id>
+HTTP/1.1 200 OK
+date: Thu, 01 Oct 2026 12:01:48 GMT
+server: uvicorn
+content-length: 168
+content-type: application/json
+
+{"thread_id":"e3046cc4-30ba-4e32-9cca-8e9c6bcab333","title":"New Chat","created_at":"2026-10-01T12:01:47.466188Z","expires_at":"2026-10-03T12:01:47.466188Z","turns":[]}
+## GET with another user (expect 404)
+HTTP/1.1 404 Not Found
+date: Thu, 01 Oct 2026 12:01:48 GMT
+server: uvicorn
+content-length: 35
+content-type: application/json
+
+{"detail":"conversation not found"}
+## server log
+INFO:     Started server process [29980]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8765 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56790 - "POST /conversations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56792 - "GET /conversations/e3046cc4-30ba-4e32-9cca-8e9c6bcab333 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56794 - "GET /conversations/e3046cc4-30ba-4e32-9cca-8e9c6bcab333 HTTP/1.1" 404 Not Found
