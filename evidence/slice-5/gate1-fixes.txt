@@ -1,0 +1,8 @@
+Gate 1, fix commit: mutation checks for the four Gate 2 findings (CC-40). One mutation at a time, file restored after each.
+GOOD = the test failed against the mutation.
+
+GOOD  no pool close on failed startup          test_failed_startup_closes_the_pool                          1 failed
+GOOD  lifespan lets startup error escape       test_app_serves_ask_when_the_database_is_unreachable         1 failed
+GOOD  no advisory lock (5 runs, 5 failed)      test_concurrent_startup_does_not_race_on_ddl                 1 failed each run
+GOOD  no coalesce in cap check                 test_append_treats_a_missing_turns_array_as_empty            1 failed
+GOOD  no coalesce in jsonb_set                 test_append_treats_a_missing_turns_array_as_empty            1 failed

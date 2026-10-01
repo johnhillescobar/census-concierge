@@ -11,6 +11,7 @@ process. There is no CORS middleware: the UI and POST /ask share the origin.
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -24,6 +25,7 @@ from src.ask import run_ask
 from src.contract import AskRequest, AskResponse, reject_unknown_override
 from src.store import open_pool
 
+log = logging.getLogger(__name__)
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
@@ -31,7 +33,12 @@ def create_app(dist: Path | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         url = os.environ.get("DATABASE_URL")
-        app.state.pool = await open_pool(url) if url else None
+        app.state.pool = None
+        if url:
+            try:
+                app.state.pool = await open_pool(url)
+            except Exception as exc:  # /ask must survive a bad or unreachable database
+                log.error("persistence unavailable at startup: %s", type(exc).__name__)
         try:
             yield
         finally:

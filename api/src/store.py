@@ -17,6 +17,8 @@ from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
 MAX_TURNS = 50
+STARTUP_TIMEOUT = 10.0
+_SCHEMA_LOCK = 40_001  # serializes DDL when several workers start at once
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS conversations (
@@ -47,10 +49,15 @@ def require_pool(app: FastAPI) -> AsyncConnectionPool:
 
 async def open_pool(url: str) -> AsyncConnectionPool:
     pool = AsyncConnectionPool(url, open=False, kwargs={"autocommit": True})
-    await pool.open(wait=True)
-    async with pool.connection() as conn:
-        await conn.execute(SCHEMA)
-    await purge(pool)
+    try:
+        await pool.open(wait=True, timeout=STARTUP_TIMEOUT)
+        async with pool.connection() as conn, conn.transaction():
+            await conn.execute("SELECT pg_advisory_xact_lock(%s)", (_SCHEMA_LOCK,))
+            await conn.execute(SCHEMA)
+        await purge(pool)
+    except BaseException:
+        await pool.close()
+        raise
     return pool
 
 
@@ -89,8 +96,9 @@ async def append(
     async with pool.connection() as conn:
         cur = await conn.execute(
             "UPDATE conversations SET updated_at = now(),"
-            " state = jsonb_set(state, '{turns}', (state->'turns') || jsonb_build_array(%(turn)s))"
-            f" WHERE {_LIVE} AND jsonb_array_length(state->'turns') < %(cap)s",
+            " state = jsonb_set(state, '{turns}', coalesce(state->'turns', '[]') ||"
+            " jsonb_build_array(%(turn)s))"
+            f" WHERE {_LIVE} AND jsonb_array_length(coalesce(state->'turns', '[]')) < %(cap)s",
             params,
         )
         if cur.rowcount:

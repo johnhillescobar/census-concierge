@@ -232,3 +232,56 @@ def test_require_pool_returns_the_app_pool() -> None:
     app = FastAPI()
     app.state.pool = sentinel = object()
     assert store.require_pool(app) is sentinel
+
+
+async def test_failed_startup_closes_the_pool(
+    pool: AsyncConnectionPool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: list[AsyncConnectionPool] = []
+
+    class Spy(AsyncConnectionPool):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+            opened.append(self)
+
+    async def boom(_: AsyncConnectionPool) -> int:
+        raise RuntimeError("purge failed")
+
+    monkeypatch.setattr(store, "AsyncConnectionPool", Spy)
+    monkeypatch.setattr(store, "purge", boom)
+    with pytest.raises(RuntimeError):
+        await store.open_pool(URL or "")
+    assert len(opened) == 1
+    assert opened[0].closed
+
+
+def test_app_serves_ask_when_the_database_is_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://postgres:x@127.0.0.1:1/postgres")
+    monkeypatch.setattr(store, "STARTUP_TIMEOUT", 1.0)
+    app = create_app()
+    with TestClient(app) as client:
+        assert app.state.pool is None
+        assert client.post("/ask", json={"question": " "}).status_code == 422
+        with pytest.raises(store.PersistenceNotConfigured):
+            store.require_pool(app)
+
+
+async def test_concurrent_startup_does_not_race_on_ddl(pool: AsyncConnectionPool) -> None:
+    async with pool.connection() as conn:
+        await conn.execute("DROP TABLE conversations")
+    pools = await asyncio.gather(*(store.open_pool(URL or "") for _ in range(8)))
+    for opened in pools:
+        await opened.close()
+
+
+async def test_append_treats_a_missing_turns_array_as_empty(pool: AsyncConnectionPool) -> None:
+    user = uuid4()
+    thread = (await store.create(pool, user))["thread_id"]
+    async with pool.connection() as conn:
+        await conn.execute("UPDATE conversations SET state = '{}' WHERE thread_id = %s", (thread,))
+    assert await store.append(pool, thread, user, turn()) == "appended"
+    loaded = await store.load(pool, thread, user)
+    assert loaded is not None
+    assert [t["question"] for t in loaded["state"]["turns"]] == ["q0"]
