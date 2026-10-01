@@ -56,6 +56,10 @@ over-ceiling recorded not promoted; `evidence/slice-4/cc-49-e2e-post.txt`).
 [CC-40](https://johnhillescobar.atlassian.net/browse/CC-40) Done (Postgres conversation
 store; floors met; answered_rate long_tail 0.842 (overall 0.866); p95 26.155s
 over-ceiling recorded not promoted; `evidence/slice-5/cc-40-e2e-post.txt`).
+[CC-41](https://johnhillescobar.atlassian.net/browse/CC-41) Done (conversation create/append/read routes;
+floors met; answered_rate long_tail 0.825 (overall 0.871); p95 21.242s over-ceiling
+recorded not promoted; conversation round trip incl. server restart ok;
+`evidence/slice-5/cc-41-e2e-post.txt`).
 CC-77 waits on CC-11 table/plan-strip foundations. Spike CC-9 before slice 5.
 
 ---
