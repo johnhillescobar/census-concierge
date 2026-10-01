@@ -42,7 +42,12 @@ REQUIRED_FIELDS = CONTRACT_FIELDS[:-2]
 
 def test_openapi_documents_post_ask() -> None:
     schema = client.get("/openapi.json").json()
-    assert list(schema["paths"]) == ["/ask"]
+    assert list(schema["paths"]) == [
+        "/ask",
+        "/conversations",
+        "/conversations/{thread_id}/turns",
+        "/conversations/{thread_id}",
+    ]
     post = schema["paths"]["/ask"]["post"]
     assert post["operationId"] == "ask"
     assert post["requestBody"]["content"]["application/json"]["schema"] == {
@@ -400,5 +405,10 @@ def test_typed_plan_override_reaches_the_ask_loop(monkeypatch: Any) -> None:
 
 def test_ask_is_the_only_question_route() -> None:
     schema = client.get("/openapi.json").json()
-    assert list(schema["paths"]) == ["/ask"]
+    assert list(schema["paths"]) == [
+        "/ask",
+        "/conversations",
+        "/conversations/{thread_id}/turns",
+        "/conversations/{thread_id}",
+    ]
     assert list(schema["paths"]["/ask"]) == ["post"]

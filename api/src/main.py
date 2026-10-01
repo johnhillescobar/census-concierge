@@ -15,18 +15,70 @@ import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Annotated, Any
+from uuid import UUID
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from psycopg_pool import AsyncConnectionPool
 
 from src.ask import run_ask
 from src.contract import AskRequest, AskResponse, reject_unknown_override
-from src.store import open_pool
+from src.store import (
+    MAX_TURNS,
+    Conversation,
+    ConversationInfo,
+    PersistenceNotConfigured,
+    Turn,
+    append,
+    create,
+    load,
+    open_pool,
+    require_pool,
+)
 
 log = logging.getLogger(__name__)
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+
+
+DOWN: dict[int | str, dict[str, Any]] = {503: {"description": "persistence unavailable"}}
+GONE: dict[int | str, dict[str, Any]] = {404: {"description": "conversation not found"}, **DOWN}
+
+
+def not_found() -> HTTPException:
+    return HTTPException(404, "conversation not found")
+
+
+User = Annotated[UUID, Header(alias="x-user-id")]
+
+
+def pool_of(request: Request, _user: User) -> AsyncConnectionPool:  # header 422 before 503
+    try:
+        return require_pool(request.app)
+    except PersistenceNotConfigured as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+Pool = Annotated[AsyncConnectionPool, Depends(pool_of)]
+
+
+async def answer(body: AskRequest) -> AskResponse:
+    field = reject_unknown_override(body.plan)
+    if field:
+        raise RequestValidationError(
+            [
+                {
+                    "type": "value_error",
+                    "loc": ("body", "plan", field),
+                    "msg": f"Value error, invalid {field} override",
+                    "input": getattr(body.plan, field),
+                }
+            ]
+        )
+    return await run_ask(body.question, override=body.plan)
 
 
 def create_app(dist: Path | None = None) -> FastAPI:
@@ -49,19 +101,50 @@ def create_app(dist: Path | None = None) -> FastAPI:
 
     @application.post("/ask", response_model=AskResponse, operation_id="ask")
     async def post_ask(body: AskRequest) -> AskResponse:
-        field = reject_unknown_override(body.plan)
-        if field:
-            raise RequestValidationError(
-                [
-                    {
-                        "type": "value_error",
-                        "loc": ("body", "plan", field),
-                        "msg": f"Value error, invalid {field} override",
-                        "input": getattr(body.plan, field),
-                    }
-                ]
-            )
-        return await run_ask(body.question, override=body.plan)
+        return await answer(body)
+
+    @application.post(
+        "/conversations",
+        status_code=201,
+        response_model=ConversationInfo,
+        responses=DOWN,
+        operation_id="create_conversation",
+    )
+    async def post_conversation(user: User, pool: Pool) -> dict[str, Any]:
+        return await create(pool, user)
+
+    @application.post(
+        "/conversations/{thread_id}/turns",
+        response_model=AskResponse,
+        responses={**GONE, 409: {"description": "conversation full"}},
+        operation_id="append_turn",
+    )
+    async def post_turn(thread_id: UUID, body: AskRequest, user: User, pool: Pool) -> AskResponse:
+        found = await load(pool, thread_id, user)  # before run_ask: no model spend on a bad thread
+        if found is None:
+            raise not_found()
+        if len(found["state"]["turns"]) >= MAX_TURNS:
+            raise HTTPException(409, "conversation full")
+        response = await answer(body)
+        turn = Turn(
+            question=body.question, plan=body.plan, response=response, created_at=datetime.now(UTC)
+        )
+        status = await append(pool, thread_id, user, turn.model_dump(mode="json"))
+        if status != "appended":  # lost a race with expiry or another append
+            raise not_found() if status is None else HTTPException(409, "conversation full")
+        return response
+
+    @application.get(
+        "/conversations/{thread_id}",
+        response_model=Conversation,
+        responses=GONE,
+        operation_id="get_conversation",
+    )
+    async def get_conversation(thread_id: UUID, user: User, pool: Pool) -> dict[str, Any]:
+        found = await load(pool, thread_id, user)
+        if found is None:
+            raise not_found()
+        return {**found, "turns": found["state"]["turns"]}
 
     root = WEB_DIST if dist is None else dist
     if root.is_dir():

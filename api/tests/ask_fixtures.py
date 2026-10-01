@@ -11,7 +11,16 @@ from __future__ import annotations
 from typing import Any
 
 from src.ask import ExecutionRecord, _allowed
-from src.contract import GeoSpec, override_years
+from src.census_url import CensusURL
+from src.contract import (
+    AskResponse,
+    AskWarning,
+    ChartSpec,
+    GeoSpec,
+    RequestLeg,
+    ResultPlan,
+    override_years,
+)
 from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
 from src.retrieval.metadata import GeoLevel
@@ -487,3 +496,48 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
             ),
         ),
     }
+
+
+def populated_response() -> AskResponse:
+    geo = GeoSpec(
+        level="place",
+        name="Detroit city, Michigan",
+        geoid="1600000US2622000",
+        for_spec="place:22000",
+        in_spec="state:26",
+        vintage=2023,
+    )
+    url = str(CensusURL("https://api.census.gov/data/2023/acs/acs5?get=B17001_002E&key=SECRET"))
+    return AskResponse(
+        answer="a",
+        urls=[url],
+        requested_years=[2023],
+        attempted_years=[2023],
+        succeeded_years=[2023],
+        failed_years=[],
+        omitted_years=[],
+        omission_reasons=[],
+        legs=[RequestLeg(year=2023, url=url, ok=True, status_code=200, detail="")],
+        rows=[
+            {"GEO_ID": "1600000US2622000", "B17001_002E": "1"},
+            {"GEO_ID": "1600000US2622001", "B17001_002E": "2"},
+        ],
+        moe=[
+            {"GEO_ID": "1600000US2622000", "B17001_002M": "5"},
+            {"GEO_ID": "1600000US2622001", "B17001_002M": "6"},
+        ],
+        geoid="1600000US2622000",
+        universe="Population for whom poverty status is determined",
+        table_id="B17001",
+        alternatives=[],
+        comparisons=[],
+        warnings=[AskWarning(code="ambiguous_place", detail="d", candidates=[geo])],
+        plan=ResultPlan(
+            table_id="B17001",
+            variables=["B17001_002E"],
+            years=[2023],
+            requested_years=[2023],
+            geographies=[geo],
+        ),
+        chart=ChartSpec(type="bar", x="geography", y="estimate", title="Poverty"),
+    )

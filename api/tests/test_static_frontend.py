@@ -84,9 +84,17 @@ def test_post_ask_still_works_when_the_ui_is_mounted(tmp_path: Path, monkeypatch
     assert response.headers.get("access-control-allow-origin") is None
 
 
-def test_openapi_stays_ask_only_when_the_ui_is_mounted(tmp_path: Path) -> None:
+API_PATHS = [
+    "/ask",
+    "/conversations",
+    "/conversations/{thread_id}/turns",
+    "/conversations/{thread_id}",
+]
+
+
+def test_openapi_lists_only_api_routes_when_the_ui_is_mounted(tmp_path: Path) -> None:
     schema = create_app(_dist(tmp_path)).openapi()
-    assert list(schema["paths"]) == ["/ask"]
+    assert list(schema["paths"]) == API_PATHS
     assert list(schema["paths"]["/ask"]) == ["post"]
 
 
@@ -96,7 +104,7 @@ def test_docs_still_work_when_the_ui_is_mounted(tmp_path: Path) -> None:
     assert docs.status_code == 200
     openapi = client.get("/openapi.json")
     assert openapi.status_code == 200
-    assert list(openapi.json()["paths"]) == ["/ask"]
+    assert list(openapi.json()["paths"]) == API_PATHS
 
 
 def test_missing_dist_does_not_take_down_ask(tmp_path: Path, monkeypatch: Any) -> None:
