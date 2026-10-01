@@ -38,8 +38,8 @@ scripts/diagnose.py          BM25 vs semantic vs fused (not the live path)
 evals/golden_questions.toml  4 core, 40 long-tail, 18 trap, 8 holdout
 evidence/latest.json         last measured run
 evidence/retrieval_steps.md  slice-0 ladder
-api/src/main.py              FastAPI; POST /ask; serves web/dist; pool in lifespan (app.state.pool)
-api/src/store.py             conversations in Postgres: create/load/append/purge; no routes yet (CC-41)
+api/src/main.py              FastAPI; POST /ask + 3 conversation routes (CC-41); serves web/dist; pool in lifespan (app.state.pool)
+api/src/store.py             conversations in Postgres: create/load/append/purge, plus the Turn/Conversation response models
 api/src/loop.py              selector event loop factory (Windows, psycopg async)
 api/src/ask.py               hand-rolled loop (_openai_complete, dispatch)
 api/src/finish.py            fills required fields if the model stops early
@@ -75,7 +75,7 @@ Availability: `index_store/availability.json.gz` (not parquet).
 
 ## HTTP
 
-One route: `POST /ask` → `run_ask`. Four tools. `AskResponse` fields and the
+`POST /ask` → `run_ask`. Conversations (`X-User-Id` header owns a thread; 503 without `DATABASE_URL`): `POST /conversations`, `POST /conversations/{id}/turns` (runs the same `answer()` as `/ask`, checks ownership, expiry and fullness first, stores the turn), `GET /conversations/{id}`. Four tools. `AskResponse` fields and the
 series/geo/comparison rules: `docs/ask-path.md`. `plan` is the executed table,
 estimate variables, years, and `GeoSpec`s — not parsed from answer prose.
 An optional `AskRequest.plan` pins those fields on the next `POST /ask`; the
