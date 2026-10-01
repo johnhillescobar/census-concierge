@@ -29,7 +29,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-STEP_IDS = ("eval", "rerank", "synthetic", "npm", "build", "demo")
+STEP_IDS = ("eval", "rerank", "synthetic", "npm", "build", "demo", "conversation")
 EBUSY = -4082
 _ERR_MARKS = ("error", "fatal", "exception", "traceback")
 _WARN_MARKS = ("warn", "deprecated", "ebusy", "not recommended")
@@ -300,6 +300,11 @@ def main() -> int:
             "demo",
             "run_demo --repeat 3",
             [py, "-u", str(scripts / "run_demo.py"), "--repeat", "3"],
+        ),
+        (
+            "conversation",
+            "e2e_conversation",
+            [py, "-u", str(scripts / "e2e_conversation.py")],
         ),
     ]
     skipping = args.start_from is not None

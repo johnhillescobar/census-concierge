@@ -806,6 +806,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "persistence unavailable"
           }
         },
         "summary": "Post Conversation"
@@ -847,6 +850,9 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "description": "conversation not found"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -856,6 +862,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "persistence unavailable"
           }
         },
         "summary": "Get Conversation"
@@ -907,6 +916,12 @@
             },
             "description": "Successful Response"
           },
+          "404": {
+            "description": "conversation not found"
+          },
+          "409": {
+            "description": "conversation full"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -916,6 +931,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "503": {
+            "description": "persistence unavailable"
           }
         },
         "summary": "Post Turn"

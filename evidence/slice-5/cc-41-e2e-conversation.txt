@@ -1,0 +1,21 @@
+# CC-41 e2e_conversation: real server (selector loop), model, Census, Postgres; server restarted between turn and reload
+# HEAD (pre-commit): f250208  captured: 2026-10-01T13:47:39Z
+# command: uv run python scripts/e2e_conversation.py
+[32mINFO[0m:     Started server process [[36m28120[0m]
+[32mINFO[0m:     Waiting for application startup.
+[32mINFO[0m:     Application startup complete.
+[32mINFO[0m:     Uvicorn running on [1mhttp://127.0.0.1:8766[0m (Press CTRL+C to quit)
+ok   POST /conversations 201
+Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+ok   POST turns 200
+ok   answer has a Census URL, rows, GEOID, MOE
+[32mINFO[0m:     Started server process [[36m4156[0m]
+[32mINFO[0m:     Waiting for application startup.
+[32mINFO[0m:     Application startup complete.
+[32mINFO[0m:     Uvicorn running on [1mhttp://127.0.0.1:8766[0m (Press CTRL+C to quit)
+ok   GET after restart 200
+ok   one stored turn with the asked question
+ok   stored response equals the answer shown
+ok   another user gets 404
+e2e_conversation OK
+# exit=0

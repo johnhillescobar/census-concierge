@@ -195,7 +195,11 @@ async def test_full_thread_is_409_and_never_reaches_the_model(h: Harness) -> Non
     assert len((await h.get(thread, user)).json()["turns"]) == store.MAX_TURNS
 
 
-async def test_invalid_override_is_the_ask_422_and_stores_nothing(h: Harness) -> None:
+async def test_invalid_override_is_the_ask_422_and_stores_nothing(
+    h: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The real check reads the gitignored availability index, which CI does not have.
+    monkeypatch.setattr(main, "reject_unknown_override", lambda plan: "table_id" if plan else "")
     user = uuid4()
     thread = await h.new(user)
     body = {**BODY, "plan": {"table_id": "B99999", "years": [2023], "requested_years": [2023]}}
@@ -297,3 +301,18 @@ async def test_losing_a_race_after_run_ask_maps_to_the_same_errors(
     assert r.status_code == status
     assert h.ask.calls == [BODY["question"]]  # the spend happened; nothing was stored
     assert (await h.get(thread, user)).json()["turns"] == []
+
+
+async def test_openapi_documents_the_error_responses(h: Harness) -> None:
+    paths = (await h.client.get("/openapi.json")).json()["paths"]
+    codes = {
+        (method, path): set(op["responses"])
+        for path, ops in paths.items()
+        if path.startswith("/conversations")
+        for method, op in ops.items()
+    }
+    assert {"201", "422", "503"} <= codes[("post", "/conversations")]
+    assert {"200", "404", "409", "422", "503"} <= codes[
+        ("post", "/conversations/{thread_id}/turns")
+    ]
+    assert {"200", "404", "422", "503"} <= codes[("get", "/conversations/{thread_id}")]

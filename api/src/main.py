@@ -44,6 +44,10 @@ log = logging.getLogger(__name__)
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
 
 
+DOWN: dict[int | str, dict[str, Any]] = {503: {"description": "persistence unavailable"}}
+GONE: dict[int | str, dict[str, Any]] = {404: {"description": "conversation not found"}, **DOWN}
+
+
 def not_found() -> HTTPException:
     return HTTPException(404, "conversation not found")
 
@@ -103,13 +107,17 @@ def create_app(dist: Path | None = None) -> FastAPI:
         "/conversations",
         status_code=201,
         response_model=ConversationInfo,
+        responses=DOWN,
         operation_id="create_conversation",
     )
     async def post_conversation(user: User, pool: Pool) -> dict[str, Any]:
         return await create(pool, user)
 
     @application.post(
-        "/conversations/{thread_id}/turns", response_model=AskResponse, operation_id="append_turn"
+        "/conversations/{thread_id}/turns",
+        response_model=AskResponse,
+        responses={**GONE, 409: {"description": "conversation full"}},
+        operation_id="append_turn",
     )
     async def post_turn(thread_id: UUID, body: AskRequest, user: User, pool: Pool) -> AskResponse:
         found = await load(pool, thread_id, user)  # before run_ask: no model spend on a bad thread
@@ -127,7 +135,10 @@ def create_app(dist: Path | None = None) -> FastAPI:
         return response
 
     @application.get(
-        "/conversations/{thread_id}", response_model=Conversation, operation_id="get_conversation"
+        "/conversations/{thread_id}",
+        response_model=Conversation,
+        responses=GONE,
+        operation_id="get_conversation",
     )
     async def get_conversation(thread_id: UUID, user: User, pool: Pool) -> dict[str, Any]:
         found = await load(pool, thread_id, user)
