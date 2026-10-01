@@ -53,6 +53,9 @@ wildcard geography resolution fix; floors met; answered_rate long_tail 0.833
 `evidence/slice-4/cc-101-e2e-post.txt`). [CC-49](https://johnhillescobar.atlassian.net/browse/CC-49)
 Done (CSV export; floors met; answered_rate 0.825 (overall 0.866); p95
 over-ceiling recorded not promoted; `evidence/slice-4/cc-49-e2e-post.txt`).
+[CC-40](https://johnhillescobar.atlassian.net/browse/CC-40) Done (Postgres conversation
+store; floors met; answered_rate long_tail 0.842 (overall 0.866); p95 26.155s
+over-ceiling recorded not promoted; `evidence/slice-5/cc-40-e2e-post.txt`).
 CC-77 waits on CC-11 table/plan-strip foundations. Spike CC-9 before slice 5.
 
 ---
