@@ -1,0 +1,1066 @@
+Gate 1 transcript, CC-41 (conversation routes), commit 7e5c038, no test changes. Raw pytest output under each label; labels added by the driver from the exit code.
+GOOD = mutated test FAILED (exit 1). BAD = test PASSED against its mutation (not a check). Each mutation applied via string replace, one behavior, restored with git checkout; git diff api/src checked after each.
+Mutations 1-6 are the six header parametrized cases (3 routes x missing/malformed). Mutations 14-16 are the three 404 causes.
+
+==============================================================================
+BASELINE (no mutation, DATABASE_URL set)
+==============================================================================
+..................                                                       [100%]
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations-None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+18 passed, 1 warning in 2.38s
+
+==============================================================================
+MUTATION 1: x-user-id optional on POST /conversations (missing header accepted)
+  file=api/src/main.py  -k "test_user_header and post and not turns and None"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+__ test_user_header_is_required_and_must_be_a_uuid[post-/conversations-None] __
+api\tests\test_conversation_routes.py:126: in test_user_header_is_required_and_must_be_a_uuid
+    assert r.status_code == 422
+E   assert 201 == 422
+E    +  where 201 = <Response [201 Created]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations-None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations-None]
+1 failed, 17 deselected, 1 warning in 0.59s
+
+==============================================================================
+MUTATION 2: x-user-id not validated as UUID on POST /conversations
+  file=api/src/main.py  -k "test_user_header and post and not turns and not None"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_user_header_is_required_and_must_be_a_uuid[post-/conversations-not-a-uuid] _
+api\tests\test_conversation_routes.py:126: in test_user_header_is_required_and_must_be_a_uuid
+    assert r.status_code == 422
+E   assert 500 == 422
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations-not-a-uuid]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations-not-a-uuid]
+1 failed, 17 deselected, 1 warning in 0.43s
+
+==============================================================================
+MUTATION 3: x-user-id optional on POST turns
+  file=api/src/main.py  -k "test_user_header and turns and None"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_user_header_is_required_and_must_be_a_uuid[post-/conversations/193fb048-7cb0-4c9f-a064-ebadd728f565/turns-None] _
+api\tests\test_conversation_routes.py:126: in test_user_header_is_required_and_must_be_a_uuid
+    assert r.status_code == 422
+E   assert 404 == 422
+E    +  where 404 = <Response [404 Not Found]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations/193fb048-7cb0-4c9f-a064-ebadd728f565/turns-None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations/193fb048-7cb0-4c9f-a064-ebadd728f565/turns-None]
+1 failed, 17 deselected, 1 warning in 0.56s
+
+==============================================================================
+MUTATION 4: x-user-id not validated as UUID on POST turns
+  file=api/src/main.py  -k "test_user_header and turns and not None"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_user_header_is_required_and_must_be_a_uuid[post-/conversations/b926b766-7290-4f7d-a87b-7c3620ffe2b1/turns-not-a-uuid] _
+api\tests\test_conversation_routes.py:126: in test_user_header_is_required_and_must_be_a_uuid
+    assert r.status_code == 422
+E   assert 500 == 422
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations/b926b766-7290-4f7d-a87b-7c3620ffe2b1/turns-not-a-uuid]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[post-/conversations/b926b766-7290-4f7d-a87b-7c3620ffe2b1/turns-not-a-uuid]
+1 failed, 17 deselected, 1 warning in 0.49s
+
+==============================================================================
+MUTATION 5: x-user-id optional on GET conversation
+  file=api/src/main.py  -k "test_user_header and get and None"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_user_header_is_required_and_must_be_a_uuid[get-/conversations/388dd8ee-5513-4e5a-a98c-92fd6464a8ca-None] _
+api\tests\test_conversation_routes.py:126: in test_user_header_is_required_and_must_be_a_uuid
+    assert r.status_code == 422
+E   assert 404 == 422
+E    +  where 404 = <Response [404 Not Found]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[get-/conversations/388dd8ee-5513-4e5a-a98c-92fd6464a8ca-None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[get-/conversations/388dd8ee-5513-4e5a-a98c-92fd6464a8ca-None]
+1 failed, 17 deselected, 1 warning in 0.58s
+
+==============================================================================
+MUTATION 6: x-user-id not validated as UUID on GET conversation
+  file=api/src/main.py  -k "test_user_header and get and not None"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_user_header_is_required_and_must_be_a_uuid[get-/conversations/bb058e32-372b-46b2-9068-dac9fe65f9f9-not-a-uuid] _
+api\tests\test_conversation_routes.py:126: in test_user_header_is_required_and_must_be_a_uuid
+    assert r.status_code == 422
+E   assert 500 == 422
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[get-/conversations/bb058e32-372b-46b2-9068-dac9fe65f9f9-not-a-uuid]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_header_is_required_and_must_be_a_uuid[get-/conversations/bb058e32-372b-46b2-9068-dac9fe65f9f9-not-a-uuid]
+1 failed, 17 deselected, 1 warning in 0.54s
+
+==============================================================================
+MUTATION 7: create returns 200 not 201
+  file=api/src/main.py  -k "test_create"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________ test_create_returns_a_48_hour_thread_and_purges_expired_rows _________
+api\tests\test_conversation_routes.py:133: in test_create_returns_a_48_hour_thread_and_purges_expired_rows
+    stale = await h.new(user)
+            ^^^^^^^^^^^^^^^^^
+api\tests\test_conversation_routes.py:47: in new
+    assert r.status_code == 201
+E   assert 200 == 201
+E    +  where 200 = <Response [200 OK]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+1 failed, 17 deselected, 1 warning in 0.47s
+
+==============================================================================
+MUTATION 8: create title is not 'New Chat'
+  file=api/src/store.py  -k "test_create"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________ test_create_returns_a_48_hour_thread_and_purges_expired_rows _________
+api\tests\test_conversation_routes.py:139: in test_create_returns_a_48_hour_thread_and_purges_expired_rows
+    assert body["title"] == "New Chat"
+E   AssertionError: assert 'Untitled' == 'New Chat'
+E     
+E     - New Chat
+E     + Untitled
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+1 failed, 17 deselected, 1 warning in 0.46s
+
+==============================================================================
+MUTATION 9: create lifetime is 24h not 48h
+  file=api/src/store.py  -k "test_create"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________ test_create_returns_a_48_hour_thread_and_purges_expired_rows _________
+api\tests\test_conversation_routes.py:143: in test_create_returns_a_48_hour_thread_and_purges_expired_rows
+    assert abs(lifetime - timedelta(hours=48)) < timedelta(seconds=1)
+E   assert datetime.timedelta(days=1) < datetime.timedelta(seconds=1)
+E    +  where datetime.timedelta(days=1) = abs((datetime.timedelta(days=1) - datetime.timedelta(days=2)))
+E    +    where datetime.timedelta(days=2) = timedelta(hours=48)
+E    +  and   datetime.timedelta(seconds=1) = timedelta(seconds=1)
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+1 failed, 17 deselected, 1 warning in 0.43s
+
+==============================================================================
+MUTATION 10: create does not purge expired rows
+  file=api/src/store.py  -k "test_create"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________ test_create_returns_a_48_hour_thread_and_purges_expired_rows _________
+api\tests\test_conversation_routes.py:144: in test_create_returns_a_48_hour_thread_and_purges_expired_rows
+    assert await row_exists(h.pool, UUID(stale)) is False
+E   assert True is False
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_create_returns_a_48_hour_thread_and_purges_expired_rows
+1 failed, 17 deselected, 1 warning in 0.56s
+
+==============================================================================
+MUTATION 11: turn returns a different body than /ask
+  file=api/src/main.py  -k "test_turn_equals"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_turn_equals_ask_and_is_stored ______________________
+api\tests\test_conversation_routes.py:153: in test_turn_equals_ask_and_is_stored
+    assert r.json() == asked
+E   AssertionError: assert {'answer': 'a...: [2023], ...} == {'answer': 'a...: [2023], ...}
+E     
+E     Omitting 19 identical items, use -vv to show
+E     Differing items:
+E     {'answer': 'a!'} != {'answer': 'a'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_turn_equals_ask_and_is_stored
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_turn_equals_ask_and_is_stored
+1 failed, 17 deselected, 1 warning in 0.52s
+
+==============================================================================
+MUTATION 12: turn is not stored (append skipped)
+  file=api/src/main.py  -k "test_turn_equals"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_turn_equals_ask_and_is_stored ______________________
+api\tests\test_conversation_routes.py:155: in test_turn_equals_ask_and_is_stored
+    assert [t["question"] for t in turns] == [BODY["question"]]
+E   AssertionError: assert [] == ['poverty in Detroit']
+E     
+E     Right contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_turn_equals_ask_and_is_stored
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_turn_equals_ask_and_is_stored
+1 failed, 17 deselected, 1 warning in 0.55s
+
+==============================================================================
+MUTATION 13: turn stores a different question than asked
+  file=api/src/main.py  -k "test_turn_equals"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_turn_equals_ask_and_is_stored ______________________
+api\tests\test_conversation_routes.py:155: in test_turn_equals_ask_and_is_stored
+    assert [t["question"] for t in turns] == [BODY["question"]]
+E   AssertionError: assert ['POVERTY IN DETROIT'] == ['poverty in Detroit']
+E     
+E     At index 0 diff: 'POVERTY IN DETROIT' != 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_turn_equals_ask_and_is_stored
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_turn_equals_ask_and_is_stored
+1 failed, 17 deselected, 1 warning in 0.51s
+
+==============================================================================
+MUTATION 14: ownership/expiry load moved AFTER run_ask (foreign thread)
+  file=api/src/main.py  -k "test_unreachable and foreign"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign] _
+api\tests\test_conversation_routes.py:183: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert h.ask.calls == []
+E   AssertionError: assert ['poverty in Detroit'] == []
+E     
+E     Left contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign]
+1 failed, 17 deselected, 1 warning in 0.58s
+
+==============================================================================
+MUTATION 15: ownership/expiry load moved AFTER run_ask (missing thread)
+  file=api/src/main.py  -k "test_unreachable and missing"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing] _
+api\tests\test_conversation_routes.py:183: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert h.ask.calls == []
+E   AssertionError: assert ['poverty in Detroit'] == []
+E     
+E     Left contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing]
+1 failed, 17 deselected, 1 warning in 0.52s
+
+==============================================================================
+MUTATION 16: ownership/expiry load moved AFTER run_ask (expired thread)
+  file=api/src/main.py  -k "test_unreachable and expired"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired] _
+api\tests\test_conversation_routes.py:183: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert h.ask.calls == []
+E   AssertionError: assert ['poverty in Detroit'] == []
+E     
+E     Left contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired]
+1 failed, 17 deselected, 1 warning in 0.59s
+
+==============================================================================
+MUTATION 17: load ignores user_id (foreign thread reachable)
+  file=api/src/store.py  -k "test_unreachable and foreign"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign] _
+api\tests\test_conversation_routes.py:181: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert r.status_code == 404
+E   assert 200 == 404
+E    +  where 200 = <Response [200 OK]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign]
+1 failed, 17 deselected, 1 warning in 0.52s
+
+==============================================================================
+MUTATION 18: load/append ignore expires_at (expired thread reachable)
+  file=api/src/store.py  -k "test_unreachable and expired"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired] _
+api\tests\test_conversation_routes.py:181: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert r.status_code == 404
+E   assert 200 == 404
+E    +  where 200 = <Response [200 OK]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired]
+1 failed, 17 deselected, 1 warning in 0.61s
+
+==============================================================================
+MUTATION 19: turn: missing thread proceeds with empty state (404 only after run_ask)
+  file=api/src/main.py  -k "test_unreachable and missing"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing] _
+api\tests\test_conversation_routes.py:183: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert h.ask.calls == []
+E   AssertionError: assert ['poverty in Detroit'] == []
+E     
+E     Left contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing]
+1 failed, 17 deselected, 1 warning in 0.57s
+
+==============================================================================
+MUTATION 20: 404 body differs on GET (detail 'not found')
+  file=api/src/main.py  -k "test_unreachable and foreign"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign] _
+api\tests\test_conversation_routes.py:182: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert r.json() == NOT_FOUND
+E   AssertionError: assert {'detail': 'not found'} == {'detail': 'c...on not found'}
+E     
+E     Differing items:
+E     {'detail': 'not found'} != {'detail': 'conversation not found'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[foreign]
+1 failed, 17 deselected, 1 warning in 0.61s
+
+==============================================================================
+MUTATION 21: 404 body differs on POST turn (detail 'not found')
+  file=api/src/main.py  -k "test_unreachable and missing"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing] _
+api\tests\test_conversation_routes.py:182: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert r.json() == NOT_FOUND
+E   AssertionError: assert {'detail': 'not found'} == {'detail': 'c...on not found'}
+E     
+E     Differing items:
+E     {'detail': 'not found'} != {'detail': 'conversation not found'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[missing]
+1 failed, 17 deselected, 1 warning in 0.51s
+
+==============================================================================
+MUTATION 22: 404 status is 403 for every cause
+  file=api/src/main.py  -k "test_unreachable and expired"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired] _
+api\tests\test_conversation_routes.py:181: in test_unreachable_thread_is_the_same_404_and_never_reaches_the_model
+    assert r.status_code == 404
+E   assert 403 == 404
+E    +  where 403 = <Response [403 Forbidden]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_unreachable_thread_is_the_same_404_and_never_reaches_the_model[expired]
+1 failed, 17 deselected, 1 warning in 0.69s
+
+==============================================================================
+MUTATION 23: fullness pre-check removed (409 only after run_ask, via append)
+  file=api/src/main.py  -k "test_full"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_full_thread_is_409_and_never_reaches_the_model _____________
+api\tests\test_conversation_routes.py:194: in test_full_thread_is_409_and_never_reaches_the_model
+    assert h.ask.calls == []
+E   AssertionError: assert ['poverty in Detroit'] == []
+E     
+E     Left contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+1 failed, 17 deselected, 1 warning in 0.88s
+
+==============================================================================
+MUTATION 24: fullness check moved AFTER run_ask
+  file=api/src/main.py  -k "test_full"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_full_thread_is_409_and_never_reaches_the_model _____________
+api\tests\test_conversation_routes.py:194: in test_full_thread_is_409_and_never_reaches_the_model
+    assert h.ask.calls == []
+E   AssertionError: assert ['poverty in Detroit'] == []
+E     
+E     Left contains one more item: 'poverty in Detroit'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+1 failed, 17 deselected, 1 warning in 0.78s
+
+==============================================================================
+MUTATION 25: 409 body differs (detail 'full')
+  file=api/src/main.py  -k "test_full"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_full_thread_is_409_and_never_reaches_the_model _____________
+api\tests\test_conversation_routes.py:193: in test_full_thread_is_409_and_never_reaches_the_model
+    assert r.json() == {"detail": "conversation full"}
+E   AssertionError: assert {'detail': 'full'} == {'detail': 'c...rsation full'}
+E     
+E     Differing items:
+E     {'detail': 'full'} != {'detail': 'conversation full'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+1 failed, 17 deselected, 1 warning in 0.84s
+
+==============================================================================
+MUTATION 26: 409 status is 400 on the pre-check
+  file=api/src/main.py  -k "test_full"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_full_thread_is_409_and_never_reaches_the_model _____________
+api\tests\test_conversation_routes.py:192: in test_full_thread_is_409_and_never_reaches_the_model
+    assert r.status_code == 409
+E   assert 400 == 409
+E    +  where 400 = <Response [400 Bad Request]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_full_thread_is_409_and_never_reaches_the_model
+1 failed, 17 deselected, 1 warning in 0.67s
+
+==============================================================================
+MUTATION 27: override validation skipped in answer()
+  file=api/src/main.py  -k "test_invalid_override"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_invalid_override_is_the_ask_422_and_stores_nothing ___________
+api\tests\test_conversation_routes.py:204: in test_invalid_override_is_the_ask_422_and_stores_nothing
+    assert r.status_code == via_ask.status_code == 422
+E   assert 200 == 422
+E    +  where 200 = <Response [200 OK]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_invalid_override_is_the_ask_422_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_invalid_override_is_the_ask_422_and_stores_nothing
+1 failed, 17 deselected, 1 warning in 0.52s
+
+==============================================================================
+MUTATION 28: a turn is stored before override validation / run_ask (422 leaves a turn)
+  file=api/src/main.py  -k "test_invalid_override"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_invalid_override_is_the_ask_422_and_stores_nothing ___________
+api\tests\test_conversation_routes.py:207: in test_invalid_override_is_the_ask_422_and_stores_nothing
+    assert (await h.get(thread, user)).json()["turns"] == []
+E   AssertionError: assert [{'question':...1T00:00:00Z'}] == []
+E     
+E     Left contains one more item: {'question': 'poverty in Detroit', 'plan': None, 'response': {'answer': 'x', 'urls': [], 'requested_years': [], 'attempted_years': [], ...}, 'created_at': '2026-10-01T00:00:00Z'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_invalid_override_is_the_ask_422_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_invalid_override_is_the_ask_422_and_stores_nothing
+1 failed, 17 deselected, 1 warning in 0.91s
+
+==============================================================================
+MUTATION 29: run_ask failure still stores a turn (append precedes run_ask)
+  file=api/src/main.py  -k "test_failed_run_ask"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_failed_run_ask_is_500_and_stores_nothing ________________
+api\tests\test_conversation_routes.py:215: in test_failed_run_ask_is_500_and_stores_nothing
+    assert (await h.get(thread, user)).json()["turns"] == []
+E   AssertionError: assert [{'question':...1T00:00:00Z'}] == []
+E     
+E     Left contains one more item: {'question': 'poverty in Detroit', 'plan': None, 'response': {'answer': 'x', 'urls': [], 'requested_years': [], 'attempted_years': [], ...}, 'created_at': '2026-10-01T00:00:00Z'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_failed_run_ask_is_500_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_failed_run_ask_is_500_and_stores_nothing
+1 failed, 17 deselected, 1 warning in 0.52s
+
+==============================================================================
+MUTATION 30: run_ask failure swallowed and answered 200
+  file=api/src/main.py  -k "test_failed_run_ask"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_failed_run_ask_is_500_and_stores_nothing ________________
+api\tests\test_conversation_routes.py:214: in test_failed_run_ask_is_500_and_stores_nothing
+    assert (await h.turn(thread, user)).status_code == 500
+E   assert 200 == 500
+E    +  where 200 = <Response [200 OK]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_failed_run_ask_is_500_and_stores_nothing
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_failed_run_ask_is_500_and_stores_nothing
+1 failed, 17 deselected, 1 warning in 0.66s
+
+==============================================================================
+MUTATION 31: append moves expires_at (sliding expiry)
+  file=api/src/store.py  -k "test_turns_keep"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_turns_keep_append_order_and_never_move_expiry ______________
+api\tests\test_conversation_routes.py:228: in test_turns_keep_append_order_and_never_move_expiry
+    assert await column(h.pool, UUID(thread), "expires_at") == expires
+E   AssertionError: assert datetime.datetime(2026, 10, 3, 12, 0, 34, 138887, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')) == datetime.datetime(2026, 10, 3, 12, 0, 34, 121954, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC'))
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_turns_keep_append_order_and_never_move_expiry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_turns_keep_append_order_and_never_move_expiry
+1 failed, 17 deselected, 1 warning in 0.52s
+
+==============================================================================
+MUTATION 32: GET returns turns newest-first
+  file=api/src/main.py  -k "test_turns_keep"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_turns_keep_append_order_and_never_move_expiry ______________
+api\tests\test_conversation_routes.py:226: in test_turns_keep_append_order_and_never_move_expiry
+    assert [t["question"] for t in body["turns"]] == ["first", "second"]
+E   AssertionError: assert ['second', 'first'] == ['first', 'second']
+E     
+E     At index 0 diff: 'second' != 'first'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_turns_keep_append_order_and_never_move_expiry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_turns_keep_append_order_and_never_move_expiry
+1 failed, 17 deselected, 1 warning in 0.68s
+
+==============================================================================
+MUTATION 33: append prepends instead of appending
+  file=api/src/store.py  -k "test_turns_keep"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_turns_keep_append_order_and_never_move_expiry ______________
+api\tests\test_conversation_routes.py:226: in test_turns_keep_append_order_and_never_move_expiry
+    assert [t["question"] for t in body["turns"]] == ["first", "second"]
+E   AssertionError: assert ['second', 'first'] == ['first', 'second']
+E     
+E     At index 0 diff: 'second' != 'first'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_turns_keep_append_order_and_never_move_expiry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_turns_keep_append_order_and_never_move_expiry
+1 failed, 17 deselected, 1 warning in 0.51s
+
+==============================================================================
+MUTATION 34: GET touches updated_at
+  file=api/src/main.py  -k "test_get_leaves"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________________ test_get_leaves_updated_at_unchanged _____________________
+api\tests\test_conversation_routes.py:237: in test_get_leaves_updated_at_unchanged
+    assert await column(h.pool, UUID(thread), "updated_at") == before
+E   AssertionError: assert datetime.datetime(2026, 10, 1, 12, 0, 40, 802156, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC')) == datetime.datetime(2026, 10, 1, 12, 0, 40, 794785, tzinfo=zoneinfo.ZoneInfo(key='Etc/UTC'))
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_get_leaves_updated_at_unchanged
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_get_leaves_updated_at_unchanged
+1 failed, 17 deselected, 1 warning in 0.59s
+
+==============================================================================
+MUTATION 35: user id logged on turn
+  file=api/src/main.py  -k "test_user_id_never"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_user_id_never_appears_in_a_body_or_a_log ________________
+api\tests\test_conversation_routes.py:256: in test_user_id_never_appears_in_a_body_or_a_log
+    assert str(u) not in caplog.text
+E   assert '9e19429d-86...ef8205df74db' not in 'INFO     ht...ver Error"\n'
+E     
+E     '9e19429d-860b-4c13-8c4a-ef8205df74db' is contained here:
+E       5 turn by 9e19429d-860b-4c13-8c4a-ef8205df74db
+E       INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b/turns "HTTP/1.1 200 OK"
+E       INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b "HTTP/1.1 404 Not Found"
+E       INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b/turns "HTTP/1.1 404 Not Found"
+E       WARNING  src.main:main.py:115 turn by 9e19429d-8...
+E     
+E     ...Full output truncated (2 lines hidden), use '-vv' to show
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b "HTTP/1.1 200 OK"
+WARNING  src.main:main.py:115 turn by 9e19429d-860b-4c13-8c4a-ef8205df74db
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b/turns "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b/turns "HTTP/1.1 404 Not Found"
+WARNING  src.main:main.py:115 turn by 9e19429d-860b-4c13-8c4a-ef8205df74db
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/5dd443b9-027c-47e9-a5ac-a9ab7c7faa1b/turns "HTTP/1.1 500 Internal Server Error"
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+1 failed, 17 deselected, 1 warning in 0.53s
+
+==============================================================================
+MUTATION 36: user id logged on GET
+  file=api/src/main.py  -k "test_user_id_never"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_user_id_never_appears_in_a_body_or_a_log ________________
+api\tests\test_conversation_routes.py:256: in test_user_id_never_appears_in_a_body_or_a_log
+    assert str(u) not in caplog.text
+E   assert 'c5313e24-74...0da8ec5d9c61' not in 'INFO     ht...ver Error"\n'
+E     
+E     'c5313e24-74b7-426a-acf0-0da8ec5d9c61' is contained here:
+E       28 get by c5313e24-74b7-426a-acf0-0da8ec5d9c61
+E       INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06 "HTTP/1.1 200 OK"
+E       INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06/turns "HTTP/1.1 200 OK"
+E       INFO     src.main:main.py:128 get by faa530c9-0c3a-4934-90ec-9ba060473535
+E       INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06 "HTTP/1.1 404...
+E     
+E     ...Full output truncated (3 lines hidden), use '-vv' to show
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations "HTTP/1.1 201 Created"
+INFO     src.main:main.py:128 get by c5313e24-74b7-426a-acf0-0da8ec5d9c61
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06/turns "HTTP/1.1 200 OK"
+INFO     src.main:main.py:128 get by faa530c9-0c3a-4934-90ec-9ba060473535
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06 "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06/turns "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/bed48f0a-8aca-4a68-9813-f568a781bf06/turns "HTTP/1.1 500 Internal Server Error"
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+1 failed, 17 deselected, 1 warning in 0.69s
+
+==============================================================================
+MUTATION 37: user id echoed in GET 404 body
+  file=api/src/main.py  -k "test_user_id_never"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_user_id_never_appears_in_a_body_or_a_log ________________
+api\tests\test_conversation_routes.py:255: in test_user_id_never_appears_in_a_body_or_a_log
+    assert not any(str(u) in t for t in texts)
+E   assert not True
+E    +  where True = any(<generator object test_user_id_never_appears_in_a_body_or_a_log.<locals>.<genexpr> at 0x000002C59815D460>)
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/a92cdca1-4a16-476d-8018-07a85d159208 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/a92cdca1-4a16-476d-8018-07a85d159208/turns "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/a92cdca1-4a16-476d-8018-07a85d159208 "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/a92cdca1-4a16-476d-8018-07a85d159208/turns "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/a92cdca1-4a16-476d-8018-07a85d159208/turns "HTTP/1.1 500 Internal Server Error"
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+1 failed, 17 deselected, 1 warning in 0.58s
+
+==============================================================================
+MUTATION 38: user id echoed in turn 500 body
+  file=api/src/main.py  -k "test_user_id_never"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_user_id_never_appears_in_a_body_or_a_log ________________
+api\tests\test_conversation_routes.py:255: in test_user_id_never_appears_in_a_body_or_a_log
+    assert not any(str(u) in t for t in texts)
+E   assert not True
+E    +  where True = any(<generator object test_user_id_never_appears_in_a_body_or_a_log.<locals>.<genexpr> at 0x0000025E5DBA1D20>)
+------------------------------ Captured log call ------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/acc55038-bdd0-4119-9cde-8f1282e351a7 "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/acc55038-bdd0-4119-9cde-8f1282e351a7/turns "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: GET http://test/conversations/acc55038-bdd0-4119-9cde-8f1282e351a7 "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/acc55038-bdd0-4119-9cde-8f1282e351a7/turns "HTTP/1.1 404 Not Found"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/conversations/acc55038-bdd0-4119-9cde-8f1282e351a7/turns "HTTP/1.1 500 Internal Server Error"
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_user_id_never_appears_in_a_body_or_a_log
+1 failed, 17 deselected, 1 warning in 0.50s
+
+==============================================================================
+MUTATION 39: DATABASE_URL unset gives 500 instead of 503
+  file=api/src/main.py  -k "test_without_a_database"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_without_a_database_the_routes_are_503_and_ask_still_answers _______
+api\tests\test_conversation_routes.py:268: in test_without_a_database_the_routes_are_503_and_ask_still_answers
+    assert (await send(client, method, path, hdr(uuid4()))).status_code == 503
+E   assert 500 == 503
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_without_a_database_the_routes_are_503_and_ask_still_answers
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_without_a_database_the_routes_are_503_and_ask_still_answers
+1 failed, 17 deselected, 1 warning in 0.37s
+
+==============================================================================
+MUTATION 40: DATABASE_URL unset breaks /ask (post_ask requires the pool)
+  file=api/src/main.py  -k "test_without_a_database"
+GOOD (test failed against mutation)
+  git diff api/src empty after restore: True
+------------------------------------------------------------------------------
+exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_without_a_database_the_routes_are_503_and_ask_still_answers _______
+api\tests\test_conversation_routes.py:269: in test_without_a_database_the_routes_are_503_and_ask_still_answers
+    assert (await client.post("/ask", json=BODY)).status_code == 200
+E   assert 503 == 200
+E    +  where 503 = <Response [503 Service Unavailable]>.status_code
+============================== warnings summary ===============================
+api/tests/test_conversation_routes.py::test_without_a_database_the_routes_are_503_and_ask_still_answers
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_conversation_routes.py::test_without_a_database_the_routes_are_503_and_ask_still_answers
+1 failed, 17 deselected, 1 warning in 0.45s
+==============================================================================
+SUMMARY: 40 mutations, 40 GOOD, 0 BAD
