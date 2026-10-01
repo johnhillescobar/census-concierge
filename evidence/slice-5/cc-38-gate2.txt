@@ -1,0 +1,76 @@
+
+BUDGETS
+
+  ok    api src LOC               4296 <= 4300
+  ok    api src files               26 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3340 <= 3350
+  ok    system prompt tokens       371 <= 1200
+  ok    doc lines                 1695 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         19.207 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.825 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+EXIT=0
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+EXIT=0
+
+> test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/johnh/Dropbox/Python/census-concierge/web[39m
+
+ [32m✓[39m src/ask.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/csv.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/plan.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/display.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/chart.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 139[2mms[22m[39m
+ [32m✓[39m src/restore.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 518[2mms[22m[39m
+   [33m[2m✓[22m[39m restore in App[2m > [22mrenders a stored turn with the same elements as a freshly asked one [33m 452[2mms[22m[39m
+ [32m✓[39m src/PlanStrip.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 816[2mms[22m[39m
+ [32m✓[39m src/App.plan.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 2192[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mposts a table edit with the original question, not rewritten prompt text [33m 605[2mms[22m[39m
+ [32m✓[39m src/App.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 2928[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m108 passed[39m[22m[90m (108)[39m
+[2m   Start at [22m 13:24:42
+[2m   Duration [22m 9.56s[2m (transform 697ms, setup 4.83s, collect 5.22s, tests 6.66s, environment 21.70s, prepare 2.60s)[22m
+
+EXIT=0
+
+> typecheck
+> tsc --noEmit
+
+EXIT=0
+
+--- reviewer notes ---
+machines: budgets, invariants, web tests (108 pass), typecheck all EXIT=0; python ruff/mypy/pytest not run (diff is web-only).

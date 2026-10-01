@@ -1,0 +1,17 @@
+CC-38 restart check, 2026-10-01T18:30:40Z, branch feat/cc-38-restore-conversation @ d468231
+real Postgres 16 (cc-pg), real server on :8766, question asked through the browser UI
+ids kept in localStorage: cc.user_id (set), cc.thread_id=eb1a83c1-8406-4b40-b7fb-31b67ac3b94b
+GET before restart: 200
+killing server pid 2828
+server down check: 000
+GET after restart: 200
+--- comparison (re-run from the saved GET bodies; the inline attempt above hit a path-escape bug in my shell snippet)
+turns before/after restart: 1 1 | question: What is the population of Detroit, Michigan?
+urls: 1 rows: 1 moe: 1 geoid: 1600000US2622000 | plan stored: True
+turns[0].response byte-equal across restart: True (5953 bytes, canonical JSON)
+--- browser reload after restart: question, plan strip, URL (key absent), GEOID 1600000US2622000, 24 alternatives rendered; screenshot cc-38-reload-restored.png
+--- expire:
+UPDATE 1
+--- reload after expiry: cc.thread_id cleared (null), cc.user_id kept, idle state ("Type a question..."), no alert, no result pane; screenshot cc-38-reload-expired.png
+    console: one entry, the browser's own "Failed to load resource ... 404" for GET /conversations/<id> (network-layer log of the 404 response; no error emitted by app code).
+RESULT: all restart-check steps passed. Note: the first real turn took over a minute (cold run); the pane showed "Looking up tables..." throughout.
