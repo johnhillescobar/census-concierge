@@ -104,8 +104,8 @@ async function call<T>(path: string, init: RequestInit = {}, extra: HeadersInit 
     } catch {
       /* keep the status message when the body is not JSON */
     }
-    if (response.status === 404 && path.startsWith("/conversations/")) {
-      localStorage.removeItem("cc.thread_id"); // expired or unknown: start fresh next ask
+    if ([404, 409].includes(response.status) && path.startsWith("/conversations/")) {
+      localStorage.removeItem("cc.thread_id"); // expired, unknown or full: start fresh next ask
     }
     throw new AskError(message, response.status, field);
   }

@@ -115,6 +115,7 @@ describe("askInThread", () => {
   it("sends a stable generated X-User-Id on every call", async () => {
     const spy = mockFetch((path) => (path === "/conversations" ? reply(201, { thread_id: TID }) : reply(200, springfield)));
     await askInThread("a");
+    await askInThread("b");
     const ids = spy.mock.calls.map(([, init]) => (init.headers as Record<string, string>)["X-User-Id"]);
     expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/);
     expect(new Set(ids).size).toBe(1);
@@ -134,9 +135,9 @@ describe("askInThread", () => {
     expect(JSON.parse(spy.mock.calls[0][1].body as string)).toEqual({ question: "a", plan: springfield.plan });
   });
 
-  it("drops an expired thread id when append returns 404", async () => {
+  it.each([404, 409])("drops the thread id when append returns %i (expired or full)", async (status) => {
     localStorage.setItem("cc.thread_id", TID);
-    mockFetch(() => reply(404, { detail: "conversation not found" }));
+    mockFetch(() => reply(status, { detail: "gone" }));
     await expect(askInThread("a")).rejects.toThrow();
     expect(localStorage.getItem("cc.thread_id")).toBeNull();
   });
