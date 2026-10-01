@@ -1,36 +1,17 @@
 import asyncio
 import os
-from collections.abc import AsyncIterator
 from uuid import uuid4
 
 import pytest
+from ask_fixtures import populated_response
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from psycopg_pool import AsyncConnectionPool
 from src import store
-from src.census_url import CensusURL
-from src.contract import (
-    AskResponse,
-    AskWarning,
-    ChartSpec,
-    GeoSpec,
-    RequestLeg,
-    ResultPlan,
-)
+from src.contract import AskResponse
 from src.main import create_app
 
 URL = os.environ.get("DATABASE_URL")
-
-
-@pytest.fixture
-async def pool() -> AsyncIterator[AsyncConnectionPool]:
-    if not URL:
-        if os.environ.get("CI") == "true":
-            pytest.fail("DATABASE_URL must be set in CI; store tests never skip there")
-        pytest.skip("DATABASE_URL unset; start Postgres per the README to run store tests")
-    opened = await store.open_pool(URL)
-    yield opened
-    await opened.close()
 
 
 def turn(n: int = 0) -> dict[str, object]:
@@ -43,51 +24,6 @@ async def expire(pool: AsyncConnectionPool, thread_id: object, interval: str) ->
             "UPDATE conversations SET expires_at = now() + %s::interval WHERE thread_id = %s",
             (interval, thread_id),
         )
-
-
-def populated_response() -> AskResponse:
-    geo = GeoSpec(
-        level="place",
-        name="Detroit city, Michigan",
-        geoid="1600000US2622000",
-        for_spec="place:22000",
-        in_spec="state:26",
-        vintage=2023,
-    )
-    url = str(CensusURL("https://api.census.gov/data/2023/acs/acs5?get=B17001_002E&key=SECRET"))
-    return AskResponse(
-        answer="a",
-        urls=[url],
-        requested_years=[2023],
-        attempted_years=[2023],
-        succeeded_years=[2023],
-        failed_years=[],
-        omitted_years=[],
-        omission_reasons=[],
-        legs=[RequestLeg(year=2023, url=url, ok=True, status_code=200, detail="")],
-        rows=[
-            {"GEO_ID": "1600000US2622000", "B17001_002E": "1"},
-            {"GEO_ID": "1600000US2622001", "B17001_002E": "2"},
-        ],
-        moe=[
-            {"GEO_ID": "1600000US2622000", "B17001_002M": "5"},
-            {"GEO_ID": "1600000US2622001", "B17001_002M": "6"},
-        ],
-        geoid="1600000US2622000",
-        universe="Population for whom poverty status is determined",
-        table_id="B17001",
-        alternatives=[],
-        comparisons=[],
-        warnings=[AskWarning(code="ambiguous_place", detail="d", candidates=[geo])],
-        plan=ResultPlan(
-            table_id="B17001",
-            variables=["B17001_002E"],
-            years=[2023],
-            requested_years=[2023],
-            geographies=[geo],
-        ),
-        chart=ChartSpec(type="bar", x="geography", y="estimate", title="Poverty"),
-    )
 
 
 async def test_foreign_user_gets_none_like_a_missing_thread(pool: AsyncConnectionPool) -> None:

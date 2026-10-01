@@ -8,6 +8,7 @@ an argument everywhere; the app creates it in its lifespan.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -15,6 +16,9 @@ from fastapi import FastAPI
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel
+
+from src.contract import AskResponse, ResultPlan
 
 MAX_TURNS = 50
 STARTUP_TIMEOUT = 10.0
@@ -34,6 +38,24 @@ CREATE INDEX IF NOT EXISTS conversations_expires_at ON conversations (expires_at
 """
 
 _LIVE = "thread_id = %(thread_id)s AND user_id = %(user_id)s AND expires_at > now()"
+
+
+class ConversationInfo(BaseModel):
+    thread_id: UUID
+    title: str
+    created_at: datetime
+    expires_at: datetime
+
+
+class Turn(BaseModel):
+    question: str
+    plan: ResultPlan | None
+    response: AskResponse
+    created_at: datetime
+
+
+class Conversation(ConversationInfo):
+    turns: list[Turn]
 
 
 class PersistenceNotConfigured(RuntimeError):
