@@ -13,10 +13,10 @@ by this rule, with the reason written in the commit. The scorer is never loosene
    `counties`, `state`, `metro`, `ZIP` / `ZCTA`). The expected level is the named
    level. A fetch at another level is **pipeline wrong**.
 2. **Bare place name.** No level word. The named entity is a place, a
-   county-equivalent, or both. Coterminous test, fixed now: using the Census
-   2020 place-county relationship file, the place and the county-equivalent are
-   coterminous when `AREALAND_PART` covers >= 0.99 of the place **and** >= 0.99
-   of the county. Coterminous -> both levels are correct answers
+   county-equivalent, or both. Coterminous test, fixed now: the place is listed
+   in exactly one county in the 2020 `place_by_county` reference file, and its
+   2020 Gazetteer `ALAND` is within 1% of that county-equivalent's `ALAND`
+   (ratio in [0.99, 1.01]). Coterminous -> both levels are correct answers
    (**golden arguable**: the golden accepts the set, with the reason).
    Not coterminous -> the golden's level stands and any other level is
    **pipeline wrong**.
@@ -43,3 +43,11 @@ by this rule, with the reason written in the commit. The scorer is never loosene
 `uv run python scripts/classify_geo_levels.py` (reads `evidence/latest.json`
 trials and `evals/golden_questions.toml`; writes
 `evidence/slice-6/cc-114-classification.md`).
+
+## Amendment (still before any outcome was classified)
+
+Pre-flight claim failed: the rule first named a "2020 place-county relationship
+file". `curl` on `https://www2.census.gov/geo/docs/maps-data/data/rel2020/place/`
+lists only `tab20_place20_place10_*`, so no such file exists. Replaced by the
+Gazetteer (`2020_Gaz_place_national.zip`, `2020_Gaz_counties_national.zip`, both
+HTTP 200) and `codes2020/place_by_cou/` (HTTP 200). Threshold unchanged at 1%.
