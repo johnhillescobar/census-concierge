@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from dotenv import load_dotenv
 
@@ -102,6 +103,11 @@ def served_build_ok(info: dict[str, Any]) -> bool:
     )
 
 
+def fetched_level(url: str) -> str:
+    """The geography level a Census URL actually queries (`for=county:*` -> `county`)."""
+    return parse_qs(urlparse(url).query).get("for", [""])[0].split(":")[0]
+
+
 def census_urls(body: dict[str, Any]) -> list[str]:
     items = body.get("urls")
     if not isinstance(items, list):
@@ -133,6 +139,10 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     if expected_warning and not has_url:
         return False
     if expected_table:
+        # A coarser or different level (place for "by census tract") is a silent wrong answer.
+        level = entry.get("expect_geo_level")
+        if level and any(fetched_level(url) != level for url in census_urls(body)):
+            return False
         return table_id == expected_table and has_url and bool(rows)
     return bool(expected_warning)
 
@@ -156,6 +166,9 @@ def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
         return "empty url"
     if expected_table and not body.get("rows"):
         return "no rows"
+    levels = {fetched_level(url) for url in census_urls(body)}
+    if levels - {entry.get("expect_geo_level")}:
+        return f"wrong geography level {sorted(levels)[0]}"
     return "not answered"
 
 

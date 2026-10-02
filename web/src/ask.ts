@@ -5,6 +5,7 @@ export type AskWarning = components["schemas"]["AskWarning"];
 export type AskResponse = components["schemas"]["AskResponse"];
 export type ChartSpec = components["schemas"]["ChartSpec"];
 export type ResultPlan = components["schemas"]["ResultPlan"];
+export type Turn = components["schemas"]["Turn"];
 export type GeoSpec = components["schemas"]["GeoSpec"];
 
 const PLAN_FIELDS = new Set([
@@ -74,13 +75,12 @@ export function messageFromDetail(detail: unknown): string {
   return typeof first.msg === "string" ? first.msg.replace(/^Value error, /i, "") : "";
 }
 
-export async function ask(question: string, plan?: ResultPlan): Promise<AskResponse> {
+async function call<T>(path: string, init: RequestInit = {}, extra: HeadersInit = {}): Promise<T> {
   let response: Response;
   try {
-    response = await fetch("/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(plan ? { question, plan } : { question }),
+    response = await fetch(path, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...extra },
     });
   } catch {
     throw new AskError("Could not reach the API");
@@ -104,7 +104,49 @@ export async function ask(question: string, plan?: ResultPlan): Promise<AskRespo
     } catch {
       /* keep the status message when the body is not JSON */
     }
+    if ([404, 409].includes(response.status) && path.startsWith("/conversations/")) {
+      localStorage.removeItem("cc.thread_id"); // expired, unknown or full: start fresh next ask
+    }
     throw new AskError(message, response.status, field);
   }
-  return (await response.json()) as AskResponse;
+  return (await response.json()) as T;
+}
+
+export function ask(question: string, plan?: ResultPlan): Promise<AskResponse> {
+  return call("/ask", { method: "POST", body: JSON.stringify(plan ? { question, plan } : { question }) });
+}
+
+// A bearer secret until slice 8: never displayed, never logged.
+function userHeaders(): HeadersInit {
+  const id = localStorage.getItem("cc.user_id") ?? crypto.randomUUID();
+  localStorage.setItem("cc.user_id", id);
+  return { "X-User-Id": id };
+}
+
+export async function askInThread(question: string, plan?: ResultPlan): Promise<AskResponse> {
+  const headers = userHeaders();
+  let threadId = localStorage.getItem("cc.thread_id");
+  if (!threadId) {
+    threadId = (await call<{ thread_id: string }>("/conversations", { method: "POST" }, headers)).thread_id;
+    localStorage.setItem("cc.thread_id", threadId);
+  }
+  const init = { method: "POST", body: JSON.stringify(plan ? { question, plan } : { question }) };
+  return call(`/conversations/${threadId}/turns`, init, headers);
+}
+
+// null when there is nothing to restore; throws on network error or 5xx, keeping the thread id.
+export async function loadLatestTurn(): Promise<Turn | null> {
+  const threadId = localStorage.getItem("cc.thread_id");
+  if (!threadId) {
+    return null;
+  }
+  try {
+    const found = await call<{ turns: Turn[] }>(`/conversations/${threadId}`, {}, userHeaders());
+    return found.turns[found.turns.length - 1] ?? null;
+  } catch (cause) {
+    if (cause instanceof AskError && cause.status === 404) {
+      return null;
+    }
+    throw cause;
+  }
 }

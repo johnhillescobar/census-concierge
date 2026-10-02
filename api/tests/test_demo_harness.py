@@ -407,3 +407,21 @@ def test_overall_answered_rate_uses_all_trials() -> None:
     summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
     assert summary["answered_rate"] == 0.0
     assert summary["overall_answered_rate"] == 0.667
+
+
+def test_wrong_geography_level_is_not_answered() -> None:
+    entry = {"id": "q04", "expect_table": "B17001", "expect_geo_level": "tract"}
+    place = "https://api.census.gov/data/2024/acs/acs5?get=B17001_001E&for=place:22000&in=state:26"
+    tract = "https://api.census.gov/data/2024/acs/acs5?get=B17001_001E&for=tract:*&in=state:26"
+    wrong = _body(table_id="B17001", urls=[place])
+    assert run_demo.is_answered(entry, status_code=200, body=wrong) is False
+    assert run_demo.miss_detail(entry, status_code=200, body=wrong) == "wrong geography level place"
+    assert run_demo.is_answered(entry, status_code=200, body=_body(table_id="B17001", urls=[tract]))
+    mixed = _body(table_id="B17001", urls=[tract, place])  # every leg must be at the level
+    assert run_demo.is_answered(entry, status_code=200, body=mixed) is False
+
+
+def test_geography_level_is_decoded_from_the_for_clause() -> None:
+    url = "https://api.census.gov/data/2024/acs/acs5?get=B19013_001E&for=zip+code+tabulation+area:90210"
+    assert run_demo.fetched_level(url) == "zip code tabulation area"
+    assert run_demo.fetched_level("https://api.census.gov/data/2024/acs/acs5?get=NAME") == ""

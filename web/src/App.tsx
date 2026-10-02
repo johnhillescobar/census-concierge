@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ask, AskError, type AskResponse, type ResultPlan } from "./ask";
+import { askInThread, AskError, loadLatestTurn, type AskResponse, type ResultPlan, type Turn } from "./ask";
 import { ResultChart } from "./ResultChart";
 import { PlanStrip } from "./PlanStrip";
 import { csvFilename, downloadCsv, rowsToCsv } from "./csv";
@@ -15,6 +15,7 @@ import {
 
 type AppProps = {
   askFn?: (question: string, plan?: ResultPlan) => Promise<AskResponse>;
+  loadFn?: () => Promise<Turn | null>;
 };
 
 const TABLE_HEADERS = [
@@ -159,7 +160,7 @@ function ActiveDataset({
   );
 }
 
-export function App({ askFn = ask }: AppProps) {
+export function App({ askFn = askInThread, loadFn = loadLatestTurn }: AppProps) {
   const [question, setQuestion] = useState("");
   const [state, setState] = useState<PaneState>("idle");
   const [error, setError] = useState("");
@@ -170,6 +171,20 @@ export function App({ askFn = ask }: AppProps) {
   const [planField, setPlanField] = useState("");
   const loadingRef = useRef<HTMLParagraphElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const asked = useRef(false); // a late restore must not overwrite a newer ask
+
+  useEffect(() => {
+    loadFn().then(
+      (turn) => {
+        if (turn && !asked.current) {
+          setResult(turn.response);
+          setActiveQuestion(turn.question);
+          setState("result");
+        }
+      },
+      (cause) => !asked.current && setError(cause instanceof Error ? cause.message : "restore failed"),
+    );
+  }, []);
 
   useEffect(() => {
     if (state === "loading") {
@@ -188,6 +203,7 @@ export function App({ askFn = ask }: AppProps) {
       return false;
     }
     const keepResult = result !== null;
+    asked.current = true;
     setState("loading");
     setCopied(false);
     setPlanError("");
