@@ -51,3 +51,18 @@ file". `curl` on `https://www2.census.gov/geo/docs/maps-data/data/rel2020/place/
 lists only `tab20_place20_place10_*`, so no such file exists. Replaced by the
 Gazetteer (`2020_Gaz_place_national.zip`, `2020_Gaz_counties_national.zip`, both
 HTTP 200) and `codes2020/place_by_cou/` (HTTP 200). Threshold unchanged at 1%.
+
+## Amendment 2 (after the first classification run; owner decision)
+
+Rule 2 was silent on a bare name shared by several places (Anchorage city KY
+next to Anchorage municipality AK; Denver town IN next to Denver city CO). The
+owner decided: **strict reading is binding.** When the question names no state,
+every same-name place must be coterminous with its one county-equivalent; a
+single non-coterminous namesake defeats the golden-arguable bucket. Anchorage
+(q26) and Denver (t09) therefore stay `pipeline_wrong`.
+
+Not a verdict, shown beside it: the **any-coterminous reading** (at least one
+same-name place is coterminous). It is reported as a separate column and a
+separate total so the rule gap stays visible. It changes no bucket and no score.
+Pinning a state in an under-specified golden is a later golden change, with its
+own reason, reported apart from code gains (CC-3 AC10).
