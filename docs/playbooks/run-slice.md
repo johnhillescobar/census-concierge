@@ -82,8 +82,9 @@ one-line correction does not. Stop after one re-run; still fix what it finds.
 
 ## 6. E2E, before the PR and after the merge
 
-`make eval` today; `make demo` once `scripts/run_demo.py` exists (slice 1; `--repeat
-3` is in the recipe). Real system, real keys. Redirect stdout to
+`make eval` and `make demo` (`--repeat 3` is in the recipe). Real system, real
+keys. From slice 6, also one sealed-set run at story close, reporting the
+regression-minus-sealed gap (DESIGN §8.6); aggregates only. Redirect stdout to
 `evidence/slice-<N>/e2e-pre.txt` (no tee) and link it in the PR. Never Read the
 transcript. Quote gated keys plus `demo.misses` from `evidence/latest.json` —
 never `demo.trials`. A failing criterion keeps the PR open with that scoreboard;

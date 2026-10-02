@@ -34,7 +34,8 @@ universe, and flag when a question crosses two of them.
 ## Vintages
 
 - **ACS 5-year**: all geographies, including tracts and block groups.
-- **ACS 1-year**: places of 65,000+ only.
+- **ACS 1-year**: only geographies of 65,000+ people (states, large counties,
+  places, metros); never tracts or block groups.
 - **Overlapping 5-year periods are not comparable.** 2015–2019 vs 2018–2022
   share three years of samples. Census says so explicitly, and researchers make
   this mistake constantly. **Warn — never silently chart it.**
@@ -69,5 +70,6 @@ This is the product, not a nicety.
 
 ## Security
 
-Census API URLs carry `&key=`. Redact at the boundary. These URLs reach logs,
-telemetry, PDFs and git.
+Census API URLs carry `&key=`, and they reach logs, telemetry, PDFs and git.
+Redaction is a type: `CensusURL` is redacted in every string form, and the key
+is reattached only at the httpx call (`.with_key()`). See `10-api-python.mdc`.

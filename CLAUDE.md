@@ -93,16 +93,26 @@ matrix and worked examples: `docs/process-evidence.md`.
   The predecessor had one and it hid a broken retriever for months.
 - `success` on an API response describes the HTTP call, not whether the question
   was answered. Keep those two concepts in separate fields, always.
-- Census URLs carry `&key=`. Redact at the boundary — these reach logs,
-  telemetry, PDFs and git.
+- Census URLs carry `&key=`, and they reach logs, telemetry, PDFs and git.
+  Redaction is a type, not a step: `CensusURL` (`api/src/census_url.py`) is
+  redacted in every string form; the key is reattached only at the httpx call
+  via `.with_key()`. Never build a raw URL string around it.
 - `core` questions in the golden set prove nothing. `long_tail` is the metric.
+- Tuning to the instrument. Never read the sealed eval set (owner-held, outside
+  the repo, hook-blocked) or tune against its misses. No eval phrasing or
+  place goes into prompts, tool descriptions or `api/src` literals. Report the
+  regression-minus-sealed gap at story close (CC-3 AC6–12).
+- `check_budgets` can show a stale p95: an over-ceiling run is not promoted
+  to the top-level key. Quote `demo.p95_latency_seconds` (CC-3 AC13 removes
+  the trap before slice 6 closes).
 
 ## Architecture
 
 One tool-calling loop. Four to six tools. LangGraph only where durable
 checkpointing and multi-user resumption genuinely require it — not for routing.
 
-Postgres when persistence lands (slice 5). Never SQLite. No module-level
+Postgres via direct psycopg (slice 5; CC-9 rejected the LangGraph
+checkpointer). Never SQLite. No module-level
 mutable state; pass context as arguments. PDF generation is a background job,
 never a request handler.
 

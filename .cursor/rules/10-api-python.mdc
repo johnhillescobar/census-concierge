@@ -5,7 +5,8 @@ globs: api/**/*.py
 
 # api/ — Python
 
-Python 3.12. Ruff + mypy. Keep any file under 400 lines (enforced).
+Python 3.12. Ruff + mypy. Per-file cap: `max_file_loc` in `budgets.toml`
+(enforced; the largest file is at it).
 
 **Read before editing.** Warning codes: `docs/requirements.md`. Live `POST /ask`
 path: `docs/ask-path.md`. Retrieval measurements: `docs/retrieval.md`. Do not
@@ -15,11 +16,9 @@ invent a guard code that is not in that catalog.
 
 **One tool-calling loop. Four to six tools.** Not a graph.
 
-LangGraph appears only where durable checkpointing and multi-user resumption
-genuinely require it — and whether it does at all is decided by a timeboxed
-spike before slice 5, not assumed. Never for routing —
-routing branches are how the predecessor reached 14 nodes and 10 conditional
-edge blocks.
+No LangGraph: the CC-9 spike chose direct psycopg for persistence (DESIGN §9).
+Never for routing — routing branches are how the predecessor reached 14 nodes
+and 10 conditional edge blocks.
 
 Slice 1 tools: `search_tables`, `resolve_geography`, `build_url`, `fetch_data`.
 The model stops by emitting text — there is no `finish` tool.
@@ -56,7 +55,7 @@ check must precede the model call or you pay for the request that breaks the
 cap; redaction must precede telemetry; the span must close on the exception
 path. A pipeline hides all three.
 
-The 400-line file cap already forbids a framework here — the loop and the
+The per-file cap already forbids a framework here — the loop and the
 dispatcher share a module, and a middleware layer will not fit beside the thing
 it wraps.
 
@@ -224,8 +223,9 @@ token count catches that.
   unanswerable without it.
 - **Latest available ACS5 / ACS1 vintages**, read from the index. A hardcoded
   "2023" is wrong every autumn and nobody notices.
-- Conversation summary, at slice 6 — when follow-ups land, not when storage
-  does.
+- The prior turn's `ResultPlan` and question, at slice 6 (CC-43): a structured
+  block (table, variables, dataset, years, GEOIDs, level), never rows or a
+  prose summary.
 
 ### Changing it
 
@@ -240,7 +240,10 @@ Never assert on prompt wording in a test.
 
 **No few-shot examples.** They bias the model toward the tables in the examples,
 which is the exact bias this product exists to correct. If examples help, they
-are *retrieved* per question, not frozen into the prompt.
+are *retrieved* per question, not frozen into the prompt. Known violation:
+`prompts.py` and `tools.py` carry eval phrasings ("Texas and Louisiana",
+"Harris and Travis County") as worked examples, and CC-103 showed the model
+copying them. CC-3's leakage invariant and CC-103 remove them; add no more.
 
 Budget: `system_prompt_tokens` 1200, measured as string-literal chars / 4.
 

@@ -8,14 +8,19 @@ get the table you did not know existed, the data, and the API URL to reuse.
 <!-- Copied from evidence/latest.json after `make eval` / `make demo`.
      Those commands write the JSON; this table is not auto-updated. -->
 
-| metric | current | floor |
+| metric | current | floor / ceiling |
 |---|---|---|
 | retriever @10 — long tail | 0.90 | 0.90 |
 | selector @1 — long tail | 0.88 | 0.70 |
 | synthetic alignment | 0.54 | 0.50 |
-| answered rate | 0.83 | 0.70 |
-| p95 latency | 17.8s | 20s |
-| api src LOC | 4076 | 4100 |
+| answered rate — long tail, geography-level scorer | 0.74 | 0.70 |
+| p95 latency (`demo.p95_latency_seconds`) | 21.7s | 20s — **over** |
+| api src LOC | 4296 | 4300 |
+
+As of the CC-38 post-merge run, 2026-10-01. answered_rate before CC-38 used
+a scorer that ignored geography level and is not comparable. An over-ceiling
+p95 is not promoted to the top-level key, so `check_budgets` keeps showing the
+last under-ceiling run (19.2s); quote `demo.p95_latency_seconds`.
 
 ## Slices
 
@@ -28,10 +33,10 @@ Closed vs open: `docs/slices.md`. Jira is the status source of truth.
 | ~~1~~ | `POST /ask` → answer, URL, rows, MOE, GEOID | you `curl` it and get a working URL |
 | ~~2~~ | Chat UI, one pane | you type in a browser and get an answer |
 | ~~3~~ | Series and comparisons | a defensible year series and a cross-geography compare |
-| 4 | Canvas: table, ChartSpec, editable plan strip, CSV | two panes, and you can fix a wrong table |
-| — | Spike: LangGraph checkpointer | dated decision in DESIGN §9, not merged code |
-| 5 | Conversation persistence | restart the server; the canvas is still there |
-| 6 | Follow-ups and reference resolution | "what about Texas?" resolves against the prior turn |
+| ~~4~~ | Canvas: table, ChartSpec, editable plan strip, CSV | two panes, and you can fix a wrong table |
+| ~~—~~ | Spike: LangGraph checkpointer | dated decision in DESIGN §9, not merged code |
+| ~~5~~ | Conversation persistence | restart the server; the canvas is still there |
+| 6 | Follow-ups and reference resolution | a three-turn refinement hits the CC-3 floors, on sealed questions too |
 | 7 | PDF export as a background job | you download a real document |
 | 8 | Auth + hosted | someone else logs in and uses it |
 
@@ -57,8 +62,8 @@ make demo    # npm ci + build web/dist, then end-to-end against that same proces
 uv run python scripts/e2e_capture.py --slice 4 --ticket CC-N --phase pre   # eval+demo transcript
 uv run python scripts/plot_e2e_latency.py --pre <sha> --post origin/main   # latency histogram + ECDF
 uv run uvicorn src.main:app --reload   # POST /ask; GET / is the UI after `npm --prefix web run build`
-# Conversations need Postgres. Without it (or if it is unreachable at startup), /ask still works.
-# There are no conversation routes yet (CC-41), so nothing exposes the store over HTTP today.
+# Conversation routes (CC-41) and restore-on-reload (CC-38) need Postgres.
+# Without it (or if it is unreachable at startup), /ask still works.
 docker run -d --name cc-pg -e POSTGRES_PASSWORD=pg -p 5432:5432 postgres:16
 export DATABASE_URL=postgresql://postgres:pg@localhost:5432/postgres   # PowerShell: $env:DATABASE_URL=...
 # Windows without --reload: psycopg async needs the selector loop

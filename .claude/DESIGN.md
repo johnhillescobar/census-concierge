@@ -45,8 +45,8 @@ alternatives. Guards warn and still ship; none block. Full catalog:
 
 Monorepo: `api/` (Python 3.12), `web/` (React + TypeScript), generated
 `packages/client/` (CI fails on drift). One tool-calling loop, four to six
-tools. LangGraph only for durable checkpointing if the CC-9 spike says so —
-never for routing.
+tools. No LangGraph: the CC-9 spike chose direct psycopg (§9). Never for
+routing.
 
 **Concurrency is law now, not a slice-5 feature.** Even one user today will be
 N workers tomorrow. No module-level mutable state; pass context as function
@@ -55,10 +55,8 @@ read-only index is the only exception. Async endpoints. Horizontal scaling is
 the test: if a second worker would see different state, the design is wrong.
 `check_invariants.py` fails the build on sqlite and contextvars.
 
-Postgres, `thread_id`, and `user_id` ownership land in slice 5 / CC-6.
-**Never SQLite** is already decided so that epic cannot undo a local
-`checkpoints.db`. CC-6 does not invent the no-globals rule; it stores
-conversations under it.
+Postgres, `thread_id`, and `user_id` ownership landed in slice 5 / CC-6,
+under the no-globals rule. **Never SQLite.**
 
 PDF is a background job, never a request handler. The LLM emits a `ChartSpec`;
 the frontend renders. Auth is bought (Clerk, slice 8). Tracing is Langfuse at
@@ -108,6 +106,12 @@ nothing.
    fake that returns one table for every input.
 4. `CLAUDE.md` and `.cursor/rules/` stay short, mostly prohibitions.
 5. A PR over ~15 files is a redesign wearing a feature's clothes.
+6. **The instrument is not the target** (decided 2026-10-01, CC-3). Dev,
+   regression and sealed question sets; the sealed set is owner-held outside
+   the repo and blocked to agents in Claude Code and Cursor. A story closes
+   only if regression minus sealed is <= 10 points. No eval phrasing or place
+   in prompts or code. Golden or scorer changes re-baseline and are reported
+   apart from code gains.
 
 ## 9. Open decisions
 
