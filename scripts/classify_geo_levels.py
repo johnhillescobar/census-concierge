@@ -121,8 +121,9 @@ def place_counties(
     return cache[fips]
 
 
-def coterminous(entity: tuple[str, str | None, bool]) -> tuple[bool, str]:
-    """Rule 2. True only when every same-name place is coterminous with its one county."""
+def coterminous(entity: tuple[str, str | None, bool]) -> tuple[bool, bool, str]:
+    """Rule 2: (strict, any, note). Strict (binding): every same-name place is coterminous
+    with its one county. Any (shown beside it, not a verdict): at least one is."""
     name, state, exact = entity
     places, counties = gazetteer("place"), {c["GEOID"]: c for c in gazetteer("counties")}
     want = name.lower()
@@ -133,9 +134,9 @@ def coterminous(entity: tuple[str, str | None, bool]) -> tuple[bool, str]:
         and (state is None or p["USPS"] == state)
     ]
     if not hits:
-        return False, "no same-name place in the Gazetteer"
+        return False, False, "no same-name place in the Gazetteer"
     cache: dict[str, dict[str, set[str]]] = {}
-    notes, ok = [], True
+    notes, ok, some = [], True, False
     for p in hits:
         in_counties = place_counties(p["USPS"], p["GEOID"][:2], cache).get(p["GEOID"], set())
         if len(in_counties) != 1:
@@ -144,9 +145,10 @@ def coterminous(entity: tuple[str, str | None, bool]) -> tuple[bool, str]:
             continue
         county = counties[next(iter(in_counties))]
         ratio = float(p["ALAND"]) / float(county["ALAND"])
-        ok = ok and BAND[0] <= ratio <= BAND[1]
+        inside = BAND[0] <= ratio <= BAND[1]
+        ok, some = ok and inside, some or inside
         notes.append(f"{p['NAME']}, {p['USPS']} / {county['NAME']}: {ratio:.4f}")
-    return ok, "; ".join(notes)
+    return ok, some, "; ".join(notes)
 
 
 def named_level(text: str) -> str | None:
@@ -175,12 +177,12 @@ def audit(entry: dict) -> dict:
     elif gid in STATE_ENTITIES:
         out.update(rule=2, expected="state", arguable=False, note="bare state name")
     elif gid in ENTITY:
-        ok, why = coterminous(ENTITY[gid])
-        out.update(rule=2, expected=expect, arguable=ok, note=why)
+        ok, some, why = coterminous(ENTITY[gid])
+        out.update(rule=2, expected=expect, arguable=ok, arguable_any=some, note=why)
     return out
 
 
-def classify(trial: dict, a: dict) -> tuple[str, str]:
+def classify(trial: dict, a: dict, *, any_reading: bool = False) -> tuple[str, str]:
     levels = sorted({fetched_level(u) for u in trial["urls"]})
     dataset = "acs1" if "/acs1" in trial["url"] else "acs5"
     if a["rule"] == 4:
@@ -189,7 +191,8 @@ def classify(trial: dict, a: dict) -> tuple[str, str]:
         return "unclassified", f"fetched {levels}"
     if not served(dataset, a["expected"]):
         return "table_cannot_serve", f"{dataset} lacks {a['expected']!r}"
-    if a["rule"] == 2 and a.get("arguable") and set(levels) <= {"place", "county"}:
+    arguable = a.get("arguable_any" if any_reading else "arguable")
+    if a["rule"] == 2 and arguable and set(levels) <= {"place", "county"}:
         return "golden_arguable", f"coterminous: {a['note']}"
     return "pipeline_wrong", f"expected {a['expected']!r}, fetched {levels}"
 
@@ -226,12 +229,17 @@ def main() -> int:
         "| --- | --- | --- | --- | --- |",
     ]
     counts: Counter[str] = Counter()
+    alt: Counter[str] = Counter()
     for trial in demo["trials"]:
         if "wrong geography level" not in trial["detail"]:
             continue
         trial = {**trial, "urls": trial.get("urls") or [trial["url"]]}
         bucket, why = classify(trial, audits[trial["id"]])
+        other, _ = classify(trial, audits[trial["id"]], any_reading=True)
         counts[bucket] += 1
+        alt[other] += 1
+        if other != bucket:
+            why += f" [any-coterminous reading: {other}]"
         warned = f" (warnings: {', '.join(trial['warnings'])})" if trial["warnings"] else ""
         lines.append(
             f"| {trial['id']} | {trial['repeat']} | {bucket} | {why}{warned} | `{trial['url']}` |"
@@ -242,6 +250,10 @@ def main() -> int:
         "",
         *(f"- {k}: {v}" for k, v in sorted(counts.items())),
         f"- total mismatched trials: {sum(counts.values())}",
+        "",
+        "Any-coterminous reading (not a verdict; rule amendment 2):",
+        "",
+        *(f"- {k}: {v}" for k, v in sorted(alt.items())),
         "",
     ]
     out = ROOT / "evidence" / "slice-6" / "cc-114-classification.md"
