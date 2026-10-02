@@ -129,9 +129,10 @@ across `--repeat`. Unresolved references are warnings with candidates, never
 a blocking question.
 
 **Done when:** a three-turn refinement produces the right dataset at a
-measured pass rate. **Gate:** before follow-up tickets start, single-turn long_tail
-answered_rate under the geography-level scorer (CC-114) must be restored to >= 0.80
-(CC-104/CC-105 first); multi-turn cases (CC-42) use the same scorer.
+measured pass rate. **Gate:** geography bugs first (CC-103/104/105, then the CC-114 pipeline fix);
+CC-42 records the multi-turn baseline before CC-43. Single-turn long_tail
+answered_rate is compared before/after at the same `--repeat` under the
+geography-level scorer, and multi-turn cases use that scorer too.
 **Not in this slice:** auth, PDF.
 
 ---
