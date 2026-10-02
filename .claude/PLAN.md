@@ -60,6 +60,9 @@ over-ceiling recorded not promoted; `evidence/slice-5/cc-40-e2e-post.txt`).
 floors met; answered_rate long_tail 0.825 (overall 0.871); p95 21.242s over-ceiling
 recorded not promoted; conversation round trip incl. server restart ok;
 `evidence/slice-5/cc-41-e2e-post.txt`).
+[CC-38](https://johnhillescobar.atlassian.net/browse/CC-38) Done (restore conversation on reload; floors met;
+answered_rate long_tail 0.742 (overall 0.774) under the new geography-level scorer; p95 21.701s
+over-ceiling recorded not promoted; `evidence/slice-5/cc-38-e2e-post.txt`).
 CC-77 waits on CC-11 table/plan-strip foundations. Spike CC-9 before slice 5.
 
 ---
