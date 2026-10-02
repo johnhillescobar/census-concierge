@@ -60,9 +60,9 @@ not the file length.
 ## Commands
 
 ```
-python scripts/check_budgets.py     # budgets; exits 1 on violation
-python scripts/eval_retrieval.py    # needs OPENAI_API_KEY; --rerank needs GEMINI_API_KEY
-python scripts/run_demo.py --repeat 3   # end-to-end; needs live keys
+uv run python scripts/check_budgets.py     # budgets; exits 1 on violation
+uv run python scripts/eval_retrieval.py    # needs OPENAI_API_KEY; --rerank needs GEMINI_API_KEY
+uv run python scripts/run_demo.py --repeat 3   # end-to-end; needs live keys
 ```
 
 This pipeline is nondeterministic. One run tells you nothing — compare rates at
@@ -79,4 +79,14 @@ one as an improvement.
 
 The held-out long-tail questions run at **slice boundaries only**, recorded as
 `retrieval_at_1_holdout`. Divergence from the tuning set means you tuned to the
-set rather than the problem.
+set rather than the problem. They sit in the repo, so they are not sealed.
+
+**From slice 6, the sealed set is the generalization check** (DESIGN §8.6).
+It is owner-held and blocked to agents; its runner prints aggregates only.
+A story closes only if regression minus sealed is <= 10 points at case level,
+where the unit is the question, not the trial. Never read it, never tune to
+its misses, and never copy eval phrasing or places into prompts or code.
+
+**answered_rate is comparable only under the same scorer.** CC-38 added the
+geography-level check (every leg's `for=` level must match). Numbers from
+before it are a different instrument; the baseline after it is 0.742.

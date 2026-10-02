@@ -13,112 +13,19 @@ Jira is the status source of truth.
 4. A budget raise is a human commit with a reason in `budgets.toml`.
 5. **A spike is not a slice.** Timeboxed, throwaway branch, written decision.
 
-Closed slices 0–3 (CC-8, CC-1, CC-5, CC-2) and the harness epic (CC-4) are
-Done. Do not re-open them. Residual misses after CC-2 are CC-91.
+Closed: slices 0–5 (CC-8, CC-1, CC-5, CC-2, CC-11, CC-6), the CC-9 spike
+(direct psycopg, DESIGN §9), the harness epic (CC-4) and CC-91. Do not re-open
+them. What each shipped and its evidence: `docs/slices.md`. Per-ticket numbers
+live in Jira and `evidence/`, never here.
 
 ---
 
 ## Now
 
-[CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) reliability is
-**Done**. CC-99 Done (last-word NAME; q17 0/3 table unpinned; answered_rate
-0.867; p95 18.664s; `evidence/slice-3/cc-99-e2e-post.txt`). CC-98 Done
-(finish/`place_token`; q39 3/3; answered_rate held; p95 over-ceiling recorded
-not promoted; `evidence/slice-3/cc-98-e2e-post.txt`). CC-95 Done (ambiguous
-place candidates); floors met; `evidence/slice-3/`;
-https://johnhillescobar.atlassian.net/browse/CC-95. CC-94 Done (classification;
-CC-98 finish/geo leaf). CC-96 Done (informal/alias geography is the ask loop
-plus tools). CC-97 Done (`acs1_geography_ineligible`; answered_rate held; p95
-over-ceiling recorded not promoted; `evidence/slice-3/cc-97-e2e-post.txt`).
-Slice 4 ([CC-11](https://johnhillescobar.atlassian.net/browse/CC-11))
-is **To Do** in Jira; [CC-34](https://johnhillescobar.atlassian.net/browse/CC-34)
-Done (ChartSpec; floors met; p95 over-ceiling recorded not promoted;
-`evidence/slice-4/cc-34-e2e-post.txt`). [CC-35](https://johnhillescobar.atlassian.net/browse/CC-35)
-Done (GEOID/MOE table; floors met; p95 over-ceiling recorded not promoted;
-`evidence/slice-4/cc-35-e2e-post.txt`). [CC-90](https://johnhillescobar.atlassian.net/browse/CC-90)
-Done (ResultPlan; floors met; p95 over-ceiling recorded not promoted;
-`evidence/slice-4/cc-90-e2e-post.txt`). [CC-89](https://johnhillescobar.atlassian.net/browse/CC-89)
-Done (plan overrides; floors met; p95 over-ceiling recorded not promoted;
-`evidence/slice-4/cc-89-e2e-post.txt`). [CC-88](https://johnhillescobar.atlassian.net/browse/CC-88)
-Done (two-pane workspace; floors met; p95 18.550s;
-`evidence/slice-4/cc-88-e2e-post.txt`). [CC-87](https://johnhillescobar.atlassian.net/browse/CC-87)
-Done (Vega-Lite SVG from `ChartSpec`; floors met; p95 17.955s;
-`evidence/slice-4/cc-87-e2e-post.txt`). [CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)
-Done (bare-place-name multi-place comparison regression fix; floors met;
-answered_rate long_tail 0.858 (was 0.833), overall 0.892; p95 19.058s (was
-17.780s, ceiling 20s); `evidence/slice-4/cc-100-v2-e2e-post.txt`).
-[CC-101](https://johnhillescobar.atlassian.net/browse/CC-101) Done (multi-state
-wildcard geography resolution fix; floors met; answered_rate long_tail 0.833
-(floor 0.7), overall 0.871; p95 17.886s (ceiling 20s);
-`evidence/slice-4/cc-101-e2e-post.txt`). [CC-49](https://johnhillescobar.atlassian.net/browse/CC-49)
-Done (CSV export; floors met; answered_rate 0.825 (overall 0.866); p95
-over-ceiling recorded not promoted; `evidence/slice-4/cc-49-e2e-post.txt`).
-[CC-40](https://johnhillescobar.atlassian.net/browse/CC-40) Done (Postgres conversation
-store; floors met; answered_rate long_tail 0.842 (overall 0.866); p95 26.155s
-over-ceiling recorded not promoted; `evidence/slice-5/cc-40-e2e-post.txt`).
-[CC-41](https://johnhillescobar.atlassian.net/browse/CC-41) Done (conversation create/append/read routes;
-floors met; answered_rate long_tail 0.825 (overall 0.871); p95 21.242s over-ceiling
-recorded not promoted; conversation round trip incl. server restart ok;
-`evidence/slice-5/cc-41-e2e-post.txt`).
-[CC-38](https://johnhillescobar.atlassian.net/browse/CC-38) Done (restore conversation on reload; floors met;
-answered_rate long_tail 0.742 (overall 0.774) under the new geography-level scorer; p95 21.701s
-over-ceiling recorded not promoted; `evidence/slice-5/cc-38-e2e-post.txt`).
-CC-77 waits on CC-11 table/plan-strip foundations. Spike CC-9 before slice 5.
-
----
-
-## Slice 4 — Canvas (CC-11)
-
-Living workspace, not a card stack. One active dataset. Explicit plan
-overrides are typed fields on `POST /ask`, not follow-up language (that is
-slice 6).
-
-- [ ] Two-pane shell; table with GEOID, estimate, MOE.
-- [ ] Backend `ResultPlan`; editable plan strip; re-run on override.
-      Typed fields include the existing `allow_overlapping_acs5` fetch override
-      (consecutive ACS5; `overlapping_vintage` still warns). Not follow-up language.
-- [ ] `ChartSpec` from the agent; frontend renders (never chart code or SVG).
-- [ ] Alternatives panel.
-- [ ] CSV export.
-
-**Done when:** a wrong-ish table is fixed in one click and the CSV matches.
-**Not in this slice:** memory, auth, PDF.
-
----
-
-## Spike — LangGraph checkpointer (CC-9)
-
-Half a day. Throwaway branch. Does the Postgres checkpointer justify two
-dependencies against ~30 lines under a **hand-rolled loop**? If the spike
-overruns, pick the 30 lines.
-
-Evaluate on:
-
-- Lines of code each way, and the delta to `direct_dependencies`.
-- What LangGraph gives *beyond* persistence — interrupts, time-travel,
-  streaming state. Does anything in slices 5–8 need them?
-- How well the checkpointer sits under a **hand-rolled loop** rather than a
-  graph. If using it means reintroducing a `StateGraph` to hold the loop, the
-  cost is much larger than two dependencies.
-- Cost of switching later, in each direction.
-
-**Done when:** a dated decision is in DESIGN §9, the branch is deleted,
-`budgets.toml` is untouched.
-
----
-
-## Slice 5 — Conversation persistence (CC-6)
-
-Storage only. Concurrency law (no globals, pass arguments, never SQLite) is
-already in DESIGN §5 — do not rediscover it here. A conversation survives a
-restart; it does not yet understand "what about Texas?".
-
-Postgres. **Never SQLite.** `thread_id` owned by `user_id` from day one.
-`POST /conversations`, append, `GET /conversations/{id}` (refresh must not
-lose the canvas). Implement whichever way CC-9 decided.
-
-**Done when:** restart the server, reload, the canvas is still there.
-**Not in this slice:** reference resolution, auth, PDF.
+Slice 6 ([CC-3](https://johnhillescobar.atlassian.net/browse/CC-3)) is current.
+Baseline: CC-38 post-merge on main, geography-level scorer, long_tail
+answered_rate 0.742, p95 21.701s (`evidence/slice-5/cc-38-e2e-post.txt`).
+CC-77 stays parked (see After).
 
 ---
 
@@ -128,11 +35,28 @@ Resolve "what about Texas?" against prior turns. Score multi-turn cases
 across `--repeat`. Unresolved references are warnings with candidates, never
 a blocking question.
 
-**Done when:** a three-turn refinement produces the right dataset at a
-measured pass rate. **Gate:** geography bugs first (CC-103/104/105, then the CC-114 pipeline fix);
-CC-42 records the multi-turn baseline before CC-43. Single-turn long_tail
-answered_rate is compared before/after at the same `--repeat` under the
-geography-level scorer, and multi-turn cases use that scorer too.
+**Order:** CC-114 classification (no code) → CC-103/104/105 → CC-114
+pipeline fix → CC-42 (multi-turn set + baseline; re-anchors the single-turn
+baseline) → CC-43 (after CC-113 findings, or under its 1.0s `t_llm` cap) →
+CC-107 / CC-108 (separate legs, no join) → CC-39. CC-102 and CC-106 run on
+their own timeline but are in scope.
+
+**Done when:** every child story is closed (CC-102 and CC-106 included) and a
+three-turn refinement produces the right dataset at these case-level floors
+(a case passes when right in 2 of 3 repeats): swaps >= 5/6, additions >= 4/6,
+unresolvable >= 5/6, and the multi-turn rate >= single-turn long_tail - 10
+points. The p95 gate reads the real number (CC-3 AC13): `run_demo` promotes
+p95 every run and `check_budgets` passes on it. CC-113 ends with a draft fix
+story the owner files, or a written case for a ceiling decision.
+
+**Generalization (CC-3 AC6–12):** dev / regression / sealed sets; sealed set
+is owner-held outside the repo and read-denied to agents; regression minus
+sealed rate <= 10 points at every story close. No eval phrasing or place in
+prompts, tools or `api/src` literals (leakage invariant). Golden or scorer
+changes re-baseline on main and are reported apart from code gains; the
+scorer may get more precise, never looser. Single-turn long_tail stays within
+3 points of the re-anchored baseline and of each ticket's pre-run, same
+`--repeat`, geography-level scorer.
 **Not in this slice:** auth, PDF.
 
 ---
@@ -160,8 +84,8 @@ exception.
 
 ## After
 
-Do not plan this yet. Parked: CC-77 (spatial crosswalks / full-table extract,
-after CC-11 foundations). Later, with usage data: clarification only where
+Do not plan this yet. Parked: CC-77 (spatial crosswalks / full-table extract;
+its CC-11 foundations have shipped). Later, with usage data: clarification only where
 the demo suite requires it, more datasets, GeoJSON export.
 
 ## Every PR
