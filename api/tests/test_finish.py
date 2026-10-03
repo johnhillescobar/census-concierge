@@ -149,17 +149,41 @@ async def test_listing_that_dropped_a_parent_of_three_is_resolved_again() -> Non
     assert len(seen) == 1 and len(seen[0]["parents"]) == 3
 
 
-async def test_comparison_resolution_never_calls_the_model() -> None:
-    record = ExecutionRecord(question="Compare Harris County and Travis County, tracts")
+async def test_comparison_resolution_is_left_alone_when_the_model_says_it_is_not_a_listing() -> (
+    None
+):
+    record = ExecutionRecord(question="Compare Harris County and Travis County")
     record.geographies = [_harris(), _harris()]
     record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
-    complete = _splitter(["Harris", "Travis"])
+    seen: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        seen.append(call["args"])
         return ""
 
+    complete = _splitter(["Harris County, Texas", "Travis County, Texas"], None)
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
-    assert complete.calls == 0
+    assert complete.calls == 1 and seen == []
+
+
+async def test_comparison_resolution_the_model_calls_a_listing_is_repaired() -> None:
+    record = ExecutionRecord(question="All tracts in Cook and DuPage County.")
+    record.geographies = [_harris(), _harris()]
+    record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
+    seen: list[dict[str, Any]] = []
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        seen.append(call["args"])
+        rec.geo_status = {"legal": True, "nested": True}
+        rec.geographies = [
+            GeoSpec(level="tract", name="a", for_spec="tract:*", in_spec="state:17 county:031"),
+            GeoSpec(level="tract", name="b", for_spec="tract:*", in_spec="state:17 county:043"),
+        ]
+        return ""
+
+    complete = _splitter(["Cook County, Illinois", "DuPage County, Illinois"], "tract")
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
+    assert seen[0]["parents"] == ["Cook County, Illinois", "DuPage County, Illinois"]
 
 
 async def test_override_plan_never_calls_the_model() -> None:
@@ -183,10 +207,23 @@ async def test_model_naming_no_listing_level_leaves_the_resolution_alone() -> No
     assert seen == []
 
 
-async def test_single_named_place_never_calls_the_model() -> None:
-    complete = _splitter(["Harris", "Texas"])
-    await _run_split("population of Harris County, Texas", [_harris()], complete)
-    assert complete.calls == 0
+async def test_single_named_place_is_left_alone_when_the_model_says_it_is_not_a_listing() -> None:
+    complete = _splitter(["Harris County, Texas"], None)
+    seen, record = await _run_split("population of Harris County, Texas", [_harris()], complete)
+    assert complete.calls == 1 and seen == []
+
+
+async def test_single_named_county_for_a_tract_listing_is_re_resolved_with_every_parent() -> None:
+    complete = _splitter(["King County, Washington", "Pierce County, Washington"], "tract")
+    seen, _ = await _run_split(
+        "Every tract in King plus Pierce County.", [_harris(for_spec="county:053")], complete
+    )
+    assert seen == [
+        {
+            "query": "every tract in King County, Washington, Pierce County, Washington",
+            "parents": ["King County, Washington", "Pierce County, Washington"],
+        }
+    ]
 
 
 async def test_single_parent_reply_leaves_the_resolution_alone() -> None:

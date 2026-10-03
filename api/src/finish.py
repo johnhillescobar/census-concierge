@@ -117,9 +117,7 @@ async def _split_parents(
 ) -> bool:
     """Re-resolve a multi-parent listing the loop got wrong; the model only splits parents."""
     geos = list(getattr(record, "geographies", []) or [])
-    status = getattr(record, "geo_status", None) or {}
-    named = len(geos) == 1 and not _all_wild(geos)  # one named place: nothing to repair
-    if named or status.get("compare") or not (complete and geo):
+    if not (complete and geo):
         return False
     try:
         turn = await complete(

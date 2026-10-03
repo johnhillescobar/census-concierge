@@ -56,6 +56,7 @@ def main() -> int:
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--grid", type=Path, default=GRID, help="TOML file of cells")
     parser.add_argument("--tag", default="", help="suffix for the log and summary files")
+    parser.add_argument("--level", choices=["county", "tract"], help="only cells of this level")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument(
         "--batch", type=int, default=0, help="run at most N pending trials and resume across calls"
@@ -68,6 +69,8 @@ def main() -> int:
         log.unlink(missing_ok=True)
     with args.grid.open("rb") as handle:
         cells = tomllib.load(handle)["cell"]
+    if args.level:
+        cells = [c for c in cells if c["level"] == args.level]
     if args.limit:
         cells = cells[: args.limit]
 
@@ -76,18 +79,29 @@ def main() -> int:
 
     def trial(job: tuple[int, dict[str, Any]]) -> dict[str, Any]:
         round_id, cell = job
+        status, crashed = 0, ""
         try:
             with TestClient(app) as client:
                 response = client.post("/ask", json={"question": cell["question"]})
-            body = response.json() if response.status_code == 200 else {}
+            status = response.status_code
+            body = response.json() if status == 200 else {}
             body = body if isinstance(body, dict) else {}
-        except Exception:  # noqa: BLE001 - one crashed ask is a miss, not an aborted run
-            body = {}
+        except Exception as exc:  # noqa: BLE001 - one crashed ask is a miss, not an aborted run
+            body, crashed = {}, type(exc).__name__
         ok = cell_passes(cell, body)
         mark = "ok" if ok else "MISS"
         print(f"{mark}  {cell['id']} r{round_id}  {cell['question']}", flush=True)
         got = [str(u).split("?")[-1][-40:] for u in body.get("urls") or []][:6]
-        return {"id": cell["id"], "repeat": round_id, "passed": ok, "got": got}
+        warnings = [str(w.get("code")) for w in body.get("warnings") or [] if isinstance(w, dict)]
+        return {
+            "id": cell["id"],
+            "repeat": round_id,
+            "passed": ok,
+            "got": got,
+            "status": status,
+            "crashed": crashed,
+            "warnings": warnings,
+        }
 
     done = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
     seen = {(row["id"], row["repeat"]) for row in done}
@@ -116,12 +130,18 @@ def main() -> int:
     summary = {
         "cells": len(cells),
         "repeat": args.repeat,
+        "trials": len(results),
+        "expected_trials": len(cells) * args.repeat,
+        "complete": len(results) == len(cells) * args.repeat,
         "pass_rate": round(sum(r["passed"] for r in results) / len(results), 3),
         "by_dimension": {k: round(sum(v) / len(v), 3) for k, v in sorted(by.items())},
         "misses": [r for r in results if not r["passed"]],
     }
     out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps({k: v for k, v in summary.items() if k != "misses"}, indent=2))
+    if not summary["complete"]:
+        done, total = summary["trials"], summary["expected_trials"]
+        print(f"PARTIAL: {done} of {total} trials. Rerun the same command to continue.")
     return 0
 
 
