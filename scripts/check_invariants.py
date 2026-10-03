@@ -6,7 +6,7 @@ mistakes have not been made. Everything here is greppable and unambiguous — th
 judgment calls live in the review playbook, not in this file.
 
     python scripts/check_invariants.py
-    python scripts/check_invariants.py --base origin/main   # adds the budget-diff check
+    python scripts/check_invariants.py --base origin/main   # adds budget-diff, new-regex
 
 Exits non-zero on any violation. Every check is printed by name, pass or fail.
 """
@@ -14,6 +14,7 @@ Exits non-zero on any violation. Every check is printed by name, pass or fail.
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess
 import sys
@@ -255,6 +256,86 @@ def check_budgets_not_weakened(base: str) -> list[Violation]:
     return found
 
 
+REGEX_FUNCS = {
+    "compile",
+    "search",
+    "match",
+    "fullmatch",
+    "sub",
+    "subn",
+    "findall",
+    "finditer",
+    "split",
+}
+
+
+def _regex_calls(source: str) -> int:
+    """Count `re.<fn>(...)` call sites with the AST; a regex must not police regexes."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return 0
+    return sum(
+        isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and isinstance(n.func.value, ast.Name)
+        and n.func.value.id == "re"
+        and n.func.attr in REGEX_FUNCS
+        for n in ast.walk(tree)
+    )
+
+
+def _regex_counts_now() -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for path in _py_files(API_SRC):
+        count = _regex_calls(path.read_text(encoding="utf-8"))
+        if count:
+            counts[path.relative_to(ROOT).as_posix()] = count
+    return counts
+
+
+def _regex_counts_at(ref: str) -> dict[str, int] | None:
+    try:
+        names = subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only", ref, "--", "api/src"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.split()
+        counts: dict[str, int] = {}
+        for name in (n for n in names if n.endswith(".py")):
+            blob = subprocess.run(
+                ["git", "show", f"{ref}:{name}"], cwd=ROOT, capture_output=True, check=True
+            ).stdout.decode("utf-8", errors="replace")
+            if count := _regex_calls(blob):
+                counts[name] = count
+        return counts
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def check_no_new_regex(base: str) -> list[Violation]:
+    """Regex is a last resort in this agent: the count in api/src may only go down.
+
+    Understanding a question is the model's job; a pattern covers the phrasings its
+    author imagined and silently fails the rest. A new regex needs a human commit that
+    states why no non-regex code plus the model can do the job.
+    """
+    old = _regex_counts_at(base)
+    if old is None:
+        return []
+    return [
+        Violation(
+            where,
+            f"{old.get(where, 0)} -> {count} regex call(s). Regex is a last resort: let the "
+            "model compose structure and have code validate it (CLAUDE.md, Do not).",
+        )
+        for where, count in sorted(_regex_counts_now().items())
+        if count > old.get(where, 0)
+    ]
+
+
 def check_mandatory_catalogs() -> list[Violation]:
     """Agent catalogs must exist. Does not validate their prose."""
     found: list[Violation] = []
@@ -288,8 +369,10 @@ def collect(base: str | None) -> list[tuple[str, list[Violation]]]:
     rows = [(name, check()) for name, check in CHECKS]
     if base:
         rows.append(("budget increases", check_budgets_not_weakened(base)))
+        rows.append(("new regex", check_no_new_regex(base)))
     else:
         rows.append(("budget increases", []))
+        rows.append(("new regex", []))
     return rows
 
 
@@ -307,8 +390,8 @@ def main() -> int:
     print("\nINVARIANTS\n")
     failed = 0
     for name, violations in rows:
-        if name == "budget increases" and not args.base:
-            print(f"  skip  {name:<{width}}  pass --base to diff budgets.toml")
+        if name in {"budget increases", "new regex"} and not args.base:
+            print(f"  skip  {name:<{width}}  pass --base to diff against a ref")
             continue
         if not violations:
             print(f"  ok    {name:<{width}}")
