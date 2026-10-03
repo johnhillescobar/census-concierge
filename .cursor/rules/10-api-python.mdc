@@ -184,6 +184,17 @@ response`.
 when `fetch_data` fails. A user handed a wrong URL fixes it in ten seconds; a
 user handed prose cannot.
 
+## Regex is a last resort
+
+Use regex only when no combination of non-regex code (parsing, set membership, lookups in
+`geography.json`) and the model can achieve the goal, and say why in the PR. Understanding a
+question (wording, level, places, whether to call the model) is the model's job: each pattern
+handles the phrasings its author imagined and fails the rest silently. Let the model compose
+structure and have code validate it; gate on the loop's own result; measure a call's p95
+instead of avoiding it with a heuristic. The alternatives are exhausted only after up to
+100 solve-and-measure iterations and up to 3 subagents, cheapest option first, with the
+attempts shown in the PR. Same rule as `CLAUDE.md` (Do not).
+
 ## Prompts
 
 **One loop, one system prompt**, in `api/src/prompts.py`. In git, reviewed in
