@@ -552,3 +552,36 @@ async def test_cancelling_the_request_while_waiting_for_the_split_is_not_swallow
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+async def test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_the_repair() -> (
+    None
+):
+    record = ExecutionRecord(question="Counties in A, B")
+    record.geographies = [_wildcard("m", "26")]
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [
+            _wildcard("a", "01"),
+            _wildcard("b", "02"),
+            GeoSpec(level="county", name="other", for_spec="county:001", in_spec="state:13"),
+        ]
+        return ""
+
+    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
+    assert len(record.geographies) == 3 and record.geographies[0].name == "a"
+
+
+async def test_a_non_wildcard_among_the_chosen_parents_still_rejects_the_repair() -> None:
+    first = [_wildcard("m", "26")]
+    record = ExecutionRecord(question="Counties in A, B")
+    record.geographies = first
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [_wildcard("a", "01"), _harris(), _wildcard("c", "03")]
+        return ""
+
+    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
+    assert record.geographies == first

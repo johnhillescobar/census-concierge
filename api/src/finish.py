@@ -22,7 +22,8 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
-    "state are one parent: write the county and its state as one entry, never as two. "
+    "state are one parent: write any place smaller than a state as 'Name, State' with the state "
+    "from your own knowledge, never as two entries, and never without its state. "
     "Name a state alone. unit is county, tract, block group, zcta or place: the kind of row "
     "the user wants. listing is true when they want a row for every unit inside the parents, "
     "false when they want the parents themselves."
@@ -176,7 +177,8 @@ async def _split_parents(
     record.consecutive_failures.pop("resolve_geography", None)
     after = getattr(record, "geo_status", None) or {}
     legal = after.get("legal") is not False and after.get("nested") is not False
-    if legal and len(record.geographies) >= len(parents) and _all_wild(record.geographies):
+    chosen = record.geographies[: len(parents)]  # the rest are ambiguity candidates
+    if legal and len(chosen) == len(parents) and _all_wild(chosen):
         record.url, record.rows, record.fetch = None, [], None  # never show the old parent's data
         return True
     for name, value in before.items():
