@@ -49,8 +49,8 @@ class ResolveGeographyInput(ToolInput):
     parents: list[str] | None = Field(
         default=None,
         description=(
-            "For a wildcard naming 2+ parents, after 'in', 'within', or 'inside' ('all counties "
-            "in Texas and Louisiana'): each parent by name. Keep query the full phrase."
+            "For a wildcard listing naming 2+ parents: each parent by name. "
+            "Keep query the full phrase."
         ),
     )
     level: str | None = Field(

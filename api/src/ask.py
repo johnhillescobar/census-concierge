@@ -449,7 +449,7 @@ async def run_ask(
             break
     except RuntimeError as exc:
         answer = answer or str(exc)
-    await finish_tools(dispatch, tools, record)
+    await finish_tools(dispatch, tools, record, complete)
     if record.rows and re.match(r"^[a-z_]+ failed twice$", answer):
         answer = degraded_answer(record)
     return assemble(answer, record)

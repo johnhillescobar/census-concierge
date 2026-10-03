@@ -1403,3 +1403,18 @@ async def test_aborted_loop_still_returns_every_contract_field() -> None:
     assert response.urls == []
     assert "secret" not in response.answer
     assert "key=" not in response.answer
+
+
+async def test_run_ask_hands_its_model_to_the_finish_step(monkeypatch: Any) -> None:
+    seen: list[Any] = []
+
+    async def spy(dispatch: Any, tools: Any, record: Any, complete: Any = None) -> None:
+        seen.append(complete)
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> dict:
+        return {"content": "done", "tool_calls": []}
+
+    monkeypatch.setattr("src.ask.finish_tools", spy)
+    record = ExecutionRecord()
+    await run_ask("anything", complete=complete, tools=_tools(record), record=record)
+    assert seen == [complete]

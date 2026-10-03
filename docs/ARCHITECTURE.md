@@ -42,7 +42,7 @@ api/src/main.py              FastAPI; POST /ask + 3 conversation routes (CC-41);
 api/src/store.py             conversations in Postgres: create/load/append/purge, plus the Turn/Conversation response models
 api/src/loop.py              selector event loop factory (Windows, psycopg async)
 api/src/ask.py               hand-rolled loop (_openai_complete, dispatch)
-api/src/finish.py            fills required fields if the model stops early
+api/src/finish.py            fills required fields if the model stops early; re-resolves multi-parent listings (CC-103)
 api/src/guards.py            warning codes; evaluated at assemble
 api/src/compare.py           comparisons[]
 api/src/vintages.py          ACS1 vs non-overlapping ACS5

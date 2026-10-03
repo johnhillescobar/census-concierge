@@ -31,6 +31,13 @@ retries: search (including a wording pin if the pool missed it); resolve
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
 
+A listing that names several parents ("all counties in A and B") that the loop resolved to
+one parent, the wrong level, or nothing gets one extra model call
+([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). The model only returns
+`{parents, unit, listing}`; `resolve_geography` then re-runs with all parents. The gate is a unit
+word plus a list joiner, and a result that is not already one wildcard per parent. A failed
+repair restores the loop's own resolution.
+
 An "incomplete comparison" is detected two ways
 ([CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)).
 `geo.split_comparison()` still recognizes the "versus"/"compared to"/"compare
