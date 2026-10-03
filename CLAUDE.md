@@ -64,6 +64,19 @@ Also non-negotiable in every response:
   regressions.
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
+- Use regex or keyword matching before the alternatives are exhausted. Regex is a last
+  resort: allowed only after plain code (parsing, set membership, lookups in
+  `geography.json`) and the model have both been tried and failed, and the PR must say why.
+  This is an agent. Understanding a
+  question (its wording, the level, the places, whether to call the model) is the model's
+  job, never a pattern's: each pattern handles the phrasings its author imagined and silently
+  fails the rest, which is how the predecessor grew to 38,000 lines. When a phrasing breaks,
+  the fix is to let the model compose structure and have code validate it, never another
+  pattern. Gate on the loop's own result. If a model call costs latency, measure the p95;
+  do not pre-empt it with a heuristic.
+  You have exhausted the alternatives only after up to 100 solve-and-measure iterations and
+  up to 3 subagents, cheapest option first; spend more tokens only after cheaper options
+  fail. Show those attempts in the PR before proposing any regex.
 
 ## Jira — status source of truth
 
