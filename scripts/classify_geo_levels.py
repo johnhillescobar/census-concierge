@@ -161,6 +161,11 @@ def fetched_level(url: str) -> str:
     return parse_qs(urlparse(url).query).get("for", [""])[0].split(":")[0]
 
 
+def split_urls(joined: str) -> list[str]:
+    """run_demo stores every fetched URL in one space-separated string; split at URL starts."""
+    return re.split(r"\s+(?=https?://)", joined.strip())
+
+
 def served(dataset: str, level: str) -> bool:
     return any(level in metadata.geo_levels(dataset, y) for y in metadata.cached_vintages(dataset))
 
@@ -198,6 +203,9 @@ def classify(trial: dict, a: dict, *, any_reading: bool = False) -> tuple[str, s
 
 
 def main() -> int:
+    if not any(metadata.cached_vintages(d) for d in metadata.DATASETS):
+        print("No cached metadata. Run scripts/fetch_metadata.py first.")
+        return 1
     goldens = tomllib.loads((ROOT / "evals" / "golden_questions.toml").read_text("utf-8"))
     entries = {e["id"]: e for e in goldens["question"] if e.get("expect_geo_level")}
     audits = {gid: audit(e) for gid, e in entries.items()}
@@ -233,7 +241,7 @@ def main() -> int:
     for trial in demo["trials"]:
         if "wrong geography level" not in trial["detail"]:
             continue
-        trial = {**trial, "urls": trial.get("urls") or [trial["url"]]}
+        trial = {**trial, "urls": split_urls(trial["url"])}
         bucket, why = classify(trial, audits[trial["id"]])
         other, _ = classify(trial, audits[trial["id"]], any_reading=True)
         counts[bucket] += 1

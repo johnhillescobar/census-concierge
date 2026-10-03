@@ -66,3 +66,27 @@ same-name place is coterminous). It is reported as a separate column and a
 separate total so the rule gap stays visible. It changes no bucket and no score.
 Pinning a state in an under-specified golden is a later golden change, with its
 own reason, reported apart from code gains (CC-3 AC10).
+
+## Amendment 3 (from PR #97 review; documents what the classifier does)
+
+"First match wins" in the decision order above was imprecise, and the first run
+did not follow it literally. This amendment states the precedence the classifier
+uses. It was written after the first outcomes were read, so it is recorded as a
+post-hoc clarification, not a pre-registered rule. No trial changed bucket.
+
+1. **Level selection** (what level the question expects): rule 4 first, because
+   a multi-leg question has per-leg levels and a single named or bare level
+   cannot describe it. Otherwise rule 1 (named level), then rule 2 (bare name).
+2. **Bucket overrides**, applied to a mismatch after its level is selected:
+   rule 3 (`table_cannot_serve`) overrides `pipeline_wrong` when the expected
+   level is absent from the dataset the trial used. A pipeline that fetched the
+   right dataset for the question cannot be faulted for a level that dataset
+   does not publish. t15 (ZIP, ACS 1-year) is this case.
+   Rule 4 yields `golden_misspecified` and takes precedence over rules 1-2.
+3. Rule 2's coterminous test only moves a mismatch to `golden_arguable`; it never
+   overrides rules 3 or 4.
+
+Also from review: trial `url` fields are space-joined lists. The classifier now
+splits them at URL starts before reading each `for=` clause. The first run read
+only the first URL of each trial, so q23 showed `['place']`; it fetched place and
+state. Bucket totals are unchanged.
