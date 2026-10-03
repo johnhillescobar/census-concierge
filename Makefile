@@ -34,6 +34,7 @@ demo:
 	npm --prefix web ci
 	npm --prefix web run build
 	uv run python scripts/run_demo.py --repeat 3
+	uv run python scripts/run_grid.py --repeat 3
 
 ## Capture eval + demo into evidence/slice-<N>/<ticket>-e2e-<pre|post>.txt
 ## Usage: make e2e SLICE=3 TICKET=CC-71 PHASE=pre
