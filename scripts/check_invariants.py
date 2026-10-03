@@ -270,19 +270,34 @@ REGEX_FUNCS = {
 
 
 def _regex_calls(source: str) -> int:
-    """Count `re.<fn>(...)` call sites with the AST; a regex must not police regexes."""
+    """Count regex call sites with the AST: `re.<fn>()` (any alias) and `from re import <fn>`."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return 0
-    return sum(
+    nodes = list(ast.walk(tree))
+    names = {"re"} | {
+        a.asname
+        for n in nodes
+        if isinstance(n, ast.Import)
+        for a in n.names
+        if a.name == "re" and a.asname
+    }
+    calls = sum(
         isinstance(n, ast.Call)
         and isinstance(n.func, ast.Attribute)
         and isinstance(n.func.value, ast.Name)
-        and n.func.value.id == "re"
+        and n.func.value.id in names
         and n.func.attr in REGEX_FUNCS
-        for n in ast.walk(tree)
+        for n in nodes
     )
+    imports = sum(
+        a.name in REGEX_FUNCS
+        for n in nodes
+        if isinstance(n, ast.ImportFrom) and n.module == "re"
+        for a in n.names
+    )
+    return calls + imports
 
 
 def _regex_counts_now() -> dict[str, int]:

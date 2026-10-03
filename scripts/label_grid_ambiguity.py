@@ -23,6 +23,7 @@ import json
 import sys
 import tomllib
 import zipfile
+from functools import cache
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -45,6 +46,18 @@ def county_states() -> dict[str, set[str]]:
     return found
 
 
+@cache
+def county_geoids() -> dict[str, set[str]]:
+    """County name (casefolded) -> the 5-digit GEOIDs of every county with that name."""
+    with zipfile.ZipFile(GAZETTEER) as archive:
+        text = archive.read(archive.namelist()[0]).decode("latin-1")
+    found: dict[str, set[str]] = {}
+    for line in text.splitlines()[1:]:
+        _usps, geoid, _ansi, name, *_rest = line.split("	")
+        found.setdefault(name.strip().casefold(), set()).add(geoid.strip())
+    return found
+
+
 def label(parents: list[str], counties: dict[str, set[str]]) -> dict:
     names = [p.strip().casefold() for p in parents]
     if all(n in STATE_NAMES for n in names):
@@ -53,7 +66,7 @@ def label(parents: list[str], counties: dict[str, set[str]]) -> dict:
         return {"kind": "unlabeled", "ambiguous": None, "candidate_states": []}
     fits = set.intersection(*(counties[n] for n in names))
     kind = "settled" if len(fits) == 1 else "ambiguous" if fits else "no_single_state"
-    return {"kind": kind, "ambiguous": len(fits) != 1, "candidate_states": sorted(fits)}
+    return {"kind": kind, "ambiguous": len(fits) > 1, "candidate_states": sorted(fits)}
 
 
 def main() -> None:

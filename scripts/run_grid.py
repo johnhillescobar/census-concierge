@@ -17,6 +17,7 @@ import sys
 import tomllib
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from itertools import permutations
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -30,7 +31,28 @@ LOG = ROOT / "evidence" / "grid-trials.jsonl"
 load_dotenv(ROOT / ".env")
 sys.path.insert(0, str(ROOT / "api"))
 
+from label_grid_ambiguity import county_geoids  # noqa: E402
 from src.geo_list import STATES  # noqa: E402
+
+
+def geoid_of(in_value: str) -> str:
+    """'state:17+county:031' (or with a space, as a parsed query gives) -> '17031'."""
+    parts = dict(p.split(":", 1) for p in in_value.replace("+", " ").split() if ":" in p)
+    return parts.get("state", "") + parts.get("county", "")
+
+
+def tract_identity_ok(cell: dict[str, Any], in_values: list[str]) -> bool:
+    """The fetched counties are the named ones: one state, each name matched by its own URL."""
+    counties = county_geoids()
+    names = [str(p).strip().casefold() for p in cell["expected_parents"]]
+    if not all(name in counties for name in names):
+        return True  # not a county list: nothing more to verify
+    geoids = [geoid_of(v) for v in in_values]
+    if len(geoids) != len(names) or len({g[:2] for g in geoids}) != 1:
+        return False
+    return any(
+        all(g in counties[n] for g, n in zip(p, names, strict=True)) for p in permutations(geoids)
+    )
 
 
 def cell_passes(cell: dict[str, Any], body: dict[str, Any]) -> bool:
@@ -45,6 +67,8 @@ def cell_passes(cell: dict[str, Any], body: dict[str, Any]) -> bool:
         parents.add(query["in"][0])
     if not (body.get("rows") and len(urls) == len(parents) == len(cell["expected_parents"])):
         return False
+    if cell["level"] == "tract":
+        return tract_identity_ok(cell, sorted(parents))
     if cell["level"] != "county":
         return True
     fips = {name.casefold(): code for name, _usps, code in STATES}

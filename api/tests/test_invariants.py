@@ -204,3 +204,9 @@ def test_removing_a_regex_passes_the_check(monkeypatch: Any) -> None:
     monkeypatch.setattr(inv, "_regex_counts_at", lambda ref: {"api/src/a.py": 3})
     monkeypatch.setattr(inv, "_regex_counts_now", lambda: {"api/src/a.py": 1})
     assert inv.check_no_new_regex("main") == []
+
+
+def test_regex_imported_by_name_or_under_an_alias_is_counted() -> None:
+    assert inv._regex_calls("from re import sub, compile\n") == 2
+    assert inv._regex_calls("import re as rx\nrx.search('a', 'b')\n") == 1
+    assert inv._regex_calls("from re import escape\n") == 0
