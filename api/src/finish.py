@@ -23,7 +23,8 @@ _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
     "state are one parent: write any place smaller than a state as 'Name, State' with the state "
-    "from your own knowledge, never as two entries, and never without its state. "
+    "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
+    "never without its state. "
     "Name a state alone. unit is county, tract, block group, zcta or place: the kind of row "
     "the user wants. listing is true when they want a row for every unit inside the parents, "
     "false when they want the parents themselves."
