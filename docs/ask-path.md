@@ -33,10 +33,13 @@ containment stops — it does not invent nested `for`/`in`.
 
 A listing that names several parents ("all counties in A and B") that the loop resolved to
 one parent, the wrong level, or nothing gets one extra model call
-([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). The model only returns
-`{parents, unit, listing}`; `resolve_geography` then re-runs with all parents. The gate is a unit
-word plus a list joiner, and a result that is not already one wildcard per parent. A failed
-repair restores the loop's own resolution.
+([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). The call needs only the
+question, so `run_ask` starts it as a task beside the loop (`plan_split` in `finish.py`) and
+`finish_tools` uses its finished result; the end of the request never calls the model. The model
+only returns `{parents, unit, listing}`; `resolve_geography` then re-runs with all parents. The
+result must be a closed unit, 2+ parents, and a legal, nested, all-wildcard resolution, and a
+result that is not already one wildcard per parent. A failed call or repair never fails the
+answer and restores the loop's own resolution; the task is always cancelled when the request ends.
 
 An "incomplete comparison" is detected two ways
 ([CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)).

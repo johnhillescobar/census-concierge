@@ -10,9 +10,9 @@ from typing import Any
 from ask_fixtures import _harris
 from src.ask import ExecutionRecord, dispatch
 from src.census_url import CensusURL
-from src.contract import GeoSpec, ResultPlan
+from src.contract import GeoSpec
 from src.fetch import FetchDataTool
-from src.finish import _wrong_comparison, finish_tools
+from src.finish import _wrong_comparison, finish_tools, plan_split
 
 
 def _fetch_tool(
@@ -108,7 +108,12 @@ async def _run_split(
         rec.geographies = [_wildcard("a", "01"), _wildcard("b", "02")][:resolved]
         return ""
 
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
     return seen, record
 
 
@@ -162,7 +167,12 @@ async def test_comparison_resolution_is_left_alone_when_the_model_says_it_is_not
         return ""
 
     complete = _splitter(["Harris County, Texas", "Travis County, Texas"], None)
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
     assert complete.calls == 1 and seen == []
 
 
@@ -182,21 +192,30 @@ async def test_comparison_resolution_the_model_calls_a_listing_is_repaired() -> 
         return ""
 
     complete = _splitter(["Cook County, Illinois", "DuPage County, Illinois"], "tract")
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
     assert seen[0]["parents"] == ["Cook County, Illinois", "DuPage County, Illinois"]
 
 
-async def test_override_plan_never_calls_the_model() -> None:
+async def test_without_a_model_there_is_no_split() -> None:
+    assert await plan_split("All counties in Ohio and Michigan.", None) is None
+
+
+async def test_finish_without_a_split_leaves_the_resolution_alone() -> None:
     record = ExecutionRecord(question="All counties in Ohio and Michigan.")
     record.geographies = [_wildcard("m", "26")]
-    record.override = ResultPlan(geographies=[_wildcard("m", "26")])
-    complete = _splitter(["Ohio", "Michigan"])
+    seen: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        seen.append(call["args"])
         return ""
 
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
-    assert complete.calls == 0
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
+    assert seen == []
 
 
 async def test_model_naming_no_listing_level_leaves_the_resolution_alone() -> None:
@@ -277,7 +296,12 @@ async def _split_with(
         )
         return ""
 
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, complete)
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
     return seen, record
 
 
@@ -324,7 +348,10 @@ async def test_failed_repair_restores_the_fetched_answer() -> None:
         return ""
 
     await finish_tools(
-        fake_dispatch, {"resolve_geography": object()}, record, _splitter(["Ohio", "Michigan"])
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, _splitter(["Ohio", "Michigan"])),
     )
     assert record.rows == [{"GEO_ID": "x"}] and record.table_id == "B01003"
 
@@ -340,7 +367,10 @@ async def test_repair_resolution_that_is_not_nested_is_rejected() -> None:
         return ""
 
     await finish_tools(
-        fake_dispatch, {"resolve_geography": object()}, record, _splitter(["Ohio", "Michigan"])
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, _splitter(["Ohio", "Michigan"])),
     )
     assert record.geographies == first
 
