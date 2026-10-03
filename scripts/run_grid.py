@@ -79,7 +79,7 @@ def main() -> int:
 
     def trial(job: tuple[int, dict[str, Any]]) -> dict[str, Any]:
         round_id, cell = job
-        status, crashed = 0, ""
+        status, crashed, error = 0, "", ""
         try:
             with TestClient(app) as client:
                 response = client.post("/ask", json={"question": cell["question"]})
@@ -87,7 +87,7 @@ def main() -> int:
             body = response.json() if status == 200 else {}
             body = body if isinstance(body, dict) else {}
         except Exception as exc:  # noqa: BLE001 - one crashed ask is a miss, not an aborted run
-            body, crashed = {}, type(exc).__name__
+            body, crashed, error = {}, type(exc).__name__, str(exc)[:200]
         ok = cell_passes(cell, body)
         mark = "ok" if ok else "MISS"
         print(f"{mark}  {cell['id']} r{round_id}  {cell['question']}", flush=True)
@@ -100,6 +100,7 @@ def main() -> int:
             "got": got,
             "status": status,
             "crashed": crashed,
+            "error": error,
             "warnings": warnings,
         }
 
