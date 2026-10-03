@@ -4,9 +4,11 @@ every ask loop, regardless of whether the model's own turns hit an error.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
+import pytest
 from ask_fixtures import _harris
 from src.ask import ExecutionRecord, dispatch
 from src.census_url import CensusURL
@@ -438,3 +440,115 @@ async def test_redo_after_a_resolved_comparison_resolves_the_question_not_the_pl
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
     assert seen == [{"query": "every tract in Cook County, Illinois"}]
+
+
+def _three_parent_plan() -> dict[str, Any]:
+    return {"parents": ["A County, S1", "B County, S1", "C County, S1"], "unit": "county"}
+
+
+async def _plan(value: dict[str, Any] | None) -> dict[str, Any] | None:
+    return value
+
+
+async def test_a_resolution_with_fewer_geographies_than_parents_is_rejected_and_restored() -> None:
+    first = [_wildcard("m", "26")]
+    record = ExecutionRecord(question="Counties in A, B and C")
+    record.geographies = first
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [_wildcard("a", "01"), _wildcard("b", "02")]  # two of three parents
+        return ""
+
+    await finish_tools(
+        fake_dispatch, {"resolve_geography": object()}, record, _plan(_three_parent_plan())
+    )
+    assert record.geographies == first
+
+
+async def test_a_swallowed_resolve_failure_does_not_rebuild_the_loops_answer() -> None:
+    two = [_wildcard("a", "01"), _wildcard("b", "02")]
+    record = ExecutionRecord(question="Counties in A, B and C")
+    record.geographies = two
+    record.pool = [{"table_id": "B01003", "title": "Total Population", "members": []}]
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:01"
+    )
+    called: list[str] = []
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        called.append(call["id"])  # dispatch swallows tool failures: nothing changes
+        return ""
+
+    tools = {"resolve_geography": object(), "build_url": object()}
+    await finish_tools(fake_dispatch, tools, record, _plan(_three_parent_plan()))
+    assert called == ["resolve_geography"] and record.geographies == two
+
+
+async def test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows() -> None:
+    record = ExecutionRecord(question="Counties in A, B")
+    record.geographies = [_wildcard("m", "26")]
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:26"
+    )
+    record.rows = [{"GEO_ID": "old"}]
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        if call["id"] == "resolve_geography":
+            rec.geographies = [_wildcard("a", "01"), _wildcard("b", "02")]
+        return ""  # build_url fails to produce a new URL
+
+    tools = {"resolve_geography": object(), "build_url": object()}
+    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    await finish_tools(fake_dispatch, tools, record, _plan(plan))
+    assert record.url is None and record.rows == []
+
+
+async def test_a_rejected_repair_restores_the_retained_urls() -> None:
+    record = ExecutionRecord(question="Counties in A, B")
+    record.geographies = [_wildcard("m", "26")]
+    record.retained_urls = ["https://api.census.gov/old"]
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.retained_urls = ["https://api.census.gov/old", "https://api.census.gov/new"]
+        rec.geographies = [_harris(), _harris()]  # not wildcards: rejected
+        return ""
+
+    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
+    assert record.retained_urls == ["https://api.census.gov/old"]
+
+
+async def test_a_split_that_never_finishes_does_not_hold_the_answer(monkeypatch: Any) -> None:
+    monkeypatch.setattr("src.finish.SPLIT_WAIT_SECONDS", 0.05)
+    record = ExecutionRecord(question="Counties in A, B")
+    record.geographies = [_wildcard("m", "26")]
+
+    async def never() -> dict[str, Any] | None:
+        await asyncio.sleep(30)
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        raise AssertionError("no repair without a split")
+
+    started = asyncio.get_event_loop().time()
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, never())
+    assert asyncio.get_event_loop().time() - started < 5
+
+
+async def test_cancelling_the_request_while_waiting_for_the_split_is_not_swallowed() -> None:
+    record = ExecutionRecord(question="Counties in A, B")
+    record.geographies = [_wildcard("m", "26")]
+
+    async def never() -> dict[str, Any] | None:
+        await asyncio.sleep(30)
+
+    async def run() -> None:
+        async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+            return ""
+
+        await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, never())
+
+    task = asyncio.create_task(run())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

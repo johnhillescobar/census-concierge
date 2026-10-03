@@ -22,13 +22,14 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
-    "state are one parent: write 'Cook County, Illinois', never 'Cook County' and 'Illinois'. "
+    "state are one parent: write the county and its state as one entry, never as two. "
     "Name a state alone. unit is county, tract, block group, zcta or place: the kind of row "
     "the user wants. listing is true when they want a row for every unit inside the parents, "
     "false when they want the parents themselves."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
+SPLIT_WAIT_SECONDS = 6.0  # the call normally finishes beside the loop; never delay an answer more
 
 _LISTING = re.compile(
     r"\b(?:all|every|each)\s+(?:census\s+)?(block groups?|tracts?)\b|"
@@ -111,6 +112,7 @@ _SNAPSHOT = ("geographies", "geo_status", "geography", "geo_queries", "url", "ro
     "table_id",
     "universe",
     "vintages",
+    "retained_urls",
 )
 
 
@@ -174,7 +176,8 @@ async def _split_parents(
     record.consecutive_failures.pop("resolve_geography", None)
     after = getattr(record, "geo_status", None) or {}
     legal = after.get("legal") is not False and after.get("nested") is not False
-    if legal and len(record.geographies) >= 2 and _all_wild(record.geographies):
+    if legal and len(record.geographies) >= len(parents) and _all_wild(record.geographies):
+        record.url, record.rows, record.fetch = None, [], None  # never show the old parent's data
         return True
     for name, value in before.items():
         setattr(record, name, value)
@@ -194,7 +197,10 @@ async def finish_tools(
     geo = tools.get("resolve_geography")
     url = getattr(record, "url", None)
     plan = getattr(record, "override", None)
-    found = await split if split is not None else None
+    try:
+        found = await asyncio.wait_for(split, SPLIT_WAIT_SECONDS) if split is not None else None
+    except TimeoutError:
+        found = None
     redone = plan is None and await _split_parents(dispatch, geo, record, question, found)
     redo = redone or _wrong_listing(record, question) or _wrong_comparison(record, question)
     redo = redo or _wrong_parentless(record, question, year)
