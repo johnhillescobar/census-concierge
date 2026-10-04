@@ -1,0 +1,22 @@
+Gate 2 cold review, CC-103, range 78d3e45..HEAD (code: f383155, 5a62236)
+Machines: check_budgets OK (api src LOC 4396<=4400, prompt tokens 977<=1200, p95 19.207<=20),
+check_invariants --base origin/main OK (budget increases, new regex, prompt assertions all ok),
+ruff check api scripts OK, pytest api/tests 599 passed 34 skipped.
+
+Verdict: no blocking findings; two low/info notes.
+
+(a) Leakage: prompt text vs evals/golden_questions.toml and cc103_phrasing_grid.toml capitalised terms: no place names
+    in prompts.py. Only overlap is "Oregon" in tools.py:39 (query description), unchanged vs origin/main (pre-existing,
+    but it is an eval place in an api/src literal; flag for the owner, not new in this range).
+(b) No test references ROLE/system_prompt text; no prompt-wording assertions.
+(c) No budget/invariant weakening. api src LOC has 4 lines of headroom.
+(d) Docs: ask-path.md/ARCHITECTURE.md/requirements.md say nothing about old prompt wording; ARCHITECTURE.md:54 "one system
+    prompt" still true. ask-path.md:34-41 describes repair as correcting a loop that "resolved to one parent"; still accurate.
+(e) Repair interaction: _split_parents (finish.py) skips when geos are all wildcard and len(parents) <= len(geos), so if the model
+    already put all parents on one call it is not redone. plan_split still makes its extra model call every time (cost only,
+    runs beside the loop). If the model supplies parents but wrong level, _wrong_listing/regex path may still redo; fine.
+    Ambiguity candidates inflate len(geos), which only makes skipping more likely (safe direction).
+(f) No regex/keyword added in this range.
+Notes:
+ - prompts.py:7 file-level `# ruff: noqa: E501` placed after docstring; works, ruff passes.
+ - Prompt says "{today}" substitutions via str.replace; a literal "{today}" in a user-visible tool result is not affected.

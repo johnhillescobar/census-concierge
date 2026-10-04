@@ -41,3 +41,17 @@ visible grid by verb, so it shares place sets with the visible cells and measure
 generalization, not new places. 95% Wilson intervals are about +/-5 points. Only aggregates
 are recorded here; the sealed question text and logs are not in the repository. The sealed set
 was used to choose between A and B, so the winner's score is slightly optimistic.
+
+## Prompt experiment (after the A/B choice)
+
+Option A is shipped with the owner-supplied v4 prompt (hash `c0e048fc86b5`, 977 tokens, under the
+1,200 cap, so no budget change). One condition per branch, same measurements.
+
+| | Visible tract x3 | Held-out tract | Gap | `long_tail` p95 | Answered |
+|---|---|---|---|---|---|
+| C0: current prompt, repair call on | 138/144 = 95.8% | 98/114 = 86.0%, 101/114 = 88.6% | +9.8 / +7.2 | 19.80s | 0.742 |
+| **C1: v4 prompt, repair call on (shipped)** | **143/144 = 99.3%** | **108/114 = 94.7%** | **+4.6** | **17.15s** | 0.725 |
+| C2: v4 prompt, repair call off | 1/144 = 0.7% | not run | | 20.49s | 0.725 |
+
+C1 wins on every measure. C2 shows the extra model call is still needed on this code. Evidence
+under `c1/` and `c2/`; the full story is in `cc103-experiment-report.md`.
