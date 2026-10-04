@@ -25,7 +25,7 @@ live in Jira and `evidence/`, never here.
 Slice 6 ([CC-3](https://johnhillescobar.atlassian.net/browse/CC-3)) is current.
 Baseline: CC-38 post-merge on main, geography-level scorer, long_tail
 answered_rate 0.742, p95 21.701s (`evidence/slice-5/cc-38-e2e-post.txt`).
-CC-77 stays parked (see After).
+CC-77 is a phase 1 intermediary epic, not yet scheduled (see After).
 
 ---
 
@@ -84,8 +84,8 @@ exception.
 
 ## After
 
-Do not plan this yet. Parked: CC-77 (spatial crosswalks / full-table extract;
-its CC-11 foundations have shipped). Later, with usage data: clarification only where
+Do not plan this yet. Phase 1 intermediary epic, not yet scheduled: CC-77
+(spatial crosswalks / full-table extract; its CC-11 foundations have shipped). Later, with usage data: clarification only where
 the demo suite requires it, more datasets, GeoJSON export.
 
 ## Every PR
