@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -9,7 +10,7 @@ import pytest
 from ask_fixtures import ENTRIES, _describe, _geo_tool, _harris, _search, _tools
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
-from src.contract import AskResponse, GeoSpec
+from src.contract import AskResponse, GeoSpec, ResultPlan
 from src.fetch import FetchDataTool
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
@@ -898,6 +899,8 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
         _ = messages, openai_tools
+        if not openai_tools:
+            return {"content": "", "tool_calls": []}
         return queue.pop(0)
 
     response = await run_ask(question, complete=complete, tools=tools, record=record)
@@ -949,6 +952,8 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
         _ = messages, openai_tools
+        if not openai_tools:
+            return {"content": "", "tool_calls": []}
         return queue.pop(0)
 
     response = await run_ask(question, complete=complete, tools=tools, record=record)
@@ -999,6 +1004,8 @@ async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
         _ = messages, openai_tools
+        if not openai_tools:
+            return {"content": "", "tool_calls": []}
         return queue.pop(0)
 
     response = await run_ask(question, complete=complete, tools=tools, record=record)
@@ -1028,6 +1035,8 @@ async def test_answer_stays_a_visible_failure_when_recovery_also_fails() -> None
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
         _ = messages, openai_tools
+        if not openai_tools:
+            return {"content": "", "tool_calls": []}
         return queue.pop(0)
 
     response = await run_ask(question, complete=complete, tools=tools, record=record)
@@ -1337,6 +1346,8 @@ async def test_universe_comes_from_the_requested_vintage() -> None:
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
         _ = messages, openai_tools
+        if not openai_tools:
+            return {"content": "", "tool_calls": []}
         return queue.pop(0)
 
     response = await run_ask("population", complete=complete, tools=tools, record=record)
@@ -1403,3 +1414,85 @@ async def test_aborted_loop_still_returns_every_contract_field() -> None:
     assert response.urls == []
     assert "secret" not in response.answer
     assert "key=" not in response.answer
+
+
+_SPLIT_REPLY = {
+    "content": '{"parents": ["Ohio", "Michigan"], "unit": "county", "listing": true}',
+    "tool_calls": [],
+}
+
+
+async def test_split_call_runs_beside_the_loop_and_finish_reuses_it(monkeypatch: Any) -> None:
+    seen: list[Any] = []
+    order: list[str] = []
+
+    async def spy(dispatch: Any, tools: Any, record: Any, split: Any = None) -> None:
+        seen.append(await split if split else None)
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> dict:
+        if openai_tools:
+            order.append("loop-start")
+            await asyncio.sleep(0.01)
+            order.append("loop-end")
+            return {"content": "done", "tool_calls": []}
+        order.append("split")
+        return _SPLIT_REPLY
+
+    monkeypatch.setattr("src.ask.finish_tools", spy)
+    record = ExecutionRecord()
+    await run_ask("anything", complete=complete, tools=_tools(record), record=record)
+    assert order.index("split") < order.index("loop-end")
+    assert order.count("split") == 1
+    assert seen == [{"parents": ["Ohio", "Michigan"], "unit": "county"}]
+
+
+async def test_failing_split_call_never_fails_the_request(monkeypatch: Any) -> None:
+    seen: list[Any] = []
+
+    async def spy(dispatch: Any, tools: Any, record: Any, split: Any = None) -> None:
+        seen.append(await split if split else None)
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> dict:
+        if not openai_tools:
+            raise OSError("rate limited")
+        return {"content": "done", "tool_calls": []}
+
+    monkeypatch.setattr("src.ask.finish_tools", spy)
+    record = ExecutionRecord()
+    response = await run_ask("anything", complete=complete, tools=_tools(record), record=record)
+    assert response.answer == "done" and seen == [None]
+
+
+async def test_split_task_is_cancelled_when_the_loop_raises() -> None:
+    started = asyncio.Event()
+    cancelled: list[bool] = []
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> dict:
+        if not openai_tools:
+            started.set()
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                cancelled.append(True)
+                raise
+        await started.wait()
+        raise ValueError("loop broke")
+
+    record = ExecutionRecord()
+    with pytest.raises(ValueError):
+        await run_ask("anything", complete=complete, tools=_tools(record), record=record)
+    await asyncio.sleep(0)
+    assert cancelled == [True]
+
+
+async def test_override_plan_never_asks_the_model_to_split() -> None:
+    calls: list[bool] = []
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> dict:
+        calls.append(bool(openai_tools))
+        return {"content": "done", "tool_calls": []}
+
+    record = ExecutionRecord()
+    plan = ResultPlan(table_id="B01003")
+    await run_ask("anything", complete=complete, tools=_tools(record), record=record, override=plan)
+    assert calls and all(calls)

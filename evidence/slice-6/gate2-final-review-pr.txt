@@ -1,0 +1,109 @@
+## ls evidence/slice-6
+aborted
+ambiguity-llm-v2-unreliable.jsonl
+ambiguity-v1-unreliable.jsonl
+cc103-ambiguity-visible.jsonl
+cc103-demo-final.json
+cc103-demo-final.txt
+cc103-demo-post.json
+cc103-demo-post.txt
+cc103-demo-post-v3code.json
+cc103-demo-pre.json
+cc103-demo-pre.txt
+cc103-demo-v5.json
+cc103-demo-v5.txt
+cc103-demo-v5-clean.json
+cc103-demo-v5-clean.txt
+cc103-demo-v6.json
+cc103-demo-v6.txt
+cc103-grid-final.json
+cc103-grid-final.log
+cc103-grid-final-trials.jsonl
+cc103-grid-latest-working.json
+cc103-grid-post-v1.json
+cc103-grid-post-v1.jsonl
+cc103-grid-post-v2.json
+cc103-grid-post-v2.jsonl
+cc103-grid-post-v2.log
+cc103-grid-post-v3.json
+cc103-grid-post-v3.jsonl
+cc103-grid-post-v3.log
+cc103-grid-post-v4-aborted.jsonl
+cc103-grid-tract-v5.json
+cc103-grid-tract-v5.log
+cc103-grid-tract-v5-trials.jsonl
+cc103-grid-tract-v6.json
+cc103-grid-tract-v6.log
+cc103-grid-tract-v6-trials.jsonl
+cc103-option-selection.md
+cc-114-classification.md
+cc-114-rule.md
+gate2-code-review.txt
+gate2-final-review-pr.txt
+gate2-rerun.txt
+gate2-review-pr.txt
+invalid-corrupted-build
+opt-a
+opt-b
+## budgets
+
+BUDGETS
+
+  ok    api src LOC               4380 <= 4400
+  ok    api src files               26 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       354 <= 1200
+  ok    doc lines                 1709 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         19.207 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.742 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+## invariants
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+  ok    new regex                      
+
+All invariants held.
+
+## budgets.toml diff
+## ruff
+All checks passed!
+168 files already formatted
+## mypy
+Success: no issues found in 26 source files
+## pytest
+sssss..s.ss..........................                                    [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+579 passed, 34 skipped, 1 warning in 19.66s
+## manual findings
+finish.py:25 prompt literal 'Cook County, Illinois' example; Cook/Illinois also appear in grid (leakage check, see below)
+finish.py:155-185 repair swaps resolution without a warning; URL/plan show it but no warning code

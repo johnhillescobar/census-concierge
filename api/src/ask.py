@@ -26,7 +26,7 @@ from src.contract import (
     take_chart,
 )
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
-from src.finish import degraded_answer, finish_tools
+from src.finish import degraded_answer, finish_tools, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
@@ -412,44 +412,45 @@ async def run_ask(
     complete = complete or _openai_complete
     answer = ""
     calls_used = 0
-    try:
-        for _turn in range(MAX_TURNS):
-            turn = await complete(messages, openai_tools)
-            answer = str(turn.get("content") or "")
-            pending = list(turn.get("tool_calls") or [])
-            if not pending:
-                break
-            assistant_tools = []
-            for call in pending:
-                assistant_tools.append(
-                    {
-                        "id": call["id"],
-                        "type": "function",
-                        "function": {
-                            "name": call["name"],
-                            "arguments": json.dumps(call.get("args") or {}),
-                        },
-                    }
-                )
-            messages.append(
-                {"role": "assistant", "content": answer or None, "tool_calls": assistant_tools}
-            )
-            for call in pending:
-                if calls_used >= MAX_TOOL_CALLS:
+    async with split_beside(question, complete, record.override is None) as split:
+        try:
+            for _turn in range(MAX_TURNS):
+                turn = await complete(messages, openai_tools)
+                answer = str(turn.get("content") or "")
+                pending = list(turn.get("tool_calls") or [])
+                if not pending:
                     break
-                tool = tools.get(str(call["name"]))
-                if tool is None:
-                    content = f"unknown tool {call['name']}"
+                assistant_tools = []
+                for call in pending:
+                    assistant_tools.append(
+                        {
+                            "id": call["id"],
+                            "type": "function",
+                            "function": {
+                                "name": call["name"],
+                                "arguments": json.dumps(call.get("args") or {}),
+                            },
+                        }
+                    )
+                messages.append(
+                    {"role": "assistant", "content": answer or None, "tool_calls": assistant_tools}
+                )
+                for call in pending:
+                    if calls_used >= MAX_TOOL_CALLS:
+                        break
+                    tool = tools.get(str(call["name"]))
+                    if tool is None:
+                        out = f"unknown tool {call['name']}"
+                    else:
+                        out = await dispatch(tool, call, record)
+                        calls_used += 1
+                    messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
                 else:
-                    content = await dispatch(tool, call, record)
-                    calls_used += 1
-                messages.append({"role": "tool", "tool_call_id": call["id"], "content": content})
-            else:
-                continue
-            break
-    except RuntimeError as exc:
-        answer = answer or str(exc)
-    await finish_tools(dispatch, tools, record)
+                    continue
+                break
+        except RuntimeError as exc:
+            answer = answer or str(exc)
+        await finish_tools(dispatch, tools, record, split)
     if record.rows and re.match(r"^[a-z_]+ failed twice$", answer):
         answer = degraded_answer(record)
     return assemble(answer, record)

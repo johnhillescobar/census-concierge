@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 
 from langchain_core.tools import BaseTool
@@ -14,6 +17,21 @@ from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
 
 Dispatch = Callable[..., Awaitable[str]]
+Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
+
+_SPLIT_PARENTS = (
+    'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool}. parents are the '
+    "places the user names, one entry each, whatever word connects them. A place and its own "
+    "state are one parent: write any place smaller than a state as 'Name, State' with the state "
+    "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
+    "never without its state. "
+    "Name a state alone. unit is county, tract, block group, zcta or place: the kind of row "
+    "the user wants. listing is true when they want a row for every unit inside the parents, "
+    "false when they want the parents themselves."
+)
+
+_SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
+SPLIT_WAIT_SECONDS = 6.0  # the call normally finishes beside the loop; never delay an answer more
 
 _LISTING = re.compile(
     r"\b(?:all|every|each)\s+(?:census\s+)?(block groups?|tracts?)\b|"
@@ -87,10 +105,93 @@ def _wrong_parentless(record: Any, question: str, year: int) -> bool:
     return status.get("legal") is not False or len(geos) < 2 or geos[0].level != "tract"
 
 
+def _all_wild(geos: list[Any]) -> bool:
+    return bool(geos) and all(g.for_spec.endswith(":*") for g in geos)
+
+
+_SNAPSHOT = ("geographies", "geo_status", "geography", "geo_queries", "url", "rows") + (
+    "fetch",
+    "table_id",
+    "universe",
+    "vintages",
+    "retained_urls",
+)
+
+
+async def plan_split(question: str, complete: Complete | None) -> dict[str, Any] | None:
+    """Ask the model to split the question's parents; return validated parts or None.
+
+    Needs only the question, so run_ask starts it beside the loop as a task.
+    """
+    if complete is None:
+        return None
+    try:
+        turn = await complete(
+            [{"role": "system", "content": _SPLIT_PARENTS}, {"role": "user", "content": question}],
+            [],
+        )
+        raw = str(turn.get("content") or "")
+        found = json.loads(raw[raw.index("{") : raw.rindex("}") + 1])
+        names, unit = found.get("parents"), str(found.get("unit") or "")
+    except Exception:  # noqa: BLE001 - a failed repair must never fail the answer
+        return None
+    if not (found.get("listing") and unit in _SPLIT_UNITS and isinstance(names, list)):
+        return None
+    parents = [name.strip() for name in names if isinstance(name, str) and name.strip()]
+    parents = list({name.casefold(): name for name in parents}.values())
+    return {"parents": parents, "unit": unit} if len(parents) >= 2 else None
+
+
+@asynccontextmanager
+async def split_beside(
+    question: str, complete: Complete | None, enabled: bool
+) -> AsyncIterator[asyncio.Task[dict[str, Any] | None] | None]:
+    """Run plan_split beside the caller's work; always cancel and reap it on exit."""
+    task = asyncio.create_task(plan_split(question, complete)) if enabled and complete else None
+    try:
+        yield task
+    finally:
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+
+async def _split_parents(
+    dispatch: Dispatch, geo: BaseTool | None, record: Any, question: str, found: Any
+) -> bool:
+    """Re-resolve a multi-parent listing the loop got wrong with the model's parents."""
+    geos = list(getattr(record, "geographies", []) or [])
+    if not (found and geo):
+        return False
+    parents, unit = found["parents"], found["unit"]
+    if _all_wild(geos) and len(parents) <= len(geos):
+        return False
+    before = {name: getattr(record, name) for name in _SNAPSHOT}
+    before["geo_queries"] = list(record.geo_queries)
+    args: dict[str, Any] = {"query": f"every {unit} in {', '.join(parents)}", "parents": parents}
+    if wants_acs1(question):
+        args["dataset"] = "acs1"
+    try:
+        await dispatch(geo, {"id": "resolve_geography", "args": args}, record)
+    except Exception:  # noqa: BLE001 - keep the loop's own resolution
+        record.geographies = []
+    record.consecutive_failures.pop("resolve_geography", None)
+    after = getattr(record, "geo_status", None) or {}
+    legal = after.get("legal") is not False and after.get("nested") is not False
+    chosen = record.geographies[: len(parents)]  # the rest are ambiguity candidates
+    if legal and len(chosen) == len(parents) and _all_wild(chosen):
+        record.url, record.rows, record.fetch = None, [], None  # never show the old parent's data
+        return True
+    for name, value in before.items():
+        setattr(record, name, value)
+    return False
+
+
 async def finish_tools(
     dispatch: Dispatch,
     tools: dict[str, BaseTool],
     record: Any,
+    split: Awaitable[dict[str, Any] | None] | None = None,
 ) -> None:
     """Search, resolve, build, and fetch when the loop stopped without a URL."""
     question = str(getattr(record, "question", "") or "")
@@ -98,10 +199,15 @@ async def finish_tools(
     year = _latest(record)
     geo = tools.get("resolve_geography")
     url = getattr(record, "url", None)
-    redo = _wrong_listing(record, question) or _wrong_comparison(record, question)
+    plan = getattr(record, "override", None)
+    try:
+        found = await asyncio.wait_for(split, SPLIT_WAIT_SECONDS) if split is not None else None
+    except TimeoutError:
+        found = None
+    redone = plan is None and await _split_parents(dispatch, geo, record, question, found)
+    redo = redone or _wrong_listing(record, question) or _wrong_comparison(record, question)
     redo = redo or _wrong_parentless(record, question, year)
     redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
-    plan = getattr(record, "override", None)
     if plan is not None and plan.geographies:
         redo = False
     if not url or redo:
@@ -112,7 +218,7 @@ async def finish_tools(
             or (pin is not None and all(hit["table_id"] != pin for hit in record.pool))
         ):
             await dispatch(search, {"id": "search_tables", "args": {"question": question}}, record)
-        if geo is not None and (redo or not record.geographies):
+        if geo is not None and not redone and (redo or not record.geographies):
             status = getattr(record, "geo_status", None) or {}
             queries = list(getattr(record, "geo_queries", None) or [])
             args: dict[str, Any] = (

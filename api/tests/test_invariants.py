@@ -179,3 +179,34 @@ async def test_missing_openai_key_fails_closed(monkeypatch: Any, value: str | No
         monkeypatch.setenv("OPENAI_API_KEY", value)
     with pytest.raises(ValueError, match="missing OPENAI_API_KEY"):
         await _openai_complete([], [])
+
+
+def test_regex_call_sites_are_counted_without_a_regex() -> None:
+    source = (
+        "import re\nA = re.compile('x')\nre.search('a', 'b')\nnot_re.compile('y')\nre.escape('z')\n"
+    )
+    assert inv._regex_calls(source) == 2
+
+
+def test_a_file_that_gains_a_regex_fails_the_check(monkeypatch: Any) -> None:
+    monkeypatch.setattr(inv, "_regex_counts_at", lambda ref: {"api/src/a.py": 1})
+    monkeypatch.setattr(inv, "_regex_counts_now", lambda: {"api/src/a.py": 2})
+    assert [v.where for v in inv.check_no_new_regex("main")] == ["api/src/a.py"]
+
+
+def test_a_new_file_with_a_regex_fails_the_check(monkeypatch: Any) -> None:
+    monkeypatch.setattr(inv, "_regex_counts_at", lambda ref: {})
+    monkeypatch.setattr(inv, "_regex_counts_now", lambda: {"api/src/new.py": 1})
+    assert [v.where for v in inv.check_no_new_regex("main")] == ["api/src/new.py"]
+
+
+def test_removing_a_regex_passes_the_check(monkeypatch: Any) -> None:
+    monkeypatch.setattr(inv, "_regex_counts_at", lambda ref: {"api/src/a.py": 3})
+    monkeypatch.setattr(inv, "_regex_counts_now", lambda: {"api/src/a.py": 1})
+    assert inv.check_no_new_regex("main") == []
+
+
+def test_regex_imported_by_name_or_under_an_alias_is_counted() -> None:
+    assert inv._regex_calls("from re import sub, compile\n") == 2
+    assert inv._regex_calls("import re as rx\nrx.search('a', 'b')\n") == 1
+    assert inv._regex_calls("from re import escape\n") == 0

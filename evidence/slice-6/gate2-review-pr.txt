@@ -1,0 +1,76 @@
+## check_budgets
+
+BUDGETS
+
+  ok    api src LOC               4340 <= 4400
+  ok    api src files               26 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       354 <= 1200
+  ok    doc lines                 1675 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         19.207 <= 20
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.875 >= 0.7
+  ok    answered_rate            0.742 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit 0
+## check_invariants
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget increases               
+
+All invariants held.
+
+exit 0
+## ruff
+All checks passed!
+exit 0
+warning: Failed to write cache file `C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\cc-103\.ruff_cache\0.16.3\17578451160497320231`: Access is denied. (os error 5)
+165 files already formatted
+exit 0
+## mypy
+Success: no issues found in 26 source files
+exit 0
+## pytest
+........................................................................ [ 24%]
+........................................................................ [ 37%]
+..............sssssssssssssssss..sss.................................... [ 49%]
+........................................................................ [ 61%]
+........................................................................ [ 74%]
+........................................................................ [ 86%]
+..................................sssssssssss..s.ss..................... [ 99%]
+.....                                                                    [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+547 passed, 34 skipped, 1 warning in 15.67s
+
+## manual review
+- budgets.toml unchanged; budget increases invariant ok; leakage: no places/phrasings in api/src diff.
+- docs/ask-path.md "Finish path" (line 24+) and ARCHITECTURE.md:45 not updated for new split-parents LLM step.
+- finish.py:104-135 _split_parents: extra model call in finish; regex gates _LIST_JOIN/_UNITS.
+- untracked evidence/grid-latest_sealed.json, grid-trials_sealed.jsonl exist (not read); must not be committed.
