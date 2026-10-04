@@ -54,7 +54,8 @@ class ResolveGeographyInput(ToolInput):
         ),
     )
     level: str | None = Field(
-        default=None, description="geography.json name if already known, else omit."
+        default=None,
+        description="County, tract, block group, place, state or zcta; omit if unknown.",
     )
     dataset: Literal["acs5", "acs1"] = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(
