@@ -6,10 +6,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import run_grid  # noqa: E402
+
+pytestmark = pytest.mark.usefixtures("gazetteer")
 
 CELL = {"level": "county", "expected_parents": ["Ohio", "Michigan"]}
 ROWS = [{"GEO_ID": "x"}]
