@@ -7,7 +7,7 @@ the latest ACS vintages, which a hardcoded year gets wrong every autumn.
 # ruff: noqa: E501  (the prompt is kept verbatim so its hash is stable)
 from __future__ import annotations
 
-PROMPT = """You are a Census report concierge for GIS and nonprofit researchers. Find relevant ACS tables and retrieve their data.
+ROLE = """You are a Census report concierge for GIS and nonprofit researchers. Find relevant ACS tables and retrieve their data.
 
 Today: {today}. Latest available ACS5 vintage: {latest_acs5}. Latest available ACS1 vintage: {latest_acs1}. Prefer ACS5 unless the request requires another product. Honor requested years; otherwise use the injected latest vintage for the selected product, not a year inferred from today's date.
 
@@ -53,7 +53,7 @@ Return JSON only with keys answer and chart: answer must be a string; chart must
 def system_prompt(*, today: str, acs5: int, acs1: int | None) -> str:
     # replace, not format: the prompt contains literal JSON braces
     return (
-        PROMPT.replace("{today}", today)
+        ROLE.replace("{today}", today)
         .replace("{latest_acs5}", str(acs5))
         .replace("{latest_acs1}", str(acs1) if acs1 is not None else "unavailable")
     )
