@@ -89,6 +89,15 @@ def _count_pattern(files: list[Path], pattern: re.Pattern[str]) -> int:
     return total
 
 
+def _parse(path: Path) -> ast.AST | None:
+    """Parse one source file. A byte-order mark is not a syntax error: it would otherwise
+    count a file's classes and prompt strings as zero."""
+    try:
+        return ast.parse(path.read_text(encoding="utf-8-sig"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return None
+
+
 TOOL_IO_BASES = ("ToolInput", "ToolResult")
 
 
@@ -104,9 +113,7 @@ def _count_subclasses(
     """
     total = 0
     for path in files:
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError, UnicodeDecodeError):
+        if (tree := _parse(path)) is None:
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef) or node.name in exclude:
@@ -184,9 +191,7 @@ def _prompt_tokens() -> int:
 
     chars = 0
     for path in files:
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError, UnicodeDecodeError):
+        if (tree := _parse(path)) is None:
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -209,6 +214,13 @@ def _evidence() -> dict[str, Any]:
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def _number(value: object) -> float | None:
+    """A real number. A bool is not one: `True` would read as a p95 of 1.0."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
 
 
 def _latest_evidence(key: str) -> float | None:
@@ -247,28 +259,26 @@ def _p95_check(budgets: dict) -> Check | None:
     old under-ceiling run while `demo.p95_latency_seconds` was over (CC-3 AC13).
     """
     data = _evidence()
-    demo = data.get("demo")
     run, slowest = "", None
     limit = budgets["performance"]["p95_latency_seconds"]
-    if isinstance(demo, dict):
-        if not isinstance(demo.get("p95_latency_seconds"), (int, float)):
-            # A demo block with no p95 is a harness fault. Never fall back to the stale key.
+    if "demo" in data:
+        demo = data["demo"]
+        p95 = _number(demo.get("p95_latency_seconds")) if isinstance(demo, dict) else None
+        if not isinstance(demo, dict) or p95 is None:
+            # A demo block with no usable p95 is a harness fault. Never read the stale key.
             return Check("p95 latency (s)", float("inf"), limit, note="the demo block has no p95")
-        p95 = float(demo["p95_latency_seconds"])
         run = str(demo.get("generated_at", ""))
         trials = demo.get("trials")
         if isinstance(trials, list):
             slowest = max(
                 (
-                    t["latency_s"]
+                    seconds
                     for t in trials
-                    if isinstance(t, dict) and isinstance(t.get("latency_s"), (int, float))
+                    if isinstance(t, dict) and (seconds := _number(t.get("latency_s"))) is not None
                 ),
                 default=None,
             )
-    elif isinstance(data.get("p95_latency_seconds"), (int, float)):
-        p95 = float(data["p95_latency_seconds"])
-    else:
+    elif (p95 := _number(data.get("p95_latency_seconds"))) is None:
         return None
     note = f"run {run or 'unknown'}"
     if slowest is not None:
@@ -386,7 +396,8 @@ def main() -> int:
         print(
             "\np95 is read from the run's own demo block. Reduce latency; or the owner may log\n"
             "'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'\n"
-            "in budgets.toml. It covers that one run only."
+            "in budgets.toml. It covers that one run only, and goes in its own commit: a waiver\n"
+            "added in the same change as code fails 'new exemptions' in check_invariants."
         )
     print(
         "\n"

@@ -8,6 +8,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -40,6 +42,12 @@ def _latest(
     (tmp_path / "evidence" / "latest.json").write_text(json.dumps(payload), encoding="utf-8")
     (tmp_path / "budgets.toml").write_text((LOG_HEADER if header else "") + log, encoding="utf-8")
     monkeypatch.setattr(bud, "ROOT", tmp_path)
+
+
+def _empty_sources(tmp_path: Path, monkeypatch: Any) -> None:
+    """Keep the gate off the live api/web trees: their size is not this test's business."""
+    monkeypatch.setattr(bud, "API_SRC", tmp_path / "api" / "src")
+    monkeypatch.setattr(bud, "WEB_SRC", tmp_path / "web" / "src")
 
 
 def _demo(p95: float, *, run: str = RUN, trials: list[float] | None = None) -> dict[str, Any]:
@@ -105,12 +113,13 @@ def test_an_under_ceiling_p95_needs_no_waiver(tmp_path: Path, monkeypatch: Any) 
     assert check is not None and check.within and check.waived == ""
 
 
-def test_a_demo_block_without_a_p95_fails_instead_of_reading_the_stale_key(
-    tmp_path: Path, monkeypatch: Any
+@pytest.mark.parametrize(
+    "demo", [None, [], "x", {"p95_latency_seconds": None}, {"p95_latency_seconds": True}]
+)
+def test_an_unusable_demo_block_fails_instead_of_reading_the_stale_key(
+    tmp_path: Path, monkeypatch: Any, demo: Any
 ) -> None:
-    _latest(
-        tmp_path, monkeypatch, {"p95_latency_seconds": 19.2, "demo": {"p95_latency_seconds": None}}
-    )
+    _latest(tmp_path, monkeypatch, {"p95_latency_seconds": 19.2, "demo": demo})
     check = bud._p95_check(BUDGETS)
     assert check is not None and not check.ok
 
@@ -137,6 +146,7 @@ def test_collect_gates_p95_and_structural_only_leaves_it_out(
 ) -> None:
     real = tomllib.loads((ROOT / "budgets.toml").read_text(encoding="utf-8"))
     _latest(tmp_path, monkeypatch, {"demo": _demo(21.7)})
+    _empty_sources(tmp_path, monkeypatch)
     assert "p95 latency (s)" in [c.name for c in bud.collect(real)]
     assert "p95 latency (s)" not in [c.name for c in bud.collect(real, structural_only=True)]
 
@@ -145,6 +155,7 @@ def test_main_labels_a_waived_p95_and_counts_it(
     tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
     _latest(tmp_path, monkeypatch, {"demo": _demo(21.701)})
+    _empty_sources(tmp_path, monkeypatch)
     real = (ROOT / "budgets.toml").read_text(encoding="utf-8")
     (tmp_path / "budgets.toml").write_text(real + "\n" + WAIVER, encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["check_budgets.py"])
@@ -152,6 +163,21 @@ def test_main_labels_a_waived_p95_and_counts_it(
     out = capsys.readouterr().out
     assert "waive " in out and "waived by owner: CC-113" in out
     assert "1 waived by the owner" in out
+
+
+def test_a_file_with_a_byte_order_mark_is_still_counted_by_the_shape_budgets(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    src = tmp_path / "api" / "src"
+    src.mkdir(parents=True)
+    bom = chr(0xFEFF)
+    (src / "tools.py").write_text(
+        bom + "class A(BaseTool): pass\nclass B(BaseTool): pass\n", encoding="utf-8"
+    )
+    (src / "prompts.py").write_text(bom + 'ROLE = "' + "x" * 400 + '"\n', encoding="utf-8")
+    monkeypatch.setattr(bud, "API_SRC", src)
+    assert bud._count_subclasses([src / "tools.py"], "BaseTool") == 2
+    assert bud._prompt_tokens() == 100
 
 
 def test_doc_lines_counts_each_agent_catalog(tmp_path: Path, monkeypatch: Any) -> None:

@@ -387,6 +387,8 @@ def _logged_targets(text: str) -> tuple[dict[tuple[str, str], float], list[str]]
             try:
                 value = float(target[0])
             except ValueError:  # a rename: `old_field 0.95 -> new_field 0.50`
+                if not target[0].isidentifier():
+                    raise
                 field, value = target[0], float(target[1])
         except (ValueError, IndexError):
             unreadable.append(" ".join(words[:7]))
@@ -406,6 +408,13 @@ def check_budget_log_matches_values() -> list[Violation]:
         values = tomllib.loads(text)
     except (OSError, tomllib.TOMLDecodeError):
         return []
+    if "budget change log" not in text.lower():
+        return [
+            Violation(
+                "budgets.toml",
+                "the 'budget change log' header is missing, so no limit change can be read.",
+            )
+        ]
     targets, unreadable = _logged_targets(text)
     found = [
         Violation(
@@ -511,7 +520,7 @@ def _leak_hits() -> dict[tuple[str, str, str], int]:
         for tier, size, content in LEAK_TIERS
     }
     places = set().union(*(_leak_proper_nouns(q, skip_first=True) for q in questions))
-    hits: dict[tuple[str, str, str], int] = {}
+    hits: dict[tuple[str, str, str], set[int]] = {}
     for path in _py_files(API_SRC):
         rel = path.relative_to(ROOT).as_posix()
         source = path.read_text(encoding="utf-8-sig")
@@ -520,14 +529,32 @@ def _leak_hits() -> dict[tuple[str, str, str], int]:
         except SyntaxError:
             continue
         names = _regex_names(nodes)
-        # Everything inside a regex call's arguments: positional, `pattern=...`, f-string parts.
-        in_regex = {
-            id(part)
+        bare = {
+            a.asname or a.name
             for n in nodes
-            if _is_regex_call(n, names)
-            for arg in (*n.args, *(k.value for k in n.keywords))
-            for part in ast.walk(arg)
+            if isinstance(n, ast.ImportFrom) and n.module in REGEX_MODULES
+            for a in n.names
+            if a.name in REGEX_FUNCS
         }
+        named: dict[str, list[ast.AST]] = {}
+        for n in nodes:
+            targets = n.targets if isinstance(n, ast.Assign) else [getattr(n, "target", None)]
+            value = getattr(n, "value", None)
+            if isinstance(n, (ast.Assign, ast.AnnAssign)) and isinstance(value, ast.Constant):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        named.setdefault(target.id, []).append(value)
+        # The pattern of a regex call: first positional or `pattern=`, with its f-string parts
+        # and, when it is a name, the strings assigned to that name. Not the replacement.
+        in_regex: set[int] = set()
+        for n in nodes:
+            is_bare = isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in bare
+            if not (is_bare or _is_regex_call(n, names)):
+                continue
+            for arg in (*n.args[:1], *(k.value for k in n.keywords if k.arg == "pattern")):
+                in_regex.update(id(part) for part in ast.walk(arg))
+                if isinstance(arg, ast.Name):
+                    in_regex.update(id(value) for value in named.get(arg.id, []))
         texts = [
             (n.lineno, n.value, id(n) in in_regex)
             for n in nodes
@@ -544,21 +571,31 @@ def _leak_hits() -> dict[tuple[str, str, str], int]:
                 if tier == "regex2" and not is_regex:
                     continue
                 for gram in _leak_grams(words, size, content) & eval_grams[tier]:
-                    hits.setdefault((tier, gram, rel), line)
+                    hits.setdefault((tier, gram, rel), set()).add(line)
             if path.name in LEAK_PLACE_FILES:
                 for place in _leak_proper_nouns(text, skip_first=False) & places:
-                    hits.setdefault(("place", place, rel), line)
+                    hits.setdefault(("place", place, rel), set()).add(line)
     return _drop_subsumed(hits)
 
 
-def _drop_subsumed(hits: dict[tuple[str, str, str], int]) -> dict[tuple[str, str, str], int]:
-    """Keep the longest phrase: 'median gross rent' already says 'gross rent'."""
+def _drop_subsumed(
+    hits: dict[tuple[str, str, str], set[int]],
+) -> dict[tuple[str, str, str], int]:
+    """Drop a phrase only on the lines where a longer one already says it: 'median gross rent'
+    covers 'gross rent' there, and a new 'gross rent' elsewhere in the file still shows."""
     kept: dict[tuple[str, str, str], int] = {}
+    longer: list[tuple[str, str, set[int]]] = []
     for key in sorted(hits, key=lambda k: (-len(k[1].split()), k)):
         _, phrase, rel = key
-        if any(r == rel and p != phrase and f" {phrase} " in f" {p} " for _, p, r in kept):
-            continue
-        kept[key] = hits[key]
+        covered = {
+            line
+            for p, r, lines in longer
+            if r == rel and p != phrase and f" {phrase} " in f" {p} "
+            for line in lines
+        }
+        if remaining := hits[key] - covered:
+            kept[key] = min(remaining)
+        longer.append((phrase, rel, hits[key]))
     return kept
 
 

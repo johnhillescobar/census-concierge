@@ -34,13 +34,13 @@
 
 | Check | Result |
 |---|---|
-| Tests, the two gate files | 59 tests: 58 pass; 1 fails — `test_invariants_print_every_named_pattern`, which runs the live repo and fails only on the owed `api_src_loc` log line |
-| Gate 1 (`gate1.txt`) | 42 mutations, every one caught (labelled BAD), 3 files restored byte-exact |
-| Gate 2 (`gate2.txt`) | two cold passes, fixes made, one re-run on the fixes |
+| Tests, the two gate files | 72 tests: 71 pass; 1 fails — `test_invariants_print_every_named_pattern`, which runs the live repo and fails only on the owed `api_src_loc` log line. Whole non-integration suite: 645 passed, 34 skipped, that 1 failed |
+| Gate 1 (`gate1.txt`) | 57 mutations, every one caught (labelled BAD), 3 files restored byte-exact |
+| Gate 2 (`gate2.txt`) | two cold passes, fixes, one re-run, and one fix round for what the re-run found (no third pass) |
 | `ruff check`, `ruff format --check`, `mypy api/src` | clean |
 | `budgets.toml`, `api/src`, `.github` | untouched |
 | Budgets (`--structural-only`) | doc_lines 1746/1800; api 4396/4400; largest file 410/410; web 3349/3350 |
-| Green when the owed line exists | verified with the line appended temporarily, then `budgets.toml` restored by hash: invariants hold, 59/59 tests pass |
+| Green when the owed line exists | verified with the line appended temporarily, then `budgets.toml` restored by hash: invariants hold, 72/72 gate tests pass |
 | Regex call sites | 64, base 64, delta +0 |
 
 Current red, by design: `budget log matches values` (api_src_loc: file 4400, last log line 4340) and the p95 row (main's `latest.json` has demo p95 21.701 > 20, no waiver). CI `scoreboard` goes red on main for the p95 row once this lands, until the owner acts.
@@ -55,6 +55,10 @@ Current red, by design: `budget log matches values` (api_src_loc: file 4400, las
      `# 2026-10-04  [waiver] p95_latency_seconds 2026-10-02T02:25:10+00:00 21.701 CC-113 over ceiling accepted by the owner while the latency research runs`
 3. When you commit: `git add` only the files above plus `evidence/checkpoint-2026-10-04/`. Do not `git add -A`; the tree has unrelated untracked files (`.vscode/`, `evidence/grid-*`, `ncierge/`, `evidence/slice-6/...`).
 4. Confirm the two "plain domain vocabulary" entries in `evals/leakage_baseline.txt` (`block group`, `zip code`); the initial baseline is mine, the review is yours.
+
+## Commits (local, not pushed)
+
+`a8a50c9` gates and tests · `ed3d78e` docs · `279bbbf` evidence · a fourth commit for the Gate 2 pass-2 fixes (see `git log`).
 
 ## Found, not changed
 
