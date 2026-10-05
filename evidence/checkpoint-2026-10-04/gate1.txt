@@ -1,0 +1,96 @@
+GATE 1 - mutation check of the new gate tests
+GOOD = covering tests pass on the real code. BAD = they fail under the mutation.
+
+GOOD  baseline api/tests/test_invariants.py: 1 failed, 46 passed, 1 warning in 2.05s; FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+GOOD  baseline api/tests/test_budgets.py: 12 passed, 1 warning in 0.93s
+
+BAD   log mismatch is ignored  [check_invariants.py]  -k 'disagrees_with_its_last_log_line or two_log_entries or renamed_budget_field'
+        -> 3 failed, 44 deselected, 1 warning in 0.49s; FAILED api/tests/test_invariants.py::test_a_limit_that_disagrees_with_its_last_log_line_fails_the_check; FAILED api/tests/test_invariants.py::test_two_log_entries_on_one_line_are_both_read; FAILED api/tests/test_invariants.py::test_a_renamed_budget_field_is_checked_under_its_new_name
+BAD   a matching limit is flagged as a mismatch  [check_invariants.py]  -k 'matches_its_last_log_line_passes or only_the_last_log_line'
+        -> 2 failed, 45 deselected, 1 warning in 0.55s; FAILED api/tests/test_invariants.py::test_a_limit_that_matches_its_last_log_line_passes_the_check; FAILED api/tests/test_invariants.py::test_only_the_last_log_line_for_a_field_counts
+BAD   first log line wins instead of the last  [check_invariants.py]  -k 'only_the_last_log_line'
+        -> 1 failed, 46 deselected, 1 warning in 0.30s; FAILED api/tests/test_invariants.py::test_only_the_last_log_line_for_a_field_counts
+BAD   an unreadable limit change is not reported  [check_invariants.py]  -k 'cannot_read_fails'
+        -> 1 failed, 46 deselected, 1 warning in 0.29s; FAILED api/tests/test_invariants.py::test_a_limit_change_the_check_cannot_read_fails_the_check
+BAD   renamed fields are skipped  [check_invariants.py]  -k 'renamed_budget_field'
+        -> 1 failed, 46 deselected, 1 warning in 0.35s; FAILED api/tests/test_invariants.py::test_a_renamed_budget_field_is_checked_under_its_new_name
+BAD   one entry per physical line  [budget_log.py]  -k 'two_log_entries_on_one_line'
+        -> 1 failed, 46 deselected, 1 warning in 0.47s; FAILED api/tests/test_invariants.py::test_two_log_entries_on_one_line_are_both_read
+BAD   the log header is not required  [budget_log.py]  -k 'above_the_log_header'
+        -> 1 failed, 58 deselected, 1 warning in 0.42s; FAILED api/tests/test_budgets.py::test_a_waiver_written_above_the_log_header_is_ignored
+BAD   4-word tier removed  [check_invariants.py]  -k 'four_word_eval_phrase_in_a_string_literal or four_word_eval_phrase_in_a_comment'
+        -> 2 failed, 45 deselected, 1 warning in 0.34s; FAILED api/tests/test_invariants.py::test_a_four_word_eval_phrase_in_a_string_literal_fails_the_check; FAILED api/tests/test_invariants.py::test_a_four_word_eval_phrase_in_a_comment_fails_the_check
+BAD   comments are not scanned  [check_invariants.py]  -k 'four_word_eval_phrase_in_a_comment'
+        -> 1 failed, 46 deselected, 1 warning in 0.29s; FAILED api/tests/test_invariants.py::test_a_four_word_eval_phrase_in_a_comment_fails_the_check
+BAD   regex word boundary glues to the next word  [check_invariants.py]  -k 'across_a_word_boundary'
+        -> 1 failed, 46 deselected, 1 warning in 0.46s; FAILED api/tests/test_invariants.py::test_two_eval_words_inside_a_regex_fail_the_check_across_a_word_boundary
+BAD   2-word tier applies outside regex arguments  [check_invariants.py]  -k 'outside_a_regex_do_not_fail'
+        -> 1 failed, 46 deselected, 1 warning in 0.32s; FAILED api/tests/test_invariants.py::test_the_same_two_words_outside_a_regex_do_not_fail_the_check
+BAD   regex keyword arguments are not read  [check_invariants.py]  -k 'keyword_or_inside_an_f_string'
+        -> 1 failed, 46 deselected, 1 warning in 0.33s; FAILED api/tests/test_invariants.py::test_a_pattern_given_by_keyword_or_inside_an_f_string_is_read_as_a_regex
+BAD   f-string parts are not read  [check_invariants.py]  -k 'keyword_or_inside_an_f_string'
+        -> 1 failed, 46 deselected, 1 warning in 0.28s; FAILED api/tests/test_invariants.py::test_a_pattern_given_by_keyword_or_inside_an_f_string_is_read_as_a_regex
+BAD   substring phrases are not folded into the longer one  [check_invariants.py]  -k 'longer_phrase_stands_for'
+        -> 1 failed, 46 deselected, 1 warning in 0.41s; FAILED api/tests/test_invariants.py::test_a_longer_phrase_stands_for_the_shorter_ones_inside_it
+BAD   place tier reads every file  [check_invariants.py]  -k 'place_in_a_tool_description'
+        -> 1 failed, 46 deselected, 1 warning in 0.35s; FAILED api/tests/test_invariants.py::test_a_place_in_a_tool_description_fails_the_check_but_not_elsewhere
+BAD   place tier removed  [check_invariants.py]  -k 'place_in_a_tool_description or baselined_hit'
+        -> 2 failed, 45 deselected, 1 warning in 0.38s; FAILED api/tests/test_invariants.py::test_a_place_in_a_tool_description_fails_the_check_but_not_elsewhere; FAILED api/tests/test_invariants.py::test_a_baselined_hit_passes_and_a_new_hit_still_fails
+BAD   baseline is ignored  [check_invariants.py]  -k 'baselined_hit_passes'
+        -> 1 failed, 46 deselected, 1 warning in 0.44s; FAILED api/tests/test_invariants.py::test_a_baselined_hit_passes_and_a_new_hit_still_fails
+BAD   stale baseline entries are not reported  [check_invariants.py]  -k 'baseline_entry_whose_hit_is_gone'
+        -> 1 failed, 46 deselected, 1 warning in 0.55s; FAILED api/tests/test_invariants.py::test_a_baseline_entry_whose_hit_is_gone_fails_the_check
+BAD   a byte-order mark hides a file from the regex count  [check_invariants.py]  -k 'byte_order_mark'
+        -> 1 failed, 46 deselected, 1 warning in 0.33s; FAILED api/tests/test_invariants.py::test_a_file_with_a_byte_order_mark_is_still_scanned_and_counted
+BAD   a byte-order mark hides a file from the leak scan  [check_invariants.py]  -k 'byte_order_mark'
+        -> 1 failed, 46 deselected, 1 warning in 0.36s; FAILED api/tests/test_invariants.py::test_a_file_with_a_byte_order_mark_is_still_scanned_and_counted
+BAD   another regex engine is not counted  [check_invariants.py]  -k 'another_regex_engine_or_a_star_import'
+        -> 1 failed, 46 deselected, 1 warning in 0.33s; FAILED api/tests/test_invariants.py::test_importing_another_regex_engine_or_a_star_import_is_counted
+BAD   star import is not counted  [check_invariants.py]  -k 'another_regex_engine_or_a_star_import'
+        -> 1 failed, 46 deselected, 1 warning in 0.41s; FAILED api/tests/test_invariants.py::test_importing_another_regex_engine_or_a_star_import_is_counted
+BAD   a waiver added since the base is allowed  [check_invariants.py]  -k 'waiver_added_since_the_base'
+        -> 1 failed, 46 deselected, 1 warning in 0.41s; FAILED api/tests/test_invariants.py::test_a_waiver_added_since_the_base_fails_the_check
+BAD   a baseline entry added since the base is allowed  [check_invariants.py]  -k 'baseline_entry_added_since_the_base'
+        -> 1 failed, 46 deselected, 1 warning in 0.32s; FAILED api/tests/test_invariants.py::test_a_leakage_baseline_entry_added_since_the_base_fails_the_check
+BAD   an exemption file missing at the base is not skipped  [check_invariants.py]  -k 'does_not_exist_at_the_base_is_skipped'
+        -> 1 failed, 46 deselected, 1 warning in 0.34s; FAILED api/tests/test_invariants.py::test_an_exemption_file_that_does_not_exist_at_the_base_is_skipped
+BAD   exemptions already at the base are flagged  [check_invariants.py]  -k 'already_at_the_base_pass'
+        -> 1 failed, 46 deselected, 1 warning in 0.37s; FAILED api/tests/test_invariants.py::test_exemptions_already_at_the_base_pass_the_check
+BAD   the budget log check is not registered  [check_invariants.py]  -k 'are_registered'
+        -> 1 failed, 46 deselected, 1 warning in 0.38s; FAILED api/tests/test_invariants.py::test_the_budget_log_leakage_and_exemption_checks_are_registered
+BAD   the leakage check is not registered  [check_invariants.py]  -k 'are_registered'
+        -> 1 failed, 46 deselected, 1 warning in 0.34s; FAILED api/tests/test_invariants.py::test_the_budget_log_leakage_and_exemption_checks_are_registered
+BAD   the exemption row is missing without a base  [check_invariants.py]  -k 'are_registered'
+        -> 1 failed, 46 deselected, 1 warning in 0.65s; FAILED api/tests/test_invariants.py::test_the_budget_log_leakage_and_exemption_checks_are_registered
+BAD   the exemption check is not run under a base  [check_invariants.py]  -k 'collect_runs_the_exemption_check'
+        -> 1 failed, 46 deselected, 1 warning in 0.63s; FAILED api/tests/test_invariants.py::test_collect_runs_the_exemption_check_when_given_a_base
+BAD   the p95 check is not wired into collect()  [check_budgets.py]  -k 'collect_gates_p95'
+        -> 1 failed, 11 deselected, 1 warning in 0.43s; FAILED api/tests/test_budgets.py::test_collect_gates_p95_and_structural_only_leaves_it_out
+BAD   p95 read from the top-level key  [check_budgets.py]  -k 'read_from_the_runs_own_demo_block or names_the_slowest_trial'
+        -> 2 failed, 10 deselected, 1 warning in 0.16s; FAILED api/tests/test_budgets.py::test_p95_is_read_from_the_runs_own_demo_block_not_the_stale_top_level_key; FAILED api/tests/test_budgets.py::test_p95_check_names_the_slowest_trial_that_p95_leaves_out
+BAD   a demo block without a p95 is skipped  [check_budgets.py]  -k 'demo_block_without_a_p95'
+        -> 1 failed, 11 deselected, 1 warning in 0.14s; FAILED api/tests/test_budgets.py::test_a_demo_block_without_a_p95_fails_instead_of_reading_the_stale_key
+BAD   waiver ignores the run id  [check_budgets.py]  -k 'another_run_or_another_value'
+        -> 1 failed, 11 deselected, 1 warning in 0.17s; FAILED api/tests/test_budgets.py::test_a_waiver_for_another_run_or_another_value_does_not_apply
+BAD   waiver ignores the value  [check_budgets.py]  -k 'another_run_or_another_value'
+        -> 1 failed, 11 deselected, 1 warning in 0.39s; FAILED api/tests/test_budgets.py::test_a_waiver_for_another_run_or_another_value_does_not_apply
+BAD   waiver needs the exact value  [check_budgets.py]  -k 'tolerates_rounding'
+        -> 1 failed, 11 deselected, 1 warning in 0.30s; FAILED api/tests/test_budgets.py::test_a_waiver_tolerates_rounding_but_not_a_different_p95
+BAD   waiver is looked up for an under-ceiling run  [check_budgets.py]  -k 'under_ceiling_p95_needs_no_waiver'
+        -> 1 failed, 11 deselected, 1 warning in 0.32s; FAILED api/tests/test_budgets.py::test_an_under_ceiling_p95_needs_no_waiver
+BAD   no fallback to the top-level key  [check_budgets.py]  -k 'falls_back_to_the_top_level_key'
+        -> 1 failed, 11 deselected, 1 warning in 0.28s; FAILED api/tests/test_budgets.py::test_p95_falls_back_to_the_top_level_key_when_there_is_no_demo_block
+BAD   slowest trial is not reported  [check_budgets.py]  -k 'names_the_slowest_trial'
+        -> 1 failed, 11 deselected, 1 warning in 0.24s; FAILED api/tests/test_budgets.py::test_p95_check_names_the_slowest_trial_that_p95_leaves_out
+BAD   a waiver never applies  [check_budgets.py]  -k 'passes_only_with_a_waiver'
+        -> 1 failed, 11 deselected, 1 warning in 0.41s; FAILED api/tests/test_budgets.py::test_an_over_ceiling_p95_passes_only_with_a_waiver_for_that_run
+BAD   a waived row is labelled ok  [check_budgets.py]  -k 'main_labels_a_waived_p95'
+        -> 1 failed, 11 deselected, 1 warning in 0.63s; FAILED api/tests/test_budgets.py::test_main_labels_a_waived_p95_and_counts_it
+BAD   waived rows are not counted  [check_budgets.py]  -k 'main_labels_a_waived_p95'
+        -> 1 failed, 11 deselected, 1 warning in 0.49s; FAILED api/tests/test_budgets.py::test_main_labels_a_waived_p95_and_counts_it
+
+restored check_invariants.py: 57bf0ccdb8c2 -> 57bf0ccdb8c2 OK
+restored check_budgets.py: cf74d8f7062f -> cf74d8f7062f OK
+restored budget_log.py: c71739a4d599 -> c71739a4d599 OK
+
+42 mutations. RESULT: every mutation was caught and the files are restored.
