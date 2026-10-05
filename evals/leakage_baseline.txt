@@ -1,0 +1,23 @@
+# Known eval phrasing inside api/src (CC-3 AC8). Checked by scripts/check_invariants.py.
+#
+# One entry per line: tier|phrase|file  # reason and the ticket that removes it.
+# The baseline only shrinks. A new hit fails the build; so does an entry whose hit is gone.
+# Adding a line is a human commit with a reason. Print today's hits with
+#   uv run python scripts/check_invariants.py --print-leakage-hits
+#
+# Real leaks. Each is removed by the ticket named, in the same change that deletes the code.
+gram4|all counties in oregon|api/src/tools.py  # CC-116: golden q02 text in a tool description
+gram4|have the worst broadband|api/src/retrieval/build.py  # CC-116: comment quotes a golden question
+gram4|the worst broadband access|api/src/retrieval/build.py  # CC-116: same comment
+content3|households receiving snap|api/src/retrieval/rerank.py  # CC-117: Sibling rules name a golden topic
+content3|median family income|api/src/vintages.py  # CC-117: pinned_table pin
+content3|median gross rent|api/src/vintages.py  # CC-117: pinned_table pin
+gram4|households with a computer|api/src/vintages.py  # CC-117: pinned_table pin
+regex2|households computer|api/src/vintages.py  # CC-117: same pin
+regex2|cell phones|api/src/vintages.py  # CC-117: pinned_table pin
+regex2|health insurance|api/src/vintages.py  # CC-117: pinned_table pin
+regex2|income distribution|api/src/vintages.py  # CC-117: pinned_table pin
+#
+# Plain domain vocabulary. Not eval-specific; the pattern around it is judged by the regex ratchet.
+regex2|block group|api/src/geo_list.py  # Census NAME class word
+regex2|zip code|api/src/guards.py  # the zip-code warning's trigger word

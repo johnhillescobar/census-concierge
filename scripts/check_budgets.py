@@ -11,11 +11,15 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import re
 import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+import budget_log
 
 ROOT = Path(__file__).resolve().parent.parent
 API_SRC = ROOT / "api" / "src"
@@ -31,10 +35,17 @@ class Check:
     limit: float
     # "max" = actual must not exceed limit; "min" = actual must not fall below
     direction: str = "max"
+    # A logged owner waiver for this one run; the row still prints, as "waive".
+    waived: str = ""
+    note: str = ""
+
+    @property
+    def within(self) -> bool:
+        return self.actual <= self.limit if self.direction == "max" else self.actual >= self.limit
 
     @property
     def ok(self) -> bool:
-        return self.actual <= self.limit if self.direction == "max" else self.actual >= self.limit
+        return self.within or bool(self.waived)
 
 
 def _py_files(root: Path) -> list[Path]:
@@ -192,18 +203,78 @@ def _count_dependencies() -> int:
     return len(data.get("project", {}).get("dependencies", []))
 
 
+def _evidence() -> dict[str, Any]:
+    try:
+        data = json.loads((ROOT / "evidence" / "latest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def _latest_evidence(key: str) -> float | None:
     """Read a metric from the most recent `make demo` / `make eval` run."""
-    import json
-
-    path = ROOT / "evidence" / "latest.json"
-    if not path.exists():
-        return None
-    try:
-        value = json.loads(path.read_text(encoding="utf-8")).get(key)
-    except (OSError, ValueError):
-        return None
+    value = _evidence().get(key)
     return float(value) if isinstance(value, (int, float)) else None
+
+
+def _p95_waiver(run: str, p95: float) -> str:
+    """The reason from `[waiver] p95_latency_seconds <run> <value> <ticket> <why>`, or "".
+
+    The owner writes that line in budgets.toml. It is bound to one run id and value, so
+    the next over-ceiling run is unwaived until the owner decides again.
+    """
+    try:
+        text = (ROOT / "budgets.toml").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    for words in budget_log.entries(text):
+        if len(words) < 6 or words[1:4] != ["[waiver]", "p95_latency_seconds", run]:
+            continue
+        try:
+            logged = float(words[4])
+        except ValueError:
+            continue
+        if abs(logged - p95) < 0.0005:
+            return " ".join(words[5:])
+    return ""
+
+
+def _p95_check(budgets: dict) -> Check | None:
+    """p95 from the latest demo run itself.
+
+    `run_demo.merge_evidence` keeps an over-ceiling p95 out of the top-level key so a
+    noisy run cannot turn the scoreboard red; reading that key made this gate pass on an
+    old under-ceiling run while `demo.p95_latency_seconds` was over (CC-3 AC13).
+    """
+    data = _evidence()
+    demo = data.get("demo")
+    run, slowest = "", None
+    limit = budgets["performance"]["p95_latency_seconds"]
+    if isinstance(demo, dict):
+        if not isinstance(demo.get("p95_latency_seconds"), (int, float)):
+            # A demo block with no p95 is a harness fault. Never fall back to the stale key.
+            return Check("p95 latency (s)", float("inf"), limit, note="the demo block has no p95")
+        p95 = float(demo["p95_latency_seconds"])
+        run = str(demo.get("generated_at", ""))
+        trials = demo.get("trials")
+        if isinstance(trials, list):
+            slowest = max(
+                (
+                    t["latency_s"]
+                    for t in trials
+                    if isinstance(t, dict) and isinstance(t.get("latency_s"), (int, float))
+                ),
+                default=None,
+            )
+    elif isinstance(data.get("p95_latency_seconds"), (int, float)):
+        p95 = float(data["p95_latency_seconds"])
+    else:
+        return None
+    note = f"run {run or 'unknown'}"
+    if slowest is not None:
+        note += f"; slowest trial {slowest:g}s (p95 leaves out the top 5%)"
+    waived = _p95_waiver(run, p95) if p95 > limit else ""
+    return Check("p95 latency (s)", p95, limit, waived=waived, note=note)
 
 
 def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
@@ -260,9 +331,8 @@ def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
     if structural_only:
         return checks
 
-    p95 = _latest_evidence("p95_latency_seconds")
-    if p95 is not None:
-        checks.append(Check("p95 latency (s)", p95, budgets["performance"]["p95_latency_seconds"]))
+    if (p95 := _p95_check(budgets)) is not None:
+        checks.append(p95)
 
     for key, limit_key in (
         ("retrieval_at_10", "retrieval_at_10_min"),
@@ -294,19 +364,30 @@ def main() -> int:
 
     print("\nBUDGETS\n")
     for check in checks:
-        status = "ok  " if check.ok else "FAIL"
+        status = "ok  " if check.within else ("waive" if check.ok else "FAIL")
         comparator = "<=" if check.direction == "max" else ">="
         actual = f"{check.actual:>8.6g}"
-        print(f"  {status}  {check.name:<{width}}  {actual} {comparator} {check.limit:g}")
+        print(f"  {status:<5} {check.name:<{width}}  {actual} {comparator} {check.limit:g}")
+        if check.note:
+            print(f"        {check.note}")
+        if check.waived:
+            print(f"        waived by owner: {check.waived}")
 
     failed = [c for c in checks if not c.ok]
     if not failed:
-        print("\nAll budgets met.\n")
+        waived = sum(1 for c in checks if c.waived and not c.within)
+        print(f"\nAll budgets met{f' ({waived} waived by the owner)' if waived else ''}.\n")
         return 0
 
     print(f"\n{len(failed)} budget(s) exceeded:\n")
     for check in failed:
         print(f"  - {check.name}: {check.actual:g} (limit {check.limit:g})")
+    if any(c.name.startswith("p95") for c in failed):
+        print(
+            "\np95 is read from the run's own demo block. Reduce latency; or the owner may log\n"
+            "'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'\n"
+            "in budgets.toml. It covers that one run only."
+        )
     print(
         "\n"
         "STOP. Do not edit budgets.toml to make this pass.\n"
