@@ -136,4 +136,4 @@ index_store/availability.json.gz
 | 6 | follow-up resolution |
 | 7 | report worker + object storage |
 | 8 | auth, container, baked index |
-| CC-77 | after CC-11 foundations; not yet |
+| CC-77 | phase 1 intermediary epic; CC-11 foundations shipped, not yet built |

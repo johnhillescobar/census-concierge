@@ -19,7 +19,7 @@ one-line STATUS pointer, not an eval ledger.
 | [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3) | 6 follow-ups | To Do (current) |
 | [CC-10](https://johnhillescobar.atlassian.net/browse/CC-10) | 7 PDF export | To Do |
 | [CC-7](https://johnhillescobar.atlassian.net/browse/CC-7) | 8 auth + hosting | To Do |
-| [CC-77](https://johnhillescobar.atlassian.net/browse/CC-77) | spatial crosswalks + full-table extract | To Do (after CC-11 table/plan-strip foundations) |
+| [CC-77](https://johnhillescobar.atlassian.net/browse/CC-77) | spatial crosswalks + full-table extract (phase 1, intermediary epic) | To Do (CC-11 foundations shipped; schedule within phase 1) |
 
 ## Closed product slices
 
