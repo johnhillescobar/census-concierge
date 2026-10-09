@@ -15,13 +15,18 @@ from __future__ import annotations
 
 import argparse
 import ast
+import io
 import re
 import subprocess
 import sys
+import tokenize
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeGuard
+
+import budget_log
 
 ROOT = Path(__file__).resolve().parent.parent
 API_SRC = ROOT / "api" / "src"
@@ -269,35 +274,51 @@ REGEX_FUNCS = {
 }
 
 
-def _regex_calls(source: str) -> int:
-    """Count regex call sites with the AST: `re.<fn>()` (any alias) and `from re import <fn>`."""
-    try:
-        tree = ast.parse(source)
-    except SyntaxError:
-        return 0
-    nodes = list(ast.walk(tree))
-    names = {"re"} | {
+REGEX_MODULES = ("re", "regex")
+
+
+def _regex_names(nodes: list[ast.AST]) -> set[str]:
+    """Names bound to `re`, or to the third-party `regex` module, under any alias."""
+    return set(REGEX_MODULES) | {
         a.asname
         for n in nodes
         if isinstance(n, ast.Import)
         for a in n.names
-        if a.name == "re" and a.asname
+        if a.name in REGEX_MODULES and a.asname
     }
-    calls = sum(
-        isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Attribute)
-        and isinstance(n.func.value, ast.Name)
-        and n.func.value.id in names
-        and n.func.attr in REGEX_FUNCS
-        for n in nodes
+
+
+def _is_regex_call(node: ast.AST, names: set[str]) -> TypeGuard[ast.Call]:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id in names
+        and node.func.attr in REGEX_FUNCS
     )
+
+
+def _regex_calls(source: str) -> int:
+    """Count regex call sites with the AST: `re.<fn>()` (any alias), `from re import <fn>`
+    or `*`, and `import regex`, so adopting another engine is ratcheted too."""
+    try:
+        # A byte-order mark would otherwise be a SyntaxError that counts the file as zero.
+        tree = ast.parse(source.lstrip(chr(0xFEFF)))
+    except SyntaxError:
+        return 0
+    nodes = list(ast.walk(tree))
+    names = _regex_names(nodes)
+    calls = sum(_is_regex_call(n, names) for n in nodes)
     imports = sum(
-        a.name in REGEX_FUNCS
+        a.name in REGEX_FUNCS or a.name == "*"
         for n in nodes
-        if isinstance(n, ast.ImportFrom) and n.module == "re"
+        if isinstance(n, ast.ImportFrom) and n.module in REGEX_MODULES
         for a in n.names
     )
-    return calls + imports
+    third_party = sum(
+        a.name == "regex" for n in nodes if isinstance(n, ast.Import) for a in n.names
+    )
+    return calls + imports + third_party
 
 
 def _regex_counts_now() -> dict[str, int]:
@@ -351,6 +372,320 @@ def check_no_new_regex(base: str) -> list[Violation]:
     ]
 
 
+def _logged_targets(text: str) -> tuple[dict[tuple[str, str], float], list[str]]:
+    """The last `[section] field old -> new` value per budget field, and any limit change
+    that names an arrow but cannot be read (`4300->4340`, `4340,`), so it cannot hide."""
+    last: dict[tuple[str, str], float] = {}
+    unreadable: list[str] = []
+    for words in budget_log.entries(text):
+        is_limit = len(words) > 1 and words[1].startswith("[") and words[1] != "[waiver]"
+        if not (is_limit and any("->" in word for word in words)):
+            continue
+        try:
+            arrow = words.index("->")
+            field, target = words[2], words[arrow + 1 : arrow + 3]
+            try:
+                value = float(target[0])
+            except ValueError:  # a rename: `old_field 0.95 -> new_field 0.50`
+                if not target[0].isidentifier():
+                    raise
+                field, value = target[0], float(target[1])
+        except (ValueError, IndexError):
+            unreadable.append(" ".join(words[:7]))
+            continue
+        last[(words[1].strip("[]"), field)] = value
+    return last, unreadable
+
+
+def check_budget_log_matches_values() -> list[Violation]:
+    """A limit and its change log must agree, or a raise can hide in an unexplained gap.
+
+    CC-103 moved api_src_loc 4300 -> 4400 while its log line said 4340. Fields with no
+    arrow line in the log are not checked: there is nothing to compare against.
+    """
+    try:
+        text = (ROOT / "budgets.toml").read_text(encoding="utf-8")
+        values = tomllib.loads(text)
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    if "budget change log" not in text.lower():
+        return [
+            Violation(
+                "budgets.toml",
+                "the 'budget change log' header is missing, so no limit change can be read.",
+            )
+        ]
+    targets, unreadable = _logged_targets(text)
+    found = [
+        Violation(
+            f"budgets.toml [{section}] {field}",
+            f"the file says {values[section][field]:g} but the last log line says {logged:g}. "
+            "A limit changes only in a human commit with a written reason: log the change "
+            f"that set {values[section][field]:g}.",
+        )
+        for (section, field), logged in targets.items()
+        if isinstance(values.get(section, {}).get(field), (int, float))
+        and values[section][field] != logged
+    ]
+    found += [
+        Violation(
+            "budgets.toml change log",
+            f"cannot read this limit change: '{entry}'. Write it as '[section] field old -> new'.",
+        )
+        for entry in unreadable
+    ]
+    return found
+
+
+# Eval phrasing in api/src (CC-3 AC8). The visible evals are `evals/*.toml`; the sealed set
+# is never read. A known hit lives in the baseline, which may only shrink: a new hit fails,
+# and so does a baseline entry whose hit is gone.
+LEAK_BASELINE = "evals/leakage_baseline.txt"
+LEAK_STOP = frozenset(
+    {
+        *("a", "an", "and", "are", "as", "at", "be", "by", "do", "does", "for", "from", "has"),
+        *("have", "how", "in", "is", "it", "of", "on", "or", "per", "than", "that", "the"),
+        *("their", "there", "to", "was", "were", "what", "when", "where", "which", "who"),
+        *("with", "without", "within", "across", "each", "every", "all", "not", "no"),
+    }
+)
+LEAK_GENERIC_CAPS = frozenset(
+    {"Census", "American", "Community", "Survey", "County", "Counties", "State", "States", "United"}
+)
+LEAK_PLACE_FILES = ("prompts.py", "tools.py")
+# tier, words per phrase, drop stop words. `regex2` is only read inside regex-call arguments:
+# a pattern fitted to an eval question is the leak this catches.
+LEAK_TIERS = (("gram4", 4, False), ("content3", 3, True), ("regex2", 2, True))
+
+
+def _leak_words(text: str) -> list[str]:
+    """Lowercase alphanumeric words; a regex word boundary (`\\b`) separates words."""
+    words: list[str] = []
+    current: list[str] = []
+    for ch in text.replace("\\b", " ").lower():
+        if ch.isalnum():
+            current.append(ch)
+        elif current:
+            words.append("".join(current))
+            current = []
+    if current:
+        words.append("".join(current))
+    return words
+
+
+def _leak_grams(words: list[str], size: int, content: bool) -> set[str]:
+    if content:
+        words = [w for w in words if w not in LEAK_STOP and len(w) >= 3 and not w.isdigit()]
+    return {" ".join(words[i : i + size]) for i in range(len(words) - size + 1)}
+
+
+def _leak_proper_nouns(text: str, skip_first: bool) -> set[str]:
+    tokens = [t.strip("()[]{}.,;:?\"'") for t in text.split()]
+    return {
+        t.lower()
+        for i, t in enumerate(tokens)
+        if not (skip_first and i == 0)
+        and t.isalpha()
+        and len(t) >= 4
+        and t[0].isupper()
+        and t not in LEAK_GENERIC_CAPS
+    }
+
+
+def _eval_questions() -> list[str]:
+    questions: list[str] = []
+    for path in sorted((ROOT / "evals").glob("*.toml")):
+        try:
+            stack = [tomllib.loads(path.read_text(encoding="utf-8"))]
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        while stack:
+            item = stack.pop()
+            if isinstance(item, dict):
+                for key, value in item.items():
+                    if key in ("text", "question") and isinstance(value, str):
+                        questions.append(value)
+                    else:
+                        stack.append(value)
+            elif isinstance(item, list):
+                stack.extend(item)
+    return questions
+
+
+def _leak_hits() -> dict[tuple[str, str, str], int]:
+    """(tier, phrase, file) -> first line, for visible eval phrasing found in api/src."""
+    questions = _eval_questions()
+    eval_grams = {
+        tier: set().union(*(_leak_grams(_leak_words(q), size, content) for q in questions))
+        for tier, size, content in LEAK_TIERS
+    }
+    places = set().union(*(_leak_proper_nouns(q, skip_first=True) for q in questions))
+    hits: dict[tuple[str, str, str], set[int]] = {}
+    for path in _py_files(API_SRC):
+        rel = path.relative_to(ROOT).as_posix()
+        source = path.read_text(encoding="utf-8-sig")
+        try:
+            nodes = list(ast.walk(ast.parse(source)))
+        except SyntaxError:
+            continue
+        names = _regex_names(nodes)
+        bare = {
+            a.asname or a.name
+            for n in nodes
+            if isinstance(n, ast.ImportFrom) and n.module in REGEX_MODULES
+            for a in n.names
+            if a.name in REGEX_FUNCS
+        }
+        named: dict[str, list[ast.AST]] = {}
+        for n in nodes:
+            targets = n.targets if isinstance(n, ast.Assign) else [getattr(n, "target", None)]
+            value = getattr(n, "value", None)
+            if isinstance(n, (ast.Assign, ast.AnnAssign)) and isinstance(value, ast.Constant):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        named.setdefault(target.id, []).append(value)
+        # The pattern of a regex call: first positional or `pattern=`, with its f-string parts
+        # and, when it is a name, the strings assigned to that name. Not the replacement.
+        in_regex: set[int] = set()
+        for n in nodes:
+            is_bare = isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in bare
+            if not (is_bare or _is_regex_call(n, names)):
+                continue
+            for arg in (*n.args[:1], *(k.value for k in n.keywords if k.arg == "pattern")):
+                in_regex.update(id(part) for part in ast.walk(arg))
+                if isinstance(arg, ast.Name):
+                    in_regex.update(id(value) for value in named.get(arg.id, []))
+        texts = [
+            (n.lineno, n.value, id(n) in in_regex)
+            for n in nodes
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+        ]
+        texts += [
+            (tok.start[0], tok.string, False)
+            for tok in tokenize.generate_tokens(io.StringIO(source).readline)
+            if tok.type == tokenize.COMMENT
+        ]
+        for line, text, is_regex in texts:
+            words = _leak_words(text)
+            for tier, size, content in LEAK_TIERS:
+                if tier == "regex2" and not is_regex:
+                    continue
+                for gram in _leak_grams(words, size, content) & eval_grams[tier]:
+                    hits.setdefault((tier, gram, rel), set()).add(line)
+            if path.name in LEAK_PLACE_FILES:
+                for place in _leak_proper_nouns(text, skip_first=False) & places:
+                    hits.setdefault(("place", place, rel), set()).add(line)
+    return _drop_subsumed(hits)
+
+
+def _drop_subsumed(
+    hits: dict[tuple[str, str, str], set[int]],
+) -> dict[tuple[str, str, str], int]:
+    """Drop a phrase only on the lines where a longer one already says it: 'median gross rent'
+    covers 'gross rent' there, and a new 'gross rent' elsewhere in the file still shows."""
+    kept: dict[tuple[str, str, str], int] = {}
+    longer: list[tuple[str, str, set[int]]] = []
+    for key in sorted(hits, key=lambda k: (-len(k[1].split()), k)):
+        _, phrase, rel = key
+        covered = {
+            line
+            for p, r, lines in longer
+            if r == rel and p != phrase and f" {phrase} " in f" {p} "
+            for line in lines
+        }
+        if remaining := hits[key] - covered:
+            kept[key] = min(remaining)
+        longer.append((phrase, rel, hits[key]))
+    return kept
+
+
+def _baseline_entries(text: str) -> set[tuple[str, str, str]]:
+    entries = set()
+    for raw in text.splitlines():
+        parts = [p.strip() for p in raw.split("#", 1)[0].split("|")]
+        if len(parts) == 3 and all(parts):
+            entries.add((parts[0], parts[1], parts[2]))
+    return entries
+
+
+def _leak_baseline() -> set[tuple[str, str, str]]:
+    try:
+        return _baseline_entries((ROOT / LEAK_BASELINE).read_text(encoding="utf-8"))
+    except OSError:
+        return set()
+
+
+def check_no_eval_phrasing_in_api_src() -> list[Violation]:
+    """A prompt, tool description or pattern fitted to an eval question tunes the instrument.
+
+    The model then passes the eval because the eval's own words are in its instructions.
+    """
+    hits = _leak_hits()
+    baseline = _leak_baseline()
+    found = [
+        Violation(
+            f"{rel}:{line}",
+            f"eval phrasing in api/src ({tier}: '{phrase}'). Remove it. Plain domain vocabulary "
+            f"may be added to {LEAK_BASELINE} as `{tier}|{phrase}|{rel}  # reason`, by a human.",
+        )
+        for (tier, phrase, rel), line in sorted(hits.items(), key=lambda kv: (kv[0][2], kv[1]))
+        if (tier, phrase, rel) not in baseline
+    ]
+    found += [
+        Violation(
+            LEAK_BASELINE,
+            f"stale entry {tier}|{phrase}|{rel}: the hit is gone. Delete it; the baseline only "
+            "shrinks. If the phrase moved (a table, a variable, an f-string) it is still a leak.",
+        )
+        for tier, phrase, rel in sorted(baseline - set(hits))
+    ]
+    return found
+
+
+def _text_at(ref: str, rel: str) -> str | None:
+    try:
+        blob = subprocess.run(
+            ["git", "show", f"{ref}:{rel}"], cwd=ROOT, capture_output=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return blob.decode("utf-8", errors="replace")
+
+
+def _waivers(text: str) -> set[str]:
+    return {" ".join(w) for w in budget_log.entries(text) if len(w) > 1 and w[1] == "[waiver]"}
+
+
+def _baseline_lines(text: str) -> set[str]:
+    return {"|".join(entry) for entry in _baseline_entries(text)}
+
+
+def check_no_new_exemptions(base: str) -> list[Violation]:
+    """A waiver or a leakage-baseline entry is an exemption. It is never added in the same
+    change it excuses, or `# [waiver]` and `tier|phrase|file` become the way around both gates.
+
+    A file that does not exist at the base is skipped: its first commit is the owner's review.
+    """
+    found: list[Violation] = []
+    for rel, read in (("budgets.toml", _waivers), (LEAK_BASELINE, _baseline_lines)):
+        old = _text_at(base, rel)
+        if old is None:
+            continue
+        try:
+            now = (ROOT / rel).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        found += [
+            Violation(
+                rel,
+                f"new exemption '{entry}'. It belongs in its own commit, by a human, with a "
+                "reason - never bundled with the change it would otherwise block.",
+            )
+            for entry in sorted(read(now) - read(old))
+        ]
+    return found
+
+
 def check_mandatory_catalogs() -> list[Violation]:
     """Agent catalogs must exist. Does not validate their prose."""
     found: list[Violation] = []
@@ -377,6 +712,8 @@ CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("empty secret defaults", check_no_empty_secret_defaults),
     ("key attached only via CensusURL", check_key_attached_only_in_census_url),
     ("mandatory catalogs", check_mandatory_catalogs),
+    ("budget log matches values", check_budget_log_matches_values),
+    ("eval phrasing in api/src", check_no_eval_phrasing_in_api_src),
 )
 
 
@@ -385,9 +722,11 @@ def collect(base: str | None) -> list[tuple[str, list[Violation]]]:
     if base:
         rows.append(("budget increases", check_budgets_not_weakened(base)))
         rows.append(("new regex", check_no_new_regex(base)))
+        rows.append(("new exemptions", check_no_new_exemptions(base)))
     else:
         rows.append(("budget increases", []))
         rows.append(("new regex", []))
+        rows.append(("new exemptions", []))
     return rows
 
 
@@ -398,14 +737,24 @@ def main() -> int:
         help="git ref to diff budgets.toml against, e.g. origin/main. "
         "Skipped silently when the ref is unavailable.",
     )
+    parser.add_argument(
+        "--print-leakage-hits",
+        action="store_true",
+        help=f"print the current eval-phrasing hits in {LEAK_BASELINE} format and exit",
+    )
     args = parser.parse_args()
+
+    if args.print_leakage_hits:
+        for tier, phrase, rel in sorted(_leak_hits()):
+            print(f"{tier}|{phrase}|{rel}")
+        return 0
 
     rows = collect(args.base)
     width = max(len(name) for name, _ in rows)
     print("\nINVARIANTS\n")
     failed = 0
     for name, violations in rows:
-        if name in {"budget increases", "new regex"} and not args.base:
+        if name in {"budget increases", "new regex", "new exemptions"} and not args.base:
             print(f"  skip  {name:<{width}}  pass --base to diff against a ref")
             continue
         if not violations:
@@ -416,6 +765,9 @@ def main() -> int:
         for violation in violations:
             print(f"        {violation.where}")
             print(f"        {violation.message}")
+    if args.base and (before := _regex_counts_at(args.base)) is not None:
+        now, then = sum(_regex_counts_now().values()), sum(before.values())
+        print(f"\n  info  api/src regex call sites: {now} (base {then}, delta {now - then:+d})")
     print()
     if not failed:
         print("All invariants held.\n")

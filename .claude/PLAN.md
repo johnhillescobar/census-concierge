@@ -26,7 +26,7 @@ Slice 6 ([CC-3](https://johnhillescobar.atlassian.net/browse/CC-3)) is current.
 Baseline: CC-38 post-merge on main, geography-level scorer, long_tail
 answered_rate 0.742, p95 21.701s (`evidence/slice-5/cc-38-e2e-post.txt`).
 CC-77 is a phase 1 intermediary epic (see its section below); its breadth
-stories run ahead of the multi-turn chain, its crosswalk children are unscheduled.
+stories run alongside slice 6, its crosswalk children are unscheduled.
 
 CC-103 closed: tract grid 47/48 post-merge, long_tail answered 0.733/0.750, demo p95 21.701s then 18.928s (ceiling missed in run 1, closed by owner; p95 work continues). `evidence/slice-6/cc-103-e2e-post-*`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
 
@@ -42,9 +42,9 @@ a blocking question.
 pipeline fix → CC-42 (multi-turn set + baseline; re-anchors the single-turn
 baseline) → CC-43 (after CC-113 findings, or under its 1.0s `t_llm` cap) →
 CC-107 / CC-108 (separate legs, no join) → CC-39. CC-102 and CC-106 run on
-their own timeline but are in scope. **Superseded in part** by the CC-3 order
-comment of 2026-10-04: CC-121 first (with CC-116), then the breadth stories;
-the multi-turn chain waits for them. Jira holds the current order.
+their own timeline but are in scope. **Revised 2026-10-04** (owner, D1): CC-121
+first (with CC-116); the geography chain (CC-114 → 104 → 106 → 119 → 105) and
+CC-120's baseline gate CC-42; CC-82 gates CC-43, not CC-42. Jira holds the order.
 
 **Done when:** every child story is closed (CC-102 and CC-106 included) and a
 three-turn refinement produces the right dataset at these case-level floors
@@ -70,8 +70,8 @@ scorer may get more precise, never looser. Single-turn long_tail stays within
 
 Part of phase 1, not future work; its CC-11 foundations have shipped. Its URL
 breadth stories (CC-118 variable-limit guard, CC-82 whole-table retrieval,
-CC-120 URL breadth grid) are already sequenced ahead of the slice 6 multi-turn
-chain in the CC-3 order comment of 2026-10-04. The crosswalk children (CC-78
+CC-120 URL breadth grid) run alongside slice 6: CC-120's baseline gates CC-42
+and CC-82 gates CC-43 (owner, D1, 2026-10-04). The crosswalk children (CC-78
 to CC-81, CC-83 to CC-86) are **not yet scheduled**: where they sit relative to
 slices 7 and 8 is an owner decision, still open. No budget raised.
 

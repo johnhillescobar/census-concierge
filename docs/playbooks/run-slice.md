@@ -93,6 +93,13 @@ merged `main` into `evidence/slice-<N>/e2e-post.txt` and comment the numbers on
 the Jira ticket and the slice epic. PLAN.md STATUS stays a one-line close pointer
 (floors met, `evidence/slice-<N>/`, epic URL). Do not append eval novels into PLAN.
 
+Every close comment carries the **close card**, all at the same `--repeat`: long_tail
+`demo.answered_rate`, grid visible / held-out, retriever@10 / selector@1,
+`demo.p95_latency_seconds` with the slowest trial, api LOC before / after, and the
+`re.*` call-site delta. `check_budgets.py` prints the p95, slowest trial and LOC;
+`check_invariants.py --base origin/main` prints the regex delta. A p95 over the ceiling
+passes only with the owner's `[waiver]` line in `budgets.toml`, for that one run.
+
 ## The handoff rule
 
 Every phase **persists its output before the next begins** - to git, the PR body,
@@ -105,6 +112,22 @@ fresh context - Claude Code `/clear` or a subagent, Cursor New Chat or an
 `uv run python scripts/jira_transition.py CC-N --done --comment "…"` (evidence in
 the comment). PLAN.md STATUS is a close pointer; post-merge numbers live on
 the ticket. Name `CC-N` in commits and PRs.
+
+## Session rules for long reviews and multi-write sessions
+
+Added 2026-10-04 after a review session drifted (`evidence/checkpoint-2026-10-04/`).
+
+1. **Phase gate.** Open with the yardstick for the slice in hand. Through slice 8 the
+   product is a sound, flexible, robust URL with nothing from model memory; the
+   analytical agent is phase 2, direction only. Re-read `CLAUDE.md` and memory first.
+2. **One plan file** in `evidence/` is the only place the plan lives. List every outward
+   write (Jira, repo, memory) in it before it happens; batch them, one "yes" per batch.
+3. **Never write from a fragment.** A truncated or quoted-looking message is read-only
+   input; Jira and repo writes wait for a full sentence.
+4. **Tag decisions** `owner` (the owner said it) or `default` (revertible). A default is
+   never recorded in Jira as an owner decision.
+5. **One question batch per phase**, each question with a default. Otherwise proceed.
+6. **After a drift complaint**, nothing outward until the plan file is reconciled.
 
 ## Delegating the token-heavy phases
 

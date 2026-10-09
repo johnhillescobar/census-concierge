@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -210,3 +211,426 @@ def test_regex_imported_by_name_or_under_an_alias_is_counted() -> None:
     assert inv._regex_calls("from re import sub, compile\n") == 2
     assert inv._regex_calls("import re as rx\nrx.search('a', 'b')\n") == 1
     assert inv._regex_calls("from re import escape\n") == 0
+
+
+def test_importing_another_regex_engine_or_a_star_import_is_counted() -> None:
+    assert inv._regex_calls("import regex\n") == 1
+    assert inv._regex_calls("import regex as rx\nrx.compile('a')\n") == 2
+    assert inv._regex_calls("from re import *\n") == 1
+    assert inv._regex_calls("from regex import compile\n") == 1
+
+
+def _budgets(tmp_path: Path, monkeypatch: Any, body: str) -> None:
+    (tmp_path / "budgets.toml").write_text(body, encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+
+
+def test_a_limit_that_disagrees_with_its_last_log_line_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\napi_src_loc = 4400\n# --- budget change log ---\n"
+        "# 2026-10-02  [size] api_src_loc  4300 -> 4340  CC-103\n",
+    )
+    found = inv.check_budget_log_matches_values()
+    assert [v.where for v in found] == ["budgets.toml [size] api_src_loc"]
+    assert "4400" in found[0].message and "4340" in found[0].message
+
+
+def test_a_limit_that_matches_its_last_log_line_passes_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\napi_src_loc = 4340\n# --- budget change log ---\n"
+        "# 2026-10-02  [size] api_src_loc  4300 -> 4340  CC-103\n",
+    )
+    assert inv.check_budget_log_matches_values() == []
+
+
+def test_only_the_last_log_line_for_a_field_counts(tmp_path: Path, monkeypatch: Any) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\napi_src_loc = 4250\n# --- budget change log ---\n"
+        "# 2026-09-25  [size] api_src_loc 4000 -> 4100  a\n"
+        "# 2026-09-29  [size] api_src_loc 4100 -> 4250  b\n",
+    )
+    assert inv.check_budget_log_matches_values() == []
+
+
+def test_two_log_entries_on_one_line_are_both_read(tmp_path: Path, monkeypatch: Any) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\nweb_src_loc = 9998\napi_src_loc = 9999\n# --- budget change log ---\n"
+        "# 2026-09-27  [size] web_src_loc 3010 -> 3100  reason"
+        "# 2026-09-29  [size] api_src_loc 4100 -> 4250  b\n",
+    )
+    assert {v.where for v in inv.check_budget_log_matches_values()} == {
+        "budgets.toml [size] web_src_loc",
+        "budgets.toml [size] api_src_loc",
+    }
+
+
+def test_a_limit_change_the_check_cannot_read_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\napi_src_loc = 4340\n# --- budget change log ---\n"
+        "# 2026-10-02  [size] api_src_loc 4300->4340  CC-103\n",
+    )
+    assert [v.where for v in inv.check_budget_log_matches_values()] == ["budgets.toml change log"]
+
+
+def test_the_budget_log_leakage_and_exemption_checks_are_registered() -> None:
+    checks = dict(inv.CHECKS)
+    assert checks["budget log matches values"] is inv.check_budget_log_matches_values
+    assert checks["eval phrasing in api/src"] is inv.check_no_eval_phrasing_in_api_src
+    assert "new exemptions" in {name for name, _ in inv.collect(None)}
+
+
+def test_collect_runs_the_exemption_check_when_given_a_base(monkeypatch: Any) -> None:
+    monkeypatch.setattr(inv, "_budgets_at", lambda ref: None)
+    monkeypatch.setattr(inv, "_regex_counts_at", lambda ref: None)
+    monkeypatch.setattr(inv, "check_no_new_exemptions", lambda base: [inv.Violation("x", "y")])
+    assert dict(inv.collect("main"))["new exemptions"]
+
+
+def _base_has(monkeypatch: Any, texts: dict[str, str]) -> None:
+    monkeypatch.setattr(inv, "_text_at", lambda ref, rel: texts.get(rel))
+
+
+def test_a_waiver_added_since_the_base_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
+    head = "[size]\nx = 1\n# --- budget change log ---\n"
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        head + "# 2026-10-04  [waiver] p95_latency_seconds RUN 21.7 CC-113 why\n",
+    )
+    _base_has(monkeypatch, {"budgets.toml": head})
+    found = inv.check_no_new_exemptions("origin/main")
+    assert [v.where for v in found] == ["budgets.toml"]
+    assert "[waiver]" in found[0].message
+
+
+def test_a_leakage_baseline_entry_added_since_the_base_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "leakage_baseline.txt").write_text(
+        "gram4|a b c d|api/src/x.py  # r\ngram4|e f g h|api/src/x.py  # r\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    _base_has(monkeypatch, {"evals/leakage_baseline.txt": "gram4|a b c d|api/src/x.py  # r\n"})
+    found = inv.check_no_new_exemptions("origin/main")
+    assert [v.where for v in found] == ["evals/leakage_baseline.txt"]
+    assert "e f g h" in found[0].message
+
+
+def test_exemptions_already_at_the_base_pass_the_check(tmp_path: Path, monkeypatch: Any) -> None:
+    text = (
+        "[size]\nx = 1\n# --- budget change log ---\n# d  [waiver] p95_latency_seconds R 1 CC-1 w\n"
+    )
+    _budgets(tmp_path, monkeypatch, text)
+    _base_has(monkeypatch, {"budgets.toml": text})
+    assert inv.check_no_new_exemptions("origin/main") == []
+
+
+def test_an_exemption_file_that_does_not_exist_at_the_base_is_skipped(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "leakage_baseline.txt").write_text(
+        "gram4|a b c d|api/src/x.py  # r\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    _base_has(monkeypatch, {})
+    assert inv.check_no_new_exemptions("origin/main") == []
+
+
+def test_a_renamed_budget_field_is_checked_under_its_new_name(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[quality]\nnew_min = 0.60\n# --- budget change log ---\n"
+        "# 2026-09-11  [quality] old_min 0.95 -> new_min 0.50  renamed\n",
+    )
+    assert [v.where for v in inv.check_budget_log_matches_values()] == [
+        "budgets.toml [quality] new_min"
+    ]
+
+
+def _leak_repo(
+    tmp_path: Path,
+    monkeypatch: Any,
+    question: str,
+    sources: dict[str, str],
+    baseline: str = "",
+) -> None:
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "q.toml").write_text(
+        f'[[question]]\nid = "q1"\ntext = "{question}"\n', encoding="utf-8"
+    )
+    if baseline:
+        (tmp_path / "evals" / "leakage_baseline.txt").write_text(baseline, encoding="utf-8")
+    api_src = tmp_path / "api" / "src"
+    api_src.mkdir(parents=True)
+    for name, text in sources.items():
+        (api_src / name).write_text(text, encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    monkeypatch.setattr(inv, "API_SRC", api_src)
+
+
+INCOME_Q = "Median household income for every block group in Wayne County"
+
+
+def test_a_four_word_eval_phrase_in_a_string_literal_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        INCOME_Q,
+        {"tools.py": 'HINT = "show median household income for every county"\n'},
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert found
+    assert "gram4" in found[0].message and found[0].where.startswith("api/src/tools.py:1")
+
+
+def test_a_four_word_eval_phrase_in_a_comment_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        INCOME_Q,
+        {"geo.py": "# show median household income for every county\nx = 1\n"},
+    )
+    assert any("gram4" in v.message for v in inv.check_no_eval_phrasing_in_api_src())
+
+
+def test_two_eval_words_inside_a_regex_fail_the_check_across_a_word_boundary(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {"vintages.py": 'import re\nPIN = re.compile(r"\\bcell phones\\b")\n'},
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert [("regex2" in v.message) for v in found] == [True]
+
+
+def test_the_same_two_words_outside_a_regex_do_not_fail_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {"vintages.py": 'HINT = "cell phones"\n'},
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+
+
+def test_a_longer_phrase_stands_for_the_shorter_ones_inside_it(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare median gross rent in Austin to the Texas average",
+        {"vintages.py": 'import re\nPIN = re.compile(r"median gross rent")\n'},
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert len(found) == 1 and "median gross rent" in found[0].message
+
+
+def test_a_place_in_a_tool_description_fails_the_check_but_not_elsewhere(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare Springfield with Dayton",
+        {"tools.py": 'DESC = "e.g. Springfield"\n', "geo.py": 'STATE = "Springfield"\n'},
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert [v.where.split(":")[0] for v in found] == ["api/src/tools.py"]
+    assert "place" in found[0].message
+
+
+def test_a_baselined_hit_passes_and_a_new_hit_still_fails(tmp_path: Path, monkeypatch: Any) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare Springfield with Dayton",
+        {"tools.py": 'DESC = "e.g. Springfield"\n'},
+        baseline="place|springfield|api/src/tools.py  # known\n",
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+    (tmp_path / "api" / "src" / "prompts.py").write_text('P = "try Dayton"\n', encoding="utf-8")
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert [v.where.split(":")[0] for v in found] == ["api/src/prompts.py"]
+
+
+def test_a_pattern_given_by_keyword_or_inside_an_f_string_is_read_as_a_regex(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {
+            "a.py": 'import re\nre.search(pattern=r"\\bcell phones\\b", string=q)\n',
+            "b.py": 'import re\nre.compile(rf"\\bcell phones {suffix}\\b")\n',
+        },
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert sorted(v.where.split(":")[0] for v in found) == ["api/src/a.py", "api/src/b.py"]
+
+
+def test_a_file_with_a_byte_order_mark_is_still_scanned_and_counted(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        INCOME_Q,
+        {"tools.py": '\ufeffHINT = "show median household income for every county"\n'},
+    )
+    assert inv.check_no_eval_phrasing_in_api_src()
+    assert inv._regex_calls("\ufeffimport re\nre.compile('x')\n") == 1
+
+
+def test_a_baseline_entry_whose_hit_is_gone_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare Springfield with Dayton",
+        {"tools.py": "x = 1\n"},
+        baseline="place|springfield|api/src/tools.py  # known\n",
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert [v.where for v in found] == ["evals/leakage_baseline.txt"]
+    assert "stale" in found[0].message
+
+
+def test_a_pattern_held_in_a_name_or_called_by_a_bare_name_is_read_as_a_regex(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {
+            "a.py": 'import re\n_P = r"\\bcell phones\\b"\nPIN = re.compile(_P)\n',
+            "b.py": 'from re import compile\nPIN = compile(r"\\bcell phones\\b")\n',
+        },
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert sorted(v.where.split(":")[0] for v in found) == ["api/src/a.py", "api/src/b.py"]
+
+
+def test_the_replacement_text_of_a_regex_call_is_not_a_pattern(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {"a.py": 'import re\nre.sub(r"\\d+", "cell phones", text)\n'},
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+
+
+def test_a_longer_baselined_phrase_does_not_hide_a_new_shorter_one_on_another_line(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare median gross rent in Austin to the Texas average",
+        {
+            "vintages.py": (
+                'import re\nA = re.compile(r"median gross rent")\nB = re.compile(r"gross rent")\n'
+            )
+        },
+        baseline="content3|median gross rent|api/src/vintages.py  # known\n",
+    )
+    assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/vintages.py:3"]
+
+
+def test_a_file_value_below_its_log_line_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\napi_src_loc = 4000\n# --- budget change log ---\n"
+        "# 2026-10-02  [size] api_src_loc 4300 -> 4340  CC-103\n",
+    )
+    assert [v.where for v in inv.check_budget_log_matches_values()] == [
+        "budgets.toml [size] api_src_loc"
+    ]
+
+
+def test_a_budget_file_without_the_change_log_header_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _budgets(tmp_path, monkeypatch, "[size]\napi_src_loc = 4340\n# 2026-10-02  [size] x 1 -> 2\n")
+    found = inv.check_budget_log_matches_values()
+    assert [v.where for v in found] == ["budgets.toml"] and "header" in found[0].message
+
+
+def test_a_rename_to_something_that_is_not_a_field_name_is_unreadable(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _budgets(
+        tmp_path,
+        monkeypatch,
+        "[size]\napi_src_loc = 4300\n# --- budget change log ---\n"
+        "# 2026-10-02  [size] api_src_loc 4300 -> 4,400 3 files\n",
+    )
+    assert [v.where for v in inv.check_budget_log_matches_values()] == ["budgets.toml change log"]
+
+
+def test_a_new_limit_log_line_since_the_base_is_not_an_exemption(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    head = "[size]\napi_src_loc = 4400\n# --- budget change log ---\n"
+    _budgets(
+        tmp_path, monkeypatch, head + "# 2026-10-02  [size] api_src_loc 4340 -> 4400  CC-103\n"
+    )
+    _base_has(monkeypatch, {"budgets.toml": head})
+    assert inv.check_no_new_exemptions("origin/main") == []
+
+
+def test_text_at_reads_a_file_as_committed_at_a_ref(tmp_path: Path, monkeypatch: Any) -> None:
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-c", "commit.gpgsign=false", *args], cwd=tmp_path, check=True)
+
+    git("init", "-q")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    head = "[size]\nx = 1\n# --- budget change log ---\n"
+    (tmp_path / "budgets.toml").write_text(head, encoding="utf-8")
+    git("add", "budgets.toml")
+    git("commit", "-q", "-m", "base")
+    (tmp_path / "budgets.toml").write_text(
+        head + "# 2026-10-04  [waiver] p95_latency_seconds RUN 21.7 CC-113 why\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    assert inv._text_at("HEAD", "budgets.toml") == head
+    assert inv._text_at("HEAD", "missing.txt") is None
+    assert [v.where for v in inv.check_no_new_exemptions("HEAD")] == ["budgets.toml"]
