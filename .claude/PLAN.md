@@ -28,6 +28,8 @@ answered_rate 0.742, p95 21.701s (`evidence/slice-5/cc-38-e2e-post.txt`).
 CC-77 is a phase 1 intermediary epic (see its section below); its breadth
 stories run alongside slice 6, its crosswalk children are unscheduled.
 
+CC-103 closed: tract grid 47/48 post-merge, long_tail answered 0.733/0.750, demo p95 21.701s then 18.928s (ceiling missed in run 1, closed by owner; p95 work continues). `evidence/slice-6/cc-103-e2e-post-*`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
+
 ---
 
 ## Slice 6 — Follow-ups (CC-3)
