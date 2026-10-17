@@ -11,16 +11,19 @@ get the table you did not know existed, the data, and the API URL to reuse.
 | metric | current | floor / ceiling |
 |---|---|---|
 | retriever @10 — long tail | 0.90 | 0.90 |
-| selector @1 — long tail | 0.88 | 0.70 |
+| selector @1 — long tail | 0.85 | 0.70 |
 | synthetic alignment | 0.54 | 0.50 |
-| answered rate — long tail, geography-level scorer | 0.74 | 0.70 |
-| p95 latency (`demo.p95_latency_seconds`) | 21.7s | 20s — **over** |
-| api src LOC | 4296 | 4300 |
+| answered rate — long tail, geography-level scorer | 0.75 | 0.70 |
+| p95 latency (`demo.p95_latency_seconds`) | 18.9s | 20s |
+| api src LOC | 4396 | 4400 |
 
-As of the CC-38 post-merge run, 2026-10-01. answered_rate before CC-38 used
-a scorer that ignored geography level and is not comparable. An over-ceiling
-p95 is not promoted to the top-level key, so `check_budgets` keeps showing the
-last under-ceiling run (19.2s); quote `demo.p95_latency_seconds`.
+As of the CC-103 post-merge run, 2026-10-04 (`evidence/slice-6/cc-103-e2e-post-demo-run2.txt`,
+`--repeat 3`). Run 1 of that pair measured long_tail 0.733 and p95 21.701s (over
+the ceiling); run 2, shown here, 0.750 and 18.928s. The CC-3 baseline is still the
+CC-38 geography-level scorer (long_tail 0.742, p95 21.701s,
+`evidence/slice-5/cc-38-e2e-post.txt`); answered_rate before CC-38 is not
+comparable. An over-ceiling p95 is not promoted to the top-level key, so quote
+`demo.p95_latency_seconds`.
 
 ## Slices
 
