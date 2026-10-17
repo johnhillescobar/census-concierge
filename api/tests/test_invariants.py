@@ -573,6 +573,69 @@ def test_a_longer_baselined_phrase_does_not_hide_a_new_shorter_one_on_another_li
     assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/vintages.py:3"]
 
 
+def test_a_malformed_eval_file_fails_the_check_instead_of_being_skipped(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(tmp_path, monkeypatch, INCOME_Q, {"tools.py": "x = 1\n"})
+    (tmp_path / "evals" / "broken.toml").write_text("[[question]\ntext = \n", encoding="utf-8")
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert [v.where for v in found] == ["evals/broken.toml"]
+
+
+def test_a_star_import_of_re_is_read_as_a_regex_call_in_the_leakage_scan(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {"a.py": 'from re import *\nPIN = compile(r"\\bcell phones\\b")\n'},
+    )
+    assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/a.py:2"]
+
+
+def test_a_pattern_held_in_a_named_f_string_is_read_as_a_regex(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Number of cell phones in Denver since 2017",
+        {"a.py": 'import re\nP = rf"\\bcell phones {suffix}\\b"\nPIN = re.compile(P)\n'},
+    )
+    assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/a.py:2"]
+
+
+def test_a_baselined_phrase_repeated_in_the_same_file_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare median family income in Austin to the Texas average",
+        {"vintages.py": 'A = "median family income"\nB = "median family income"\n'},
+        baseline="content3|median family income|api/src/vintages.py  # known\n",
+    )
+    assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/vintages.py:2"]
+    (tmp_path / "evals" / "leakage_baseline.txt").write_text(
+        "content3|median family income|api/src/vintages.py  # known\n" * 2, encoding="utf-8"
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+
+
+def test_a_second_copy_of_an_exemption_since_the_base_is_a_new_exemption(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    line = "content3|median family income|api/src/vintages.py  # known\n"
+    (tmp_path / "evals").mkdir()
+    (tmp_path / "evals" / "leakage_baseline.txt").write_text(line * 2, encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    _base_has(monkeypatch, {"evals/leakage_baseline.txt": line})
+    assert [v.where for v in inv.check_no_new_exemptions("origin/main")] == [
+        "evals/leakage_baseline.txt"
+    ]
+
+
 def test_a_file_value_below_its_log_line_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
     _budgets(
         tmp_path,

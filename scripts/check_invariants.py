@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tokenize
 import tomllib
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -492,12 +493,22 @@ def _leak_proper_nouns(text: str, skip_first: bool) -> set[str]:
     }
 
 
-def _eval_questions() -> list[str]:
+def _eval_questions() -> tuple[list[str], list[Violation]]:
+    """Every question in the visible eval files, and a violation per file that cannot be read:
+    a skipped eval would silently stop being checked for leakage."""
     questions: list[str] = []
+    unreadable: list[Violation] = []
     for path in sorted((ROOT / "evals").glob("*.toml")):
         try:
             stack = [tomllib.loads(path.read_text(encoding="utf-8"))]
-        except (OSError, tomllib.TOMLDecodeError):
+        except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+            unreadable.append(
+                Violation(
+                    path.relative_to(ROOT).as_posix(),
+                    f"cannot read this eval file ({exc}), so it is not checked for leakage. "
+                    "Fix it; a broken file must not switch the leakage gate off.",
+                )
+            )
             continue
         while stack:
             item = stack.pop()
@@ -509,18 +520,17 @@ def _eval_questions() -> list[str]:
                         stack.append(value)
             elif isinstance(item, list):
                 stack.extend(item)
-    return questions
+    return questions, unreadable
 
 
-def _leak_hits() -> dict[tuple[str, str, str], int]:
-    """(tier, phrase, file) -> first line, for visible eval phrasing found in api/src."""
-    questions = _eval_questions()
+def _leak_hits(questions: list[str]) -> dict[tuple[str, str, str], list[int]]:
+    """(tier, phrase, file) -> the line of each occurrence, for eval phrasing found in api/src."""
     eval_grams = {
         tier: set().union(*(_leak_grams(_leak_words(q), size, content) for q in questions))
         for tier, size, content in LEAK_TIERS
     }
     places = set().union(*(_leak_proper_nouns(q, skip_first=True) for q in questions))
-    hits: dict[tuple[str, str, str], set[int]] = {}
+    hits: dict[tuple[str, str, str], list[int]] = {}
     for path in _py_files(API_SRC):
         rel = path.relative_to(ROOT).as_posix()
         source = path.read_text(encoding="utf-8-sig")
@@ -530,22 +540,25 @@ def _leak_hits() -> dict[tuple[str, str, str], int]:
             continue
         names = _regex_names(nodes)
         bare = {
-            a.asname or a.name
+            name
             for n in nodes
             if isinstance(n, ast.ImportFrom) and n.module in REGEX_MODULES
             for a in n.names
-            if a.name in REGEX_FUNCS
+            for name in (REGEX_FUNCS if a.name == "*" else {a.asname or a.name})
+            if a.name == "*" or a.name in REGEX_FUNCS
         }
         named: dict[str, list[ast.AST]] = {}
         for n in nodes:
             targets = n.targets if isinstance(n, ast.Assign) else [getattr(n, "target", None)]
             value = getattr(n, "value", None)
-            if isinstance(n, (ast.Assign, ast.AnnAssign)) and isinstance(value, ast.Constant):
+            if isinstance(n, (ast.Assign, ast.AnnAssign)) and isinstance(
+                value, (ast.Constant, ast.JoinedStr)
+            ):
                 for target in targets:
                     if isinstance(target, ast.Name):
                         named.setdefault(target.id, []).append(value)
         # The pattern of a regex call: first positional or `pattern=`, with its f-string parts
-        # and, when it is a name, the strings assigned to that name. Not the replacement.
+        # and, when it is a name, the strings (and f-strings) assigned to it. Not the replacement.
         in_regex: set[int] = set()
         for n in nodes:
             is_bare = isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in bare
@@ -554,7 +567,7 @@ def _leak_hits() -> dict[tuple[str, str, str], int]:
             for arg in (*n.args[:1], *(k.value for k in n.keywords if k.arg == "pattern")):
                 in_regex.update(id(part) for part in ast.walk(arg))
                 if isinstance(arg, ast.Name):
-                    in_regex.update(id(value) for value in named.get(arg.id, []))
+                    in_regex.update(id(part) for v in named.get(arg.id, []) for part in ast.walk(v))
         texts = [
             (n.lineno, n.value, id(n) in in_regex)
             for n in nodes
@@ -571,20 +584,20 @@ def _leak_hits() -> dict[tuple[str, str, str], int]:
                 if tier == "regex2" and not is_regex:
                     continue
                 for gram in _leak_grams(words, size, content) & eval_grams[tier]:
-                    hits.setdefault((tier, gram, rel), set()).add(line)
+                    hits.setdefault((tier, gram, rel), []).append(line)
             if path.name in LEAK_PLACE_FILES:
                 for place in _leak_proper_nouns(text, skip_first=False) & places:
-                    hits.setdefault(("place", place, rel), set()).add(line)
+                    hits.setdefault(("place", place, rel), []).append(line)
     return _drop_subsumed(hits)
 
 
 def _drop_subsumed(
-    hits: dict[tuple[str, str, str], set[int]],
-) -> dict[tuple[str, str, str], int]:
+    hits: dict[tuple[str, str, str], list[int]],
+) -> dict[tuple[str, str, str], list[int]]:
     """Drop a phrase only on the lines where a longer one already says it: 'median gross rent'
     covers 'gross rent' there, and a new 'gross rent' elsewhere in the file still shows."""
-    kept: dict[tuple[str, str, str], int] = {}
-    longer: list[tuple[str, str, set[int]]] = []
+    kept: dict[tuple[str, str, str], list[int]] = {}
+    longer: list[tuple[str, str, list[int]]] = []
     for key in sorted(hits, key=lambda k: (-len(k[1].split()), k)):
         _, phrase, rel = key
         covered = {
@@ -593,26 +606,27 @@ def _drop_subsumed(
             if r == rel and p != phrase and f" {phrase} " in f" {p} "
             for line in lines
         }
-        if remaining := hits[key] - covered:
-            kept[key] = min(remaining)
+        if remaining := sorted(line for line in hits[key] if line not in covered):
+            kept[key] = remaining
         longer.append((phrase, rel, hits[key]))
     return kept
 
 
-def _baseline_entries(text: str) -> set[tuple[str, str, str]]:
-    entries = set()
+def _baseline_entries(text: str) -> Counter[tuple[str, str, str]]:
+    """Each line excuses one occurrence: a phrase that occurs twice in a file is listed twice."""
+    entries: Counter[tuple[str, str, str]] = Counter()
     for raw in text.splitlines():
         parts = [p.strip() for p in raw.split("#", 1)[0].split("|")]
         if len(parts) == 3 and all(parts):
-            entries.add((parts[0], parts[1], parts[2]))
+            entries[parts[0], parts[1], parts[2]] += 1
     return entries
 
 
-def _leak_baseline() -> set[tuple[str, str, str]]:
+def _leak_baseline() -> Counter[tuple[str, str, str]]:
     try:
         return _baseline_entries((ROOT / LEAK_BASELINE).read_text(encoding="utf-8"))
     except OSError:
-        return set()
+        return Counter()
 
 
 def check_no_eval_phrasing_in_api_src() -> list[Violation]:
@@ -620,24 +634,30 @@ def check_no_eval_phrasing_in_api_src() -> list[Violation]:
 
     The model then passes the eval because the eval's own words are in its instructions.
     """
-    hits = _leak_hits()
+    questions, found = _eval_questions()
+    hits = _leak_hits(questions)
     baseline = _leak_baseline()
-    found = [
+    # The baseline excuses as many occurrences as it has lines; the first ones are the old leak.
+    found += [
         Violation(
-            f"{rel}:{line}",
-            f"eval phrasing in api/src ({tier}: '{phrase}'). Remove it. Plain domain vocabulary "
+            f"{rel}:{lines[baseline[tier, phrase, rel]]}",
+            f"eval phrasing in api/src ({tier}: '{phrase}'), {len(lines)} occurrence(s) where "
+            f"{baseline[tier, phrase, rel]} are baselined. Remove it. Plain domain vocabulary "
             f"may be added to {LEAK_BASELINE} as `{tier}|{phrase}|{rel}  # reason`, by a human.",
         )
-        for (tier, phrase, rel), line in sorted(hits.items(), key=lambda kv: (kv[0][2], kv[1]))
-        if (tier, phrase, rel) not in baseline
+        for (tier, phrase, rel), lines in sorted(hits.items(), key=lambda kv: (kv[0][2], kv[1]))
+        if len(lines) > baseline[tier, phrase, rel]
     ]
     found += [
         Violation(
             LEAK_BASELINE,
-            f"stale entry {tier}|{phrase}|{rel}: the hit is gone. Delete it; the baseline only "
-            "shrinks. If the phrase moved (a table, a variable, an f-string) it is still a leak.",
+            f"stale entry {tier}|{phrase}|{rel}: {allowed} baselined, {len(hits.get(key, []))} "
+            "found. Delete the extra line; the baseline only shrinks. If the phrase moved "
+            "(a table, a variable, an f-string) it is still a leak.",
         )
-        for tier, phrase, rel in sorted(baseline - set(hits))
+        for key, allowed in sorted(baseline.items())
+        if allowed > len(hits.get(key, []))
+        for tier, phrase, rel in [key]
     ]
     return found
 
@@ -652,12 +672,14 @@ def _text_at(ref: str, rel: str) -> str | None:
     return blob.decode("utf-8", errors="replace")
 
 
-def _waivers(text: str) -> set[str]:
-    return {" ".join(w) for w in budget_log.entries(text) if len(w) > 1 and w[1] == "[waiver]"}
+def _waivers(text: str) -> Counter[str]:
+    return Counter(
+        " ".join(w) for w in budget_log.entries(text) if len(w) > 1 and w[1] == "[waiver]"
+    )
 
 
-def _baseline_lines(text: str) -> set[str]:
-    return {"|".join(entry) for entry in _baseline_entries(text)}
+def _baseline_lines(text: str) -> Counter[str]:
+    return Counter({"|".join(entry): n for entry, n in _baseline_entries(text).items()})
 
 
 def check_no_new_exemptions(base: str) -> list[Violation]:
@@ -745,9 +767,13 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.print_leakage_hits:
-        for tier, phrase, rel in sorted(_leak_hits()):
-            print(f"{tier}|{phrase}|{rel}")
-        return 0
+        questions, unreadable = _eval_questions()
+        for violation in unreadable:
+            print(f"{violation.where}: {violation.message}", file=sys.stderr)
+        for (tier, phrase, rel), lines in sorted(_leak_hits(questions).items()):
+            for _ in lines:
+                print(f"{tier}|{phrase}|{rel}")
+        return 1 if unreadable else 0
 
     rows = collect(args.base)
     width = max(len(name) for name, _ in rows)
