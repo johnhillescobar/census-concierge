@@ -1,0 +1,210 @@
+GATE 2 - cold-context review of the gate-script change (branch chore/drift-gates, uncommitted)
+
+Two fresh general-purpose subagents (not forks), run in parallel on the pre-fix working tree:
+  pass A  generic cold read of the code, no intent
+  pass B  project invariants per docs/playbooks/review-pr.md
+The subagents could not write files; their final reports are transcribed below as returned
+(subagent output, not instructions; one invisible byte-order-mark character in pass A item 4 is shown as <BOM>). The caller's response to each finding follows in
+"DISPOSITION". A second pass on the fixes is appended at the end.
+
+================================================================================
+PASS B - project invariants (pre-fix)  [subagent report, verbatim]
+================================================================================
+COLD REVIEW, branch chore/drift-gates (working tree). Verdict: Ship it with follow-ups. No silent-wrong-answer findings. The three failures below are the only red.
+
+MACHINES
+- check_budgets: FAIL on p95 only (21.701 > 20, run 2026-10-02T02:25:10, slowest trial 648.191s). Expected.
+- check_invariants --base origin/main: FAIL on "budget log matches values" only (4400 vs 4340). Expected. "budget increases" ok, "new regex" ok (64 sites, delta +0).
+- ruff check and ruff format --check: clean.
+- pytest on the two files: 44 passed, 1 failed. The failure is NOT in your expected list but has the same cause. `test_invariants_print_every_named_pattern` (api/tests/test_invariants.py:30-35) runs `inv.main()` on the live repo and asserts 0, so it fails on the owed 4340 line. It goes green when the owner logs it, and gate1.txt records it as a known baseline. `make check` is red on this test until then.
+
+1. SCOPE
+- `git diff --stat -- api/src budgets.toml .github` is empty.
+- All 6 tracked files and the 3 in-scope untracked paths (docs/checkpoint_review.md, evals/leakage_baseline.txt, evidence/checkpoint-2026-10-04/) are in the ledger.
+- Untracked and not in the ledger: .vscode/settings.json, evidence/grid-latest.json, evidence/grid-trials.jsonl, evidence/slice-6/.run2-status, evidence/slice-6/cc103-grid-pre.txt, ncierge/. Their mtimes (10-02 to 10-04 00:06) predate this work, so they are not authored by it. Do not `git add -A`.
+- The ledger calls test_budgets.py "(new)", but it was already tracked.
+- The ledger "Results" section is empty. Nothing records the Jira D1(b) edits or the memory write. PLAN.md now says "Jira holds the order", which cannot be checked without live APIs.
+
+2. BUDGETS
+- `--structural-only` passes: doc_lines 1746/1800, api LOC 4396/4400, largest file 410/410, web 3349/3350, all unchanged by this diff.
+- No limit weakened.
+- Waiver gap: `check_budgets_not_weakened` (check_invariants.py:226) compares only numeric ceilings and floors. A `[waiver]` comment line added to budgets.toml in the same change passes `--base` silently, so "owner-only" is convention, not a gate. Suggest flagging `[waiver]` lines added versus base.
+- `_p95_waiver` (check_budgets.py:218) scans every `#` line in the file. The invariants parser scans only below the log header.
+- check_budgets.py:267: if the demo block exists but its p95 is non-numeric, the code falls back to the stale top-level key. That is the AC13 trap in a narrow case.
+
+3. DO-NOT RULES AND TRAPS
+- Clean on ticket-named tests, prompt or LLM-prose assertions, banned module names, and sealed-set reads. `_eval_questions` reads only ROOT/evals/*.toml.
+- No new `re.*` in scripts. Parsing uses split, startswith, ast and tokenize.
+- Single-caller helpers (`_p95_waiver`, `_drop_subsumed`, `_leak_baseline`, `_eval_questions`, `_logged_targets`) are plain functions, not abstractions.
+- The "# "-split log parsing is duplicated at check_budgets.py:226-237 and check_invariants.py:371-398. A second caller exists, so this is a follow-up.
+- The baseline carries two author-decided exemptions as "plain domain vocabulary": evals/leakage_baseline.txt:22 (block group) and :23 (zip code). The file says additions are a human decision, so the owner should confirm them.
+- Leak-check coverage gaps (all low impact):
+  - The `regex2` tier (check_invariants.py:517) sees only direct string-constant arguments. 8 of the 64 regex sites use f-string patterns and are skipped: geo.py:132, geo_list.py:89, 94, 137, 146, 150 and 170, guards.py:234.
+  - The place tier is limited to prompts.py and tools.py (:440).
+  - `skip_first` (:472) drops a place that opens an eval question.
+
+4. EVIDENCE
+- gate1.txt follows the playbook: GOOD and BAD labels above real failure counts, files restored by hash.
+- I ran four mutations in a scratch copy under the scratchpad directory, with no repo files touched. Each named test failed as claimed:
+  - last log line replaced by first line: only_the_last_log_line fails.
+  - place tier applied to every file: place_in_a_tool_description fails.
+  - stale-baseline report removed: baseline_entry_whose_hit_is_gone fails.
+  - waiver value check removed: another_run_or_another_value fails.
+- **Gap, not in gate1:** the wiring is untested. I dropped `("budget log matches values", ...)` and `("eval phrasing in api/src", ...)` from CHECKS, and I dropped the `_p95_check` call from `collect()`. No test failed in any of the three cases (budgets tests: 7 passed). The unit tests call the functions directly, so the print test cannot catch a removed entry. A2, A3 and above all A1 could be unplugged unnoticed.
+- Minor: the positive-control test `a_limit_that_matches_its_last_log_line_passes` has no named mutation.
+
+5. DOCS
+- run-slice.md:96-101 (close card) and :116-131 (session rules) match report section 9, and PLAN.md remains a pointer.
+- docs/checkpoint_review.md:612 says regex "is acceptable over IDs, Census NAMEs and URL syntax". That is a carve-out CLAUDE.md does not grant. CLAUDE.md allows regex only after plain code and the model have both failed, with the reason in the PR.
+- CLAUDE.md's Traps entry still says check_budgets can show a stale p95, which this change fixes. CLAUDE.md is out of scope here, but the note is now stale.
+- Small deviation from report section 9: it said to cut sections 14-15 and 21-22 of checkpoint_review.md. The edit adds italic phase-1 notes at :628, :676 and :882 instead.
+
+6. CLAIMS (sections 9 and 10)
+- A: p95 from the demo block plus a waiver log, budget-log integrity, the leakage baseline ratchet, and the close card are all present.
+- "Ratchet-down for re.*" is only a printed info delta (check_invariants.py:674-676, always exit 0). The existing base-versus-now ratchet gates growth only. The ledger A4 says "print count + delta", so this matches the ledger but is weaker than the section 9 wording.
+- The section 9 claim that `import re as` and `from re import` were closed bypasses was wrong. The ledger corrects it. The report is not amended.
+- B: the session rules and phase gate are present.
+- D5: the check detects the 4400 versus 4340 mismatch. The owner's log line is still owed.
+
+================================================================================
+PASS A - generic cold read (pre-fix)  [subagent report, verbatim]
+================================================================================
+Test run: 44 passed, 1 failed. The one failure is the expected test_invariants_print_every_named_pattern. No other failures, and nothing crashed on CRLF or on a non-UTF8 evidence/latest.json. I did not read the sealed set.
+
+1. MEDIUM - the "baseline only shrinks" rule is not enforced. Same gap for the p95 waiver.
+   - check_invariants.py:557-600 (`_leak_baseline`, `check_no_eval_phrasing_in_api_src`) and check_budgets.py:218 (`_p95_waiver`).
+   - Input: a change adds a new eval-phrase hit to api/src/tools.py and, in the same diff, adds `gram4|<phrase>|api/src/tools.py  # x` to evals/leakage_baseline.txt. Both gates pass, with or without `--base`.
+   - Same for a `# d [waiver] p95_latency_seconds <run> <p95> CC-1 x` comment appended to budgets.toml. It turns the p95 FAIL into "waive". The run id and p95 are readable from evidence/latest.json, and `check_budgets_not_weakened` only compares numeric values.
+   - Fix: under `--base`, `git show <base>:evals/leakage_baseline.txt` and fail on any added entry. Also fail if the budgets.toml diff adds a line containing `[waiver]`.
+
+2. LOW-MEDIUM - check_invariants.py:517-522. `regex2` only looks at constants that are direct positional args of a regex call.
+   - Input: `PINS=[(r"\bcell phones\b","B28")]` followed by `re.search(p, q)` is never flagged. The same goes for f-string patterns, because the Constant parts of a JoinedStr are not the arg, and for `pattern=` keyword args.
+   - Today 56 of 64 call sites are direct literals, so the real tree is fine. If a pin is refactored into a table, its baseline entry goes stale and has to be deleted, which leaves the leak invisible.
+   - Fix: add all `n.keywords` values to `in_regex`, and descend into JoinedStr children. Better, apply `regex2` to every string constant in any module that calls `re`.
+
+3. LOW - check_budgets.py:267. When `demo` exists but has no numeric `p95_latency_seconds`, `_p95_check` falls through to the stale top-level key.
+   - Input: `{"p95_latency_seconds": 19.2, "demo": {"p95_latency_seconds": null}}` returns 19.2 and passes. That is the stale-key trap this change was meant to remove.
+   - Fix: take the `elif` branch only when `demo` is not a dict.
+
+4. LOW - check_invariants.py:511, 405 and 133 (the `_regex_calls` caller `_regex_counts_now`).
+   - A UTF-8 BOM file in api/src makes `ast.parse` raise SyntaxError, which is swallowed. The file silently counts 0 regex calls and is skipped by the leak scan. I confirmed this with `ast.parse("<BOM>...")`. No api/src file has a BOM today.
+   - Fix: read with `encoding="utf-8-sig"`.
+
+5. LOW - check_invariants.py:371-395 (`_logged_targets`). Log entries that don't parse are skipped silently.
+   - `4300 -> 4340,` fails `float("4340,")`.
+   - `4300->4340` has no "->" word.
+   - Either way the check passes while the file and log disagree.
+   - Fix: report log lines that contain "->" but yield no value.
+
+6. LOW - test coverage.
+   - api/tests/test_invariants.py:263 (`test_two_log_entries_on_one_line_are_both_read`). It passes against an implementation that reads only the last entry per line, because web_src_loc matches either way. Make web_src_loc mismatch too and expect two violations.
+   - No test for the 0.0005 waiver tolerance, for a demo block with no `generated_at` (a waiver can never apply), or for `main()` output. The test_budgets.py tests call `_p95_check` directly, so the "waive" label path is untested.
+   - test_invariants_print_every_named_pattern runs the checks against live repo data (budgets.toml log, api/src). Any new leak or log drift fails a unit test as well as the gate.
+
+7. COSMETIC
+   - check_budgets.py:366. `{status:<4}` misaligns the 5-character "waive".
+   - When the only exceedance is waived, main still prints "All budgets met."
+   - check_invariants.py:676 recomputes `_regex_counts_at(base)`, which repeats the git calls that `check_no_new_regex` already made.
+
+Behaviour changes for existing callers (none found):
+- `Check.ok` now includes waived, and `within` is new. Nothing else in scripts/ or api/tests uses `.ok` or `collect()`.
+- The `Check` constructor stays backward compatible.
+- `_latest_evidence` keeps its behaviour for the other keys.
+
+Real-data note: CI's `scoreboard` job runs the full `check_budgets.py`. Against the committed evidence/latest.json (demo.p95 21.701, no waiver in budgets.toml) it now fails. That matches the stated intent but will make main red until a waiver or a faster run lands.
+
+================================================================================
+DISPOSITION (caller)
+================================================================================
+Fixed in code, with tests and a named mutation each (see gate1.txt):
+  A1  new exemptions check under --base (waiver and baseline additions)      check_no_new_exemptions
+  A2  wiring: CHECKS registration, collect() p95, collect() exemption row     4 wiring tests
+  A3  demo block without a numeric p95 fails closed                           _p95_check
+  A4  regex tier reads keyword arguments and f-string parts                   _leak_hits
+  A5  unreadable `->` log entries are reported                                _logged_targets
+  A6  byte-order mark: counted by the regex ratchet and scanned for leaks     _regex_calls, _leak_hits
+  A7  shared log parser, header-gated for both gates                          scripts/budget_log.py
+  A8  stronger two-entries test; rounding tolerance; waiver above header; main() waive label and count; positive-control mutation
+  Cosmetic: waive column alignment; "All budgets met (N waived by the owner)".
+Fixed in docs:
+  checkpoint_review.md section 13 no longer carves out IDs/NAMEs/URL syntax: CLAUDE.md's wording is used ("last resort everywhere").
+  checkpoint_report.md "bypasses" claim corrected; ledger test_budgets.py entry corrected.
+Not changed, surfaced to the owner:
+  - CLAUDE.md Traps entry about the stale p95 is now partly stale (CLAUDE.md is the owner's file).
+  - The two "plain domain vocabulary" baseline entries (block group, zip code) are the author's call; the owner confirms them when committing the baseline.
+  - Place tier covers prompts.py and tools.py only (AC8's scope); a place that opens an eval question is skipped (sentence-initial capitalisation). A phrase moved into a table is caught only through the stale-entry message.
+  - "Ratchet-down for re.*": the existing ratchet already blocks any increase; this change adds the printed count and delta.
+  - Phase-1 notes were added to checkpoint_review.md sections 14, 15 and 21 instead of cutting them (less destructive; the original is kept beside the report).
+  - test_invariants_print_every_named_pattern reads live repo data by design; it stays red until the owner logs the 4340 -> 4400 line.
+
+================================================================================
+PASS 2 - re-run on the fixes  [subagent report, verbatim]
+================================================================================
+Gate 2, pass 2. All eight fixes hold in the cases they name. I found five new or leftover defects, none high. The machines match what you listed: ruff clean, mypy api/src clean, full suite 632 passed with only `test_invariants_print_every_named_pattern` red, plus the two known fails. I mutation-tested in a scratch copy of the files (about 50 mutants) and built a scratch git repo for an end-to-end `--base` run.
+
+**1. Same-change exemptions: logic fixed, but the gate can silently turn off.**
+- In a scratch git repo, a new waiver and a new baseline entry are each flagged, and CRLF-only rewrites are not. Missing-at-base is skipped.
+- MEDIUM, check_invariants.py:608-615. `_text_at` has no test, and a failure there makes the check skip. Changing `f"{ref}:{rel}"` to `f"{ref}/{rel}"`, or returning `None` always, passes all 58 tests. A mistyped `--base` also prints `ok new exemptions`. Smallest fix: one test that runs `git init`, commits a file, edits it, and calls `check_no_new_exemptions("HEAD")`.
+- LOW. The owner's own waiver or baseline commit trips this check, as a raise does. It takes a CI override, and `check_budgets.py`'s failure text doesn't say so.
+
+**2. Wiring tests: dropping a check is caught; rebinding it is not.**
+- MEDIUM, test_invariants.py ("registered" test). Changing the entries to `("budget log matches values", lambda: [])` or `("eval phrasing in api/src", lambda: [])` passes everything. Smallest fix: `assert dict(inv.CHECKS)[name] is inv.<fn>`.
+- MEDIUM, test_budgets.py:144. `test_main_labels_a_waived_p95_and_counts_it` runs `main()` against the live `api/src` and `web/src`. api LOC is 4396 of 4400. I added 60 lines in the scratch copy and it went red with `assert 1 == 0`. Smallest fix: monkeypatch `bud.API_SRC` and `bud.WEB_SRC` to tmp.
+
+**3. Non-numeric p95: fixed.**
+- LOW, check_budgets.py:250,269. A `demo` that is `null`, a list or a string, or a boolean p95, still falls back to the stale key. Fix: `if "demo" in data and not isinstance(demo, dict)` returns a failing Check.
+
+**4. Regex tier: keyword and f-string cases fixed.** Gaps that remain:
+- MEDIUM, `_leak_hits`. `_P = r"\bcell phones\b"` followed by `re.compile(_P)` gives no hit. Neither does `from re import compile; compile(r"...")`, because `_is_regex_call` wants `re.x`. Fix: when a regex call argument is a `Name`, include the string constants assigned to that name.
+- MEDIUM-LOW, `_drop_subsumed` (:554). Hits are keyed per file, so a baselined `median gross rent` hides a new `re.compile(r"gross rent")` in the same file. I reproduced this. Fix: subsume only within the same line.
+- LOW. The place tier covers only `tools.py` and `prompts.py`. `ResolveGeographyTool.description` is in `geo.py`, and `FetchDataTool` is in `fetch.py`, so a place added to either passes.
+- LOW. `re.sub(r"\d+", "cell phones", s)` is a false positive, since the replacement counts as a pattern.
+
+**5. Unreadable log entries: glued arrow and trailing comma are caught.** Residuals, all LOW:
+- check_invariants.py:389-390. `4300 -> 4,400 3 files` is read as a rename to a field named `4,400` with value 3, silently.
+- `→`, `=>`, `to` and `#2026` (no space) are skipped. This usually fails closed, because an older arrow line then mismatches.
+- If the "budget change log" header is renamed, `entries()` is empty and `check_budget_log_matches_values` passes. It should fail when the header is missing.
+
+**6. BOM: fixed in check_invariants.py, still open in check_budgets.py.**
+- MEDIUM. `_count_subclasses` (:108) and `_prompt_tokens` (:188) still use `ast.parse(read_text("utf-8"))`. A BOM file with 9 `BaseTool` subclasses counts as 0 (verified). PowerShell 5.1 writes BOMs by default. Fix: `encoding="utf-8-sig"` in both.
+
+**7. `budget_log` import: nothing wrong.**
+- It works from the repo root via `uv run python scripts/...` and from `/` via `--project`. It also works under pytest, because both test files insert `scripts`.
+- It would fail only under `runpy` or `-m scripts.x`, which nothing uses.
+- `scripts/budget_log.py` and `evals/leakage_baseline.txt` are untracked. Omit either from the commit and CI fails with ImportError or a missing baseline.
+
+**8. Weak test and rounding gap: fixed.**
+- Mutants `[1:2]` and tolerance 0.0025 are both caught. Surviving mutants, all LOW:
+  - `_waivers` without the `[waiver]` filter.
+  - `!=` changed to `>` in the log compare, so a file value lower than the log goes untested.
+  - `from regex import` not counted.
+
+CRLF is fine for the baseline and budgets.toml. The two scripts are CRLF in the working tree, which `.gitattributes` normalizes to LF on commit. Everything else is **nothing**.
+
+================================================================================
+DISPOSITION OF PASS 2 (caller) - one fix round, no third pass (run-slice playbook, section 5)
+================================================================================
+The first three commits (a8a50c9, ed3d78e, 279bbbf) were made before this report arrived; the fixes
+below are a fourth commit. Each has a test and a named mutation (gate1.txt, 57 mutations, all caught).
+Fixed:
+  1  `_text_at` is tested against a real scratch git repo, end to end through check_no_new_exemptions("HEAD").
+     The failure text for a p95 waiver now says it goes in its own commit and why.
+  2  the registry test asserts the checks are the real functions (a stub fails); the main() and collect()
+     tests run against an empty api/web tree instead of the live one (api LOC no longer matters to them).
+  3  a demo block that is null, a list, a string, or has a boolean or missing p95 fails closed (bool is not a number).
+  4  a pattern held in a name, a bare compile() call, and f-string parts are read; only the first positional
+     argument and pattern= count, so a replacement string is not a pattern; subsumption is per line, so a
+     baselined longer phrase no longer hides a new shorter one elsewhere in the file.
+  5  a rename must target an identifier; a missing "budget change log" header is a violation.
+  6  the shape and prompt-token counters parse files with a byte-order-mark-safe helper (_parse), tested.
+  8  the three surviving mutants are killed: any log line is not an exemption; a file value below its log line
+     fails; `from regex import` is counted.
+Not changed:
+  - Place tier stays on prompts.py and tools.py (AC8's scope). Checked: geo.py:152 holds Springfield/Illinois
+    in a docstring that illustrates a code path, not model-facing text; the geo.py tool description is generic;
+    fetch.py has no eval place. A place added to a tool description in those files would pass.
+  - `->` variants written as an arrow glyph, "=>", "to" or "#2026" with no space: left. They usually fail
+    closed, because the older arrow line then disagrees with the file.
+  - A mistyped --base prints "ok" for new exemptions: the same "skipped silently when the ref is unavailable"
+    behaviour as the existing budget and regex checks.
+  - The owner's own waiver or baseline commit trips `new exemptions` until it is on the base, like a budget raise.
