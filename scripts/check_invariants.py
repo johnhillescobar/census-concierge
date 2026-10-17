@@ -587,42 +587,19 @@ def _leak_hits(questions: list[str]) -> dict[tuple[str, str, str], list[int]]:
         ]
         for line, text, is_regex in texts:
             words = _leak_words(text)
+            found: set[tuple[str, str]] = set()
             for tier, size, content in LEAK_TIERS:
                 if tier == "regex2" and not is_regex:
                     continue
-                for gram in _leak_grams(words, size, content) & eval_grams[tier]:
-                    hits.setdefault((tier, gram, rel), []).append(line)
+                found |= {(tier, g) for g in _leak_grams(words, size, content) & eval_grams[tier]}
             if path.name in LEAK_PLACE_FILES:
-                for place in _leak_proper_nouns(text, skip_first=False) & places:
-                    hits.setdefault(("place", place, rel), []).append(line)
-    return _drop_subsumed(hits)
-
-
-def _drop_subsumed(
-    hits: dict[tuple[str, str, str], list[int]],
-) -> dict[tuple[str, str, str], list[int]]:
-    """Drop a phrase only where a longer one already says it, once per occurrence of the longer
-    one: 'median gross rent' covers one 'gross rent' on its line, so a second 'gross rent' on
-    that line, or another elsewhere in the file, still shows."""
-    kept: dict[tuple[str, str, str], list[int]] = {}
-    longer: list[tuple[str, str, Counter[int]]] = []
-    for key in sorted(hits, key=lambda k: (-len(k[1].split()), k)):
-        _, phrase, rel = key
-        covered: Counter[int] = Counter()
-        for p, r, counts in longer:
-            if r == rel and p != phrase and f" {phrase} " in f" {p} ":
-                for line, n in counts.items():
-                    covered[line] = max(covered[line], n)
-        remaining: list[int] = []
-        seen: Counter[int] = Counter()
-        for line in sorted(hits[key]):
-            seen[line] += 1
-            if seen[line] > covered[line]:
-                remaining.append(line)
-        if remaining:
-            kept[key] = remaining
-        longer.append((phrase, rel, Counter(hits[key])))
-    return kept
+                found |= {("place", p) for p in _leak_proper_nouns(text, skip_first=False) & places}
+            # Within one literal, a longer phrase already says a shorter one: 'median gross rent'
+            # covers 'gross rent'. Another literal on the same line, or in the file, still shows.
+            for tier, phrase in found:
+                if not any(p != phrase and f" {phrase} " in f" {p} " for _, p in found):
+                    hits.setdefault((tier, phrase, rel), []).append(line)
+    return {key: sorted(lines) for key, lines in hits.items()}
 
 
 def _baseline_entries(text: str) -> Counter[tuple[str, str, str]]:
