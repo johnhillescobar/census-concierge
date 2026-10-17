@@ -21,6 +21,11 @@ matters most: a budget that was quietly widened to make the change fit.
 
 Everything below is what the machines *cannot* check.
 
+The eval-phrasing check in `check_invariants` is a tripwire, not a proof: a phrase built by
+concatenation, `.format`, a list of patterns or an alias of `re.compile` is not followed. When
+reading a diff, look for eval wording the machine would miss. Do not ask for a new bypass case
+in the script; the regex ratchet, the sealed-set gap and this review are what cover it.
+
 ## The claim
 
 **What can a user do now that they could not before?** One sentence, in the PR

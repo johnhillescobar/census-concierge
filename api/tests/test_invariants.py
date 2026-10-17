@@ -636,6 +636,23 @@ def test_a_second_copy_of_an_exemption_since_the_base_is_a_new_exemption(
     ]
 
 
+def test_a_longer_baselined_phrase_covers_one_occurrence_of_a_shorter_one_on_its_line(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare the median gross rent in Austin to the Texas average",
+        {"a.py": 'A = ("the median gross rent", "median gross rent")\n'},
+        baseline="gram4|the median gross rent|api/src/a.py  # known\n",
+    )
+    assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/a.py:1"]
+    (tmp_path / "api" / "src" / "a.py").write_text(
+        'A = "the median gross rent"\n', encoding="utf-8"
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+
+
 def test_a_file_value_below_its_log_line_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
     _budgets(
         tmp_path,

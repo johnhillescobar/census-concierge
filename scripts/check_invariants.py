@@ -441,6 +441,13 @@ def check_budget_log_matches_values() -> list[Violation]:
 # Eval phrasing in api/src (CC-3 AC8). The visible evals are `evals/*.toml`; the sealed set
 # is never read. A known hit lives in the baseline, which may only shrink: a new hit fails,
 # and so does a baseline entry whose hit is gone.
+#
+# This is a tripwire, not a proof. It reads string literals, comments and the patterns it can
+# see being passed to a regex call, so a phrase can still be hidden by building the string or
+# the pattern in a way it does not follow (concatenation, `.format`, a list of patterns, an
+# alias of `re.compile`, a phrase repeated inside one literal). Do not add a case per bypass:
+# that is the pattern-per-phrasing trap this repo exists to avoid. The regex ratchet bounds
+# `regex2`, and the sealed-set gap and Gate 2 are the protection against tuning to the eval.
 LEAK_BASELINE = "evals/leakage_baseline.txt"
 LEAK_STOP = frozenset(
     {
@@ -594,21 +601,27 @@ def _leak_hits(questions: list[str]) -> dict[tuple[str, str, str], list[int]]:
 def _drop_subsumed(
     hits: dict[tuple[str, str, str], list[int]],
 ) -> dict[tuple[str, str, str], list[int]]:
-    """Drop a phrase only on the lines where a longer one already says it: 'median gross rent'
-    covers 'gross rent' there, and a new 'gross rent' elsewhere in the file still shows."""
+    """Drop a phrase only where a longer one already says it, once per occurrence of the longer
+    one: 'median gross rent' covers one 'gross rent' on its line, so a second 'gross rent' on
+    that line, or another elsewhere in the file, still shows."""
     kept: dict[tuple[str, str, str], list[int]] = {}
-    longer: list[tuple[str, str, list[int]]] = []
+    longer: list[tuple[str, str, Counter[int]]] = []
     for key in sorted(hits, key=lambda k: (-len(k[1].split()), k)):
         _, phrase, rel = key
-        covered = {
-            line
-            for p, r, lines in longer
-            if r == rel and p != phrase and f" {phrase} " in f" {p} "
-            for line in lines
-        }
-        if remaining := sorted(line for line in hits[key] if line not in covered):
+        covered: Counter[int] = Counter()
+        for p, r, counts in longer:
+            if r == rel and p != phrase and f" {phrase} " in f" {p} ":
+                for line, n in counts.items():
+                    covered[line] = max(covered[line], n)
+        remaining: list[int] = []
+        seen: Counter[int] = Counter()
+        for line in sorted(hits[key]):
+            seen[line] += 1
+            if seen[line] > covered[line]:
+                remaining.append(line)
+        if remaining:
             kept[key] = remaining
-        longer.append((phrase, rel, hits[key]))
+        longer.append((phrase, rel, Counter(hits[key])))
     return kept
 
 
