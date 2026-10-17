@@ -445,7 +445,10 @@ def check_budget_log_matches_values() -> list[Violation]:
 # This is a tripwire, not a proof. It reads string literals, comments and the patterns it can
 # see being passed to a regex call, so a phrase can still be hidden by building the string or
 # the pattern in a way it does not follow (concatenation, `.format`, a list of patterns, an
-# alias of `re.compile`, a phrase repeated inside one literal). Do not add a case per bypass:
+# alias of `re.compile`). Inside one literal a longer phrase also stands for every shorter
+# phrase it contains, across tiers: a baselined `gram4` hides the `place` word in it (the
+# Oregon baseline relies on this) and a further copy of a shorter phrase in the same literal.
+# Do not add a case per bypass:
 # that is the pattern-per-phrasing trap this repo exists to avoid. The regex ratchet bounds
 # `regex2`, and the sealed-set gap and Gate 2 are the protection against tuning to the eval.
 LEAK_BASELINE = "evals/leakage_baseline.txt"
@@ -596,7 +599,7 @@ def _leak_hits(questions: list[str]) -> dict[tuple[str, str, str], list[int]]:
                 found |= {("place", p) for p in _leak_proper_nouns(text, skip_first=False) & places}
             # Within one literal, a longer phrase already says a shorter one: 'median gross rent'
             # covers 'gross rent'. Another literal on the same line, or in the file, still shows.
-            for tier, phrase in found:
+            for tier, phrase in sorted(found):
                 if not any(p != phrase and f" {phrase} " in f" {p} " for _, p in found):
                     hits.setdefault((tier, phrase, rel), []).append(line)
     return {key: sorted(lines) for key, lines in hits.items()}
