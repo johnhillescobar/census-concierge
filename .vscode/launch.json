@@ -246,6 +246,320 @@
       "envFile": "${workspaceFolder}/.env",
       "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
       "justMyCode": false
+    },
+
+    // ---------------------------------------------------------------------------
+    // Sessions for the app as it is now (slice 6). The ones above predate the
+    // geography, finish and conversation work and are left as they were.
+    //
+    // OFFLINE: scripted model and fake tools, no keys, no network. Each one is a
+    // stage of the dataflow  question -> tools -> URL -> fetch -> response.
+    // ---------------------------------------------------------------------------
+    {
+      // The whole scripted loop: run_ask, dispatch, _absorb, assemble. The config
+      // above runs one of these 56 tests; this runs all of them.
+      "name": "api: ask loop, all scripted tests (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests/test_ask_loop.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // resolve_geography, build_url, comparisons: geo.py, geo_list.py, tools.py,
+      // compare.py. Where "wrong level" and "wrong parent" bugs are stepped.
+      "name": "api: tools - geography, build_url, comparisons (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests/test_ask_tools.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // finish_tools, the redo gates, plan_split and split_beside (the CC-103
+      // parent-split call that runs beside the loop). Fake model, so it never waits
+      // on the real 6 s split timeout.
+      "name": "api: finish + parent split (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests/test_finish.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // fetch_data: the geographies x years fan-out (asyncio.gather), plan_years,
+      // the ACS1 -> ACS5 replan. Step with one breakpoint per `one(year, spec)`.
+      "name": "api: fetch fan-out + years (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests/test_fetch_years.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // ResultPlan, plan_from_record, override binding, bind_override_geographies:
+      // the editable plan strip and the alternative-table click.
+      "name": "api: plan strip + overrides (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "-q",
+        "-m",
+        "not integration",
+        "api/tests/test_plan.py",
+        "api/tests/test_plan_override.py"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Retrieval and the selector against the committed index: no embedding or
+      // model call (the fake-retriever trap in test_index.py runs here too).
+      "name": "api: retrieval + selector (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "-q",
+        "-m",
+        "not integration",
+        "api/tests/test_index.py",
+        "api/tests/test_rerank.py",
+        "api/tests/test_build.py",
+        "api/tests/test_lexical_ranking.py",
+        "api/tests/test_availability.py",
+        "api/tests/test_vintages.py"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Conversation persistence: store.py (Postgres, ownership, 48 h expiry) and the
+      // /conversations routes. These SKIP when DATABASE_URL is unset, so envFile
+      // matters here. Start Postgres per the README first.
+      "name": "api: conversations + store (needs DATABASE_URL)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "-q",
+        "-m",
+        "not integration",
+        "api/tests/test_store.py",
+        "api/tests/test_conversation_routes.py"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Any test by name across api/tests, e.g. `springfield`, `listing or parent`.
+      // The prompt takes a pytest -k expression.
+      "name": "api: tests by name, -k (offline)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "-m", "not integration", "api/tests", "-k", "${input:testFilter}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+
+    // ---------------------------------------------------------------------------
+    // LIVE: real OpenAI, Gemini and Census. These cost calls; all need `.env`.
+    // ---------------------------------------------------------------------------
+    {
+      // The app with persistence. `--loop src.loop:selector_factory` is what psycopg
+      // async needs on Windows (see src/loop.py); without it /ask works and the
+      // /conversations routes do not. No --reload, so breakpoints bind first time.
+      "name": "api: uvicorn (debug, selector loop, persistence)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "src.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--loop",
+        "src.loop:selector_factory"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/api",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // YOU type the question. It runs through the real loop in this process (real
+      // model, selector and Census), prints each model turn and tool call as it
+      // happens, then the response, and writes nothing. Breakpoints in api/src fire:
+      // src/ask.py run_ask and dispatch, src/finish.py, src/geo.py, src/tools.py,
+      // src/fetch.py. Needs OPENAI_API_KEY, GEMINI_API_KEY and CENSUS_API_KEY in .env.
+      "name": "harness: ask one question (live, in-process)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/ask_one.py",
+      "args": ["${input:askQuestion}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // ONE phrasing-grid cell through the real app, in this process: run_ask with
+      // the real model, the CC-103 split call, finish_tools, fetch. Breakpoints in
+      // api/src fire. `--tag=-debug` sends the output to grid-trials-debug.jsonl and
+      // grid-latest-debug.json, so the grid files you quote are never touched.
+      // (run_demo.py has no such switch: it always rewrites evidence/latest.json, so
+      // it has no session here.)
+      "name": "harness: grid, one cell (live, in-process)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/run_grid.py",
+      "args": [
+        "--limit",
+        "1",
+        "--repeat",
+        "1",
+        "--workers",
+        "1",
+        "--level",
+        "${input:gridLevel}",
+        "--tag=-debug"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // The conversation end to end. The script starts its own uvicorn on :8766
+      // (with the selector loop) as a child process; subProcess lets breakpoints in
+      // api/src fire in that child. Needs OPENAI_API_KEY, CENSUS_API_KEY, DATABASE_URL.
+      "name": "harness: conversation e2e (live, needs DATABASE_URL)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/e2e_conversation.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false,
+      "subProcess": true
+    },
+    {
+      // One question through retrieval: the top 10 per ranker (bm25, semantic, fused)
+      // and where the expected table lands. Needs OPENAI_API_KEY.
+      "name": "retrieval: one question, every ranker (live)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/diagnose.py",
+      "args": ["query", "${input:question}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+    {
+      // Retrieval AND the selector (rerank.py), long_tail tier: the scoreboard path
+      // the budgets gate. It does not go through pinned_table, which the demo does.
+      // Needs OPENAI_API_KEY and GEMINI_API_KEY.
+      "name": "eval: long_tail with the selector (live)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/eval_retrieval.py",
+      "args": ["--tier", "long_tail", "--rerank", "--verbose"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": { "PYTHONUNBUFFERED": "1", "PYTHONPATH": "${workspaceFolder}/api" },
+      "justMyCode": false
+    },
+
+    // ---------------------------------------------------------------------------
+    // WEB (React + Vite). The dev server proxies only /ask to :8000 (vite.config.ts),
+    // so /conversations calls do not reach the API in dev. For those, use the
+    // production build served by FastAPI (npm --prefix web run build): no source maps.
+    // ---------------------------------------------------------------------------
+    {
+      "name": "web: vitest, current test file",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/web/node_modules/vitest/vitest.mjs",
+      "args": ["run", "${fileBasename}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/web",
+      "smartStep": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      // Starts `vite` (port 5173). Pair with the Chrome session below, or use the
+      // compound at the bottom to start all three.
+      "name": "web: vite dev server",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm --prefix web run dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      // Breakpoints in web/src/*.tsx. Start the dev server first (or use the compound).
+      "name": "web: Chrome on the Vite dev server (:5173)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/web"
+    }
+  ],
+  "compounds": [
+    {
+      // The running app end to end: API with persistence, Vite, and Chrome attached.
+      // If Chrome opens before Vite is ready, reload the tab.
+      "name": "app: api + web + Chrome (live)",
+      "configurations": [
+        "api: uvicorn (debug, selector loop, persistence)",
+        "web: vite dev server",
+        "web: Chrome on the Vite dev server (:5173)"
+      ],
+      "stopAll": true
     }
   ],
   "inputs": [
@@ -284,6 +598,31 @@
       "description": "Document variant to A/B against plain",
       "default": "lean",
       "options": ["lean", "rich", "twin"]
+    },
+    {
+      "id": "testFilter",
+      "type": "promptString",
+      "description": "pytest -k expression, e.g. springfield, or: listing or parent",
+      "default": "test"
+    },
+    {
+      "id": "gridLevel",
+      "type": "pickString",
+      "description": "Grid level for the one cell (the first cell of that level runs)",
+      "default": "tract",
+      "options": ["tract", "county"]
+    },
+    {
+      "id": "question",
+      "type": "promptString",
+      "description": "A question for retrieval to rank tables for",
+      "default": "how many people bike to work"
+    },
+    {
+      "id": "askQuestion",
+      "type": "promptString",
+      "description": "The question to run through the real ask loop",
+      "default": "poverty rate in Cook County, Illinois"
     }
   ]
 }

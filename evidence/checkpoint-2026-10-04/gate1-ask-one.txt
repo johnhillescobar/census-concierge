@@ -1,0 +1,28 @@
+GATE 1 - mutation check of scripts/ask_one.py tests
+GOOD = tests pass on the real code. BAD = they fail under the mutation.
+
+GOOD  baseline api/tests/test_ask_one.py: 4 passed, 1 warning in 1.13s
+
+BAD   tool calls are not traced  -k 'trace_shows_every_model_turn'
+        -> 1 failed, 3 deselected, 1 warning in 0.74s; FAILED api/tests/test_ask_one.py::test_the_trace_shows_every_model_turn_and_tool_call_in_order
+BAD   model calls are not traced  -k 'trace_shows_every_model_turn'
+        -> 1 failed, 3 deselected, 1 warning in 0.86s; FAILED api/tests/test_ask_one.py::test_the_trace_shows_every_model_turn_and_tool_call_in_order
+BAD   the response summary is not printed  -k 'summary_shows'
+        -> 1 failed, 3 deselected, 1 warning in 0.60s; FAILED api/tests/test_ask_one.py::test_the_summary_shows_the_answer_table_geoid_and_a_redacted_url
+BAD   long values are not cut  -k 'long_value_is_cut'
+        -> 1 failed, 3 deselected, 1 warning in 0.34s; FAILED api/tests/test_ask_one.py::test_a_long_value_is_cut_and_its_full_length_is_kept
+BAD   the tool's own arguments are not printed  -k 'trace_shows_every_model_turn'
+        -> 1 failed, 3 deselected, 1 warning in 0.61s; FAILED api/tests/test_ask_one.py::test_the_trace_shows_every_model_turn_and_tool_call_in_order
+BAD   a tool that raises is swallowed  -k 'tool_that_raises'
+        -> 1 failed, 3 deselected, 1 warning in 0.51s; FAILED api/tests/test_ask_one.py::test_a_tool_that_raises_is_traced_and_still_raises
+BAD   a raising tool is not reported  -k 'tool_that_raises'
+        -> 1 failed, 3 deselected, 1 warning in 0.50s; FAILED api/tests/test_ask_one.py::test_a_tool_that_raises_is_traced_and_still_raises
+BAD   the split call is labelled as a loop turn  -k 'trace_shows_every_model_turn'
+        -> 1 failed, 3 deselected, 1 warning in 0.95s; FAILED api/tests/test_ask_one.py::test_the_trace_shows_every_model_turn_and_tool_call_in_order
+BAD   the split call is counted as a turn  -k 'trace_shows_every_model_turn'
+        -> 1 failed, 3 deselected, 1 warning in 0.69s; FAILED api/tests/test_ask_one.py::test_the_trace_shows_every_model_turn_and_tool_call_in_order
+BAD   the summary leaves out the GEOID  -k 'summary_shows'
+        -> 1 failed, 3 deselected, 1 warning in 0.55s; FAILED api/tests/test_ask_one.py::test_the_summary_shows_the_answer_table_geoid_and_a_redacted_url
+
+restored ask_one.py: f5e8aa835ae4 -> f5e8aa835ae4 OK
+10 mutations. RESULT: every mutation was caught and the file is restored.
