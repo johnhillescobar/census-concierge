@@ -441,6 +441,16 @@ def check_budget_log_matches_values() -> list[Violation]:
 # Eval phrasing in api/src (CC-3 AC8). The visible evals are `evals/*.toml`; the sealed set
 # is never read. A known hit lives in the baseline, which may only shrink: a new hit fails,
 # and so does a baseline entry whose hit is gone.
+#
+# This is a tripwire, not a proof. It reads string literals, comments and the patterns it can
+# see being passed to a regex call, so a phrase can still be hidden by building the string or
+# the pattern in a way it does not follow (concatenation, `.format`, a list of patterns, an
+# alias of `re.compile`). Inside one literal a longer phrase also stands for every shorter
+# phrase it contains, across tiers: a baselined `gram4` hides the `place` word in it (the
+# Oregon baseline relies on this) and a further copy of a shorter phrase in the same literal.
+# Do not add a case per bypass:
+# that is the pattern-per-phrasing trap this repo exists to avoid. The regex ratchet bounds
+# `regex2`, and the sealed-set gap and Gate 2 are the protection against tuning to the eval.
 LEAK_BASELINE = "evals/leakage_baseline.txt"
 LEAK_STOP = frozenset(
     {
@@ -580,36 +590,19 @@ def _leak_hits(questions: list[str]) -> dict[tuple[str, str, str], list[int]]:
         ]
         for line, text, is_regex in texts:
             words = _leak_words(text)
+            found: set[tuple[str, str]] = set()
             for tier, size, content in LEAK_TIERS:
                 if tier == "regex2" and not is_regex:
                     continue
-                for gram in _leak_grams(words, size, content) & eval_grams[tier]:
-                    hits.setdefault((tier, gram, rel), []).append(line)
+                found |= {(tier, g) for g in _leak_grams(words, size, content) & eval_grams[tier]}
             if path.name in LEAK_PLACE_FILES:
-                for place in _leak_proper_nouns(text, skip_first=False) & places:
-                    hits.setdefault(("place", place, rel), []).append(line)
-    return _drop_subsumed(hits)
-
-
-def _drop_subsumed(
-    hits: dict[tuple[str, str, str], list[int]],
-) -> dict[tuple[str, str, str], list[int]]:
-    """Drop a phrase only on the lines where a longer one already says it: 'median gross rent'
-    covers 'gross rent' there, and a new 'gross rent' elsewhere in the file still shows."""
-    kept: dict[tuple[str, str, str], list[int]] = {}
-    longer: list[tuple[str, str, list[int]]] = []
-    for key in sorted(hits, key=lambda k: (-len(k[1].split()), k)):
-        _, phrase, rel = key
-        covered = {
-            line
-            for p, r, lines in longer
-            if r == rel and p != phrase and f" {phrase} " in f" {p} "
-            for line in lines
-        }
-        if remaining := sorted(line for line in hits[key] if line not in covered):
-            kept[key] = remaining
-        longer.append((phrase, rel, hits[key]))
-    return kept
+                found |= {("place", p) for p in _leak_proper_nouns(text, skip_first=False) & places}
+            # Within one literal, a longer phrase already says a shorter one: 'median gross rent'
+            # covers 'gross rent'. Another literal on the same line, or in the file, still shows.
+            for tier, phrase in sorted(found):
+                if not any(p != phrase and f" {phrase} " in f" {p} " for _, p in found):
+                    hits.setdefault((tier, phrase, rel), []).append(line)
+    return {key: sorted(lines) for key, lines in hits.items()}
 
 
 def _baseline_entries(text: str) -> Counter[tuple[str, str, str]]:

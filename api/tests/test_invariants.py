@@ -636,6 +636,53 @@ def test_a_second_copy_of_an_exemption_since_the_base_is_a_new_exemption(
     ]
 
 
+def test_a_longer_phrase_covers_a_shorter_one_only_inside_its_own_literal(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare the median gross rent in Austin to the Texas average",
+        {"a.py": 'A = ("the median gross rent", "median gross rent")\n'},
+        baseline="gram4|the median gross rent|api/src/a.py  # known\n",
+    )
+    assert [v.where for v in inv.check_no_eval_phrasing_in_api_src()] == ["api/src/a.py:1"]
+    (tmp_path / "api" / "src" / "a.py").write_text(
+        'A = "the median gross rent"\n', encoding="utf-8"
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+
+
+def test_two_literals_on_one_line_each_cover_their_own_shorter_phrase(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare the median gross rent burden in Austin to the Texas average",
+        {"a.py": 'A = ("the median gross rent", "median gross rent burden")\n'},
+        baseline=(
+            "gram4|the median gross rent|api/src/a.py  # known\n"
+            "gram4|median gross rent burden|api/src/a.py  # known\n"
+        ),
+    )
+    assert inv.check_no_eval_phrasing_in_api_src() == []
+
+
+def test_a_pattern_literal_is_not_covered_by_a_longer_phrase_in_another_literal(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    _leak_repo(
+        tmp_path,
+        monkeypatch,
+        "Compare median gross rent in Austin to the Texas average",
+        {"a.py": 'import re\nre.sub("gross rent", "x", "median gross rent")\n'},
+        baseline="content3|median gross rent|api/src/a.py  # known\n",
+    )
+    found = inv.check_no_eval_phrasing_in_api_src()
+    assert [v.where for v in found] == ["api/src/a.py:2"] and "regex2" in found[0].message
+
+
 def test_a_file_value_below_its_log_line_fails_the_check(tmp_path: Path, monkeypatch: Any) -> None:
     _budgets(
         tmp_path,
