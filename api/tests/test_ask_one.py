@@ -76,15 +76,23 @@ def test_a_long_value_is_cut_and_its_full_length_is_kept() -> None:
     assert ask_one._short({"a": 1}, 50) == '{"a": 1}'
 
 
+def test_a_census_key_in_a_value_is_redacted_before_it_is_printed() -> None:
+    url = "https://api.census.gov/data/2023/acs/acs5?get=B01003_001E&for=state:*&key=SECRET123"
+    for value in (url, {"url": url}):
+        text = ask_one._short(value, 500)
+        assert "SECRET123" not in text
+        assert "key=REDACTED" in text
+
+
 class _Boom(BaseTool):
     name: str = "boom"
     description: str = "always raises"
 
     def _run(self, *args: Any, **kwargs: Any) -> str:
-        raise ValueError("no data")
+        raise ValueError("no data&key=SECRET123")
 
     async def _arun(self, *args: Any, **kwargs: Any) -> str:
-        raise ValueError("no data")
+        raise ValueError("no data&key=SECRET123")
 
 
 async def test_a_tool_that_raises_is_traced_and_still_raises() -> None:
@@ -93,4 +101,22 @@ async def test_a_tool_that_raises_is_traced_and_still_raises() -> None:
     ask_one._trace_tool(tool, lines.append)
     with pytest.raises(ValueError, match="no data"):
         await tool.ainvoke({"type": "tool_call", "name": "boom", "args": {"q": 1}, "id": "1"})
-    assert any("RAISED ValueError: no data" in line for line in lines)
+    assert any("RAISED ValueError: no data&key=REDACTED" in line for line in lines)
+    assert "SECRET123" not in " ".join(lines)
+
+
+async def test_a_model_call_that_raises_is_traced_and_still_raises() -> None:
+    lines: list[str] = []
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> Any:
+        _ = messages
+        raise RuntimeError("quota&key=SECRET123")
+
+    traced = ask_one._trace_complete(complete, lines.append)
+    with pytest.raises(RuntimeError, match="quota"):
+        await traced([], [])  # no tools: the split call, which plan_split swallows
+    with pytest.raises(RuntimeError, match="quota"):
+        await traced([], [{"type": "function"}])
+    assert any("[model split] RAISED RuntimeError: quota&key=REDACTED" in x for x in lines)
+    assert any("[model turn 1] RAISED RuntimeError" in x for x in lines)
+    assert "SECRET123" not in " ".join(lines)

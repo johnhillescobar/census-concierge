@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT / "api"))
 
 from dotenv import load_dotenv  # noqa: E402
 from src.ask import ExecutionRecord, _openai_complete, default_tools, run_ask  # noqa: E402
+from src.census_url import redact_text  # noqa: E402
 from src.contract import AskResponse  # noqa: E402
 
 REQUIRED_KEYS = ("OPENAI_API_KEY", "GEMINI_API_KEY", "CENSUS_API_KEY")
@@ -42,9 +43,9 @@ Out = Callable[[str], None]
 
 
 def _short(value: Any, limit: int) -> str:
-    """One line of a value, cut at `limit` characters with its full length noted."""
+    """One line of a value, key-redacted, cut at `limit` characters with its full length noted."""
     text = value if isinstance(value, str) else json.dumps(value, default=str, ensure_ascii=True)
-    text = " ".join(text.split())
+    text = redact_text(" ".join(text.split()))
     return f"{text[:limit]}... [{len(text)} chars]" if len(text) > limit else text
 
 
@@ -73,12 +74,16 @@ def _trace_complete(complete: Callable[..., Any], out: Out) -> Callable[..., Any
 
     async def traced(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> Any:
         nonlocal turns
-        turn = await complete(messages, openai_tools)
         if openai_tools:
             turns += 1
             label = f"turn {turns}"
         else:
             label = "split"
+        try:
+            turn = await complete(messages, openai_tools)
+        except Exception as exc:  # plan_split swallows this, so the summary alone would hide it
+            out(f"[model {label}] RAISED {type(exc).__name__}: {_short(str(exc), 300)}")
+            raise
         calls = ", ".join(
             f"{c['name']}({_short(c.get('args') or {}, 160)})" for c in turn.get("tool_calls") or []
         )
