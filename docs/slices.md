@@ -16,7 +16,7 @@ one-line STATUS pointer, not an eval ledger.
 | [CC-91](https://johnhillescobar.atlassian.net/browse/CC-91) | post-slice-3 reliability (does not block CC-11) | Done |
 | [CC-9](https://johnhillescobar.atlassian.net/browse/CC-9) | spike: LangGraph checkpointer | Done (direct psycopg, DESIGN §9) |
 | [CC-6](https://johnhillescobar.atlassian.net/browse/CC-6) | 5 conversation persistence | Done |
-| [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3) | 6 follow-ups | To Do (current) |
+| [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3) | 6 follow-ups | In Progress (current) |
 | [CC-10](https://johnhillescobar.atlassian.net/browse/CC-10) | 7 PDF export | To Do |
 | [CC-7](https://johnhillescobar.atlassian.net/browse/CC-7) | 8 auth + hosting | To Do |
 | [CC-77](https://johnhillescobar.atlassian.net/browse/CC-77) | spatial crosswalks + full-table extract (phase 1, intermediary epic) | To Do (CC-11 foundations shipped; schedule within phase 1) |

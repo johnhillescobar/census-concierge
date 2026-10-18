@@ -38,13 +38,17 @@ Resolve "what about Texas?" against prior turns. Score multi-turn cases
 across `--repeat`. Unresolved references are warnings with candidates, never
 a blocking question.
 
-**Order:** CC-114 classification (no code) → CC-103/104/105 → CC-114
-pipeline fix → CC-42 (multi-turn set + baseline; re-anchors the single-turn
-baseline) → CC-43 (after CC-113 findings, or under its 1.0s `t_llm` cap) →
-CC-107 / CC-108 (separate legs, no join) → CC-39. CC-102 and CC-106 run on
-their own timeline but are in scope. **Revised 2026-10-04** (owner, D1): CC-121
-first (with CC-116); the geography chain (CC-114 → 104 → 106 → 119 → 105) and
-CC-120's baseline gate CC-42; CC-82 gates CC-43, not CC-42. Jira holds the order.
+**Order** (CC-3 comments of 2026-10-04, order comment plus decision D1; Jira
+holds the current order): CC-121 first, with CC-116 (leakage invariant, must
+merge before CC-121 closes) → CC-120 grid baseline → CC-118 → CC-117 → CC-114
+pipeline fix (its classification is done) → CC-104 → CC-106 → CC-119 → CC-105,
+with CC-102 and CC-115 independent (CC-102 must close before the epic) → CC-82
+→ CC-113 research. Multi-turn chain: CC-42 (multi-turn set + baseline;
+re-anchors the single-turn baseline), gated by the geography chain
+(CC-114 → CC-104 → CC-106 → CC-119 → CC-105) and by CC-120's baseline → CC-43
+(gated by CC-82 and CC-113 findings, or its 1.0s `t_llm` cap) → CC-107 /
+CC-108 (separate legs, no join) → CC-39. The chain does not wait for all the
+breadth stories (D1 supersedes the earlier "waits" comment).
 
 **Done when:** every child story is closed (CC-102 and CC-106 included) and a
 three-turn refinement produces the right dataset at these case-level floors
