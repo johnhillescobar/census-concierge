@@ -16,9 +16,23 @@ Open points recorded as `default`, not owner decisions:
 - Number words: instruct the model not to write them and parse with `float()` only; no word list (the restored text lists a thousand/million parser, the 2026-10-18 ruling bars word lists).
 - The restored criterion "no budget is raised" against the `api_src_loc` raise in `7aebf3a`.
 
+## Batch R1: repo, done 2026-10-20 (approved "yes")
+
+Commits `2a6cf96` (plan, saved description, pre-rebuild notes), `1559ad0` and `468bd3b` (reverts of `d9c5eb5` and `4a89748`), `0f3665d` (`figures.py` kept without a caller). Stale transcripts marked, not removed (`default`).
+
+## Batch P1: pre-flight record (approved "yes", 2026-10-20)
+
+| # | write | where | tag |
+|---|---|---|---|
+| 1 | `cc-121-preflight.md` (results) and `cc-121-preflight-check.py` (the command that produced them; no regex) | repo, one commit | default |
+| 2 | Short Jira comment with the results | CC-121, `scripts/jira_transition.py --comment`, status unchanged | default |
+
+Defaults accepted with P1, not owner decisions: rendered figures capped at 20 with "k of n shown" (as in `figures.py`); comparatives barred by instruction and the residual measured.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
-- R1: repo. Commit this plan and the saved description. Decide the branch: revert `d9c5eb5` (wiring and prompt) and `4a89748` (the rule amendment from the 2026-10-18 design) or rework them, keeping the `figures.py` rendering where the 2026-10-04 design reuses it. Mark the three stale transcripts (`cc-121-gate1.txt`, `cc-121-gate2.txt`, `cc-121-gate2-rerun.txt`) as pre-rebuild or `git rm` them (default: mark).
+- R2: repo. Rebase the local commits onto `origin/main` (15 commits ahead: PR #110 and #111), dropping `7aebf3a`, which duplicates `3b785a4` already on `main`. The branch is unpushed.
+- P2: live probe of whether the model writes no digits when told not to (40 visible questions, repeat 1; needs OpenAI and Census credits). Only on an explicit go-ahead.
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
-- G: pre-flight of open claims, Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
+- G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
 - Ruling needed: CLAUDE.md says phases persist to "git/PR/evidence and Jira"; `run-slice.md` says "or Jira". Default: one short Jira comment per gate.
