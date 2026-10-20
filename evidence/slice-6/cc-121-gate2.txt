@@ -1,0 +1,206 @@
+CC-121 Gate 2 (cold-context review) -- branch feat/cc-121-answer-figures, uncommitted working tree vs HEAD a3f0930
+Reviewed: git diff -- api/ (api/src/fetch.py +38/-2, api/src/prompts.py 1 line) + untracked api/tests/test_fetch_figures.py.
+.vscode/launch.json ignored (owner's unrelated edit). No evidence transcripts read. No API keys spent.
+Note: HEAD is 11 commits behind origin/main (PR #109); `git diff origin/main` also shows #109's files as deletions -- not part of this change.
+
+======================================================================
+PASS 1 -- generic bugs, cold (diff + touched code only, no intent)
+======================================================================
+
+Offline probe (scratchpad probe.py, run from api/ with uv; fakes for HTTP, real data/raw cache where noted):
+
+--- S1 labels with colons (real acs5 2024 cache) ---
+Total: - Male:: 650000 (margin of error not available); Travis County, Texas (0500000US48453); 2024
+Universe: Total population
+--- S2 multi-geo x multi-var x years: who is visible? ---   (3 places x 2 years x 8 vars of B25003-shaped rows)
+['Place A (GA)', 'Place B (GB)']
+['20 of 48 figures shown; the rest are in the rows.', 'Universe: Occupied housing units']
+--- S3 missing NAME/GEO_ID ---
+B01003_001E: 5 (margin of error 1); None (None); 2024
+--- S4 est None but MOE present; est '' ---
+B01003_001E: not available; X (g); 2024
+Universe: u
+--- S5 corrupt label cache -> whole fetch fails in dispatch ---   (metadata.variables raises json.JSONDecodeError)
+content: fetch_data failed: bad: line 1 column 1 (char 0)
+record.rows: [] fetch: None timings ok: False
+--- S6 year/dataset passed to table_facts and labels ---   (years 2019+2024, 2019 leg HTTP 500)
+1 rows; 1/2 legs; failed 2019 HTTP 500; URLs https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:001&in=state:48, https://api.census.gov/data/2019/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:001&in=state:48
+B01003_001E: 1 (margin of error 2); A (g); 2024
+Universe: Total population
+[('facts', 'acs5', 2019, 'B01003'), ('facts', 'acs5', 2024, 'B01003'), ('labels', 'acs5', 2024)]
+key leak checks ("SECRETKEY" in content, "key=" in content): False False False
+
+metadata.variables cost (real cache, this machine):
+acs5 2024 28437 vars 81 ms; acs1 2024 36894 vars 137 ms; acs5 2024 repeated x5: [92, 126, 106, 104, 111] ms (no caching)
+
+Findings:
+
+P1-1  MEDIUM  api/src/fetch.py:188-190 (+ ask.py:283, finish.py:258, ask.py:453)
+      _labels catches only OSError. A truncated/corrupt data/raw/<ds>/<yr>/variables.json.gz raises
+      EOFError, zlib.error or json.JSONDecodeError (not OSError). The exception escapes _arun AFTER a
+      successful Census fetch; dispatch swallows it as "fetch_data failed: ...", _absorb never runs, so
+      record.rows/record.fetch stay empty (probe S5). finish_tools then retries fetch_data, it fails a
+      second time, dispatch raises RuntimeError("fetch_data failed twice") from finish_tools, which is
+      outside run_ask's try -> /ask 500s with no URL. Before this diff fetch_data never touched the
+      metadata cache, so a cosmetic label lookup can now destroy a good fetch. Failing input: any
+      question whose fetch succeeds while variables.json.gz for that dataset/year is corrupt.
+
+P1-2  MEDIUM  api/src/fetch.py:199-201
+      The 20-figure cut is row-major over every E key of every row, and rows are geo-major then year
+      (fanout order). Multi-variable x multi-year x multi-place results hide whole places: 3 places x
+      2 years x 8 vars -> only Place A and part of Place B shown, Place C absent (probe S2). Combined
+      with the new prompt sentence "If the question asks about something that was not fetched, say
+      so", the model is set up to claim Place C was not fetched when it was. "the rest are in the
+      rows" refers to rows the model never sees.
+
+P1-3  LOW-MEDIUM  api/src/fetch.py:438 (_labels called inside async _arun)
+      metadata.variables gunzips and parses the whole variables file on every fetch_data call
+      (81-137 ms measured, more for acs1), synchronously on the event loop -- not via asyncio.to_thread
+      like the HTTP legs. Blocks concurrent /ask requests and the CC-103 split task; repeats when
+      finish_tools re-fetches. Also inconsistent with the tool's injected-callable pattern
+      (table_facts, published): labels reach the module directly, which is why the test monkeypatches
+      fetch.metadata. (A module-level lru_cache would be a second module cache; ARCHITECTURE.md:66-67
+      sanctions only the index.)
+
+P1-4  LOW  api/src/fetch.py:435-438
+      year = max(result.attempted_years) is used for labels and universe even when that year's legs
+      failed (probe S6: 2024 ok, 2019 failed -> fine here, but the reverse picks a failed vintage), and
+      the latest year's labels are applied to every year's rows. Should be the max of succeeded_years,
+      or per-row year. Low impact while the cache covers every attempted year.
+
+P1-5  LOW  api/src/fetch.py:204
+      Missing NAME/GEO_ID columns render as "None (None)" (probe S3). build_url always adds
+      NAME,GEO_ID so the live path is safe, but an override URL or future caller is not; AskResponse
+      falls back to record.geography.geoid, the model text does not.
+
+P1-6  LOW  api/src/fetch.py:192
+      Real 2020+ labels end segments with ':' -> "Total: - Male:: 650000" (probe S1). Cosmetic, but it
+      is exactly the text the model is told to quote "exactly as it appears".
+
+P1-7  LOW (domain)  api/src/fetch.py:202-203
+      -555555555 on an MOE means "controlled estimate; MOE not appropriate" (typical for county
+      B01003), not missing. Rendering it as "margin of error not available" is consistent with the
+      contract (sentinel -> null) but the model will tell researchers the MOE is unavailable for
+      controlled totals.
+
+Checked and clean:
+- None/"" cells: `row.get(k) in CENSUS_MISSING` guards both E and M; row[k] only evaluated when present; "0" is truthy so a real zero prints (probe S4 ok).
+- *_PE percent keys pair with *_PM correctly; *_EA annotation keys are not picked up; GEO_ID/NAME/year/geo columns are not E-with-underscore keys.
+- table_id from first *_E key: split("_")[0] gives B01003 / S1901 / DP05 correctly; empty rows -> "" -> facts None -> {}.
+- year/vintage keys: rows carry "year" from _tag_year; max(..., default=0) safe on empty.
+- Redaction: nothing in the new text derives from a URL (labels, NAME, GEO_ID, values, universe); URLs in the summary are str(CensusURL). Probe: no key in content. Nothing.
+- Instructions-in-data: new text is Census metadata/API values plus fixed strings; no user-controlled text added. "the rest are in the rows" is not imperative. Nothing beyond P1-2.
+
+======================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md)
+======================================================================
+
+Machines:
+
+$ uv run python scripts/check_budgets.py
+BUDGETS
+  FAIL  api src LOC               4426 <= 4400
+  ok    api src files               26 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1047 <= 1200
+  ok    doc lines                 1753 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+1 budget(s) exceeded:
+  - api src LOC: 4426 (limit 4400)
+STOP. Do not edit budgets.toml to make this pass.
+EXIT check_budgets=1
+(fetch.py LOC 365 at HEAD -> 395 working tree, +30. Largest file 410 is ask.py/geo.py, pre-existing.)
+
+$ uv run python scripts/check_invariants.py --base origin/main
+  ok    banned agent frameworks / sqlite / contextvars / ticket-named tests / prompt assertions /
+        forbidden module names / blocking clarification / census key in artifacts / empty secret
+        defaults / key attached only via CensusURL / mandatory catalogs / budget log matches values /
+        eval phrasing in api/src / budget increases / new regex / new exemptions
+  info  api/src regex call sites: 64 (base 64, delta +0)
+All invariants held.
+EXIT check_invariants=0
+
+$ uv run ruff check .            -> All checks passed!   EXIT 0
+$ uv run ruff format --check .   -> 184 files already formatted   EXIT 0
+$ cd api && uv run mypy src      -> Success: no issues found in 26 source files   EXIT 0
+$ cd api && uv run pytest -q -m "not integration"
+  661 passed, 34 skipped, 1 warning in 35.37s   EXIT 0
+
+Findings against the stated intent:
+
+P2-1  BLOCKER (machine)  budgets.toml size.api_src_loc
+      api_src_loc 4426 > 4400. make check fails. Not edited. Needs simplification or a human budget
+      commit with a reason.
+
+P2-2  HIGH (owner decision)  docs/playbooks/review-pr.md:63-64 vs AC (a) / api/src/prompts.py:40
+      review-pr's silent-wrong-answer list says "Do numbers ever pass back through the model? The
+      model names B01003_001E; it must never handle the value." This change deliberately hands values
+      to the model and tells it to state them; the old "Never invent or retype estimates" is removed.
+      The answer prose becomes a second, model-retyped copy of the numbers (mis-attribution across 20
+      similar lines is the obvious failure). Either the PR amends that review rule with the owner's
+      reason, or by its own playbook it does not ship.
+
+(a) Figures in context: MET for the single-variable path -- label, E, M, place NAME, GEO_ID, end year,
+    universe line, sentinels -> "not available", "k of n shown" line. Gaps: vintage is the end year
+    only (no acs5/acs1 or period on the line); ordering hides places (P1-2); labels can fall back to
+    IDs silently when data/raw is absent (gitignored, ARCHITECTURE.md:121).
+(b) No regex/keyword/word list/tokenizer over the question or model prose: NOTHING. Only
+    endswith("E")/"_" over Census column keys and removeprefix/replace over metadata labels; regex
+    delta +0.
+(c) No test asserts on prompt wording or LLM prose: NOTHING strict. Borderline: tests assert exact
+    tool-content phrasing ("1002 (margin of error not available)", "20 of 25 figures shown"), which is
+    model-facing text and breaks on rewording.
+(d) AskResponse URL/rows/MOE/GEOID/universe/alternatives: unchanged on the normal path (artifact
+    untouched). Exception: P1-1 -- a non-OSError from the label cache drops rows and can 500 /ask with
+    no URL.
+(e) No budget raised: confirmed (budgets.toml untouched; invariant "budget increases" ok). But see P2-1.
+(f) Docs: docs/ask-path.md and docs/ARCHITECTURE.md do NOT state what the model sees after
+    fetch_data (ask-path.md:19 fetch_data row; nothing in ARCHITECTURE.md). doc_lines 1753/1800 leaves
+    47 lines -- room for it. review-pr.md:63-64 also needs reconciling (P2-2).
+(g) Tests (api/tests/test_fetch_figures.py):
+    - test_tool_content_carries_value_margin_label_place_geoid_vintage_and_universe (:49): real for
+      value/MOE/GEOID/year/universe presence, but both fakes ignore their input
+      (metadata.variables `lambda *_args: found` :27; table_facts `lambda *_args: facts` :36), so a
+      wrong year, wrong dataset or wrong table id passed to either is NOT caught; dropping
+      removeprefix("Estimate!!") is not caught ("Estimate - Total" still contains "Total").
+    - test_sentinel_estimate_and_margin_are_never_shown_as_figures (:58): catches a raw sentinel
+      leaking; "not available" is asserted on the whole content, so county 1's estimate line is not
+      pinned (county 2's MOE text satisfies it). Only -555555555 exercised.
+    - test_figures_are_capped_and_the_rest_are_counted_not_shown (:65): real for the cap, count line
+      and untouched artifact rows. One figure per row, so a mutation capping ROWS instead of figures
+      passes.
+    - test_a_missing_label_cache_falls_back_to_the_variable_id (:77): real for OSError only.
+    - test_no_universe_line_when_the_table_has_none (:88): real (with :49 together).
+    - test_failed_fetch_content_has_no_figures (:93): passes for any impl that emits nothing on empty
+      rows; weak but valid.
+    - test_the_string_the_model_receives_includes_the_figures (:105): real integration via dispatch.
+    Uncovered behaviour: multi-year rows, multi-geography fan-out order, multi-variable rows vs the
+    cut, "!!" -> " - " label rewrite, max(attempted_years) choice, dataset after acs1->acs5 fallback,
+    table-id derivation, non-OSError cache failures (P1-1), missing NAME/GEO_ID, absent M column, no
+    key-leak assertion on the new text.
+(h) Prompt sentence (prompts.py:40):
+    - Conflict: none with the literal failure JSON (:42-43) or "no matching data" (:45).
+    - "Calculate nothing: no ... differences or rankings" vs comparison/trend questions: the model now
+      cannot say which place is larger or how a value changed; comparisons[] and moe_not_significant
+      are computed in code but never shown to the model. Plausible non-answers to "which is
+      higher"/"change since 2019" questions.
+    - "If the question asks about something that was not fetched, say so": low risk of skipping
+      fetch_data (WORKFLOW :15 and RETRIEVAL :36-38 order it first), but with P1-2 it invites false
+      "not fetched" claims for truncated places/years.
+    - "always with its margin of error" + controlled-MOE sentinel -> "MOE not available" for county
+      population (P1-7).
+
+Verdict: NOT YET -- make check fails on api_src_loc (P2-1), and the change routes values through the
+model against review-pr.md:63-64 without amending it (P2-2); P1-1 and P1-2 should be fixed with it.

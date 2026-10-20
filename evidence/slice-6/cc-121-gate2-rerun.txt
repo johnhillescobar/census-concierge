@@ -1,0 +1,244 @@
+CC-121 Gate 2 re-run (cold-context review) -- branch feat/cc-121-answer-figures, base origin/main f9f67b9
+Reviewed: uncommitted working tree. `git diff -- api docs` (api/src/fetch.py +49/-3, api/src/prompts.py 1 line,
+docs/ask-path.md +6) plus untracked api/tests/test_fetch_figures.py (12 tests) and scripts/judge_figures.py.
+Nothing edited in the repo (git diff -- api docs sha256 94f6f1b3... identical before and after; fetch.py and
+test file sha256 unchanged). No live API calls. No evidence/**/*.jsonl or E2E transcript read. The earlier
+evidence/slice-6/cc-121-gate2.txt was read only after pass 1 was finished, as a cross-check (see end).
+
+VERDICT: NOT YET -- a silent wrong answer: figure lines for older vintages carry the NEWEST vintage's label, which
+embeds the dollar year ("in 2024 inflation-adjusted dollars") on income/rent/value tables (reproduced).
+
+======================================================================
+MACHINES (review-pr.md "First")
+======================================================================
+check_budgets.py                 exit 0  api src LOC 4435<=4600, files 26<=40, largest file 410<=410 (geo.py, ask.py),
+                                 prompt tokens 1097<=1200, doc lines 1763<=1800, p95 18.928<=20 (stale run 2026-10-04)
+check_invariants.py --base origin/main  exit 0  all 16 ok; api/src regex call sites 64 (base 64, delta +0)
+ruff check . / ruff format --check .    pass (188 files formatted)
+mypy api/src                     Success: no issues found in 26 source files
+pytest -q -m "not integration"   672 passed, 34 skipped, 1 warning (33 s)
+budgets.toml untouched.
+
+======================================================================
+PASS 1 -- generic bugs
+======================================================================
+Method: Skill `code-review` (high) ran on the working-tree diff (forked agent; it read the diff and touched code, did
+not run tests). I then read fetch.py, ask.py dispatch/run_ask, finish.py, vintages.py, retrieval/metadata.py,
+availability.py, tools.py BuildUrlTool, and verified or refuted every code-review claim with offline probes
+(scratchpad probe_*.py with fakes, plus the local data/raw cache). Probes were light (each < 1 s).
+
+--- F1  HIGH (silent wrong answer, blocks)  api/src/fetch.py:438,449 (labels 186-194; title/universe 440-447)
+Labels, table title and universe are looked up ONCE, for max(succeeded_years), and applied to every row of every
+year. Census labels and titles embed the vintage year on dollar tables, so a 2019 row is shown with the 2024 label.
+Failing scenario: "median household income in Harris County 2019 to 2024" -> fetch_data text reads
+  "Median household income in the past 12 months (in 2024 inflation-adjusted dollars) | 64000 (margin of error 900) | Harris County, Texas (0500000US48201) | acs5 2019"
+  "Table B19013: Median Household Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars). Universe: Households"
+and the model, told to state a figure "exactly as it appears there", reports 2019 dollars as 2024 dollars.
+REPRODUCED (probe_dollars.py, real data/raw cache: _labels('acs5',2019,...) says "in 2019 inflation-adjusted
+dollars", _labels('acs5',2024,...) says "in 2024 ..."). Scale: 188 of the ACS5 2024 tables have "2024" in a variable
+label or concept (5,627 of 28,437 variables). availability.drop_incompatible keeps these years together on purpose
+(strip_vintage folds the year out of labels), so the mismatch is not filtered upstream. judge_figures.py:75 builds its
+FACTS labels the same way, so the instrument shares the blind spot and cannot see this error.
+Suggested direction (not applied): look labels/title up per distinct row year among the shown figures.
+Constraint for the fix: fetch.py is 404 LOC of 410 max, api src 4435 of 4600; do not touch budgets.toml.
+
+--- F2  MEDIUM (silent wrong answer; pre-existing but the fix does not cover it)  api/src/ask.py:453, finish.py:258
+When the loop ends without fetching (or finish redoes search/resolve/build), finish_tools runs fetch_data AFTER the
+model has written `answer`, and discards the tool text (dispatch result is ignored). The model never sees figures on
+that path, so the prose is whatever it wrote from memory, shipped next to the real rows and URL.
+REPRODUCED (probe_finish.py): scripted model that stops with "Harris County has about 4,700,000 people." and no tool
+calls -> finish fetches, response.rows[0]["B01003_001E"] == "4838303", response.answer is still the remembered
+"4,700,000"; the 2 model calls seen both had only [system, user] (the second is the CC-103 split task), i.e. no tool
+message with figures was ever sent. The redo case (loop fetched the wrong level, finish refetches the right one, prose
+still describes the first fetch) follows from the same code; NOT reproduced offline.
+long_tail (the metric, CLAUDE.md "Traps") is where finish_tools runs most. docs/ask-path.md:24-28 says "After
+fetch_data the model is shown the first 20 fetched figures ... and writes the answer from them" with no exception.
+The owner ruled out an end-of-request model call, so this needs either an honest doc caveat or a decision, not a patch.
+
+--- F3  MEDIUM (owner decision, not a code bug)  api/src/prompts.py:40 vs docs/playbooks/review-pr.md:63-64
+Playbook: "Do numbers ever pass back through the model? The model names `B01003_001E`; it must never handle the value."
+The diff deliberately hands values to the model and instructs it to state them. The conflict is not mentioned in the
+diff or in review-pr.md. Not silently excused here; owner decides the rule change.
+
+--- F4  MEDIUM (instrument validity)  scripts/judge_figures.py:69-71,102,75,59
+(a) The judge gets every fetched row (rows kept at 69-71, passed at 102) while the model saw only the first 20
+    figures, and judges "supported" for anything present in FACTS "even rounded or reworded" (JUDGE prompt), whereas
+    the product prompt says "exactly as it appears". A figure for an unshown place that happens to match memory scores
+    as supported; the unsupported rate is a lower bound.
+(b) labels(...) at line 75 sits outside the try in one(); it catches only OSError, so a truncated gz (EOFError) or bad
+    JSON (ValueError) escapes one() and aborts the whole as_completed loop with a partial jsonl. Lines 43-49.
+(c) collect opens out with mode "w" (line 82): re-running `collect --label baseline` (e.g. a --limit smoke test)
+    silently destroys the pre-change baseline, which cannot be regenerated once the code changed.
+(d) Default judge model gpt-4o-mini == ask.MODEL gpt-4o-mini (self-judging by default; the committed file names suggest
+    other judges were used, I did not read their contents).
+REPRODUCED by reading only (script not run: it spends API calls).
+
+--- F5  LOW (test gap)  api/tests/test_fetch_figures.py:30-32,44-46,124-128
+The label fixture returns the same dict for any (dataset, year) and the facts fake the same universe for any
+(dataset, year, table); only the call ARGS are logged. Output never varies by year, which is why F1 is invisible, and
+the mutation `max(succeeded_years)` -> `min(succeeded_years)` SURVIVES (12 passed). The "newest year that succeeded"
+test only has one succeeded year (2022 fails), so it cannot tell newest from only. This is the review-pr.md:85-86 trap
+shape (a fake that returns the same thing for every input), applied to year.
+REPRODUCED (mutation M3 below).
+
+--- F6  LOW  api/src/fetch.py:201-203 (which figures are hidden)
+Order is row-major over rows that are place-major then year (fanout order, confirmed in probe_order.py output). The
+first 20 figures are the first places; a wildcard listing shows the first ~10 counties in API order; a comparison with
+more than ~10 variables per place hides the second place entirely. The footer "20 of N figures shown; the other k were
+fetched" does not say which places or years were cut, and the prompt tells the model to say "it is in the rows" for
+anything cut. Within the owner's "first 20" decision; recorded, not a defect. Not reproduced past place-major order
+(ACS5 overlapping years are omitted, so few legs fan out).
+
+--- F7  LOW  api/src/fetch.py:188 (latency)
+metadata.variables is not cached: gunzip + parse of the whole variables file on every fetch_data call. Measured here
+0.097 s, 0.121 s (acs5 2024 twice), 0.117 s (acs1 2024). It is off the event loop via asyncio.to_thread (449), so the
+loop only feels GIL contention during the parse. finish_tools' fetch pays it too and throws the text away. The
+code-review skill rated this "high"; measured, it is about +0.1 s per fetch_data, and the "image may not ship the
+cache" worry does not hold as a NEW dependency (ask.py:361 already reads metadata.geo_entries from data/raw per
+request). budgets p95 is 18.928 of 20 (stale), so +0.1 s per call is worth putting in the demo p95.
+
+--- F8  LOW  api/src/fetch.py:440
+self.table_facts(plan.dataset, year, table) is not guarded like _labels, and on a failed fetch it is called with
+(dataset, 0, ""). dispatch (ask.py:283) turns ANY exception into "fetch_data failed" and skips _absorb, dropping a good
+fetch. The real facts callable (ask.py:349) is safe for year 0 / "" (verified: returns None), so no failing input
+exists today. NOT reproduced; only the fakes could raise.
+
+--- F9  LOW (domain, consistent with contract)  api/src/fetch.py:204-205
+-555555555 on an M column means "controlled estimate", rendered as "margin of error not published"; -666666666 etc. all
+collapse to "not available". requirements.md:11 ("sentinels are null, never zero") is met; the distinct meanings are
+lost to the model. Missing NAME/GEO_ID render "None (None)" but build_url always requests both (tools.py:311).
+
+--- F10 NIT  tests
+Module-level mutable LOOKUPS/ASKED (test_fetch_figures.py:21-22) cleared by an autouse fixture. Two tests assert exact
+line equality on the model-facing text ("margin of error", "not available", "not published", "Universe:"); mutations
+M1-M16 show these tests do catch regressions, so they are not the "survive regressions" kind, but any wording edit to
+the tool text breaks them.
+
+Checked, found NOTHING:
+- Failure path after a successful fetch caused by the label cache: nothing. _labels catches Exception (fetch.py:189);
+  test covers OSError, EOFError, ValueError; falls back to variable IDs.
+- Event-loop blocking: nothing blocking. _labels runs in to_thread; _figures and table_facts are O(rows x cols) dict work
+  (`wanted` at 448 walks every row's keys; trivial at Census response sizes).
+- Redaction / key leaks: nothing. _figures never touches a URL; the URLs in the summary are leg.url = str(CensusURL);
+  test_the_tool_text_never_carries_the_census_key kills mutation M12.
+- Sentinel leakage: nothing. -555555555 and the other CENSUS_MISSING members never appear as a figure (M1 killed); None
+  and "" are in CENSUS_MISSING, so a missing M column does not KeyError (M11 killed); "0" prints as a real zero.
+- Multi-table labels (code-review claim "first E column's table applied to every figure"): NOT REPRODUCED and not
+  reachable: BuildUrlTool takes one table_id and prefixes every variable with it (tools.py:274-279).
+- ACS1 -> ACS5 fallback dataset label: plan is reassigned (fetch.py:405) before plan.dataset is read at 435/450. Nothing.
+- Estimate/M pairing for *PE/*PM keys and annotation (*EA) keys: key[:-1]+"M" is right for PE; EA/MA do not end in E.
+- Truncation correctness: cap counts figures, not rows, and the k-of-n line is exact (test + M2/M10 killed).
+
+======================================================================
+code-review skill findings, disposition
+======================================================================
+fetch.py:188 "labels parse high latency / cache may be absent"   -> F7, downgraded (measured 0.1 s; cache already required)
+fetch.py:203 "arbitrary prefix of figures"                       -> F6, confirmed LOW
+fetch.py:437 "mixed tables / newest-year labels"                  -> multi-table refuted; newest-year labels confirmed and
+                                                                    worse than reported (dollar-year) -> F1 HIGH
+fetch.py:440 "table_facts unguarded, year=0"                      -> F8, LOW (real callable safe)
+fetch.py:204 "sentinels collapse, None (None)"                    -> F9, LOW
+judge_figures.py:75 / :102 / :59                                  -> F4 confirmed
+prompts.py:40 vs review-pr.md                                     -> F3 confirmed
+tests module-level lists / missing multi-geo tests                -> F10 / F5
+
+======================================================================
+PASS 2 -- docs/playbooks/review-pr.md, item by item
+======================================================================
+First: run the machines (lines 6-22) ........................ PASS  all five exit 0 (numbers above).
+Eval-phrasing tripwire (24-27) .............................. PASS  read the diff for eval wording: none in prompts.py
+                                                                  or fetch.py; prompt text is generic; invariant "eval
+                                                                  phrasing in api/src" ok. The JUDGE prompt in the script
+                                                                  lists hedges ('about', 'roughly') as examples for the
+                                                                  model; it is a prompt, not matching code, and not api/src.
+The claim (29-33) ........................................... PENDING (PR body). Not a diff property. One sentence must be
+                                                                  written; candidate: "answers quote figures, margins of
+                                                                  error and universe from the fetched rows instead of
+                                                                  recalled values, on the loop's own fetch path."
+Is the evidence real (35-42) ................................ PENDING (E2E). Gate 2 does not read transcripts. Reminder
+                                                                  at line 40-42: under ~10 points at n=40 is noise; F2
+                                                                  means the rate cannot reach zero on the finish path.
+Scope (44-49) ............................................... PASS  5 files (3 modified, 2 new) < 15; nothing outside
+                                                                  CC-121 (judge script is the owner-approved instrument).
+                                                                  docs/slices.md has no CC-121 row, so "Not in this slice"
+                                                                  cannot be checked from the repo; Jira is the source.
+Silent-wrong-answer review (51-69):
+  URL, MOE, GEOID, universe in every branch (57-60) ......... PASS for the response (assemble/AskResponse untouched;
+                                                                  failure branches add no figures: test_failed_fetch_
+                                                                  content_has_no_figures). NOTE F2: prose on the finish path.
+  &key= redacted on every added path (61-62) ................ PASS  fetch.py:235 URLs are str(CensusURL); no new URL
+                                                                  formatting; mutation M12 killed.
+  Numbers pass back through the model (63-64) ............... FAIL / CONFLICT, owner decision (F3). Rule text: "Do numbers
+                                                                  ever pass back through the model? The model names
+                                                                  `B01003_001E`; it must never handle the value."
+  Guard became a blocking question (65-67) .................. PASS  no question introduced; prompt keeps "Do not block".
+  Silently repairing input (68-69) .......................... FAIL  F1: the newest vintage's label/title is substituted
+                                                                  for older rows without a warning; the model is told to
+                                                                  quote it exactly.
+Shape (71-80):
+  New tool .................................................. PASS  none (agent tools 4/6; fetch_data text only).
+  New route ................................................. PASS  none.
+  New Pydantic model ........................................ PASS  none (FetchDataResult unchanged).
+  New .add_node() ........................................... PASS  graph nodes 0/8.
+  Shape change without ARCHITECTURE.md ...................... PASS with nit  no shape change; fetch.py gains an import
+                                                                  of src.retrieval.metadata (runtime already reads it via
+                                                                  geo_entries). New script judge_figures.py is not in
+                                                                  ARCHITECTURE.md "What exists today", but that list is
+                                                                  already non-exhaustive (ask_one.py, run_grid.py absent).
+Tests (82-87):
+  Behaviour, not wording (84) ............................... PASS with nit  no assertion on prompt text or LLM prose
+                                                                  (invariant "prompt assertions" ok). Nit: F10, exact
+                                                                  equality on model-facing tool text.
+  No fake that returns the same thing for every input (85-86) PARTIAL FAIL  F5: label/facts/http fakes return the same
+                                                                  output for every year; args are logged but outputs do not
+                                                                  vary, so per-year bugs (F1) pass; mutant M3 survives.
+  New test file is not evidence (87) ........................ PENDING make demo; see "Is the evidence real".
+Verdict (89-97) ............................................. 3. NOT YET. Single most important reason: F1 (older-year
+                                                                  rows carry the newest vintage's label and table title).
+                                                                  Follow-ups that are not blockers: F2 caveat in ask-path.md,
+                                                                  F4 judge fixes, F6/F7. F3 needs the owner's ruling.
+
+Rules in the playbook that the diff conflicts with, quoted not excused:
+  review-pr.md:63-64 "Do numbers ever pass back through the model? ... it must never handle the value."
+  review-pr.md:68-69 "Did anything start silently repairing input ... That is a warning on the answer, never an
+  invisible fix." (F1)
+  review-pr.md:85-86 "No fake that returns the same table for every input." (F5)
+
+Other checks requested:
+- Tests assert behaviour, not prompt wording: yes (no prompt string in api/tests; grep of "retype|qualitative" empty).
+- No test name mentions a ticket: yes (invariant "ticket-named tests" ok; names read as behaviours).
+- scripts/judge_figures.py contains no regex, keyword list, word list or tokenizer: confirmed by grep (no `re`,
+  fnmatch, split, lower/casefold, startswith/endswith, stop-word lists). Its only string tests are `k[-1] in "EM"` and
+  `"_" in k` on Census variable IDs (suffix parsing; same convention as vintages.py:218 and tools.py:280). api/src adds
+  `key.endswith("E") and "_" in key` and `k.split("_")[0]` (fetch.py:201,439): ID-suffix parsing, no English matching,
+  regex delta +0. The PR should say that in one line.
+- Mutation spot-check (scratch copy of api/ in the scratchpad, repo untouched; 12 tests, baseline 12 passed):
+    M1  sentinel not filtered                 KILLED by test_sentinel_estimate_and_margin_are_never_shown_as_figures
+    M2  cap removed                           KILLED by test_the_cap_counts_figures_not_rows
+    M3  min() instead of max() succeeded year SURVIVED (12 passed)   <- F5
+    M3b max(requested_years)                  KILLED by test_labels_and_universe_come_from_the_newest_year_that_succeeded
+    M4  Estimate!! prefix kept                KILLED by 3 tests
+    M5  label failure tolerates only OSError  KILLED by test_a_missing_label_cache_falls_back_to_the_variable_id
+    M6  margin of error dropped               KILLED by 5 tests
+    M7  universe/title line dropped           KILLED by 2 tests
+    M8  figures not appended                  KILLED by 10 tests
+    M9  GEOID dropped                         KILLED by 2 tests
+    M10 k-of-n line dropped                   KILLED by test_the_cap_counts_figures_not_rows
+    M11 missing margin column raises          KILLED by test_a_row_without_a_margin_column_says_not_published
+    M12 key=secret appended to tool text      KILLED by test_the_tool_text_never_carries_the_census_key (+2)
+    M13 labels from wrong dataset             KILLED by 2 tests
+    M14 "_" guard removed                     KILLED by 5 tests
+    M15 margin read from wrong column         KILLED by 5 tests
+    M16 facts asked for max(requested)        KILLED by test_labels_and_universe_come_from_the_newest_year_that_succeeded
+  16 of 17 mutants killed. Verified afterwards: `git diff -- api docs | sha256sum` equals the value before; fetch.py and
+  test_fetch_figures.py hashes unchanged.
+
+======================================================================
+Cross-check against the earlier evidence/slice-6/cc-121-gate2.txt (read after pass 1)
+======================================================================
+It reviewed an older revision (HEAD a3f0930, api src LOC over budget, _labels caught only OSError, labels on the event
+loop, attempted_years). Those are fixed in this tree (budgets pass, except Exception at 189, to_thread at 449,
+succeeded_years at 438, Gate 1 now has the OSError mutant). Still open from it: P1-2 (hidden places, here F6), P1-7
+(controlled-estimate MOE, F9), P2-2 (playbook conflict, F3). Its P1-4 rated "latest year's labels applied to every
+year's rows" LOW "while the cache covers every attempted year"; reproduced here as HIGH because of dollar-year labels
+(F1). New in this re-run and absent there: F1 impact, F2, F4, F5.
