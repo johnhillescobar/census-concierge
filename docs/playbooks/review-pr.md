@@ -61,8 +61,7 @@ also `docs/retrieval.md`. Then:
   the `CensusURL` type — if this PR formats a URL any other way, that is the
   finding.
 - Do numbers ever pass back through the model? The model names
-  `B01003_001E` and may read fetched figures to write prose; it must never
-  emit a value into a table, chart or tool argument.
+  `B01003_001E`; it must never handle the value.
 - Did a guard become a blocking question? Guards warn and ship the answer. A
   user who does not know the table ecosystem *cannot answer* a clarification
   prompt — that is why there are none.
