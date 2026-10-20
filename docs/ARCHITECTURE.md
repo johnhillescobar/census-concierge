@@ -48,6 +48,7 @@ api/src/compare.py           comparisons[]
 api/src/vintages.py          ACS1 vs non-overlapping ACS5
 api/src/tools.py             search_tables, build_url
 api/src/fetch.py             fetch_data; year/geo fan-out, cap 5
+api/src/figures.py           the first 20 fetched figures, as the model reads them
 api/src/geo.py               resolve_geography → GeoSpec list
 api/src/geo_list.py          state FIPS + NAME listings
 api/src/census_url.py        CensusURL; default form never carries &key=

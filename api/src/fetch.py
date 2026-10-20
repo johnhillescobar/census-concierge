@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.census_url import CensusURL, redact_text
 from src.contract import GeoSpec, RequestLeg
+from src.figures import figure_lines
 from src.tools import ToolInput, ToolResult
 from src.vintages import (
     REASON_NO_URL,
@@ -180,7 +181,7 @@ def _pack(
     )
 
 
-def _tool_content(result: FetchDataResult) -> str:
+def _tool_content(result: FetchDataResult, figures: str = "") -> str:
     joined = ", ".join(result.urls)
     n_ok = sum(1 for leg in result.legs if leg.ok)
     n_legs = len(result.legs)
@@ -202,7 +203,7 @@ def _tool_content(result: FetchDataResult) -> str:
         bits.append(f"omitted {pairs}")
     if joined:
         bits.append(f"URLs {joined}")
-    return "; ".join(bits)
+    return "; ".join(bits) + (f"\n{figures}" if figures else "")
 
 
 class FetchDataTool(BaseTool):
@@ -404,4 +405,5 @@ class FetchDataTool(BaseTool):
             dataset=plan.dataset,
             acs1_ineligible=plan.acs1_ineligible,
         )
-        return _tool_content(result), result
+        figures = await asyncio.to_thread(figure_lines, rows, plan.dataset, self.table_facts)
+        return _tool_content(result, figures), result
