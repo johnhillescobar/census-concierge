@@ -21,12 +21,6 @@ Four tools:
 `assemble()` builds `AskResponse` from the execution record. `guards.evaluate()`
 attaches warning codes from `docs/requirements.md`. None of them block.
 
-After `fetch_data` the model is shown the first 20 fetched figures (`figures.py`: label, `E` and `M`,
-place, GEOID, vintage, sentinels as "not available", "k of n shown" when cut) and the table title and
-universe, each read in its own vintage ([CC-121](https://johnhillescobar.atlassian.net/browse/CC-121)),
-and writes the answer from them. Nothing checks its prose at runtime; the unsupported-figure rate is
-measured offline by `scripts/judge_figures.py`. The model states no computed value (calculation: CC-122).
-
 ## Finish path
 
 `finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
