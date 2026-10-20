@@ -1,6 +1,6 @@
 # CC-121 pre-flight (2026-10-20): the restored 2026-10-04 mechanism
 
-Claims are from the Jira description as restored on 2026-10-20. Each was run against the thing it names. Population for the numeric check: 120 stored answers from the unmodified code (the model is never shown the figures), gpt-4o-mini, 40 visible long_tail questions x 3 repeats (`cc-121-answers-base-fixed.jsonl`), with the judge verdicts beside them (`cc-121-judged-base-fixed-gpt-4.1.jsonl`, `...-gpt-5.5.jsonl`). Command: `uv run python -I evidence/slice-6/cc-121-preflight-check.py` (plain code: whitespace tokens, `str.strip`, `float()`; no regex, no model call; it holds throwaway number-word sets for counting only).
+Claims are from the Jira description as restored on 2026-10-20. Each was run against the thing it names. Population for the numeric check: 120 stored answers from the unmodified code (the model is never shown the figures), gpt-4o-mini, 40 visible long_tail questions x 3 repeats (`cc-121-answers-base-fixed.jsonl`), with the judge verdicts beside them (`cc-121-judged-base-fixed-gpt-4.1.jsonl`, `...-gpt-5.5.jsonl`). Command: `uv run python -I evidence/slice-6/cc-121-preflight-check.py` (plain code: whitespace tokens, `str.strip`, `float()`; no regex, no model call; no word sets).
 
 ## Claims that held
 
@@ -13,7 +13,7 @@ Claims are from the Jira description as restored on 2026-10-20. Each was run aga
 | the check adds no model call and no latency | timed the prototype, three runs | 12 to 16 ms for 120 answers |
 | the 49% baseline | counted unmatched numbers of 100 or more, years ignored, against the rows | 61 of 120 = 50.8% (filed: 19 of 39 = 48.7%). Not the same counter: this one allows row cells only |
 | `float()` handles commas, `$`, `%` | prototype | holds (`str.strip` and `str.replace`, no regex) |
-| the thousand/million parser is needed | counted | 1 of 120 answers has thousand, million or hundred; 1 of 120 has two to twelve written out. The default stands: bar number words by instruction, no word list |
+| number words ("two million") need a parser | **Withdrawn, then decided by the owner.** An earlier count used a throwaway word set (1 of 120 answers); the owner does not want word sets, so the set and the count are removed. Decision (owner, 2026-10-20): no sets of number words and no parser, in the product or in `scripts/`. The check reads digits only; a number written in words is not a number to it. Telling the model how to write figures is the model's job, by instruction |
 
 ## Claims that failed or are unsettled
 
@@ -40,7 +40,7 @@ Hand-labelled sample (30 answers, labelled by a model, not a person): the strict
 
 ## What the design would still let through
 
-If a flagged answer is replaced by the code-rendered sentence (which is supported by construction) and unflagged answers keep their prose, the answers that remain unsupported are the ones the checker passes and the judge flags: 4 of 120 = 3.3% (gpt-4.1 judge), 12 of 120 = 10% (gpt-5.5 judge). Read from the flagged claims: comparatives ("significantly lower"), a time of day ("7:15" is not read by `float()`), and a real number on the wrong variable. Digit-bearing tokens `float()` cannot read: table IDs (allowed), decades like "1950s" (4), a time (1). Zero is not shown reachable by the check alone; comparatives are the ticket's own residual gap.
+If a flagged answer is replaced by the code-rendered sentence (which is supported by construction) and unflagged answers keep their prose, the answers that remain unsupported are the ones the checker passes and the judge flags: 4 of 120 = 3.3% (gpt-4.1 judge), 12 of 120 = 10% (gpt-5.5 judge; it includes the 4). Read from the 12 claims (printed by the script): comparatives ("significantly lower"), a time of day ("7:15 AM"; `float()` cannot read it), statements about what the table contains, a claim that no data was found, and one fraction written in words ("more than a third"). None is a digit string the check could compare. Digit-bearing tokens `float()` cannot read: table IDs (allowed), decades like "1950s" (4), a time (1). Zero is not shown reachable by the check alone; comparatives are the ticket's own residual gap.
 
 ## Cost to the reader
 
@@ -61,3 +61,4 @@ On this prose the strict check flags 89 of 120 answers (74%), so 74% would show 
 1. Cap for rendered sentences (default: the first 20 figures, then "k of n shown", as in `figures.py`).
 2. Comparatives: bar by instruction, or have code supply them as facts (default: bar by instruction; measure the residual).
 3. A live probe to settle the no-digits claim: 40 visible questions, repeat 1, `run_ask` with a draft instruction, needs OPENAI and CENSUS credits.
+4. "The LLM should understand the difference in numbers" (owner, 2026-10-20). Reading A, the default: the model is told to write figures as digits exactly as rendered, and the check stays a digits-only comparison with no number-word logic. Reading B: a model call at runtime decides whether prose numbers are supported (rounding, scale, words). B was dropped on 2026-10-18 for the ask-path rule ("the end of the request never calls the model", `docs/ask-path.md`) and for latency (p95 18.9 s of 20 s), and it is not in the restored 2026-10-04 text. Needs the owner's call.

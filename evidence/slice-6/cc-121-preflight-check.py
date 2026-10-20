@@ -1,9 +1,9 @@
 """CC-121 pre-flight: the restored 2026-10-04 numeric check, prototyped on stored answers.
 
-Measurement only; nothing here is product code and nothing imports from api/src. No regex:
-whitespace tokens, str.strip, float(). SCALES and SMALL_WORDS are throwaway sets used to
-count how often number words appear in the stored prose (and to scale "2.1 million" in the
-strict check); they are not a word list for the product, which bars number words by instruction.
+Measurement only; nothing here is product code and nothing imports from api/src. No regex
+and no word lists: whitespace tokens, str.strip, float(). A number written in words or with a
+scale word ("two", "2.1 million") is not read as a number; telling the model to write digits is
+the model's job, by instruction.
 
 Run from anywhere: uv run python -I evidence/slice-6/cc-121-preflight-check.py
 """
@@ -16,20 +16,6 @@ from pathlib import Path
 
 EV = Path(__file__).resolve().parent
 EDGE = ".,;:!?()[]{}\"'*_`~<>=+$"
-SCALES = {"hundred": 1e2, "thousand": 1e3, "million": 1e6, "billion": 1e9}
-SMALL_WORDS = {
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-    "eleven",
-    "twelve",
-}
 ANSWERS = "cc-121-answers-base-fixed.jsonl"
 JUDGES = ["cc-121-judged-base-fixed-gpt-4.1.jsonl", "cc-121-judged-base-fixed-gpt-5.5.jsonl"]
 
@@ -54,16 +40,8 @@ def number(tok):
 
 
 def numbers(text):
-    """(value, decimals, scale) for every numeric token; scale from a following scale word."""
-    toks = words(text)
-    out = []
-    for i, tok in enumerate(toks):
-        parsed = number(tok)
-        if parsed is None:
-            continue
-        nxt = toks[i + 1].strip(EDGE).lower() if i + 1 < len(toks) else ""
-        out.append((parsed[0], parsed[1], SCALES.get(nxt, 1.0)))
-    return out
+    """(value, decimals) for every token float() reads."""
+    return [parsed for tok in words(text) if (parsed := number(tok)) is not None]
 
 
 def flat(obj):
@@ -88,7 +66,7 @@ def allowed(rec):
     extra = " ".join(
         [rec.get("universe") or "", *map(str, rec.get("notes") or []), flat(rec.get("labels"))]
     )
-    vals.update(abs(value) for value, _d, _s in numbers(extra))
+    vals.update(abs(value) for value, _d in numbers(extra))
     return vals
 
 
@@ -96,11 +74,11 @@ def flags(rec):
     """Numeric tokens in the answer that match no allowed value at the precision written."""
     ok = allowed(rec)
     bad = []
-    for value, dec, scale in numbers(rec["answer"]):
+    for value, dec in numbers(rec["answer"]):
         value = abs(value)
-        if any(abs(round(a / scale, dec) - value) < 1e-9 for a in ok):
+        if any(abs(round(a, dec) - value) < 1e-9 for a in ok):
             continue
-        bad.append(value * scale)
+        bad.append(value)
     return bad
 
 
@@ -141,12 +119,6 @@ def main():
         f"strict flags {sum(strict)}; >=100 non-year flags {sum(old)}"
     )
     print(
-        "answers with thousand/million/hundred:",
-        sum(any(w.strip(EDGE).lower() in SCALES for w in words(r["answer"])) for r in recs),
-        "; with two..twelve written out:",
-        sum(any(w.strip(EDGE).lower() in SMALL_WORDS for w in words(r["answer"])) for r in recs),
-    )
-    print(
         "unmatched tokens by kind",
         dict(
             collections.Counter(
@@ -179,20 +151,15 @@ def main():
         crosstab("strict, list markers exempt", exempt, verdicts)
         crosstab(">=100 non-year", old, verdicts)
 
-    print("\njudge (gpt-4.1) unsupported but strict check passes, first 14 claims:")
-    verdicts = load(JUDGES[0])
-    shown = 0
-    for r, f, v in zip(recs, strict, verdicts, strict=True):
-        if v["verdict"] == "unsupported" and not f and shown < 14:
-            shown += 1
-            claim = v["unsupported"][0]
-            print(
-                "  ",
-                r["id"],
-                r["repeat"],
-                "|",
-                str(claim.get("claim") if isinstance(claim, dict) else claim)[:150],
-            )
+    for name in JUDGES:
+        print(f"\n{name}: judged unsupported, passed by the strict check (first 14 claims):")
+        shown = 0
+        for r, f, v in zip(recs, strict, load(name), strict=True):
+            if v["verdict"] == "unsupported" and not f and shown < 14:
+                shown += 1
+                claim = v["unsupported"][0]
+                text = claim.get("claim") if isinstance(claim, dict) else claim
+                print("  ", r["id"], r["repeat"], "|", str(text)[:150])
 
     rows_per = [len(r["rows"]) for r in recs]
     cells = [sum(1 for row in r["rows"] for k in row if k.endswith("E") and "_" in k) for r in recs]

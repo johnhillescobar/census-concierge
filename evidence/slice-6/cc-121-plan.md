@@ -32,6 +32,7 @@ Defaults accepted with P1, not owner decisions: rendered figures capped at 20 wi
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - R2: repo. Rebase the local commits onto `origin/main` (15 commits ahead: PR #110 and #111), dropping `7aebf3a`, which duplicates `3b785a4` already on `main`. The branch is unpushed.
+- J2: Jira correction comment: the 2026-10-20 comment says number words appear in 1 of 120 answers; that count used a word set that is now removed. Post a one-line withdrawal, plus the owner direction on number words (`owner`).
 - P2: live probe of whether the model writes no digits when told not to (40 visible questions, repeat 1; needs OpenAI and Census credits). Only on an explicit go-ahead.
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
 - G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
