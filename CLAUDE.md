@@ -115,19 +115,17 @@ matrix and worked examples: `docs/process-evidence.md`.
   the repo, hook-blocked) or tune against its misses. No eval phrasing or
   place goes into prompts, tool descriptions or `api/src` literals. Report the
   regression-minus-sealed gap at story close (CC-3 AC6–12).
-- `check_budgets` can show a stale p95: an over-ceiling run is not promoted
-  to the top-level key. Quote `demo.p95_latency_seconds` (CC-3 AC13 removes
-  the trap before slice 6 closes).
+- `evidence/latest.json` keeps an over-ceiling p95 out of its top-level key.
+  Quote `demo.p95_latency_seconds`, which is also what `check_budgets` reads.
 
 ## Architecture
 
 One tool-calling loop. Four to six tools. LangGraph only where durable
 checkpointing and multi-user resumption genuinely require it — not for routing.
 
-Postgres via direct psycopg (slice 5; CC-9 rejected the LangGraph
-checkpointer). Never SQLite. No module-level
-mutable state; pass context as arguments. PDF generation is a background job,
-never a request handler.
+Postgres via direct psycopg, not a LangGraph checkpointer. Never SQLite. No
+module-level mutable state; pass context as arguments. PDF generation is a
+background job, never a request handler.
 
 `docs/ARCHITECTURE.md` describes the system as it *is*. If you change the
 shape, update it in the same commit. Read the catalog that matches the work:
@@ -142,13 +140,14 @@ Control blocks unsigned native extensions in the uv-managed 3.13 build, which
 breaks `_sqlite3` and `uuid_utils`. That cost real time once already.
 
 ```
-make check     # lint + types + tests + invariants + budgets, under 60s
+make check     # lint + types + tests + invariants + web tests + client drift + budgets, under 60s
 make eval      # retrieval scoreboard; needs OPENAI_API_KEY and GEMINI_API_KEY
 make demo      # end-to-end against live APIs; needs OPENAI_API_KEY, CENSUS_API_KEY
 make hooks     # one-time: install pre-commit
 ```
 
-Every target is `uv run …` on one line, so they work on Windows without `make`.
+Targets wrap `uv run …` commands; `make demo` and `make check` also run
+`npm --prefix web …`. Without `make`, run the recipe lines from the Makefile.
 
 Two gates, and neither is advisory:
 
