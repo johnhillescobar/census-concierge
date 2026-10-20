@@ -170,15 +170,16 @@ fields on the response contract, not tool calls.
 - **Narrative** is the model's native output. A `write_narrative` tool is the
   model calling the model — a round trip for nothing.
 - **Tables** are the data. `fetch_data` returns rows; the response carries them
-  and the frontend renders them. **Numbers must never pass back through the
-  model.** Any value the model retypes into a tool argument is a value it can
-  silently corrupt, and this audience is doing published research.
+  and the frontend renders them. **The model never emits a number into a table,
+  chart or tool argument.** It may *read* fetched figures to write prose, but
+  any value it retypes is a value it can silently corrupt, and this audience is
+  doing published research.
 - **Charts** are a `ChartSpec` field, validated by Pydantic — `{type, x, y,
   series, title}` referencing columns **by name**. That is exactly why it is
-  safe: the model names `B01003_001E`, it never handles the value.
+  safe: the model names `B01003_001E`, code supplies the values.
 
-The data path is `fetch_data -> response`. Never `fetch_data -> model ->
-response`.
+The data path is `fetch_data -> response`. The model may read the figures to
+write the narrative; it never sits between `fetch_data` and a table or chart.
 
 `build_url` returns the **complete** URL and its output reaches the caller even
 when `fetch_data` fails. A user handed a wrong URL fixes it in ten seconds; a
