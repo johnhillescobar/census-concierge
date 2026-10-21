@@ -1,5 +1,9 @@
 """Gate 1 mutation check for api/tests/test_figures.py (CC-121).
 
+Pinned to f59eee8. The Gate 2 fixes rewrote lines that several mutations below target (and the
+five strict xfail tests are plain tests now), so on later commits it stops at "old text occurs 0
+times". The checks for the fixes are in cc-121-fixes-mutations.py.
+
 Each mutation reverts ONE behaviour in ONE api/src file by exact string replacement (the old
 text must occur exactly once), runs ONLY the test that covers it, and records the pytest summary
 line. The file is restored in a `finally` block. Plain str methods and subprocess only: no

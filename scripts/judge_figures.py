@@ -7,8 +7,9 @@
 `collect` runs the visible long_tail questions through run_ask and stores each answer
 with its rows, universe and warnings (evidence/slice-6/cc-121-answers-<label>.jsonl).
 `judge` asks a model whether each stored answer states anything its own data does not
-support. Measurement only: the product has no runtime check, and nothing here parses the
-answer text. Needs OPENAI_API_KEY and CENSUS_API_KEY.
+support. Measurement only: the product's own check is digits-only (figures.py); this judge
+measures what that check lets through, and nothing here parses the answer text. Needs
+OPENAI_API_KEY and CENSUS_API_KEY.
 """
 
 # ruff: noqa: E501  (the judge prompt is one literal)
@@ -81,7 +82,7 @@ async def collect(label: str, repeat: int, limit: int, workers: int, answer_mode
             for y in {r["year"] for r in rows if "year" in r}
         }
         used = {
-            y: {k: n[k] for row in rows if int(row["year"]) == y for k in row if k in n}
+            y: {k: n[k] for row in rows if str(row.get("year")) == str(y) for k in row if k in n}
             for y, n in names.items()
         }
         return {"id": q["id"], "repeat": r, "text": q["text"], "answer": got.answer, "rows": rows,

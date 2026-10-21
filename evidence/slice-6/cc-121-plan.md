@@ -103,6 +103,24 @@ Cost: one high-effort review plus the machines, comparable to Gate 1 in tokens. 
 
 The gates are not separate approvals. G2, then triage of its findings, then the fix batch F1 (the Gate 1 defect, the doubled colon, whatever Gate 2 confirms; tests and a mutation check for every fix), then one Gate 2 re-run if the fixes are non-trivial, then E2E pre-PR (`scripts/e2e_capture.py --slice 6 --ticket CC-121 --phase pre`; real keys, credits; scoreboard quoted from `evidence/latest.json`, never the transcript). Each result goes into this file and a short Jira comment as it lands. Stops: a machine that exits non-zero, a decision that is the owner's (any budget, a change to the ticket's scope, the web CSS line), and the outward step of pushing the branch and opening the PR, which waits for one "yes" with the whole record in front of it. Merge is the owner's; the post-merge E2E follows it.
 
+## Result of G2 (2026-10-21) and batch F1: fixes (inside the run order approved 2026-10-21)
+
+Gate 2 ran from the `gate.ps1` prompt (the first attempt used my own prompt and was stopped before it wrote anything). Transcript `evidence/slice-6/gate2.txt`, written by the subagent, not edited (`fad1954`). Verdict "Not yet": two silent-wrong-answer blockers. Machines all green (736 passed, 5 xfailed; `api_src_loc` 4549 of 4600; regex delta +0).
+
+Disposition of each finding (tag `default` unless noted; each is revertible):
+- B1 blocks, fix: a digit-bearing token `float()` cannot read counts as not carried unless the whole token (case-folded) is carried: a cell, a key or its table prefix, a dataset name, a rendered token. No character lists. The 5 strict xfail tests flip to plain tests, plus the cases Gate 2 found (`$78.4K`, `$1.2M`, `78,462USD`, `Income:78,462`, `#3`, a zero-width space).
+- B2 blocks, fix: a model-written chart title is checked with the same rule; a title that states an uncarried number is replaced by the table ID (the title fallback `take_chart` already uses) and the warning is added. Titles built by code are not checked.
+- B4 follow-up, fix: (a) the warning no longer claims figures follow when none do; (b) HTTP status codes of the fetch and its legs, the year of the built URL and the vintages are carried, so "2019 failed with HTTP 404" keeps its framing.
+- B6 follow-up, fix: combined rows (those with `component_count`) come first under the 20-figure cap.
+- B8 follow-up, fix: a label's trailing colon is dropped ("Total:" no longer renders as "Total::").
+- N1, N2 (`scripts/judge_figures.py` docstring and a `KeyError` guard), N4 (a docstring on `take_chart`): fix.
+- B7 follow-up, `default`: apply `white-space: pre-line` to `.answer` (one CSS line; `web_src_loc` 3349 to 3350 of 3350, no raise). Owner may revert it.
+- B3 follow-up, not changed, documented in `docs/ask-path.md`: the check proves every number is in the response, not that it describes the right place or year (a state FIPS of 17 carries "17 percent"; the dataset carries "5"). The E2E judge measures the residual; tightening FIPS cells to whole-token matches is the candidate if the judge shows it. Owner's call then.
+- B5 follow-up, not changed: label lookups re-parse about 0.1 s per vintage (0.9 s for 9); E2E reports `demo.p95_latency_seconds` against 20.
+- B9, N3, N5 not changed (sentinel reasons collapse; first-cell table; branch history is explained in the PR body).
+
+Tests and a mutation check for every fix: `evidence/slice-6/cc-121-fixes-mutations.py` with its output in `cc-121-fixes-mutations.txt`. The Gate 1 harness is pinned to `f59eee8` (several of its mutations target the lines B1 changes). After the fix commit: the Gate 2 re-run once (non-trivial fixes), and Gate 1 from the `gate.ps1` prompt, then E2E from `gate.ps1 e2e-pre 6`.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.

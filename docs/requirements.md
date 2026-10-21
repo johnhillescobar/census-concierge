@@ -40,7 +40,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 
 | code | condition |
 |---|---|
-| `answer_figures_unverified` | The model's text stated a number the response does not carry; the rendered figures replace it. |
+| `answer_figures_unverified` | The model's text or chart title stated a number the response does not carry; the rendered figures (or the table ID, for a title) replace it. |
 
 ## Slice 3 warning codes — years
 

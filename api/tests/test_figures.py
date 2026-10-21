@@ -377,19 +377,60 @@ def test_the_period_of_a_vintage_may_be_named_in_a_real_response() -> None:
     assert "answer_figures_unverified" not in [item.code for item in response.warnings]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a token float() cannot read is skipped, so a figure glued to a mark passes unchecked",
-)
 @pytest.mark.parametrize(
     "written",
-    ["$78k", "±99,999", "−178,462", "“99,999”", "99,999USD"],
-    ids=["k_suffix", "plus_minus", "unicode_minus", "curly_quotes", "currency_code"],
+    [
+        "$78k",
+        "$78.4K",
+        "$1.2M",
+        "±99,999",
+        "≈78,462",
+        "−178,462",
+        "“99,999”",
+        "99,999USD",
+        "99,999's",
+        "99,999[1]",
+        "Income:78,462",
+        "#3",
+        chr(0x200B) + "78,462",
+    ],
+    ids=[
+        "k_suffix",
+        "k_suffix_decimal",
+        "m_suffix",
+        "plus_minus",
+        "approx_sign",
+        "unicode_minus",
+        "curly_quotes",
+        "currency_code",
+        "possessive",
+        "footnote",
+        "colon_glued",
+        "rank_mark",
+        "zero_width_space",
+    ],
 )
 def test_a_figure_glued_to_a_mark_float_cannot_read_is_still_checked(written: str) -> None:
     answer, problem = figures.checked(f"Cook County earns {written} a year.", [COOK], _record())
     assert problem
     assert "Cook County earns" not in answer
+
+
+def test_a_carried_figure_glued_to_a_mark_is_not_trusted() -> None:
+    answer, problem = figures.checked("Cook County earns 76,000USD a year.", [COOK], _record())
+    assert "76,000usd" in problem
+    assert "Cook County earns" not in answer
+
+
+def test_identifiers_the_response_carries_pass_whole_and_others_do_not() -> None:
+    prose = "Table B19013 (B19013_001E), GEOID 0500000US17031, from ACS5 for the county."
+    answer, problem = figures.checked(prose, [COOK], _record())
+    assert problem == ""
+    assert answer.startswith(prose)
+    _, other = figures.checked("Table B99999 has more.", [COOK], _record())
+    assert "b99999" in other
+    _, longer = figures.checked("GEOID 0500000US17032 is next.", [COOK], _record())
+    assert "0500000us17032" in longer
 
 
 @pytest.mark.parametrize(
@@ -496,8 +537,11 @@ def test_a_label_loses_its_estimate_prefix_and_joins_its_levels(
         "B01001_002E": SimpleNamespace(label="Estimate!!Total:!!Male:"),
     }
     monkeypatch.setattr(metadata, "variables", lambda dataset, year: found)
-    wanted = {"B01001_002E", "B01001_999E"}
-    assert figures._labels("acs5", 2023, wanted) == {"B01001_002E": "Total: - Male:"}
+    wanted = {"B01001_001E", "B01001_002E", "B01001_999E"}
+    assert figures._labels("acs5", 2023, wanted) == {
+        "B01001_001E": "Total",
+        "B01001_002E": "Total: - Male",
+    }
 
 
 async def test_labels_are_asked_for_every_variable_of_a_vintage(
@@ -637,3 +681,106 @@ def test_the_models_own_chart_spec_survives_when_the_text_is_replaced() -> None:
     assert "99,999" not in parts["answer"]
     assert parts["chart"] is not None
     assert parts["chart"].title == "Income"
+
+
+TITLED = {**COOK, "table_id": "B19013"}
+BAR_ROLES = {"type": "bar", "x": "geography", "y": "estimate", "show_moe": True}
+
+
+def test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id() -> None:
+    warnings: list[Any] = []
+    chart = {**BAR_ROLES, "title": "DuPage earns 123,456 more than Cook"}
+    reply = _envelope("Two counties.", chart)
+    parts = take_chart(reply, [TITLED, DUPAGE], warnings, _record())
+    assert parts["chart"].title == "B19013"
+    assert parts["answer"].startswith("Two counties.")
+    assert [item.code for item in warnings] == ["answer_figures_unverified"]
+    assert "chart title" in warnings[0].detail
+
+
+def test_a_chart_title_with_only_carried_numbers_is_kept() -> None:
+    warnings: list[Any] = []
+    chart = {**BAR_ROLES, "title": "Median household income 2023"}
+    parts = take_chart(_envelope("Two counties.", chart), [TITLED, DUPAGE], warnings, _record())
+    assert parts["chart"].title == "Median household income 2023"
+    assert warnings == []
+
+
+def test_a_chart_title_is_not_checked_without_a_record() -> None:
+    chart = {**BAR_ROLES, "title": "Cook earns 123,456"}
+    parts = take_chart(_envelope("Two counties.", chart), [TITLED, DUPAGE], [], None)
+    assert parts["chart"].title == "Cook earns 123,456"
+
+
+@pytest.mark.parametrize(
+    ("fetch_code", "leg_codes"),
+    [(404, [200]), (0, [404, 200])],
+    ids=["fetch_status", "leg_status"],
+)
+def test_a_failure_the_fetch_reports_keeps_its_framing(
+    fetch_code: int, leg_codes: list[int]
+) -> None:
+    record = _record()
+    record.fetch.failed_years = [2019]
+    record.fetch.status_code = fetch_code
+    record.fetch.legs = [SimpleNamespace(status_code=code) for code in leg_codes]
+    prose = "2019 failed with HTTP 404, so only 2023 is shown."
+    answer, problem = figures.checked(prose, [COOK], record)
+    assert problem == ""
+    assert answer.startswith(prose)
+    _, other = figures.checked("2019 failed with HTTP 500.", [COOK], record)
+    assert "500" in other
+
+
+@pytest.mark.parametrize(
+    ("vintages", "url", "prose"),
+    [
+        ([("acs5", 2022)], None, "No 2022 5-year table matched."),
+        ([], SimpleNamespace(year=2022), "No 2022 table matched."),
+    ],
+    ids=["vintages_only", "built_url_only"],
+)
+def test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built(
+    vintages: list[tuple[str, int]], url: Any, prose: str
+) -> None:
+    record = SimpleNamespace(fetch=None, table_facts=None, universe="", vintages=vintages, url=url)
+    assert figures.checked(prose, [], record) == (prose, "")
+    answer, problem = figures.checked("No 2021 table matched.", [], record)
+    assert answer == figures.NO_FIGURES
+    assert "it was removed" in problem
+    assert "figures below" not in problem
+
+
+def test_the_notice_says_figures_follow_only_when_they_do() -> None:
+    _, with_rows = figures.checked("About 78,462.", [COOK], _record())
+    assert "figures below replace it" in with_rows
+
+
+def test_combined_rows_are_shown_before_the_cap_cuts_anything() -> None:
+    places = [
+        {**COOK, "GEO_ID": f"0500000US{17000 + i}", "B19013_001E": str(50000 + i)}
+        for i in range(25)
+    ]
+    combined = {
+        **COOK,
+        "NAME": "combined (25 areas)",
+        "GEO_ID": "",
+        "B19013_001E": "1900000",
+        "B19013_001M": "9000",
+        "component_count": "25",
+    }
+    answer, _ = figures.checked("", [*places, combined], _record())
+    assert "combined (25 areas)" in answer.split("\n")[0]
+    assert "1,900,000" in answer.split("\n")[0]
+    assert "20 of 26 figures shown" in answer
+
+
+def test_an_identifier_in_a_row_the_cap_cut_is_still_carried() -> None:
+    places = [{**COOK, "GEO_ID": f"0500000US{17000 + i}"} for i in range(25)]
+    prose = "The table also holds GEOID 0500000US17024."
+    answer, problem = figures.checked(prose, places, _record())
+    assert "20 of 25 figures shown" in answer
+    assert "0500000US17024" not in answer.split("\n\n", 1)[1]
+    assert problem == ""
+    _, other = figures.checked("GEOID 0500000US17099 is not here.", places, _record())
+    assert "0500000us17099" in other

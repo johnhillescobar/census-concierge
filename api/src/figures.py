@@ -7,7 +7,6 @@ carries; a text with any other number is dropped and the rendered figures stand 
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from typing import Any
 
 from src.retrieval import metadata
@@ -30,6 +29,7 @@ def _cells(
         for key in row
         if key.endswith("E") and "_" in key
     ]
+    found.sort(key=lambda cell: "component_count" not in cell[0])  # combined rows first
     return found[:MAX_FIGURES], len(found)
 
 
@@ -39,7 +39,7 @@ def _labels(dataset: str, year: int, wanted: set[str]) -> dict[str, str]:
     except Exception:  # noqa: BLE001 - a label lookup must never fail a fetch that succeeded
         return {}
     return {
-        key: found[key].label.removeprefix("Estimate!!").replace("!!", " - ")
+        key: found[key].label.removeprefix("Estimate!!").replace("!!", " - ").rstrip(":")
         for key in wanted & found.keys()
     }
 
@@ -56,14 +56,16 @@ async def labels_for(rows: list[dict[str, str | None]], dataset: str) -> dict[st
     return dict(zip(wanted, found, strict=True))
 
 
-def _numbers(text: str) -> list[float]:
-    """Every token that holds a digit and that float() reads: commas, $ and % stripped."""
-    found = []
+def _numbers(text: str) -> list[float | str]:
+    """Every token that holds a digit: its value if float() reads it, else the token itself."""
+    found: list[float | str] = []
     for token in text.translate(_BREAKS).split():
-        token = token.strip(_EDGE).replace(",", "")
+        token = token.strip(_EDGE)
         if any(char.isdigit() for char in token):
-            with contextlib.suppress(ValueError):
-                found.append(abs(float(token)))
+            try:
+                found.append(abs(float(token.replace(",", ""))))
+            except ValueError:
+                found.append(token.casefold())
     return found
 
 
@@ -126,21 +128,33 @@ def _render(rows: list[dict[str, str | None]], record: Any) -> tuple[list[str], 
     return lines, texts
 
 
-def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -> set[float]:
-    """Numbers the response carries: row cells, years asked, the dataset's digits, system texts."""
-    allowed: set[float] = set()
+def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -> set[float | str]:
+    """What the response carries: cells, keys, years, status codes, dataset digits, system texts."""
+    fetch = getattr(record, "fetch", None)
+    vintages = getattr(record, "vintages", None) or []
+    datasets = {str(row.get("dataset") or "") for row in rows} | {str(name) for name, _ in vintages}
+    texts = [*texts, *("".join(c if c.isdigit() else " " for c in name) for name in datasets)]
     for row in rows:
         for key, cell in row.items():
-            if cell in CENSUS_MISSING:
-                continue
-            text = str(cell).split("US")[-1] if key == "GEO_ID" else str(cell)
-            if key == "dataset":
-                text = "".join(char if char.isdigit() else " " for char in text)
-            allowed.update(_numbers(text))
-    fetch = getattr(record, "fetch", None)
-    allowed.update(float(year) for name in _YEARS for year in getattr(fetch, name, None) or [])
-    allowed.update(number for text in texts for number in _numbers(text))
+            if cell not in CENSUS_MISSING:
+                texts += [str(cell), key, key.split("_")[0]]
+                texts += [str(cell).split("US")[-1]] if key == "GEO_ID" else []
+    allowed = {number for text in texts for number in _numbers(text)}
+    codes = [
+        getattr(fetch, "status_code", 0),
+        *(x.status_code for x in getattr(fetch, "legs", None) or []),
+    ]
+    years = [year for name in _YEARS for year in getattr(fetch, name, None) or []]
+    built = getattr(getattr(record, "url", None), "year", None)
+    allowed.update(float(n) for n in [*codes, *years, *(year for _, year in vintages), built] if n)
     return allowed
+
+
+def stray(text: str, rows: list[dict[str, str | None]], record: Any) -> list[float | str]:
+    """The numbers in the text that the response does not carry."""
+    lines, texts = _render(rows, record)
+    allowed = _allowed(rows, record, [*texts, *lines])
+    return sorted({number for number in _numbers(text) if number not in allowed}, key=str)
 
 
 def checked(prose: str, rows: list[dict[str, str | None]], record: Any) -> tuple[str, str]:
@@ -149,18 +163,16 @@ def checked(prose: str, rows: list[dict[str, str | None]], record: Any) -> tuple
     The answer is the model's framing followed by the rendered figures. A framing that states
     a number the response does not carry is replaced by the rendered figures alone.
     """
-    lines, texts = _render(rows, record)
+    lines, _texts = _render(rows, record)
     if not lines and not _numbers(prose):
         return prose, ""
-    allowed = _allowed(rows, record, [*texts, *lines])
-    stray = sorted({number for number in _numbers(prose) if number not in allowed})
+    bad = stray(prose, rows, record)
     problem = ""
-    if stray:
-        listed = ", ".join(f"{number:,.10g}" for number in stray[:5])
-        problem = (
-            f"The model's text stated {listed}, not in the fetched data; figures below replace it."
+    if bad:
+        listed = ", ".join(f"{n:,.10g}" if isinstance(n, float) else n for n in bad[:5])
+        problem = f"The model's text stated {listed}, not in the fetched data; " + (
+            "figures below replace it." if lines else "it was removed."
         )
         prose = ""
-    return "\n\n".join(
-        part for part in (prose.strip(), "\n".join(lines)) if part
-    ) or NO_FIGURES, problem
+    block = "\n".join(lines)
+    return "\n\n".join(part for part in (prose.strip(), block) if part) or NO_FIGURES, problem

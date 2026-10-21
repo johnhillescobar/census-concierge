@@ -390,6 +390,9 @@ def take_chart(
     warnings: list[Any] | None = None,
     record: Any = None,
 ) -> dict[str, Any]:
+    """The answer and chart in the model's reply. With a record, text and chart title that state
+    a number the response does not carry are replaced and a warning is appended to `warnings`;
+    without a record nothing is checked."""
     text = answer.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
@@ -406,7 +409,10 @@ def take_chart(
         saw = raw is not None
         payload = raw if isinstance(raw, dict) else {}
     if record is not None:
-        from src.figures import checked  # figures reaches vintages, which imports this module
+        from src.figures import (
+            checked,
+            stray,
+        )  # figures reaches vintages, which imports this module
 
         cleaned, problem = checked(cleaned, rows, record)
         if problem and warnings is not None:
@@ -419,11 +425,18 @@ def take_chart(
             spec = ChartSpec.model_validate(payload)
         except ValidationError:
             unavailable = True
+    table_id = str((rows[0].get("table_id") if rows else "") or "")
+    if record is not None and spec is not None and stray(spec.title, rows, record):
+        spec = spec.model_copy(update={"title": table_id})
+        notice = (
+            "The chart title stated a number not in the fetched data; the table ID replaces it."
+        )
+        if warnings is not None:
+            warnings.append(AskWarning(code="answer_figures_unverified", detail=notice))
     years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
     geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
     estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
     if spec is None and not unavailable:
-        table_id = str((rows[0].get("table_id") if rows else "") or "")
         names = sorted({str(row.get("NAME") or "") for row in rows} - {""})
         by_geo = f"{table_id}: {', '.join(names)}" if names else table_id
 
