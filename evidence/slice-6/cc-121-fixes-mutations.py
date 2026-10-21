@@ -31,6 +31,10 @@ COMBINED = T + "test_combined_rows_are_shown_before_the_cap_cuts_anything"
 CUT = T + "test_an_identifier_in_a_row_the_cap_cut_is_still_carried"
 LABEL = T + "test_a_label_loses_its_estimate_prefix_and_joins_its_levels"
 FOLLOW = T + "test_the_notice_says_figures_follow_only_when_they_do"
+ONE = T + "test_a_bad_answer_and_a_bad_chart_title_make_one_warning"
+DROPPED = T + "test_a_chart_the_response_cannot_draw_gets_no_title_notice"
+TABLES = T + "test_the_table_ids_the_response_names_may_be_named"
+POINT = T + "test_a_leading_point_is_part_of_the_number"
 
 
 class Case(NamedTuple):
@@ -152,16 +156,58 @@ CASES = [
     Case(
         "chart title notice has another code",
         CON,
-        'code="answer_figures_unverified", detail=notice',
-        'code="chart_title", detail=notice',
+        'code="answer_figures_unverified", detail=detail',
+        'code="chart_title", detail=detail',
         TITLE,
     ),
     Case(
         "chart title checked without a record",
         CON,
-        "if record is not None and spec is not None and stray(",
-        "if spec is not None and stray(",
+        "if record is not None and saw and stray(",
+        "if saw and stray(",
         NO_RECORD,
+    ),
+    Case(
+        "built table ID not carried",
+        FIG,
+        'str(getattr(record, "table_id", "") or ""), *datasets]',
+        "*datasets]",
+        TABLES,
+    ),
+    Case(
+        "dataset names not carried whole",
+        FIG,
+        'str(getattr(record, "table_id", "") or ""), *datasets]',
+        'str(getattr(record, "table_id", "") or "")]',
+        BEFORE + "[dataset_name]",
+    ),
+    Case(
+        "alternative tables not carried",
+        FIG,
+        'pool = getattr(record, "pool", None) or []',
+        "pool = []",
+        TABLES,
+    ),
+    Case(
+        "leading point stripped from a number",
+        FIG,
+        "token.strip(_LEAD).rstrip(_EDGE)",
+        "token.strip(_EDGE)",
+        POINT,
+    ),
+    Case(
+        "second notice becomes a second warning",
+        CON,
+        'if getattr(item, "code", "") == "answer_figures_unverified":',
+        "if False:",
+        ONE,
+    ),
+    Case(
+        "chart kept though the response cannot draw it",
+        CON,
+        "    if not fits:",
+        "    if False:",
+        DROPPED,
     ),
 ]
 

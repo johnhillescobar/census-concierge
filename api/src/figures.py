@@ -17,6 +17,7 @@ NO_FIGURES = "No figures were fetched for this request; see the warnings and the
 _YEARS = ("requested_years", "attempted_years", "succeeded_years", "failed_years", "omitted_years")
 _BREAKS = str.maketrans("-–—/|", "     ")
 _EDGE = ".,;:!?()[]{}\"'*_`~<>=+$%"
+_LEAD = _EDGE.replace(".", "")  # a leading "." stays: ".5" is not 5
 
 
 def _cells(
@@ -60,7 +61,7 @@ def _numbers(text: str) -> list[float | str]:
     """Every token that holds a digit: its value if float() reads it, else the token itself."""
     found: list[float | str] = []
     for token in text.translate(_BREAKS).split():
-        token = token.strip(_EDGE)
+        token = token.strip(_LEAD).rstrip(_EDGE)
         if any(char.isdigit() for char in token):
             try:
                 found.append(abs(float(token.replace(",", ""))))
@@ -134,6 +135,9 @@ def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -
     vintages = getattr(record, "vintages", None) or []
     datasets = {str(row.get("dataset") or "") for row in rows} | {str(name) for name, _ in vintages}
     texts = [*texts, *("".join(c if c.isdigit() else " " for c in name) for name in datasets)]
+    pool = getattr(record, "pool", None) or []
+    texts += [str(getattr(record, "table_id", "") or ""), *datasets]
+    texts += [str(x) for hit in pool for x in [hit.get("table_id"), *(hit.get("members") or [])]]
     for row in rows:
         for key, cell in row.items():
             if cell not in CENSUS_MISSING:

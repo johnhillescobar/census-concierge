@@ -384,6 +384,16 @@ class AskResponse(BaseModel):
     chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
 
 
+def _warn_unverified(warnings: list[Any] | None, detail: str) -> None:
+    """One answer_figures_unverified warning per response: a later notice joins the first."""
+    for item in warnings or []:
+        if getattr(item, "code", "") == "answer_figures_unverified":
+            item.detail = f"{item.detail} {detail}"
+            return
+    if warnings is not None:
+        warnings.append(AskWarning(code="answer_figures_unverified", detail=detail))
+
+
 def take_chart(
     answer: str,
     rows: list[dict[str, str | None]],
@@ -409,14 +419,12 @@ def take_chart(
         saw = raw is not None
         payload = raw if isinstance(raw, dict) else {}
     if record is not None:
-        from src.figures import (
-            checked,
-            stray,
-        )  # figures reaches vintages, which imports this module
+        # figures reaches vintages, which imports this module
+        from src.figures import checked, stray
 
         cleaned, problem = checked(cleaned, rows, record)
-        if problem and warnings is not None:
-            warnings.append(AskWarning(code="answer_figures_unverified", detail=problem))
+        if problem:
+            _warn_unverified(warnings, problem)
     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
     spec: ChartSpec | None = None
     unavailable = False
@@ -426,13 +434,6 @@ def take_chart(
         except ValidationError:
             unavailable = True
     table_id = str((rows[0].get("table_id") if rows else "") or "")
-    if record is not None and spec is not None and stray(spec.title, rows, record):
-        spec = spec.model_copy(update={"title": table_id})
-        notice = (
-            "The chart title stated a number not in the fetched data; the table ID replaces it."
-        )
-        if warnings is not None:
-            warnings.append(AskWarning(code="answer_figures_unverified", detail=notice))
     years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
     geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
     estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
@@ -462,4 +463,10 @@ def take_chart(
     codes = {getattr(item, "code", "") for item in warnings or []}
     if spec.x == "year" and "overlapping_vintage" in codes:
         fits = False
-    return none if not fits else {"answer": cleaned, "chart": spec, "chart_unavailable": False}
+    if not fits:
+        return none
+    if record is not None and saw and stray(spec.title, rows, record):
+        spec = spec.model_copy(update={"title": table_id})
+        notice = "The chart title stated a number not in the fetched data; table ID replaces it."
+        _warn_unverified(warnings, notice)
+    return {"answer": cleaned, "chart": spec, "chart_unavailable": False}

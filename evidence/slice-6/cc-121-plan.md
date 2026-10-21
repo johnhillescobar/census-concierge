@@ -121,6 +121,22 @@ Disposition of each finding (tag `default` unless noted; each is revertible):
 
 Tests and a mutation check for every fix: `evidence/slice-6/cc-121-fixes-mutations.py` with its output in `cc-121-fixes-mutations.txt`. The Gate 1 harness is pinned to `f59eee8` (several of its mutations target the lines B1 changes). After the fix commit: the Gate 2 re-run once (non-trivial fixes), and Gate 1 from the `gate.ps1` prompt, then E2E from `gate.ps1 e2e-pre 6`.
 
+## Result of the Gate 2 re-run (2026-10-21)
+
+Run on `1323281` from the `gate.ps1` prompt (path changed to `gate2-rerun.txt` by me; that name already held CC-103's tracked transcript and the subagent overwrote it. I restored it from git and kept this transcript as `cc-121-gate2-rerun-restored.txt`, `7145f46`). Verdict "Ship it with follow-ups": machines all green, no silent-wrong-answer finding, both blockers fixed (probed). The subagent saw commit subjects and the docs diff before pass one, so it was not fully intent-blind (it says so).
+
+Follow-ups and what I did (the playbook allows one re-run, so these get tests and a mutation check but no further Gate 2):
+- F1 fixed: two `answer_figures_unverified` warnings in one response gave two `<li>` with the same React key. One warning per response now; a later notice joins the first.
+- F2 fixed: the built table ID, the alternatives' table IDs and the dataset names the response built are carried (a framing naming a listed alternative was being replaced).
+- F5 fixed: a chart the response cannot draw no longer gets a title notice; the model title is checked only when the model sent a chart.
+- F6 fixed: a leading "." stays part of the number (".5" is 0.5, not 5).
+- F9 fixed: `judge_figures.py judge` refuses to overwrite a finished file, before it spends anything.
+- F3 and F4 not changed: the chart-title check recomputes the render and the allowed set (0.4 s extra on 5,000 tract rows, only when the model sent a chart), and label lookups cost 0.09 s per vintage. Both run on the request path; E2E reports `demo.p95_latency_seconds` against 20. A real fix (compute once per response, off the loop) waits for that number.
+- F7 not changed: labels are looked up from the first 20 raw cells but rendered with combined rows first, so a two-vintage combined result can show a variable ID where a label should be. Cosmetic.
+- F8: the branch carries an empty commit `5f242d8` with a garbled budget subject, and the diff has 70+ evidence files; the PR body says so and the merge squashes.
+- Three assertions pin the system's own warning text (code-written, not LLM prose); left as they are.
+Mutation check for all fixes: `cc-121-fixes-mutations.txt`, 25 of 25 caught.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.

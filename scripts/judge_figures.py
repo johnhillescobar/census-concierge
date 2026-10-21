@@ -102,6 +102,9 @@ async def collect(label: str, repeat: int, limit: int, workers: int, answer_mode
 async def judge(label: str, model: str, workers: int) -> None:
     from openai import AsyncOpenAI
 
+    path = OUT / f"cc-121-judged-{label}-{model}.jsonl"
+    if path.exists():
+        raise SystemExit(f"{path} exists; use a new --label (a finished run is evidence)")
     client, gate = AsyncOpenAI(), asyncio.Semaphore(workers)
     trials = [
         json.loads(line) for line in (OUT / f"cc-121-answers-{label}.jsonl").open(encoding="utf-8")
@@ -131,7 +134,6 @@ async def judge(label: str, model: str, workers: int) -> None:
                 "states_figures": bool(found.get("states_figures"))}  # fmt: skip
 
     scored = await asyncio.gather(*(one(t) for t in trials))
-    path = OUT / f"cc-121-judged-{label}-{model}.jsonl"
     path.write_text("".join(json.dumps(s) + "\n" for s in scored), encoding="utf-8")
     judged = [s for s in scored if s["verdict"] in ("ok", "unsupported")]
     bad = [s for s in judged if s["verdict"] == "unsupported"]

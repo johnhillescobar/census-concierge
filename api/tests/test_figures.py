@@ -737,8 +737,9 @@ def test_a_failure_the_fetch_reports_keeps_its_framing(
     [
         ([("acs5", 2022)], None, "No 2022 5-year table matched."),
         ([], SimpleNamespace(year=2022), "No 2022 table matched."),
+        ([("acs5", 2022)], None, "ACS5 had no match for 2022."),
     ],
-    ids=["vintages_only", "built_url_only"],
+    ids=["vintages_only", "built_url_only", "dataset_name"],
 )
 def test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built(
     vintages: list[tuple[str, int]], url: Any, prose: str
@@ -784,3 +785,42 @@ def test_an_identifier_in_a_row_the_cap_cut_is_still_carried() -> None:
     assert problem == ""
     _, other = figures.checked("GEOID 0500000US17099 is not here.", places, _record())
     assert "0500000us17099" in other
+
+
+def test_a_bad_answer_and_a_bad_chart_title_make_one_warning() -> None:
+    warnings: list[Any] = []
+    chart = {**BAR_ROLES, "title": "DuPage earns 123,456 more than Cook"}
+    reply = _envelope("Cook County earns 99,999.", chart)
+    parts = take_chart(reply, [TITLED, DUPAGE], warnings, _record())
+    assert [item.code for item in warnings] == ["answer_figures_unverified"]
+    assert "99,999" in warnings[0].detail
+    assert "chart title" in warnings[0].detail
+    assert parts["chart"].title == "B19013"
+
+
+def test_a_chart_the_response_cannot_draw_gets_no_title_notice() -> None:
+    warnings: list[Any] = []
+    chart = {"type": "line", "x": "year", "y": "estimate", "title": "Rose by 123,456"}
+    parts = take_chart(_envelope("Two counties.", chart), [TITLED, DUPAGE], warnings, _record())
+    assert parts["chart"] is None
+    assert warnings == []
+
+
+def test_the_table_ids_the_response_names_may_be_named() -> None:
+    record = SimpleNamespace(
+        fetch=None,
+        table_facts=None,
+        universe="",
+        table_id="B19013",
+        pool=[{"table_id": "B19001", "members": ["B19001A"]}],
+    )
+    prose = "Table B19013 is built; B19001 and B19001A are listed as alternatives."
+    assert figures.checked(prose, [], record) == (prose, "")
+    answer, problem = figures.checked("B19002 is another.", [], record)
+    assert answer == figures.NO_FIGURES
+    assert "b19002" in problem
+
+
+def test_a_leading_point_is_part_of_the_number() -> None:
+    _, problem = figures.checked("About .5 of them.", [COOK], _record())
+    assert "0.5" in problem
