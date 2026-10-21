@@ -29,10 +29,13 @@ Commits `2a6cf96` (plan, saved description, pre-rebuild notes), `1559ad0` and `4
 
 Defaults accepted with P1, not owner decisions: rendered figures capped at 20 with "k of n shown" (as in `figures.py`); comparatives barred by instruction and the residual measured.
 
+## Batch J2: number words and the model's part (approved "yes", 2026-10-20)
+
+One Jira comment on CC-121 (status unchanged, description not edited): the 1-of-120 number-word count in the P1 comment is withdrawn; owner decisions recorded as `owner`: no sets of number words and no parser, in the product or in `scripts/`; Option A for the model's part (the model writes figures as digits exactly as rendered, the check is a digits-only comparison, no runtime model call; Reading B, a model call that judges prose numbers, not chosen). The restored description still lists a thousand/million parser; the comment supersedes those lines. Editing the description was offered and not chosen.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - R2: repo. Rebase the local commits onto `origin/main` (15 commits ahead: PR #110 and #111), dropping `7aebf3a`, which duplicates `3b785a4` already on `main`. The branch is unpushed.
-- J2: Jira correction comment: the 2026-10-20 comment says number words appear in 1 of 120 answers; that count used a word set that is now removed. Post a one-line withdrawal, plus the owner direction on number words (`owner`).
 - P2: live probe of whether the model writes no digits when told not to (40 visible questions, repeat 1; needs OpenAI and Census credits). Only on an explicit go-ahead.
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
 - G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
