@@ -1,0 +1,904 @@
+# Gate 2 - cold review of feat/cc-121-answer-figures vs origin/main
+# date: 2026-10-21T07:32:00-05:00
+# head: a3fc0c27c188dcaeaa3a51d8497fc237db836d1e  merge-base: 1160bde9306e321df3330fcbac7880cb0bd69324
+
+## PASS 1 - generic bugs, code only (cold read)
+### $ git diff --stat origin/main...HEAD -- api scripts web
+ api/src/ask.py             |   2 +-
+ api/src/contract.py        |   7 +
+ api/src/fetch.py           |   3 +
+ api/src/figures.py         | 166 ++++++++++++
+ api/src/prompts.py         |   2 +-
+ api/tests/conftest.py      |   8 +-
+ api/tests/test_ask_loop.py |  10 +-
+ api/tests/test_chart.py    |  14 +-
+ api/tests/test_figures.py  | 639 +++++++++++++++++++++++++++++++++++++++++++++
+ api/tests/test_guards.py   |   2 +-
+ scripts/judge_figures.py   | 163 ++++++++++++
+ 11 files changed, 1000 insertions(+), 16 deletions(-)
+### $ git diff origin/main...HEAD -- api/src scripts
+diff --git a/api/src/ask.py b/api/src/ask.py
+index 3f2d9d7..7c3ed91 100644
+--- a/api/src/ask.py
++++ b/api/src/ask.py
+@@ -249,7 +249,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
+     year = record.vintages[-1][1] if record.vintages else None
+     rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
+     return AskResponse(
+-        **take_chart(answer, rows, warnings),
++        **take_chart(answer, rows, warnings, record),
+         **series_from_record(record),
+         rows=rows,
+         moe=moe_rows(rows),
+diff --git a/api/src/contract.py b/api/src/contract.py
+index 30010fb..874c109 100644
+--- a/api/src/contract.py
++++ b/api/src/contract.py
+@@ -375,6 +375,7 @@ def take_chart(
+     answer: str,
+     rows: list[dict[str, str | None]],
+     warnings: list[Any] | None = None,
++    record: Any = None,
+ ) -> dict[str, Any]:
+     text = answer.strip()
+     if text.startswith("```"):
+@@ -391,6 +392,12 @@ def take_chart(
+         raw = body.get("chart")
+         saw = raw is not None
+         payload = raw if isinstance(raw, dict) else {}
++    if record is not None:
++        from src.figures import checked  # figures reaches vintages, which imports this module
++
++        cleaned, problem = checked(cleaned, rows, record)
++        if problem and warnings is not None:
++            warnings.append(AskWarning(code="answer_figures_unverified", detail=problem))
+     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
+     spec: ChartSpec | None = None
+     unavailable = False
+diff --git a/api/src/fetch.py b/api/src/fetch.py
+index 48f2d94..8b663fa 100644
+--- a/api/src/fetch.py
++++ b/api/src/fetch.py
+@@ -11,6 +11,7 @@ import httpx
+ from langchain_core.tools import BaseTool
+ from pydantic import BaseModel, ConfigDict, Field
+ 
++from src import figures
+ from src.census_url import CensusURL, redact_text
+ from src.contract import GeoSpec, RequestLeg
+ from src.tools import ToolInput, ToolResult
+@@ -56,6 +57,7 @@ class FetchDataResult(ToolResult):
+     omission_reasons: list[str]
+     dataset: str = ""
+     acs1_ineligible: bool = False
++    labels: dict[str, dict[str, str]] = Field(default_factory=dict)
+ 
+ 
+ def unique_years(years: list[int]) -> list[int]:
+@@ -404,4 +406,5 @@ class FetchDataTool(BaseTool):
+             dataset=plan.dataset,
+             acs1_ineligible=plan.acs1_ineligible,
+         )
++        result.labels = await figures.labels_for(rows, plan.dataset)
+         return _tool_content(result), result
+diff --git a/api/src/figures.py b/api/src/figures.py
+new file mode 100644
+index 0000000..469e435
+--- /dev/null
++++ b/api/src/figures.py
+@@ -0,0 +1,166 @@
++"""The figures an answer states: rendered by code from the rows; the model's text is checked.
++
++The model writes framing only. Every number it still writes must be one the response itself
++carries; a text with any other number is dropped and the rendered figures stand alone.
++"""
++
++from __future__ import annotations
++
++import asyncio
++import contextlib
++from typing import Any
++
++from src.retrieval import metadata
++from src.vintages import CENSUS_MISSING
++
++MAX_FIGURES = 20
++NO_FIGURES = "No figures were fetched for this request; see the warnings and the URL."
++_YEARS = ("requested_years", "attempted_years", "succeeded_years", "failed_years", "omitted_years")
++_BREAKS = str.maketrans("-–—/|", "     ")
++_EDGE = ".,;:!?()[]{}\"'*_`~<>=+$%"
++
++
++def _cells(
++    rows: list[dict[str, str | None]],
++) -> tuple[list[tuple[dict[str, str | None], str, str]], int]:
++    """The first MAX_FIGURES estimate cells as (row, variable, year), and how many there are."""
++    found = [
++        (row, key, str(row.get("year") or ""))
++        for row in rows
++        for key in row
++        if key.endswith("E") and "_" in key
++    ]
++    return found[:MAX_FIGURES], len(found)
++
++
++def _labels(dataset: str, year: int, wanted: set[str]) -> dict[str, str]:
++    try:
++        found = metadata.variables(dataset, year)
++    except Exception:  # noqa: BLE001 - a label lookup must never fail a fetch that succeeded
++        return {}
++    return {
++        key: found[key].label.removeprefix("Estimate!!").replace("!!", " - ")
++        for key in wanted & found.keys()
++    }
++
++
++async def labels_for(rows: list[dict[str, str | None]], dataset: str) -> dict[str, dict[str, str]]:
++    """Variable labels for the figures that will be shown: one lookup per vintage, off the loop."""
++    wanted: dict[str, set[str]] = {}
++    for _row, key, year in _cells(rows)[0]:
++        if year.isdigit():
++            wanted.setdefault(year, set()).add(key)
++    found = await asyncio.gather(
++        *(asyncio.to_thread(_labels, dataset, int(year), keys) for year, keys in wanted.items())
++    )
++    return dict(zip(wanted, found, strict=True))
++
++
++def _numbers(text: str) -> list[float]:
++    """Every token that holds a digit and that float() reads: commas, $ and % stripped."""
++    found = []
++    for token in text.translate(_BREAKS).split():
++        token = token.strip(_EDGE).replace(",", "")
++        if any(char.isdigit() for char in token):
++            with contextlib.suppress(ValueError):
++                found.append(abs(float(token)))
++    return found
++
++
++def _shown(raw: str) -> str:
++    whole, dot, fraction = raw.partition(".")
++    try:
++        return f"{int(whole):,}{dot}{fraction}"
++    except ValueError:
++        return raw
++
++
++def _render(rows: list[dict[str, str | None]], record: Any) -> tuple[list[str], list[str]]:
++    """The figure sentences, and the texts (labels, titles, universe) they rest on."""
++    shown, total = _cells(rows)
++    labels = getattr(getattr(record, "fetch", None), "labels", None) or {}
++    lines: list[str] = []
++    texts: list[str] = []
++    for row, key, year in shown:
++        est, moe = (
++            None if row.get(k) in CENSUS_MISSING else row.get(k) for k in (key, key[:-1] + "M")
++        )
++        value = (
++            f"{_shown(est)} (margin of error {_shown(moe) if moe else 'not published'})"
++            if est
++            else "not available"
++        )
++        label = labels.get(year, {}).get(key, key)
++        texts.append(label)
++        geoid = row.get("GEO_ID")
++        place = " ".join(part for part in (row.get("NAME"), f"({geoid})" if geoid else "") if part)
++        vintage = " ".join(part for part in (row.get("dataset"), year) if part)
++        lines.append(f"{label}: {value}" + "".join(f", {p}" for p in (place, vintage) if p) + ".")
++    if total > MAX_FIGURES:
++        lines.append(f"{MAX_FIGURES} of {total} figures shown; the table has the rest.")
++    table_facts = getattr(record, "table_facts", None)
++    table = shown[0][1].split("_")[0] if shown else ""
++    about: dict[str, list[str]] = {}
++    for dataset, year in dict.fromkeys(
++        (str(row.get("dataset") or ""), year) for row, _key, year in shown
++    ):
++        facts = (
++            table_facts(dataset, int(year), table) if table_facts and year.isdigit() else None
++        ) or {}
++        title, universe = (
++            facts.get("title"),
++            facts.get("universe") or getattr(record, "universe", ""),
++        )
++        text = " ".join(
++            [
++                f"Table {table}: {title}." if title else "",
++                f"Universe: {universe}" if universe else "",
++            ]
++        ).strip()
++        if text:
++            about.setdefault(text, []).append(year)
++    texts += list(about)
++    lines += [
++        text if len(about) == 1 else f"{', '.join(years)}: {text}" for text, years in about.items()
++    ]
++    return lines, texts
++
++
++def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -> set[float]:
++    """Numbers the response carries: row cells, years asked, the dataset's digits, system texts."""
++    allowed: set[float] = set()
++    for row in rows:
++        for key, cell in row.items():
++            if cell in CENSUS_MISSING:
++                continue
++            text = str(cell).split("US")[-1] if key == "GEO_ID" else str(cell)
++            if key == "dataset":
++                text = "".join(char if char.isdigit() else " " for char in text)
++            allowed.update(_numbers(text))
++    fetch = getattr(record, "fetch", None)
++    allowed.update(float(year) for name in _YEARS for year in getattr(fetch, name, None) or [])
++    allowed.update(number for text in texts for number in _numbers(text))
++    return allowed
++
++
++def checked(prose: str, rows: list[dict[str, str | None]], record: Any) -> tuple[str, str]:
++    """The answer to show, and why the model's text was dropped ("" when it was kept).
++
++    The answer is the model's framing followed by the rendered figures. A framing that states
++    a number the response does not carry is replaced by the rendered figures alone.
++    """
++    lines, texts = _render(rows, record)
++    if not lines and not _numbers(prose):
++        return prose, ""
++    allowed = _allowed(rows, record, [*texts, *lines])
++    stray = sorted({number for number in _numbers(prose) if number not in allowed})
++    problem = ""
++    if stray:
++        listed = ", ".join(f"{number:,.10g}" for number in stray[:5])
++        problem = (
++            f"The model's text stated {listed}, not in the fetched data; figures below replace it."
++        )
++        prose = ""
++    return "\n\n".join(
++        part for part in (prose.strip(), "\n".join(lines)) if part
++    ) or NO_FIGURES, problem
+diff --git a/api/src/prompts.py b/api/src/prompts.py
+index 4f9916f..e18b335 100644
+--- a/api/src/prompts.py
++++ b/api/src/prompts.py
+@@ -37,7 +37,7 @@ Call build_url with the selected table ID before fetch_data. Code handles the re
+ 
+ For multi-year retrieval, call fetch_data once with the requested years; the tool handles the individual years. Warnings do not skip fetching a built request.
+ 
+-Use only successfully fetched data as evidence. Never invent or retype estimates. Keep answer to a concise qualitative summary and relevant context, system-provided warnings, or limitations. Describe failed or omitted years only as reported in the fetch summary.
++Use only successfully fetched data as evidence. Write the answer as qualitative framing only: which table was chosen and why, the geography and years, what the figures in the result are about, and any limitation. Write no figure in the answer: no estimate, margin of error, count, share, percentage, rate, ranking or comparison of values between places or years, and no number written in words. Years, table IDs and variable names are fine. The system shows the figures from the fetched data itself. Describe failed or omitted years only as reported in the fetch summary.
+ 
+ Partial success is not total failure. Use only successfully retrieved data for any chart. If the fetch reports total failure, return exactly:
+ {"answer":"Fetch failed; no estimates available.","chart":null}
+diff --git a/scripts/judge_figures.py b/scripts/judge_figures.py
+new file mode 100644
+index 0000000..c0ffa10
+--- /dev/null
++++ b/scripts/judge_figures.py
+@@ -0,0 +1,163 @@
++#!/usr/bin/env python3
++"""CC-121 instrument: how many answers state a figure the fetched data does not support.
++
++    python scripts/judge_figures.py collect --label baseline --repeat 3
++    python scripts/judge_figures.py judge --label baseline
++
++`collect` runs the visible long_tail questions through run_ask and stores each answer
++with its rows, universe and warnings (evidence/slice-6/cc-121-answers-<label>.jsonl).
++`judge` asks a model whether each stored answer states anything its own data does not
++support. Measurement only: the product has no runtime check, and nothing here parses the
++answer text. Needs OPENAI_API_KEY and CENSUS_API_KEY.
++"""
++
++# ruff: noqa: E501  (the judge prompt is one literal)
++from __future__ import annotations
++
++import argparse
++import asyncio
++import json
++import sys
++import time
++import tomllib
++from pathlib import Path
++from typing import Any
++
++from dotenv import load_dotenv
++
++ROOT = Path(__file__).resolve().parent.parent
++QUESTIONS = ROOT / "evals" / "golden_questions.toml"
++OUT = ROOT / "evidence" / "slice-6"
++load_dotenv(ROOT / ".env")
++sys.path.insert(0, str(ROOT / "api"))
++
++JUDGE = """You check an answer written for a Census data tool against the data it was written from. FACTS holds the fetched rows (E is an estimate, M its 90% margin of error), the label of each variable for each year (a label can name its own year's dollars), the universe, and system notes. ANSWER is the written text. List each statement in ANSWER that presents a quantity, share, ranking, trend or comparison, in any form (digits, words, abbreviations, 'about', 'roughly'), that FACTS does not support for the same place, variable and year. A statement is supported when FACTS holds that quantity, even rounded or reworded. Anything computed from the data (a sum, share, average, difference, rank or trend) is unsupported unless FACTS states it. A figure attached to the wrong variable or place is unsupported. Years, table IDs and statements with no quantity are fine. Reply with JSON only: {"states_figures": true or false, "unsupported": [{"claim": "quoted text", "why": "short reason"}]}."""
++KEEP = ("NAME", "GEO_ID", "year")
++
++
++def questions() -> list[dict[str, Any]]:
++    entries = tomllib.loads(QUESTIONS.read_text(encoding="utf-8"))["question"]
++    return [q for q in entries if q.get("tier") == "long_tail" and not q.get("holdout")]
++
++
++def labels(dataset: str, year: int) -> dict[str, str]:
++    from src.retrieval import metadata
++
++    try:
++        return {k: v.label for k, v in metadata.variables(dataset, year).items()}
++    except Exception:  # noqa: BLE001 - a missing or corrupt cache must not stop the run
++        return {}
++
++
++async def collect(label: str, repeat: int, limit: int, workers: int, answer_model: str) -> None:
++    from src import ask
++    from src.ask import run_ask
++
++    ask.MODEL = answer_model or ask.MODEL  # this process only; the product's constant is unchanged
++
++    gate = asyncio.Semaphore(workers)
++    out = OUT / f"cc-121-answers-{label}.jsonl"
++    if out.exists():
++        raise SystemExit(
++            f"{out} exists; use a new --label (a finished run is evidence, not scratch)"
++        )
++    todo = [(q, r) for r in range(1, repeat + 1) for q in questions()[: limit or None]]
++
++    async def one(q: dict[str, Any], r: int) -> dict[str, Any]:
++        async with gate:
++            started = time.perf_counter()
++            try:
++                got = await run_ask(q["text"])
++            except Exception as exc:  # noqa: BLE001 - one trial must not stop the run
++                return {"id": q["id"], "repeat": r, "error": type(exc).__name__}
++        rows = [
++            {k: v for k, v in row.items() if k in KEEP or k[-1] in "EM" and "_" in k}
++            for row in got.rows
++        ]
++        notes = [w.detail for w in got.warnings]
++        seconds = round(time.perf_counter() - started, 2)
++        names = {
++            int(y): labels(got.plan.dataset, int(y))
++            for y in {r["year"] for r in rows if "year" in r}
++        }
++        used = {
++            y: {k: n[k] for row in rows if int(row["year"]) == y for k in row if k in n}
++            for y, n in names.items()
++        }
++        return {"id": q["id"], "repeat": r, "text": q["text"], "answer": got.answer, "rows": rows,
++                "labels": used, "universe": got.universe, "notes": notes,
++                "answer_model": ask.MODEL, "latency_s": seconds}  # fmt: skip
++
++    failed = 0
++    with out.open("w", encoding="utf-8") as handle:
++        for done in asyncio.as_completed([one(q, r) for q, r in todo]):
++            trial = await done
++            failed += "error" in trial
++            handle.write(json.dumps(trial) + "\n")
++            handle.flush()
++    print(f"wrote {out}: {len(todo)} trials, {failed} errored")
++
++
++async def judge(label: str, model: str, workers: int) -> None:
++    from openai import AsyncOpenAI
++
++    client, gate = AsyncOpenAI(), asyncio.Semaphore(workers)
++    trials = [
++        json.loads(line) for line in (OUT / f"cc-121-answers-{label}.jsonl").open(encoding="utf-8")
++    ]
++
++    async def one(t: dict[str, Any]) -> dict[str, Any]:
++        if "answer" not in t:
++            return {**t, "verdict": "no_answer"}
++        facts = {k: t[k] for k in ("rows", "labels", "universe", "notes")}
++        user = json.dumps({"facts": facts, "answer": t["answer"]})
++        async with gate:
++            try:
++                reply = await client.chat.completions.create(
++                    model=model,
++                    response_format={"type": "json_object"},
++                    messages=[
++                        {"role": "system", "content": JUDGE},
++                        {"role": "user", "content": user},
++                    ],
++                )
++                found = json.loads(reply.choices[0].message.content or "{}")
++                bad = found["unsupported"]
++                assert isinstance(bad, list)
++            except Exception as exc:  # noqa: BLE001 - count it, never score it as supported
++                return {**t, "verdict": "judge_error", "why": type(exc).__name__}
++        return {**t, "verdict": "unsupported" if bad else "ok", "unsupported": bad,
++                "states_figures": bool(found.get("states_figures"))}  # fmt: skip
++
++    scored = await asyncio.gather(*(one(t) for t in trials))
++    path = OUT / f"cc-121-judged-{label}-{model}.jsonl"
++    path.write_text("".join(json.dumps(s) + "\n" for s in scored), encoding="utf-8")
++    judged = [s for s in scored if s["verdict"] in ("ok", "unsupported")]
++    bad = [s for s in judged if s["verdict"] == "unsupported"]
++    withrows = [s for s in judged if s["rows"]]
++    print(f"label={label} model={model} trials={len(scored)} judged={len(judged)}")
++    print(f"unsupported={len(bad)}/{len(judged)} ({len(bad) / max(1, len(judged)):.1%}); "
++          f"with rows={sum(s in bad for s in withrows)}/{len(withrows)}; "
++          f"judge_errors={sum(s['verdict'] == 'judge_error' for s in scored)}; "
++          f"no_answer={sum(s['verdict'] == 'no_answer' for s in scored)}")  # fmt: skip
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("stage", choices=["collect", "judge"])
++    parser.add_argument("--label", required=True)
++    parser.add_argument("--repeat", type=int, default=3)
++    parser.add_argument("--limit", type=int, default=0, help="first N questions (smoke test)")
++    parser.add_argument("--workers", type=int, default=4)
++    parser.add_argument("--model", default="gpt-4.1", help="judge model")
++    parser.add_argument("--answer-model", default="", help="collect: model that writes the answers")
++    args = parser.parse_args()
++    OUT.mkdir(parents=True, exist_ok=True)
++    if args.stage == "collect":
++        asyncio.run(collect(args.label, args.repeat, args.limit, args.workers, args.answer_model))
++    else:
++        asyncio.run(judge(args.label, args.model, args.workers))
++
++
++if __name__ == "__main__":
++    main()
+### $ git diff origin/main...HEAD -- api/tests/conftest.py api/tests/test_ask_loop.py api/tests/test_chart.py api/tests/test_guards.py
+diff --git a/api/tests/conftest.py b/api/tests/conftest.py
+index 803e8d6..8486b87 100644
+--- a/api/tests/conftest.py
++++ b/api/tests/conftest.py
+@@ -9,11 +9,17 @@ from pathlib import Path
+ 
+ import pytest
+ from psycopg_pool import AsyncConnectionPool
+-from src import store
++from src import figures, store
+ 
+ URL = os.environ.get("DATABASE_URL")
+ 
+ 
++@pytest.fixture(autouse=True)
++def no_label_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
++    """fetch_data labels figures from the metadata cache; keep every other test off it."""
++    monkeypatch.setattr(figures, "_labels", lambda *_args: {})
++
++
+ @pytest.fixture(scope="session")
+ def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
+     if sys.platform == "win32":
+diff --git a/api/tests/test_ask_loop.py b/api/tests/test_ask_loop.py
+index e3ce36b..28a0f65 100644
+--- a/api/tests/test_ask_loop.py
++++ b/api/tests/test_ask_loop.py
+@@ -779,7 +779,7 @@ async def test_and_phrased_comparison_resolves_both_geographies() -> None:
+     assert record.geo_status["compare"] is True
+     assert record.geo_status["compare_count"] == 2
+     assert [row.for_spec for row in record.geographies[:2]] == ["place:4805000", "place:19000"]
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert [item.code for item in response.warnings] == ["ambiguous_place"]
+     assert "Lake Dallas city, Texas" in response.warnings[0].detail
+     assert [row.for_spec for row in response.plan.geographies] == ["place:4805000", "place:19000"]
+@@ -798,7 +798,7 @@ async def test_and_phrased_comparison_across_states() -> None:
+     assert record.geo_status["compare"] is True
+     assert record.geo_status["compare_count"] == 2
+     assert len(record.geographies) == 2
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert response.warnings == []
+     fetch = tools["fetch_data"]
+     assert fetch.last_geographies is not None
+@@ -818,7 +818,7 @@ async def test_three_way_and_list_comparison() -> None:
+     assert record.geo_status["compare"] is True
+     assert record.geo_status["compare_count"] == 3
+     assert len(record.geographies) == 3
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert response.warnings == []
+     assert [row.for_spec for row in response.plan.geographies] == [
+         "place:4805000",
+@@ -853,7 +853,7 @@ async def test_bare_unqualified_city_names_resolve_all_places() -> None:
+         "place:0644000",
+         "place:3651000",
+     ]
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert response.warnings == []
+     fetch = tools["fetch_data"]
+     assert fetch.last_geographies is not None
+@@ -908,7 +908,7 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
+     warnings_by_code = {item.code: item for item in response.warnings}
+     assert "ambiguous_place" in warnings_by_code
+     assert "Lake Dallas city, Texas" in warnings_by_code["ambiguous_place"].detail
+-    assert response.answer == "Austin and Dallas compared."
++    assert response.answer.startswith("Austin and Dallas compared.")
+ 
+ 
+ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparison() -> None:
+diff --git a/api/tests/test_chart.py b/api/tests/test_chart.py
+index 8a23c6e..3a3a8ce 100644
+--- a/api/tests/test_chart.py
++++ b/api/tests/test_chart.py
+@@ -90,7 +90,7 @@ def _envelope(answer: str, chart: dict | None) -> str:
+ def test_year_series_keeps_a_line_chart() -> None:
+     record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
+     response = assemble(_envelope("Income rose.", LINE), record)
+-    assert response.answer == "Income rose."
++    assert response.answer.startswith("Income rose.")
+     assert response.chart is not None
+     assert response.chart.model_dump() == {**LINE, "series_by": None}
+     assert response.chart_unavailable is False
+@@ -203,10 +203,10 @@ def test_variable_series_is_kept() -> None:
+ 
+ def test_scalar_result_has_no_chart() -> None:
+     record = ExecutionRecord(rows=[HARRIS])
+-    response = assemble(_envelope("Population is 4.8 million.", BAR), record)
++    response = assemble(_envelope("Population is large.", BAR), record)
+     assert response.chart is None
+     assert response.chart_unavailable is False
+-    assert response.answer == "Population is 4.8 million."
++    assert response.answer.startswith("Population is large.")
+     assert response.rows[0]["B01003_001E"] == "4838303"
+     assert response.moe[0]["B01003_001M"] == "123"
+ 
+@@ -214,7 +214,7 @@ def test_scalar_result_has_no_chart() -> None:
+ def test_prose_answer_stays_a_prose_answer() -> None:
+     record = ExecutionRecord(rows=[HARRIS])
+     response = assemble("Harris County has data.", record)
+-    assert response.answer == "Harris County has data."
++    assert response.answer.startswith("Harris County has data.")
+     assert response.chart is None
+     assert response.chart_unavailable is False
+ 
+@@ -222,7 +222,7 @@ def test_prose_answer_stays_a_prose_answer() -> None:
+ def test_prose_comparison_gets_a_geography_bar() -> None:
+     record = ExecutionRecord(rows=[AUSTIN, TEXAS], table_id="B25064")
+     response = assemble("Austin is higher.", record)
+-    assert response.answer == "Austin is higher."
++    assert response.answer.startswith("Austin is higher.")
+     assert response.chart is not None
+     assert response.chart.type == "bar"
+     assert response.chart.x == "geography"
+@@ -244,7 +244,7 @@ def test_unknown_chart_type_is_discarded() -> None:
+     response = assemble(_envelope("Austin is higher.", payload), record)
+     assert response.chart is None
+     assert response.chart_unavailable is True
+-    assert response.answer == "Austin is higher."
++    assert response.answer.startswith("Austin is higher.")
+     assert len(response.rows) == 2
+     assert response.moe[0]["B25064_001M"] == "14"
+ 
+@@ -302,7 +302,7 @@ def test_fenced_json_still_extracts_the_chart() -> None:
+     record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
+     blob = "```json\n" + _envelope("Income rose.", LINE) + "\n```"
+     response = assemble(blob, record)
+-    assert response.answer == "Income rose."
++    assert response.answer.startswith("Income rose.")
+     assert response.chart is not None
+     assert response.chart.type == "line"
+ 
+diff --git a/api/tests/test_guards.py b/api/tests/test_guards.py
+index 788757c..cc062b7 100644
+--- a/api/tests/test_guards.py
++++ b/api/tests/test_guards.py
+@@ -932,7 +932,7 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
+     ]
+     assert _codes(record) == ["zcta_not_zip"]
+     response = assemble("ZCTA, not ZIP", record)
+-    assert response.answer == "ZCTA, not ZIP"
++    assert response.answer.startswith("ZCTA, not ZIP")
+     assert [item.code for item in response.warnings] == ["zcta_not_zip"]
+     assert "10001" in response.warnings[0].detail
+     assert "ACS1" in response.warnings[0].detail
+
+## PASS 1 probes (scratchpad scripts, run to confirm cold-read suspicions)
+### $ uv run python probe1.py  (figures.checked on edge phrasings; DROPPED = model text replaced, kept = passes)
+kept    | 'Cook earns $78.4K' | numbers=[]
+kept    | 'Cook earns $1.2M' | numbers=[]
+kept    | 'Cook earns ≈78,462' | numbers=[]
+kept    | 'Cook earns 78,462USD' | numbers=[]
+kept    | 'Income:78,462' | numbers=[]
+DROPPED | 'In 2023,78,462 households' | numbers=[202378462.0]
+DROPPED | 'Income ~78,462' | numbers=[78462.0]
+DROPPED | 'income is 78462' | numbers=[78462.0]
+DROPPED | 'Median income is 78 462' | numbers=[78.0, 462.0]
+DROPPED | '78,462.50' | numbers=[78462.5]
+kept    | 'Income is seventy-eight thousand' | numbers=[]
+kept    | 'about 5 percent' | numbers=[5.0]
+DROPPED | '16 to 17 percent' | numbers=[16.0, 17.0]
+DROPPED | '1.2e5' | numbers=[120000.0]
+DROPPED | 'The 90% margin applies' | numbers=[90.0]
+kept    | 'Cook earns 78,462₋' | numbers=[]
+DROPPED | 'approximately 78,462—' | numbers=[78462.0]
+kept    | '\u200b78,462' | numbers=[]
+DROPPED | '78 462' | numbers=[78.0, 462.0]
+DROPPED | '78\u202f462' | numbers=[78.0, 462.0]
+DROPPED | '78.462,00' | numbers=[78.462]
+DROPPED | 'pop 7_8' | numbers=[78.0]
+kept    | 'rank #3' | numbers=[]
+DROPPED | 'No. 1' | numbers=[1.0]
+kept    | 'top 5' | numbers=[5.0]
+kept    | 'H1' | numbers=[]
+kept    | 'B19013 is the table' | numbers=[]
+kept    | 'Table B19013_001E' | numbers=[]
+kept    | '17031 FIPS' | numbers=[17031.0]
+kept    | 'Cook (17031)' | numbers=[17031.0]
+kept    | 'income of 76,000.' | numbers=[76000.0]
+kept    | 'income of 76,000.0' | numbers=[76000.0]
+kept    | '76000.00' | numbers=[76000.0]
+kept    | '7.6e4' | numbers=[76000.0]
+kept    | '+76,000' | numbers=[76000.0]
+kept    | '76,000+' | numbers=[76000.0]
+kept    | '76,000+/-1,200' | numbers=[76000.0, 1200.0]
+kept    | '76,000±1,200' | numbers=[]
+exit=0
+### $ uv run python probe2.py  (label-lookup latency; combined row vs the 20-figure cap)
+one variables() call 0.08 s 28261 vars
+labels_for 9 vintages 0.91 s {'2016': {'B01003_001E': 'Total'}, '2017': {'B01003_001E': 'Total'}}
+labels_for 1 vintage 0.1 s
+combined shown: False | ['20 of 26 figures shown; the table has the rest.']
+exit=0
+### $ uv run python probe3.py  (chart title is outside the checked text)
+chart title kept unchecked: DuPage earns 123,456 more than Cook
+answer problem-free: Two counties compared.
+exit=0
+### $ grep -n -B2 -A3 '^.answer' web/src/App.css ; grep -n white-space web/src/App.css
+135-}
+136-
+137:.answer {
+138-  margin: 0 0 1rem;
+139-}
+140-
+180:  white-space: pre-wrap;
+### $ grep -n 'runtime check' scripts/judge_figures.py
+10:support. Measurement only: the product has no runtime check, and nothing here parses the
+
+## PASS 2 - docs/playbooks/review-pr.md: the machines first
+### $ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4549 <= 4600
+  ok    api src files               27 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1055 <= 1200
+  ok    doc lines                 1772 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit=0
+### $ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 64 (base 64, delta +0)
+
+All invariants held.
+
+exit=0
+### $ uv run ruff check .
+All checks passed!
+exit=0
+### $ uv run ruff format --check .
+201 files already formatted
+exit=0
+### $ uv run mypy api/src
+Success: no issues found in 27 source files
+exit=0
+### $ uv run pytest -q -m "not integration"
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................sssssssssssssssss..sss.......... [ 37%]
+........................................................................ [ 46%]
+..................................................xxxxx................. [ 55%]
+........................................................................ [ 65%]
+........................................................................ [ 74%]
+........................................................................ [ 83%]
+........................................................................ [ 92%]
+............sssssssssss..s.ss..........................                  [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+736 passed, 34 skipped, 5 xfailed, 1 warning in 53.13s
+exit=0
+### $ uv run python scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmprivvjvdp\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmprivvjvdp\schema.d.ts [58.3ms]
+packages/client is up to date.
+exit=0
+### $ grep -n 'import re\|re\.' api/src/figures.py   (no regex in the new module)
+exit=1 (1 = none found)
+### $ uv run python probe4.py  (failure branch wording; small integers that are 'carried' by acs5 / state FIPS)
+answer : No figures were fetched for this request; see the warnings and the URL.
+warning: [('answer_figures_unverified', "The model's text stated 5, not in the fetched data; figures below replace it.")]
+'About 5 percent of households.' -> kept
+'About 17 percent of households.' -> kept
+'Roughly 31 percent.' -> kept
+exit=0
+### $ npm --prefix web test   (part of make check; web/ is untouched by the diff)
+ [32m✓[39m src/App.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 6889[2mms[22m[39m
+   [33m[2m✓[22m[39m App pane states[2m > [22mshows a loading state distinct from idle while the request is in flight [33m 517[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mrenders URL, estimate with MOE, GEOID, universe, and an alternative [33m 454[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mcopies the visible Census URL without a key parameter [33m 345[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mreplaces every previous table row when a new result arrives [33m 570[2mms[22m[39m
+   [33m[2m✓[22m[39m App workspace[2m > [22mkeeps the prior result visible while a later question is loading [33m 436[2mms[22m[39m
+   [33m[2m✓[22m[39m App workspace[2m > [22mreplaces the active result only after a successful response [33m 433[2mms[22m[39m
+   [33m[2m✓[22m[39m App workspace[2m > [22mkeeps the prior result and shows a later failure separately [33m 432[2mms[22m[39m
+   [33m[2m✓[22m[39m App workspace[2m > [22mmoves keyboard focus to canvas status after submit and to the alert after an error [33m 495[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m110 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 07:37:04
+[2m   Duration [22m 17.30s[2m (transform 2.54s, setup 11.02s, collect 9.07s, tests 14.97s, environment 38.00s, prepare 3.81s)[22m
+
+exit=0
+### $ uv run python probe5.py  (end to end with the real metadata cache and availability matrix; one seeded row per vintage)
+labels: {'2023': {'B19013_001E': 'Median household income in the past 12 months (in 2023 inflation-adjusted dollars)'}, '2018': {'B19013_001E': 'Median household income in the past 12 months (in 2018 inflation-adjusted dollars)'}}
+Harris County median household income, two vintages.
+
+Median household income in the past 12 months (in 2023 inflation-adjusted dollars): 75,807 (margin of error 1,500), Harris County, Texas (0500000US48201), acs5 2023.
+Median household income in the past 12 months (in 2018 inflation-adjusted dollars): not available, Harris County, Texas (0500000US48201), acs5 2018.
+2023: Table B19013: Median Household Income in the Past 12 Months (in 2023 Inflation-Adjusted Dollars). Universe: Households
+2018: Table B19013: MEDIAN HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2018 INFLATION-ADJUSTED DOLLARS).
+warnings: []
+exit=0
+
+## PASS 2 - review-pr.md, the parts the machines cannot check (read after pass 1 was finished and probed)
+# Disclosure: pass 1 (above) was done from the code diff alone. Only after it did I read .claude/PLAN.md,
+# evidence/slice-6/cc-121-plan.md, docs/requirements.md, docs/ask-path.md and the docs diff, for this pass.
+# Files touched outside evidence/: 14 (api/src 5, api/tests 5, docs 3, scripts 1); evidence/: 68 files, 27.9k lines.
+# Machines: budgets, invariants (regex delta +0), ruff, format, mypy, pytest (736 passed, 34 skipped, 5 xfailed),
+# generate_client --check, web tests (110 passed): all exit 0. budgets.toml is not in the diff (the 4600 ceiling is already on main, 3b785a4).
+### $ git show --stat 5f242d8 ; git diff origin/main...HEAD --stat -- budgets.toml
+5f242d8 budget(cc-121): raise api src loc forwrites the answer without seeing the fetched figures
+0
+### $ uv run python probe6.py  (real label ending in a colon; a failed-year note that repeats an HTTP status)
+real label for B01001_001E: 'Total:'
+Total:: 5,000,000 (margin of error 900), Cook County, Illinois (0500000US17031), acs5 2023.
+warnings: [('answer_figures_unverified', "The model's text stated 404, not in the fetched data; figures below replace it.")]
+exit=0
+# note: the first run of probe6.py crashed on an IndexError in the probe's own print line (not in the product);
+# the probe was corrected and re-run, and only the re-run is kept above.
+
+## PASS 1b - the code-review skill (Skill code-review, effort high, target feat/cc-121-answer-figures vs origin/main,
+## report only: no --fix, no --comment). Raw result, run in a forked background agent after my own cold read:
+[
+  {
+    "file": "api/src/figures.py", "line": 59,
+    "summary": "The number check skips any token that float() cannot parse, so a figure written as \"$78k\", \"8.3M\", \"+-99,999\", the Unicode minus, in curly quotes, or as \"99,999USD\" is never checked.",
+    "failure_scenario": "The model writes \"Cook County earns $78k\" or \"about 8.3M people\". _numbers hits ValueError, suppresses it and returns no number, so checked returns the prose unchanged with no warning. The suite's own strict xfail test documents the hole, and numbers written in words are unchecked too."
+  },
+  {
+    "file": "api/src/figures.py", "line": 129,
+    "summary": "The allowed set is one flat pool of every number in every row. A figure attached to the wrong place, variable or year still passes.",
+    "failure_scenario": "Rows hold Cook 76,000 and DuPage 99,500. The model writes \"DuPage earns 76,000\" or swaps the 2019 and 2023 values. Both numbers are in the set, so nothing is flagged. Small integers (MOEs, FIPS parts, years) also make many stray values pass by coincidence."
+  },
+  {
+    "file": "api/src/figures.py", "line": 146,
+    "summary": "checked also runs on error and no-data answers that never had figures, and replaces any text with a year, status code or \"5-year\" with NO_FIGURES.",
+    "failure_scenario": "run_ask sets answer = str(exc) on RuntimeError, and the model may say \"No table covers 2020 ACS 5-year data\". With no fetch there are no allowed years and rows is empty. _numbers finds 2020 or 5, stray is non-empty and prose becomes \"\". The user sees \"No figures were fetched for this request; see the warnings and the URL.\" The real error is lost, and a spurious answer_figures_unverified warning is added. Years from record.vintages and the build_url year are not in _allowed, only fetch.*_years."
+  },
+  {
+    "file": "api/src/fetch.py", "line": 409,
+    "summary": "Every fetch now synchronously gunzips and JSON-parses the full variables file once per vintage, uncached, on the request hot path, after the Census calls finish.",
+    "failure_scenario": "_labels calls metadata.variables(dataset, year), which parses the whole ~28k-variable file every call, to look up at most 20 keys. A 12-year fetch parses 12 large files per request. p95 is 18.9s against a 20s ceiling."
+  },
+  {
+    "file": "api/src/figures.py", "line": 102,
+    "summary": "The table ID, title and universe are taken from the first rendered cell only, and the fetch labels are keyed by year but not by dataset.",
+    "failure_scenario": "table = shown[0][1].split(\"_\")[0]. If rows hold variables from more than one table or a different dataset, every figure is described under the first cell's table title and universe. record.table_id is available and would be the correct source. (not reproduced by me; rows of one fetch share one table and dataset)"
+  },
+  {
+    "file": "api/src/figures.py", "line": 24,
+    "summary": "The MAX_FIGURES cap is taken from the front of the row list, but combined (aggregated) rows are appended last, so the headline combined figure is the first thing cut.",
+    "failure_scenario": "finish_aggregation returns [*rows, *combined_rows]. With 20 or more estimate cells before the combined row, _cells truncates to the first 20 and the combined row the question asked for is never rendered."
+  },
+  {
+    "file": "scripts/judge_figures.py", "line": 83,
+    "summary": "Building `used` calls int(row[\"year\"]) for every row, though `names` was built only from rows that have \"year\".",
+    "failure_scenario": "A row lacking \"year\" raises KeyError inside one(), which propagates out of asyncio.as_completed and aborts the collect run, leaving a partial jsonl that the script then refuses to overwrite for the same --label."
+  },
+  {
+    "file": "api/src/contract.py", "line": 395,
+    "summary": "Figure rendering and verification are bolted onto take_chart, with an untyped record: Any = None and a function-local import to dodge a cycle. take_chart now mutates the warnings list it was given.",
+    "failure_scenario": "The only caller, assemble, could call checked itself. The default record=None silently skips the check, so a future caller that forgets the argument gets unchecked prose."
+  },
+  {
+    "file": "api/src/figures.py", "line": 83,
+    "summary": "The CENSUS_MISSING check treats every sentinel the same, so the reason a value is missing is lost.",
+    "failure_scenario": "A margin of -555555555 (estimate controlled) and -333333333 (too few samples) both render as \"margin of error not published\"; every estimate sentinel renders as \"not available\"."
+  },
+  {
+    "file": "api/src/figures.py", "line": 59,
+    "summary": "The prose check is a hand-written tokenizer of free-form model text (translate table, edge-strip set, comma removal), the kind of phrasing-keyed heuristic CLAUDE.md warns about.",
+    "failure_scenario": "_BREAKS, _EDGE and _numbers already fail on \"$78k\", the Unicode minus, \"2019,2020,2021\" (glued to 201920202021) and numbers in words."
+  }
+]
+# (transcribed from the skill's JSON reply; wording trimmed, nothing added. ASCII plus-minus/curly quotes written out.)
+
+## FINDINGS (each checked against the code; "reproduced" = I ran it, output above)
+
+PASS 1 - generic bugs, code only (my cold read, before I read the plan): B1, B2, B3, B4, B5, B6, B7, N1. B1-B6 reproduced or measured by my probes; B7 by reading the CSS.
+PASS 1b - code-review skill (high): 10 findings. Overlap with pass 1: B1, B3, B4, B5, B6. New to me, PLAUSIBLE and not reproduced: B9 (sentinel reasons), N2 (judge_figures KeyError), N3 (first-cell table), N4 (take_chart layering). Its tenth point (the hand-written tokenizer against CLAUDE.md's regex/keyword rule) I treat as a design note on B1: owner chose a digits-only check (plan J2/J3), regex delta is +0.
+PASS 2 - review-pr.md: machines all green. B8 (doubled colon) came from probe6 after I read the plan, which also lists it. Claim, scope, shape, tests: nothing blocking beyond B1/B2. Silent-wrong-answer review: B1, B2 block; B3, B4 follow-up.
+
+BLOCKS (silent wrong answer: a model-written figure ships with no warning)
+ B1  api/src/figures.py:59 _numbers. A token that holds a digit but that float() cannot read is skipped, so the check never sees it.
+     Reproduced (probe1): "$78.4K", "$1.2M", "the approx-equal sign before 78,462", "78,462USD", "Income:78,462", "rank #3", a zero-width space before 78,462
+     all return no number and the model text is kept with no warning. The 5 strict xfail tests cover only part of the class
+     (mark glued to a figure); the class is "any digit-bearing token float() rejects", which is wider than the 5 cases.
+     Note for the fix: adding characters to _EDGE / _BREAKS is the pattern trap CLAUDE.md names (one more phrasing); the fail-closed
+     rule in the plan (a digit-bearing token that float() cannot read counts as not carried unless the whole token is carried) is not a pattern.
+ B2  api/src/contract.py:395 + ChartSpec.title. Only `answer` is checked. The chart title is model text in the same envelope and is shown by the UI.
+     Reproduced (probe3): chart title "DuPage earns 123,456 more than Cook" is kept, answer clean, no warning.
+
+FOLLOW-UP (none of these may be silent; B3 is the one closest to the line)
+ B3  api/src/figures.py:129-139 _allowed. The pool is every number in every row cell, the years, and the dataset's digits.
+     Reproduced (probe4): "About 17 percent" passes in Cook County (state FIPS 17), "Roughly 31 percent" passes (county 031),
+     "About 5 percent" passes (acs5). A figure attached to the wrong place or year also passes (known gap, named in the plan).
+     The plan names only the wrong-place gap; the small-integer coincidence is wider. E2E judge rate is what measures the residual.
+ B4  api/src/figures.py:146 checked on failure/no-data answers. Reproduced (probe4, probe6).
+     (a) No rows, model says "I could not build a URL for the 5-year table": answer becomes NO_FIGURES and the warning reads
+         "stated 5 ... figures below replace it" although no figures follow. The model's explanation is lost.
+     (b) Rows present, model writes "2019 failed with HTTP 404": 404 is not carried, the whole framing is dropped, and the answer text no
+         longer says 2019 failed (failed_years / omission_reasons still carry it). The prompt tells the model to describe failures from the
+         fetch summary, which contains "HTTP 404". requirements.md: dropped years are named, with a reason.
+     _allowed reads years only from record.fetch.*_years, so with no fetch the build_url year is not allowed either.
+ B5  api/src/fetch.py:409 / figures._labels. metadata.variables() gunzips and parses the whole ~28k-variable file per vintage, uncached,
+     after the Census calls and before fetch_data returns. Measured (probe2): 0.08-0.11 s per vintage, 0.91 s for a 9-vintage series
+     (GIL-bound, threads do not overlap). Series questions only. p95 now 18.928 s against a 20 s ceiling: E2E must report it.
+ B6  api/src/figures.py:24 _cells. Combined rows are appended after the component rows, the cap keeps the first 20.
+     Reproduced (probe2): 25 places + 1 combined row -> "20 of 26 figures shown" and the combined figure is not in the answer.
+ B7  web/src/App.css:137 .answer has no white-space rule; App.tsx:275 renders answer in one <p>. The newline-separated figure sentences
+     collapse into one paragraph. Known to the author (plan, owner decision on the one CSS line; web_src_loc is 3349 of 3350). Not changed.
+ B8  api/src/figures.py:92 label + ": ". Reproduced (probe6): the real label of B01001_001E is "Total:", so the line reads
+     "Total:: 5,000,000 (margin of error 900), ..." on every table whose parent row ends in a colon. Cosmetic; known (Gate 1 observation).
+ B9  api/src/figures.py:83-90 sentinel reasons collapse: M = -555555555 and -333333333 both read "margin of error not published";
+     every E sentinel reads "not available". Nit.
+
+NITS
+ N1  scripts/judge_figures.py:10 says "the product has no runtime check"; after this branch the product has one. Stale claim.
+ N2  scripts/judge_figures.py:83 int(row["year"]) over all rows (KeyError aborts a collect run). PLAUSIBLE, fetched rows always carry year.
+ N3  api/src/figures.py:102 table id/title taken from the first shown cell; labels keyed by year, not dataset. PLAUSIBLE; one fetch is one table and one dataset.
+ N4  api/src/contract.py:395 take_chart now rewrites the answer and mutates `warnings`; record=None silently skips the check.
+ N5  Branch history: empty commit 5f242d8 titled as a budget raise (garbled subject), reverts and re-applies of the earlier design; 68 evidence files /
+     27.9k lines incl. the abandoned design's answers. PR body must say why the diff is over ~15 files and squash or explain the history.
+ N6  Tests: _record() default table_facts returns one TITLE/universe for any input (varying-facts tests exist: each_vintage_is_read..., the universe order test);
+     conftest autouse stub makes _labels return {} for every input. Neither hides a defect; named for completeness.
+
+CLAIM (my words, from the diff): every answer with fetched rows now ends with figures written by code (estimate, margin of error, place,
+GEOID, vintage, table title, universe), and model text that states a number the response does not carry is replaced and flagged.
+EVIDENCE: not yet run (only the baseline cc-121-e2e-base* exists). E2E must show, at one --repeat: long_tail answered_rate within 3 points of
+baseline, demo.p95_latency_seconds <= 20 (B5), the answer_figures_unverified rate, the judge's unsupported rate against the baseline, regression-minus-sealed gap.
+SCOPE: CC-121 is first in slice 6; not on the "Not in this slice" list (auth, PDF). 14 files outside evidence/. No budget in the diff.
+SHAPE: no new tool, route, node or boundary model; docs/ARCHITECTURE.md updated. No regex added (call sites 64, delta +0).
+TESTS: behaviour, not prompt wording. 5 strict xfail tests ship the B1 defect and must flip with the fix.
+
+VERDICT: Not yet. The number check lets a model-written figure through when it is glued to any mark float() cannot read (B1) or put in the chart title (B2); both are silent wrong answers and block.
