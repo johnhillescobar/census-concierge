@@ -84,6 +84,25 @@ One real defect, left unfixed on purpose and queued for the fix phase together w
 
 Other observations: a label that ends in a colon renders as `Total:: 5,000` (fix: drop the trailing colon); a true statement such as "90% confidence" is replaced because 90 is not in the response; a number written in words passes (Option A relies on the instruction); a framing that attaches a carried number to the wrong place passes (known gap, for Gate 2 and the owner). Jira comment on Gate 1: posted.
 
+## Batch G2: Gate 2, cold-context review (approved 2026-10-21: run the gates end to end)
+
+Procedure: `docs/playbooks/run-slice.md` section 4. Code under review: the net change `origin/main..HEAD` outside `evidence/` (`api/`, `docs/`, `scripts/`, `web/`, `budgets.toml`, tool config). Read-only gate: nothing is fixed here; fixes are a separate batch after the findings (section 5 of the playbook: tests plus a mutation check for every fix, then one re-run of Gate 2 if the fixes are non-trivial).
+
+Outward writes:
+1. One fresh `general-purpose` subagent (not a fork), working in this checkout (it needs `data/raw` and the full suite; a worktree has neither and left a locked folder last time). It is read-only except for one file, `evidence/slice-6/cc-121-gate2-restored.txt` (the pre-rebuild `cc-121-gate2.txt` and `cc-121-gate2-rerun.txt` stay as they are, marked). It makes no commit, edits no source, and does not run `/code-review` with `--fix` or `--comment`.
+2. Cold: the subagent is told the diff range and the project rules, not what the change is for. It may not read `evidence/`, the plan file, the Jira ticket, memory files or any earlier gate transcript, nor `evals/` or `.env`.
+3. Pass one, generic bugs: the `code-review` skill at `high` on the diff (if the skill is unavailable to it, the same cold read by hand, stated in the transcript).
+4. Pass two, project invariants, `docs/playbooks/review-pr.md`: first the five machines (budgets, invariants against `origin/main`, ruff, mypy, pytest `-m "not integration"`) with their output pasted; a non-zero exit ends the review. Then claim (it writes the one-sentence user-facing claim from the diff alone, which I compare with the real one), scope (`docs/slices.md`, "Not in this slice"), silent-wrong-answer review (URL, MOE, GEOID, universe in every branch including failures; key redaction; numbers passing through the model; guards that block; silent repair), shape, tests (behaviour not wording, fakes that return the same thing for every input). The E2E evidence does not exist yet: it says "not yet run" and names what E2E must show, and does not count it against the change.
+5. Every finding: file and line, severity (blocks / follow-up / nit), a concrete input that gives a wrong output, and whether it reproduced when run (otherwise marked PLAUSIBLE). One verdict from the playbook's three.
+6. No API spend. It runs no `make demo`, `make eval` or `e2e_capture.py`.
+7. On return I read the findings, check each against the code, commit the transcript, and post one short Jira comment on CC-121 (default: CLAUDE.md "and Jira"). Then I write the fix batch (F1): the Gate 1 defect (digit-bearing tokens `float()` cannot read), the doubled colon in labels, and whatever Gate 2 confirms.
+
+Cost: one high-effort review plus the machines, comparable to Gate 1 in tokens. Alternative: I run `/code-review` here; cheaper, but not cold.
+
+## Run order from here (owner, 2026-10-21: "it's supposed to be run end to end")
+
+The gates are not separate approvals. G2, then triage of its findings, then the fix batch F1 (the Gate 1 defect, the doubled colon, whatever Gate 2 confirms; tests and a mutation check for every fix), then one Gate 2 re-run if the fixes are non-trivial, then E2E pre-PR (`scripts/e2e_capture.py --slice 6 --ticket CC-121 --phase pre`; real keys, credits; scoreboard quoted from `evidence/latest.json`, never the transcript). Each result goes into this file and a short Jira comment as it lands. Stops: a machine that exits non-zero, a decision that is the owner's (any budget, a change to the ticket's scope, the web CSS line), and the outward step of pushing the branch and opening the PR, which waits for one "yes" with the whole record in front of it. Merge is the owner's; the post-merge E2E follows it.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
