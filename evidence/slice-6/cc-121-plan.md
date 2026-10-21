@@ -53,6 +53,31 @@ Repo writes on `feat/cc-121-answer-figures`, one code commit plus an evidence co
 
 Result (2026-10-20): implemented in `f59eee8`. Where the plan said "hook at `ask.py:252` (zero net lines)" the check lives in `take_chart` (`contract.py`, +7 lines, local import because `figures` reaches `vintages`, which imports `contract`) and `ask.py:252` passes `record` through, zero net lines. `fetch_data` looks the labels up (one thread per vintage) and keeps them on its artifact (`fetch.py` +3). Checks: ruff, format, mypy, 674 tests (14 new), budgets (`api_src_loc` 4549 of 4600, doc lines 1772 of 1800, prompt tokens 1055 of 1200), invariants (regex call sites 64, delta +0), client up to date, web 110 tests. Existing tests that compared the whole answer to the model's text now compare its start (6 tests) or pass a digit-free answer (5 tests). Offline run of the real check on the 40 stored probe answers: 7 would be replaced (stored rows have no table titles or state/county columns, so this over-counts). Not done: Gate 1, Gate 2, E2E. Open: `.answer` in the web UI has no `white-space: pre-line`, so the figure lines would run together; one CSS line fits the web budget exactly (3349 of 3350); not changed.
 
+## Batch G1: Gate 1, adversarial tests and the mutation check (approved "yes", 2026-10-20)
+
+Procedure: `docs/playbooks/run-slice.md` section 3. Code under test: `f59eee8`. No API spend, no keys needed.
+
+Matrix (`docs/process-evidence.md`): its four rows are slice-0 retrieval probes (identical inputs ranked by float noise; a family returned by one member; a ranking change measured on the tuning set alone; "expect the largest jump" checked against the number). None targets answer figures. The last two are measurement discipline and belong to E2E (n = 40 alone is noise; the sealed gap is reported there), not to Gate 1. Gate 1 therefore takes its probes from the ticket's test cases (happy, edge, novel, regression, failure) and from the check's own failure modes.
+
+Outward writes:
+1. One fresh `general-purpose` subagent in its own worktree (`isolation: worktree`), not a fork. It reads the playbook section, the matrix, `docs/requirements.md` and `docs/ask-path.md`, the restored ticket text and the diff `origin/main..f59eee8`, and writes its own adversarial tests into `api/tests/test_figures.py` (it can see my 14). It changes no `api/src` file; a defect it finds is reported, not fixed.
+2. For every new test, mine and its own: revert the one behaviour it covers, run only that test, confirm it fails, restore (a harness that restores each file and checks `git diff` is clean afterwards). Transcript with `GOOD` / `BAD` labels above the real failure counts: `evidence/slice-6/cc-121-gate1-restored.txt` (the pre-rebuild `cc-121-gate1.txt` stays as it is, marked). Harness: `evidence/slice-6/cc-121-gate1-mutations.py`. A `BAD` is fixed in the test, not the source, and re-run.
+3. One commit in the worktree. I read the transcript's `GOOD` / `BAD` lines and the diff, then bring the commit onto `feat/cc-121-answer-figures`.
+4. One short Jira comment on CC-121 with the Gate 1 counts (default: CLAUDE.md says "and Jira", `run-slice.md` says "or Jira").
+
+Probes the subagent starts from (it may add more; none is a quoted answer from the eval set):
+- off by one digit ("76,001" against 76000), a dropped digit, European separators ("76.000"), a range of two carried numbers, a fraction ("1/2")
+- "2.1 million" against 2,132,000 (Option A: the digits do not match, so the text is replaced)
+- tokens with no digit that `float()` reads ("nan", "inf"); percent and dollar signs
+- ACS1 against ACS5 (a "1-year" text is carried only by an acs1 dataset)
+- a row without year or dataset (no "None", no double spaces); annotation and `M` columns are not figures
+- one wide row with more than 20 estimate cells; a result with a place but no estimate cells
+- `take_chart` with `record=None` (text untouched) and with `warnings=None` (no crash)
+- failed fetch and no rows: no figures, a clean text untouched, a figure removed
+- known gap, to be named in the transcript and not tested as if solved: a framing that attaches a carried number to the wrong place passes a digits-only check
+
+Alternative if you prefer: run Gate 1 in this session. Cheaper, but the tests then share my mental model and my context keeps the output.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
