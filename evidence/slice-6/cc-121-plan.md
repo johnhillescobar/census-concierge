@@ -37,9 +37,12 @@ One Jira comment on CC-121 (status unchanged, description not edited): the 1-of-
 
 Rebased the 12 local commits onto `origin/main` (`1160bde`, PR #110 and #111) with `--reapply-cherry-picks --empty=keep`, so the budget commit stays (now `5f242d8`, empty: `main` already holds the same raise as `3b785a4`, and `budgets.toml` equals `main`'s). Git's default would have dropped it. Local backup ref `backup/cc-121-pre-rebase` points at the pre-rebase tip; delete it when no longer wanted. After the rebase: ruff, format, mypy, 660 tests, budgets (`api_src_loc` 4452 of 4600), invariants (regex call sites 64, delta +0) and `generate_client --check` all pass.
 
+## Batch P2: live probe of the no-figures instruction (approved "yes", 2026-10-20)
+
+Outward writes: OpenAI and Census API calls (answers: gpt-4o-mini; judge: gpt-4.1; 40 visible long_tail questions, repeat 1, about 80 model calls plus tool calls and Census requests), and new files `evidence/slice-6/cc-121-answers-probe-nodigits.jsonl`, `cc-121-collect-probe-nodigits.log` and `cc-121-judged-probe-nodigits-gpt-4.1.jsonl`. A 2-question smoke run (label `probe-smoke`) comes first and its files are deleted. Instruction and readings are pre-registered in `cc-121-probe-instruction.md` / `.txt`. `api/src` is not modified; the prompt is patched in the probe's process only. Tag: default (thresholds in the pre-registration are mine).
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
-- P2: live probe of whether the model writes no digits when told not to (40 visible questions, repeat 1; needs OpenAI and Census credits). Only on an explicit go-ahead.
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
 - G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
 - Ruling needed: CLAUDE.md says phases persist to "git/PR/evidence and Jira"; `run-slice.md` says "or Jira". Default: one short Jira comment per gate.
