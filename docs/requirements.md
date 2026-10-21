@@ -36,6 +36,12 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 
+## Answer text
+
+| code | condition |
+|---|---|
+| `answer_figures_unverified` | The model's text stated a number the response does not carry; the rendered figures replace it. |
+
 ## Slice 3 warning codes — years
 
 | code | condition |

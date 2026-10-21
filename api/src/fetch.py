@@ -11,6 +11,7 @@ import httpx
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field
 
+from src import figures
 from src.census_url import CensusURL, redact_text
 from src.contract import GeoSpec, RequestLeg
 from src.tools import ToolInput, ToolResult
@@ -56,6 +57,7 @@ class FetchDataResult(ToolResult):
     omission_reasons: list[str]
     dataset: str = ""
     acs1_ineligible: bool = False
+    labels: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 def unique_years(years: list[int]) -> list[int]:
@@ -404,4 +406,5 @@ class FetchDataTool(BaseTool):
             dataset=plan.dataset,
             acs1_ineligible=plan.acs1_ineligible,
         )
+        result.labels = await figures.labels_for(rows, plan.dataset)
         return _tool_content(result), result

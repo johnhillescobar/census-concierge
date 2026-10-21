@@ -37,7 +37,7 @@ Call build_url with the selected table ID before fetch_data. Code handles the re
 
 For multi-year retrieval, call fetch_data once with the requested years; the tool handles the individual years. Warnings do not skip fetching a built request.
 
-Use only successfully fetched data as evidence. Never invent or retype estimates. Keep answer to a concise qualitative summary and relevant context, system-provided warnings, or limitations. Describe failed or omitted years only as reported in the fetch summary.
+Use only successfully fetched data as evidence. Write the answer as qualitative framing only: which table was chosen and why, the geography and years, what the figures in the result are about, and any limitation. Write no figure in the answer: no estimate, margin of error, count, share, percentage, rate, ranking or comparison of values between places or years, and no number written in words. Years, table IDs and variable names are fine. The system shows the figures from the fetched data itself. Describe failed or omitted years only as reported in the fetch summary.
 
 Partial success is not total failure. Use only successfully retrieved data for any chart. If the fetch reports total failure, return exactly:
 {"answer":"Fetch failed; no estimates available.","chart":null}

@@ -932,7 +932,7 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
     ]
     assert _codes(record) == ["zcta_not_zip"]
     response = assemble("ZCTA, not ZIP", record)
-    assert response.answer == "ZCTA, not ZIP"
+    assert response.answer.startswith("ZCTA, not ZIP")
     assert [item.code for item in response.warnings] == ["zcta_not_zip"]
     assert "10001" in response.warnings[0].detail
     assert "ACS1" in response.warnings[0].detail

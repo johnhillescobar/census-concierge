@@ -388,6 +388,7 @@ def take_chart(
     answer: str,
     rows: list[dict[str, str | None]],
     warnings: list[Any] | None = None,
+    record: Any = None,
 ) -> dict[str, Any]:
     text = answer.strip()
     if text.startswith("```"):
@@ -404,6 +405,12 @@ def take_chart(
         raw = body.get("chart")
         saw = raw is not None
         payload = raw if isinstance(raw, dict) else {}
+    if record is not None:
+        from src.figures import checked  # figures reaches vintages, which imports this module
+
+        cleaned, problem = checked(cleaned, rows, record)
+        if problem and warnings is not None:
+            warnings.append(AskWarning(code="answer_figures_unverified", detail=problem))
     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
     spec: ChartSpec | None = None
     unavailable = False

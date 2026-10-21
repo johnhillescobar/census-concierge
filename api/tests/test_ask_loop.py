@@ -755,7 +755,7 @@ async def test_and_phrased_comparison_resolves_both_geographies() -> None:
     assert record.geo_status["compare"] is True
     assert record.geo_status["compare_count"] == 2
     assert [row.for_spec for row in record.geographies[:2]] == ["place:4805000", "place:19000"]
-    response = assemble(question, record)
+    response = assemble("Both places resolved.", record)
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert "Lake Dallas city, Texas" in response.warnings[0].detail
     assert [row.for_spec for row in response.plan.geographies] == ["place:4805000", "place:19000"]
@@ -774,7 +774,7 @@ async def test_and_phrased_comparison_across_states() -> None:
     assert record.geo_status["compare"] is True
     assert record.geo_status["compare_count"] == 2
     assert len(record.geographies) == 2
-    response = assemble(question, record)
+    response = assemble("Both places resolved.", record)
     assert response.warnings == []
     fetch = tools["fetch_data"]
     assert fetch.last_geographies is not None
@@ -794,7 +794,7 @@ async def test_three_way_and_list_comparison() -> None:
     assert record.geo_status["compare"] is True
     assert record.geo_status["compare_count"] == 3
     assert len(record.geographies) == 3
-    response = assemble(question, record)
+    response = assemble("Both places resolved.", record)
     assert response.warnings == []
     assert [row.for_spec for row in response.plan.geographies] == [
         "place:4805000",
@@ -829,7 +829,7 @@ async def test_bare_unqualified_city_names_resolve_all_places() -> None:
         "place:0644000",
         "place:3651000",
     ]
-    response = assemble(question, record)
+    response = assemble("Both places resolved.", record)
     assert response.warnings == []
     fetch = tools["fetch_data"]
     assert fetch.last_geographies is not None
@@ -884,7 +884,7 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
     warnings_by_code = {item.code: item for item in response.warnings}
     assert "ambiguous_place" in warnings_by_code
     assert "Lake Dallas city, Texas" in warnings_by_code["ambiguous_place"].detail
-    assert response.answer == "Austin and Dallas compared."
+    assert response.answer.startswith("Austin and Dallas compared.")
 
 
 async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparison() -> None:
