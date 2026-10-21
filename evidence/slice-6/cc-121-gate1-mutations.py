@@ -635,7 +635,9 @@ def summary(out: str) -> str:
 def run(case: Case) -> tuple[int, str]:
     path = ROOT / case.file
     original = path.read_bytes()
-    text = original.decode("utf-8")
+    text = original.decode("utf-8").replace(
+        chr(13) + chr(10), chr(10)
+    )  # CRLF working copies match too
     assert text.count(case.old) == 1, f"{case.name}: old text occurs {text.count(case.old)} times"
     assert case.old != case.new, f"{case.name}: nothing changed"
     try:
