@@ -33,9 +33,12 @@ Defaults accepted with P1, not owner decisions: rendered figures capped at 20 wi
 
 One Jira comment on CC-121 (status unchanged, description not edited): the 1-of-120 number-word count in the P1 comment is withdrawn; owner decisions recorded as `owner`: no sets of number words and no parser, in the product or in `scripts/`; Option A for the model's part (the model writes figures as digits exactly as rendered, the check is a digits-only comparison, no runtime model call; Reading B, a model call that judges prose numbers, not chosen). The restored description still lists a thousand/million parser; the comment supersedes those lines. Editing the description was offered and not chosen.
 
+## Batch R2: rebase onto origin/main, done 2026-10-20 (approved "yes", "keep 7aebf3a")
+
+Rebased the 12 local commits onto `origin/main` (`1160bde`, PR #110 and #111) with `--reapply-cherry-picks --empty=keep`, so the budget commit stays (now `5f242d8`, empty: `main` already holds the same raise as `3b785a4`, and `budgets.toml` equals `main`'s). Git's default would have dropped it. Local backup ref `backup/cc-121-pre-rebase` points at the pre-rebase tip; delete it when no longer wanted. After the rebase: ruff, format, mypy, 660 tests, budgets (`api_src_loc` 4452 of 4600), invariants (regex call sites 64, delta +0) and `generate_client --check` all pass.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
-- R2: repo. Rebase the local commits onto `origin/main` (15 commits ahead: PR #110 and #111), dropping `7aebf3a`, which duplicates `3b785a4` already on `main`. The branch is unpushed.
 - P2: live probe of whether the model writes no digits when told not to (40 visible questions, repeat 1; needs OpenAI and Census credits). Only on an explicit go-ahead.
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
 - G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
