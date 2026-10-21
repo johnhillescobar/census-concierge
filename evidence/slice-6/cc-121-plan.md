@@ -41,8 +41,11 @@ Rebased the 12 local commits onto `origin/main` (`1160bde`, PR #110 and #111) wi
 
 Outward writes: OpenAI and Census API calls (answers: gpt-4o-mini; judge: gpt-4.1; 40 visible long_tail questions, repeat 1, about 80 model calls plus tool calls and Census requests), and new files `evidence/slice-6/cc-121-answers-probe-nodigits.jsonl`, `cc-121-collect-probe-nodigits.log` and `cc-121-judged-probe-nodigits-gpt-4.1.jsonl`. A 2-question smoke run (label `probe-smoke`) comes first and its files are deleted. Instruction and readings are pre-registered in `cc-121-probe-instruction.md` / `.txt`. `api/src` is not modified; the prompt is patched in the probe's process only. Tag: default (thresholds in the pre-registration are mine).
 
+Result (2026-10-20): the 40 trials ran with 0 errors; the smoke files were deleted. Strict flags 13 of 40 (band "5 to 20: partly", the owner's call); judge unsupported 2 of 40 against 28 of 40 for the stored baseline at repeat 1. No answer contains a number of 100 or more. Written up in `cc-121-probe-results.md` (also committed: the probe answers, log, judged file, and a `probe` reading in `cc-121-preflight-check.py`). Not yet done: a Jira comment with the result (J3, below).
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
+- J3: Jira comment with the P2 result and the owner's pick among the three options in `cc-121-probe-results.md` (tag the pick `owner`).
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
 - G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
 - Ruling needed: CLAUDE.md says phases persist to "git/PR/evidence and Jira"; `run-slice.md` says "or Jira". Default: one short Jira comment per gate.

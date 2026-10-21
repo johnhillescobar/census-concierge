@@ -6,11 +6,13 @@ scale word ("two", "2.1 million") is not read as a number; telling the model to 
 the model's job, by instruction.
 
 Run from anywhere: uv run python -I evidence/slice-6/cc-121-preflight-check.py
+Probe reading: ... cc-121-preflight-check.py probe-nodigits (after collect and judge)
 """
 
 import collections
 import contextlib
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -191,5 +193,41 @@ def main():
     )
 
 
+def probe(label):
+    """Digits-only reading of one probe run, beside the repeat-1 slice of the base-fixed run."""
+    arms = {
+        label: (
+            load(f"cc-121-answers-{label}.jsonl"),
+            load(f"cc-121-judged-{label}-gpt-4.1.jsonl"),
+        ),
+        "base-fixed, repeat 1 only": (
+            [r for r in load(ANSWERS) if r["repeat"] == 1],
+            [v for v in load(JUDGES[0]) if v["repeat"] == 1],
+        ),
+    }
+    for name, (recs, verdicts) in arms.items():
+        done = [r for r in recs if "answer" in r]
+        flagged = [bool(flags(r)) for r in done]
+        figures = [any(not year_like(abs(v)) for v, _d in numbers(r["answer"])) for r in done]
+        any_num = [bool(numbers(r["answer"])) for r in done]
+        judged = [v for v in verdicts if v["verdict"] in ("ok", "unsupported")]
+        secs = sorted(r["latency_s"] for r in done if "latency_s" in r)
+        print(f"== {name}: {len(recs)} trials, {len(recs) - len(done)} errored")
+        print(f"  strict flags (unmatched numeric token): {sum(flagged)} of {len(done)}")
+        print(
+            f"  numeric token that is not a year: {sum(figures)}; any numeric token: {sum(any_num)}"
+        )
+        unsupported = sum(v["verdict"] == "unsupported" for v in judged)
+        states = sum(bool(v.get("states_figures")) for v in judged)
+        print(
+            f"  judge gpt-4.1: unsupported {unsupported} of {len(judged)}; states a figure {states}"
+        )
+        if secs:
+            print(f"  latency s (relative only): p50 {secs[len(secs) // 2]}, max {secs[-1]}")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1:
+        probe(sys.argv[1])
+    else:
+        main()
