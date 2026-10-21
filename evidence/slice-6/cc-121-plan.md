@@ -78,6 +78,12 @@ Probes the subagent starts from (it may add more; none is a quoted answer from t
 
 Alternative if you prefer: run Gate 1 in this session. Cheaper, but the tests then share my mental model and my context keeps the output.
 
+Result (2026-10-20): the subagent's commit `1b3c3a5` is on the branch as `d0b2a8b`. 35 test functions (67 cases: 62 pass, 5 strict xfail) were added to the 14; 98 mutations, 98 CAUGHT, 0 NOT CAUGHT (`cc-121-gate1-restored.txt`). I reproduced the run: same tally, after making the harness independent of CRLF working copies (`dbd5da7`). Suite 736 passed, 34 skipped, 5 xfailed; ruff, format, mypy, invariants (regex delta +0) clean; the subagent changed no `api/src` file. Matrix: its four slice-0 rows do not target answer figures.
+
+One real defect, left unfixed on purpose and queued for the fix phase together with Gate 2's findings (the playbook fixes after Gate 2): `_numbers` skips any token that holds a digit but that `float()` cannot read, so a figure glued to a mark passes unchecked (`$78k`, `+-99,999` with the plus-minus sign, the Unicode minus, curly quotes, `99,999USD`, `99,999's`, `99,999[1]`). Five strict xfail tests cover it; each turned into a strict XPASS when the defect was repaired. Candidate fix, no regex and no word list, for the owner to see at the fix phase: add the plus-minus sign and curly quotes to the edge characters, treat the Unicode minus as a break, and treat any other digit-bearing token that `float()` cannot read as not carried unless the whole token is carried (table IDs, GEOIDs, dataset names).
+
+Other observations: a label that ends in a colon renders as `Total:: 5,000` (fix: drop the trailing colon); a true statement such as "90% confidence" is replaced because 90 is not in the response; a number written in words passes (Option A relies on the instruction); a framing that attaches a carried number to the wrong place passes (known gap, for Gate 2 and the owner). Jira comment on Gate 1: posted.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
