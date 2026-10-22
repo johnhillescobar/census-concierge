@@ -209,6 +209,20 @@ CASES = [
         "    if False:",
         DROPPED,
     ),
+    Case(
+        "fraction characters not read as figures",
+        FIG,
+        "if any(char.isnumeric() for char in token):",
+        "if any(char.isdigit() for char in token):",
+        T + "test_a_fraction_character_is_a_figure_too",
+    ),
+    Case(
+        "omission reasons not carried",
+        FIG,
+        'texts += [str(reason) for reason in getattr(fetch, "omission_reasons", None) or []]',
+        "texts += []",
+        T + "test_the_reason_the_fetch_gives_for_an_omitted_year_may_be_quoted",
+    ),
 ]
 
 

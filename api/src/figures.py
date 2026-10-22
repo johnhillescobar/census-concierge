@@ -62,7 +62,7 @@ def _numbers(text: str) -> list[float | str]:
     found: list[float | str] = []
     for token in text.translate(_BREAKS).split():
         token = token.strip(_LEAD).rstrip(_EDGE)
-        if any(char.isdigit() for char in token):
+        if any(char.isnumeric() for char in token):
             try:
                 found.append(abs(float(token.replace(",", ""))))
             except ValueError:
@@ -137,6 +137,7 @@ def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -
     texts = [*texts, *("".join(c if c.isdigit() else " " for c in name) for name in datasets)]
     pool = getattr(record, "pool", None) or []
     texts += [str(getattr(record, "table_id", "") or ""), *datasets]
+    texts += [str(reason) for reason in getattr(fetch, "omission_reasons", None) or []]
     texts += [str(x) for hit in pool for x in [hit.get("table_id"), *(hit.get("members") or [])]]
     for row in rows:
         for key, cell in row.items():

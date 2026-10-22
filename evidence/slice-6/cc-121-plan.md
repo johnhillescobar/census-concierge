@@ -137,6 +137,15 @@ Follow-ups and what I did (the playbook allows one re-run, so these get tests an
 - Three assertions pin the system's own warning text (code-written, not LLM prose); left as they are.
 Mutation check for all fixes: `cc-121-fixes-mutations.txt`, 25 of 25 caught.
 
+## Result of Gate 1 from the canonical prompt (2026-10-22)
+
+The first attempt stalled (600 s watchdog) and left nothing. The second ran about 5.1 hours of wall clock (the subagent's own figure; I first told the owner it began around 07:00, which was wrong) and wrote `evidence/slice-6/gate1.txt` (not edited), `gate1-mutations.py`, `gate1-probes.py` and `gate1-sweep.py`, and 16 test functions (35 cases) in `test_figures.py`. Its transcript keeps the first run (143 of 159 caught; 16 mutations and 7 tests missed) and the final run: 182 of 182 mutations caught, every test function targeted, plus a mutation sweep and a coverage pass. `api/src` was left unchanged.
+
+Findings, both reproduced by me and fixed:
+- D1: a fraction character (the one-half sign) holds no decimal digit, so `isdigit()` skipped it and a framing stating "about one-half" passed. `_numbers` now uses `isnumeric()`.
+- F1: a framing that quotes an omission reason such as `vintage_gap_2020` lost its text, because the code holds a year and was not carried. The fetch's `omission_reasons` are carried.
+The five strict xfail tests became plain tests. 27 of 27 fix mutations caught (`cc-121-fixes-mutations.txt`). 801 tests pass, `api_src_loc` 4581 of 4600, regex delta +0.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.

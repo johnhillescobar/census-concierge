@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 from types import SimpleNamespace
 from typing import Any
 
@@ -10,9 +11,10 @@ import pytest
 from src import figures
 from src.ask import ExecutionRecord, assemble
 from src.census_url import CensusURL
-from src.contract import take_chart
+from src.contract import AskWarning, RequestLeg, take_chart
 from src.fetch import FetchDataResult, FetchDataTool
 from src.retrieval import metadata
+from src.vintages import CENSUS_MISSING, REASON_GAP_2020
 
 COOK = {
     "NAME": "Cook County, Illinois",
@@ -824,3 +826,270 @@ def test_the_table_ids_the_response_names_may_be_named() -> None:
 def test_a_leading_point_is_part_of_the_number() -> None:
     _, problem = figures.checked("About .5 of them.", [COOK], _record())
     assert "0.5" in problem
+
+
+# --- Gate 1 on the fixed code: other warnings, odd cells, real classes, a fuzz, two known defects.
+
+
+def test_a_notice_joins_only_the_unverified_warning_never_another_code() -> None:
+    first = AskWarning(code="overlapping_vintage", detail="ACS5 vintages share sample years")
+    warnings: list[Any] = [first]
+    chart = {**BAR_ROLES, "title": "DuPage earns 123,456 more than Cook"}
+    reply = _envelope("Cook County earns 99,999.", chart)
+    take_chart(reply, [TITLED, DUPAGE], warnings, _record())
+    assert [item.code for item in warnings] == ["overlapping_vintage", "answer_figures_unverified"]
+    assert warnings[0].detail == "ACS5 vintages share sample years"
+    assert "99,999" in warnings[1].detail
+    assert "chart title" in warnings[1].detail
+
+
+@pytest.mark.parametrize("cell", ["N", "(X)", "250,000+", "1e5"], ids=["n", "x", "top_code", "exp"])
+def test_a_cell_that_is_not_a_plain_number_is_shown_as_the_census_sent_it(cell: str) -> None:
+    answer, problem = figures.checked("", [{**COOK, "B19013_001E": cell}], _record())
+    assert problem == ""
+    assert answer.startswith(f"Median household income: {cell} (margin of error 1,200)")
+
+
+def _fuzzed_fetch(rnd: random.Random) -> tuple[list[dict[str, str | None]], SimpleNamespace]:
+    """Seeded rows and a record with the shapes a fetch can produce, odd cells included."""
+    cells = ["", None, "-555555555", "-222222222", "0", "12.5", "-12", "1,234", "76000", "1e5"]
+    cells += ["N", "(X)", "٣", "123456789012345678", "0.0001", "+5", "3.", ".5", "２４"]
+    places = ["Cook County, Illinois", "Census Tract 101.02, Cook", "A/B (2020) – C", "", None]
+    keys = rnd.sample(["B01001_001", "B01001_002", "B19013_001", "S1701_C03_001", "DP05_0001P"], 3)
+    if rnd.random() < 0.2:
+        keys = [f"B01001_{i:03d}" for i in range(1, 12)]  # wide: the 20-figure cap applies
+    rows: list[dict[str, str | None]] = []
+    for _ in range(rnd.randint(1, 4)):
+        row: dict[str, str | None] = {
+            "NAME": rnd.choice(places),
+            "GEO_ID": rnd.choice(["0500000US17031", "1400000US17031010100", "", None]),
+            "year": rnd.choice(["2022", "2023", ""]),
+            "dataset": rnd.choice(["acs5", "acs1", ""]),
+        }
+        for key in keys:
+            row[f"{key}E"] = rnd.choice(cells)
+            row[f"{key}M"] = rnd.choice(cells)
+        rows.append(row)
+    names = ["Total", "5 to 9 years", "1/2", "Median (in 2023 dollars)"]
+    labels = {year: {f"{key}E": rnd.choice(names) for key in keys} for year in ("2022", "2023")}
+    title = rnd.choice(["Sex by Age", "Median Income (in 2023 Dollars)", "Population 16 years", ""])
+    record = SimpleNamespace(
+        fetch=SimpleNamespace(labels=labels),
+        table_facts=lambda dataset, year, table: {"title": title, "universe": "Households 5+"},
+        universe="",
+    )
+    return rows, record
+
+
+def _readable(cell: str | None) -> bool:
+    """A cell the Census sent as a number: float() reads it and it is not a sentinel."""
+    try:
+        float((cell or "").replace(",", ""))
+    except ValueError:
+        return False
+    return cell not in CENSUS_MISSING
+
+
+def _floats_in(text: str) -> set[float]:
+    found: set[float] = set()
+    for token in text.split():
+        try:
+            found.add(float(token.rstrip(".").strip("(),:;").replace(",", "")))
+        except ValueError:
+            continue
+    return found
+
+
+def test_every_cell_may_be_quoted_and_every_shown_cell_is_stated_as_sent() -> None:
+    rnd = random.Random(121)
+    for _ in range(400):
+        rows, record = _fuzzed_fetch(rnd)
+        estimates = [(row, key) for row in rows for key in row if key.endswith("E") and "_" in key]
+        cells = [
+            cell
+            for row in rows
+            for key, cell in row.items()
+            if key.endswith(("E", "M")) and "_" in key and _readable(cell)
+        ]
+        quoted = f"The value {rnd.choice(cells)} is noted." if cells else "Framing only."
+        answer, problem = figures.checked(quoted, rows, record)
+        assert problem == "", (rows, quoted)
+        assert answer.startswith(quoted)
+        again, repeat = figures.checked(answer, rows, record)
+        assert repeat == ""
+        assert again.startswith(answer)
+        assert "555555555" not in answer.replace(",", "")  # a sentinel is never a figure
+        assert "222222222" not in answer.replace(",", "")
+        if len(estimates) <= figures.MAX_FIGURES:  # nothing was cut: every cell is stated
+            stated = _floats_in(answer)
+            for row, key in estimates:
+                if _readable(row[key]):
+                    assert float(str(row[key]).replace(",", "")) in stated, (row, key)
+                    margin = row.get(key[:-1] + "M")
+                    if _readable(margin):
+                        assert float(str(margin).replace(",", "")) in stated, (row, key)
+
+
+@pytest.mark.parametrize("glyph", ["½", "¼", "¾", "⅔"], ids=["1/2", "1/4", "3/4", "2/3"])
+def test_a_fraction_character_is_a_figure_too(glyph: str) -> None:
+    answer, problem = figures.checked(f"About {glyph} of households.", [COOK], _record())
+    assert problem
+    assert "About" not in answer
+
+
+def test_the_reason_the_fetch_gives_for_an_omitted_year_may_be_quoted() -> None:
+    record = _record()
+    record.fetch.omitted_years = [2020]
+    record.fetch.omission_reasons = [REASON_GAP_2020]
+    prose = f"2020 was omitted ({REASON_GAP_2020})."
+    answer, problem = figures.checked(prose, [COOK], record)
+    assert problem == ""
+    assert answer.startswith(prose)
+
+
+def _leg(code: int) -> RequestLeg:
+    return RequestLeg(year=2022, url="https://api.census.gov/data/2022/acs/acs5", ok=False,
+                      status_code=code, detail="not found")  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("record", "prose"),
+    [
+        (
+            ExecutionRecord(
+                table_id="B19013",
+                url=CensusURL("https://api.census.gov/data/2022/acs/acs5?get=NAME&for=us:1"),
+            ),
+            "No 2022 table matched.",
+        ),
+        (
+            ExecutionRecord(
+                table_id="B19013", fetch=_fetch(ok=False, status_code=0, legs=[_leg(404)])
+            ),
+            "The request failed with HTTP 404.",
+        ),
+        (
+            ExecutionRecord(
+                table_id="B19013",
+                pool=[
+                    {"table_id": "B19001", "members": ["B19001A"], "title": "t", "universe": "u"}
+                ],
+            ),
+            "B19001 and B19001A are alternatives.",
+        ),
+        (ExecutionRecord(table_id="B19013", vintages=[("acs5", 2022)]), "ACS5 2022 had no match."),
+    ],
+    ids=["built_url", "leg_status", "search_pool", "vintages"],
+)
+def test_a_real_record_carries_what_the_check_reads_from_it(
+    record: ExecutionRecord, prose: str
+) -> None:
+    kept = assemble(prose, record)
+    assert kept.answer == prose
+    assert "answer_figures_unverified" not in [item.code for item in kept.warnings]
+    wrong = assemble("No 2019 table matched; HTTP 500.", record)
+    assert wrong.answer == figures.NO_FIGURES
+    assert "answer_figures_unverified" in [item.code for item in wrong.warnings]
+
+
+# --- Gate 1 operator sweep: behaviours that nothing pinned (evidence/slice-6/gate1.txt). ---------
+
+
+def test_a_dropped_text_with_no_figures_to_show_is_never_a_blank_answer() -> None:
+    nothing = SimpleNamespace(fetch=None, table_facts=None, universe="")
+    answer, problem = figures.checked("About 5,000 people live there.", [], nothing)
+    assert problem
+    assert answer.strip()
+
+
+def test_a_figure_written_with_separators_that_the_cap_cut_is_still_carried() -> None:
+    row = _wide(25)  # B01001_025E is 1025 and is one of the five the cap leaves out
+    answer, problem = figures.checked("The last column holds 1,025.", [row], _record({}))
+    assert "B01001_025E" not in answer
+    assert problem == ""
+    _, other = figures.checked("The last column holds 1,026.", [row], _record({}))
+    assert "1,026" in other
+
+
+@pytest.mark.parametrize(("columns", "cut"), [(20, False), (21, True)], ids=["at_cap", "over_cap"])
+def test_the_cut_notice_appears_only_when_a_figure_was_cut(columns: int, cut: bool) -> None:
+    answer, _ = figures.checked("", [_wide(columns)], _record({}))
+    assert sum("(margin of error" in line for line in answer.split("\n")) == 20
+    assert ("figures shown" in answer) is cut
+
+
+def test_table_facts_are_asked_in_the_dataset_of_each_row() -> None:
+    known = {
+        "acs1": {"title": "Income one-year", "universe": "Households"},
+        "acs5": {"title": "Income five-year", "universe": "Households"},
+    }
+    record = _record(facts=lambda dataset, year, table: known.get(dataset))
+    answer, _ = figures.checked("", [COOK, {**COOK, "dataset": "acs1"}], record)
+    lines = answer.split("\n")
+    assert "2023: Table B19013: Income five-year. Universe: Households" in lines
+    assert "2023: Table B19013: Income one-year. Universe: Households" in lines
+
+
+def test_vintages_that_share_a_description_are_listed_together() -> None:
+    def facts(dataset: str, year: int, table: str) -> dict[str, str]:
+        return {"title": "Income" if year < 2023 else "Income, new", "universe": "Households"}
+
+    rows = [{**COOK, "year": year} for year in ("2021", "2022", "2023")]
+    answer, _ = figures.checked("", rows, _record(facts=facts))
+    lines = answer.split("\n")
+    assert "2021, 2022: Table B19013: Income. Universe: Households" in lines
+    assert "2023: Table B19013: Income, new. Universe: Households" in lines
+
+
+def test_the_notice_lists_the_first_five_stray_numbers_in_order() -> None:
+    _, problem = figures.checked("101 102 103 104 105 106 107", [COOK], _record())
+    assert "101, 102, 103, 104, 105" in problem
+    assert "106" not in problem
+
+
+def test_the_two_notices_of_one_response_are_joined_in_order() -> None:
+    wrong_title = {**BAR_ROLES, "title": "DuPage earns 123,456 more than Cook"}
+    text_only: list[Any] = []
+    title_only: list[Any] = []
+    both: list[Any] = []
+    rows = [TITLED, DUPAGE]
+    take_chart(_envelope("Cook County earns 99,999."), rows, text_only, _record())
+    take_chart(_envelope("Two counties.", wrong_title), rows, title_only, _record())
+    take_chart(_envelope("Cook County earns 99,999.", wrong_title), rows, both, _record())
+    assert both[0].detail == f"{text_only[0].detail} {title_only[0].detail}"
+
+
+@pytest.mark.parametrize(
+    "written",
+    ["$76,000", "76,000%", "**76,000**", "(76,000)", '"76,000"', "76,000;"],
+    ids=["dollar", "percent", "bold", "parenthesis", "double_quote", "semicolon"],
+)
+def test_marks_around_a_carried_figure_do_not_change_it(written: str) -> None:
+    prose = f"Cook County earns {written} a year."
+    answer, problem = figures.checked(prose, [COOK], _record())
+    assert problem == ""
+    assert answer.startswith(prose)
+
+
+@pytest.mark.parametrize(
+    "separator",
+    ["-", "–", "—", "/", "|"],
+    ids=["hyphen", "en_dash", "em_dash", "slash", "pipe"],
+)
+def test_a_range_of_two_carried_figures_passes_whatever_the_separator(separator: str) -> None:
+    prose = f"Incomes run 76,000{separator}99,500 across the two counties."
+    answer, problem = figures.checked(prose, [COOK, DUPAGE], _record())
+    assert problem == ""
+    assert answer.startswith(prose)
+
+
+def test_labels_come_back_only_for_the_variables_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.undo()  # the suite stubs _labels for every test; this one needs the real one
+    found = {
+        "B01001_001E": SimpleNamespace(label="Estimate!!Total:"),
+        "B01001_002E": SimpleNamespace(label="Estimate!!Total:!!Male:"),
+    }
+    monkeypatch.setattr(metadata, "variables", lambda dataset, year: found)
+    assert figures._labels("acs5", 2023, {"B01001_001E"}) == {"B01001_001E": "Total"}
