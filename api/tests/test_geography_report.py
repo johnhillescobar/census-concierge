@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import zlib
 from typing import Any
 
 import pytest
@@ -29,6 +28,7 @@ def _reply(
     level: str | None,
     named: list[str] | None = None,
     numbered: list[str] | None = None,
+    county_named: bool = False,
     **more: Any,
 ) -> dict[str, Any]:
     body = {
@@ -38,6 +38,7 @@ def _reply(
         "level": level,
         "named": named or [],
         "numbered": numbered or [],
+        "county_named": county_named,
         **more,
     }
     return {"content": json.dumps(body), "tool_calls": []}
@@ -172,18 +173,25 @@ async def _split(reply: dict[str, Any]) -> dict[str, Any] | None:
 async def test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named() -> (
     None
 ):
-    # The intended fail-open: the model's names are taken as reported. A county it supplies lets
-    # the loop run; a trap that slips through is no worse than before this check, while a valid
+    # The intended fail-open: the model's report is taken as given. A county it supplies lets the
+    # loop run; a trap that slips through is no worse than before this check, while a valid
     # question refused over a nickname is the costly error.
-    reply = _reply("tract", ["Dane County, Wisconsin"], TWO_TRACTS)
+    reply = _reply("tract", ["Dane County, Wisconsin"], TWO_TRACTS, county_named=True)
     response, record = await _ask(TWO_TRACTS_QUESTION, reply)
     assert record.timings
     assert STOPPED not in response.answer
 
 
+async def test_a_state_alone_is_not_the_county_a_tract_number_needs() -> None:
+    reply = _reply("tract", ["Dane County, Wisconsin"], TWO_TRACTS)  # the model says no county
+    response, record = await _ask(TWO_TRACTS_QUESTION, reply)
+    assert STOPPED in response.answer and "county" in response.answer
+    assert record.timings == []
+
+
 async def test_a_state_written_in_lower_case_counts_when_the_model_spells_it_out() -> None:
-    question = TWO_TRACTS_QUESTION.removesuffix("?") + " in ky?"
-    response, record = await _ask(question, _reply("tract", ["Kentucky"], TWO_TRACTS))
+    question = "Poverty rate by tract in ky?"
+    response, record = await _ask(question, _reply("tract", ["Kentucky"]))
     assert record.timings
     assert STOPPED not in response.answer
 
@@ -231,9 +239,18 @@ async def test_entries_that_are_not_text_are_not_places_and_never_fail_the_reque
 
 @pytest.mark.parametrize("level", [5, True, 2.5, [], None, ""])
 async def test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs(level: Any) -> None:
-    response, record = await _ask(TWO_TRACTS_QUESTION, _reply(level, [], TWO_TRACTS))
+    response, record = await _ask("Total population", _reply(level, [], []))
     assert record.timings
     assert STOPPED not in response.answer
+
+
+@pytest.mark.parametrize("level", [5, True, 2.5, [], None, ""])
+async def test_a_level_that_is_not_a_word_leaves_the_numbered_places_to_name_their_own(
+    level: Any,
+) -> None:
+    response, record = await _ask(TWO_TRACTS_QUESTION, _reply(level, [], TWO_TRACTS))
+    assert STOPPED in response.answer and "tract" in response.answer
+    assert record.timings == []
 
 
 @pytest.mark.parametrize("level", [["tract"], {"a": "tract"}])
@@ -252,6 +269,7 @@ async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
             "named": ["Dane County, Wisconsin"],
             "numbered": ["tract 71"],
             "asks_for": None,
+            "county_named": False,
         }
     }
 
@@ -325,7 +343,12 @@ async def test_a_state_written_as_a_nickname_an_abbreviation_or_a_typo_counts(
 
 async def test_a_place_reported_with_its_own_county_chain_still_counts_as_named() -> None:
     question = "Poverty rate for Census Tract 9501, Dane County"
-    reply = _reply("tract", ["Census Tract 9501, Dane County, Wisconsin"], ["Census Tract 9501"])
+    reply = _reply(
+        "tract",
+        ["Census Tract 9501, Dane County, Wisconsin"],
+        ["Census Tract 9501"],
+        county_named=True,
+    )
     response, record = await _ask(question, reply)
     assert record.timings
     assert STOPPED not in response.answer
@@ -369,30 +392,6 @@ async def test_the_report_is_read_once_however_many_turns_use_unknown_tools(
     assert checks == [1]  # unknown tools do not count as tool calls, so the first turn is by index
 
 
-@pytest.mark.parametrize("error", [EOFError("short"), zlib.error("bad"), AttributeError("x")])
-async def test_unreadable_geography_metadata_of_any_kind_never_fails_the_request(
-    error: Exception,
-) -> None:
-    record = ExecutionRecord()
-    tools = _tools(record)
-
-    def broken(dataset: str, year: int) -> list[GeoLevel]:
-        raise error
-
-    tools["resolve_geography"].geo_table = broken
-
-    async def complete(messages: Any, openai_tools: Any) -> dict[str, Any]:
-        del messages
-        if not openai_tools:
-            return _reply("tract", [], ["tract 71", "tract 305"])
-        return {"content": "done", "tool_calls": []}
-
-    response = await run_ask(
-        "Poverty in tract 71 versus tract 305", complete=complete, tools=tools, record=record
-    )
-    assert response.answer == "done" or response.answer
-
-
 @pytest.mark.parametrize("asks_for", ["tables", "Tables", " tables "])
 @pytest.mark.parametrize("level", ["tract", "block group"])
 async def test_a_question_that_asks_which_table_holds_something_is_not_refused(
@@ -432,3 +431,34 @@ async def test_a_flood_of_entries_cannot_stall_the_event_loop() -> None:
     )
     assert time.perf_counter() - started < 3.0
     assert response.answer
+
+
+async def _ask_then_resolve(question: str, split_reply: dict[str, Any], query: str) -> Any:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    tools["resolve_geography"].geo_table = lambda dataset, year: [*ENTRIES, BLOCK_GROUP]
+    turns = {"n": 0}
+
+    async def complete(messages: Any, openai_tools: Any) -> dict[str, Any]:
+        del messages
+        if not openai_tools:
+            return split_reply
+        turns["n"] += 1
+        if turns["n"] > 2:
+            return {"content": "done", "tool_calls": []}
+        name, args = [
+            ("search_tables", {"question": question}),
+            ("resolve_geography", {"query": query}),
+        ][turns["n"] - 1]
+        return {"content": "", "tool_calls": [{"id": str(turns["n"]), "name": name, "args": args}]}
+
+    return await run_ask(question, complete=complete, tools=tools, record=record)
+
+
+async def test_a_table_question_gets_no_geography_warning_but_a_data_question_does() -> None:
+    question = "Which table has poverty rate by census tract?"
+    query = "every tract in the United States"  # the resolver cannot list this
+    data = await _ask_then_resolve(question, _reply("tract", [], asks_for="data"), query)
+    assert "geography_unsupported" in {item.code for item in data.warnings}
+    tables = await _ask_then_resolve(question, _reply("tract", [], asks_for="tables"), query)
+    assert "geography_unsupported" not in {item.code for item in tables.warnings}

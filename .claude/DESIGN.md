@@ -37,9 +37,9 @@ lost in the other thousand. Consequences:
 
 ## 4. Requirements
 
-Every response ships URL (even on fetch failure), MOE, GEOID, universe, and
-alternatives. Guards warn and still ship; none block. Full catalog:
-`docs/requirements.md`.
+Every response that returns data ships URL (even on fetch failure), MOE, GEOID,
+universe, and alternatives; a question too incomplete to search returns none. Guards
+warn and still ship; none block. Catalog: `docs/requirements.md`.
 
 ## 5. Architecture (intent)
 

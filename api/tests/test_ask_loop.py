@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from ask_fixtures import ENTRIES, _describe, _geo_tool, _harris, _search, _tools
+from ask_fixtures import DANE, ENTRIES, _describe, _geo_tool, _harris, _search, _tools
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse, GeoSpec, ResultPlan
@@ -1461,7 +1461,7 @@ async def test_split_task_is_cancelled_when_the_loop_raises() -> None:
     assert cancelled == [True]
 
 
-async def test_override_plan_never_asks_the_model_to_split() -> None:
+async def test_a_plan_that_names_the_places_never_asks_the_model_to_split() -> None:
     calls: list[bool] = []
 
     async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> dict:
@@ -1469,6 +1469,6 @@ async def test_override_plan_never_asks_the_model_to_split() -> None:
         return {"content": "done", "tool_calls": []}
 
     record = ExecutionRecord()
-    plan = ResultPlan(table_id="B01003")
+    plan = ResultPlan(table_id="B01003", geographies=[DANE])
     await run_ask("anything", complete=complete, tools=_tools(record), record=record, override=plan)
     assert calls and all(calls)

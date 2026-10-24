@@ -132,16 +132,16 @@ tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is
 `geography_not_nested` with no invented fetch. A `:*` wildcard stays one GET.
 
-A question must name the geography its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
+A question must carry what its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
 The split call (`plan_split`) also reports the question's `level`, the places it `named`, those
-identified only `numbered` inside another, and whether it `asks_for` `tables` (which table holds
-something: never stopped) or `data`. On the loop's first turn (by index), before any tool runs,
-`finish.incomplete` checks that report: the level's `requires` in
-`geography.json` must be met by a named place (taken as reported, not matched against the
-question's words, which refused valid "Calif." and "Penn"), or a listing `legal_predicate`
-allows under `state:*` (all counties). If not, `run_ask` returns at once: `geography_unsupported`,
-a code-written answer naming the level and what it needs, no search, fetch, URL or candidates.
-Any failure, a missing report or a late one fails open.
+identified only `numbered` inside another, whether a county is named (`county_named`), and
+whether it `asks_for` `tables` (which table holds something: never stopped) or `data`. On the
+first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`, the
+minimum the API accepts (ACS5 2023): every tract or block group, the state; one county by number,
+the state; one tract, state and county; one block group, state, county and tract. Names count as
+reported, not matched against the question's words ("Calif." and "Penn" were refused). Short of
+it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no search, fetch,
+URL or candidates. Any failure, a missing report or a late one fails open.
 
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict
@@ -151,7 +151,7 @@ state is level 050.
 An unsupported tract or block-group listing can still ship a **candidate**
 wildcard URL (`legal=False`, `for=block group:*` / `tract:*`) with
 `geography_unsupported`. That is not an empty `urls[]`. Empty `urls[]` means
-the loop stopped before `build_url`.
+the loop stopped before `build_url`, or the question was refused as incomplete.
 
 ## Comparisons and aggregation
 

@@ -50,12 +50,12 @@ universe, and flag when a question crosses two of them.
   level are limited. Say so rather than substituting.
 - Ambiguous place names ("Springfield") return **candidates as results**, never a
   blocking question.
-- **A question must be level-complete** (`geography.json` `requires`: county needs
-  state, tract needs state and county, block group needs state, county and tract). One
-  that names **no geography** cannot be answered: say at once that it is incomplete
-  and cannot be searched, and return **no URL**, no candidates, no fetch. Never detect
-  it by scanning the question's words; the model reports, code validates. Full rule:
-  `CLAUDE.md`, "Geography is level-complete".
+- **A question must be level-complete**: every tract or block group in a state needs the
+  state; one county by number, the state; one tract by number, state and county; one block
+  group by number, state, county and tract. One that carries less cannot be answered: say
+  at once that it is incomplete and cannot be searched, and return **no URL**, no
+  candidates, no fetch. Never detect it by scanning the question's words; the model
+  reports, code validates. Full rule: `CLAUDE.md`, "Geography is level-complete".
 
 ## Table families — the concierge value
 
@@ -70,7 +70,7 @@ what they need pointed out:
 | `DP` / `CP` | data and comparison profiles |
 | `A`–`I` suffix | race/ethnicity iterations (`B19013B` = Black householder) |
 
-Every answer shows related tables **with the reason they differ** — different
+Every answer that returns data shows related tables **with the reason they differ** — different
 universe, distribution rather than median, race iteration, pre-computed profile.
 This is the product, not a nicety.
 

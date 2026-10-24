@@ -11,8 +11,7 @@ from typing import Any
 
 from langchain_core.tools import BaseTool
 
-from src.geo import ResolveGeographyTool, detect_level, legal_predicate, split_comparison
-from src.geo_list import STATES
+from src.geo import detect_level, split_comparison
 from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
 
@@ -21,7 +20,7 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "level": ..., '
-    '"named": [...], "numbered": [...], "asks_for": ...}. parents are the '
+    '"named": [...], "county_named": bool, "numbered": [...], "asks_for": ...}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
     "state are one parent: write any place smaller than a state as 'Name, State' with the state "
     "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
@@ -44,7 +43,7 @@ _SPLIT_PARENTS = (
     "wrote them. Use an empty list when there are none. "
     "A state, ZIP code or GEOID is never numbered. asks_for is 'tables' when the question asks "
     "which table or variable holds something or where to find it, and 'data' when it asks for "
-    "figures."
+    "figures. county_named is true when the question names a specific county, by name or code."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -152,6 +151,7 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         "named": [*(named if isinstance(named, list) else []), *names],
         "numbered": numbered if isinstance(numbered, list) else [],
         "asks_for": found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
+        "county_named": found.get("county_named") is True,
     }
     if not (found.get("listing") and unit in _SPLIT_UNITS):
         return {"frame": frame}
@@ -185,71 +185,86 @@ def _key(text: str) -> str:
 MAX_REPORTED = 25  # a question names a handful of places; a longer report is not read past this
 
 
-def _writes_a_state(question: str) -> bool:
-    """The question itself wrote a state: its full name, or its code in capitals ("TX", not "or").
+# The minimum the Census API accepts for the kind of question asked, measured against the live API
+# (ACS 5-year 2023). A "single" unit is one identified by its number, which repeats across its
+# parent, and a county wildcard is refused for it ("wildcard mismatch"), so its parents must be
+# real. A listing needs only what the wildcards cannot supply: every tract or block group in a
+# state needs the state, if the URL writes `county:*` itself (leaving it out is HTTP 400).
+# Anything not listed needs nothing: all counties and all places list with no parent at all.
+# geography.json `requires` lists more than this, so it is not used.
+_NEEDS: dict[tuple[str, bool], tuple[str, ...]] = {
+    ("tract", False): ("state",),
+    ("block group", False): ("state",),
+    ("county", True): ("state",),
+    ("tract", True): ("state", "county"),
+    ("block group", True): ("state", "county", "tract"),
+}
+_ORDER = ("state", "county", "place", "tract", "block group")
 
-    Only a safety net against refusing a valid question the model forgot to report; the case-
-    insensitive match inside `find_state` reads ", or" and ", in" as Oregon and Indiana.
+
+def _join(parts: list[str]) -> str:
+    return ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
+
+
+async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | None) -> str | None:
+    """The answer to return at once when a question lacks what its geography level needs.
+
+    The model reports the level, the places the question names (each written with its state), the
+    places it identifies only by a number inside another, whether a county is named, and whether
+    it asks for tables (the split call, beside the loop). Code compares that with `_NEEDS` for the
+    kind of question asked: every tract needs the state, one tract by its number needs state and
+    county, and so on. It does not second-guess a name against the question's words: measured
+    live, that refused 38 of 60 valid questions that wrote a state as "Calif.", "Penn" or "tx". A
+    wrong report only lets a trap through, which is where the loop already was. Call it on the
+    first turn only, before any tool runs. It fails open on anything: no verdict, no model, or a
+    late report means the loop runs as usual.
     """
-    padded = f" {_key(question)} "
-    caps = set("".join(ch if ch.isalnum() else " " for ch in question).split())
-    return any(f" {name} " in padded or code in caps for name, code, _fips in STATES)
-
-
-async def incomplete(
-    record: Any,
-    tools: dict[str, BaseTool],
-    split: asyncio.Task[dict[str, Any] | None] | None,
-) -> str | None:
-    """The answer to return at once when a question names no geography its level can stand on.
-
-    The model reports the level, the places the question names and the places it identifies only
-    by a number inside another (the split call, beside the loop). Code checks that against the
-    level's `requires` in geography.json. It does not second-guess a name against the question's
-    words: measured live, that refused 38 of 60 valid questions that wrote a state as "Calif.",
-    "Penn" or "tx", and a model that invents a place for a question of bare numbers was never
-    seen. A wrong report only lets a trap through, which is where the loop already was. Call it
-    on the first turn only, before any tool runs. It fails open on anything: no verdict, no model,
-    unreadable metadata or a late report means the loop runs as usual.
-    """
-    geo = tools.get("resolve_geography")
-    if split is None or not isinstance(geo, ResolveGeographyTool):
+    if split is None:
         return None
     try:
         found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
-        entries = await asyncio.to_thread(geo.geo_table, "acs5", geo.latest_vintage("acs5"))
     except Exception:  # noqa: BLE001 - a failed check must never fail the answer
         return None
     frame = (found or {}).get("frame") or {}
     if str(frame.get("asks_for") or "").strip().casefold() == "tables":
+        record.tables_only = True  # no geography is wanted, so none is flagged later
         return None  # which table holds something is not a search by geography
-    level = detect_level(str(frame.get("level") or ""))
-    needs = min((e.requires for e in entries if e.name == level), key=len, default=())
     question = str(getattr(record, "question", "") or "")
     numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)][:MAX_REPORTED]
     reported = [n for n in frame.get("named") or [] if isinstance(n, str)][:MAX_REPORTED]
-    padded, skip, parts, by_number = f" {_key(question)} ", set(), [], False
+    padded, skip, parts, written = f" {_key(question)} ", set(), [], []
     for entry in numbered:
         # "Census Tract 9501, Dane County": the number is skipped, its parents are named. A number
         # can make a question incomplete (a refusal), so it must be one the user wrote.
         first, *parents = entry.split(",")
         skip.add(_key(first))
-        by_number = by_number or (bool(_key(first)) and f" {_key(first)} " in padded)
+        if _key(first) and f" {_key(first)} " in padded:
+            written.append(detect_level(first))
         parts.extend(parents)
     parts.extend(part for entry in reported for part in entry.split(","))
     named = [part for part in parts if _key(part) and _key(part) not in skip]
-    if not (level and needs) or named or _writes_a_state(question):
+    # A tract or block group given by its number says its own level when the model gave none.
+    level = detect_level(str(frame.get("level") or "")) or next((lv for lv in written if lv), None)
+    single = bool(written)
+    need = _NEEDS.get((level or "", single), ())
+    # Every place the model names is written with its state ("Name, State"), so any name gives the
+    # state; the county and tract are what the model reports apart.
+    have = {"state"} if named else set()
+    if frame.get("county_named") is True or "county" in written:
+        have.add("county")
+    if "tract" in written:
+        have.add("tract")
+    missing = [part for part in need if part not in have]
+    if not missing:
         return None
-    if not by_number and legal_predicate(
-        level, frozenset({"state"}), wildcard=True, entries=entries
-    ):
-        return None  # asks for every unit of a level that lists under state:* (all counties)
-    names = ", ".join(needs[:-1]) + (" and " if len(needs) > 1 else "") + needs[-1]
-    detail = f"{level} needs {names}; the question names no geography"
+    asked = f"a {level} identified by its number" if single else f"every {level}"
+    given = [lv for lv in _ORDER if lv in have and lv != level]  # the unit itself is no parent
+    names = f"only the {_join(given)}" if given else "no geography"
+    detail = f"{asked} needs {_join(list(need))}; the question names {names}"
     record.geo_status = {"legal": False, "detail": detail, "nested": True}
     return (
-        f"This question is incomplete and cannot be searched: it asks for {level} data, which "
-        f"Census identifies only by {names}, and it names no geography. Name them and ask again."
+        f"This question is incomplete and cannot be searched: {asked} needs "
+        f"{_join(list(need))}, and it names {names}. Name the {_join(missing)} and ask again."
     )
 
 
