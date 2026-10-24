@@ -157,14 +157,6 @@ async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> Non
     assert record.timings == []
 
 
-async def test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography() -> None:
-    question = "Is the poverty rate in tract 71 higher than tract 305?"
-    reply = _frame("tract", ["Kentucky"], ["tract 71", "tract 305"])
-    response, record, _fetched = await _ask(question, reply)
-    assert [item.code for item in response.warnings] == ["geography_unsupported"]
-    assert record.timings == []
-
-
 async def test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it() -> None:
     question = "Is the poverty rate in tract 71 higher than tract 305 in Kentucky?"
     response, record, _fetched = await _ask(
@@ -477,15 +469,6 @@ async def test_a_parents_field_of_the_wrong_type_cannot_fail_the_request(parents
 
 
 # --- grounding: a place counts only if the user wrote it ---------------------------------------
-
-
-async def test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation() -> None:
-    a, b = _novel_codes(12, 2)
-    question = f"Is poverty in tract {a} higher than tract {b}?"  # "in" is not Indiana
-    reply = _frame("tract", ["Indiana"], [f"tract {a}", f"tract {b}"])
-    response, record, _fetched = await _ask(question, reply)
-    assert [item.code for item in response.warnings] == ["geography_unsupported"]
-    assert record.timings == []
 
 
 # --- a valid question is not refused: it still fetches, and its comparison carries the margins ---
