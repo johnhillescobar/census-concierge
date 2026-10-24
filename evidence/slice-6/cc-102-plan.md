@@ -119,3 +119,34 @@ subagents from a commit, writing `evidence/slice-6/cc-102-gate1.txt`, `cc-102-ga
 `cc-102-e2e-pre.txt`. Gate 1 mutations: level check ignores `requires`; grounding removed so a
 remembered place counts; `find_state` fallback removed; listing exemption removed; early return removed
 (loop runs); fail-open removed; work-bound check removed; bound set to 0; scorer ignores `expect_no_url`.
+
+## Gate rounds (owner asked for four, 2026-10-24; round 1 counts the first Gate 1 and Gate 2)
+
+Each round is a Gate 1 (tests, mutation-checked) and a cold Gate 2, then the fixes. Lenses for the
+cold reviewers: round 2 async and fail-open correctness; round 3 behavior against `CLAUDE.md`,
+`docs/requirements.md` and the scorer and golden changes; round 4 red team (force false traps and
+misses). The E2E runs once after the rounds, and once more after the merge.
+
+**Round 1.** Gate 1 (`cc-102-gate1.txt`): 51 mutations, 49 killed, 1 equivalent, 0 survivors; two real
+gaps in its own tests found and fixed. Gate 2 (`cc-102-gate2.txt`): not ready, 8 findings.
+
+| Finding | Disposition |
+| --- | --- |
+| 1. A tract question refused when the model reports a canonical name ("NYC" -> New York City) | Fixed: only a state must be a word the question wrote; other names count. Live: 0 of 160 false traps. |
+| 2. A late report stops the loop after tools ran | Fixed: checked on the first turn only (`ask.py`). |
+| 3. A non-list `parents` crashes the request | Fixed: only lists are used. |
+| 4. "in" counts as Indiana | Fixed: an upper-case token only. |
+| 5. No tests for the cap or the slow-split path | Gate 1 wrote the cap tests; slow-split tests added in `test_geography_report.py`. |
+| 6. t17 and t03 criteria | t17: owner chose to fix the question (names Cook County, Illinois). t03 criterion is meaningful only with a live model, so it is judged in the E2E. |
+| 7. Stale docs | Fixed (`ask-path.md`, `ARCHITECTURE.md`, `DEBUGGING.md`). |
+| 8. `CLAUDE.md` carve-out, bundled scope | Owner decision, still open (below). |
+
+Also found by measuring: a parenthetical mid-sentence in the prompt made 7 of 60 number-leading
+reports wrong; moved to its own closing sentence (0 of 60). The probe's timeouts were not model errors:
+with a 30 s wait the split call is p50 1.0 s, p95 1.5 s, max 3.3 s, and 2 of 245 exceeded 3 s.
+Live probe now: 0 of 160 false traps; 5 of 85 fail-open misses (one deictic phrasing, "my county").
+Round 1 end state: 770 passed, ruff and mypy clean, `api_src_loc` 4473/4600, `doc_lines` 1796/1800.
+
+**Open for the owner.** (a) `CLAUDE.md` still says MOE, GEOID, universe and alternatives are "in every
+response" and excepts only the URL; a refusal has none of them. (b) The diff bundles the comparison
+cap and touches many files; the PR must explain both.

@@ -339,10 +339,6 @@ async def test_a_report_that_is_late_means_the_loop_runs_as_usual(
     assert "cannot be searched" not in response.answer
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a report that lands after the wait is applied at the next model turn, after tools ran",
-)
 async def test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -358,27 +354,15 @@ async def test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_alrea
     assert "cannot be searched" not in response.answer
 
 
-async def test_a_verdict_that_is_not_ready_is_not_waited_for_after_the_first_turn(
+async def test_only_the_first_model_turn_checks_the_report(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(finish, "FRAME_WAIT_SECONDS", 30.0)
-    record = ExecutionRecord(question="Is tract 5871 bigger than tract 6203?")
-    tools = _tools(record)
-    pending: asyncio.Future[dict[str, Any] | None] = asyncio.get_running_loop().create_future()
-    stop = await asyncio.wait_for(finish.incomplete(record, tools, pending, wait=False), 1.0)
-    assert stop is None
-    pending.cancel()
-
-
-async def test_only_the_first_model_turn_waits_for_the_report(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    waits: list[bool] = []
+    checks: list[int] = []
     real = finish.incomplete
 
-    async def spy(*args: Any, wait: bool = True, **kwargs: Any) -> str | None:
-        waits.append(wait)
-        return await real(*args, wait=wait, **kwargs)
+    async def spy(*args: Any, **kwargs: Any) -> str | None:
+        checks.append(1)
+        return await real(*args, **kwargs)
 
     monkeypatch.setattr(ask_module, "incomplete", spy)
     a, b = _novel_codes(14, 2)
@@ -386,20 +370,17 @@ async def test_only_the_first_model_turn_waits_for_the_report(
     search = ("search_tables", {"question": question})
     reply = _frame("tract", ["Dane County, Wisconsin"], [f"tract {a}", f"tract {b}"])
     await _run(question, reply, steps=[search, search, search])
-    assert waits == [True, False, False, False]  # one check per model turn; only the first waits
+    assert checks == [1]  # four model turns ran, and only the first looked at the report
 
 
-@pytest.mark.parametrize("wait", [True, False])
 @pytest.mark.parametrize("missing", ["tool", "report"])
-async def test_without_the_geography_tool_or_a_report_nothing_is_stopped(
-    missing: str, wait: bool
-) -> None:
+async def test_without_the_geography_tool_or_a_report_nothing_is_stopped(missing: str) -> None:
     record = ExecutionRecord(question="Is tract 5871 bigger than tract 6203?")
     tools = {} if missing == "tool" else _tools(record)
     report: asyncio.Future[dict[str, Any] | None] = asyncio.get_running_loop().create_future()
     report.set_result({"frame": {"level": "tract", "named": [], "numbered": ["tract 5871"]}})
     split = report if missing == "tool" else None
-    assert await finish.incomplete(record, tools, split, wait=wait) is None
+    assert await finish.incomplete(record, tools, split) is None
     assert record.geo_status is None
 
 
@@ -478,10 +459,6 @@ async def test_places_of_the_wrong_type_are_ignored_not_iterated() -> None:
     assert found == {"frame": {"level": "county", "named": [], "numbered": []}}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a non-list `parents` is iterated or raises TypeError after the try that guards it",
-)
 @pytest.mark.parametrize("parents", ["Wisconsin", 5, True])
 async def test_a_parents_field_of_the_wrong_type_cannot_fail_the_request(parents: Any) -> None:
     a, b = _novel_codes(13, 2)
@@ -501,10 +478,6 @@ async def test_a_parents_field_of_the_wrong_type_cannot_fail_the_request(parents
 # --- grounding: a place counts only if the user wrote it ---------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a spelled-out state is grounded by its lowercase abbreviation, which is a common word",
-)
 async def test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation() -> None:
     a, b = _novel_codes(12, 2)
     question = f"Is poverty in tract {a} higher than tract {b}?"  # "in" is not Indiana
