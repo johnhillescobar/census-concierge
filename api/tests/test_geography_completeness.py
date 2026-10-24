@@ -157,9 +157,9 @@ async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> Non
     assert record.timings == []
 
 
-async def test_a_place_the_model_remembers_but_the_user_never_wrote_is_not_a_geography() -> None:
+async def test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography() -> None:
     question = "Is the poverty rate in tract 71 higher than tract 305?"
-    reply = _frame("tract", ["Texas", "Harris County"], ["tract 71", "tract 305"])
+    reply = _frame("tract", ["Texas"], ["tract 71", "tract 305"])
     response, record, _fetched = await _ask(question, reply)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert record.timings == []

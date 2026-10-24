@@ -41,7 +41,8 @@ _SPLIT_PARENTS = (
     "a number inside some other place, such as 'tract 12', 'block group 3' or 'county 5': those "
     "numbers repeat in many places, so they never go in named, wherever they sit in the "
     "sentence, even as its first words. Copy both exactly as the user "
-    "wrote them. Use an empty list when there are none."
+    "wrote them. Use an empty list when there are none. "
+    "A state, ZIP code or GEOID is never numbered."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -143,12 +144,13 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
     except Exception:  # noqa: BLE001 - a failed repair must never fail the answer
         return None
     named, numbered = found.get("named"), found.get("numbered")
+    names = names if isinstance(names, list) else []  # a model can send anything; use only lists
     frame = {
         "level": found.get("level"),
-        "named": [*(named if isinstance(named, list) else []), *(names or [])],
+        "named": [*(named if isinstance(named, list) else []), *names],
         "numbered": numbered if isinstance(numbered, list) else [],
     }
-    if not (found.get("listing") and unit in _SPLIT_UNITS and isinstance(names, list)):
+    if not (found.get("listing") and unit in _SPLIT_UNITS):
         return {"frame": frame}
     parents = [name.strip() for name in names if isinstance(name, str) and name.strip()]
     parents = list({name.casefold(): name for name in parents}.values())
@@ -182,29 +184,31 @@ def _head(name: str) -> str:
 
 
 def _stated(name: str, question: str) -> bool:
-    """A place the model names counts only as a run of the question's own words, not its memory."""
+    """The model's place is a run of the question's own words, or a state's upper-case code."""
     head, words = _words(name.split(",")[0]), _words(question)
     if any(words[i : i + len(head)] == head for i in range(len(words))) and head:
         return True
     abbreviation = next((usps for state, usps, _fips in STATES if state == " ".join(head)), "")
-    return bool(abbreviation) and abbreviation.casefold() in words  # TX written, Texas reported
+    caps = "".join(ch if ch.isalnum() else " " for ch in question).split()
+    return bool(abbreviation) and abbreviation in caps  # TX written, Texas reported; "in" is not IN
 
 
 async def incomplete(
     record: Any,
     tools: dict[str, BaseTool],
     split: asyncio.Task[dict[str, Any] | None] | None,
-    *,
-    wait: bool = True,
 ) -> str | None:
     """The answer to return at once when a question names no geography its level can stand on.
 
     The model reports the level and what the question names (the split call, beside the loop).
-    Code checks that against the level's `requires` in geography.json and the question's own
-    words. It fails open: no verdict, no model or no metadata means the loop runs as usual.
+    Code checks that against the level's `requires` in geography.json. Only a state is checked
+    against the question's own words: a model can remember one the user never wrote, but it is
+    the only one that reads a nickname or a typo ("NYC", "Cook Co.") that a word match would
+    refuse. Call it on the first turn only, before any tool runs. It fails open: no verdict, no
+    model, no metadata or a late report means the loop runs as usual.
     """
     geo = tools.get("resolve_geography")
-    if split is None or not isinstance(geo, ResolveGeographyTool) or not (wait or split.done()):
+    if split is None or not isinstance(geo, ResolveGeographyTool):
         return None
     try:
         found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
@@ -217,11 +221,14 @@ async def incomplete(
     question = str(getattr(record, "question", "") or "")
     numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)]
     skip = {_head(n) for n in numbered}
+    states = {state for state, _usps, _fips in STATES}
     named = [
         n
         for n in frame.get("named") or []
-        if isinstance(n, str) and _head(n) not in skip and _stated(n, question)
-    ]  # a number inside some other place is not a name, whichever list the model put it in
+        if isinstance(n, str)
+        and _head(n) not in skip  # a number inside some other place is not a name
+        and (_head(n) not in states or _stated(n, question))  # a state must have been written
+    ]
     if not (level and needs) or named or find_state(question) is not None:
         return None
     by_number = any(_stated(n, question) for n in numbered)
