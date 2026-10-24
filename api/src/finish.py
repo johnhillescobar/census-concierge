@@ -38,11 +38,11 @@ _SPLIT_PARENTS = (
     "code; never replace a code with a name. A tract, block group or county number alone is not "
     "such a code. 'my county' or 'the city' names no place, so leave it out. "
     "numbered lists every place the question identifies only by "
-    "a number inside some other place, such as 'tract 12', 'block group 3' or 'county 5' (never "
-    "a state, ZIP code or GEOID): those "
+    "a number inside some other place, such as 'tract 12', 'block group 3' or 'county 5': those "
     "numbers repeat in many places, so they never go in named, wherever they sit in the "
     "sentence, even as its first words. Copy both exactly as the user "
-    "wrote them. Use an empty list when there are none."
+    "wrote them. Use an empty list when there are none. "
+    "A state, ZIP code or GEOID is never numbered."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
