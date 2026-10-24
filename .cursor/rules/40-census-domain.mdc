@@ -50,6 +50,12 @@ universe, and flag when a question crosses two of them.
   level are limited. Say so rather than substituting.
 - Ambiguous place names ("Springfield") return **candidates as results**, never a
   blocking question.
+- **A question must be level-complete** (`geography.json` `requires`: county needs
+  state, tract needs state and county, block group needs state, county and tract). One
+  that names **no geography** cannot be answered: say at once that it is incomplete
+  and cannot be searched, and return **no URL**, no candidates, no fetch. Never detect
+  it by scanning the question's words; the model reports, code validates. Full rule:
+  `CLAUDE.md`, "Geography is level-complete".
 
 ## Table families — the concierge value
 

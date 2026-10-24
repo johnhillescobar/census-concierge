@@ -25,7 +25,7 @@ attaches warning codes from `docs/requirements.md`. None of them block.
 
 `finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
 stops without a URL, or with the wrong listing level, an incomplete comparison,
-a parentless tract pair, or an ACS1 request that never built `/acs/acs1`, it
+or an ACS1 request that never built `/acs/acs1`, it
 retries: search (including a wording pin if the pool missed it); resolve
 (listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
@@ -132,6 +132,15 @@ tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is
 `geography_not_nested` with no invented fetch. A `:*` wildcard stays one GET.
 
+A question must name the geography its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
+The split call (`plan_split`) also reports the question's `level` and the places it `names`.
+After the loop's first model turn and before any tool runs, `finish.incomplete` checks that
+report: the level's `requires` in `geography.json` must be met by a place that is a run of
+the question's own words, a state `find_state` finds, or a listing `legal_predicate` allows
+under `state:*` (all counties). If not, `run_ask` returns at once: `geography_unsupported`, a
+code-written answer naming the level and what it needs, and no search, fetch, URL or
+candidates. No verdict from the model fails open.
+
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict
 is last-wins. `geo_levels()["county"]` is summary level 324; all counties in a
@@ -145,7 +154,9 @@ the loop stopped before `build_url`.
 ## Comparisons and aggregation
 
 `comparisons[]` carries both estimates, both MOEs, `MOE_diff`, and the 90%
-conclusion. Place-vs-parent emits `shared_sample`. Additive areas combine via
+conclusion. Pairing is skipped before any pair is built when row pairs x estimate columns
+exceeds `MAX_COMPARISON_WORK` (`comparison_too_large`); rows, URL and MOE still return.
+Place-vs-parent emits `shared_sample`. Additive areas combine via
 `sqrt(Σ MOEᵢ²)` and warn past five (`moe_aggregation_degraded`). Combining
 published medians is declined (`median_not_aggregatable`).
 

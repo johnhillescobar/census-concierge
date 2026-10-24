@@ -23,10 +23,12 @@ from src.contract import (
     override_years,
     pin_tool_args,
     plan_from_record,
+    response_geoid,
+    rows_with_geoid,
     take_chart,
 )
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
-from src.finish import degraded_answer, finish_tools, split_beside
+from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
@@ -136,19 +138,6 @@ def _allowed(record: ExecutionRecord) -> set[str]:
 _RACE = re.compile(r"^[BC]\d{5}[A-I](?:PR)?$")
 
 
-def _rows_with_geoid(
-    rows: list[dict[str, str | None]], fallback: str
-) -> list[dict[str, str | None]]:
-    return [{**row, "GEO_ID": row.get("GEO_ID") or fallback} for row in rows]
-
-
-def _response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
-    ids = {(row.get("GEO_ID") or fallback) for row in rows} - {""}
-    if len(ids) == 1:
-        return next(iter(ids))
-    return fallback if not rows else ""
-
-
 def _how_differs(
     other_id: str,
     selected_id: str,
@@ -238,7 +227,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                 )
             )
     fallback = record.geography.geoid if record.geography else ""
-    rows = _rows_with_geoid(record.rows, fallback)
+    rows = rows_with_geoid(record.rows, fallback)
     warnings, rows, extra, compared = finish_aggregation(
         record, rows, {item.table_id for item in alternatives}
     )
@@ -253,7 +242,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         **series_from_record(record),
         rows=rows,
         moe=moe_rows(rows),
-        geoid=_response_geoid(rows, fallback),
+        geoid=response_geoid(rows, fallback),
         universe=selected_universe,
         table_id=record.table_id,
         plan=plan_from_record(record),
@@ -416,6 +405,8 @@ async def run_ask(
         try:
             for _turn in range(MAX_TURNS):
                 turn = await complete(messages, openai_tools)
+                if stop := await incomplete(record, tools, split, wait=calls_used == 0):
+                    return assemble(stop, record)
                 answer = str(turn.get("content") or "")
                 pending = list(turn.get("tool_calls") or [])
                 if not pending:

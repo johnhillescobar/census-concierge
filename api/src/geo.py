@@ -10,7 +10,7 @@ from typing import Any, Literal
 from langchain_core.tools import BaseTool
 from pydantic import ConfigDict
 
-from src.compare import parentless_tracts, unsupported_wildcard
+from src.compare import unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
 from src.geo_list import (
     WILDCARD,
@@ -205,10 +205,6 @@ class ResolveGeographyTool(BaseTool):
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
-        packed = parentless_tracts(query, dataset=dataset, year=year)
-        if packed:
-            detail, specs = packed
-            return detail, _compare_result(specs, [], legal=False, detail=detail)
         names = [n.strip() if n and n.strip() else "(blank)" for n in parents] if parents else []
         if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
             picks = await asyncio.gather(

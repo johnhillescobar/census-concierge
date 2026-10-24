@@ -16,15 +16,8 @@ _COMPARE = re.compile(
     r"\bvs\.?\b",
     re.IGNORECASE,
 )
-_TRACT_VS = re.compile(
-    r"tracts?\s+(\d{3,4}).{0,80}(?:higher than|lower than|versus|compared to|vs\.?)"
-    r"\s+(?:tract\s+)?(\d{3,4})",
-    re.I,
-)
-_COUNTY = re.compile(
-    r"\b([A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*)*)\s+count(?:y|ies)\b",
-    re.IGNORECASE,
-)
+# Row pairs x estimate columns. 5 legs x 12 years x 25 columns is 44,250; a listing is far past it.
+MAX_COMPARISON_WORK = 50_000
 _RANK = {
     "block group": 0,
     "tract": 1,
@@ -56,26 +49,6 @@ def unsupported_wildcard(
 
 def moe_diff(left: float, right: float) -> float:
     return math.sqrt(left * left + right * right)
-
-
-def parentless_tracts(query: str, *, dataset: str, year: int) -> tuple[str, list[GeoSpec]] | None:
-    from src.geo_list import find_state
-
-    match = _TRACT_VS.search(query)
-    if not match or find_state(query) is not None or _COUNTY.search(query):
-        return None
-    specs = [
-        GeoSpec(
-            level="tract",
-            name=f"Census Tract {raw}",
-            for_spec=f"tract:{int(raw):04d}00",
-            dataset=dataset,
-            vintage=year,
-        )
-        for raw in match.groups()
-    ]
-    detail = f"tract {match.group(1)} vs tract {match.group(2)} needs state and county"
-    return detail, specs
 
 
 def _numeric(row: dict[str, str | None], key: str) -> float | None:
@@ -128,13 +101,38 @@ def _pair_ok(
     return not (same_geo and same_year)
 
 
-def comparison_rows(record: Any, rows: list[dict[str, str | None]]) -> list[Comparison]:
+def _operands(
+    record: Any, rows: list[dict[str, str | None]]
+) -> tuple[list[dict[str, str | None]], list[str]]:
     if not _COMPARE.search(str(getattr(record, "question", "") or "")):
-        return []
+        return [], []
     usable = [row for row in rows if str(row.get("GEO_ID") or "")]
-    if len(usable) < 2:
+    keys = [key for key in usable[0] if key.endswith("E") and "_" in key] if usable else []
+    return usable, keys
+
+
+def comparison_work(usable: list[Any], keys: list[str]) -> int:
+    return len(usable) * (len(usable) - 1) // 2 * len(keys)
+
+
+def comparison_too_large(record: Any, rows: list[dict[str, str | None]]) -> AskWarning | None:
+    usable, keys = _operands(record, rows)
+    work = comparison_work(usable, keys)
+    if work <= MAX_COMPARISON_WORK:
+        return None
+    return AskWarning(
+        code="comparison_too_large",
+        detail=(
+            f"{len(usable)} rows x {len(keys)} estimates is {work:,} row pairs x columns, over "
+            f"the {MAX_COMPARISON_WORK:,} limit; no pairwise comparison was computed"
+        ),
+    )
+
+
+def comparison_rows(record: Any, rows: list[dict[str, str | None]]) -> list[Comparison]:
+    usable, keys = _operands(record, rows)
+    if len(usable) < 2 or comparison_work(usable, keys) > MAX_COMPARISON_WORK:
         return []
-    keys = [key for key in usable[0] if key.endswith("E") and "_" in key]
     years = {str(row.get("year") or "") for row in usable} - {""}
     geos = {str(row.get("GEO_ID") or "") for row in usable} - {""}
     cross = len(years) > 1 and len(geos) > 1

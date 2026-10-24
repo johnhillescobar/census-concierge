@@ -392,9 +392,10 @@ id = "t03"
 text = "Is the poverty rate in tract 1201 higher than tract 1305?"
 tier = "trap"
 expect_warning = "geography_unsupported"
-note = """Tract-vs-tract needs state and county. Fail closed with candidate specs and \
-URLs rather than scoring moe_not_significant against zero rows. When two legs do \
-fetch, tract MOEs usually swamp the difference."""
+expect_no_url = true
+note = """Names no geography: tract numbers alone identify nothing, and a tract needs state \
+and county. The agent says at once that the question is incomplete and cannot be searched, \
+with no URL, search or fetch. When two tracts do fetch, their MOEs usually swamp the difference."""
 
 [[question]]
 id = "t04"

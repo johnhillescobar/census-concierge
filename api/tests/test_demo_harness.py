@@ -189,6 +189,19 @@ def test_warning_only_with_url_is_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=body) is True
 
 
+def test_a_question_with_no_geography_is_answered_only_by_the_warning_and_no_url() -> None:
+    entry = {"id": "t03", "expect_warning": "geography_unsupported", "expect_no_url": True}
+    warned = [{"code": "geography_unsupported", "detail": "tract needs state and county"}]
+    said = _body(table_id="", url="", rows=[], warnings=warned)
+    assert run_demo.is_answered(entry, status_code=200, body=said) is True
+    shown = _body(table_id="", rows=[], warnings=warned, urls=["https://api.census.gov/data/x"])
+    assert run_demo.is_answered(entry, status_code=200, body=shown) is False
+    assert "url shown" in run_demo.miss_detail(entry, status_code=200, body=shown)
+    silent = _body(table_id="", url="", rows=[], warnings=[])
+    assert run_demo.is_answered(entry, status_code=200, body=silent) is False
+    assert run_demo.miss_detail(entry, status_code=200, body=silent).startswith("missing warning")
+
+
 def test_warning_and_table_without_rows_is_not_answered() -> None:
     entry = {"id": "t01", "expect_table": "B19013", "expect_warning": "overlapping_vintage"}
     body = _body(

@@ -7,7 +7,7 @@ None of these block: warn (or decline a computation) and still ship the answer.
 
 | field | rule |
 |---|---|
-| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails. `&key=` redacted. |
+| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except when no geography is named (below). `&key=` redacted. |
 | **Margins of error** | Fetch `M` beside every `E`. Census missing sentinels are null, never zero. |
 | **GEOID** | AFFGEOID `GEO_ID` on fetched rows. Names do not join to TIGER. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
@@ -16,13 +16,22 @@ None of these block: warn (or decline a computation) and still ship the answer.
 
 A silently short series is the same failure as a wrong one: dropped years, geographies, or variables are named, with a reason.
 
+## Geography completeness
+
+A question must carry what `geography.json` `requires` for its level (county: state; tract: state and
+county; block group: state, county and tract). One that names no geography is not answered:
+`geography_unsupported`, an answer saying it is incomplete, cannot be searched and what is missing,
+and empty `urls[]`, `rows` and `alternatives`. No search, fetch or blocking question. Partial cases keep
+their own warnings. The model reports the level and what is named; code validates it, never a word scan.
+
 ## Slice 1 warning codes
 
 | code | condition |
 |---|---|
 | `overlapping_vintage` | ACS5 periods sharing sample years are not comparable. |
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
-| `geography_unsupported` | The table is not published at the requested level. Do not substitute. |
+| `geography_unsupported` | The table is not published at the requested level, or the question names 2+ places by number only ("tract 12", "county 20") and no state. Do not substitute. |
+| `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
 | `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 

@@ -9,7 +9,7 @@ import math
 import re
 from typing import Protocol
 
-from src.compare import comparison_rows, shared_sample, significance_warning
+from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
@@ -393,6 +393,8 @@ def finish_aggregation(
 ) -> tuple[list[AskWarning], list[dict[str, str | None]], list[Alternative], list[Comparison]]:
     warnings = evaluate(record)
     compared = [] if overlapping_vintage(record) is not None else comparison_rows(record, rows)
+    if overlapping_vintage(record) is None and (big := comparison_too_large(record, rows)):
+        warnings.append(big)
     extra: list[Alternative] = []
     if any(item.code == "median_not_aggregatable" for item in warnings):
         if _household_income_median(record) and _BRACKET_TABLE not in already:

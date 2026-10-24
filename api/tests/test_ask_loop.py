@@ -210,30 +210,6 @@ async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     assert response.rows
 
 
-async def test_parentless_tracts_fail_closed_with_urls() -> None:
-    record = ExecutionRecord()
-    tools = _tools(record)
-
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
-    response = await run_ask(
-        "Is the poverty rate in tract 1201 higher than tract 1305?",
-        complete=complete,
-        tools=tools,
-        record=record,
-    )
-    assert [item.code for item in response.warnings] == ["geography_unsupported"]
-    assert "1201" in response.warnings[0].detail
-    assert "1305" in response.warnings[0].detail
-    assert [row.for_spec for row in record.geographies] == ["tract:120100", "tract:130500"]
-    assert response.urls
-    assert "tract:120100" in response.urls[0]
-
-
 async def test_universe_mismatch_finishes_with_a_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
@@ -1443,7 +1419,7 @@ async def test_split_call_runs_beside_the_loop_and_finish_reuses_it(monkeypatch:
     await run_ask("anything", complete=complete, tools=_tools(record), record=record)
     assert order.index("split") < order.index("loop-end")
     assert order.count("split") == 1
-    assert seen == [{"parents": ["Ohio", "Michigan"], "unit": "county"}]
+    assert [(item["parents"], item["unit"]) for item in seen] == [(["Ohio", "Michigan"], "county")]
 
 
 async def test_failing_split_call_never_fails_the_request(monkeypatch: Any) -> None:

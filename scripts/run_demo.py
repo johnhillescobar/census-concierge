@@ -132,6 +132,8 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     rows = body.get("rows") or []
     expected_table = entry.get("expect_table")
     expected_warning = entry.get("expect_warning")
+    if entry.get("expect_no_url"):  # names no geography: nothing to search, so a URL is wrong
+        return expected_warning in warnings and not has_url
     if expected_warning in _WARNING_WITHOUT_FETCH:
         return expected_warning in warnings
     if expected_warning and expected_warning not in warnings:
@@ -158,6 +160,8 @@ def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
     }
     if expected_warning and expected_warning not in warnings:
         return f"missing warning {expected_warning}"
+    if entry.get("expect_no_url"):
+        return "url shown for a question with no geography"
     expected_table = entry.get("expect_table")
     table_id = str(body.get("table_id") or "")
     if expected_table and table_id != expected_table:

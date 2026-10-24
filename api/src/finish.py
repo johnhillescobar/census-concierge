@@ -11,8 +11,8 @@ from typing import Any
 
 from langchain_core.tools import BaseTool
 
-from src.compare import parentless_tracts
-from src.geo import split_comparison
+from src.geo import ResolveGeographyTool, detect_level, legal_predicate, split_comparison
+from src.geo_list import find_state
 from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
 
@@ -20,18 +20,24 @@ Dispatch = Callable[..., Awaitable[str]]
 Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
 
 _SPLIT_PARENTS = (
-    'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool}. parents are the '
+    'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "level": ..., '
+    '"named": [...]}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
     "state are one parent: write any place smaller than a state as 'Name, State' with the state "
     "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
     "never without its state. "
     "Name a state alone. unit is county, tract, block group, zcta or place: the kind of row "
     "the user wants. listing is true when they want a row for every unit inside the parents, "
-    "false when they want the parents themselves."
+    "false when they want the parents themselves. "
+    "level is the geography level the question asks about (state, county, place, tract, block "
+    "group, zcta), or null when it asks about none. named lists every geography the question "
+    "itself names, a state, county, city or other place, copied exactly as the user wrote it. "
+    "A bare number, such as a tract or county number, is not a name. Empty when it names none."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
 SPLIT_WAIT_SECONDS = 6.0  # the call normally finishes beside the loop; never delay an answer more
+FRAME_WAIT_SECONDS = 3.0  # before the first tool runs; past it the question is treated as complete
 
 _LISTING = re.compile(
     r"\b(?:all|every|each)\s+(?:census\s+)?(block groups?|tracts?)\b|"
@@ -97,14 +103,6 @@ def degraded_answer(record: Any) -> str:
     return f"Recovered {record.table_id} data{place} after a retry; see the table and URL below."
 
 
-def _wrong_parentless(record: Any, question: str, year: int) -> bool:
-    if parentless_tracts(question, dataset="acs5", year=year) is None:
-        return False
-    geos = list(getattr(record, "geographies", []) or [])
-    status = getattr(record, "geo_status", None) or {}
-    return status.get("legal") is not False or len(geos) < 2 or geos[0].level != "tract"
-
-
 def _all_wild(geos: list[Any]) -> bool:
     return bool(geos) and all(g.for_spec.endswith(":*") for g in geos)
 
@@ -135,11 +133,21 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         names, unit = found.get("parents"), str(found.get("unit") or "")
     except Exception:  # noqa: BLE001 - a failed repair must never fail the answer
         return None
+    named = found.get("named")
+    frame = {
+        "level": found.get("level"),
+        "listing": bool(found.get("listing")),
+        "named": [*(named if isinstance(named, list) else []), *(names or [])],
+    }
     if not (found.get("listing") and unit in _SPLIT_UNITS and isinstance(names, list)):
-        return None
+        return {"frame": frame}
     parents = [name.strip() for name in names if isinstance(name, str) and name.strip()]
     parents = list({name.casefold(): name for name in parents}.values())
-    return {"parents": parents, "unit": unit} if len(parents) >= 2 else None
+    return (
+        {"parents": parents, "unit": unit, "frame": frame}
+        if len(parents) >= 2
+        else {"frame": frame}
+    )
 
 
 @asynccontextmanager
@@ -156,12 +164,63 @@ async def split_beside(
             await asyncio.gather(task, return_exceptions=True)
 
 
+def _words(text: str) -> list[str]:
+    return "".join(ch if ch.isalnum() else " " for ch in text.casefold()).split()
+
+
+def _stated(name: str, question: str) -> bool:
+    """A place the model names counts only as a run of the question's own words, not its memory."""
+    head, words = _words(name.split(",")[0]), _words(question)
+    return bool(head) and any(words[i : i + len(head)] == head for i in range(len(words)))
+
+
+async def incomplete(
+    record: Any,
+    tools: dict[str, BaseTool],
+    split: asyncio.Task[dict[str, Any] | None] | None,
+    *,
+    wait: bool = True,
+) -> str | None:
+    """The answer to return at once when a question names no geography its level can stand on.
+
+    The model reports the level and what the question names (the split call, beside the loop).
+    Code checks that against the level's `requires` in geography.json and the question's own
+    words. It fails open: no verdict, no model or no metadata means the loop runs as usual.
+    """
+    geo = tools.get("resolve_geography")
+    if split is None or not isinstance(geo, ResolveGeographyTool) or not (wait or split.done()):
+        return None
+    try:
+        found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
+        entries = await asyncio.to_thread(geo.geo_table, "acs5", geo.latest_vintage("acs5"))
+    except (TimeoutError, OSError, ValueError, TypeError, KeyError):
+        return None
+    frame = (found or {}).get("frame") or {}
+    level = detect_level(str(frame.get("level") or ""))
+    needs = min((e.requires for e in entries if e.name == level), key=len, default=())
+    question = str(getattr(record, "question", "") or "")
+    named = [n for n in frame.get("named") or [] if isinstance(n, str) and _stated(n, question)]
+    if not (level and needs) or named or find_state(question) is not None:
+        return None
+    if frame.get("listing") and legal_predicate(
+        level, frozenset({"state"}), wildcard=True, entries=entries
+    ):
+        return None  # every unit of this level lists under state:* (all counties)
+    names = ", ".join(needs[:-1]) + (" and " if len(needs) > 1 else "") + needs[-1]
+    detail = f"{level} needs {names}; the question names no geography"
+    record.geo_status = {"legal": False, "detail": detail, "nested": True}
+    return (
+        f"This question is incomplete and cannot be searched: it asks for {level} data, which "
+        f"Census identifies only by {names}, and it names no geography. Name them and ask again."
+    )
+
+
 async def _split_parents(
     dispatch: Dispatch, geo: BaseTool | None, record: Any, question: str, found: Any
 ) -> bool:
     """Re-resolve a multi-parent listing the loop got wrong with the model's parents."""
     geos = list(getattr(record, "geographies", []) or [])
-    if not (found and geo):
+    if not (found and found.get("parents") and geo):
         return False
     parents, unit = found["parents"], found["unit"]
     if _all_wild(geos) and len(parents) <= len(geos):
@@ -206,7 +265,6 @@ async def finish_tools(
         found = None
     redone = plan is None and await _split_parents(dispatch, geo, record, question, found)
     redo = redone or _wrong_listing(record, question) or _wrong_comparison(record, question)
-    redo = redo or _wrong_parentless(record, question, year)
     redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
     if plan is not None and plan.geographies:
         redo = False

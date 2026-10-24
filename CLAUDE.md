@@ -34,7 +34,8 @@ City" in under 75 seconds.
 
 Every answer renders the full Census API URL — variables, geography, vintage —
 including when the fetch fails or the agent is unsure. A user handed a URL that
-returns the wrong table fixes it in ten seconds. A user handed prose cannot.
+returns the wrong table fixes it in ten seconds. A user handed prose cannot. The one
+exception is a question that names no geography (next section).
 
 Also non-negotiable in every response:
 
@@ -46,6 +47,17 @@ Also non-negotiable in every response:
   is the most common silent wrong answer in Census work.
 - **Alternatives.** Show related tables, not just the pick. That is the whole
   concierge value, and it teaches the ecosystem one answer at a time.
+
+## Geography is level-complete
+
+A question must carry what Census requires for the geography **level** it asks about
+(`geography.json` `requires`: county needs state, tract needs state and county, block
+group needs state, county and tract). A code such as a tract number identifies nothing
+without its parents. A question that names **no geography** cannot be answered: say
+immediately that it is incomplete and cannot be searched, name what is missing, and
+return **no URL**, no candidates and no fetch. Partial cases keep their warnings. The
+model reports the level and what the question names; code validates that against
+`requires` and the question text. Never detect it by scanning the question's words.
 
 ## Do not
 
