@@ -20,6 +20,7 @@ from src import ask as ask_module
 from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.contract import ResultPlan
+from src.geo import detect_level
 from src.geo_list import find_state
 from src.retrieval.metadata import GeoLevel
 
@@ -548,3 +549,17 @@ async def test_tracts_inside_a_named_county_still_fetch_and_compare_with_margins
     assert len(response.comparisons) == 3  # three tracts make three pairs of one column
     assert all(pair.moe_a and pair.moe_b and pair.threshold for pair in response.comparisons)
     assert "comparison_too_large" not in {item.code for item in response.warnings}
+
+
+@pytest.mark.parametrize("single", [False, True])
+@pytest.mark.parametrize("row", sorted({entry.name for entry in [*ENTRIES, BLOCK_GROUP]}))
+def test_the_needs_table_is_what_the_censuss_own_metadata_says(row: str, single: bool) -> None:
+    # geography.json lists, per level, the parents it takes and which of them may be a wildcard.
+    # Every unit listed can leave its wildcard parents to the URL; one unit by number cannot, the
+    # API refuses a wildcard for it. Measured live (ACS5 2023) to agree with every level here.
+    rows = [entry for entry in [*ENTRIES, BLOCK_GROUP] if entry.name == row]
+    derived = min(
+        (tuple(p for p in entry.requires if single or p not in entry.wildcard) for entry in rows),
+        key=len,
+    )
+    assert finish._NEEDS.get((detect_level(row) or "", single), ()) == derived

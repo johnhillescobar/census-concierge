@@ -191,11 +191,12 @@ MAX_REPORTED = 25  # a question names a handful of places; a longer report is no
 # real. A listing needs only what the wildcards cannot supply: every tract or block group in a
 # state needs the state, if the URL writes `county:*` itself (leaving it out is HTTP 400).
 # Anything not listed needs nothing: all counties and all places list with no parent at all.
-# geography.json `requires` lists more than this, so it is not used.
+# It is geography.json `requires` less the parents `wildcard` lets a listing leave to the URL.
 _NEEDS: dict[tuple[str, bool], tuple[str, ...]] = {
     ("tract", False): ("state",),
     ("block group", False): ("state",),
     ("county", True): ("state",),
+    ("place", True): ("state",),
     ("tract", True): ("state", "county"),
     ("block group", True): ("state", "county", "tract"),
 }
