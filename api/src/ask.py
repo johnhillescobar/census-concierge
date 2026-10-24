@@ -69,6 +69,8 @@ class ExecutionRecord:
     # comparison one at a time instead of together -- mechanical bookkeeping
     # of what was actually asked, not a re-parse of the question's prose.
     geo_queries: list[str] = field(default_factory=list)
+    # The question asks which table holds something: no geography is wanted, so none is flagged.
+    tables_only: bool = False
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -401,11 +403,12 @@ async def run_ask(
     complete = complete or _openai_complete
     answer = ""
     calls_used = 0
-    async with split_beside(question, complete, record.override is None) as split:
+    given = bool(record.override and record.override.geographies)  # a plan that names the places
+    async with split_beside(question, complete, not given) as split:
         try:
             for turn_no in range(MAX_TURNS):
                 turn = await complete(messages, openai_tools)
-                if not turn_no and (stop := await incomplete(record, tools, split)):
+                if not turn_no and (stop := await incomplete(record, split)):
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
                 pending = list(turn.get("tool_calls") or [])

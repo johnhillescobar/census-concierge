@@ -196,7 +196,16 @@ def test_a_question_with_no_geography_is_answered_only_by_the_warning_and_no_url
     assert run_demo.is_answered(entry, status_code=200, body=said) is True
     shown = _body(table_id="", rows=[], warnings=warned, urls=["https://api.census.gov/data/x"])
     assert run_demo.is_answered(entry, status_code=200, body=shown) is False
-    assert "url shown" in run_demo.miss_detail(entry, status_code=200, body=shown)
+    assert "URL was shown" in run_demo.miss_detail(entry, status_code=200, body=shown)
+    # a refusal is a refusal only if nothing was searched: a table, rows or candidates mean it ran
+    for ran in (
+        _body(table_id="B01003", urls=[], rows=[], warnings=warned),
+        _body(table_id="", urls=[], rows=[{"NAME": "x"}], warnings=warned),
+        _body(
+            table_id="", urls=[], rows=[], warnings=warned, alternatives=[{"table_id": "B01001"}]
+        ),
+    ):
+        assert run_demo.is_answered(entry, status_code=200, body=ran) is False
     silent = _body(table_id="", url="", rows=[], warnings=[])
     assert run_demo.is_answered(entry, status_code=200, body=silent) is False
     assert run_demo.miss_detail(entry, status_code=200, body=silent).startswith("missing warning")
