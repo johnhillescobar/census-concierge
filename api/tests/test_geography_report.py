@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 from ask_fixtures import ENTRIES, _tools
+from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.finish import plan_split
 from src.retrieval.metadata import GeoLevel
@@ -47,6 +48,7 @@ async def _ask(
     *,
     split_delay: float = 0.0,
     second_turn_delay: float = 0.0,
+    prose_first: bool = False,
 ) -> tuple[Any, ExecutionRecord]:
     record = ExecutionRecord()
     tools = _tools(record)
@@ -61,6 +63,8 @@ async def _ask(
             await asyncio.sleep(split_delay)
             return split_reply
         turns["n"] += 1
+        if turns["n"] == 1 and prose_first:
+            return {"content": "Tract 71 looks poorer than tract 305.", "tool_calls": []}
         if turns["n"] == 1:
             call = {"id": "1", "name": "search_tables", "args": {"question": question}}
             return {"content": "", "tool_calls": [call]}
@@ -75,7 +79,7 @@ async def _ask(
     [
         ("Poverty rate by tract in NYC", "tract", ["New York City, New York"]),
         ("Block group income in Los Angelas County", "block group", ["Los Angeles County"]),
-        ("Median rent by tract in Cook Co.", "tract", ["Cook County, Illinois"]),
+        ("Median rent by tract in Dane Co.", "tract", ["Dane County, Wisconsin"]),
         ("Poverty by tract in the Bay Area", "tract", ["San Francisco Bay Area"]),
     ],
 )
@@ -89,15 +93,15 @@ async def test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named(
 
 async def test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it() -> None:
     question = "Poverty rate by tract"
-    response, record = await _ask(question, _reply("tract", ["Texas"]))
+    response, record = await _ask(question, _reply("tract", ["Kentucky"]))
     assert STOPPED in response.answer
     assert record.timings == []
 
 
 async def test_a_state_the_user_wrote_as_a_code_in_the_question_counts() -> None:
-    question = "Tract 1201 in county 201, state 48"
+    question = "Tract 5871 in county 201, state 21"
     response, record = await _ask(
-        question, _reply("tract", ["state 48", "county 201"], ["tract 1201"])
+        question, _reply("tract", ["state 21"], ["tract 5871", "county 201"])
     )
     assert record.timings
     assert STOPPED not in response.answer
@@ -143,14 +147,17 @@ async def test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait(monkeyp
     assert [item["parents"] for item in seen] == [["Ohio", "Michigan"]]
 
 
-@pytest.mark.parametrize("parents", [1, True, 2.5, "Texas", {"a": 1}])
-async def test_a_malformed_parents_field_never_fails_the_request(parents: Any) -> None:
+@pytest.mark.parametrize("parents", [1, True, 2.5, "Kentucky", {"a": 1}])
+async def test_a_malformed_parents_field_names_no_place_and_never_fails_the_request(
+    parents: Any,
+) -> None:
     reply = _reply("tract", [], ["tract 71"], parents=parents)
-    response, _record = await _ask("Poverty in tract 71 versus tract 305", reply)
-    assert response.answer
+    response, record = await _ask("Poverty in tract 71 versus tract 305", reply)
+    assert STOPPED in response.answer  # nothing in a number, a string or an object is a place
+    assert record.timings == []
 
 
-@pytest.mark.parametrize("parents", [1, True, 2.5, "Texas", {"a": 1}])
+@pytest.mark.parametrize("parents", [1, True, 2.5, "Kentucky", {"a": 1}])
 async def test_plan_split_reports_only_list_parents_as_named(parents: Any) -> None:
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
         del messages, tools
@@ -158,3 +165,153 @@ async def test_plan_split_reports_only_list_parents_as_named(parents: Any) -> No
 
     found = await plan_split("anything", complete)
     assert found is not None and found["frame"]["named"] == []
+
+
+# --- the check trusts only what the question itself wrote, and only where it must --------------
+
+TWO_TRACTS = ["tract 71", "tract 305"]
+TWO_TRACTS_QUESTION = "Is the poverty rate in tract 71 higher than tract 305?"
+
+
+async def _split(reply: dict[str, Any]) -> dict[str, Any] | None:
+    async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
+        del messages, tools
+        return reply
+
+    return await plan_split("any question", complete)
+
+
+async def test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named() -> (
+    None
+):
+    # The intended fail-open: only a state is held to the question's own words. A county the model
+    # supplies lets the loop run; a trap that slips through is no worse than before this check,
+    # while a valid question refused over a nickname is the costly error.
+    reply = _reply("tract", ["Dane County, Wisconsin"], TWO_TRACTS)
+    response, record = await _ask(TWO_TRACTS_QUESTION, reply)
+    assert record.timings
+    assert STOPPED not in response.answer
+
+
+async def test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out() -> None:
+    # The price of "in" is not Indiana: an abbreviation counts only as an upper-case token.
+    question = TWO_TRACTS_QUESTION.removesuffix("?") + " in ky?"
+    response, record = await _ask(question, _reply("tract", ["Kentucky"], TWO_TRACTS))
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+async def test_a_county_number_written_in_words_cannot_make_a_county_question_incomplete() -> None:
+    # The model turns "county fifteen" into "county 15"; only what the user wrote verbatim counts,
+    # and a county level lists under state:* so nothing else makes it incomplete.
+    question = "Which is bigger, county fifteen or county thirty-three?"
+    response, record = await _ask(question, _reply("county", [], ["county 15", "county 33"]))
+    assert record.timings
+    assert STOPPED not in response.answer
+
+
+async def test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words() -> (
+    None
+):
+    question = "Which is poorer, tract seventy-one or tract three hundred five?"
+    response, record = await _ask(question, _reply("tract", [], TWO_TRACTS))
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+@pytest.mark.parametrize(
+    ("named", "stopped"),
+    [([], True), (["Ohio"], True), (["Dane County, Wisconsin"], False)],
+)
+async def test_an_empty_question_has_no_words_to_ground_a_state_on(
+    named: list[str], stopped: bool
+) -> None:
+    response, record = await _ask("", _reply("tract", named, []))
+    assert response.answer
+    assert (STOPPED in response.answer) is stopped
+    assert bool(record.timings) is not stopped
+
+
+JUNK = [5, None, True, 2.5, {"a": "Dane County, Wisconsin"}, ["Dane County, Wisconsin"]]
+
+
+async def test_entries_that_are_not_text_are_not_places_and_never_fail_the_request() -> None:
+    reply = _reply("tract", JUNK, [*TWO_TRACTS, *JUNK])
+    response, record = await _ask(TWO_TRACTS_QUESTION, reply)
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+@pytest.mark.parametrize("level", [5, True, 2.5, [], None, ""])
+async def test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs(level: Any) -> None:
+    response, record = await _ask(TWO_TRACTS_QUESTION, _reply(level, [], TWO_TRACTS))
+    assert record.timings
+    assert STOPPED not in response.answer
+
+
+@pytest.mark.parametrize("level", [["tract"], {"a": "tract"}])
+async def test_a_level_that_is_a_container_never_fails_the_request(level: Any) -> None:
+    response, _record = await _ask(TWO_TRACTS_QUESTION, _reply(level, [], TWO_TRACTS))
+    assert response.answer  # stopped or not, the request answers
+
+
+@pytest.mark.parametrize("sent", ["tract", ["tract"], 5, None, {"level": "county"}])
+async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
+    reply = _reply("tract", ["Dane County, Wisconsin"], ["tract 71"], frame=sent)
+    found = await _split(reply)
+    assert found == {
+        "frame": {"level": "tract", "named": ["Dane County, Wisconsin"], "numbered": ["tract 71"]}
+    }
+
+
+async def test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request() -> None:
+    response, record = await _ask(
+        TWO_TRACTS_QUESTION, _reply("tract", [], TWO_TRACTS, frame="tract")
+    )
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+async def test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check() -> None:
+    response, record = await _ask(
+        TWO_TRACTS_QUESTION, _reply("tract", [], TWO_TRACTS), prose_first=True
+    )
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+def test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail() -> None:
+    assert 0 < finish.FRAME_WAIT_SECONDS <= finish.SPLIT_WAIT_SECONDS
+
+
+# --- defects found in api/src: strict xfail, each passes the day the code is fixed -------------
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="an entry with no word in it has an empty head, which nothing excludes, so it counts",
+)
+@pytest.mark.parametrize("empty", ["", " ", "-", ","])
+async def test_a_name_with_no_word_in_it_is_not_a_place(empty: str) -> None:
+    response, record = await _ask(TWO_TRACTS_QUESTION, _reply("tract", [empty], TWO_TRACTS))
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="find_state matches a state code after a comma in any case, so ', or' is Oregon",
+)
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Is tract 71 poorer than tract 305, or is it the other way around?",
+        "Is tract 71 poorer than tract 305, in general?",
+    ],
+)
+async def test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography(
+    question: str,
+) -> None:
+    response, record = await _ask(question, _reply("tract", [], TWO_TRACTS))
+    assert STOPPED in response.answer
+    assert record.timings == []

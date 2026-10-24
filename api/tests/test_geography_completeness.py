@@ -159,14 +159,14 @@ async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> Non
 
 async def test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography() -> None:
     question = "Is the poverty rate in tract 71 higher than tract 305?"
-    reply = _frame("tract", ["Texas"], ["tract 71", "tract 305"])
+    reply = _frame("tract", ["Kentucky"], ["tract 71", "tract 305"])
     response, record, _fetched = await _ask(question, reply)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert record.timings == []
 
 
 async def test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it() -> None:
-    question = "Is the poverty rate in tract 71 higher than tract 305 in Texas?"
+    question = "Is the poverty rate in tract 71 higher than tract 305 in Kentucky?"
     response, record, _fetched = await _ask(
         question, _frame("tract", [], ["tract 71", "tract 305"])
     )
@@ -175,16 +175,17 @@ async def test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it(
 
 
 async def test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts() -> None:
-    question = "Is the poverty rate in tract 71 higher than tract 305 in TX?"
-    reply = _frame("tract", ["Texas"], ["tract 71", "tract 305"])
+    question = "Is the poverty rate in tract 71 higher than tract 305 in KY?"
+    reply = _frame("tract", ["Kentucky"], ["tract 71", "tract 305"])
     response, record, _fetched = await _ask(question, reply)
     assert record.timings
     assert "cannot be searched" not in response.answer
 
 
 async def test_a_named_geography_lets_the_loop_run() -> None:
-    question = "What is the population of Harris County, Texas?"
-    _response, record, _fetched = await _ask(question, _frame("county", ["Harris County"]))
+    # A tract level needs a county; no state is written, so only the named county can carry it.
+    question = "What is the poverty rate by tract in Franklin County?"
+    _response, record, _fetched = await _ask(question, _frame("tract", ["Franklin County, Ohio"]))
     assert record.timings
 
 
