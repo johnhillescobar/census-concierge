@@ -1,0 +1,240 @@
+GATE 2 TRANSCRIPT - cold review, worktree cc102-g2, HEAD ce57d03, diff origin/main...HEAD
+Reviewer rules followed: no commit bodies, no evidence/slice-6/cc-102-*, no PLAN notes, no Jira, no .env, no sealed set, no network, no keys. Worktree source untouched.
+Scratch scripts (outside the worktree): scratchpad/g2_*.py and scratchpad/g2_plug/*.py
+
+=================== PASS 2 MACHINES (run first, per docs/playbooks/review-pr.md) ===================
+﻿
+
+>>> uv run python scripts/check_budgets.py
+Using CPython 3.12.12
+Creating virtual environment at: .venv
+   Building census-concierge-api @ file:///C:/Users/johnh/AppData/Local/Temp/claude/C--Users-johnh-Dropbox-Python-census-concierge/8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac/scratchpad/cc102-g2/api
+      Built census-concierge-api @ file:///C:/Users/johnh/AppData/Local/Temp/claude/C--Users-johnh-Dropbox-Python-census-concierge/8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac/scratchpad/cc102-g2/api
+Installed 76 packages in 2.12s
+
+BUDGETS
+
+  ok    api src LOC               4466 <= 4600
+  ok    api src files               26 <= 40
+  ok    largest file LOC           406 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       977 <= 1200
+  ok    doc lines                 1795 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+exit=0
+
+>>> uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 62 (base 64, delta -2)
+
+All invariants held.
+
+exit=0
+﻿
+
+>>> uv run ruff check .
+All checks passed!
+exit=0
+
+>>> uv run ruff format --check .
+187 files already formatted
+exit=0
+
+>>> uv run mypy api/src
+Success: no issues found in 26 source files
+exit=0
+
+>>> uv run pytest -q -m "not integration"
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\cc102-g2\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+675 passed, 34 skipped, 1 warning in 15.43s
+exit=0
+
+All six machines exit 0. Review continues.
+
+=================== PASS 1 GENERIC BUGS ===================
+The code-review skill (level high) was invoked. It ran as a forked background agent against the
+caller's primary checkout (branch feat/cc-121-answer-figures, a different diff: it reported api/src/figures.py,
+which does not exist in this diff - confirmed: `ls api/src` has no figures.py and
+`git diff origin/main...HEAD --name-only | grep -c figures` prints 0). Its findings concern another change
+and are DISCARDED here. Pass 1 below is my own cold read of every changed file in api/src, scripts, evals,
+api/tests (ask.py, finish.py, compare.py, contract.py, geo.py, guards.py, run_demo.py, golden_questions.toml,
+test_geography_completeness.py and the edited tests), plus geo_list.find_state, geo.legal_predicate/detect_level,
+main.py callers, and the real geography.json rows (read from the main repo data/raw cache by pointing
+metadata.CACHE at it; no network).
+
+Real geography.json acs5/2024 rows used by incomplete(): tract requires (state, county), block group
+(state, county, tract), county min-requires (state), place (state), state () and zcta ().
+legal_predicate(level, {state}, wildcard=True): True for county and place; False for state, tract, block group, zcta.
+
+---- Repro A: verdict arrives after tools already ran (scratchpad/g2_late.py) ----
+FRAME_WAIT_SECONDS patched to 0.05s to stand in for a split call slower than first turn + 3s.
+Question "Is the poverty rate in tract 71 higher than tract 305?", frame level=tract, named=[], numbered=[tract 71, tract 305].
+split delay 0.3s  -> answer='This question is incomplete and cannot be searched: it asks for tract ...'
+   urls: 0 rows: 0 warnings: ['geography_unsupported'] tool calls run: ['search_tables']
+split delay 0.45s -> answer='This question is incomplete and cannot be searched: it asks for tract ...'
+   urls: 1 rows: 0 warnings: ['geography_unsupported'] tool calls run: ['search_tables', 'resolve_geography', 'build_url']
+split delay 0.6s  -> answer='This question is incomplete and cannot be searched: it asks for tract ...'
+   urls: 1 rows: 1 warnings: ['geography_unsupported'] tool calls run: ['search_tables', 'resolve_geography', 'build_url', 'fetch_data']
+
+---- Repro B: model reply with a non-list "parents" (scratchpad/g2_type.py, g2_base.py) ----
+parents=list      -> ok, urls 1 rows 1
+parents=1 (int)   -> RAISED TypeError Value after * must be an iterable, not int
+parents=true      -> RAISED TypeError Value after * must be an iterable, not bool
+parents=2.5       -> RAISED TypeError Value after * must be an iterable, not float
+parents=str       -> ok, urls 1 rows 1      (but frame["named"] becomes the string's characters)
+plan_split direct -> RAISED TypeError Value after * must be an iterable, not int
+origin/main plan_split with parents=1 -> None      (base returned None: the isinstance(names, list) gate ran first)
+
+---- Repro C: places the question names, refused as "names no geography" (scratchpad/g2_stated.py) ----
+Each row is a scripted split report, so the code under test is the validator.
+REFUSED  Poverty rate by tract in NYC | named= ['New York City, New York'] | numbered= []
+REFUSED  Poverty rate by tract in Los Angelas County | named= ['Los Angeles County, California'] | numbered= []
+REFUSED  Poverty rate by tract in Cook Co. | named= ['Cook County, Illinois'] | numbered= []
+REFUSED  Poverty rate by tract in the Bay Area | named= ['San Francisco Bay Area, California'] | numbered= []
+REFUSED  Poverty rate by tract in Dona Ana County (n-tilde spelling in the question) | named= ['Dona Ana County, New Mexico'] | numbered= []
+ran      Poverty rate for tract 4.01 in county 201 of state 48 | named= ['state 48'] | numbered= ['tract 4.01', 'county 201']
+REFUSED  Poverty rate for tract 4.01 in county 201 of state 48 | named= [] | numbered= ['tract 4.01', 'county 201', 'state 48']
+ran      Poverty rate for tract 4.01 in Harris County, Texas | named= ['Harris County, Texas'] | numbered= ['tract 4.01']
+
+---- Repro D: _stated abbreviation branch matches ordinary words (scratchpad/g2_abbrev.py) ----
+Hallucinated state in `named`, question names no geography:
+REFUSED named=[Texas]    | Is the poverty rate in tract 71 higher than tract 305? | _stated: False
+ran     named=[Indiana]  | Is the poverty rate in tract 71 higher than tract 305? | _stated: True    ("in" == IN)
+ran     named=[Oregon]   | Show me tract 71 or tract 305 poverty                  | _stated: True    ("or" == OR)
+ran     named=[Maine]    | Show me tract 71 or tract 305 poverty                  | _stated: True    ("me" == ME)
+REFUSED for Oklahoma, Ohio, Hawaii on both questions (their codes are not words in these sentences).
+
+---- Repro E: mutations the new tests do not catch (scratchpad/g2_plug/*.py, pytest -p plugin) ----
+MAX_COMPARISON_WORK = 10**15 (cap off)           -> 675 passed, 34 skipped   (nothing tests the cap or comparison_too_large)
+MAX_COMPARISON_WORK = 0 (cap always trips)       -> 6 failed, all pre-existing tests in test_guards.py; none asserts the new warning
+asyncio.shield removed from incomplete()         -> 675 passed, 34 skipped   (the slow-split / timeout path is untested)
+FRAME_WAIT_SECONDS = 1e-9                         -> 5 failed in test_geography_completeness.py (the wait is covered)
+
+---- Repro F: golden t17 and the early stop (scratchpad/g2_t17.py) ----
+Question "What is the median household income across these five tracts combined?", report level=tract, named=[], numbered=[].
+codes: ['geography_unsupported', 'median_not_aggregatable'] | table_id: '' | urls: [] | alternatives: []
+golden t17 answered: True | miss: ''
+(t17 carries expect_table B19013, expect_geo_level tract, and a note saying to offer the B19001 bracket table; the stop returns no alternative and
+ is_answered still passes through the median_not_aggregatable shortcut.)
+
+---- Repro G: split verdict unavailable (garbled reply), the old tract-vs-tract question (scratchpad/g2_backstop.py) ----
+garbled split  | warnings ['geography_unsupported'] | urls [] | tools ['search_tables','resolve_geography','build_url','fetch_data','resolve_geography']
+no content     | warnings ['geography_unsupported'] | urls [] | tools [same]
+=> with no verdict the loop's own legality check still yields geography_unsupported and no URL, so the t03 criterion
+   (warning present, no URL) passes whether or not incomplete() ever fires.
+
+Pass 1 non-findings checked and cleared:
+- shield/wait_for: on timeout the shield wrapper is cancelled, the Task survives, split_beside reaps it; cancellation of the
+  request cancels and reaps it too. No leak found. Python 3.12 TimeoutError alias is what the except tuple catches.
+- Numeric bounds: comparison_work is ((n*(n-1))//2)*k, always an integer; `<=` in comparison_too_large and `>` in
+  comparison_rows agree at the boundary; 5x12x25=44,250 is under the cap.
+- plan_split returning {"frame": ...} instead of None for non-listing replies: _split_parents guards on found.get("parents");
+  no other consumer indexes found["parents"].
+- rows_with_geoid/response_geoid moved verbatim to contract.py: no behaviour change.
+- Removal of parentless_tracts/_wrong_parentless/_TRACT_VS/_COUNTY: no remaining reference in api/src or scripts; regex call sites 64 -> 62.
+- override path (/ask with a plan): split is None so incomplete() is skipped, as before.
+
+=================== PASS 2 PROJECT INVARIANTS (review-pr.md) ===================
+Machines: all green (above). budgets.toml not in the diff. check_invariants --base reports no raised ceiling, no new regex (delta -2),
+no new exemption. Largest file 406/410 (geo.py), ask.py went 410 -> 405.
+- Claim / evidence: no scoreboard is in this diff (E2E is a later phase); nothing to check here.
+- Scope: 19 files touched (limit ~15 or an explanation). Beyond the geography-completeness change it also adds comparison_too_large
+  / MAX_COMPARISON_WORK (a separate behaviour, no test) and moves two single-caller helpers from ask.py to contract.py (this is what
+  keeps ask.py under the 410 per-file cap).
+- URL / MOE / GEOID / universe / alternatives: preserved on every path except the new stop, which returns none of them by design
+  (docs/requirements.md "Geography completeness"; CLAUDE.md carve-out covers the URL and says "no candidates"). CLAUDE.md's
+  non-negotiable list itself names only the URL as excepted; MOE/GEOID/universe/alternatives are absent on that branch.
+- &key= redaction: the new branch builds no URL. No new URL formatting anywhere in the diff.
+- Numbers through the model: split call sees the question only.
+- Blocking clarification: the stop ends with "Name them and ask again." and returns nothing else. It is documented, and
+  check_invariants' clarification check passes, but to a user who does not know the ecosystem it is the same dead end the
+  "no blocking clarification" rule exists to prevent.
+- Word matching of the question: no new regex. But incomplete() uses _stated (a run-of-words match between the model's named place and
+  the question, used as a veto) and find_state(question) (existing regex state scan, used as an override). CLAUDE.md's new section says
+  "Never detect it by scanning the question's words"; the veto is a words scan of the question that fails closed (Repro C).
+- Eval phrasing leakage: prompt literals 'FIPS 39049', 'GEOID 06037', 'state 39', 'tract 12', 'block group 3', 'county 5' appear in
+  no committed eval file (grep of evals/, scripts/); check_invariants "eval phrasing in api/src" passes. Sealed set not readable by me.
+- Silent repair: none found. A model-supplied place that is not a run of the question's words is discarded without a warning (Repro C).
+- Shape: no new tool, route, model or node. docs/ARCHITECTURE.md was not touched although run_ask gained an early-return branch.
+- Doc drift: docs/ask-path.md says the check runs "before any tool runs"; the code also runs it after tools (Repro A).
+  docs/ARCHITECTURE.md:45 describes finish.py without the new stop. docs/DEBUGGING.md:167 still points at ask.py:_rows_with_geoid (moved).
+- Tests: no assertion on prompt wording or LLM prose. The retrieval-style "same answer for every input" trap does not apply.
+  New test file is mutation-sound for the refusal rules (the mutations I ran against it failed it) but silent on the cap and the timeout path (Repro E).
+
+=================== FINDINGS, MOST SEVERE FIRST ===================
+1. api/src/finish.py:184-190 and :220-226 (_stated used as a veto in incomplete). CONFIRMED mechanism, PLAUSIBLE model reports.
+   Defect: a place the model reports as named counts only if its name is a verbatim run of the question's words, so a tract or block-group
+   question that does name a place by nickname, abbreviation, typo, or accented spelling is refused as "names no geography".
+   Trigger: question "Poverty rate by tract in NYC" with the report named=["New York City, New York"], level=tract: answered with
+   geography_unsupported, no URL, text saying the question names no geography. Same for "Los Angelas County", "Cook Co.", "the Bay Area".
+   Also "tract 4.01 in county 201 of state 48" when the model files "state 48" under numbered instead of named (prompt text is ambiguous
+   about county numbers: 'county 5' is numbered, 'FIPS 39049' is named). Only tract and block group refuse this way (county and place list under state:*).
+   Wrong result: a valid question gets no URL and a false statement, with no warning that the model's own reading was thrown away.
+2. api/src/ask.py:408 with api/src/finish.py:207-231 (wait=calls_used == 0, then incomplete() again on every later turn). CONFIRMED.
+   Defect: when the split call is slower than the first turn plus FRAME_WAIT_SECONDS, the first check times out and the next turn that finds
+   the Task done returns the stop after tools have run, so the loop's work is discarded and its URL and rows ship under an answer that says
+   "cannot be searched" (Repro A: urls 1, rows 1 with the incomplete text). It also re-reads geography.json on every later turn even when the
+   first verdict was already "complete".
+   Trigger: split call finishing after turn 1 + 3 s on a question the model reports as incomplete.
+3. api/src/finish.py:148 (`*(names or [])`) and :286 (finish_tools catches only TimeoutError). CONFIRMED, regression from origin/main.
+   Defect: plan_split now unpacks the model's `parents` outside its try/except; a truthy non-iterable value raises TypeError in the Task,
+   incomplete() swallows it, but finish_tools re-awaits the same Task and the exception escapes run_ask (HTTP 500). Base returned None.
+   Trigger: split reply {"parents": 1, ...} (also true, 2.5). A string value does not raise but turns into single-letter `named` entries.
+4. api/src/finish.py:189-190. CONFIRMED.
+   Defect: the abbreviation arm of _stated tests the USPS code as a bare lowercase word, so "in" is Indiana, "or" is Oregon, "me" is Maine
+   (geo_list.py documents that USPS codes are matched only after a comma for exactly this reason).
+   Trigger: question "Is the poverty rate in tract 71 higher than tract 305?" with a remembered state named=["Indiana"]: _stated True, the stop is
+   skipped, the loop runs. Fail-open direction, defeats the "model's memory is not a name" guard for those states.
+5. api/tests (no test), api/src/compare.py:20,114-135 and api/src/finish.py:210. CONFIRMED.
+   Defect: the new cap and warning code comparison_too_large have no test, and the timeout/shield path has none; deleting the cap or the shield
+   leaves all 675 tests green (Repro E). Gate 1 matrix gap for a new warning code.
+6. evals/golden_questions.toml t17 and scripts/run_demo.py:135-136. CONFIRMED given the report; PLAUSIBLE for the model's report.
+   Defect: a question that names no geography but whose trap is something else (t17: median across "these five tracts") is now a flat refusal
+   with no alternative table, and the scoreboard still counts it answered via the median_not_aggregatable shortcut. Separately the new t03 criterion
+   (geography_unsupported and no URL) is satisfied by the loop's own fall-through when the split verdict is missing (Repro G), so a green t03 is not
+   evidence that incomplete() works.
+7. docs: ask-path.md ("before any tool runs"), ARCHITECTURE.md:45, DEBUGGING.md:167 are stale against the code. CONFIRMED. Low.
+8. Owner decisions, not code defects: CLAUDE.md is edited in this same diff to carve an exception out of the "URL on every answer" rule (and, in effect,
+   to allow a refusal that ends "Name them and ask again"); the diff also bundles the unrelated comparison cap and a 19-file footprint.
+   These need the owner's explicit yes at merge, per the repo's own rule that limits move by human commit.
+
+VERDICT (reviewer's lean): Not yet. Machines are green and the refusal rules are well tested, but the early stop can refuse a valid tract-level
+question (1), can contradict itself after tools ran (2), and turns a malformed model reply into a 500 (3).

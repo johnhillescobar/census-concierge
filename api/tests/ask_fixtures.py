@@ -430,6 +430,32 @@ def _harris(**fields: object) -> GeoSpec:
     return GeoSpec.model_validate(payload)
 
 
+# A county that no golden question names, with a resolver that knows only it.
+DANE = GeoSpec(
+    level="county",
+    name="Dane County, Wisconsin",
+    geoid="0500000US55025",
+    for_spec="county:025",
+    in_spec="state:55",
+    dataset="acs5",
+    vintage=2024,
+)
+
+
+def only_dane(
+    level: str, in_parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
+) -> list[dict[str, str]]:
+    row = {
+        "name": DANE.name,
+        "level": "county",
+        "for": DANE.for_spec,
+        "in": DANE.in_spec,
+        "geoid": DANE.geoid,
+        "population": "561504",
+    }
+    return [row] if level == "county" else []
+
+
 def _tools(record: ExecutionRecord) -> dict[str, Any]:
     yearly = {
         "B01003": {"universe": "Total population", "variables": ["001E"]},
