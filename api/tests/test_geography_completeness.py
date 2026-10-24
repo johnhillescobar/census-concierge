@@ -416,6 +416,7 @@ async def test_the_split_report_always_carries_the_level_and_the_places_it_found
             "level": "county",
             "named": ["Dane County, Wisconsin"],
             "numbered": ["county 7301"],
+            "asks_for": None,
         }
     }
 
@@ -449,7 +450,7 @@ async def test_places_of_the_wrong_type_are_ignored_not_iterated() -> None:
     found = await _split(
         unit="county", listing=False, level="county", named="Wisconsin", numbered=7
     )
-    assert found == {"frame": {"level": "county", "named": [], "numbered": []}}
+    assert found == {"frame": {"level": "county", "named": [], "numbered": [], "asks_for": None}}
 
 
 @pytest.mark.parametrize("parents", ["Wisconsin", 5, True])
@@ -465,7 +466,7 @@ async def test_a_parents_field_of_the_wrong_type_cannot_fail_the_request(parents
     response, _record, _fetched = await _ask(question, reply)  # raises TypeError today
     assert response.warnings is not None
     found = await _split(parents=parents, unit="tract", listing=True, level="tract")
-    assert found == {"frame": {"level": "tract", "named": [], "numbered": []}}
+    assert found == {"frame": {"level": "tract", "named": [], "numbered": [], "asks_for": None}}
 
 
 # --- grounding: a place counts only if the user wrote it ---------------------------------------

@@ -37,7 +37,7 @@ including when the fetch fails or the agent is unsure. A user handed a URL that
 returns the wrong table fixes it in ten seconds. A user handed prose cannot. The one
 exception is a question that names no geography (next section).
 
-Also non-negotiable in every response:
+Also non-negotiable in every answer that returns data:
 
 - **Margins of error.** Fetch `M` alongside every `E`. ACS estimates without
   MOE are professionally useless to a researcher, and small-geography MOEs
@@ -55,9 +55,11 @@ A question must carry what Census requires for the geography **level** it asks a
 group needs state, county and tract). A code such as a tract number identifies nothing
 without its parents. A question that names **no geography** cannot be answered: say
 immediately that it is incomplete and cannot be searched, name what is missing, and
-return **no URL**, no candidates and no fetch. Partial cases keep their warnings. The
-model reports the level and what the question names; code validates that against
-`requires` and the question text. Never detect it by scanning the question's words.
+return **no URL**, no candidates and no fetch; a refusal returns no rows, so the four fields
+above do not apply to it. Partial cases keep their warnings, and a question asking which
+table holds something is not a search by geography: answer it. The model reports the level,
+what the question names and what it asks for; code checks that against `requires`. Never
+detect it by scanning the question's words.
 
 ## Do not
 

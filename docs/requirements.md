@@ -22,7 +22,8 @@ A question must carry what `geography.json` `requires` for its level (county: st
 county; block group: state, county and tract). One that names no geography is not answered:
 `geography_unsupported`, an answer saying it is incomplete, cannot be searched and what is missing,
 and empty `urls[]`, `rows` and `alternatives`. No search, fetch or blocking question. Partial cases keep
-their own warnings. The model reports the level and what is named; code validates it, never a word scan.
+their own warnings; a question asking which table holds something is answered. The model reports the
+level, what is named and what is asked for; code checks it, never a word scan.
 
 ## Slice 1 warning codes
 

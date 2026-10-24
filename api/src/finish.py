@@ -21,7 +21,7 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "level": ..., '
-    '"named": [...], "numbered": [...]}. parents are the '
+    '"named": [...], "numbered": [...], "asks_for": ...}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
     "state are one parent: write any place smaller than a state as 'Name, State' with the state "
     "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
@@ -42,7 +42,9 @@ _SPLIT_PARENTS = (
     "numbers repeat in many places, so they never go in named, wherever they sit in the "
     "sentence, even as its first words. Copy both exactly as the user "
     "wrote them. Use an empty list when there are none. "
-    "A state, ZIP code or GEOID is never numbered."
+    "A state, ZIP code or GEOID is never numbered. asks_for is 'tables' when the question asks "
+    "which table or variable holds something or where to find it, and 'data' when it asks for "
+    "figures."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -149,6 +151,7 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         "level": found.get("level"),
         "named": [*(named if isinstance(named, list) else []), *names],
         "numbered": numbered if isinstance(numbered, list) else [],
+        "asks_for": found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
     }
     if not (found.get("listing") and unit in _SPLIT_UNITS):
         return {"frame": frame}
@@ -218,6 +221,8 @@ async def incomplete(
     except Exception:  # noqa: BLE001 - a failed check must never fail the answer
         return None
     frame = (found or {}).get("frame") or {}
+    if str(frame.get("asks_for") or "").strip().casefold() == "tables":
+        return None  # which table holds something is not a search by geography
     level = detect_level(str(frame.get("level") or ""))
     needs = min((e.requires for e in entries if e.name == level), key=len, default=())
     question = str(getattr(record, "question", "") or "")

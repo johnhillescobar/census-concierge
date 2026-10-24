@@ -247,7 +247,12 @@ async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
     reply = _reply("tract", ["Dane County, Wisconsin"], ["tract 71"], frame=sent)
     found = await _split(reply)
     assert found == {
-        "frame": {"level": "tract", "named": ["Dane County, Wisconsin"], "numbered": ["tract 71"]}
+        "frame": {
+            "level": "tract",
+            "named": ["Dane County, Wisconsin"],
+            "numbered": ["tract 71"],
+            "asks_for": None,
+        }
     }
 
 
@@ -386,6 +391,35 @@ async def test_unreadable_geography_metadata_of_any_kind_never_fails_the_request
         "Poverty in tract 71 versus tract 305", complete=complete, tools=tools, record=record
     )
     assert response.answer == "done" or response.answer
+
+
+@pytest.mark.parametrize("asks_for", ["tables", "Tables", " tables "])
+@pytest.mark.parametrize("level", ["tract", "block group"])
+async def test_a_question_that_asks_which_table_holds_something_is_not_refused(
+    asks_for: str, level: str
+) -> None:
+    # A table question is not a search by geography, so a level with no place does not stop it.
+    question = f"Which table has poverty rate by census {level}?"
+    response, record = await _ask(question, _reply(level, [], asks_for=asks_for))
+    assert record.timings
+    assert STOPPED not in response.answer
+
+
+@pytest.mark.parametrize("asks_for", ["data", "", None, 5, ["tables"], {"a": "tables"}, "tablesx"])
+async def test_anything_but_tables_is_a_question_for_data_and_is_still_refused(
+    asks_for: Any,
+) -> None:
+    reply = _reply("tract", [], ["tract 71", "tract 305"], asks_for=asks_for)
+    response, record = await _ask("Is the poverty rate in tract 71 above tract 305?", reply)
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+@pytest.mark.parametrize("sent", ["tables", " Tables", 5, None, ["tables"]])
+async def test_plan_split_reports_asks_for_only_when_it_is_text(sent: Any) -> None:
+    found = await _split(_reply("tract", [], [], asks_for=sent))
+    assert found is not None
+    assert found["frame"]["asks_for"] == (sent if isinstance(sent, str) else None)
 
 
 async def test_a_flood_of_entries_cannot_stall_the_event_loop() -> None:
