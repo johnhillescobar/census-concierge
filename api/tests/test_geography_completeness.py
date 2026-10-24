@@ -1,7 +1,8 @@
 """A question must name the geography its level needs, or it is answered at once and not searched.
 
-The model reports the level and what the question names (the split call). Scripted here, so the
-code that validates that report against geography.json is what is under test.
+The model reports the level, the places the question names, and the places it identifies only by a
+number inside another place (the split call). Scripted here, so the code that validates that report
+against geography.json is what is under test.
 """
 
 from __future__ import annotations
@@ -21,8 +22,17 @@ BLOCK_GROUP = GeoLevel(
 )
 
 
-def _frame(level: str | None, named: list[str], *, listing: bool = False) -> dict[str, Any]:
-    reply = {"parents": [], "unit": level, "listing": listing, "level": level, "named": named}
+def _frame(
+    level: str | None, named: list[str], numbered: list[str] | None = None
+) -> dict[str, Any]:
+    reply = {
+        "parents": [],
+        "unit": level,
+        "listing": False,  # never trusted: the verdict follows the metadata
+        "level": level,
+        "named": named,
+        "numbered": numbered or [],
+    }
     return {"content": json.dumps(reply), "tool_calls": []}
 
 
@@ -54,18 +64,33 @@ async def _ask(
 
 
 @pytest.mark.parametrize(
-    ("question", "level", "needs"),
+    ("question", "level", "numbered", "needs"),
     [
-        ("Is the poverty rate in tract 71 higher than tract 305?", "tract", ("state", "county")),
-        ("Is block group 4 larger than block group 9 or block group 2?", "block group", ("tract",)),
-        ("Which is bigger, county 15 or county 33 or county 8?", "county", ("state",)),
-        ("give me the 12 tract", "tract", ("state", "county")),
+        (
+            "Is the poverty rate in tract 71 higher than tract 305?",
+            "tract",
+            ["tract 71", "tract 305"],
+            ("state", "county"),
+        ),
+        (
+            "Is block group 4 larger than block group 9 or block group 2?",
+            "block group",
+            ["block group 4", "block group 9", "block group 2"],
+            ("tract",),
+        ),
+        (
+            "Which is bigger, county 15 or county 33 or county 8?",
+            "county",
+            ["county 15", "county 33", "county 8"],
+            ("state",),
+        ),
+        ("give me the 12 tract", "tract", ["12 tract"], ("state", "county")),
     ],
 )
 async def test_no_geography_named_is_answered_at_once_and_never_searched(
-    question: str, level: str, needs: tuple[str, ...]
+    question: str, level: str, numbered: list[str], needs: tuple[str, ...]
 ) -> None:
-    response, record, fetched = await _ask(question, _frame(level, []))
+    response, record, fetched = await _ask(question, _frame(level, [], numbered))
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert response.urls == [] and response.rows == [] and response.alternatives == []
     assert record.timings == [] and fetched == []  # no tool ran, nothing was fetched
@@ -73,17 +98,46 @@ async def test_no_geography_named_is_answered_at_once_and_never_searched(
     assert find_state(response.answer) is None  # code wrote it; no state, county or place invented
 
 
+async def test_places_identified_only_by_number_stop_a_level_that_would_otherwise_list() -> None:
+    # "county" lists under state:*, so only the numbered places make this question incomplete.
+    question = "Which is bigger, county 15 or county 33?"
+    response, record, _fetched = await _ask(
+        question, _frame("county", [], ["county 15", "county 33"])
+    )
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert record.timings == []
+
+
+async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> None:
+    question = "Is the poverty rate in tract 71 higher than tract 305?"
+    reply = _frame("tract", ["tract 71", "tract 305"], ["tract 71", "tract 305"])
+    response, record, _fetched = await _ask(question, reply)
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert record.timings == []
+
+
 async def test_a_place_the_model_remembers_but_the_user_never_wrote_is_not_a_geography() -> None:
     question = "Is the poverty rate in tract 71 higher than tract 305?"
-    response, record, _fetched = await _ask(question, _frame("tract", ["Texas", "Harris County"]))
+    reply = _frame("tract", ["Texas", "Harris County"], ["tract 71", "tract 305"])
+    response, record, _fetched = await _ask(question, reply)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert record.timings == []
 
 
 async def test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it() -> None:
     question = "Is the poverty rate in tract 71 higher than tract 305 in Texas?"
-    response, record, _fetched = await _ask(question, _frame("tract", []))
+    response, record, _fetched = await _ask(
+        question, _frame("tract", [], ["tract 71", "tract 305"])
+    )
     assert record.timings  # the loop ran
+    assert "cannot be searched" not in response.answer
+
+
+async def test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts() -> None:
+    question = "Is the poverty rate in tract 71 higher than tract 305 in TX?"
+    reply = _frame("tract", ["Texas"], ["tract 71", "tract 305"])
+    response, record, _fetched = await _ask(question, reply)
+    assert record.timings
     assert "cannot be searched" not in response.answer
 
 
@@ -94,16 +148,12 @@ async def test_a_named_geography_lets_the_loop_run() -> None:
 
 
 async def test_every_county_lists_under_a_wildcard_state_so_it_is_not_incomplete() -> None:
-    _response, record, _fetched = await _ask(
-        "Population by county", _frame("county", [], listing=True)
-    )
+    _response, record, _fetched = await _ask("Population by county", _frame("county", []))
     assert record.timings
 
 
 async def test_every_tract_needs_a_county_so_a_nationwide_listing_is_incomplete() -> None:
-    response, record, _fetched = await _ask(
-        "Population by tract", _frame("tract", [], listing=True)
-    )
+    response, record, _fetched = await _ask("Population by tract", _frame("tract", []))
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert record.timings == []
 

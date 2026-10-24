@@ -12,7 +12,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from src.geo import ResolveGeographyTool, detect_level, legal_predicate, split_comparison
-from src.geo_list import find_state
+from src.geo_list import STATES, find_state
 from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
 
@@ -21,7 +21,7 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "level": ..., '
-    '"named": [...]}. parents are the '
+    '"named": [...], "numbered": [...]}. parents are the '
     "places the user names, one entry each, whatever word connects them. A place and its own "
     "state are one parent: write any place smaller than a state as 'Name, State' with the state "
     "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
@@ -30,9 +30,18 @@ _SPLIT_PARENTS = (
     "the user wants. listing is true when they want a row for every unit inside the parents, "
     "false when they want the parents themselves. "
     "level is the geography level the question asks about (state, county, place, tract, block "
-    "group, zcta), or null when it asks about none. named lists every geography the question "
-    "itself names, a state, county, city or other place, copied exactly as the user wrote it. "
-    "A bare number, such as a tract or county number, is not a name. Empty when it names none."
+    "group, zcta), or null when it asks about none; a question about a tract, block group or "
+    "county by number asks about that level. named lists every place the question identifies by "
+    "its own name or code: a state, county, city, ZIP code or other place, such as 'Lancaster "
+    "County, Nebraska' or 'state 39'. A place given by a code that identifies it on its own, "
+    "such as 'FIPS 39049', 'GEOID 06037' or a ZIP code, goes in named as the user wrote the "
+    "code; never replace a code with a name. A tract, block group or county number alone is not "
+    "such a code. 'my county' or 'the city' names no place, so leave it out. "
+    "numbered lists every place the question identifies only by "
+    "a number inside some other place, such as 'tract 12', 'block group 3' or 'county 5': those "
+    "numbers repeat in many places, so they never go in named, wherever they sit in the "
+    "sentence, even as its first words. Copy both exactly as the user "
+    "wrote them. Use an empty list when there are none."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -133,11 +142,11 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         names, unit = found.get("parents"), str(found.get("unit") or "")
     except Exception:  # noqa: BLE001 - a failed repair must never fail the answer
         return None
-    named = found.get("named")
+    named, numbered = found.get("named"), found.get("numbered")
     frame = {
         "level": found.get("level"),
-        "listing": bool(found.get("listing")),
         "named": [*(named if isinstance(named, list) else []), *(names or [])],
+        "numbered": numbered if isinstance(numbered, list) else [],
     }
     if not (found.get("listing") and unit in _SPLIT_UNITS and isinstance(names, list)):
         return {"frame": frame}
@@ -168,10 +177,17 @@ def _words(text: str) -> list[str]:
     return "".join(ch if ch.isalnum() else " " for ch in text.casefold()).split()
 
 
+def _head(name: str) -> str:
+    return " ".join(_words(name.split(",")[0]))
+
+
 def _stated(name: str, question: str) -> bool:
     """A place the model names counts only as a run of the question's own words, not its memory."""
     head, words = _words(name.split(",")[0]), _words(question)
-    return bool(head) and any(words[i : i + len(head)] == head for i in range(len(words)))
+    if any(words[i : i + len(head)] == head for i in range(len(words))) and head:
+        return True
+    abbreviation = next((usps for state, usps, _fips in STATES if state == " ".join(head)), "")
+    return bool(abbreviation) and abbreviation.casefold() in words  # TX written, Texas reported
 
 
 async def incomplete(
@@ -199,13 +215,20 @@ async def incomplete(
     level = detect_level(str(frame.get("level") or ""))
     needs = min((e.requires for e in entries if e.name == level), key=len, default=())
     question = str(getattr(record, "question", "") or "")
-    named = [n for n in frame.get("named") or [] if isinstance(n, str) and _stated(n, question)]
+    numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)]
+    skip = {_head(n) for n in numbered}
+    named = [
+        n
+        for n in frame.get("named") or []
+        if isinstance(n, str) and _head(n) not in skip and _stated(n, question)
+    ]  # a number inside some other place is not a name, whichever list the model put it in
     if not (level and needs) or named or find_state(question) is not None:
         return None
-    if frame.get("listing") and legal_predicate(
+    by_number = any(_stated(n, question) for n in numbered)
+    if not by_number and legal_predicate(
         level, frozenset({"state"}), wildcard=True, entries=entries
     ):
-        return None  # every unit of this level lists under state:* (all counties)
+        return None  # asks for every unit of a level that lists under state:* (all counties)
     names = ", ".join(needs[:-1]) + (" and " if len(needs) > 1 else "") + needs[-1]
     detail = f"{level} needs {names}; the question names no geography"
     record.geo_status = {"legal": False, "detail": detail, "nested": True}

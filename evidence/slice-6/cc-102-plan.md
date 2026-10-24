@@ -23,13 +23,16 @@ Everything below is uncommitted.
 ## Built
 
 **1. Level-completeness check (`finish.incomplete`).** The split call that already runs beside the loop
-(`plan_split`) now also reports `level` and `named` (the places the question itself names). After the
-loop's first model turn and before any tool runs, code checks:
+(`plan_split`) now also reports `level`, `named` (places identified by a name or by a code that
+identifies them on its own) and `numbered` (places identified only by a number inside another place).
+After the loop's first model turn and before any tool runs, code checks:
 - `level` via `geo.detect_level`; `needs` = the level's smallest `requires` in `geography.json`;
 - each `named` place must be a run of the question's own words (so a place the model remembers and the
-  user never wrote does not count), or `find_state(question)` finds a state;
-- a listing the model reports is fine if `legal_predicate(level, {state}, wildcard=True)` allows it
-  (all counties list under `state:*`; all tracts do not).
+  user never wrote does not count), or a state the model spelled out whose abbreviation was written, or
+  `find_state(question)` finds a state; a `named` entry that is also `numbered` is dropped;
+- with nothing named: if the question has `numbered` places it is incomplete; otherwise it follows the
+  metadata: a level that lists under `state:*` (`legal_predicate`, all counties) goes on, one that does
+  not (all tracts) is incomplete. The model's own `listing` flag is not used: it varied run to run.
 
 If the level needs parents and none are met, `run_ask` returns at once through `assemble`:
 `geography_unsupported`, a code-written answer naming the level and what it needs, empty `urls[]`,
@@ -70,12 +73,30 @@ Pre-fix, measured: 400 rows x 2 cols 1.10 s / 269 MB; 150 x 25 1.77 s / 450 MB (
 comparison). The full 6,896-row shape was never run pre-fix; extrapolation does not reconcile with the
 recorded 697 s / ~5 GB, so no extrapolated figure is quoted.
 
-## Not verified: needs a live key and API spend
+## Live probe of the model's report (credits approved 2026-10-24)
 
-- Whether the real model fills `level` and `named` correctly. The risk is a false trap: the model omits a
-  place the question names, so a valid question is refused. Code limits it (a written state always counts,
-  garbled replies fail open) but cannot remove it. Measure `answered_rate` and the golden set at the same
-  `--repeat`, and p95 against the 20 s ceiling (PLAN.md records 18.9-21.7 s).
+Model calls only (gpt-4o-mini, the loop's model), 30 to 41 hand-written questions, no Census calls.
+`false trap` = a valid question refused (the costly error). `miss` = a trap let through, which fails
+open, so it is no worse than before. Scripts live in the session scratchpad, not the repo.
+
+| Iteration | Change | False traps | Misses |
+| --- | --- | --- | --- |
+| 1 | `named` only; "a bare number is not a name" | 0 of 20 | 6 of 10 (model files "tract 1201" under `named`) |
+| 2 | add a `numbered` slot; code ignores a `named` entry that is also `numbered` | 2 of 20 | 4 of 10 |
+| 3 | code: a spelled-out state counts if its abbreviation was written; ignore the model's `listing` flag, follow `legal_predicate` | 1 of 20 (a FIPS question) | 1 of 10 |
+| 3b | 5 repeats, 26 valid + 15 trap cases | 11 of 130, all FIPS/GEOID codes | 6 of 75 |
+| 4 | prompt: a code that identifies a place on its own goes in `named`, never translated | 1 of 130 | 10 of 75 (a lone "tract 88 ..." now filed as named) |
+| 5 | prompt: a tract, block group or county number alone is not such a code | 0 of 130 | 11 of 75 |
+| 6 | prompt: numbered "wherever it sits, even as the first words" | **0 of 130** | **5 of 75, all one phrasing ("my county", a deictic the model will not drop)** |
+
+Caveat: I tuned against these very phrasings, so iteration 6 is optimistic. The unbiased tests are the
+golden set (not tuned against) and the owner's sealed set. Split-call latency in these runs: p50 ~1.1 s,
+max ~2.6 s, beside the loop.
+
+## Not verified: needs the full E2E
+
+- `answered_rate`, the golden set and p95 against the 20 s ceiling (PLAN.md records 18.9-21.7 s) with the
+  detector in place, at the same `--repeat`; and the regression-minus-sealed gap.
 - t03 under `make demo` with the new scorer.
 - The pre-flight claim of 6,896 tract rows for Texas (recorded in the ticket, not re-run).
 
