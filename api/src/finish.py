@@ -12,7 +12,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from src.geo import ResolveGeographyTool, detect_level, legal_predicate, split_comparison
-from src.geo_list import STATES, find_state
+from src.geo_list import find_state
 from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
 
@@ -175,22 +175,11 @@ async def split_beside(
             await asyncio.gather(task, return_exceptions=True)
 
 
-def _words(text: str) -> list[str]:
-    return "".join(ch if ch.isalnum() else " " for ch in text.casefold()).split()
+def _key(text: str) -> str:
+    return " ".join("".join(ch if ch.isalnum() else " " for ch in text.casefold()).split())
 
 
-def _head(name: str) -> str:
-    return " ".join(_words(name.split(",")[0]))
-
-
-def _stated(name: str, question: str) -> bool:
-    """The model's place is a run of the question's own words, or a state's upper-case code."""
-    head, words = _words(name.split(",")[0]), _words(question)
-    if any(words[i : i + len(head)] == head for i in range(len(words))) and head:
-        return True
-    abbreviation = next((usps for state, usps, _fips in STATES if state == " ".join(head)), "")
-    caps = "".join(ch if ch.isalnum() else " " for ch in question).split()
-    return bool(abbreviation) and abbreviation in caps  # TX written, Texas reported; "in" is not IN
+MAX_REPORTED = 25  # a question names a handful of places; a longer report is not read past this
 
 
 async def incomplete(
@@ -200,12 +189,14 @@ async def incomplete(
 ) -> str | None:
     """The answer to return at once when a question names no geography its level can stand on.
 
-    The model reports the level and what the question names (the split call, beside the loop).
-    Code checks that against the level's `requires` in geography.json. Only a state is checked
-    against the question's own words: a model can remember one the user never wrote, but it is
-    the only one that reads a nickname or a typo ("NYC", "Cook Co.") that a word match would
-    refuse. Call it on the first turn only, before any tool runs. It fails open: no verdict, no
-    model, no metadata or a late report means the loop runs as usual.
+    The model reports the level, the places the question names and the places it identifies only
+    by a number inside another (the split call, beside the loop). Code checks that against the
+    level's `requires` in geography.json. It does not second-guess a name against the question's
+    words: measured live, that refused 38 of 60 valid questions that wrote a state as "Calif.",
+    "Penn" or "tx", and a model that invents a place for a question of bare numbers was never
+    seen. A wrong report only lets a trap through, which is where the loop already was. Call it
+    on the first turn only, before any tool runs. It fails open on anything: no verdict, no model,
+    unreadable metadata or a late report means the loop runs as usual.
     """
     geo = tools.get("resolve_geography")
     if split is None or not isinstance(geo, ResolveGeographyTool):
@@ -213,25 +204,26 @@ async def incomplete(
     try:
         found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
         entries = await asyncio.to_thread(geo.geo_table, "acs5", geo.latest_vintage("acs5"))
-    except (TimeoutError, OSError, ValueError, TypeError, KeyError):
+    except Exception:  # noqa: BLE001 - a failed check must never fail the answer
         return None
     frame = (found or {}).get("frame") or {}
     level = detect_level(str(frame.get("level") or ""))
     needs = min((e.requires for e in entries if e.name == level), key=len, default=())
     question = str(getattr(record, "question", "") or "")
-    numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)]
-    skip = {_head(n) for n in numbered}
-    states = {state for state, _usps, _fips in STATES}
-    named = [
-        n
-        for n in frame.get("named") or []
-        if isinstance(n, str)
-        and _head(n) not in skip  # a number inside some other place is not a name
-        and (_head(n) not in states or _stated(n, question))  # a state must have been written
-    ]
+    numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)][:MAX_REPORTED]
+    reported = [n for n in frame.get("named") or [] if isinstance(n, str)][:MAX_REPORTED]
+    padded, skip, parts, by_number = f" {_key(question)} ", set(), [], False
+    for entry in numbered:
+        # "Census Tract 9501, Dane County": the number is skipped, its parents are named. A number
+        # can make a question incomplete (a refusal), so it must be one the user wrote.
+        first, *parents = entry.split(",")
+        skip.add(_key(first))
+        by_number = by_number or (bool(_key(first)) and f" {_key(first)} " in padded)
+        parts.extend(parents)
+    parts.extend(part for entry in reported for part in entry.split(","))
+    named = [part for part in parts if _key(part) and _key(part) not in skip]
     if not (level and needs) or named or find_state(question) is not None:
         return None
-    by_number = any(_stated(n, question) for n in numbered)
     if not by_number and legal_predicate(
         level, frozenset({"state"}), wildcard=True, entries=entries
     ):

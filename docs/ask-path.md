@@ -134,13 +134,13 @@ tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 
 A question must name the geography its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
 The split call (`plan_split`) also reports the question's `level`, the places it `named` and
-the places identified only `numbered` inside another. On the loop's first turn, before any tool
-runs, `finish.incomplete` checks that report: the level's `requires` in `geography.json` must
-be met by a named place (a state only if the question wrote it, as a name or an upper-case
-code, since the model can remember one), or a listing `legal_predicate` allows under `state:*`
-(all counties). If not, `run_ask` returns at once: `geography_unsupported`, a code-written
-answer naming the level and what it needs, and no search, fetch, URL or candidates. A missing
-or late report fails open.
+the places identified only `numbered` inside another. On the loop's first turn (by index),
+before any tool runs, `finish.incomplete` checks that report: the level's `requires` in
+`geography.json` must be met by a named place (taken as reported, not matched against the
+question's words, which refused valid "Calif." and "Penn"), or a listing `legal_predicate`
+allows under `state:*` (all counties). If not, `run_ask` returns at once: `geography_unsupported`,
+a code-written answer naming the level and what it needs, no search, fetch, URL or candidates.
+Any failure, a missing report or a late one fails open.
 
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict

@@ -403,9 +403,9 @@ async def run_ask(
     calls_used = 0
     async with split_beside(question, complete, record.override is None) as split:
         try:
-            for _turn in range(MAX_TURNS):
+            for turn_no in range(MAX_TURNS):
                 turn = await complete(messages, openai_tools)
-                if not calls_used and (stop := await incomplete(record, tools, split)):
+                if not turn_no and (stop := await incomplete(record, tools, split)):
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
                 pending = list(turn.get("tool_calls") or [])

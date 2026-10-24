@@ -30,7 +30,7 @@ their own warnings. The model reports the level and what is named; code validate
 |---|---|
 | `overlapping_vintage` | ACS5 periods sharing sample years are not comparable. |
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
-| `geography_unsupported` | The table is not published at the requested level, or the question names 2+ places by number only ("tract 12", "county 20") and no state. Do not substitute. |
+| `geography_unsupported` | The table is not published at the requested level, or the question names no geography its level needs (a tract number alone, say). Do not substitute. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
 | `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
