@@ -1,13 +1,13 @@
 # Response contract and guards
 
 The short copy lives in `.claude/DESIGN.md` §4. This file is the catalog.
-None of these block: warn (or decline a computation) and still ship the answer.
+None of these block except an incomplete geography (below): warn (or decline a computation) and ship the answer.
 
 ## Every response
 
 | field | rule |
 |---|---|
-| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails. `&key=` redacted. |
+| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except for an incomplete geography (below). `&key=` redacted. |
 | **Margins of error** | Fetch `M` beside every `E`. Census missing sentinels are null, never zero. |
 | **GEOID** | AFFGEOID `GEO_ID` on fetched rows. Names do not join to TIGER. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
@@ -16,13 +16,23 @@ None of these block: warn (or decline a computation) and still ship the answer.
 
 A silently short series is the same failure as a wrong one: dropped years, geographies, or variables are named, with a reason.
 
+## Geography completeness
+
+A question must carry the minimum its level takes (`finish._NEEDS`, measured live): every tract or block
+group needs the state; one county or place by number, the state; one tract, state and county; one block
+group, state, county and tract. One that carries less, or points at a place without naming it ("my county"),
+is not answered: `geography_unsupported`, an answer saying what is missing, and empty `urls[]`, `rows` and
+`alternatives`. No search, fetch or blocking question. A question asking which table holds something is
+answered. The model reports level, places, county, pointing phrases and ask; code compares, no word scan.
+
 ## Slice 1 warning codes
 
 | code | condition |
 |---|---|
 | `overlapping_vintage` | ACS5 periods sharing sample years are not comparable. |
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
-| `geography_unsupported` | The table is not published at the requested level. Do not substitute. |
+| `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
+| `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
 | `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 

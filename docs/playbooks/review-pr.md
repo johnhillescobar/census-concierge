@@ -54,9 +54,9 @@ For any change touching a response path, read `docs/requirements.md` first.
 For `/ask` behavior, also `docs/ask-path.md`. For index, search, or rerank,
 also `docs/retrieval.md`. Then:
 
-- **URL, MOE, GEOID, universe** still present in every branch, including the
-  failure branches. A wrong URL is fixable in ten seconds; missing MOE is a
-  professionally useless answer.
+- **URL, MOE, GEOID, universe** present in every branch that returns data, failure branches
+  included; an incomplete-geography refusal returns none. A wrong URL is fixable in ten
+  seconds; missing MOE is a professionally useless answer.
 - Is `&key=` redacted on every path this change adds? Redaction is a property of
   the `CensusURL` type — if this PR formats a URL any other way, that is the
   finding.

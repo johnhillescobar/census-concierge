@@ -189,6 +189,39 @@ def test_warning_only_with_url_is_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=body) is True
 
 
+def test_a_question_with_no_geography_is_answered_only_by_the_warning_and_no_url() -> None:
+    entry = {"id": "t03", "expect_warning": "geography_unsupported", "expect_no_url": True}
+    warned = [{"code": "geography_unsupported", "detail": "tract needs state and county"}]
+    said = _body(table_id="", url="", rows=[], warnings=warned)
+    assert run_demo.is_answered(entry, status_code=200, body=said) is True
+    shown = _body(table_id="", rows=[], warnings=warned, urls=["https://api.census.gov/data/x"])
+    assert run_demo.is_answered(entry, status_code=200, body=shown) is False
+    assert "URL was shown" in run_demo.miss_detail(entry, status_code=200, body=shown)
+    # a refusal is a refusal only if nothing was searched: a table, rows or candidates mean it ran
+    for ran in (
+        _body(table_id="B01003", urls=[], rows=[], warnings=warned),
+        _body(table_id="", urls=[], rows=[{"NAME": "x"}], warnings=warned),
+        _body(
+            table_id="", urls=[], rows=[], warnings=warned, alternatives=[{"table_id": "B01001"}]
+        ),
+    ):
+        assert run_demo.is_answered(entry, status_code=200, body=ran) is False
+    silent = _body(table_id="", url="", rows=[], warnings=[])
+    assert run_demo.is_answered(entry, status_code=200, body=silent) is False
+    assert run_demo.miss_detail(entry, status_code=200, body=silent).startswith("missing warning")
+
+
+def test_a_golden_question_that_expects_no_url_expects_the_geography_warning() -> None:
+    import tomllib
+
+    with (ROOT / "evals" / "golden_questions.toml").open("rb") as handle:
+        entries = tomllib.load(handle)["question"]
+    no_url = [entry for entry in entries if entry.get("expect_no_url")]
+    assert no_url, "the trap that names no geography must be scored as the warning and no URL"
+    assert all(entry.get("expect_warning") == "geography_unsupported" for entry in no_url)
+    assert all(entry["tier"] == "trap" for entry in no_url)
+
+
 def test_warning_and_table_without_rows_is_not_answered() -> None:
     entry = {"id": "t01", "expect_table": "B19013", "expect_warning": "overlapping_vintage"}
     body = _body(

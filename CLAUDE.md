@@ -34,9 +34,10 @@ City" in under 75 seconds.
 
 Every answer renders the full Census API URL — variables, geography, vintage —
 including when the fetch fails or the agent is unsure. A user handed a URL that
-returns the wrong table fixes it in ten seconds. A user handed prose cannot.
+returns the wrong table fixes it in ten seconds. A user handed prose cannot. The one
+exception is a question too incomplete to search (next section).
 
-Also non-negotiable in every response:
+Also non-negotiable in every answer that returns data:
 
 - **Margins of error.** Fetch `M` alongside every `E`. ACS estimates without
   MOE are professionally useless to a researcher, and small-geography MOEs
@@ -46,6 +47,19 @@ Also non-negotiable in every response:
   is the most common silent wrong answer in Census work.
 - **Alternatives.** Show related tables, not just the pick. That is the whole
   concierge value, and it teaches the ecosystem one answer at a time.
+
+## Geography is level-complete
+
+A question must carry what Census requires for the geography **level** it asks about, at the
+minimum for that kind of question: every tract or block group in a state needs the state; one
+county by number needs the state; one tract by number needs state and county; one block group
+by number needs state, county and tract. A code such as a tract number identifies nothing
+without its parents. A question that carries less cannot be answered: say immediately that it
+is incomplete and cannot be searched, name what is missing, and return **no URL**, no
+candidates and no fetch; a refusal returns no rows, so the four fields above do not apply to
+it. A question asking which table holds something is not a search by geography: answer it. The
+model reports the level, what the question names and what it asks for; code compares that
+with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
 
 ## Do not
 

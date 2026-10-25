@@ -23,10 +23,12 @@ from src.contract import (
     override_years,
     pin_tool_args,
     plan_from_record,
+    response_geoid,
+    rows_with_geoid,
     take_chart,
 )
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
-from src.finish import degraded_answer, finish_tools, split_beside
+from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
@@ -67,6 +69,8 @@ class ExecutionRecord:
     # comparison one at a time instead of together -- mechanical bookkeeping
     # of what was actually asked, not a re-parse of the question's prose.
     geo_queries: list[str] = field(default_factory=list)
+    # The question asks which table holds something: no geography is wanted, so none is flagged.
+    tables_only: bool = False
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -134,19 +138,6 @@ def _allowed(record: ExecutionRecord) -> set[str]:
 
 # A-I race/ethnicity iteration, optional Puerto Rico suffix. Not a PR-only table.
 _RACE = re.compile(r"^[BC]\d{5}[A-I](?:PR)?$")
-
-
-def _rows_with_geoid(
-    rows: list[dict[str, str | None]], fallback: str
-) -> list[dict[str, str | None]]:
-    return [{**row, "GEO_ID": row.get("GEO_ID") or fallback} for row in rows]
-
-
-def _response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
-    ids = {(row.get("GEO_ID") or fallback) for row in rows} - {""}
-    if len(ids) == 1:
-        return next(iter(ids))
-    return fallback if not rows else ""
 
 
 def _how_differs(
@@ -238,7 +229,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
                 )
             )
     fallback = record.geography.geoid if record.geography else ""
-    rows = _rows_with_geoid(record.rows, fallback)
+    rows = rows_with_geoid(record.rows, fallback)
     warnings, rows, extra, compared = finish_aggregation(
         record, rows, {item.table_id for item in alternatives}
     )
@@ -253,7 +244,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
         **series_from_record(record),
         rows=rows,
         moe=moe_rows(rows),
-        geoid=_response_geoid(rows, fallback),
+        geoid=response_geoid(rows, fallback),
         universe=selected_universe,
         table_id=record.table_id,
         plan=plan_from_record(record),
@@ -412,10 +403,13 @@ async def run_ask(
     complete = complete or _openai_complete
     answer = ""
     calls_used = 0
-    async with split_beside(question, complete, record.override is None) as split:
+    given = bool(record.override and record.override.geographies)  # a plan that names the places
+    async with split_beside(question, complete, not given) as split:
         try:
-            for _turn in range(MAX_TURNS):
+            for turn_no in range(MAX_TURNS):
                 turn = await complete(messages, openai_tools)
+                if not turn_no and (stop := await incomplete(record, split)):
+                    return assemble(stop, record)
                 answer = str(turn.get("content") or "")
                 pending = list(turn.get("tool_calls") or [])
                 if not pending:

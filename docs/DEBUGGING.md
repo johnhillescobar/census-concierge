@@ -164,5 +164,5 @@ Offline UI debugging (no API needed):
 - “Wrong table picked”: `api/src/tools.py` (search/describe/rerank usage) and `api/src/ask.py:_allowed`
 - “Wrong geography / ambiguous place”: `api/src/geo.py` (spec construction + ordering)
 - “URL looks wrong”: `api/src/tools.py` (BuildUrlTool) + `api/src/census_url.py`
-- “Rows empty / missing MOE / GEOID missing”: `api/src/fetch.py` and `api/src/ask.py:_rows_with_geoid`
+- “Rows empty / missing MOE / GEOID missing”: `api/src/fetch.py` and `api/src/contract.py:rows_with_geoid`
 - “Warnings missing/unexpected”: `api/src/guards.py` and `api/src/finish.py:finish_tools`

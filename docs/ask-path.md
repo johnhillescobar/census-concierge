@@ -25,7 +25,7 @@ attaches warning codes from `docs/requirements.md`. None of them block.
 
 `finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
 stops without a URL, or with the wrong listing level, an incomplete comparison,
-a parentless tract pair, or an ACS1 request that never built `/acs/acs1`, it
+or an ACS1 request that never built `/acs/acs1`, it
 retries: search (including a wording pin if the pool missed it); resolve
 (listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
@@ -132,6 +132,17 @@ tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is
 `geography_not_nested` with no invented fetch. A `:*` wildcard stays one GET.
 
+A question must carry what its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
+The split call (`plan_split`) also reports the question's `level`, the places it `named`, those identified only
+`numbered` inside another, whether a county is named (`county_named`), phrases that point at a place without
+naming it (`pointing`), and whether it `asks_for` `tables` (which table holds something: never stopped) or
+`data`. On the first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`,
+the minimum the API accepts (ACS5 2023): every tract or block group, the state; one county or place by number,
+the state; one tract, state and county; one block group, state, county and tract. Names count as reported, not
+matched against the question's words ("Calif." and "Penn" were refused); a pointing phrase refuses only if the
+question has it. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
+search, fetch, URL or candidates. Any failure, a missing report or a late one fails open.
+
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict
 is last-wins. `geo_levels()["county"]` is summary level 324; all counties in a
@@ -140,12 +151,14 @@ state is level 050.
 An unsupported tract or block-group listing can still ship a **candidate**
 wildcard URL (`legal=False`, `for=block group:*` / `tract:*`) with
 `geography_unsupported`. That is not an empty `urls[]`. Empty `urls[]` means
-the loop stopped before `build_url`.
+the loop stopped before `build_url`, or the question was refused as incomplete.
 
 ## Comparisons and aggregation
 
 `comparisons[]` carries both estimates, both MOEs, `MOE_diff`, and the 90%
-conclusion. Place-vs-parent emits `shared_sample`. Additive areas combine via
+conclusion. Pairing is skipped before any pair is built when row pairs x estimate columns
+exceeds `MAX_COMPARISON_WORK` (`comparison_too_large`); rows, URL and MOE still return.
+Place-vs-parent emits `shared_sample`. Additive areas combine via
 `sqrt(Σ MOEᵢ²)` and warn past five (`moe_aggregation_degraded`). Combining
 published medians is declined (`median_not_aggregatable`).
 

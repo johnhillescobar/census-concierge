@@ -9,7 +9,7 @@ import math
 import re
 from typing import Protocol
 
-from src.compare import comparison_rows, shared_sample, significance_warning
+from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
@@ -171,6 +171,8 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
 
 def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
+    if getattr(record, "tables_only", False):
+        return None  # a table question wants no geography, so none can be unsupported
     if not status or status.get("legal") is not False or status.get("nested") is False:
         return None
     detail = str(status.get("detail") or "").strip()
@@ -393,6 +395,8 @@ def finish_aggregation(
 ) -> tuple[list[AskWarning], list[dict[str, str | None]], list[Alternative], list[Comparison]]:
     warnings = evaluate(record)
     compared = [] if overlapping_vintage(record) is not None else comparison_rows(record, rows)
+    if overlapping_vintage(record) is None and (big := comparison_too_large(record, rows)):
+        warnings.append(big)
     extra: list[Alternative] = []
     if any(item.code == "median_not_aggregatable" for item in warnings):
         if _household_income_median(record) and _BRACKET_TABLE not in already:

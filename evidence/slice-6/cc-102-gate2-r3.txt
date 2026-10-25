@@ -1,0 +1,479 @@
+﻿GATE 2, ROUND 3 of 4: cold review, lens = does the code do what the rules say, and do the rules and the instrument agree
+worktree: C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\cc102-g2c
+HEAD: 9683d2fb26abc05dd6ff0012c7a847958b3cb092
+scope: git diff origin/main...HEAD -- api scripts evals docs CLAUDE.md .cursor packages web (evidence/ excluded, not read)
+diff stat:
+ .cursor/rules/00-guardrails.mdc          |   3 +-
+ .cursor/rules/40-census-domain.mdc       |   6 +
+ CLAUDE.md                                |  18 +-
+ api/src/ask.py                           |  25 +-
+ api/src/compare.py                       |  64 ++--
+ api/src/contract.py                      |  13 +
+ api/src/finish.py                        | 130 +++++++-
+ api/src/geo.py                           |   6 +-
+ api/src/guards.py                        |   4 +-
+ api/tests/ask_fixtures.py                |  26 ++
+ api/tests/test_ask_loop.py               |  26 +-
+ api/tests/test_ask_tools.py              |  18 -
+ api/tests/test_comparison_work.py        | 243 ++++++++++++++
+ api/tests/test_demo_harness.py           |  24 ++
+ api/tests/test_geography_completeness.py | 541 +++++++++++++++++++++++++++++++
+ api/tests/test_geography_report.py       | 434 +++++++++++++++++++++++++
+ docs/ARCHITECTURE.md                     |   2 +-
+ docs/DEBUGGING.md                        |   2 +-
+ docs/ask-path.md                         |  17 +-
+ docs/requirements.md                     |  14 +-
+ evals/golden_questions.toml              |   9 +-
+ scripts/run_demo.py                      |   4 +
+ 22 files changed, 1500 insertions(+), 129 deletions(-)
+
+
+===== PASS 2 MACHINE: budgets =====
+> uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4478 <= 4600
+  ok    api src files               26 <= 40
+  ok    largest file LOC           406 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       977 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+
+exit=0
+
+===== PASS 2 MACHINE: invariants =====
+> uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 62 (base 64, delta -2)
+
+All invariants held.
+
+
+exit=0
+
+===== PASS 2 MACHINE: ruff check =====
+> uv run ruff check .
+All checks passed!
+
+exit=0
+
+===== PASS 2 MACHINE: ruff format =====
+> uv run ruff format --check .
+189 files already formatted
+
+exit=0
+
+===== PASS 2 MACHINE: mypy =====
+> uv run mypy api/src
+Success: no issues found in 26 source files
+
+exit=0
+
+===== PASS 2 MACHINE: pytest =====
+> uv run pytest -q -m "not integration" -p no:cacheprovider
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 25%]
+....................................................sssssssssssssssss..s [ 33%]
+ss...................................................................... [ 41%]
+........................................................................ [ 50%]
+........................................................................ [ 58%]
+........................................................................ [ 66%]
+........................................................................ [ 75%]
+........................................................................ [ 83%]
+........................................................................ [ 91%]
+...........................sssssssssss..s.ss..........................   [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\cc102-g2c\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+828 passed, 34 skipped, 1 warning in 30.46s
+
+exit=0
+
+
+===== PASS 1 SCRATCH RUN: response paths for the seven inputs (scen.py) =====
+> uv run python C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\g2c3\scen.py  (scripted models, real finish/ask/geo code, fixtures from api/tests/ask_fixtures.py; scripts live outside the worktree)
+====================================================================================================
+1_tract_nogeo: What is the median household income by tract?
+  answer       : 'This question is incomplete and cannot be searched: it asks for tract data, which Census identifies only by state and county, and it names no geography. Name them and ask again.'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : [('geography_unsupported', 'tract needs state and county; the question names no geography')]
+  alternatives : []
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : [] fetched: 0
+  candidates   : []
+====================================================================================================
+2_all_counties: What is the population of every county?
+  answer       : 'done'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : []
+  alternatives : [('B01003', 'related table')]
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : ['search_tables', 'resolve_geography', 'build_url', 'fetch_data', 'resolve_geography'] fetched: 0
+  candidates   : []
+====================================================================================================
+2b_by_county: Population by county
+  answer       : 'done'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : []
+  alternatives : [('B01003', 'related table')]
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : ['search_tables', 'resolve_geography', 'build_url', 'fetch_data', 'resolve_geography'] fetched: 0
+  candidates   : []
+====================================================================================================
+3_which_table_tract: Which table has broadband subscription by tract?
+  answer       : 'done'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : [('geography_unsupported', 'tract with in={} is not a legal combination')]
+  alternatives : [('B28002', 'related table')]
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : ['search_tables', 'resolve_geography'] fetched: 0
+  candidates   : []
+====================================================================================================
+3b_which_table_bg: Where do I find median rent by block group?
+  answer       : 'done'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : [('geography_unsupported', 'block group with in={} is not a legal combination')]
+  alternatives : [('B25064', 'related table')]
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : ['search_tables', 'resolve_geography'] fetched: 0
+  candidates   : []
+====================================================================================================
+4_state_only_tract: What is poverty by tract in Ohio?
+  answer       : 'done'
+  urls         : ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:39']
+  rows         : 1 moe: 1 geoid: '0500000US48201'
+  table_id     : 'B17001' universe: 'Population for whom poverty status is determined'
+  warnings     : [('geography_unsupported', "tract with in={'state': '39'} is not a legal combination")]
+  alternatives : []
+  plan         : table 'B17001' geos ['every tract in Ohio'] vars ['B17001_001E'] years [2024]
+  legs         : 1 chart: None
+  timings      : ['search_tables', 'resolve_geography', 'build_url', 'fetch_data'] fetched: 1
+  candidates   : []
+====================================================================================================
+5_county_no_state: What is poverty in Cook County?
+  answer       : 'done'
+  urls         : ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:031&in=state:17']
+  rows         : 1 moe: 1 geoid: '0500000US48201'
+  table_id     : 'B17001' universe: 'Population for whom poverty status is determined'
+  warnings     : [('ambiguous_place', '3 matching geographies: Cook County, Illinois; Cook County, Georgia; Cook County, Minnesota')]
+  alternatives : []
+  plan         : table 'B17001' geos ['Cook County, Illinois', 'Cook County, Georgia', 'Cook County, Minnesota'] vars ['B17001_001E'] years [2024]
+  legs         : 1 chart: None
+  timings      : ['search_tables', 'resolve_geography', 'build_url', 'fetch_data'] fetched: 1
+  candidates   : [['Cook County, Illinois', 'Cook County, Georgia', 'Cook County, Minnesota']]
+====================================================================================================
+7_override_geos: Is poverty in tract 71 higher than tract 305?
+  answer       : 'done'
+  urls         : ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=county:025&in=state:55']
+  rows         : 1 moe: 1 geoid: '0500000US48201'
+  table_id     : 'B17001' universe: 'Population for whom poverty status is determined'
+  warnings     : []
+  alternatives : []
+  plan         : table 'B17001' geos ['Dane County, Wisconsin'] vars ['B17001_001E'] years [2024]
+  legs         : 1 chart: None
+  timings      : ['search_tables', 'resolve_geography', 'build_url', 'fetch_data'] fetched: 1
+  candidates   : []
+====================================================================================================
+7b_override_nogeos: Is poverty in tract 71 higher than tract 305?
+  answer       : 'done'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : [('geography_unsupported', 'tract with in={} is not a legal combination')]
+  alternatives : [('B17001', 'related table')]
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : ['search_tables', 'resolve_geography'] fetched: 0
+  candidates   : []
+
+
+
+===== PASS 1 SCRATCH RUN: all-counties resolver check with real geography metadata (dbg3.py) =====
+> uv run python C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\g2c3\dbg3.py  (scripted models, real finish/ask/geo code, fixtures from api/tests/ask_fixtures.py; scripts live outside the worktree)
+'Population by county' -> no county matched 'Population by county' | status {'legal': True, 'detail': "no county matched 'Population by county'", 'nested': True, 'compare': False, 'compare_count': 0} | n geos 0 []
+'What is the population of every county?' -> no county matched 'What is the population of every county?' | status {'legal': True, 'detail': "no county matched 'What is the population of every county?'", 'nested': True, 'compare': False, 'compare_count': 0} | n geos 0 []
+'all counties' -> no county matched 'all counties' | status {'legal': True, 'detail': "no county matched 'all counties'", 'nested': True, 'compare': False, 'compare_count': 0} | n geos 0 []
+'every county in the United States' -> county nested in unresolved state | status {'legal': False, 'detail': 'county nested in unresolved state', 'nested': True, 'compare': False, 'compare_count': 0} | n geos 0 []
+'median income for all counties' -> no county matched 'median income for all counties' | status {'legal': True, 'detail': "no county matched 'median income for all counties'", 'nested': True, 'compare': False, 'compare_count': 0} | n geos 0 []
+'Compare counties by median household income' -> no county matched 'Compare counties by median household income' | status {'legal': True, 'detail': "no county matched 'Compare counties by median household income'", 'nested': True, 'compare': False, 'compare_count': 0} | n geos 0 []
+
+
+
+===== PASS 1 SCRATCH RUN: state-scan bypass probes and refusal warnings (scen2.py) =====
+> uv run python C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\g2c3\scen2.py  (scripted models, real finish/ask/geo code, fixtures from api/tests/ask_fixtures.py; scripts live outside the worktree)
+plain (control)              STOPPED=True  tools=[] warnings=['geography_unsupported'] urls=0
+OK interjection              STOPPED=False tools=['search_tables', 'resolve_geography'] warnings=['geography_unsupported'] urls=0
+CT abbreviation              STOPPED=False tools=['search_tables', 'resolve_geography'] warnings=[] urls=0
+tract ID                     STOPPED=False tools=['search_tables', 'resolve_geography'] warnings=['geography_unsupported'] urls=0
+ALLCAPS                      STOPPED=False tools=['search_tables', 'resolve_geography'] warnings=['geography_unsupported'] urls=0
+Hi interjection              STOPPED=True  tools=[] warnings=['geography_unsupported'] urls=0
+HI caps                      STOPPED=False tools=['search_tables', 'resolve_geography'] warnings=['geography_unsupported'] urls=0
+Me                           STOPPED=False tools=['search_tables', 'resolve_geography'] warnings=['geography_unsupported'] urls=0
+Washington Park              STOPPED=False tools=['search_tables', 'resolve_geography', 'build_url', 'fetch_data'] warnings=['geography_unsupported'] urls=1
+====================================================================================================
+refusal+universe words: Share of households vs families in tract 71 vs tract 305, ZIP style
+  answer       : 'This question is incomplete and cannot be searched: it asks for tract data, which Census identifies only by state and county, and it names no geography. Name them and ask again.'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : [('geography_unsupported', 'tract needs state and county; the question names no geography'), ('universe_mismatch', 'question crosses universes: households × families'), ('zcta_not_zip', 'ZIP / ZCTA is a USPS delivery route versus a block-built Census approximation (~10% of ZIPs have no ZCTA); ZCTAs nest in nothing, ACS1 does ')]
+  alternatives : []
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : [] fetched: 0
+  candidates   : []
+====================================================================================================
+refusal+universe words: Households and families with a computer in tract 71 versus tract 305
+  answer       : 'This question is incomplete and cannot be searched: it asks for tract data, which Census identifies only by state and county, and it names no geography. Name them and ask again.'
+  urls         : []
+  rows         : 0 moe: 0 geoid: ''
+  table_id     : '' universe: ''
+  warnings     : [('geography_unsupported', 'tract needs state and county; the question names no geography'), ('universe_mismatch', 'question crosses universes: households × families')]
+  alternatives : []
+  plan         : table '' geos [] vars [] years []
+  legs         : 0 chart: None
+  timings      : [] fetched: 0
+  candidates   : []
+
+
+
+===== PASS 1 SCRATCH RUN: t03 under the designed stop and under fail-open (scen3.py) =====
+> uv run python C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\g2c3\scen3.py  (scripted models, real finish/ask/geo code, fixtures from api/tests/ask_fixtures.py; scripts live outside the worktree)
+stop fires (designed)                         stopped=True  tools=[] warnings=['geography_unsupported'] urls=0 -> t03 is_answered=True
+fail-open, model resolves bare                stopped=False tools=['search_tables', 'resolve_geography', 'resolve_geography'] warnings=['geography_unsupported'] urls=0 -> t03 is_answered=True
+fail-open, model only searches                stopped=False tools=['search_tables', 'resolve_geography'] warnings=['geography_unsupported'] urls=0 -> t03 is_answered=True
+report wrong: numbers filed as named only     stopped=False tools=['search_tables', 'resolve_geography', 'resolve_geography'] warnings=['geography_unsupported'] urls=0 -> t03 is_answered=True
+
+
+
+===== PASS 1 SCRATCH RUN: old vs new scorer across response shapes for every golden entry (scorer_matrix.py) =====
+> uv run python C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\g2c3\scorer_matrix.py  (scripted models, real finish/ask/geo code, fixtures from api/tests/ask_fixtures.py; scripts live outside the worktree)
+entries where a shape that FAILED before now PASSES (easier): {'t03': 12}
+entries where a shape that PASSED before now FAILS (harder): {'t03': 72}
+ easier example t03 [(['geography_unsupported'], None, '', 0), (['geography_unsupported'], None, '', 1), (['geography_unsupported'], None, 'B00000', 0)]
+ harder example t03 [(['geography_unsupported'], 'county', '', 0), (['geography_unsupported'], 'county', '', 1), (['geography_unsupported'], 'county', 'B00000', 0)]
+
+
+
+===== PASS 1 SCRATCH RUN: numbered-parent false refusal and all-counties wording (scen4.py) =====
+> uv run python C:\Users\johnh\AppData\Local\Temp\claude\C--Users-johnh-Dropbox-Python-census-concierge\8a2e4610-1b23-4c0d-8e29-d3f1d7c48fac\scratchpad\g2c3\scen4.py  (scripted models, real finish/ask/geo code, fixtures from api/tests/ask_fixtures.py; scripts live outside the worktree)
+A parent after comma in numbered       STOPPED=False tools=['search_tables', 'resolve_geography']
+A parent inside numbered, no comma     STOPPED=True tools=[]
+A parent in named (expected)           STOPPED=False tools=['search_tables', 'resolve_geography']
+B query 'all counties'                 urls=[] rows=0 warnings=[] geo_status_detail="no county matched 'What is the population of every county?'"
+B query 'all counties in the US'       urls=['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:*&in=state:*'] rows=1 warnings=[] geo_status_detail=''
+B query = question                     urls=[] rows=0 warnings=[] geo_status_detail="no county matched 'What is the population of every county?'"
+
+
+(end of raw runs; findings follow)
+
+
+===== SUPPORTING FACTS =====
+-- geography.json rows (acs5 2024 and acs1 2024) via metadata.geo_entries, read from the sibling checkout's data/raw cache (the worktree has no data/raw; it is gitignored) --
+acs5 65
+   us 010 requires= () wildcard= () wcfor= 
+   region 020 requires= () wildcard= () wcfor= 
+   division 030 requires= () wildcard= () wcfor= 
+   state 040 requires= () wildcard= () wcfor= 
+   county 050 requires= ('state',) wildcard= ('state',) wcfor= state
+   county subdivision 060 requires= ('state', 'county') wildcard= ('county',) wcfor= county
+   tract 140 requires= ('state', 'county') wildcard= ('county',) wcfor= county
+   block group 150 requires= ('state', 'county', 'tract') wildcard= ('county', 'tract') wcfor= tract
+   place 160 requires= ('state',) wildcard= ('state',) wcfor= state
+   metropolitan statistical area/micropolitan statistical area 310 requires= () wildcard= () wcfor= 
+   county 313 requires= ('metropolitan statistical area/micropolitan statistical area', 'state (or part)') wildcard= () wcfor= 
+   county 316 requires= ('metropolitan statistical area/micropolitan statistical area', 'metropolitan division', 'state (or part)') wildcard= () wcfor= 
+   county 322 requires= ('state', 'metropolitan statistical area/micropolitan statistical area (or part)') wildcard= () wcfor= 
+   county 324 requires= ('state', 'metropolitan statistical area/micropolitan statistical area (or part)', 'metropolitan division (or part)') wildcard= () wcfor= 
+   metropolitan statistical area/micropolitan statistical area 332 requires= ('combined statistical area',) wildcard= () wcfor= 
+   congressional district 500 requires= ('state',) wildcard= ('state',) wcfor= state
+   zip code tabulation area 860 requires= () wildcard= () wcfor= 
+acs1 19
+   us 010 requires= () wildcard= () wcfor= 
+   region 020 requires= () wildcard= () wcfor= 
+   division 030 requires= () wildcard= () wcfor= 
+   state 040 requires= () wildcard= () wcfor= 
+   county 050 requires= ('state',) wildcard= ('state',) wcfor= state
+   county subdivision 060 requires= ('state', 'county') wildcard= ('county',) wcfor= county
+   place 160 requires= ('state',) wildcard= ('state',) wcfor= state
+   metropolitan statistical area/micropolitan statistical area 310 requires= () wildcard= () wcfor= 
+   congressional district 500 requires= ('state',) wildcard= ('state',) wcfor= state
+
+-- budgets: base (origin/main snapshot) vs head --
+base: api src LOC 4396/4600, largest file 410/410, doc lines 1756/1800, web 3349/3350, system prompt tokens 977/1200
+head: api src LOC 4478/4600, largest file 406/410, doc lines 1800/1800 (EXACT ceiling), web 3349/3350, system prompt tokens 977/1200
+      p95 18.928/20 (from run 2026-10-04, stale), retrieval_at_10 0.9 >= 0.9 (EXACT floor, not from this diff)
+budgets.toml: not touched by the diff (git diff origin/main...HEAD -- budgets.toml is empty).
+check_budgets.py:186 measures the prompt budget over api/src/prompts.py only. finish.py _SPLIT_PARENTS block: 676 chars at base, 2093 chars at head
+(about 169 -> 523 tokens at chars/4). 977 + 523 = ~1500 > 1200 if the split prompt were counted; at base 977 + 169 = ~1146 < 1200.
+
+-- files touched: 22 (playbook review-pr.md says "Under ~15 files touched, or an explanation why not") --
+
+-- word/pattern scan of ADDED api/src lines (leak.py): golden-set capitalised words or numbers in added lines: only "County" (generic) and "Oregon" in a docstring about find_state. Nothing from the golden set in prompts or tool descriptions. --
+-- verify_golden.py (run in the sibling checkout at the same commit 9683d2f): 0 problem(s) --
+
+-- docs: unqualified "every response/answer" claims still in the repo after the diff (grep), none of them edited by the diff except where noted --
+.claude/DESIGN.md:40           "Every response ships URL (even on fetch failure), MOE, GEOID, universe, and"
+.cursor/rules/20-web-typescript.mdc:22  "The **API URL is visible and copyable on every answer**, including failed ones."
+.cursor/rules/40-census-domain.mdc:73   "Every answer shows related tables **with the reason they differ**"   (same file as the new lines 53-58: "return **no URL**, no candidates, no fetch")
+docs/playbooks/review-pr.md:57-58       "**URL, MOE, GEOID, universe** still present in every branch, including the failure branches."
+docs/requirements.md:4         "None of these block: warn (or decline a computation) and still ship the answer."
+docs/requirements.md:6,8-15    "## Every response" table; only the URLs row carries the exception (line 10)
+.cursor/rules/00-guardrails.mdc:46-51   "Every response ships" ... "margins of error, GEOID, universe, and related tables ... One exception: ... ship no URL"   (exception covers URL only; CLAUDE.md:40 says "answer that returns data" for all four)
+docs/ask-path.md:22 and api/src/guards.py:3   "None of them block." / "None of them blocks"
+docs/ask-path.md:39            "The model only returns `{parents, unit, listing}`"   vs ask-path.md:136-137 (level, named, numbered, asks_for)
+
+====================================================================================================
+PASS 1 (1): CLAIM -> CODE MAP (what each written rule says, the code that implements it, does it hold)
+====================================================================================================
+ C1  "Every answer renders the full Census API URL ... including when the fetch fails" (CLAUDE.md:35-38; requirements.md:10)
+     code: urls[] from record.url/retained_urls (ask.py assemble); exception implemented by finish.incomplete (finish.py:199-253).
+     holds for: refusal (urls=[] by design), named places, wildcard listings with a parent.
+     FAILS for: a county/place listing with no parent that incomplete() passes on purpose (finish.py:243-246): no URL, no rows, no warning (F2).
+ C2  "Margins of error / GEOID / Universe / Alternatives in every answer that returns data" (CLAUDE.md:40)
+     code: build_url pairs E with M; rows_with_geoid / response_geoid (moved to contract.py, bodies identical to the removed ask.py ones); record.universe; assemble alternatives.
+     holds. Refusal returns none of the four (rows empty): matches CLAUDE.md:59-61 and contradicts requirements.md:6-15, 00-guardrails.mdc:46-51, review-pr.md:57-58 (F3).
+ C3  "A question must carry what geography.json requires for its level; one that names no geography cannot be answered" (CLAUDE.md:53-64; requirements.md:19-26)
+     code: finish.incomplete. Implements: level in {tract, block group, county subdivision} (levels whose smallest `requires` is non-empty AND that do not list under state:*) + no reported name + no state-looking token in the question + not asks_for=tables.
+     does NOT implement: "names no geography" for level null / state / zcta / county / place / congressional district. "Total population" (level null, no place) runs (test_levels_that_need_no_parent_are_never_incomplete); "Population by county" runs (test_every_county_lists_under_a_wildcard_state...).
+     `needs` (the requires tuple) is used only to pick which levels are in play and to word the refusal; ANY non-empty reported name satisfies it (a bare state satisfies tract and block group). Partial cases then keep the loop's own warnings (scenario 4: tract + only "Ohio" -> legal=False candidate URL tract:*&in=state:39 shipped with geography_unsupported).
+ C4  "Never detect it by scanning the question's words" (CLAUDE.md:63-64; 40-census-domain.mdc:56-57; requirements.md:25-26)
+     code: finish._writes_a_state (finish.py:188-196) splits the question and compares tokens to STATES codes (case-sensitive) and full names. FAILS (F1).
+ C5  "a question asking which table holds something is not a search by geography: answer it" (CLAUDE.md:62-63)
+     code: incomplete() returns None when frame.asks_for == "tables" (finish.py:224). The stop is skipped; the loop's resolver still runs and (tract/block group) emits geography_unsupported (F4).
+ C6  "No search, fetch or blocking question" for a refusal (requirements.md:24)
+     code: assemble(stop, record) before any tool dispatch; record.timings == [] verified (scenario 1). One main-model call and the split call have already been paid. The refusal ends "Name them and ask again." (tension with CLAUDE.md "Do not: Ask a blocking clarification question ... Show candidates as results with an editable plan strip.").
+ C7  "Plan override pins the next POST /ask" (requirements.md:15; ask-path.md:102-105)
+     code: split_beside(..., record.override is None) (ask.py:404): with ANY override the split call is not made and incomplete() returns None. Documented only in a test name (test_a_pinned_plan_is_never_checked...), not in ask-path.md:135-144.
+ C8  "Any failure, a missing report or a late one fails open" (ask-path.md:144)
+     code: incomplete(): try/except Exception around wait_for(shield(split)) and geo_table; (found or {}).get("frame") or {}. holds. Side effect: the deleted parentless-tract guard (compare.parentless_tracts, geo.py, finish._wrong_parentless) used to give a deterministic fail-closed result for "tract X vs tract Y"; when the report is garbled or late that question now gets whatever the loop does (scenario scen3 "fail-open": geography_unsupported, no URL, t03 still scores as answered).
+
+====================================================================================================
+PASS 1 (2): RESPONSE PATH FOR THE SEVEN INPUTS (from the raw runs above)
+====================================================================================================
+ I1 data, no geography, level that needs parents ("median household income by tract"; level=tract, named=[], numbered=[]):
+    answer = code-written refusal naming level + "state and county"; warnings=[geography_unsupported "tract needs state and county; the question names no geography"];
+    urls=[] rows=0 moe=0 geoid='' table_id='' universe='' alternatives=[] plan blank legs=[] chart=None; timings=[] fetched=0.
+    The user gets what the rules promise. Warning, answer text and empty fields agree. (A refusal can also carry other question-text warnings: universe_mismatch, zcta_not_zip: scen2.)
+ I2 same for a level that lists under a wildcard state ("What is the population of every county?" / "Population by county"; level=county, named=[]):
+    stop does not fire (by design). Result depends on how the model words the resolve_geography query: "all counties" or the question itself -> urls=[] rows=0 warnings=[] (SILENT; resolver returns legal=True detail "no county matched ..."); "all counties in the US" -> for=county:*&in=state:* URL + rows.
+    The user does NOT get what the rules promise in the first two cases: no URL, no explanation, no warning (F2).
+ I3 "Which table has broadband subscription by tract?" (asks_for=tables, level=tract, named=[]):
+    stop skipped as documented. Loop then emits warnings=[geography_unsupported "tract with in={} is not a legal combination"], urls=[], table_id='' universe='' and alternatives=[(B28002,"related table")] (no selected table, so every hit is "related table").
+    Same machine-visible shape as I1 with a different story: the answer text (the model's own) is a table answer, the warning says geography unsupported. Inconsistent (F4). Same for "Where do I find median rent by block group?".
+ I4 "What is poverty by tract in Ohio?" (level=tract, named=[Ohio]): loop runs; URL tract:*&in=state:39 shipped and fetched, rows returned, warnings=[geography_unsupported "tract with in={'state': '39'} is not a legal combination"]. Consistent with ask-path.md:151-154 (candidate URL with legal=False). geography.json's tract row carries wildcard=('county',) / optionalWithWCFor=county, i.e. a state-only tract listing is a form Census publishes; the repo treats it as illegal, and CLAUDE.md "tract needs state and county" repeats that. (PLAUSIBLE, pre-existing, outside the diff.)
+ I5 "What is poverty in Cook County?" (level=county, named=[Cook County]): loop runs; warnings=[ambiguous_place: Cook County Illinois / Georgia / Minnesota] candidates as results, URL for the first. Matches the rules.
+ I6 refusal followed by nothing else: the stop returns immediately; no second turn. The web app still renders PlanStrip + ActiveDataset for a result with urls=[] (App.tsx:290-301), so a blank plan strip is shown; applying any edit POSTs plan (override) -> split disabled -> check skipped -> legacy loop (scenario 7b: geography_unsupported "tract with in={}", urls=[], answer from the model).
+ I7 plan override with geographies (ResultPlan(table_id=B17001, geographies=[Dane])) on "tract 71 vs tract 305": split call not made (split_calls=[] in the test), loop runs, URL for Dane County, no warning. By design; the rule is applied to the question only, never to the pinned plan. Override WITHOUT geographies also disables the check (7b).
+ I8 state-less county ("Population of Cook County") and state-only tract covered in I5 / I4.
+
+====================================================================================================
+PASS 1 (3): STATIC CHECK OF evals/golden_questions.toml (and cc103_phrasing_grid.toml) AGAINST THE RULE
+====================================================================================================
+ Rule: stop iff level has a non-empty smallest `requires`, level does not list under state:*, the model reports no name (after skipping numbered entries), the question writes no state-looking token, and asks_for != tables.
+ Levels that can stop: tract, block group. county, place, state, zcta and any level detect_level cannot name (congressional district, msa, ...) never stop on an unnumbered question.
+
+ CHANGES OUTCOME
+  t03  "Is the poverty rate in tract 1201 higher than tract 1305?"  level=tract, numbered=[tract 1201, tract 1305], named=[]  -> STOP (was: candidate specs tract:120100 / tract:130500 and URLs, deleted parentless_tracts path).
+       entry says expect_warning=geography_unsupported + expect_no_url=true -> consistent with the stop. The scorer flip is the only scorer change (F5).
+       Depends entirely on the model filing both numbers under `numbered` and nothing under `named`; a model that files them under `named` only (no `numbered`) is not stopped (scen3 last row): entry still scores as answered through the legacy loop.
+  t17  ORIGINAL text "What is the median household income across these five tracts combined?" -> level=tract, named=[] -> would be STOPPED, contradicting its own expect_table=B19013 / expect_warning=median_not_aggregatable. The edit to "... every tract in Cook County, Illinois, combined" removes the conflict, and also changes what the entry measures (a 1,300-tract county listing instead of an unspecified five). Edited t17: not stopped (named county + state written).
+ AT RISK (no outcome change if the model reports `named`; refused with a URL/table expectation if it does not)
+  q04  "Poverty rate by census tract in Detroit"       tract, expects URL+table; no state written -> no state-scan fallback.
+  t13  "... by census tract in Wayne County, 2018 to 2022" tract, expects boundary_change_2020 + URL; no state written.
+  t16  "Compare poverty by census tract within the city of Denver" tract, expects geography_not_nested; the split prompt tells the model "'my county' or 'the city' names no place, so leave it out" next to a question that says "the city of Denver".
+  t18  "... across every tract in Wayne County"          tract, expects moe_aggregation_degraded; no state written.
+  t04  "... every block group in Wyoming"                block group; protected by the state-scan fallback (writes "Wyoming") which is itself the F1 word scan.
+  t17 (edited)                                           protected by the state-scan fallback ("Illinois").
+ NO CHANGE (level county/place/state/zcta/null, so the stop cannot fire): q01-q03, q05-q44, t01, t02, t05-t12, t14, t15, q23, q24, h01-h08. t01, t06, t14 name no geography at all and are not refused (level null), which contradicts the unconditional sentences in CLAUDE.md/requirements.md/00-guardrails.mdc (F3).
+ "these/those/them": none left in the golden set after the t17 edit (only t17 had one).
+ No golden entry sets asks_for=tables, so the table-question branch (F4) is exercised by no instrument entry.
+ Grid (cc103_phrasing_grid.toml): 54 county cells ("All counties in X and Y") and 16 tract cells ("All tracts in Cook and DuPage County"): every cell names a parent; none stops unless the model reports named=[] (tract cells name counties without a state).
+
+====================================================================================================
+FINDINGS (most severe first)
+====================================================================================================
+F1  [CONFIRMED] finish.py:188-196 and :241. _writes_a_state scans the question's own tokens against STATES codes and names; any hit suppresses the refusal.
+    Contradicts CLAUDE.md:63-64 "Never detect it by scanning the question's words" (also 40-census-domain.mdc:56-57, requirements.md:25-26) and the function's own sibling docstring (finish.py:206-212).
+    Trigger (scen2, model report identical to the control that stops): "Is the poverty rate in CT 1201 higher than CT 1305?" ("CT" = census tract), "... for tract ID 1201 ... tract ID 1305" ("ID"), "OK, is the poverty rate in tract 1201 ...", "HI - poverty in tract 1201 vs tract 1305?", "Can ME compare ...", an all-caps question ("IN", "OR"), and "... near Washington Park" -> STOPPED=False, loop runs. "Hi," (title case) is correctly not matched.
+    Wrong result: the t03-shaped question is not refused; it falls into the legacy loop (candidate/empty response) - the exact thing the rule was written to end. Not documented in ask-path.md:135-144 either.
+F2  [CONFIRMED] finish.py:243-246 with geo.py resolver. Levels that list under state:* (county, place, congressional district) are exempt from the stop on a question with no parent, but the resolver cannot serve the bare form: "What is the population of every county?" with the model's resolve query "all counties" or the question itself returns legal=True, "no county matched ...", no specs -> urls=[] rows=0 warnings=[] and the model's own text. Only "all counties in the US" yields for=county:*&in=state:* (scen4 B). Silent no-URL, no-warning answer: violates CLAUDE.md:35-38 and the "agent unsure still ships a URL" rule. The new test (test_every_county_lists_under_a_wildcard_state...) only asserts that the loop ran.
+F3  [CONFIRMED] Docs disagree with each other and with the code (quoted lines in SUPPORTING FACTS):
+    a. requirements.md:4 "None of these block ... still ship the answer" vs requirements.md:21-26 "is not answered".
+    b. "every response/answer" unqualified: review-pr.md:57-58 (the reviewer rubric; a refusal fails it and its findings "block"), .claude/DESIGN.md:40, 20-web-typescript.mdc:22, 40-census-domain.mdc:73 (same file as the new :53-58), requirements.md:6-15 (exception on the URL row only), 00-guardrails.mdc:46-51 (exception for URL only; CLAUDE.md:40 exempts all four fields).
+    c. CLAUDE.md "Do not: Ask a blocking clarification question ... Show candidates as results with an editable plan strip" is unamended while the new section returns no candidates and the refusal ends "Name them and ask again."
+    d. Unconditional "a question that names no geography cannot be answered" (CLAUDE.md:58-59, requirements.md:23, 00-guardrails.mdc:50, 40-census-domain.mdc:55) vs code that refuses only tract / block group: "Total population", "Population by county", "median income by state" name no geography and are answered. requirements.md:21 and CLAUDE.md:55 say "county needs state"; only ask-path.md:141-143 mentions the all-counties exception.
+    e. ask-path.md:39 "The model only returns {parents, unit, listing}" vs ask-path.md:136-137.
+    f. ask-path.md:22 / guards.py:3 "None of them block".
+    g. docs/requirements.md:34 defines geography_unsupported as "table is not published at the level OR no geography named", but the same code also fires it on table-discovery questions (F4) and on legacy-loop failures with urls=[] ("tract with in={}"): three shapes (candidate URL + rows; empty; refusal) share one code.
+    h. doc_lines is at EXACT ceiling 1800/1800 (base 1756): reconciling a-g must be net-zero lines or it needs a human budget commit.
+F4  [CONFIRMED] I3 above. asks_for=tables on tract / block group: stop skipped, then geography_unsupported + table_id='' + universe='' + alternatives all "related table". Docs say "answer it"; the warning, the model's table answer and the empty fields disagree. No golden entry covers it.
+F5  [CONFIRMED] scripts/run_demo.py:135-136. expect_no_url inverts t03 rather than only making it harder: scorer_matrix (old scorer from origin/main vs new, 70 golden entries, each against every combination of warning set x fetched level x table id x rows 0/1): only t03 changes; 36 distinct shapes that passed before now fail (any URL) and 6 that failed before now pass (any URL-less geography_unsupported, with or without a table_id and rows). The raw run above printed 12/72 because t03's warning sets contained a duplicate; the deduped rerun gives 6/36. t03 also scores as answered when the stop did NOT fire (scen3: fail-open, wrong report) because the legacy loop also yields geography_unsupported + no URL, so the instrument cannot see the feature working or breaking. Exercised by exactly one entry (t03); test_demo_harness covers three shapes. The early return ignores expect_table (a future entry with both would pass on warning alone).
+F6  [PLAUSIBLE] ask.py:404 + web PlanStrip. Any plan override (even one with no geographies) disables the split call and the check; the web app renders a blank PlanStrip on a refusal, and an edit POSTs a plan -> legacy loop (7b). Not documented in ask-path.md.
+F7  [PLAUSIBLE] finish.py:219. Every request without an override now waits up to FRAME_WAIT_SECONDS=3.0 for the split reply after the first main turn (previously the split was only awaited in finish_tools and "never delay an answer"). p95 headroom in budgets is 1.07 s (18.928 vs 20, run of 2026-10-04). Needs the p95 measured; the stop also wastes the first main-model call.
+F8  [PLAUSIBLE] finish.py:235-238. A valid question that names a county is refused when the model files the parent inside a numbered entry without a comma ("tract 71 in Dane County": scen4 A, STOPPED=True; with a comma or under `named` it passes). The 4 at-risk golden entries (q04, t13, t16, t18) have the same single point of failure: the model must report `named`.
+F9  [CONFIRMED, low] Budgets: doc_lines exactly at ceiling (F3h); the split prompt grew ~3x (676 -> 2093 chars) outside api/src/prompts.py, which is the only file the prompt budget measures; counted, the prompt total is ~1500 tokens vs the 1200 ceiling (977 + ~523) where base was ~1146. Files touched 22 (> ~15) incl. an unrelated feature (comparison_too_large, compare.py refactor, 243-line test). No budget or guard weakened in budgets.toml; check_invariants "budget increases / new exemptions" ok.
+F10 [CONFIRMED, observation] A refusal can carry extra warnings computed from the question text (universe_mismatch, zcta_not_zip) with no table selected (scen2). Harmless but not described in requirements.md:19-26.
+
+Invariants checked by reading: no new graph node; no *_manager/*_service module; no validator-of-validator; no ticket-named test; eval phrasing/place names from the golden set: none in added api/src lines (leak.py); regex call sites 64 -> 62 (_TRACT_VS and _COUNTY removed). The only new word-list style code is F1. `by_number` (finish.py:237) checks a model-reported entry against the question text, which is code validating the model, not understanding; it is the intended grounding.
+Nothing found on: key redaction (no URL formatted in the diff), numbers passing through the model (the frame JSON carries names only), CensusURL use, new tools/routes/models.
+
+VERDICT: Not yet. F1 (a word scan that defeats the new rule and contradicts the rule's text) and F2 (a no-URL, no-warning dead end the diff explicitly blesses) are behavior findings; F3 means reviewers following review-pr.md will block the refusal branch; F5 means t03 cannot measure the change.
+
+
+(deduped rerun of scorer_matrix.py printed: entries: 70; easier {'t03': 6}; harder {'t03': 36})
+

@@ -1,0 +1,1363 @@
+Gate 1 round 2 - CC-102 (tests new or changed since the first Gate 1 commit 7b41a32)
+Branch: fix/cc-102-original-question-parent-guard, commit under test: 6bfe1da (src and scripts untouched; only api/tests and this transcript differ)
+Scope: api/tests/test_geography_report.py (new in round 1 fixes) and the edits in api/tests/test_geography_completeness.py.
+
+Mutation-check convention: revert ONE behaviour in api/src, run the in-scope test files (a superset of the
+covered tests, so the per-test result doubles as the kill matrix), confirm the covered tests FAIL (GOOD) or
+not (BAD), restore with 'git checkout -- <file>' (the src tree is committed, so that is a safe restore; the
+runner then prints 'git status --short -- api/src scripts evals' to show it is clean). Test edits are never
+restored by checkout. Strict-xfail tests encode defects found in src; each gets a temporary FIX DEMO showing it
+passes once the defect is fixed (pytest reports XPASS(strict) as a failure), restored the same way.
+Runner and spec are scratch files outside the repo (the session scratchpad); results are pytest's own output,
+--tb=no -rfX, unfiltered except the one known PytestDeprecationWarning line.
+
+BASELINE state of the working tree before any mutation
+$ git status --short
+ M api/tests/test_geography_completeness.py
+ M api/tests/test_geography_report.py
+?? evidence/slice-6/cc-102-gate1-r2.txt
+[exit 0]
+
+$ git log --oneline origin/main..HEAD
+6bfe1da test(CC-102): turn Gate 1's defect tests into normal tests and follow the first-turn-only contract
+88bf6ec merge: Gate 2 round 1 fixes into the CC-102 branch
+7b41a32 test(CC-102): Gate 1 round 1, the work bound and the geography check, mutation-checked
+e4d4c48 fix(CC-102): keep "never a state, ZIP code or GEOID" out of the middle of the numbered sentence
+110148c fix(CC-102): close the Gate 2 round 1 findings on the geography stop
+ce57d03 fix(CC-102): make the geography report reliable enough to trust (six live iterations)
+6eb9fc7 fix(CC-102): refuse a question that names no geography its level needs; bound pairwise work
+
+$ git diff 7b41a32 HEAD --stat -- api/tests
+ api/tests/test_geography_completeness.py |  47 ++-------
+ api/tests/test_geography_report.py       | 160 +++++++++++++++++++++++++++++++
+ 2 files changed, 170 insertions(+), 37 deletions(-)
+
+==============================================================================
+MUTATION B0 - baseline, nothing mutated
+Covers tests:
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+120 passed, 6 xfailed, 1 warning in 36.50s
+[exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+GOOD - 0 failed, 120 passed, 6 xfailed
+
+==============================================================================
+MUTATION M01 - state-name rule removed: every named entry counts, even a remembered state
+Covers tests:
+  R:test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+  R:test_a_common_word_is_not_a_state_abbreviation
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+  C:test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+  R:test_an_empty_question_has_no_words_to_ground_a_state_on[named1-True]
+Edit (api/src/finish.py):
+  -         and (_head(n) not in states or _stated(n, question))  # a state must have been written
+  +         and True
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+....F.F..............F...F..................xxxxxx......F............... [ 57%]
+...................................................F..                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+FAILED api/tests/test_geography_report.py::test_a_common_word_is_not_a_state_abbreviation
+FAILED api/tests/test_geography_report.py::test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named1-True]
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography
+FAILED api/tests/test_geography_completeness.py::test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+6 failed, 114 passed, 6 xfailed, 1 warning in 36.76s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it: 1/1 failed
+  R:test_a_common_word_is_not_a_state_abbreviation: 1/1 failed
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out: 1/1 failed
+  C:test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography: 1/1 failed
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation: 1/1 failed
+  R:test_an_empty_question_has_no_words_to_ground_a_state_on[named1-True]: 1/1 failed
+GOOD - 6 failed, 114 passed, 6 xfailed
+
+==============================================================================
+MUTATION M02 - every named place, not only a state, must be a run of the question's own words
+Covers tests:
+  R:test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named
+  R:test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+  R:test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]
+Edit (api/src/finish.py):
+  -         and (_head(n) not in states or _stated(n, question))  # a state must have been written
+  +         and _stated(n, question)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+FFFF................F.....F.................FFFFxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Block group income in Los Angelas County-block group-named1]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Median rent by tract in Dane Co.-tract-named2]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty by tract in the Bay Area-tract-named3]
+FAILED api/tests/test_geography_report.py::test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[ ]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[-]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[,]
+10 failed, 114 passed, 2 xfailed, 1 warning in 35.75s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named: 4/4 failed
+  R:test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named: 1/1 failed
+  R:test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]: 1/1 failed
+GOOD - 10 failed, 114 passed, 2 xfailed
+
+==============================================================================
+MUTATION M03 - state rule made lenient: any non-empty question grounds any state
+Covers tests:
+  R:test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+  R:test_a_common_word_is_not_a_state_abbreviation
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+  C:test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+Edit (api/src/finish.py):
+  - or _stated(n, question))  # a state must have been written
+  + or bool(question))  # lenient
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+....F.F..............F......................xxxxxx......F............... [ 57%]
+...................................................F..                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+FAILED api/tests/test_geography_report.py::test_a_common_word_is_not_a_state_abbreviation
+FAILED api/tests/test_geography_report.py::test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography
+FAILED api/tests/test_geography_completeness.py::test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+5 failed, 115 passed, 6 xfailed, 1 warning in 32.55s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it: 1/1 failed
+  R:test_a_common_word_is_not_a_state_abbreviation: 1/1 failed
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out: 1/1 failed
+  C:test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography: 1/1 failed
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation: 1/1 failed
+GOOD - 5 failed, 115 passed, 6 xfailed
+
+==============================================================================
+MUTATION M04 - abbreviation rule made lenient: the code anywhere in the text, any case (substring)
+Covers tests:
+  R:test_a_common_word_is_not_a_state_abbreviation
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+Edit (api/src/finish.py):
+  -     return bool(abbreviation) and abbreviation in caps  # TX written, Texas reported; "in" is not IN
+  +     return bool(abbreviation) and abbreviation.casefold() in question.casefold()
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+......F..............F......................xxxxxx...................... [ 57%]
+...................................................F..                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_common_word_is_not_a_state_abbreviation
+FAILED api/tests/test_geography_report.py::test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+FAILED api/tests/test_geography_completeness.py::test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+3 failed, 117 passed, 6 xfailed, 1 warning in 35.03s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_common_word_is_not_a_state_abbreviation: 1/1 failed
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out: 1/1 failed
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation: 1/1 failed
+GOOD - 3 failed, 117 passed, 6 xfailed
+
+==============================================================================
+MUTATION M05 - upper-case-only abbreviation rule reverted to a case-insensitive word match
+Covers tests:
+  R:test_a_common_word_is_not_a_state_abbreviation
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+Edit (api/src/finish.py):
+  -     return bool(abbreviation) and abbreviation in caps  # TX written, Texas reported; "in" is not IN
+  +     return bool(abbreviation) and abbreviation.casefold() in [c.casefold() for c in caps]
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+......F..............F......................xxxxxx...................... [ 57%]
+...................................................F..                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_common_word_is_not_a_state_abbreviation
+FAILED api/tests/test_geography_report.py::test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+FAILED api/tests/test_geography_completeness.py::test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+3 failed, 117 passed, 6 xfailed, 1 warning in 35.13s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_common_word_is_not_a_state_abbreviation: 1/1 failed
+  R:test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out: 1/1 failed
+  C:test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation: 1/1 failed
+GOOD - 3 failed, 117 passed, 6 xfailed
+
+==============================================================================
+MUTATION M06 - state-abbreviation rule removed (an upper-case code written, the state name reported)
+Covers tests:
+  R:test_an_upper_case_abbreviation_the_model_spelled_out_counts
+  C:test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts
+Edit (api/src/finish.py):
+  -     return bool(abbreviation) and abbreviation in caps  # TX written, Texas reported; "in" is not IN
+  +     return False
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+.......F....................................xxxxxx........F............. [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_an_upper_case_abbreviation_the_model_spelled_out_counts
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts
+2 failed, 118 passed, 6 xfailed, 1 warning in 28.76s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_an_upper_case_abbreviation_the_model_spelled_out_counts: 1/1 failed
+  C:test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts: 1/1 failed
+GOOD - 2 failed, 118 passed, 6 xfailed
+
+==============================================================================
+MUTATION M07 - first-turn-only condition removed: the report is checked on every model turn
+Covers tests:
+  R:test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer
+  C:test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running
+  C:test_only_the_first_model_turn_checks_the_report
+Edit (api/src/ask.py):
+  -                 if not calls_used and (stop := await incomplete(record, tools, split)):
+  +                 if stop := await incomplete(record, tools, split):
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+........F...................................xxxxxx...................... [ 57%]
+.......................................FF.............                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer
+FAILED api/tests/test_geography_completeness.py::test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running
+FAILED api/tests/test_geography_completeness.py::test_only_the_first_model_turn_checks_the_report
+3 failed, 117 passed, 6 xfailed, 1 warning in 16.11s
+[exit 1]
+$ git checkout -- api/src/ask.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer: 1/1 failed
+  C:test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running: 1/1 failed
+  C:test_only_the_first_model_turn_checks_the_report: 1/1 failed
+GOOD - 3 failed, 117 passed, 6 xfailed
+
+==============================================================================
+MUTATION M08 - asyncio.shield removed: the first-turn timeout cancels the split call itself
+Covers tests:
+  R:test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait
+Edit (api/src/finish.py):
+  -         found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
+  +         found = await asyncio.wait_for(split, FRAME_WAIT_SECONDS)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+........FF..................................xxxxxx...................... [ 57%]
+......................................FF..............                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer
+FAILED api/tests/test_geography_report.py::test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait
+FAILED api/tests/test_geography_completeness.py::test_a_report_that_is_late_means_the_loop_runs_as_usual
+FAILED api/tests/test_geography_completeness.py::test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running
+4 failed, 116 passed, 6 xfailed, 1 warning in 36.51s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait: 1/1 failed
+GOOD - 4 failed, 116 passed, 6 xfailed
+
+==============================================================================
+MUTATION M09 - FRAME_WAIT_SECONDS zero: the report is never waited for, so nothing is ever stopped
+Covers tests:
+  R:test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail
+  R:test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+  R:test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words
+  R:test_entries_that_are_not_text_are_not_places_and_never_fail_the_request
+  R:test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check
+  R:test_a_common_word_is_not_a_state_abbreviation
+  C:test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography
+Edit (api/src/finish.py):
+  - FRAME_WAIT_SECONDS = 3.0 
+  + FRAME_WAIT_SECONDS = 0.0 
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+....F.F...FFFFF......F.FFF.F.............FFFxxxxxxFFFFFFF....F....FFFFFF [ 57%]
+FFFFFFFFFFFF......FFFFFF......F....................F..                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+FAILED api/tests/test_geography_report.py::test_a_common_word_is_not_a_state_abbreviation
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[1]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[True]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[2.5]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[Kentucky]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[parents4]
+FAILED api/tests/test_geography_report.py::test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out
+FAILED api/tests/test_geography_report.py::test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named0-True]
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named1-True]
+FAILED api/tests/test_geography_report.py::test_entries_that_are_not_text_are_not_places_and_never_fail_the_request
+FAILED api/tests/test_geography_report.py::test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request
+FAILED api/tests/test_geography_report.py::test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check
+FAILED api/tests/test_geography_report.py::test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail
+FAILED api/tests/test_geography_completeness.py::test_no_geography_named_is_answered_at_once_and_never_searched[Is the poverty rate in tract 71 higher than tract 305?-tract-numbered0-needs0]
+FAILED api/tests/test_geography_completeness.py::test_no_geography_named_is_answered_at_once_and_never_searched[Is block group 4 larger than block group 9 or block group 2?-block group-numbered1-needs1]
+FAILED api/tests/test_geography_completeness.py::test_no_geography_named_is_answered_at_once_and_never_searched[Which is bigger, county 15 or county 33 or county 8?-county-numbered2-needs2]
+FAILED api/tests/test_geography_completeness.py::test_no_geography_named_is_answered_at_once_and_never_searched[give me the 12 tract-tract-numbered3-needs3]
+FAILED api/tests/test_geography_completeness.py::test_places_identified_only_by_number_stop_a_level_that_would_otherwise_list
+FAILED api/tests/test_geography_completeness.py::test_a_number_the_model_files_under_named_is_still_not_a_name
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography
+FAILED api/tests/test_geography_completeness.py::test_every_tract_needs_a_county_so_a_nationwide_listing_is_incomplete
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-2-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-3-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-4-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-4-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-2-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-3-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-4-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-4-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-2-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-3-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-4-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-4-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-2-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-3-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-4-False]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-4-True]
+FAILED api/tests/test_geography_completeness.py::test_the_answer_names_the_smallest_set_of_parents_the_level_can_stand_on
+FAILED api/tests/test_geography_completeness.py::test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation
+49 failed, 71 passed, 6 xfailed, 1 warning in 48.74s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail: 1/1 failed
+  R:test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it: 1/1 failed
+  R:test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words: 1/1 failed
+  R:test_entries_that_are_not_text_are_not_places_and_never_fail_the_request: 1/1 failed
+  R:test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check: 1/1 failed
+  R:test_a_common_word_is_not_a_state_abbreviation: 1/1 failed
+  C:test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography: 1/1 failed
+GOOD - 49 failed, 71 passed, 6 xfailed
+
+==============================================================================
+MUTATION M10 - FRAME_WAIT_SECONDS huge (3600 s), the constant the tests do not patch
+Covers tests:
+  R:test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail
+Edit (api/src/finish.py):
+  - FRAME_WAIT_SECONDS = 3.0 
+  + FRAME_WAIT_SECONDS = 3600.0 
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+...........................................Fxxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail
+1 failed, 119 passed, 6 xfailed, 1 warning in 36.04s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail: 1/1 failed
+GOOD - 1 failed, 119 passed, 6 xfailed
+
+==============================================================================
+MUTATION M11 - first-turn wait huge at the call site (the constant, and any patch of it, is ignored)
+Covers tests:
+  R:test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer
+  C:test_a_report_that_is_late_means_the_loop_runs_as_usual
+Edit (api/src/finish.py):
+  - asyncio.shield(split), FRAME_WAIT_SECONDS)
+  + asyncio.shield(split), 3600.0)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+........F...................................xxxxxx...................... [ 57%]
+......................................FF..............                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer
+FAILED api/tests/test_geography_completeness.py::test_a_report_that_is_late_means_the_loop_runs_as_usual
+FAILED api/tests/test_geography_completeness.py::test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running
+3 failed, 117 passed, 6 xfailed, 1 warning in 43.63s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer: 1/1 failed
+  C:test_a_report_that_is_late_means_the_loop_runs_as_usual: 1/1 failed
+GOOD - 3 failed, 117 passed, 6 xfailed
+
+==============================================================================
+MUTATION M12 - non-list `parents` guard removed: names = names if isinstance(names, list) else []
+Covers tests:
+  R:test_a_malformed_parents_field_names_no_place_and_never_fails_the_request
+  R:test_plan_split_reports_only_list_parents_as_named
+  C:test_a_parents_field_of_the_wrong_type_cannot_fail_the_request
+Edit (api/src/finish.py):
+  -     names = names if isinstance(names, list) else []  # a model can send anything; use only lists
+  + (line deleted)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+..........FFFFFFFFFF........................xxxxxx...................... [ 57%]
+...............................................FFFF...                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[1]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[True]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[2.5]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[Kentucky]
+FAILED api/tests/test_geography_report.py::test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[parents4]
+FAILED api/tests/test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[1]
+FAILED api/tests/test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[True]
+FAILED api/tests/test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[2.5]
+FAILED api/tests/test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[Kentucky]
+FAILED api/tests/test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[parents4]
+FAILED api/tests/test_geography_completeness.py::test_places_of_the_wrong_type_are_ignored_not_iterated
+FAILED api/tests/test_geography_completeness.py::test_a_parents_field_of_the_wrong_type_cannot_fail_the_request[Wisconsin]
+FAILED api/tests/test_geography_completeness.py::test_a_parents_field_of_the_wrong_type_cannot_fail_the_request[5]
+FAILED api/tests/test_geography_completeness.py::test_a_parents_field_of_the_wrong_type_cannot_fail_the_request[True]
+14 failed, 106 passed, 6 xfailed, 1 warning in 38.15s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_malformed_parents_field_names_no_place_and_never_fails_the_request: 5/5 failed
+  R:test_plan_split_reports_only_list_parents_as_named: 5/5 failed
+  C:test_a_parents_field_of_the_wrong_type_cannot_fail_the_request: 3/3 failed
+GOOD - 14 failed, 106 passed, 6 xfailed
+
+==============================================================================
+MUTATION M13 - numbered-also-named overlap rule removed: a number filed under named counts as a name
+Covers tests:
+  C:test_a_number_the_model_files_under_named_is_still_not_a_name
+Edit (api/src/finish.py):
+  -         and _head(n) not in skip  # a number inside some other place is not a name
+  + (line deleted)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxxx.....F...........F.F.F [ 57%]
+.F.F.F.F.F.F.......F.F.F..............................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_completeness.py::test_a_number_the_model_files_under_named_is_still_not_a_name
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[block group-4-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[county-4-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[place-4-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-2-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-3-True]
+FAILED api/tests/test_geography_completeness.py::test_bare_numbers_at_any_metadata_level_are_stopped_exactly_when_it_needs_parents[tract-4-True]
+13 failed, 107 passed, 6 xfailed, 1 warning in 24.06s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  C:test_a_number_the_model_files_under_named_is_still_not_a_name: 1/1 failed
+GOOD - 13 failed, 107 passed, 6 xfailed
+
+==============================================================================
+MUTATION M14 - entries of `named` that are not text are read as places
+Covers tests:
+  R:test_entries_that_are_not_text_are_not_places_and_never_fail_the_request
+Edit (api/src/finish.py):
+  -         if isinstance(n, str)
+  -         and _head(n) not in skip
+  +         if _head(n) not in skip
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+...........................F................xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_entries_that_are_not_text_are_not_places_and_never_fail_the_request
+1 failed, 119 passed, 6 xfailed, 1 warning in 36.50s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_entries_that_are_not_text_are_not_places_and_never_fail_the_request: 1/1 failed
+GOOD - 1 failed, 119 passed, 6 xfailed
+
+==============================================================================
+MUTATION M15 - entries of `numbered` that are not text are read as numbered places
+Covers tests:
+  R:test_entries_that_are_not_text_are_not_places_and_never_fail_the_request
+Edit (api/src/finish.py):
+  -     numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)]
+  +     numbered = list(frame.get("numbered") or [])
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+...........................F................xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_entries_that_are_not_text_are_not_places_and_never_fail_the_request
+1 failed, 119 passed, 6 xfailed, 1 warning in 21.08s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_entries_that_are_not_text_are_not_places_and_never_fail_the_request: 1/1 failed
+GOOD - 1 failed, 119 passed, 6 xfailed
+
+==============================================================================
+MUTATION M16 - level read as given, without str(): a level that is not text reaches detect_level
+Covers tests:
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[5]
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[True]
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[2.5]
+  R:test_a_level_that_is_a_container_never_fails_the_request
+Edit (api/src/finish.py):
+  -     level = detect_level(str(frame.get("level") or ""))
+  +     level = detect_level(frame.get("level") or "")
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................FFF...FF........xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[5]
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[True]
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[2.5]
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_a_container_never_fails_the_request[level0]
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_a_container_never_fails_the_request[level1]
+5 failed, 115 passed, 6 xfailed, 1 warning in 16.33s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[5]: 1/1 failed
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[True]: 1/1 failed
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[2.5]: 1/1 failed
+  R:test_a_level_that_is_a_container_never_fails_the_request: 2/2 failed
+GOOD - 5 failed, 115 passed, 6 xfailed
+
+==============================================================================
+MUTATION M17 - a missing, empty or falsy level defaults to tract
+Covers tests:
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[level3]
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[None]
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[]
+Edit (api/src/finish.py):
+  -     level = detect_level(str(frame.get("level") or ""))
+  +     level = detect_level(str(frame.get("level") or "tract"))
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+...............................FFF..........xxxxxx..............FF...... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[level3]
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[None]
+FAILED api/tests/test_geography_report.py::test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[]
+FAILED api/tests/test_geography_completeness.py::test_levels_that_need_no_parent_are_never_incomplete[None]
+FAILED api/tests/test_geography_completeness.py::test_no_verdict_from_the_model_means_the_loop_runs_as_usual
+5 failed, 115 passed, 6 xfailed, 1 warning in 20.41s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[level3]: 1/1 failed
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[None]: 1/1 failed
+  R:test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[]: 1/1 failed
+GOOD - 5 failed, 115 passed, 6 xfailed
+
+==============================================================================
+MUTATION M18 - the report's frame is taken from a `frame` key the model sent
+Covers tests:
+  R:test_a_frame_the_model_sends_is_never_the_report
+  R:test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request
+Edit (api/src/finish.py):
+  -     frame = {
+  -         "level": found.get("level"),
+  -         "named": [*(named if isinstance(named, list) else []), *names],
+  -         "numbered": numbered if isinstance(numbered, list) else [],
+  -     }
+  +     frame = found.get("frame", {
+  +         "level": found.get("level"),
+  +         "named": [*(named if isinstance(named, list) else []), *names],
+  +         "numbered": numbered if isinstance(numbered, list) else [],
+  +     })
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+....................................FFFFFF..xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[tract]
+FAILED api/tests/test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[sent1]
+FAILED api/tests/test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[5]
+FAILED api/tests/test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[None]
+FAILED api/tests/test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[sent4]
+FAILED api/tests/test_geography_report.py::test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request
+6 failed, 114 passed, 6 xfailed, 1 warning in 37.96s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_frame_the_model_sends_is_never_the_report: 5/5 failed
+  R:test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request: 1/1 failed
+GOOD - 6 failed, 114 passed, 6 xfailed
+
+==============================================================================
+MUTATION M19 - geography check moved after the no-tool-calls exit: a prose-only turn is never checked
+Covers tests:
+  R:test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check
+Edit (api/src/ask.py):
+  -                 if not calls_used and (stop := await incomplete(record, tools, split)):
+  -                     return assemble(stop, record)
+  -                 answer = str(turn.get("content") or "")
+  -                 pending = list(turn.get("tool_calls") or [])
+  -                 if not pending:
+  -                     break
+  +                 answer = str(turn.get("content") or "")
+  +                 pending = list(turn.get("tool_calls") or [])
+  +                 if not pending:
+  +                     break
+  +                 if not calls_used and (stop := await incomplete(record, tools, split)):
+  +                     return assemble(stop, record)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+..........................................F.xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check
+1 failed, 119 passed, 6 xfailed, 1 warning in 41.33s
+[exit 1]
+$ git checkout -- api/src/ask.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check: 1/1 failed
+GOOD - 1 failed, 119 passed, 6 xfailed
+
+==============================================================================
+MUTATION M20 - the report's `named` list ignored: nothing the model names counts
+Covers tests:
+  R:test_a_state_the_user_wrote_as_a_code_in_the_question_counts
+  R:test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named
+  R:test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+  C:test_a_named_geography_lets_the_loop_run
+Edit (api/src/finish.py):
+  -         for n in frame.get("named") or []
+  +         for n in []
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+FFFF.F.F............F.....F.................FFFFxx........F............. [ 57%]
+................................FF....................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Block group income in Los Angelas County-block group-named1]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Median rent by tract in Dane Co.-tract-named2]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty by tract in the Bay Area-tract-named3]
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_wrote_as_a_code_in_the_question_counts
+FAILED api/tests/test_geography_report.py::test_an_upper_case_abbreviation_the_model_spelled_out_counts
+FAILED api/tests/test_geography_report.py::test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[ ]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[-]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[,]
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts
+FAILED api/tests/test_geography_completeness.py::test_numbered_tracts_inside_a_named_county_are_a_complete_question
+FAILED api/tests/test_geography_completeness.py::test_parents_the_model_lists_count_as_named_places
+15 failed, 109 passed, 2 xfailed, 1 warning in 38.79s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_state_the_user_wrote_as_a_code_in_the_question_counts: 1/1 failed
+  R:test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named: 4/4 failed
+  R:test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named: 1/1 failed
+  C:test_a_named_geography_lets_the_loop_run: 0/1 failed
+      survived: test_a_named_geography_lets_the_loop_run
+BAD - 15 failed, 109 passed, 2 xfailed
+
+==============================================================================
+MUTATION M21 - only a state counts as a named place: a code or a non-state name is dropped
+Covers tests:
+  R:test_a_state_the_user_wrote_as_a_code_in_the_question_counts
+Edit (api/src/finish.py):
+  -         and (_head(n) not in states or _stated(n, question))  # a state must have been written
+  +         and (_head(n) in states and _stated(n, question))
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+FFFF.F..............F.....F.................FFFFxx...................... [ 57%]
+................................FF....................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Block group income in Los Angelas County-block group-named1]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Median rent by tract in Dane Co.-tract-named2]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty by tract in the Bay Area-tract-named3]
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_wrote_as_a_code_in_the_question_counts
+FAILED api/tests/test_geography_report.py::test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[ ]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[-]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[,]
+FAILED api/tests/test_geography_completeness.py::test_numbered_tracts_inside_a_named_county_are_a_complete_question
+FAILED api/tests/test_geography_completeness.py::test_parents_the_model_lists_count_as_named_places
+13 failed, 111 passed, 2 xfailed, 1 warning in 38.49s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_state_the_user_wrote_as_a_code_in_the_question_counts: 1/1 failed
+GOOD - 13 failed, 111 passed, 2 xfailed
+
+==============================================================================
+MUTATION M22 - find_state fallback removed: a state the user wrote no longer counts without the model
+Covers tests:
+  C:test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it
+Edit (api/src/finish.py):
+  -     if not (level and needs) or named or find_state(question) is not None:
+  +     if not (level and needs) or named:
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxFF.......F.............. [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography[Is tract 71 poorer than tract 305, or is it the other way around?]
+FAILED api/tests/test_geography_report.py::test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography[Is tract 71 poorer than tract 305, in general?]
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it
+3 failed, 119 passed, 4 xfailed, 1 warning in 34.31s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  C:test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it: 1/1 failed
+GOOD - 3 failed, 119 passed, 4 xfailed
+
+==============================================================================
+MUTATION M23 - plan_split no longer folds the model's parents into the places it named
+Covers tests:
+  C:test_parents_the_model_lists_count_as_named_places
+Edit (api/src/finish.py):
+  -         "named": [*(named if isinstance(named, list) else []), *names],
+  +         "named": [*(named if isinstance(named, list) else [])],
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxxx...................... [ 57%]
+.................................F...........FF.......                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_completeness.py::test_parents_the_model_lists_count_as_named_places
+FAILED api/tests/test_geography_completeness.py::test_a_multi_parent_listing_report_carries_parents_unit_and_frame
+FAILED api/tests/test_geography_completeness.py::test_one_parent_is_not_a_split_but_is_still_a_frame
+3 failed, 117 passed, 6 xfailed, 1 warning in 16.37s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  C:test_parents_the_model_lists_count_as_named_places: 1/1 failed
+GOOD - 3 failed, 117 passed, 6 xfailed
+
+==============================================================================
+MUTATION M24 - no report (no model): guard removed and a TypeError no longer fails open
+Covers tests:
+  C:test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]
+Edit (api/src/finish.py):
+  -     if split is None or not isinstance(geo, ResolveGeographyTool):
+  -         return None
+  +     if not isinstance(geo, ResolveGeographyTool):
+  +         return None
+Edit (api/src/finish.py):
+  -     except (TimeoutError, OSError, ValueError, TypeError, KeyError):
+  +     except (TimeoutError, OSError, ValueError, KeyError):
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxxx...................... [ 57%]
+....................................F.....FF..........                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_completeness.py::test_unreadable_geography_metadata_means_the_loop_runs_as_usual[TypeError]
+FAILED api/tests/test_geography_completeness.py::test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]
+FAILED api/tests/test_geography_completeness.py::test_a_pinned_plan_is_never_checked_for_a_geography_in_the_question
+3 failed, 117 passed, 6 xfailed, 1 warning in 36.29s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  C:test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]: 1/1 failed
+GOOD - 3 failed, 117 passed, 6 xfailed
+
+==============================================================================
+MUTATION M25 - no geography tool: the isinstance(geo, ResolveGeographyTool) guard removed
+Covers tests:
+  C:test_without_the_geography_tool_or_a_report_nothing_is_stopped[tool]
+Edit (api/src/finish.py):
+  -     if split is None or not isinstance(geo, ResolveGeographyTool):
+  -         return None
+  +     if split is None:
+  +         return None
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxxx...................... [ 57%]
+.........................................F............                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_completeness.py::test_without_the_geography_tool_or_a_report_nothing_is_stopped[tool]
+1 failed, 119 passed, 6 xfailed, 1 warning in 31.01s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  C:test_without_the_geography_tool_or_a_report_nothing_is_stopped[tool]: 1/1 failed
+GOOD - 1 failed, 119 passed, 6 xfailed
+
+==============================================================================
+MUTATION M26 - no report (no model): only the `split is None` guard removed
+Covers tests:
+  C:test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]
+Edit (api/src/finish.py):
+  -     if split is None or not isinstance(geo, ResolveGeographyTool):
+  -         return None
+  +     if not isinstance(geo, ResolveGeographyTool):
+  +         return None
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+120 passed, 6 xfailed, 1 warning in 15.15s
+[exit 0]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  C:test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]: 0/1 failed
+      survived: test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]
+EQUIVALENT (no target failed, as analysed) - 0 failed, 120 passed, 6 xfailed
+
+==============================================================================
+MUTATION M27 - a numbered place counts as written even when the user never wrote it verbatim
+Covers tests:
+  R:test_a_county_number_written_in_words_cannot_make_a_county_question_incomplete
+Edit (api/src/finish.py):
+  -     by_number = any(_stated(n, question) for n in numbered)
+  +     by_number = bool(numbered)
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+......................F.....................xxxxxx...................... [ 57%]
+...............................F......................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_county_number_written_in_words_cannot_make_a_county_question_incomplete
+FAILED api/tests/test_geography_completeness.py::test_a_number_the_user_never_wrote_cannot_make_a_question_incomplete
+2 failed, 118 passed, 6 xfailed, 1 warning in 14.80s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_county_number_written_in_words_cannot_make_a_county_question_incomplete: 1/1 failed
+GOOD - 2 failed, 118 passed, 6 xfailed
+
+==============================================================================
+MUTATION M28 - the every-unit exemption applies to every level, tract and block group included
+Covers tests:
+  R:test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words
+  R:test_an_empty_question_has_no_words_to_ground_a_state_on[named0-True]
+Edit (api/src/finish.py):
+  -     if not by_number and legal_predicate(
+  -         level, frozenset({"state"}), wildcard=True, entries=entries
+  -     ):
+  -         return None  # asks for every unit of a level that lists under state:* (all counties)
+  +     if not by_number:
+  +         return None
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+....F..................FFF..................xxxxxx...........F.......... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it
+FAILED api/tests/test_geography_report.py::test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named0-True]
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named1-True]
+FAILED api/tests/test_geography_completeness.py::test_every_tract_needs_a_county_so_a_nationwide_listing_is_incomplete
+5 failed, 115 passed, 6 xfailed, 1 warning in 16.14s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words: 1/1 failed
+  R:test_an_empty_question_has_no_words_to_ground_a_state_on[named0-True]: 1/1 failed
+GOOD - 5 failed, 115 passed, 6 xfailed
+
+==============================================================================
+MUTATION FD1 - FIX DEMO: an entry with no word in it is not a name (src edit; XPASS(strict) expected)
+Covers tests:
+  R:test_a_name_with_no_word_in_it_is_not_a_place
+Edit (api/src/finish.py):
+  -         and _head(n) not in skip  # a number inside some other place is not a name
+  +         and _head(n)
+  +         and _head(n) not in skip  # a number inside some other place is not a name
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................FFFFxx...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[ ]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[-]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[,]
+4 failed, 120 passed, 2 xfailed, 1 warning in 13.73s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_name_with_no_word_in_it_is_not_a_place: 4/4 failed
+FIX DEMO OK (every target XPASSed strict) - 4 failed, 120 passed, 2 xfailed
+
+==============================================================================
+MUTATION FD2 - FIX DEMO: a state counts only when the question wrote it, not find_state's loose code match
+Covers tests:
+  R:test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography
+Edit (api/src/finish.py):
+  -     if not (level and needs) or named or find_state(question) is not None:
+  +     if not (level and needs) or named or any(_stated(s, question) for s, _u, _f in STATES):
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+............................................xxxxFF...................... [ 57%]
+......................................................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography[Is tract 71 poorer than tract 305, or is it the other way around?]
+FAILED api/tests/test_geography_report.py::test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography[Is tract 71 poorer than tract 305, in general?]
+2 failed, 120 passed, 4 xfailed, 1 warning in 15.42s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_common_word_after_a_comma_is_not_a_state_that_names_the_geography: 2/2 failed
+FIX DEMO OK (every target XPASSed strict) - 2 failed, 120 passed, 4 xfailed
+
+==============================================================================
+NOTE on M20 above: BAD. test_a_named_geography_lets_the_loop_run passed with the named list ignored
+(a county question with a state written is complete without it: counties list under state:* and find_state
+sees the state). The test was vacuous; it now asks a tract question that writes a county and no state, so only
+the named county can carry it. M20 re-run below against the fixed test; the other 13 tests in M20 were not changed.
+==============================================================================
+MUTATION M20 - the report's `named` list ignored: nothing the model names counts
+Covers tests:
+  R:test_a_state_the_user_wrote_as_a_code_in_the_question_counts
+  R:test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named
+  R:test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+  C:test_a_named_geography_lets_the_loop_run
+Edit (api/src/finish.py):
+  -         for n in frame.get("named") or []
+  +         for n in []
+
+$ uv run pytest -q -m 'not integration' -p no:cacheprovider --tb=no -rfX <2 files>
+FFFF.F.F............F.....F.................FFFFxx........FF............ [ 57%]
+................................FF....................                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Block group income in Los Angelas County-block group-named1]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Median rent by tract in Dane Co.-tract-named2]
+FAILED api/tests/test_geography_report.py::test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty by tract in the Bay Area-tract-named3]
+FAILED api/tests/test_geography_report.py::test_a_state_the_user_wrote_as_a_code_in_the_question_counts
+FAILED api/tests/test_geography_report.py::test_an_upper_case_abbreviation_the_model_spelled_out_counts
+FAILED api/tests/test_geography_report.py::test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named
+FAILED api/tests/test_geography_report.py::test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[ ]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[-]
+FAILED api/tests/test_geography_report.py::test_a_name_with_no_word_in_it_is_not_a_place[,]
+FAILED api/tests/test_geography_completeness.py::test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts
+FAILED api/tests/test_geography_completeness.py::test_a_named_geography_lets_the_loop_run
+FAILED api/tests/test_geography_completeness.py::test_numbered_tracts_inside_a_named_county_are_a_complete_question
+FAILED api/tests/test_geography_completeness.py::test_parents_the_model_lists_count_as_named_places
+16 failed, 108 passed, 2 xfailed, 1 warning in 39.15s
+[exit 1]
+$ git checkout -- api/src/finish.py  [exit 0]
+$ git status --short -- api/src scripts evals  -> (clean)
+Per-target result (instances failed / instances run):
+  R:test_a_state_the_user_wrote_as_a_code_in_the_question_counts: 1/1 failed
+  R:test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named: 4/4 failed
+  R:test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named: 1/1 failed
+  C:test_a_named_geography_lets_the_loop_run: 1/1 failed
+GOOD - 16 failed, 108 passed, 2 xfailed
+
+==============================================================================
+NOTE on M26 above: EQUIVALENT. With only the 'split is None' guard removed, asyncio.shield(None) raises
+TypeError, which the fail-open 'except (TimeoutError, OSError, ValueError, TypeError, KeyError)' catches, so
+the answer is the same (None). M24 removes both (guard and the TypeError entry) and the [report] case fails.
+
+==============================================================================
+KILL MATRIX (every in-scope test instance that is not a strict xfail, against mutations M01-M28)
+$ python matrix.py   (scratch; reads the per-mutation results the runner kept)
+in-scope non-xfail instances: 56; killed by at least one mutation: 56; never killed: 0
+3 test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty rate by tract in NYC-tract-named0]  <- M02, M20, M21
+3 test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Block group income in Los Angelas County-block group-named1]  <- M02, M20, M21
+3 test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Median rent by tract in Dane Co.-tract-named2]  <- M02, M20, M21
+3 test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named[Poverty by tract in the Bay Area-tract-named3]  <- M02, M20, M21
+4 test_a_state_the_user_never_wrote_does_not_count_even_if_the_model_remembers_it  <- M01, M03, M09, M28
+2 test_a_state_the_user_wrote_as_a_code_in_the_question_counts  <- M20, M21
+5 test_a_common_word_is_not_a_state_abbreviation  <- M01, M03, M04, M05, M09
+2 test_an_upper_case_abbreviation_the_model_spelled_out_counts  <- M06, M20
+3 test_a_verdict_that_arrives_after_tools_ran_never_replaces_the_loops_answer  <- M07, M08, M11
+1 test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait  <- M08
+2 test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[1]  <- M09, M12
+2 test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[True]  <- M09, M12
+2 test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[2.5]  <- M09, M12
+2 test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[Kentucky]  <- M09, M12
+2 test_a_malformed_parents_field_names_no_place_and_never_fails_the_request[parents4]  <- M09, M12
+1 test_plan_split_reports_only_list_parents_as_named[1]  <- M12
+1 test_plan_split_reports_only_list_parents_as_named[True]  <- M12
+1 test_plan_split_reports_only_list_parents_as_named[2.5]  <- M12
+1 test_plan_split_reports_only_list_parents_as_named[Kentucky]  <- M12
+1 test_plan_split_reports_only_list_parents_as_named[parents4]  <- M12
+3 test_a_county_the_model_remembers_but_the_user_never_wrote_still_counts_as_named  <- M02, M20, M21
+5 test_a_state_written_in_lower_case_is_not_grounded_when_the_model_spells_it_out  <- M01, M03, M04, M05, M09
+1 test_a_county_number_written_in_words_cannot_make_a_county_question_incomplete  <- M27
+2 test_a_tract_question_with_nothing_named_is_stopped_even_if_its_numbers_are_words  <- M09, M28
+2 test_an_empty_question_has_no_words_to_ground_a_state_on[named0-True]  <- M09, M28
+3 test_an_empty_question_has_no_words_to_ground_a_state_on[named1-True]  <- M01, M09, M28
+3 test_an_empty_question_has_no_words_to_ground_a_state_on[named2-False]  <- M02, M20, M21
+3 test_entries_that_are_not_text_are_not_places_and_never_fail_the_request  <- M09, M14, M15
+1 test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[5]  <- M16
+1 test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[True]  <- M16
+1 test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[2.5]  <- M16
+1 test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[level3]  <- M17
+1 test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[None]  <- M17
+1 test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs[]  <- M17
+1 test_a_level_that_is_a_container_never_fails_the_request[level0]  <- M16
+1 test_a_level_that_is_a_container_never_fails_the_request[level1]  <- M16
+1 test_a_frame_the_model_sends_is_never_the_report[tract]  <- M18
+1 test_a_frame_the_model_sends_is_never_the_report[sent1]  <- M18
+1 test_a_frame_the_model_sends_is_never_the_report[5]  <- M18
+1 test_a_frame_the_model_sends_is_never_the_report[None]  <- M18
+1 test_a_frame_the_model_sends_is_never_the_report[sent4]  <- M18
+2 test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request  <- M09, M18
+2 test_a_model_that_answers_in_prose_without_a_tool_does_not_escape_the_check  <- M09, M19
+2 test_the_first_turn_waits_for_the_report_briefly_and_never_longer_than_the_tail  <- M09, M10
+3 test_a_state_the_model_remembers_but_the_user_never_wrote_is_not_a_geography  <- M01, M03, M09
+1 test_a_state_the_user_wrote_is_a_geography_even_if_the_model_omits_it  <- M22
+2 test_a_state_the_user_abbreviated_and_the_model_spelled_out_still_counts  <- M06, M20
+1 test_a_named_geography_lets_the_loop_run  <- M20
+3 test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running  <- M07, M08, M11
+1 test_only_the_first_model_turn_checks_the_report  <- M07
+1 test_without_the_geography_tool_or_a_report_nothing_is_stopped[tool]  <- M25
+1 test_without_the_geography_tool_or_a_report_nothing_is_stopped[report]  <- M24
+1 test_a_parents_field_of_the_wrong_type_cannot_fail_the_request[Wisconsin]  <- M12
+1 test_a_parents_field_of_the_wrong_type_cannot_fail_the_request[5]  <- M12
+1 test_a_parents_field_of_the_wrong_type_cannot_fail_the_request[True]  <- M12
+5 test_a_remembered_state_is_not_grounded_by_a_word_that_spells_its_abbreviation  <- M01, M03, M04, M05, M09
+
+Result: 56 of 56 in-scope instances killed by at least one mutation; 0 survivors.
+Tally: 28 mutations M01-M28 + 2 FIX DEMOs. killed 27 (M01-M25, M27, M28; M20 was BAD once, the test was
+fixed and M20 re-run GOOD), equivalent 1 (M26), survivors left 0, fix demos 2 of 2.
+
+==============================================================================
+PROBE of behaviours the new tests pin, and of src defects, run against HEAD src (scratch probe.py in the
+session scratchpad; it scripts the model's report and prints STOP / RAN / the exception).
+$ uv run python probe.py
+find_state ', or': ('oregon', '41')
+find_state ', in': ('indiana', '18')
+empty-string named: RAN timings=2
+punct-only named: RAN timings=2
+named [5,None,{},[x],True]: STOP timings=0
+numbered junk: STOP timings=0
+level 5 RAN timings=2
+level True RAN timings=2
+level 2.5 RAN timings=2
+level ['tract'] STOP timings=0
+level {'a': 'tract'} STOP timings=0
+level '' RAN timings=2
+level None RAN timings=2
+level [] RAN timings=2
+level 'TRACT' STOP timings=0
+level ' tract ' STOP timings=0
+empty question stop: STOP timings=0
+empty question named county: RAN timings=3
+empty question named state: STOP timings=0
+lowercase ky: STOP timings=0
+upper KY: RAN timings=2
+comma ky: RAN timings=4
+county words numbered: RAN timings=3
+tract words numbered: STOP timings=0
+remembered county: RAN timings=2
+frame key from model: STOP timings=0
+', or' question e2e: RAN timings=3
+direct frame 'tract' RAISED AttributeError 'str' object has no attribute 'get'
+direct frame ['tract'] RAISED AttributeError 'list' object has no attribute 'get'
+direct frame 5 RAISED AttributeError 'int' object has no attribute 'get'
+direct frame None -> None
+direct frame {} -> None
+
+==============================================================================
+FINAL STATE, tree restored (src, scripts, evals identical to HEAD; only test files and this transcript differ)
+$ git status --short
+ M api/tests/test_geography_completeness.py
+ M api/tests/test_geography_report.py
+?? evidence/slice-6/cc-102-gate1-r2.txt
+?? evidence/slice-6/cc-102-gate2-r2.txt
+
+$ git diff --stat -- api/src scripts evals   (empty means src is exactly HEAD)
+[end]
+
+$ git diff --stat -- api/tests
+ api/tests/test_geography_completeness.py |  13 +--
+ api/tests/test_geography_report.py       | 175 +++++++++++++++++++++++++++++--
+ 2 files changed, 173 insertions(+), 15 deletions(-)
+
+$ uv run ruff check .
+All checks passed!
+[exit 0]
+
+$ uv run ruff format --check .
+189 files already formatted
+[exit 0]
+
+$ uv run mypy api/src
+Success: no issues found in 26 source files
+[exit 0]
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4473 <= 4600
+  ok    api src files               26 <= 40
+  ok    largest file LOC           406 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       977 <= 1200
+  ok    doc lines                 1796 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+[exit 0]
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 62 (base 64, delta -2)
+
+All invariants held.
+
+[exit 0]
+
+$ uv run pytest -q -m "not integration" -p no:cacheprovider   (full suite, tree restored)
+........................................................................ [  8%]
+........................................................................ [ 17%]
+........................................................................ [ 25%]
+....................................................sssssssssssssssss..s [ 34%]
+ss...................................................................... [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 60%]
+...............................xxxxxx................................... [ 69%]
+........................................................................ [ 77%]
+........................................................................ [ 86%]
+.......................................................................s [ 94%]
+ssssssssss..s.ss..........................                               [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+794 passed, 34 skipped, 6 xfailed, 1 warning in 84.37s (0:01:24)
+[exit 0]
+
+$ git status --short   (after the full suite)
+ M api/tests/test_geography_completeness.py
+ M api/tests/test_geography_report.py
+?? evidence/slice-6/cc-102-gate1-r2.txt
+?? evidence/slice-6/cc-102-gate2-r2.txt

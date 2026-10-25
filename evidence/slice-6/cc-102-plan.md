@@ -1,0 +1,262 @@
+# CC-102 plan
+
+Ticket: CC-102 (bug, epic CC-3). Branch `fix/cc-102-original-question-parent-guard`, built on
+`origin/main` 1160bde in its own worktree. The CC-121 branch and its dirty files are untouched.
+Yardstick (phase 1): a sound URL, nothing from model memory. Jira holds status; this file holds the plan.
+Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
+
+## Owner decisions (2026-10-24)
+
+| Decision | Tag |
+| --- | --- |
+| A question must carry what Census requires for its GEOGRAPHY LEVEL, the **minimum for the kind of question asked** (the user may give more); one that carries less cannot be answered: say so at once, **no URL**, no search, no fetch, no candidates | `owner` |
+| Needs table (owner-approved, then corrected by live probes): every tract or block group in a state, the state; one county by number, the state; one tract by number, state and county; one block group by number, state, county and tract | `owner` + measured |
+| "Follow-up" means a question typed in a chat bar after an earlier answer; that does not exist yet, so "these five tracts" in isolation is malformed; no `refers_back` carve-out | `owner` |
+| Table-discovery questions ("Which table has poverty by tract?") are answered with no geography | `owner` (Google examples supplied) |
+| t03 golden becomes `expect_no_url = true` (the warning, and nothing shown); t17 is fixed (text now names Cook County, Illinois); scorer change approved; re-baseline and report apart from code gains | `owner` |
+| `CLAUDE.md`: MOE, GEOID, universe and alternatives are "in every answer that returns data"; a refusal returns no rows | `owner` |
+| Detection is model-composed, validated by code; never a word or token scan | `owner` (CLAUDE.md) |
+| Defense in depth: a work bound on pair materialization ships too (amendment 2026-10-22) | `owner` |
+| Every expected URL is shown in `urls[]` and the UI (the UI already renders every entry; no web change) | `owner` |
+| CC-121 stays open until CC-102 and CC-120 are both complete; no Jira write made | `owner` |
+| Four gate rounds (Gate 1 + cold Gate 2 each), E2E once after and once post-merge; credits approved | `owner` |
+| Answer text is written by code (the model supplies the missing state, so it cannot write the explanation) | `default` |
+| Partial cases are refused: a county name with no state, a tract named only by a city, and a phrase that points at a place without naming it ("my county") | `owner`; **status: the county-name case is NOT refused; the owner decided to leave it as a known limit (2026-10-25)** (see "Copilot review") |
+| The split-call prompt (~500 tokens, ~580 with `pointing`, against ~150 on `origin/main`) is left as is and recorded: this file, the PR body, a comment on CC-3 (posted 2026-10-24) and one on CC-102 with the PR link | `owner` |
+| No new follow-up ticket: the findings map to CC-119, CC-106, CC-114, CC-120 and CC-104 (listed under known limits) | `owner` |
+| E2E, the PR and the Jira comments follow `docs/playbooks/run-slice.md` without asking | `owner` |
+| Skip gate round 4 and go straight to the E2E ("too much, jump to end to end", 2026-10-24) | `owner` |
+| Record the E2E as red on p95 latency; no waiver is logged ("set this red due to latency", 2026-10-24) | `owner` |
+| Work bound `MAX_COMPARISON_WORK = 50_000` and warning code `comparison_too_large` | `default` |
+| Wait up to `FRAME_WAIT_SECONDS = 3.0` for the model's report before the first tool runs; past it, treat the question as complete | `default` |
+
+## Built
+
+**1. Level-completeness check (`finish.incomplete`).** The split call that already runs beside the loop
+(`plan_split`) also reports `level`, `named` (places by name, or by a code that identifies one alone, each
+written "Name, State"), `numbered` (places identified only by a number inside another place), `county_named`,
+`pointing` (phrases that point at a place without naming it, copied from the question) and `asks_for`.
+After the loop's first model turn and before any tool runs, code compares that with
+`_NEEDS`, the minimum the live Census API accepts (ACS5 2023, 81 requests, `cc-102-geography-probes.md`;
+documented grammar in `cc-102-geography-docs.md`). `_NEEDS` equals `geography.json` `requires` less the
+parents `wildcard` lets a listing leave to the URL; a test derives it from the metadata rows. Rules:
+- any name the model writes carries its state; `county_named` carries the county; a numbered tract or
+  county the user wrote verbatim carries its own level; a numbered place with no model level names it;
+- a number is judged at its own unit's level, so "every block group in county 5 of Ohio" needs the state,
+  not a tract (Gate 1 round 3 found it: `single = bool(written)` asked for the tract);
+- a listed `pointing` phrase that is in the question refuses it at once, whatever else is named; code only
+  checks that the model's quote is in the question, as it does for `numbered`;
+- `asks_for == "tables"` is never stopped and sets `record.tables_only`, so no geography warning follows;
+- a pinned plan that names geographies skips the check; one that only picks a table does not;
+- a state is never matched against the question's words (measured: that refused 38 of 60 valid
+  "Calif."/"Penn"/"tx" questions); a wrong report only lets a trap through, which is where the loop was.
+
+Below the minimum `run_ask` returns at once through `assemble`: `geography_unsupported`, a code-written
+answer naming the level, what it needs, what the question names and what is missing, empty `urls[]`,
+`rows`, `alternatives`; no search, fetch, URL or candidates. No report, a failed or late one, fails open.
+Complete questions pay no extra call: the split call already existed. Code: `finish.py`.
+
+**2. Work bound (`compare.py`, `guards.py`).** `comparison_rows` returns `[]` before any pair is built when
+row pairs x estimate columns exceeds 50,000, and `finish_aggregation` adds a visible
+`comparison_too_large` warning. It never limits the fetch, rows, URL, MOE, GEOID or universe.
+
+**3. Instrument.** `evals/golden_questions.toml` t03 gains `expect_no_url = true`, t17's text is fixed;
+`scripts/run_demo.py` scores `expect_no_url` as answered only with the warning and nothing searched or shown
+(no URL, rows, table or alternatives). Stricter than before, so no loosening.
+
+**4. Removed.** The token scanner, the tool-level guard, `FetchDataTool.refuse`, the `needs_parent`
+plumbing, the old `parentless_tracts` regex pair, the metadata-based completeness check and the
+state-word scan. Regex call sites 64 -> 62.
+
+**5. Docs and rules (net-zero lines; `doc_lines` is at its cap).** `CLAUDE.md` "Geography is level-complete"
+and the four fields "in every answer that returns data"; `docs/requirements.md`; `docs/ask-path.md`;
+`.cursor/rules/00-guardrails.mdc`, `20-web-typescript.mdc`, `40-census-domain.mdc`; `.claude/DESIGN.md`;
+`docs/playbooks/review-pr.md`.
+
+## Verified without a live key
+
+`make check` equivalents (no `make` on this machine): ruff and format clean, mypy clean, 823 passed / 34
+skipped, invariants held, budgets met with no raise: `api_src_loc` 4506/4600, largest file 407/410,
+`doc_lines` 1800/1800, `web_src_loc` 3349/3350, `system_prompt_tokens` 977/1200.
+The split prompt lives in `finish.py`, so the prompt-token check does not count it: it is ~580 tokens
+(origin/main: ~150). Counted, the system prompts would be ~1560 of 1200. Owner decision (2026-10-24): leave
+it and record it here, in the PR and on Jira (CC-3 comment posted); it was not moved into `prompts.py`
+because that would exceed the budget, and no budget was raised.
+
+Post-fix `comparison_rows`, `evidence/slice-6/cc-102-measure.py`: 6,896 rows x 1 or 2 columns: 0.0 s,
+~31 MB, 0 comparisons; 200 x 25: 0.0 s; 60 x 25 (largest legitimate fan-out, 44,250): 0.27 s, 95 MB.
+Pre-fix, measured: 400 rows x 2 cols 1.10 s / 269 MB; 150 x 25 1.77 s / 450 MB (~6.5 us and 1.5 KB per
+comparison). The full 6,896-row shape was never run pre-fix; extrapolation does not reconcile with the
+recorded 697 s / ~5 GB, so no extrapolated figure is quoted.
+
+## Live probe of the model's report (credits approved 2026-10-24)
+
+Model calls only (gpt-4o-mini, the loop's model), hand-written questions, no Census calls. `false trap` = a
+valid question refused (the costly error). `miss` = a trap let through, which fails open, so no worse than
+before. Scripts live in the session scratchpad, not the repo. I tuned against these phrasings, so the rates
+are optimistic: the unbiased tests are the golden set and the owner's sealed set.
+
+| Iteration | Change | False traps | Misses |
+| --- | --- | --- | --- |
+| 1 | `named` only; "a bare number is not a name" | 0 of 20 | 6 of 10 |
+| 2 | add a `numbered` slot | 2 of 20 | 4 of 10 |
+| 3 | spelled-out state counts; ignore the model's `listing` flag | 1 of 20 | 1 of 10 |
+| 4-5 | prompt: a code that identifies a place goes in `named`; a bare tract/county number does not | 0 of 130 | 11 of 75 |
+| 6 | prompt: numbered "wherever it sits, even as the first words" | 0 of 130 | 5 of 75 ("my county") |
+| 7 | needs table, parallel `named_levels`, compact prompt | **15 of 185** | **53 of 85** (the short prompt degraded reports) |
+| 8 | needs table, restored wording, `county_named` boolean | **0 of 360** | **11 of 180** ("my county" 10/10; one flaky "county 20 or county 28") |
+| 8b | 12 state nicknames and abbreviations x5 ("Calif.", "tx", "Lone Star State") | 1 of 60 | |
+| 9 | owner ruled partial cases refuse, so "my county" must refuse: a boolean `unnamed` | 89 of 329 valid questions flagged (first wording), 22 of 330 (tighter): it read "no place named" | |
+| 10 | a `pointing` list of quoted phrases instead (a list has nothing to quote on "by county") | **7 of 360** (a county FIPS report flipped) | 1 of 180 |
+| 11 | `county_named` says "a five-digit FIPS code (state and county)" | 0 of 360 | 10 of 180 (a tract number reported in `named` 3 of 10) |
+| 12 | "a number such as 'tract 12' is not pointing" | 1 of 360 (a county-by-FIPS report that is also 1 in 10 flaky on the committed prompt) | 2 of 180 |
+
+Iteration 12 on the phrasings written after iteration 8 and never tuned (`probe_fresh`, 5 repeats): false
+traps 0 of 150, misses 3 of 95 (was 0 of 95; "tract 4521", "block group 3 tract 4", "which block group has the
+highest income", 1 of 5 each). I reused that set across iterations 9-12 without changing wording in response to
+it, but it is no longer strictly held out. The `pointing` field was listed on 0 of 330 valid and 0 of 60
+nationwide-listing runs, and on 55 of 60 runs of 12 "my county"-style questions; the miss is "the county" with
+no pointing word (4 of 5). Why a list and not a boolean: a boolean fired on "median income by county" and
+"population of Texas"; a list of quotes has nothing to quote there.
+
+Split-call latency in these runs: p50 1.0 s, p95 1.3-1.5 s, max 3.0-3.7 s (0 of 540 over the 3 s wait in the
+last rates run), beside the loop.
+
+## E2E before the PR (2026-10-24): RED on p95 latency
+
+`make eval` and `make demo` recipes run on 9409542 (code = 2d2ffc5), `--repeat 3`, real keys, 62 questions,
+186 trials; transcripts `cc-102-e2e-pre.txt` (demo), `cc-102-e2e-pre-eval.txt`, `cc-102-e2e-pre-grid.txt`,
+never read. `make check` equivalents were green first (823 api tests, 110 web tests, typecheck, client drift,
+budgets, invariants). Baseline column: the recorded run on `origin/main` (2026-10-04).
+
+| | origin/main | CC-102 branch |
+| --- | --- | --- |
+| `demo.p95_latency_seconds` | 18.928 | **20.695, over the 20 s ceiling: RED** |
+| median / mean latency | 10.25 s / 15.64 s | 10.49 s / 11.81 s |
+| slowest trial | 820.4 s | 31.1 s |
+| long_tail `answered_rate` (floor 0.70) | 0.750 | 0.725 |
+| core / trap answered rate | 0.833 / 0.926 | 0.750 / 0.944 |
+| overall answered rate | 0.806 | 0.790 |
+| retrieval@10, selector@1, synthetic alignment | 0.9, 0.85, 0.544 | unchanged (the change does not touch retrieval) |
+| grid, 70 cells x 3 | not recorded | 210 of 210 complete, pass rate 1.0, 0 misses |
+| demo misses | 36 | 39 |
+| regex call sites | 64 | 62 |
+
+Chart: `.claude/cc-102-e2e-latency-distribution.svg` (`scripts/plot_e2e_latency.py`, origin/main against this run).
+The 820 s outlier is gone; the tail near the p95 is slightly higher. No waiver is logged (owner's call, and
+the owner's to add): the red stands. `make check` and CI fail on `demo.p95_latency_seconds` until a later run
+passes or the owner logs a waiver. CC-123 (the ~5 GB demo process) did not trigger: peak about 240 MB.
+
+What I know about the red: one run each, so a 1.8 s gap is inside the 18.9 to 21.7 s spread PLAN.md recorded
+for earlier runs, and the baseline is a different day. Median moved +0.2 s and `t_llm` +0.7 s, which fits
+the added split call, but nothing here proves it. A same-day `origin/main` run at `--repeat 3` (worktree
+`cc102-base`, 1160bde) was started and stopped: my local test runs competed with it (one trial took 49 s against
+a 31 s slowest trial on the branch run), so its latency is not trustworthy. It is owed, to be rerun on its own
+after a fresh run of the final code; the numbers go here and in the PR.
+
+The check itself: the split report plus `finish.incomplete` over all 62 in-scope golden questions x 5 runs
+refused only t03 (5 of 5, the intended refusal) and no valid question. t03 and t17 are not among the demo's
+misses, so the scorer and golden changes behave. q41 (Ann Arbor) went from 0 to 3 of 3 misses with "wrong
+table (none)"; the check did not refuse it, and I did not find the cause (the baseline also has "(none)"
+misses on other questions).
+
+Not verified: the regression-minus-sealed gap (the sealed run is the owner's); the pre-flight claim of 6,896
+tract rows for Texas (recorded in the ticket, not re-run); the same-day baseline above.
+
+## Copilot review on PR #112 (2026-10-25)
+
+Three findings on `finish.py`; replies are on the PR.
+- **GEOID in the report** (fixed, 33ffe78): a supported GEOID the model reports supplies the level and parents
+  it encodes (`clauses_from_geoid`); parsing only, no match against the question. Resolved.
+- **A county named without its state is not refused** (known limit, owner decision 2026-10-25). I had said it was; I had not run it. Real model,
+  7 variants x 5: 0 of 35 refused ("Cook County" becomes "Cook County, Illinois" from the model's knowledge, and
+  the check does not second-guess it). Three designs measured on 30 valid and 12 no-state county questions x 5:
+
+  | Design | Valid refused (of 150) | No-state let through (of 60) |
+  | --- | --- | --- |
+  | `states` quote list, code checks each quote is in the question | 34, then 31 with a tighter wording | 0, then 1 |
+  | yes/no `state_written` flag | 2 | 55 |
+  | `states` entries with separate "written" and "state" slots | 33 | 0 |
+
+  The model writes "Illinois" for the user's "IL", so quotes fail; a flag follows what it knows. Matching the
+  question against a state table would work but is the keyword scan CLAUDE.md bans. Owner decision: leave it as
+  a known limit; none of the three is in the code.
+- **Parents are pooled** (known limit; the owner asked for the thread to be closed, 2026-10-25): one `county_named` and one `named` list serve every numbered place, so "tract 71
+  in Dane County, Wisconsin with tract 305 in Texas" passes. Fixing it needs a report that attaches each number to
+  its parents; restructuring the report risks what iteration 7 broke. It fails open to the loop as before.
+
+The owner also asked, on seeing the quote checks: "text matching sounds like regex, did you remember the regex
+policy?" There is no `re` in them (regex call sites 64 to 62), but `numbered` and `pointing` check that the
+model's quote is in the question. That is text matching, kept only because it stops a fabricated quote from
+causing a false refusal; the GEOID fix has none. The owner decides whether the two stay.
+
+## Known limits and findings (owner: no new ticket; they map to existing CC-3 tickets)
+
+- "my county", "where I live" and similar now refuse (`pointing`). "the county" with no pointing word is
+  listed 1 time in 5 and otherwise fails open.
+- A nationwide county or place listing is valid for the API (3,222 and 32,325 rows) but the resolver has no
+  URL path for it (Gate 2 r3 F2, pre-existing).
+- A block-group listing under a state needs `county:*` written in the URL (without it HTTP 400); the
+  pipeline builds it without, so golden t04's expectation may be stale (pre-existing).
+- A state-wide tract listing is HTTP 200, but the resolver flags it `geography_unsupported` (pre-existing).
+- `_NEEDS` covers the five levels the program names. County subdivision, state legislative districts,
+  school districts and PUMAs need the state, but `detect_level` never returns them.
+- ZCTA with a state parent is HTTP 400 in 2021 and 2023: a ZCTA URL must carry no `in`.
+- CC-123 (demo process memory, reaped before E2E completes) is still To Do and may affect E2E.
+
+Mapping (JQL `parent = CC-3`, 2026-10-24; I had not searched it in pre-flight): block groups under a state
+needing `county:*`, and golden t04 possibly stale: CC-119 (full parent chain). Levels outside the program's
+vocabulary: CC-106. ZCTA with a state parent, and the level-substitution scoring: CC-114 (its table also
+lists t17, whose text this change fixes). The grid that would measure all of them: CC-120. `finish.py`
+deriving "is this a listing" from prose by regex: CC-104, still open and untouched here. No exact ticket:
+the nationwide county/place listing with no URL path, and `geography_unsupported` flagging a working
+state-wide tract listing; attach to CC-119 or CC-120 at the owner's call.
+
+## Gate rounds (owner asked for four, 2026-10-24; round 1 counts the first Gate 1 and Gate 2)
+
+Each round is a Gate 1 (tests, mutation-checked) and a cold Gate 2, then the fixes. Lenses for the cold
+reviewers: round 2 async and fail-open correctness; round 3 behavior against `CLAUDE.md`,
+`docs/requirements.md` and the scorer and golden changes; round 4 red team (force false traps and misses).
+The E2E runs once after the rounds, and once more after the merge.
+
+**Round 1.** Gate 1 (`cc-102-gate1.txt`): 51 mutations, 49 killed, 1 equivalent, 0 survivors. Gate 2
+(`cc-102-gate2.txt`): not ready, 8 findings, all dispositioned (names the model remembers count; late
+report checked on the first turn only; non-list `parents`; "in" is not Indiana; cap and slow-split tests;
+t17 fixed; stale docs; `CLAUDE.md` carve-out).
+
+**Round 2.** Gate 1 (`cc-102-gate1-r2.txt`): 28 mutations, 0 survivors, 2 source defects found and fixed.
+Gate 2 (`cc-102-gate2-r2.txt`, async and fail-open lens): fixed (state-word scan removed, fail-open on any
+exception, first turn by index).
+
+**Round 3.** Gate 2 (`cc-102-gate2-r3.txt`, policy lens): F1 `_writes_a_state` contradicts the rule: removed.
+F2 nationwide county listing has no URL path: pre-existing, listed above. F3 docs disagree: reconciled
+net-zero. F4 table question at tract level got `geography_unsupported`: `tables_only`. F5 scorer blind to
+whether the stop fired: now also requires no rows, table or alternatives. F6 any plan override disabled the
+check: only one with geographies does. F7 3 s wait versus p95 headroom and F8 a parent filed inside a numbered
+entry: to be measured in the E2E. F9 split prompt tripled: reported above, not shrunk (shorter wording
+degraded the reports, iteration 7). F10 harmless.
+Gate 1 (`cc-102-gate1-r3.txt`, on a46d288): 133 mutations, one behaviour each. Pass 1 on the committed
+tests: 111 killed, 7 equivalent (argued in the log), 15 survivors. Pass 2 after new tests: 126 killed, 0
+survivors. Pass 3 after the runtime trim (34 instances collapsed; whole suite 34 s to 28 s): no kill lost.
+It took 3 h 20 m: one mutation per run on one worktree, ~55 min a pass, five whole test files (~20 s) per
+mutation instead of the covering test alone, and two mutations that hang the suite (6 killed runs of 150 s across the passes); my brief set no cap or
+time box.
+One source defect found: `single = bool(written)` asked "every block group in county 5 of Ohio" for a tract
+(live probe 28: state and county list them); fixed in the next commit with the "my county" check. I dropped
+the subagent's golden lint that read capitalised words as place names (the keyword proxy the repo bans);
+golden t17 is covered by the E2E scorer.
+
+**Round 4.** A bounded Gate 1 and a cold red-team Gate 2 were started on 2d2ffc5 and stopped within
+minutes on the owner's word; neither produced a result. So the fix commit (the `pointing` check and numbers
+judged at their own unit's level) has tests written test-first and passing, but no mutation check and no
+cold review. The PR says so.
+
+**Owed.** E2E before the PR; the PR; E2E after the merge.
+
+## Outward writes
+
+- 2026-10-24, owner asked: a comment on the CC-3 epic with the split-prompt size note, posted with
+  `scripts/jira_transition.py CC-3 --comment-file`.
+- At the PR step (playbook 7): push the branch, open the PR, one comment on CC-102 with the PR link and the
+  same prompt-size note. Close comment only after the owner merges, via `scripts/jira_transition.py`.
+No push, PR or other Jira write yet.

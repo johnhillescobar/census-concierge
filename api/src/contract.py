@@ -219,6 +219,19 @@ def plan_from_record(record: Any) -> ResultPlan:
             return ResultPlan(table_id=table_id, dataset=dataset, allow_overlapping_acs5=overlap)
 
 
+def rows_with_geoid(
+    rows: list[dict[str, str | None]], fallback: str
+) -> list[dict[str, str | None]]:
+    return [{**row, "GEO_ID": row.get("GEO_ID") or fallback} for row in rows]
+
+
+def response_geoid(rows: list[dict[str, str | None]], fallback: str) -> str:
+    ids = {(row.get("GEO_ID") or fallback) for row in rows} - {""}
+    if len(ids) == 1:
+        return next(iter(ids))
+    return fallback if not rows else ""
+
+
 def override_years(plan: ResultPlan | None) -> list[int]:
     if plan is None:
         return []
