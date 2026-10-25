@@ -136,6 +136,13 @@ def passed(checks: dict[str, bool | None]) -> bool:
     return all(v for v in checks.values() if v is not None)
 
 
+def shape_ok(checks: dict[str, bool | None]) -> bool:
+    """Every check but `table`: the URL is sound whichever table was picked. Which table a
+    question maps to is retrieval's score (the demo's); this keeps one wrong pick from hiding
+    whether the cap, level, parents, cardinality and margins moved."""
+    return passed({k: v for k, v in checks.items() if k != "table"})
+
+
 # --- generation --------------------------------------------------------------------------------
 
 
@@ -360,7 +367,7 @@ def summarize(
     ids = {c["id"]: c for c in cells}
     for row in results:
         for dim in ("var_count", "depth", "scope", "time", "dataset", "level"):
-            by[f"{dim}={ids[row['id']][dim]}"].append(row["passed"])
+            by[f"{dim}={ids[row['id']][dim]}"].append(shape_ok(row["checks"]))
     seconds = sorted(r["seconds"] for r in results)
     return {
         "status": "FINAL" if complete else ("SUBSET" if subset else "PARTIAL"),
@@ -373,6 +380,9 @@ def summarize(
         "trials": len(results),
         "expected_trials": len(cells) * repeat,
         "pass_rate": round(sum(r["passed"] for r in results) / max(len(results), 1), 3),
+        "shape_pass_rate": round(
+            sum(shape_ok(r["checks"]) for r in results) / max(len(results), 1), 3
+        ),
         "checks": {
             k: {"rate": round(sum(v) / len(v), 3), "n": len(v)} for k, v in sorted(rates.items())
         },
@@ -408,6 +418,28 @@ def read_log(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def open_grid(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, tuple[Path, ...]]:
+    """The cells to run, the hash that names this grid, and this run's log and scoreboard paths."""
+    if args.aggregate_only and "sealed" not in args.tag:
+        raise SystemExit("--aggregate-only needs --tag with 'sealed' in it (gitignored outputs)")
+    tag = "-".join(t for t in (args.tag, "subset" if args.limit else "") if t)
+    paths = tuple(
+        path.with_stem(path.stem + (f"-{tag}" if tag else "")) for path in (LOG, LATEST, PARTIAL)
+    )
+    raw = args.grid.read_bytes()
+    cells = tomllib.loads(raw.decode())["cell"][: args.limit or None]
+    stale_keys = sorted({k for c in cells for k in CELL_KEYS if k not in c})
+    if stale_keys:
+        raise SystemExit(f"grid lacks {stale_keys}: regenerate it with `url_grid.py generate`")
+    return cells, hashlib.sha256(raw).hexdigest()[:12], paths
+
+
+def rescore(args: argparse.Namespace) -> int:
+    """Rebuild the scoreboard from the recorded trials: no asks, no keys."""
+    cells, grid_sha, paths = open_grid(args)
+    return publish(args, cells, grid_sha, paths)
+
+
 def run(args: argparse.Namespace) -> int:
     if args.repeat < 1:
         raise SystemExit("--repeat must be at least 1")
@@ -416,18 +448,7 @@ def run(args: argparse.Namespace) -> int:
         raise SystemExit(
             f"{', '.join(missing)} must be set; a keyless run scores outages as misses"
         )
-    if args.aggregate_only and "sealed" not in args.tag:
-        raise SystemExit("--aggregate-only needs --tag with 'sealed' in it (gitignored outputs)")
-    tag = "-".join(t for t in (args.tag, "subset" if args.limit else "") if t)
-    log, latest, partial = (
-        path.with_stem(path.stem + (f"-{tag}" if tag else "")) for path in (LOG, LATEST, PARTIAL)
-    )
-    raw = args.grid.read_bytes()
-    grid_sha = hashlib.sha256(raw).hexdigest()[:12]
-    cells = tomllib.loads(raw.decode())["cell"][: args.limit or None]
-    stale_keys = sorted({k for c in cells for k in CELL_KEYS if k not in c})
-    if stale_keys:
-        raise SystemExit(f"grid lacks {stale_keys}: regenerate it with `url_grid.py generate`")
+    cells, grid_sha, (log, latest, partial) = open_grid(args)
     from fastapi.testclient import TestClient
     from src.main import app
 
@@ -483,6 +504,14 @@ def run(args: argparse.Namespace) -> int:
                 handle.write(json.dumps(future.result()) + NL)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)  # an interrupt must not run the queue live
+    return publish(args, cells, grid_sha, (log, latest, partial))
+
+
+def publish(
+    args: argparse.Namespace, cells: list[dict[str, Any]], grid_sha: str, paths: tuple[Path, ...]
+) -> int:
+    """Summarize the recorded trials of this grid and write the scoreboard they earn."""
+    log, latest, partial = paths
     ids = {c["id"] for c in cells}
     latest_rows = {  # the newest row per trial wins, so a rerun on a new commit replaces the old
         (r["id"], r["repeat"]): r
@@ -496,6 +525,8 @@ def run(args: argparse.Namespace) -> int:
     )
     if args.aggregate_only:
         summary["misses"] = len(summary["misses"])
+    for stale in (latest, partial):
+        stale.unlink(missing_ok=True)
     (latest if summary["complete"] else partial).write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
     )
@@ -517,6 +548,12 @@ def main() -> int:
     go.add_argument("--limit", type=int, default=0)
     go.add_argument("--batch", type=int, default=0, help="run at most N pending trials")
     go.add_argument("--workers", type=int, default=6)
+    again = sub.add_parser("rescore", help="rebuild the scoreboard from the recorded trials")
+    again.add_argument("--repeat", type=int, default=3)
+    again.add_argument("--grid", type=Path, default=GRID)
+    again.add_argument("--limit", type=int, default=0)
+    again.add_argument("--tag", default="")
+    again.add_argument("--aggregate-only", action="store_true")
     go.add_argument("--tag", default="", help="suffix for the log and scoreboards (sealed grids)")
     go.add_argument("--resume", action="store_true", help="continue the trials log of this grid")
     go.add_argument(
@@ -527,7 +564,7 @@ def main() -> int:
         args.out.write_text(dump_toml(generate(args.seed)), encoding="utf-8")
         print(f"wrote {args.out}")
         return 0
-    return run(args)
+    return rescore(args) if args.command == "rescore" else run(args)
 
 
 if __name__ == "__main__":

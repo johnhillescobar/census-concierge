@@ -674,3 +674,33 @@ def test_two_rows_for_one_trial_do_not_stand_in_for_a_missing_trial() -> None:
     cells = [CELL, {**CELL, "id": "u001"}]
     once = _trial("u000")
     assert url_grid.summarize(cells, [once, once], 1, "abc")["status"] == "PARTIAL"
+
+
+# --- the shape headline and rescoring from the recorded trials ------------------------------
+
+
+def test_a_wrong_table_is_a_strict_miss_but_a_sound_shape() -> None:
+    wrong = _trial(table=False)
+    wrong["passed"] = False
+    summary = url_grid.summarize([CELL], [wrong], 1, "abc")
+    assert (summary["pass_rate"], summary["shape_pass_rate"]) == (0.0, 1.0)
+    assert summary["by_dimension"]["level=county"] == 1.0
+
+
+def test_any_other_failed_check_is_a_shape_miss() -> None:
+    bad = _trial(cardinality=False)
+    bad["passed"] = False
+    assert url_grid.summarize([CELL], [bad], 1, "abc")["shape_pass_rate"] == 0.0
+
+
+def test_rescoring_rebuilds_the_scoreboard_from_the_log_without_asking(
+    grid_run: _Run,
+) -> None:
+    grid_run.logged("u000")
+    grid_run.logged("u001")
+    grid_run.latest.write_text('{"status": "stale"}')
+    opts = {"repeat": 1, "limit": 0, "tag": "", "aggregate_only": False, "grid": grid_run.grid}
+    assert url_grid.rescore(argparse.Namespace(**opts)) == 0
+    summary = json.loads(grid_run.latest.read_text(encoding="utf-8"))
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+    assert grid_run.asks.asked == []
