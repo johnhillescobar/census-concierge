@@ -161,8 +161,11 @@ CASES = [
         False,
         (),
     ),
-    # every tract in a county given by number: the number carries the county, never the state
+    # every tract or block group in a county given by number: the number carries the county, and
+    # the unit listed is never asked for its own number
     ("Poverty by tract in county 5 of Ohio", "tract", ["Ohio"], ["county 5"], False, ()),
+    ("Rent by block group in county 5 of Ohio", "block group", ["Ohio"], ["county 5"], False, ()),
+    ("Rent by block group in county 5", "block group", [], ["county 5"], False, ("state",)),
     # every block group inside a tract given by number: the tract number needs its county and state
     (
         "Income by block group in tract 1201 of Ohio",
@@ -247,6 +250,23 @@ async def test_a_question_is_answerable_exactly_when_it_carries_what_its_level_n
             _frame("block group", ["Franklin County, Kentucky"], BGS, county_named=True),
             "a block group identified by its number needs state, county and tract, and it names "
             "only the state and county. Name the tract and ask again.",
+        ),
+        (
+            "Rent by block group in county 5",
+            _frame("block group", [], ["county 5"]),
+            "every block group in a county identified by its number needs state, and it names "
+            "no geography. Name the state and ask again.",
+        ),
+        (
+            "Rent by block group in tract 1201 of Ohio",
+            _frame("block group", ["Ohio"], ["tract 1201"]),
+            "every block group in a tract identified by its number needs state and county, and "
+            "it names only the state. Name the county and ask again.",
+        ),
+        (
+            "What is the median age in my county?",
+            _frame("county", [], pointing=["my county"]),
+            "it is about a place it does not name. Name the place, with its state, and ask again.",
         ),
     ],
 )
@@ -417,6 +437,7 @@ def _shape(**over: Any) -> dict[str, Any]:
             "numbered": [],
             "asks_for": None,
             "county_named": False,
+            "pointing": [],
             **over,
         }
     }
@@ -568,19 +589,77 @@ def test_the_needs_table_is_what_the_censuss_own_metadata_says(row: str, single:
     assert finish._NEEDS.get((detect_level(row) or "", single), ()) == derived
 
 
-# --- a defect found in api/src: strict xfail, passes the day the code is fixed ------------------
+# --- a phrase that points at a place without naming it -----------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="finish.incomplete: a county given by number makes `single` true, so every block group "
-    "in it is judged as one block group by number and asked for a tract it never needed "
-    "(live probe 28 in cc-102-geography-probes.md: state and county alone list every block group)",
+@pytest.mark.parametrize(
+    ("question", "frame"),
+    [
+        ("What is the median age in my county?", _frame("county", [], pointing=["my county"])),
+        ("Population of where I live", _frame(None, [], pointing=["where I live"])),
+        (
+            "Compare my county with Harris County, Texas",
+            _frame(
+                "county",
+                ["Harris County, Texas"],
+                county_named=True,
+                pointing=["my county"],
+            ),
+        ),
+    ],
 )
-async def test_every_block_group_in_a_county_given_by_number_is_not_asked_for_a_tract() -> None:
-    reply = _frame("block group", ["Ohio"], ["county 5"])
-    response, record, _fetched = await _ask(
-        "Median rent for every block group in county 5 of Ohio", reply
-    )
-    assert STOPPED not in response.answer
+async def test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once(
+    question: str, frame: dict[str, Any]
+) -> None:
+    response, record, fetched = await _ask(question, frame)
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert response.urls == [] and response.rows == [] and response.alternatives == []
+    assert record.timings == [] and fetched == []
+    assert find_state(response.answer) is None  # code wrote it; no place was guessed
+
+
+@pytest.mark.parametrize(
+    ("question", "pointing"),
+    [
+        ("Population of Harris County, Texas", ["my county"]),  # the user never wrote it
+        ("Population of Smyth County, Virginia", ["my"]),  # a piece of another word
+        ("Population of Harris County, Texas", ["", " ", "-"]),  # nothing to look for
+        ("Population of Harris County, Texas", [7, None, {"a": "my county"}]),  # not text
+    ],
+)
+async def test_a_pointing_phrase_the_user_did_not_write_cannot_refuse_a_question(
+    question: str, pointing: list[Any]
+) -> None:
+    frame = _frame("county", ["Harris County, Texas"], county_named=True, pointing=pointing)
+    response, record, _fetched = await _ask(question, frame)
     assert record.timings
+    assert STOPPED not in response.answer
+
+
+async def test_a_pointing_phrase_on_an_empty_question_is_judged_on_the_report_alone() -> None:
+    record = ExecutionRecord(question="")
+    done: asyncio.Future[dict[str, Any] | None] = asyncio.get_running_loop().create_future()
+    done.set_result({"frame": {"level": "county", "pointing": [""]}})
+    assert await finish.incomplete(record, done) is None
+
+
+async def test_pointing_phrases_past_the_cap_are_not_read() -> None:
+    padding = [f"phrase {n}" for n in range(finish.MAX_REPORTED)]
+    frame = _frame("county", [], pointing=[*padding, "my county"])
+    _response, record, _fetched = await _ask("What is the median age in my county?", frame)
+    assert record.timings  # the phrase is past the cap, so the report is not read that far
+
+
+async def test_a_question_that_asks_which_table_holds_something_may_point_at_a_place() -> None:
+    frame = _frame("county", [], asks_for="tables", pointing=["my county"])
+    response, record, _fetched = await _ask("Which table has median age for my county?", frame)
+    assert record.timings and STOPPED not in response.answer
+    assert record.tables_only is True
+
+
+async def test_the_split_report_carries_pointing_phrases_as_a_list() -> None:
+    found = await _split(level="county", pointing=["my county"])
+    assert found == _shape(level="county", pointing=["my county"])
+    for sent in ("my county", 7, None, {"a": "my county"}):
+        found = await _split(level="county", pointing=sent)
+        assert found is not None and found["frame"]["pointing"] == []

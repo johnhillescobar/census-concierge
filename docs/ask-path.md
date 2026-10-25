@@ -133,15 +133,15 @@ tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `geography_not_nested` with no invented fetch. A `:*` wildcard stays one GET.
 
 A question must carry what its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
-The split call (`plan_split`) also reports the question's `level`, the places it `named`, those
-identified only `numbered` inside another, whether a county is named (`county_named`), and
-whether it `asks_for` `tables` (which table holds something: never stopped) or `data`. On the
-first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`, the
-minimum the API accepts (ACS5 2023): every tract or block group, the state; one county by number,
-the state; one tract, state and county; one block group, state, county and tract. Names count as
-reported, not matched against the question's words ("Calif." and "Penn" were refused). Short of
-it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no search, fetch,
-URL or candidates. Any failure, a missing report or a late one fails open.
+The split call (`plan_split`) also reports the question's `level`, the places it `named`, those identified only
+`numbered` inside another, whether a county is named (`county_named`), phrases that point at a place without
+naming it (`pointing`), and whether it `asks_for` `tables` (which table holds something: never stopped) or
+`data`. On the first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`,
+the minimum the API accepts (ACS5 2023): every tract or block group, the state; one county or place by number,
+the state; one tract, state and county; one block group, state, county and tract. Names count as reported, not
+matched against the question's words ("Calif." and "Penn" were refused); a pointing phrase refuses only if the
+question has it. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
+search, fetch, URL or candidates. Any failure, a missing report or a late one fails open.
 
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict

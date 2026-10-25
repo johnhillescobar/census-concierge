@@ -18,12 +18,12 @@ A silently short series is the same failure as a wrong one: dropped years, geogr
 
 ## Geography completeness
 
-A question must carry the minimum its level takes (`finish._NEEDS`, measured live): every tract or
-block group needs the state; one county by number, the state; one tract, state and county; one block
-group, state, county and tract. One that carries less is not answered: `geography_unsupported`, an
-answer saying it is incomplete, cannot be searched and what is missing, and empty `urls[]`, `rows`
-and `alternatives`. No search, fetch or blocking question. A question asking which table holds
-something is answered. The model reports level, places, county and ask; code compares, no word scan.
+A question must carry the minimum its level takes (`finish._NEEDS`, measured live): every tract or block
+group needs the state; one county or place by number, the state; one tract, state and county; one block
+group, state, county and tract. One that carries less, or points at a place without naming it ("my county"),
+is not answered: `geography_unsupported`, an answer saying what is missing, and empty `urls[]`, `rows` and
+`alternatives`. No search, fetch or blocking question. A question asking which table holds something is
+answered. The model reports level, places, county, pointing phrases and ask; code compares, no word scan.
 
 ## Slice 1 warning codes
 

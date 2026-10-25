@@ -21,7 +21,10 @@ Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
 | CC-121 stays open until CC-102 and CC-120 are both complete; no Jira write made | `owner` |
 | Four gate rounds (Gate 1 + cold Gate 2 each), E2E once after and once post-merge; credits approved | `owner` |
 | Answer text is written by code (the model supplies the missing state, so it cannot write the explanation) | `default` |
-| Partial cases are judged by the table: below the minimum is refused, at or above it goes through with its own warnings. A county name with no state, a tract in a city, and "my county" (a deictic the model will not drop, so it fails open) are for the owner to ratify | `default`, **open** |
+| Partial cases are refused: a county name with no state, a tract named only by a city, and a phrase that points at a place without naming it ("my county") | `owner` |
+| The split-call prompt (~500 tokens, ~580 with `pointing`, against ~150 on `origin/main`) is left as is and recorded: this file, the PR body, a comment on CC-3 (posted 2026-10-24) and one on CC-102 with the PR link | `owner` |
+| No new follow-up ticket: the findings map to CC-119, CC-106, CC-114, CC-120 and CC-104 (listed under known limits) | `owner` |
+| E2E, the PR and the Jira comments follow `docs/playbooks/run-slice.md` without asking | `owner` |
 | Work bound `MAX_COMPARISON_WORK = 50_000` and warning code `comparison_too_large` | `default` |
 | Wait up to `FRAME_WAIT_SECONDS = 3.0` for the model's report before the first tool runs; past it, treat the question as complete | `default` |
 
@@ -29,13 +32,18 @@ Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
 
 **1. Level-completeness check (`finish.incomplete`).** The split call that already runs beside the loop
 (`plan_split`) also reports `level`, `named` (places by name, or by a code that identifies one alone, each
-written "Name, State"), `numbered` (places identified only by a number inside another place), `county_named`
-and `asks_for`. After the loop's first model turn and before any tool runs, code compares that with
+written "Name, State"), `numbered` (places identified only by a number inside another place), `county_named`,
+`pointing` (phrases that point at a place without naming it, copied from the question) and `asks_for`.
+After the loop's first model turn and before any tool runs, code compares that with
 `_NEEDS`, the minimum the live Census API accepts (ACS5 2023, 81 requests, `cc-102-geography-probes.md`;
 documented grammar in `cc-102-geography-docs.md`). `_NEEDS` equals `geography.json` `requires` less the
 parents `wildcard` lets a listing leave to the URL; a test derives it from the metadata rows. Rules:
 - any name the model writes carries its state; `county_named` carries the county; a numbered tract or
   county the user wrote verbatim carries its own level; a numbered place with no model level names it;
+- a number is judged at its own unit's level, so "every block group in county 5 of Ohio" needs the state,
+  not a tract (Gate 1 round 3 found it: `single = bool(written)` asked for the tract);
+- a listed `pointing` phrase that is in the question refuses it at once, whatever else is named; code only
+  checks that the model's quote is in the question, as it does for `numbered`;
 - `asks_for == "tables"` is never stopped and sets `record.tables_only`, so no geography warning follows;
 - a pinned plan that names geographies skips the check; one that only picks a table does not;
 - a state is never matched against the question's words (measured: that refused 38 of 60 valid
@@ -65,12 +73,13 @@ and the four fields "in every answer that returns data"; `docs/requirements.md`;
 
 ## Verified without a live key
 
-`make check` equivalents (no `make` on this machine): ruff and format clean, mypy clean, 824 passed / 34
-skipped, invariants held, budgets met with no raise: `api_src_loc` 4487/4600, largest file 407/410,
+`make check` equivalents (no `make` on this machine): ruff and format clean, mypy clean, 823 passed / 34
+skipped, invariants held, budgets met with no raise: `api_src_loc` 4506/4600, largest file 407/410,
 `doc_lines` 1800/1800, `web_src_loc` 3349/3350, `system_prompt_tokens` 977/1200.
-The split prompt lives in `finish.py`, so the prompt-token check does not count it: it is ~500 tokens
-(origin/main: ~150). Counted, the system prompts would be ~1480 of 1200. The owner decides whether that
-matters; it was not moved into `prompts.py` because that would exceed the budget.
+The split prompt lives in `finish.py`, so the prompt-token check does not count it: it is ~580 tokens
+(origin/main: ~150). Counted, the system prompts would be ~1560 of 1200. Owner decision (2026-10-24): leave
+it and record it here, in the PR and on Jira (CC-3 comment posted); it was not moved into `prompts.py`
+because that would exceed the budget, and no budget was raised.
 
 Post-fix `comparison_rows`, `evidence/slice-6/cc-102-measure.py`: 6,896 rows x 1 or 2 columns: 0.0 s,
 ~31 MB, 0 comparisons; 200 x 25: 0.0 s; 60 x 25 (largest legitimate fan-out, 44,250): 0.27 s, 95 MB.
@@ -95,8 +104,21 @@ are optimistic: the unbiased tests are the golden set and the owner's sealed set
 | 7 | needs table, parallel `named_levels`, compact prompt | **15 of 185** | **53 of 85** (the short prompt degraded reports) |
 | 8 | needs table, restored wording, `county_named` boolean | **0 of 360** | **11 of 180** ("my county" 10/10; one flaky "county 20 or county 28") |
 | 8b | 12 state nicknames and abbreviations x5 ("Calif.", "tx", "Lone Star State") | 1 of 60 | |
+| 9 | owner ruled partial cases refuse, so "my county" must refuse: a boolean `unnamed` | 89 of 329 valid questions flagged (first wording), 22 of 330 (tighter): it read "no place named" | |
+| 10 | a `pointing` list of quoted phrases instead (a list has nothing to quote on "by county") | **7 of 360** (a county FIPS report flipped) | 1 of 180 |
+| 11 | `county_named` says "a five-digit FIPS code (state and county)" | 0 of 360 | 10 of 180 (a tract number reported in `named` 3 of 10) |
+| 12 | "a number such as 'tract 12' is not pointing" | 1 of 360 (a county-by-FIPS report that is also 1 in 10 flaky on the committed prompt) | 2 of 180 |
 
-Split-call latency in these runs: p50 1.0 s, p95 1.3 s, max 3.2 s (5 of 540 over the 3 s wait), beside the loop.
+Iteration 12 on the phrasings written after iteration 8 and never tuned (`probe_fresh`, 5 repeats): false
+traps 0 of 150, misses 3 of 95 (was 0 of 95; "tract 4521", "block group 3 tract 4", "which block group has the
+highest income", 1 of 5 each). I reused that set across iterations 9-12 without changing wording in response to
+it, but it is no longer strictly held out. The `pointing` field was listed on 0 of 330 valid and 0 of 60
+nationwide-listing runs, and on 55 of 60 runs of 12 "my county"-style questions; the miss is "the county" with
+no pointing word (4 of 5). Why a list and not a boolean: a boolean fired on "median income by county" and
+"population of Texas"; a list of quotes has nothing to quote there.
+
+Split-call latency in these runs: p50 1.0 s, p95 1.3-1.5 s, max 3.0-3.7 s (0 of 540 over the 3 s wait in the
+last rates run), beside the loop.
 
 ## Not verified: needs the full E2E
 
@@ -106,10 +128,10 @@ Split-call latency in these runs: p50 1.0 s, p95 1.3 s, max 3.2 s (5 of 540 over
 - t03 and t17 under `make demo` with the new scorer.
 - The pre-flight claim of 6,896 tract rows for Texas (recorded in the ticket, not re-run).
 
-## Known limits and issues found, not fixed (owner decides whether to file)
+## Known limits and findings (owner: no new ticket; they map to existing CC-3 tickets)
 
-- "my county" and other deictic phrasings are not dropped by the model and fail open (the loop runs as
-  before this change).
+- "my county", "where I live" and similar now refuse (`pointing`). "the county" with no pointing word is
+  listed 1 time in 5 and otherwise fails open.
 - A nationwide county or place listing is valid for the API (3,222 and 32,325 rows) but the resolver has no
   URL path for it (Gate 2 r3 F2, pre-existing).
 - A block-group listing under a state needs `county:*` written in the URL (without it HTTP 400); the
@@ -119,6 +141,14 @@ Split-call latency in these runs: p50 1.0 s, p95 1.3 s, max 3.2 s (5 of 540 over
   school districts and PUMAs need the state, but `detect_level` never returns them.
 - ZCTA with a state parent is HTTP 400 in 2021 and 2023: a ZCTA URL must carry no `in`.
 - CC-123 (demo process memory, reaped before E2E completes) is still To Do and may affect E2E.
+
+Mapping (JQL `parent = CC-3`, 2026-10-24; I had not searched it in pre-flight): block groups under a state
+needing `county:*`, and golden t04 possibly stale: CC-119 (full parent chain). Levels outside the program's
+vocabulary: CC-106. ZCTA with a state parent, and the level-substitution scoring: CC-114 (its table also
+lists t17, whose text this change fixes). The grid that would measure all of them: CC-120. `finish.py`
+deriving "is this a listing" from prose by regex: CC-104, still open and untouched here. No exact ticket:
+the nationwide county/place listing with no URL path, and `geography_unsupported` flagging a working
+state-wide tract listing; attach to CC-119 or CC-120 at the owner's call.
 
 ## Gate rounds (owner asked for four, 2026-10-24; round 1 counts the first Gate 1 and Gate 2)
 
@@ -143,12 +173,24 @@ whether the stop fired: now also requires no rows, table or alternatives. F6 any
 check: only one with geographies does. F7 3 s wait versus p95 headroom and F8 a parent filed inside a numbered
 entry: to be measured in the E2E. F9 split prompt tripled: reported above, not shrunk (shorter wording
 degraded the reports, iteration 7). F10 harmless.
-Gate 1 round 3 was stopped (no mutation live) because the needs-table rewrite supersedes it; it runs once
-on the final design with a trimmed suite runtime.
+Gate 1 (`cc-102-gate1-r3.txt`, on a46d288): 133 mutations, one behaviour each. Pass 1 on the committed
+tests: 111 killed, 7 equivalent (argued in the log), 15 survivors. Pass 2 after new tests: 126 killed, 0
+survivors. Pass 3 after the runtime trim (34 instances collapsed; whole suite 34 s to 28 s): no kill lost.
+It took 3 h 20 m: one mutation per run on one worktree, ~55 min a pass, five whole test files (~20 s) per
+mutation instead of the covering test alone, and two mutations that hang the suite (6 killed runs of 150 s across the passes); my brief set no cap or
+time box.
+One source defect found: `single = bool(written)` asked "every block group in county 5 of Ohio" for a tract
+(live probe 28: state and county list them); fixed in the next commit with the "my county" check. I dropped
+the subagent's golden lint that read capitalised words as place names (the keyword proxy the repo bans);
+golden t17 is covered by the E2E scorer.
 
-**Owed.** Gate 1 round 3 on the final design; Gate 1 and Gate 2 round 4 (red team); then E2E.
+**Owed.** Gate 1 round 4 on the fix commit (bounded: covering test only, at most ~40 mutations); Gate 2
+round 4 (cold red team); E2E; PR; post-merge E2E.
 
 ## Outward writes
 
-None. No push, PR or Jira write. Close comment only after the owner merges, via
-`scripts/jira_transition.py`.
+- 2026-10-24, owner asked: a comment on the CC-3 epic with the split-prompt size note, posted with
+  `scripts/jira_transition.py CC-3 --comment-file`.
+- At the PR step (playbook 7): push the branch, open the PR, one comment on CC-102 with the PR link and the
+  same prompt-size note. Close comment only after the owner merges, via `scripts/jira_transition.py`.
+No push, PR or other Jira write yet.

@@ -259,6 +259,7 @@ async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
             "numbered": ["tract 71"],
             "asks_for": None,
             "county_named": False,
+            "pointing": [],
         }
     }
 
