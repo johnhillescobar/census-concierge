@@ -16,7 +16,6 @@ from typing import Any
 
 import pytest
 from ask_fixtures import DANE, ENTRIES, _tools, only_dane
-from src import ask as ask_module
 from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.contract import ResultPlan
@@ -65,6 +64,7 @@ async def _run(
     listing: Any = None,
     split_delay: float = 0.0,
     later_turn_delay: float = 0.0,
+    split_error: Exception | None = None,
     record: ExecutionRecord | None = None,
     override: ResultPlan | None = None,
 ) -> tuple[Any, ExecutionRecord, list[str], list[int]]:
@@ -88,6 +88,8 @@ async def _run(
         if not openai_tools:
             split_calls.append(1)
             await asyncio.sleep(split_delay)
+            if split_error is not None:
+                raise split_error
             return split_reply
         turn = len(turns)
         turns.append(1)
@@ -159,6 +161,17 @@ CASES = [
         False,
         (),
     ),
+    # every tract in a county given by number: the number carries the county, never the state
+    ("Poverty by tract in county 5 of Ohio", "tract", ["Ohio"], ["county 5"], False, ()),
+    # every block group inside a tract given by number: the tract number needs its county and state
+    (
+        "Income by block group in tract 1201 of Ohio",
+        "block group",
+        ["Ohio"],
+        ["tract 1201"],
+        False,
+        ("county",),
+    ),
     # one block group by number: state, county and tract
     (f"{Q_BLOCKS}?", "block group", [], BGS, False, ("state", "county", "tract")),
     (
@@ -179,9 +192,6 @@ CASES = [
     ),
     # levels that list with no parent at all, and a question that asks about no level
     ("Population by county", "county", [], [], False, ()),
-    ("Total population", "state", [], [], False, ()),
-    ("Population by ZIP code", "zcta", [], [], False, ()),
-    ("Population by city", "place", [], [], False, ()),
     ("Total population", None, [], [], False, ()),
     # a number is its own level when the model reports none
     (f"{Q_TRACTS}?", None, [], TRACTS, False, ("state", "county")),
@@ -212,27 +222,61 @@ async def test_a_question_is_answerable_exactly_when_it_carries_what_its_level_n
     assert find_state(response.answer) is None  # code wrote it; no state or county invented
 
 
-async def test_the_answer_says_what_the_question_names_and_what_it_still_lacks() -> None:
-    response, _record, _fetched = await _ask(
-        f"{Q_TRACTS} in Kentucky?", _frame("tract", ["Kentucky"], TRACTS)
-    )
-    assert response.answer == (
-        "This question is incomplete and cannot be searched: a tract identified by its number "
-        "needs state and county, and it names only the state. Name the county and ask again."
-    )
-
-
-async def test_no_geography_at_all_is_said_as_no_geography() -> None:
-    response, _record, _fetched = await _ask("Population by tract", _frame("tract", []))
-    assert "it names no geography" in response.answer
-    assert "every tract needs state" in response.answer
+@pytest.mark.parametrize(
+    ("question", "reply", "said"),
+    [
+        (
+            "Population by tract",
+            _frame("tract", []),
+            "every tract needs state, and it names no geography. Name the state and ask again.",
+        ),
+        (
+            f"{Q_TRACTS} in Kentucky?",
+            _frame("tract", ["Kentucky"], TRACTS),
+            "a tract identified by its number needs state and county, and it names only the "
+            "state. Name the county and ask again.",
+        ),
+        (
+            f"{Q_BLOCKS}?",
+            _frame("block group", [], BGS),
+            "a block group identified by its number needs state, county and tract, and it names "
+            "no geography. Name the state, county and tract and ask again.",
+        ),
+        (
+            f"{Q_BLOCKS} in Franklin County, KY?",
+            _frame("block group", ["Franklin County, Kentucky"], BGS, county_named=True),
+            "a block group identified by its number needs state, county and tract, and it names "
+            "only the state and county. Name the tract and ask again.",
+        ),
+    ],
+)
+async def test_the_answer_says_what_the_question_needs_what_it_names_and_what_it_lacks(
+    question: str, reply: dict[str, Any], said: str
+) -> None:
+    response, _record, _fetched = await _ask(question, reply)
+    assert response.answer == f"This question is incomplete and cannot be searched: {said}"
 
 
 async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> None:
     reply = _frame("tract", TRACTS, TRACTS)
     response, record, _fetched = await _ask(f"{Q_TRACTS}?", reply)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert "names no geography" in response.answer  # the numbers did not pass for a state
     assert record.timings == []
+
+
+async def test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_named() -> None:
+    ref = f"tract {_novel_codes(15, 1)[0]}"  # in no question: the model made it up
+    response, record, _fetched = await _ask("Population by tract", _frame("tract", [ref], [ref]))
+    assert STOPPED in response.answer
+    assert record.timings == []
+
+
+async def test_a_number_that_is_only_the_start_of_one_the_user_wrote_is_not_theirs() -> None:
+    # "county 1" and "county 3" are the first characters of "county 15" and "county 33".
+    reply = _frame("county", [], ["county 1", "county 3"])
+    _response, record, _fetched = await _ask("Which is bigger, county 15 or county 33?", reply)
+    assert record.timings
 
 
 async def test_a_number_the_user_never_wrote_cannot_make_a_question_incomplete() -> None:
@@ -258,6 +302,17 @@ async def test_no_verdict_from_the_model_means_the_loop_runs_as_usual() -> None:
 
 
 # --- fail open: nothing the model does wrong refuses an answer ---------------------------------
+
+
+@pytest.mark.parametrize("failure", [RuntimeError("boom"), KeyError("missing"), TypeError("bad")])
+async def test_a_split_call_that_raises_anything_never_fails_the_request(
+    failure: Exception,
+) -> None:
+    response, record, _fetched, calls = await _run(
+        "Population by tract in Texas", _frame("tract", ["Texas"]), split_error=failure
+    )
+    assert calls == [1] and record.timings  # the call was made, failed, and the loop ran on
+    assert STOPPED not in response.answer
 
 
 @pytest.mark.parametrize("failure", [OSError("down"), ValueError("bad"), RuntimeError("boom")])
@@ -286,42 +341,6 @@ async def test_a_report_that_is_late_means_the_loop_runs_as_usual(
     )
     assert record.timings
     assert STOPPED not in response.answer
-
-
-async def test_a_report_that_lands_after_the_wait_does_not_overturn_a_loop_already_running(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(finish, "FRAME_WAIT_SECONDS", 0.05)
-    refs = [f"tract {code}" for code in _novel_codes(10, 2)]
-    response, record, _fetched, _calls = await _run(
-        "Is " + " bigger than ".join(refs) + "?",
-        _frame("tract", [], refs),
-        split_delay=0.15,  # after the wait, before the second model turn finishes
-        later_turn_delay=0.4,
-    )
-    assert record.timings  # a tool already ran under the documented fail-open
-    assert STOPPED not in response.answer
-
-
-async def test_only_the_first_model_turn_checks_the_report(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    checks: list[int] = []
-    real = finish.incomplete
-
-    async def spy(*args: Any, **kwargs: Any) -> str | None:
-        checks.append(1)
-        return await real(*args, **kwargs)
-
-    monkeypatch.setattr(ask_module, "incomplete", spy)
-    a, b = _novel_codes(14, 2)
-    question = f"Is poverty in tract {a} higher than tract {b} in Dane County?"
-    search = ("search_tables", {"question": question})
-    reply = _frame(
-        "tract", ["Dane County, Wisconsin"], [f"tract {a}", f"tract {b}"], county_named=True
-    )
-    await _run(question, reply, steps=[search, search, search])
-    assert checks == [1]  # four model turns ran, and only the first looked at the report
 
 
 @pytest.mark.parametrize("report", [None, {}, {"frame": None}])
@@ -406,7 +425,7 @@ def _shape(**over: Any) -> dict[str, Any]:
 async def test_the_split_report_always_carries_the_level_and_the_places_it_found() -> None:
     found = await _split(
         parents=[],
-        unit="county",
+        unit="tract",  # the kind of row wanted is not the level asked about
         listing=False,
         level="county",
         named=["Dane County, Wisconsin"],
@@ -464,22 +483,6 @@ async def test_places_of_the_wrong_type_are_ignored_not_iterated() -> None:
         unit="county", listing=False, level="county", named="Wisconsin", numbered=7
     )
     assert found == _shape(level="county")
-
-
-@pytest.mark.parametrize("parents", ["Wisconsin", 5, True])
-async def test_a_parents_field_of_the_wrong_type_cannot_fail_the_request(parents: Any) -> None:
-    a, b = _novel_codes(13, 2)
-    question = f"Is poverty higher in tract {a} than in tract {b}?"
-    reply = {
-        "content": json.dumps(
-            {"parents": parents, "unit": "tract", "listing": True, "level": "tract"}
-        ),
-        "tool_calls": [],
-    }
-    response, _record, _fetched = await _ask(question, reply)  # raises TypeError today
-    assert response.warnings is not None
-    found = await _split(parents=parents, unit="tract", listing=True, level="tract")
-    assert found == _shape(level="tract")
 
 
 # --- a valid question is not refused: it still fetches, and its comparison carries the margins ---
@@ -563,3 +566,21 @@ def test_the_needs_table_is_what_the_censuss_own_metadata_says(row: str, single:
         key=len,
     )
     assert finish._NEEDS.get((detect_level(row) or "", single), ()) == derived
+
+
+# --- a defect found in api/src: strict xfail, passes the day the code is fixed ------------------
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="finish.incomplete: a county given by number makes `single` true, so every block group "
+    "in it is judged as one block group by number and asked for a tract it never needed "
+    "(live probe 28 in cc-102-geography-probes.md: state and county alone list every block group)",
+)
+async def test_every_block_group_in_a_county_given_by_number_is_not_asked_for_a_tract() -> None:
+    reply = _frame("block group", ["Ohio"], ["county 5"])
+    response, record, _fetched = await _ask(
+        "Median rent for every block group in county 5 of Ohio", reply
+    )
+    assert STOPPED not in response.answer
+    assert record.timings

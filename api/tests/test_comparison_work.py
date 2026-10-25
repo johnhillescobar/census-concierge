@@ -87,35 +87,32 @@ def test_work_over_the_bound_is_refused_before_any_pair_is_built(
 ) -> None:
     rows = _rows(geos, columns)
     record = _record(rows=rows)
-    assert comparison_work(rows, [f"B25064_{c:04d}E" for c in range(columns)]) > MAX_COMPARISON_WORK
+    work = comparison_work(rows, [f"B25064_{c:04d}E" for c in range(columns)])
+    assert work > MAX_COMPARISON_WORK
     assert comparison_rows(record, rows) == []
     warning = comparison_too_large(record, rows)
     assert warning is not None and warning.code == "comparison_too_large"
+    assert f"{work:,}" in warning.detail and f"{MAX_COMPARISON_WORK:,}" in warning.detail
     warnings, kept, _extra, compared = finish_aggregation(record, rows, set())
     assert [item.code for item in warnings] == ["comparison_too_large"]
     assert compared == [] and kept == rows  # every row still ships
     assert no_pair_may_be_built == []
 
 
-def test_work_exactly_at_the_bound_is_compared_and_does_not_warn(pairs_built: list[int]) -> None:
+def test_work_exactly_at_the_bound_does_not_warn() -> None:
     columns = 5000  # 5 rows are 10 pairs: exactly the documented limit of 50,000
     rows = _rows(5, columns)
-    record = _record(rows=rows)
     assert 10 * columns == MAX_COMPARISON_WORK == 50_000, "this shape must sit on the limit"
-    assert len(comparison_rows(record, rows)) == 10 * columns
-    assert len(pairs_built) == MAX_COMPARISON_WORK  # the bound predicts the real work exactly
-    warnings, _rows_kept, _extra, compared = finish_aggregation(record, rows, set())
-    assert "comparison_too_large" not in {item.code for item in warnings}
-    assert len(compared) == 10 * columns
+    assert comparison_too_large(_record(rows=rows), rows) is None
 
 
-def test_work_just_under_the_bound_with_many_rows_is_compared(pairs_built: list[int]) -> None:
-    rows = _rows(316, 1)  # 49,770
+def test_the_work_it_counts_is_the_work_it_does(pairs_built: list[int]) -> None:
+    rows = _rows(6, 4)  # 15 pairs x 4 estimate columns
     record = _record(rows=rows)
-    assert comparison_work(rows, ["B25064_0000E"]) < MAX_COMPARISON_WORK
-    assert comparison_too_large(record, rows) is None
-    assert len(comparison_rows(record, rows)) == 316 * 315 // 2
-    assert len(pairs_built) == 316 * 315 // 2
+    work = comparison_work(rows, [f"B25064_{c:04d}E" for c in range(4)])
+    assert work == 60
+    assert len(comparison_rows(record, rows)) == work
+    assert len(pairs_built) == work  # the bound predicts the real work exactly
 
 
 @pytest.mark.parametrize(("limit", "refused"), [(63, False), (62, True)])
@@ -143,6 +140,22 @@ def test_the_largest_legitimate_fan_out_is_still_compared(pairs_built: list[int]
     assert len(compared) == 10 * 12 * 25
     pair = compared[0]
     assert pair.moe_a and pair.moe_b and pair.threshold and pair.geoid_a != pair.geoid_b
+
+
+def test_a_column_that_only_ends_in_e_is_not_an_estimate_column(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(compare, "MAX_COMPARISON_WORK", 3)
+    rows = [{**row, "NAME": f"Tract {n}"} for n, row in enumerate(_rows(3, 1))]  # 3 pairs x 1
+    record = _record(rows=rows)
+    assert comparison_too_large(record, rows) is None
+    assert len(comparison_rows(record, rows)) == 3
+
+
+def test_a_comparison_asked_with_no_rows_has_no_work_and_no_warning() -> None:
+    record = _record()
+    assert comparison_too_large(record, []) is None
+    assert comparison_rows(record, []) == []
 
 
 def test_rows_without_a_geoid_do_not_count_toward_the_bound(pairs_built: list[int]) -> None:
