@@ -1,0 +1,767 @@
+﻿CC-120 Gate 1 transcript (tests + mutation check). Subject: scripts/url_grid.py at 056dd3a.
+Worktree branch started at main (a39290f) and was reset to 056dd3a (feat/cc-120-url-breadth-grid) before this run.
+Labels GOOD / BAD are computed from the pytest exit code by the driver; the lines under each label are raw pytest output.
+
+=== 0. Baseline: original 16 tests at 056dd3a ===
+$ uv run pytest api/tests/test_orig_tmp.py -q   (copy of api/tests/test_url_grid.py at HEAD)
+................                                                         [100%]
+16 passed in 0.94s
+
+=== 1. Phase A: mutations run against the ORIGINAL 16 tests ===
+Per-test rows name the test; 'ALL' rows are gap probes (no dedicated test) run against the whole original file.
+A BAD row = the mutation survived. One BAD row is an equivalent mutant (marked below).
+
+### passed() counts a check the cell does not exercise (None) as a failure
+test: api/tests/test_url_grid.py::test_a_sound_answer_fails_no_check
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:59: AssertionError: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_sound_answer_fails_no_check - Asser...
+1 failed in 0.13s
+
+### cap ceiling raised from 50 to 100 variables
+test: api/tests/test_url_grid.py::test_url_over_the_fifty_variable_cap_fails_only_cap
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:64: AssertionError: assert [] == ['cap']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_url_over_the_fifty_variable_cap_fails_only_cap
+1 failed in 0.04s
+
+### get_size counts group(T) as 50 variables instead of one
+test: api/tests/test_url_grid.py::test_group_counts_as_one_variable
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:68: AssertionError: assert 52 == 3
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_group_counts_as_one_variable - Assert...
+1 failed in 0.05s
+
+### level check dropped (any URL with a for= passes)
+test: api/tests/test_url_grid.py::test_wrong_level_fails_only_level
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:72: AssertionError: assert [] == ['level']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_wrong_level_fails_only_level - Assert...
+1 failed in 0.06s
+
+### http check passes when any one leg succeeds
+test: api/tests/test_url_grid.py::test_failed_leg_fails_only_http
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:77: AssertionError: assert [] == ['http']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_failed_leg_fails_only_http - Assertio...
+1 failed in 0.04s
+
+### cardinality accepts fewer geographies than expected
+test: api/tests/test_url_grid.py::test_missing_geography_fails_only_cardinality
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:81: AssertionError: assert [] == ['cardinality']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_missing_geography_fails_only_cardinality
+1 failed in 0.04s
+
+### cardinality pools GEO_IDs across years instead of counting each year
+test: api/tests/test_url_grid.py::test_cardinality_is_counted_per_year
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:86: AssertionError: assert [] == ['cardinality']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_cardinality_is_counted_per_year - Ass...
+1 failed in 0.03s
+
+### cardinality counts rows instead of distinct GEO_IDs
+test: api/tests/test_url_grid.py::test_chunked_urls_merge_into_one_geography_row_count
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:91: AssertionError: assert ['cardinality'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_chunked_urls_merge_into_one_geography_row_count
+1 failed in 0.05s
+
+### variables floor replaced by 'at least one estimate'
+test: api/tests/test_url_grid.py::test_fewer_estimates_than_asked_fails_only_variables
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:95: AssertionError: assert [] == ['variables']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_fewer_estimates_than_asked_fails_only_variables
+1 failed in 0.08s
+
+### em_pairing looks up the estimate itself instead of its margin
+test: api/tests/test_url_grid.py::test_estimate_without_margin_fails_only_em_pairing
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:100: AssertionError: assert [] == ['em_pairing']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_estimate_without_margin_fails_only_em_pairing
+1 failed in 0.04s
+
+### geo_id passes when any one row carries a GEO_ID
+test: api/tests/test_url_grid.py::test_row_without_geo_id_fails_geo_id
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:105: AssertionError: assert 'geo_id' in ['cardinality']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_row_without_geo_id_fails_geo_id - Ass...
+1 failed in 0.05s
+
+### years accepts a blank omission reason
+test: api/tests/test_url_grid.py::test_unpublished_year_must_be_omitted_with_a_reason
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:114: AssertionError: assert [] == ['years']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_unpublished_year_must_be_omitted_with_a_reason
+1 failed in 0.05s
+
+### years does not count omitted years as accounted for
+test: api/tests/test_url_grid.py::test_unpublished_year_must_be_omitted_with_a_reason
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:115: AssertionError: assert ['years'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_unpublished_year_must_be_omitted_with_a_reason
+1 failed in 0.04s
+
+### years does not require every requested year to be attempted or omitted
+test: api/tests/test_url_grid.py::test_requested_year_nobody_accounted_for_fails_years
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:120: AssertionError: assert [] == ['years']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_requested_year_nobody_accounted_for_fails_years
+1 failed in 0.05s
+
+### fail-closed cell passes cardinality whatever rows come back
+test: api/tests/test_url_grid.py::test_unpublished_level_passes_only_by_returning_no_rows
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:126: AssertionError: assert [] == ['cardinality']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_unpublished_level_passes_only_by_returning_no_rows
+1 failed in 0.07s
+
+### fail-closed cell is also scored on http (early return removed)
+test: api/tests/test_url_grid.py::test_unpublished_level_passes_only_by_returning_no_rows
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:125: AssertionError: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_unpublished_level_passes_only_by_returning_no_rows
+1 failed in 0.08s
+
+### cap passes when there is no URL at all
+test: api/tests/test_url_grid.py::test_no_url_at_all_fails_cap_and_level
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:130: AssertionError: assert {'cap', 'level'} <= {'level'}
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_no_url_at_all_fails_cap_and_level - A...
+1 failed in 0.12s
+
+### level passes when there is no URL (bool(urls) guard removed)
+test: api/tests/test_url_grid.py::test_no_url_at_all_fails_cap_and_level
+BAD (mutation SURVIVED: test passed against the broken script)
+.                                                                        [100%]
+1 passed in 0.05s
+
+### summarize ignores missing trials (complete whenever not a subset)
+test: api/tests/test_url_grid.py::test_run_with_missing_trials_is_never_final
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:138: AssertionError: assert ('FINAL', True) == ('PARTIAL', False)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_run_with_missing_trials_is_never_final
+1 failed in 0.40s
+
+### summarize ignores the subset flag (a --limit run can be FINAL)
+test: api/tests/test_url_grid.py::test_run_with_missing_trials_is_never_final
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:141: AssertionError: assert 'FINAL' == 'SUBSET'
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_run_with_missing_trials_is_never_final
+1 failed in 0.96s
+
+### summarize swaps the PARTIAL and SUBSET labels
+test: api/tests/test_url_grid.py::test_run_with_missing_trials_is_never_final
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:138: AssertionError: assert ('SUBSET', False) == ('PARTIAL', False)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_run_with_missing_trials_is_never_final
+1 failed in 0.37s
+
+### cap checked on the SUM of get sizes across URLs (chunked whole-table fails)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.93s
+
+### cap passes when any one URL is within the cap
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.92s
+
+### cap boundary exclusive (exactly 50 variables rejected)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.80s
+
+### cap off by one (51 variables accepted)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 1.00s
+
+### get_size counts empty items from a trailing comma
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.82s
+
+### level passes when the requested level is among several levels
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.91s
+
+### level compares the whole for= value (county:* vs county)
+test: api/tests/test_url_grid.py
+GOOD (mutation killed: test failed)
+FAILED api/tests/test_url_grid.py::test_unpublished_year_must_be_omitted_with_a_reason
+FAILED api/tests/test_url_grid.py::test_requested_year_nobody_accounted_for_fails_years
+FAILED api/tests/test_url_grid.py::test_unpublished_level_passes_only_by_returning_no_rows
+11 failed, 5 passed in 0.94s
+
+### http ignores the status code (ok flag alone)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.93s
+
+### http passes when there are no legs
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.90s
+
+### cardinality accepts more geographies than expected
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 1.01s
+
+### cardinality passes when no rows came back
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 1.02s
+
+### cardinality counts a blank GEO_ID as a geography
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.86s
+
+### variables counts margin columns as estimates
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.90s
+
+### is_estimate accepts any tail ending in E (digit check dropped)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 1.03s
+
+### em_pairing passes when only one estimate has a margin
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.89s
+
+### em_pairing passes when there are no estimates at all
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.94s
+
+### geo_id passes when there are no rows
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.85s
+
+### variables counted from the first row only (chunk columns lost)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.89s
+
+### years accepts an unpublished year that was attempted but never omitted
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.92s
+
+### years does not require one reason per omitted year
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.88s
+
+### years accepts a whitespace-only reason
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.91s
+
+### summarize expects one trial per cell regardless of --repeat
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.88s
+
+### summarize rates count unexercised checks (None) as failures
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.87s
+
+### summarize lists unexercised checks (None) as failed in misses
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.96s
+
+### summarize p95 takes the median instead
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.95s
+
+### summarize pass_rate divides by cells instead of trials
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.98s
+
+### run leaves a stale final scoreboard in place beside a new run
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.95s
+
+### run writes an incomplete summary to the final scoreboard path
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.96s
+
+### run writes a complete summary to the partial path
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.82s
+
+### run resumes from trials recorded against another grid
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.91s
+
+### run counts trials recorded against another grid in the summary
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.98s
+
+### run counts logged trials for cells outside this run
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.95s
+
+### run counts logged trials from a higher repeat than this run asked for
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.88s
+
+### run ignores the log and reruns finished trials on --resume
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 1.04s
+
+### run keeps the old trials log when not resuming
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.87s
+
+### run lets one crashed ask abort the run
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.99s
+
+### run treats a --limit run as complete
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.91s
+
+### run aggregate-only still lists per-cell misses
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.99s
+
+### run prints each cell's question while it runs (leaks a sealed grid)
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 1.00s
+
+### run stamps trials with a fixed grid sha instead of the grid file's hash
+test: api/tests/test_url_grid.py
+BAD (mutation SURVIVED: test passed against the broken script)
+................                                                         [100%]
+16 passed in 0.93s
+
+
+Phase A tally: GOOD = 21  BAD = 40
+Equivalent mutant (not a test gap): 'level passes when there is no URL (bool(urls) guard removed)': an empty URL list gives an empty level set, never equal to {cell level}.
+
+=== 2. New tests added; full file at HEAD of the working tree ===
+$ uv run pytest api/tests/test_url_grid.py -q
+.............................................                            [100%]
+45 passed in 4.71s
+
+=== 3. Phase B: every phase-A survivor re-run against the test written to kill it ===
+
+### cap checked on the SUM of get sizes across URLs (chunked whole-table fails)
+test: api/tests/test_url_grid.py::test_chunked_whole_table_passes_each_url_alone_under_the_cap
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:185: AssertionError: assert ['cap'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_chunked_whole_table_passes_each_url_alone_under_the_cap
+1 failed in 0.11s
+
+### cap passes when any one URL is within the cap
+test: api/tests/test_url_grid.py::test_one_oversize_url_among_several_fails_cap
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:165: AssertionError: assert [] == ['cap']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_one_oversize_url_among_several_fails_cap
+1 failed in 0.05s
+
+### cap boundary exclusive (exactly 50 variables rejected)
+test: api/tests/test_url_grid.py::test_exactly_fifty_variables_is_within_the_cap
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:160: AssertionError: assert ['cap'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_exactly_fifty_variables_is_within_the_cap
+1 failed in 0.06s
+
+### cap off by one (51 variables accepted)
+test: api/tests/test_url_grid.py::test_exactly_fifty_variables_is_within_the_cap
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:161: AssertionError: assert [] == ['cap']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_exactly_fifty_variables_is_within_the_cap
+1 failed in 0.05s
+
+### get_size counts empty items from a trailing comma
+test: api/tests/test_url_grid.py::test_get_size_ignores_empty_items_and_a_missing_get
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:169: AssertionError: assert 2 == 1
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_get_size_ignores_empty_items_and_a_missing_get
+1 failed in 0.05s
+
+### level passes when the requested level is among several levels
+test: api/tests/test_url_grid.py::test_urls_mixing_levels_fail_level
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:189: AssertionError: assert [] == ['level']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_urls_mixing_levels_fail_level - Asser...
+1 failed in 0.06s
+
+### level compares the whole for= value (county:* vs county)
+test: api/tests/test_url_grid.py::test_a_named_place_url_still_has_its_level
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:195: AssertionError: assert ['level'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_named_place_url_still_has_its_level
+1 failed in 0.05s
+
+### http ignores the status code (ok flag alone)
+test: api/tests/test_url_grid.py::test_ok_leg_with_non_200_status_fails_only_http
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:199: AssertionError: assert [] == ['http']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_ok_leg_with_non_200_status_fails_only_http
+1 failed in 0.08s
+
+### http passes when there are no legs
+test: api/tests/test_url_grid.py::test_no_request_legs_fails_only_http
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:204: AssertionError: assert [] == ['http']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_no_request_legs_fails_only_http - Ass...
+1 failed in 0.06s
+
+### cardinality accepts more geographies than expected
+test: api/tests/test_url_grid.py::test_extra_geography_fails_only_cardinality
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:209: AssertionError: assert [] == ['cardinality']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_extra_geography_fails_only_cardinality
+1 failed in 0.05s
+
+### cardinality passes when no rows came back
+test: api/tests/test_url_grid.py::test_no_rows_fails_every_row_check
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:214: AssertionError: assert {'em_pairing'..., 'variables'} == {'cardinality..., 'variables'}
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_no_rows_fails_every_row_check - Asser...
+1 failed in 0.07s
+
+### cardinality counts a blank GEO_ID as a geography
+test: api/tests/test_url_grid.py::test_blank_geo_id_is_not_a_geography
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:219: AssertionError: assert ['geo_id'] == ['cardinality', 'geo_id']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_blank_geo_id_is_not_a_geography - Ass...
+1 failed in 0.05s
+
+### variables counts margin columns as estimates
+test: api/tests/test_url_grid.py::test_margins_do_not_count_as_estimates
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:223: AssertionError: assert [] == ['variables']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_margins_do_not_count_as_estimates - A...
+1 failed in 0.06s
+
+### is_estimate accepts any tail ending in E (digit check dropped)
+test: api/tests/test_url_grid.py::test_is_estimate_reads_variable_names
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:230: AssertionError: B01001_TOTALE
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_is_estimate_reads_variable_names - As...
+1 failed in 0.08s
+
+### em_pairing passes when only one estimate has a margin
+test: api/tests/test_url_grid.py::test_every_estimate_needs_its_own_margin
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:238: AssertionError: assert [] == ['em_pairing']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_every_estimate_needs_its_own_margin
+1 failed in 0.08s
+
+### em_pairing passes when there are no estimates at all
+test: api/tests/test_url_grid.py::test_no_rows_fails_every_row_check
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:214: AssertionError: assert {'cardinality..., 'variables'} == {'cardinality..., 'variables'}
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_no_rows_fails_every_row_check - Asser...
+1 failed in 0.05s
+
+### geo_id passes when there are no rows
+test: api/tests/test_url_grid.py::test_no_rows_fails_every_row_check
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:214: AssertionError: assert {'cardinality..., 'variables'} == {'cardinality..., 'variables'}
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_no_rows_fails_every_row_check - Asser...
+1 failed in 0.05s
+
+### variables counted from the first row only (chunk columns lost)
+test: api/tests/test_url_grid.py::test_chunked_whole_table_passes_each_url_alone_under_the_cap
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:185: AssertionError: assert ['variables'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_chunked_whole_table_passes_each_url_alone_under_the_cap
+1 failed in 0.06s
+
+### years accepts an unpublished year that was attempted but never omitted
+test: api/tests/test_url_grid.py::test_unpublished_year_that_was_attempted_still_fails_years
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:244: AssertionError: assert [] == ['years']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_unpublished_year_that_was_attempted_still_fails_years
+1 failed in 0.06s
+
+### years does not require one reason per omitted year
+test: api/tests/test_url_grid.py::test_omitted_year_without_any_reason_fails_years
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:251: AssertionError: assert [] == ['years']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_omitted_year_without_any_reason_fails_years
+1 failed in 0.06s
+
+### years accepts a whitespace-only reason
+test: api/tests/test_url_grid.py::test_omitted_year_without_any_reason_fails_years
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:252: AssertionError: assert [] == ['years']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_omitted_year_without_any_reason_fails_years
+1 failed in 0.06s
+
+### summarize expects one trial per cell regardless of --repeat
+test: api/tests/test_url_grid.py::test_repeat_multiplies_the_trials_a_final_run_needs
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:270: AssertionError: assert 'FINAL' == 'PARTIAL'
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_repeat_multiplies_the_trials_a_final_run_needs
+1 failed in 0.31s
+
+### summarize rates count unexercised checks (None) as failures
+test: api/tests/test_url_grid.py::test_summary_rates_leave_out_checks_a_cell_does_not_exercise
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:278: AssertionError: assert 'years' not in {'cap': {'rate': 1.0, 'n': 1}, 'cardinality': {'rate': 1.0, 'n': 1}, 'em_pairing': {'rate': 1.0, 'n': 1}, 'geo_id': {'rate': 1.0, 'n': 1}, ...}
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_summary_rates_leave_out_checks_a_cell_does_not_exercise
+1 failed in 0.38s
+
+### summarize lists unexercised checks (None) as failed in misses
+test: api/tests/test_url_grid.py::test_summary_names_each_miss_and_only_its_failed_checks
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:285: AssertionError: assert [{'id': 'u000...l', 'years']}] == [{'id': 'u000...': ['level']}]
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_summary_names_each_miss_and_only_its_failed_checks
+1 failed in 0.41s
+
+### summarize p95 takes the median instead
+test: api/tests/test_url_grid.py::test_summary_p95_is_the_95th_percentile_trial
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:291: assert (51.0, 100.0) == (96.0, 100.0)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_summary_p95_is_the_95th_percentile_trial
+1 failed in 0.37s
+
+### summarize pass_rate divides by cells instead of trials
+test: api/tests/test_url_grid.py::test_summary_rates_leave_out_checks_a_cell_does_not_exercise
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:280: assert 0.5 == 1.0
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_summary_rates_leave_out_checks_a_cell_does_not_exercise
+1 failed in 0.29s
+
+### run leaves a stale final scoreboard in place beside a new run
+test: api/tests/test_url_grid.py::test_a_partial_run_deletes_the_stale_final_scoreboard
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:361: AssertionError: assert not True
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_partial_run_deletes_the_stale_final_scoreboard
+1 failed in 0.50s
+
+### run writes an incomplete summary to the final scoreboard path
+test: api/tests/test_url_grid.py::test_a_partial_run_deletes_the_stale_final_scoreboard
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:361: AssertionError: assert not True
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_partial_run_deletes_the_stale_final_scoreboard
+1 failed in 0.43s
+
+### run writes a complete summary to the partial path
+test: api/tests/test_url_grid.py::test_a_complete_run_writes_the_final_scoreboard_and_names_its_grid
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:368: AssertionError: assert (False)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_complete_run_writes_the_final_scoreboard_and_names_its_grid
+1 failed in 0.46s
+
+### run resumes from trials recorded against another grid
+test: api/tests/test_url_grid.py::test_trials_recorded_against_another_grid_are_neither_skipped_nor_counted
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:378: assert 0 == 2
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_trials_recorded_against_another_grid_are_neither_skipped_nor_counted
+1 failed in 0.39s
+
+### run counts trials recorded against another grid in the summary
+test: api/tests/test_url_grid.py::test_trials_recorded_against_another_grid_are_neither_skipped_nor_counted
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:379: AssertionError: assert ('PARTIAL', 4) == ('FINAL', 2)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_trials_recorded_against_another_grid_are_neither_skipped_nor_counted
+1 failed in 0.43s
+
+### run counts logged trials for cells outside this run
+test: api/tests/test_url_grid.py::test_logged_trials_outside_this_run_are_not_counted
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\scripts\url_grid.py:315: KeyError: 'u999'
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_logged_trials_outside_this_run_are_not_counted
+1 failed in 0.12s
+
+### run counts logged trials from a higher repeat than this run asked for
+test: api/tests/test_url_grid.py::test_logged_trials_outside_this_run_are_not_counted
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:386: AssertionError: assert ('PARTIAL', 3) == ('FINAL', 2)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_logged_trials_outside_this_run_are_not_counted
+1 failed in 0.43s
+
+### run ignores the log and reruns finished trials on --resume
+test: api/tests/test_url_grid.py::test_resume_runs_only_the_trials_still_missing
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:392: AssertionError: assert ['SEALED-QUES...D-QUESTION-1'] == ['SEALED-QUESTION-1']
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_resume_runs_only_the_trials_still_missing
+1 failed in 0.44s
+
+### run keeps the old trials log when not resuming
+test: api/tests/test_url_grid.py::test_without_resume_the_old_log_is_discarded_and_every_trial_reruns
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:400: assert 0 == 2
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_without_resume_the_old_log_is_discarded_and_every_trial_reruns
+1 failed in 0.37s
+
+### run lets one crashed ask abort the run
+test: api/tests/test_url_grid.py::test_a_crashed_ask_is_recorded_as_a_miss_not_an_aborted_run
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:317: RuntimeError: boom
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_crashed_ask_is_recorded_as_a_miss_not_an_aborted_run
+1 failed in 0.09s
+
+### run treats a --limit run as complete
+test: api/tests/test_url_grid.py::test_a_limit_run_is_a_subset_and_never_final
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:413: AssertionError: assert ('FINAL', 1) == ('SUBSET', 1)
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_limit_run_is_a_subset_and_never_final
+1 failed in 0.42s
+
+### run aggregate-only still lists per-cell misses
+test: api/tests/test_url_grid.py::test_aggregate_only_reports_a_miss_count_never_cell_ids
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:423: AssertionError: assert [{'id': 'u000', 'repeat': 1, 'failed': ['cap', 'level', 'http', 'cardinality', 'variables', 'em_pairing', ...]}] == 1
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_aggregate_only_reports_a_miss_count_never_cell_ids
+1 failed in 0.38s
+
+### run prints each cell's question while it runs (leaks a sealed grid)
+test: api/tests/test_url_grid.py::test_aggregate_only_reports_a_miss_count_never_cell_ids
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:424: assert 'SEALED-QUESTION' not in 'MISS u000 S...s": 0.0\n}\n'
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_aggregate_only_reports_a_miss_count_never_cell_ids
+1 failed in 0.38s
+
+### run stamps trials with a fixed grid sha instead of the grid file's hash
+test: api/tests/test_url_grid.py::test_a_complete_run_writes_the_final_scoreboard_and_names_its_grid
+GOOD (mutation killed: test failed)
+C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a96b670b8be147a0a\api\tests\test_url_grid.py:369: AssertionError: assert ('FINAL', 'fixed') == ('FINAL', '94c71ec3b1f3')
+=========================== short test summary info ===========================
+FAILED api/tests/test_url_grid.py::test_a_complete_run_writes_the_final_scoreboard_and_names_its_grid
+1 failed in 0.42s
+
+
+Phase B tally: GOOD = 40  BAD = 0
+
+=== 4. Script restored after every mutation ===
+$ git status --short scripts/url_grid.py   (empty = unchanged from 056dd3a)
+$ uv run ruff check api/tests/test_url_grid.py
+All checks passed!
+
+=== 5. Side finding: the committed grid file trips the leakage invariant ===
+$ uv run python scripts/check_invariants.py   (with evals/url_breadth_grid.toml present)
+
+  FAIL  eval phrasing in api/src       
+5 violation(s).
+
+

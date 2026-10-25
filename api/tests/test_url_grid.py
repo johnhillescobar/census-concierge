@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import argparse
+import hashlib
+import json
 import sys
+import types
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -24,6 +30,9 @@ CELL: dict[str, Any] = {
     "fail_closed": False,
     "years": [],
     "unpublished": [],
+    "table_id": "B01001",
+    "in_spec": "state:39",
+    "expected_geoid": "",
 }
 URL = "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01001_001E,B01001_001M&for=county:*&in=state:39"
 
@@ -139,3 +148,396 @@ def test_run_with_missing_trials_is_never_final() -> None:
     both = [trial, {**trial, "id": "u001"}]
     assert url_grid.summarize(cells, both, 1, "abc")["status"] == "FINAL"
     assert url_grid.summarize(cells, both, 1, "abc", subset=True)["status"] == "SUBSET"
+
+
+def _get_url(count: int) -> str:
+    """A URL whose `get` asks for exactly `count` variables."""
+    items = ["NAME", "GEO_ID", *(f"B01001_{i:03d}E" for i in range(1, count - 1))]
+    return (
+        f"https://api.census.gov/data/2024/acs/acs5?get={','.join(items)}&for=county:*&in=state:39"
+    )
+
+
+def test_exactly_fifty_variables_is_within_the_cap() -> None:
+    assert url_grid.get_size(_get_url(50)) == 50
+    assert _failed(CELL, _body(urls=[_get_url(50)])) == []
+    assert _failed(CELL, _body(urls=[_get_url(51)])) == ["cap"]
+
+
+def test_one_oversize_url_among_several_fails_cap() -> None:
+    assert _failed(CELL, _body(urls=[URL, _get_url(51)])) == ["cap"]
+
+
+def test_get_size_ignores_empty_items_and_a_missing_get() -> None:
+    assert (
+        url_grid.get_size("https://api.census.gov/data/2024/acs/acs5?get=NAME,&for=county:*") == 1
+    )
+    assert url_grid.get_size("https://api.census.gov/data/2024/acs/acs5?for=county:*") == 0
+
+
+def test_chunked_whole_table_passes_each_url_alone_under_the_cap() -> None:
+    def chunk(lo: int, hi: int) -> tuple[str, list[dict[str, str]]]:
+        names = [f"B01001_{i:03d}{kind}" for i in range(lo, hi) for kind in "EM"]
+        get = ",".join(["NAME", "GEO_ID", *names])
+        url = f"https://api.census.gov/data/2024/acs/acs5?get={get}&for=county:*&in=state:39"
+        return url, [{"GEO_ID": g, "year": "2024", **dict.fromkeys(names, "1")} for g in "ab"]
+
+    (first, rows_a), (second, rows_b) = chunk(1, 16), chunk(16, 31)
+    assert url_grid.get_size(first) + url_grid.get_size(second) > url_grid.CAP
+    cell = {**CELL, "estimates": 30}
+    assert _failed(cell, _body(urls=[first, second], rows=rows_a + rows_b)) == []
+
+
+def test_urls_mixing_levels_fail_level() -> None:
+    assert _failed(CELL, _body(urls=[URL, URL.replace("county:*", "tract:*")])) == ["level"]
+
+
+def test_a_named_place_url_still_has_its_level() -> None:
+    named = URL.replace("county:*", "county:001")
+    cell = {**CELL, "scope": "named", "expected_rows": 1, "expected_geoid": "0500000US39001"}
+    assert _failed(cell, _body(urls=[named], rows=[_row("0500000US39001")])) == []
+
+
+def test_ok_leg_with_non_200_status_fails_only_http() -> None:
+    assert _failed(CELL, _body(legs=[{"ok": True, "status_code": 204}])) == ["http"]
+    assert _failed(CELL, _body(legs=[{"ok": False, "status_code": 200}])) == ["http"]
+
+
+def test_no_request_legs_fails_only_http() -> None:
+    assert _failed(CELL, _body(legs=[])) == ["http"]
+
+
+def test_extra_geography_fails_only_cardinality() -> None:
+    rows = [_row("a"), _row("b"), _row("c")]
+    assert _failed(CELL, _body(rows=rows)) == ["cardinality"]
+
+
+def test_no_rows_fails_every_row_check() -> None:
+    expected = {"cardinality", "variables", "em_pairing", "geo_id", "table"}
+    assert set(_failed(CELL, _body(rows=[]))) == expected
+
+
+def test_blank_geo_id_is_not_a_geography() -> None:
+    rows = [_row("a"), _row("")]
+    assert _failed(CELL, _body(rows=rows)) == ["cardinality", "geo_id"]
+
+
+def test_margins_do_not_count_as_estimates() -> None:
+    assert _failed({**CELL, "estimates": 2}, _body()) == ["variables"]
+
+
+def test_is_estimate_reads_variable_names() -> None:
+    for key in ("B01001_001E", "B19013_001E", "C27001_002E"):
+        assert url_grid.is_estimate(key), key
+    for key in ("B01001_001M", "B01001_001EA", "B01001_TOTALE", "GEO_ID", "NAME", "year"):
+        assert not url_grid.is_estimate(key), key
+
+
+def test_every_estimate_needs_its_own_margin() -> None:
+    rows = [
+        {"GEO_ID": g, "B01001_001E": "5", "B01001_001M": "1", "B01001_002E": "7", "year": "2024"}
+        for g in ("a", "b")
+    ]
+    assert _failed({**CELL, "estimates": 2}, _body(rows=rows)) == ["em_pairing"]
+
+
+def test_unpublished_year_that_was_attempted_still_fails_years() -> None:
+    cell = {**CELL, "years": [2019, 2020], "unpublished": [2020]}
+    tried = _body(attempted_years=[2019, 2020], omitted_years=[], omission_reasons=[])
+    assert _failed(cell, tried) == ["years"]
+
+
+def test_omitted_year_without_any_reason_fails_years() -> None:
+    cell = {**CELL, "years": [2019, 2020], "unpublished": [2020]}
+    none = _body(attempted_years=[2019], omitted_years=[2020], omission_reasons=[])
+    spaces = _body(attempted_years=[2019], omitted_years=[2020], omission_reasons=["  "])
+    assert _failed(cell, none) == ["years"]
+    assert _failed(cell, spaces) == ["years"]
+
+
+def _trial(cell_id: str = "u000", repeat: int = 1, seconds: float = 1.0, **checks: Any) -> dict:
+    scored = {**url_grid.score(CELL, _body()), **checks}
+    return {
+        "id": cell_id,
+        "repeat": repeat,
+        "checks": scored,
+        "passed": url_grid.passed(scored),
+        "seconds": seconds,
+    }
+
+
+def test_repeat_multiplies_the_trials_a_final_run_needs() -> None:
+    cells = [CELL, {**CELL, "id": "u001"}]
+    once = [_trial("u000"), _trial("u001")]
+    twice = once + [_trial("u000", 2), _trial("u001", 2)]
+    assert url_grid.summarize(cells, once, 2, "abc")["status"] == "PARTIAL"
+    final = url_grid.summarize(cells, twice, 2, "abc")
+    assert (final["status"], final["expected_trials"]) == ("FINAL", 4)
+
+
+def test_summary_rates_leave_out_checks_a_cell_does_not_exercise() -> None:
+    cells = [CELL, {**CELL, "id": "u001"}]
+    summary = url_grid.summarize(cells, [_trial()], 1, "abc")
+    assert "years" not in summary["checks"]
+    assert summary["checks"]["cap"] == {"rate": 1.0, "n": 1}
+    assert summary["pass_rate"] == 1.0
+
+
+def test_summary_names_each_miss_and_only_its_failed_checks() -> None:
+    summary = url_grid.summarize([CELL], [_trial(level=False)], 1, "abc")
+    assert summary["misses"] == [{"id": "u000", "repeat": 1, "failed": ["level"]}]
+
+
+def test_summary_p95_is_the_95th_percentile_trial() -> None:
+    trials = [_trial(seconds=float(s)) for s in range(1, 101)]
+    summary = url_grid.summarize([CELL], trials, 100, "abc")
+    assert (summary["p95_seconds"], summary["max_seconds"]) == (95.0, 100.0)
+
+
+# --- run(): what lands on disk, with the ask and the Census calls stood in --------------------
+
+
+class _Asks:
+    """Stands in for fastapi's TestClient: records each question and answers from a table."""
+
+    def __init__(self) -> None:
+        self.answers: dict[str, Any] = {}
+        self.asked: list[str] = []
+
+    def __call__(self, app: object) -> _Asks:
+        return self
+
+    def __enter__(self) -> _Asks:
+        return self
+
+    def __exit__(self, *exc: object) -> bool:
+        return False
+
+    def post(self, path: str, json: dict[str, str]) -> types.SimpleNamespace:
+        self.asked.append(json["question"])
+        answer = self.answers.get(json["question"], _body())
+        if isinstance(answer, Exception):
+            raise answer
+        return types.SimpleNamespace(status_code=200, json=lambda: answer)
+
+
+class _Run:
+    def __init__(self, tmp_path: Path, asks: _Asks) -> None:
+        self.asks = asks
+        self.latest, self.partial = tmp_path / "latest.json", tmp_path / "partial.json"
+        self.log = tmp_path / "trials.jsonl"
+        self.grid = tmp_path / "grid.toml"
+        cells = [{**CELL, "id": f"u00{i}", "question": f"SEALED-QUESTION-{i}"} for i in range(2)]
+        self.grid.write_text(url_grid.dump_toml({"generated": {}, "skipped": [], "cell": cells}))
+        self.sha = hashlib.sha256(self.grid.read_bytes()).hexdigest()[:12]
+
+    def go(self, **over: Any) -> dict[str, Any]:
+        opts = {"repeat": 1, "limit": 0, "batch": 0, "workers": 1, "resume": False, "tag": ""}
+        opts |= {"aggregate_only": False, "grid": self.grid, **over}
+        assert url_grid.run(argparse.Namespace(**opts)) == 0
+        suffix = "-".join(t for t in (opts["tag"], "subset" if opts["limit"] else "") if t)
+        final, part = (self.tagged(p, suffix) for p in (self.latest, self.partial))
+        return json.loads((final if final.exists() else part).read_text(encoding="utf-8"))
+
+    @staticmethod
+    def tagged(path: Path, suffix: str) -> Path:
+        return path.with_stem(path.stem + f"-{suffix}") if suffix else path
+
+    def logged(self, cell_id: str, repeat: int = 1, sha: str = "") -> None:
+        row = {**_trial(cell_id, repeat), "grid_sha": sha or self.sha}
+        with self.log.open("a") as handle:
+            handle.write(json.dumps(row) + "\n")
+
+
+@pytest.fixture
+def grid_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Run:
+    asks = _Asks()
+    harness = _Run(tmp_path, asks)
+    monkeypatch.setattr(url_grid, "LATEST", harness.latest)
+    monkeypatch.setattr(url_grid, "PARTIAL", harness.partial)
+    monkeypatch.setattr(url_grid, "LOG", harness.log)
+    monkeypatch.setattr("fastapi.testclient.TestClient", asks)
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.setenv("CENSUS_API_KEY", "x")
+    stub = types.ModuleType("src.main")
+    stub.app = object()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "src.main", stub)
+    return harness
+
+
+def test_a_partial_run_deletes_the_stale_final_scoreboard(grid_run: _Run) -> None:
+    grid_run.latest.write_text('{"status": "FINAL"}')
+    summary = grid_run.go(batch=1)
+    assert not grid_run.latest.exists()
+    assert (summary["status"], summary["trials"]) == ("PARTIAL", 1)
+    assert grid_run.partial.exists()
+
+
+def test_a_complete_run_writes_the_final_scoreboard_and_names_its_grid(grid_run: _Run) -> None:
+    summary = grid_run.go()
+    assert grid_run.latest.exists() and not grid_run.partial.exists()
+    assert (summary["status"], summary["grid_sha"]) == ("FINAL", grid_run.sha)
+
+
+def test_trials_recorded_against_another_grid_are_neither_skipped_nor_counted(
+    grid_run: _Run,
+) -> None:
+    for cell_id in ("u000", "u001"):
+        grid_run.logged(cell_id, sha="otherothergr")
+    summary = grid_run.go(resume=True)
+    assert len(grid_run.asks.asked) == 2
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+
+
+def test_logged_trials_outside_this_run_are_not_counted(grid_run: _Run) -> None:
+    grid_run.logged("u999")  # a cell this grid does not have
+    grid_run.logged("u000", repeat=2)  # a repeat this run did not ask for
+    summary = grid_run.go(resume=True)
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+
+
+def test_resume_runs_only_the_trials_still_missing(grid_run: _Run) -> None:
+    grid_run.logged("u000")
+    summary = grid_run.go(resume=True)
+    assert grid_run.asks.asked == ["SEALED-QUESTION-1"]
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+
+
+def test_without_resume_the_old_log_is_discarded_and_every_trial_reruns(grid_run: _Run) -> None:
+    grid_run.logged("u000")
+    grid_run.logged("u001")
+    grid_run.go()
+    assert len(grid_run.asks.asked) == 2
+    assert len(grid_run.log.read_text().splitlines()) == 2
+
+
+def test_a_crashed_ask_is_recorded_as_a_miss_not_an_aborted_run(grid_run: _Run) -> None:
+    grid_run.asks.answers["SEALED-QUESTION-0"] = RuntimeError("boom")
+    summary = grid_run.go()
+    assert (summary["status"], summary["pass_rate"], summary["crashed"]) == ("FINAL", 0.5, 1)
+    assert [miss["id"] for miss in summary["misses"]] == ["u000"]
+
+
+def test_a_limit_run_is_a_subset_and_never_final(grid_run: _Run) -> None:
+    summary = grid_run.go(limit=1)
+    assert (summary["status"], summary["trials"]) == ("SUBSET", 1)
+    assert not grid_run.latest.exists() and not grid_run.partial.exists()
+    assert grid_run.tagged(grid_run.partial, "subset").exists()
+
+
+def test_aggregate_only_reports_a_miss_count_never_cell_ids(
+    grid_run: _Run, capsys: pytest.CaptureFixture[str]
+) -> None:
+    grid_run.asks.answers["SEALED-QUESTION-0"] = {}
+    summary = grid_run.go(aggregate_only=True, tag="sealed")
+    shown = capsys.readouterr()
+    assert summary["misses"] == 1
+    assert "SEALED-QUESTION" not in shown.out + shown.err
+
+
+# --- what a place, table and dataset mismatch costs, and what a sealed run may touch ---------
+
+
+def test_a_different_parent_than_asked_fails_only_geography() -> None:
+    other = URL.replace("in=state:39", "in=state:26")
+    assert _failed(CELL, _body(urls=[other])) == ["geography"]
+
+
+def test_a_listing_with_no_parent_when_one_was_asked_fails_geography() -> None:
+    assert _failed(CELL, _body(urls=[URL.replace("&in=state:39", "")])) == ["geography"]
+
+
+def test_a_different_place_than_asked_fails_only_geography() -> None:
+    cell = {**CELL, "scope": "named", "expected_rows": 1, "expected_geoid": "0400000US34"}
+    right, wrong = [_row("0400000US34")], [_row("0400000US48")]
+    assert _failed(cell, _body(rows=right)) == []
+    assert _failed(cell, _body(rows=wrong)) == ["geography"]
+
+
+def test_a_different_table_than_asked_fails_only_table() -> None:
+    other = [{**_row(g), "B01002_001E": "5", "B01002_001M": "1"} for g in ("a", "b")]
+    assert _failed({**CELL, "table_id": "B01002"}, _body(rows=other)) == ["table"]
+    assert _failed(CELL, _body(rows=other)) == ["table"]
+
+
+def test_a_different_dataset_than_asked_fails_only_dataset() -> None:
+    assert _failed({**CELL, "dataset": "acs1"}, _body()) == ["dataset"]
+
+
+def test_a_published_year_that_was_never_attempted_fails_years() -> None:
+    cell = {**CELL, "years": [2019, 2024], "unpublished": []}
+    reasoned = _body(attempted_years=[2024], omitted_years=[2019], omission_reasons=["overlap"])
+    assert _failed(cell, reasoned) == ["years"]
+
+
+def test_a_table_missing_from_a_year_of_the_dataset_is_unpublished_there() -> None:
+    matrix = {"acs1": {"2018": {"B01001": {}}, "2019": {"B99999": {}}}}
+    assert url_grid.unpublished(matrix, "acs1", "B01001", [2018, 2019, 2020]) == [2019, 2020]
+
+
+class _Census:
+    def __init__(self, status: int) -> None:
+        self.status = status
+
+    def get(self, url: str) -> types.SimpleNamespace:
+        return types.SimpleNamespace(status_code=self.status, json=lambda: [["NAME"], ["x"]])
+
+
+def test_a_throttled_reference_call_is_an_error_never_an_empty_listing() -> None:
+    with pytest.raises(RuntimeError, match="429"):
+        url_grid.reference(_Census(429), "k", 2024, "county")  # type: ignore[arg-type]
+    assert url_grid.reference(_Census(204), "k", 2024, "county") == []  # type: ignore[arg-type]
+    assert url_grid.reference(_Census(200), "k", 2024, "county") == [["x"]]  # type: ignore[arg-type]
+
+
+def test_a_sealed_run_needs_its_own_tag(grid_run: _Run) -> None:
+    with pytest.raises(SystemExit, match="--tag"):
+        grid_run.go(aggregate_only=True)
+
+
+def test_a_sealed_run_leaves_the_visible_baseline_and_log_alone(grid_run: _Run) -> None:
+    grid_run.latest.write_text('{"status": "FINAL", "pass_rate": 0.9}')
+    grid_run.logged("u000")
+    grid_run.go(aggregate_only=True, tag="sealed")
+    assert json.loads(grid_run.latest.read_text())["pass_rate"] == 0.9
+    assert len(grid_run.log.read_text().splitlines()) == 1
+
+
+def test_a_smoke_run_leaves_the_recorded_baseline_alone(grid_run: _Run) -> None:
+    grid_run.latest.write_text('{"status": "FINAL"}')
+    grid_run.go(limit=1)
+    assert grid_run.latest.exists()
+
+
+def test_a_run_without_keys_stops_instead_of_scoring_an_outage(
+    grid_run: _Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("CENSUS_API_KEY")
+    with pytest.raises(SystemExit, match="CENSUS_API_KEY"):
+        grid_run.go()
+    assert grid_run.asks.asked == []
+
+
+def test_a_stale_partial_scoreboard_is_deleted_when_a_run_finishes(grid_run: _Run) -> None:
+    grid_run.partial.write_text('{"status": "PARTIAL"}')
+    grid_run.go()
+    assert grid_run.latest.exists() and not grid_run.partial.exists()
+
+
+def test_a_log_line_cut_short_by_an_interrupt_does_not_stop_a_resume(grid_run: _Run) -> None:
+    grid_run.logged("u000")
+    with grid_run.log.open("a") as handle:
+        handle.write('{"id": "u001", "rep')
+    summary = grid_run.go(resume=True)
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+
+
+def test_batches_accumulate_into_one_log_without_resume(grid_run: _Run) -> None:
+    grid_run.go(batch=1)
+    summary = grid_run.go(batch=1)
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+
+
+def test_each_trial_records_the_commit_it_ran_on(grid_run: _Run) -> None:
+    summary = grid_run.go()
+    assert summary["git_shas"] == [url_grid.git_sha()]

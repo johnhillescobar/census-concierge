@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import random
 import subprocess
@@ -32,11 +33,11 @@ import sys
 import time
 import tomllib
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 from dotenv import load_dotenv
@@ -49,12 +50,15 @@ LOG = ROOT / "evidence" / "url-grid-trials.jsonl"
 load_dotenv(ROOT / ".env")
 sys.path.insert(0, str(ROOT / "api"))
 
-from src.census_url import CENSUS_API, redact_text  # noqa: E402
+from src.census_url import CENSUS_API, CensusURL, redact_text  # noqa: E402
 from src.retrieval import availability, metadata  # noqa: E402
 
 CAP = 50  # the Census `get` limit, NAME and GEO_ID included
 COUNTS = ("1", "24", "25", "whole")
-CHECKS = ("cap", "level", "http", "cardinality", "variables", "em_pairing", "geo_id", "years")
+CHECKS = (
+    *("cap", "level", "dataset", "geography", "table", "http", "cardinality"),
+    *("variables", "em_pairing", "geo_id", "years"),
+)
 
 
 # --- scoring -----------------------------------------------------------------------------------
@@ -81,6 +85,12 @@ def score(cell: dict[str, Any], body: dict[str, Any]) -> dict[str, bool | None]:
     out["cap"] = bool(urls) and all(get_size(u) <= CAP for u in urls)
     levels = {parse_qs(urlparse(u).query).get("for", [""])[0].partition(":")[0] for u in urls}
     out["level"] = bool(urls) and levels == {cell["level"]}
+    paths = [urlparse(u).path for u in urls]
+    out["dataset"] = bool(urls) and all(p.endswith("/" + cell["dataset"]) for p in paths)
+    if cell["scope"] == "listing":
+        wanted = sorted(cell["in_spec"].split())
+        ins = [sorted(parse_qs(urlparse(u).query).get("in", [""])[0].split()) for u in urls]
+        out["geography"] = bool(urls) and all(parents == wanted for parents in ins)
     if cell["fail_closed"]:
         out["http"] = None
         out["cardinality"] = not rows  # an unpublished level yields no rows, never substitutes
@@ -94,17 +104,19 @@ def score(cell: dict[str, Any], body: dict[str, Any]) -> dict[str, bool | None]:
     expected = cell["expected_rows"]
     out["cardinality"] = bool(by_year) and all(len(g - {""}) == expected for g in by_year.values())
     estimates = {key for key in columns if is_estimate(key)}
+    tables = {k.partition("_")[0] for k in estimates}
+    out["table"] = bool(estimates) and tables == {cell["table_id"]}
+    if cell["scope"] == "named":
+        out["geography"] = {str(r.get("GEO_ID")) for r in rows} == {cell["expected_geoid"]}
     out["variables"] = len(estimates) >= cell["estimates"]
     out["em_pairing"] = bool(estimates) and all(key[:-1] + "M" in columns for key in estimates)
     out["geo_id"] = bool(rows) and all(row.get("GEO_ID") for row in rows)
     if cell["years"]:
-        seen = set(body.get("attempted_years") or []) | set(body.get("omitted_years") or [])
+        attempted, omitted = set(body.get("attempted_years") or []), body.get("omitted_years") or []
         reasons = body.get("omission_reasons") or []
-        omitted = body.get("omitted_years") or []
         named = len(reasons) == len(omitted) and all(str(r).strip() for r in reasons)
-        out["years"] = (
-            set(cell["years"]) <= seen and set(cell["unpublished"]) <= set(omitted) and named
-        )
+        published = set(cell["years"]) - set(cell["unpublished"])
+        out["years"] = published <= attempted and set(cell["unpublished"]) <= set(omitted) and named
     return out
 
 
@@ -123,15 +135,17 @@ def reference(
     client: httpx.Client, key: str, year: int, level: str, in_spec: str = ""
 ) -> list[list[str]]:
     """The Census answer for `for=level:*`, fetched by the harness: the expected cardinality."""
-    params = {"get": "NAME", "for": f"{level}:*", "key": key}
+    params = {"get": "NAME,GEO_ID", "for": f"{level}:*"}
     if in_spec:
         params["in"] = in_spec
+    url = CensusURL(f"{CENSUS_API}/{year}/acs/acs5?{urlencode(params)}").with_key(key)
     try:
-        response = client.get(f"{CENSUS_API}/{year}/acs/acs5", params=params)
+        response = client.get(url)
         payload = response.json() if response.status_code == 200 else []
     except (httpx.HTTPError, ValueError) as exc:
-        print(f"reference failed for {level}: {redact_text(str(exc))[:120]}", file=sys.stderr)
-        return []
+        raise RuntimeError(f"reference for {level}: {redact_text(str(exc))[:120]}") from None
+    if response.status_code not in {200, 204}:  # a transient failure must not read as "no rows"
+        raise RuntimeError(f"reference for {level}: HTTP {response.status_code}")
     return payload[1:] if isinstance(payload, list) and len(payload) > 1 else []
 
 
@@ -152,10 +166,14 @@ def parents_for(
 
 
 def phrase_geo(level: str, scope: str, parent: str, place: str) -> str:
-    text = level.split("/")[0]
     if scope == "named":
         return f"for {place}"
-    return f"for every {text} in {parent or 'the United States'}"
+    return f"for every {level} in {parent or 'the United States'}"
+
+
+def unpublished(matrix: dict[str, Any], dataset: str, table: str, years: list[int]) -> list[int]:
+    """Requested years in which this table does not exist for the dataset."""
+    return [y for y in years if table not in matrix[dataset].get(str(y), {})]
 
 
 def count_phrase(count: str, table: str) -> str:
@@ -191,7 +209,15 @@ def generate(seed: int) -> dict[str, Any]:
     acs1_names = {g.name for g in metadata.geo_entries("acs1", acs1[-1])}
     key = os.environ["CENSUS_API_KEY"]
 
-    def add(level: Any, scope: str, count: str, dataset: str = "acs5", **extra: Any) -> None:
+    def add(
+        level: Any,
+        scope: str,
+        count: str,
+        dataset: str = "acs5",
+        time: str = "latest",
+        years: list[int] | None = None,
+        fail_closed: bool = False,
+    ) -> None:
         table = rng.choice(pool[count])
         with httpx.Client(timeout=60.0) as client:
             chain = parents_for(client, key, year, level.requires, rng)
@@ -203,10 +229,13 @@ def generate(seed: int) -> dict[str, Any]:
         if not listing:
             skipped.append(f"{level.name} listing is empty for {in_spec or 'the nation'}")
             return
-        place = rng.choice(listing)[0] if scope == "named" else ""
+        pick = rng.choice(listing) if scope == "named" else ["", ""]
         when = {"acs5": "with the ACS 5-year", "acs1": "with the ACS 1-year"}[dataset]
-        geo = phrase_geo(level.name, scope, parent, place)
+        geo = phrase_geo(level.name, scope, parent, pick[0])
         question = f"{count_phrase(count, table)} {geo}, {when}"
+        years = years or []
+        if years:
+            question += ", for the years " + ", ".join(str(y) for y in years)
         cells.append(
             {
                 "id": f"u{len(cells):03d}",
@@ -214,16 +243,17 @@ def generate(seed: int) -> dict[str, Any]:
                 "depth": len(level.requires),
                 "scope": scope,
                 "var_count": count,
-                "time": "latest",
+                "time": time,
                 "dataset": dataset,
                 "table_id": table,
+                "in_spec": in_spec if scope == "listing" else "",
+                "expected_geoid": pick[1],
                 "estimates": sized[table] if count == "whole" else int(count),
-                "expected_rows": 1 if scope == "named" else len(listing),
-                "fail_closed": False,
-                "years": [],
-                "unpublished": [],
+                "expected_rows": 0 if fail_closed else 1 if scope == "named" else len(listing),
+                "fail_closed": fail_closed,
+                "years": years,
+                "unpublished": unpublished(matrix, dataset, table, years),
                 "question": question,
-                **extra,
             }
         )
 
@@ -243,21 +273,9 @@ def generate(seed: int) -> dict[str, Any]:
         "gap": ("acs1", [gap - 1, gap, gap + 1] if gap else acs1[-3:]),
     }
     for name, (dataset, years) in series.items():
-        before = len(cells)
-        add(state, "named", "1", dataset)
-        if len(cells) > before:
-            text = ", ".join(str(y) for y in years)
-            cells[-1].update(
-                time=name,
-                years=years,
-                unpublished=[y for y in years if y not in (acs5 if dataset == "acs5" else acs1)],
-                question=cells[-1]["question"] + f", for the years {text}",
-            )
+        add(state, "named", "1", dataset, time=name, years=years)
     for level in [g for g in levels if g.name not in acs1_names and g.requires][:3]:
-        before = len(cells)
-        add(level, "listing", "1", "acs1")
-        if len(cells) > before:
-            cells[-1].update(fail_closed=True, expected_rows=0)
+        add(level, "listing", "1", "acs1", fail_closed=True)
     return {
         "generated": {
             "date": date.today().isoformat(),
@@ -288,7 +306,7 @@ def dump_toml(grid: dict[str, Any]) -> str:
 def git_sha() -> str:
     try:
         out = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True
+            ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT
         )
         return out.stdout.strip()
     except OSError:
@@ -330,7 +348,9 @@ def summarize(
         },
         "by_dimension": {k: round(sum(v) / len(v), 3) for k, v in sorted(by.items())},
         "max_seconds": seconds[-1] if seconds else 0,
-        "p95_seconds": seconds[min(len(seconds) - 1, int(0.95 * len(seconds)))] if seconds else 0,
+        "p95_seconds": seconds[math.ceil(0.95 * len(seconds)) - 1] if seconds else 0,
+        "crashed": sum(bool(r.get("crashed")) for r in results),
+        "git_shas": sorted({str(r.get("git_sha", "")) for r in results}),
         "misses": [
             {
                 "id": r["id"],
@@ -343,64 +363,96 @@ def summarize(
     }
 
 
+def read_log(path: Path) -> list[dict[str, Any]]:
+    """Recorded trials; a line cut short by an interrupted run is skipped, not fatal."""
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text().splitlines() if path.exists() else []:
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return rows
+
+
 def run(args: argparse.Namespace) -> int:
+    missing = [k for k in ("OPENAI_API_KEY", "CENSUS_API_KEY") if not os.environ.get(k)]
+    if missing:
+        raise SystemExit(
+            f"{', '.join(missing)} must be set; a keyless run scores outages as misses"
+        )
+    if args.aggregate_only and not args.tag:
+        raise SystemExit(
+            "--aggregate-only needs --tag: a sealed run must not overwrite the baseline"
+        )
+    tag = "-".join(t for t in (args.tag, "subset" if args.limit else "") if t)
+    log, latest, partial = (
+        path.with_stem(path.stem + (f"-{tag}" if tag else "")) for path in (LOG, LATEST, PARTIAL)
+    )
     raw = args.grid.read_bytes()
     grid_sha = hashlib.sha256(raw).hexdigest()[:12]
     cells = tomllib.loads(raw.decode())["cell"][: args.limit or None]
-    if not args.resume:
-        LOG.unlink(missing_ok=True)
-    LATEST.unlink(missing_ok=True)  # a stale final can never sit beside a run in progress
+    if not (args.resume or args.batch):
+        log.unlink(missing_ok=True)
+    for stale in (latest, partial):  # a stale scoreboard can never sit beside a run in progress
+        stale.unlink(missing_ok=True)
     from fastapi.testclient import TestClient
     from src.main import app
+
+    commit = git_sha()
 
     def trial(job: tuple[int, dict[str, Any]]) -> dict[str, Any]:
         repeat, cell = job
         started = time.monotonic()
         body: Any = {}
+        crashed = ""
         try:
             with TestClient(app) as client:
                 response = client.post("/ask", json={"question": cell["question"]})
             body = response.json() if response.status_code == 200 else {}
         except Exception as exc:  # noqa: BLE001 - one crashed ask is a miss, not an aborted run
-            print(f"crash {cell['id']}: {type(exc).__name__}", file=sys.stderr)
+            crashed = type(exc).__name__
         checks = score(cell, body if isinstance(body, dict) else {})
         ok = passed(checks)
-        print(f"{'ok  ' if ok else 'MISS'} {cell['id']} r{repeat}", flush=True)
+        label = f"{cell['id']} r{repeat}" if not args.aggregate_only else "trial"
+        note = f" CRASH {crashed}" if crashed else ""
+        print(f"{'ok  ' if ok else 'MISS'} {label}{note}", flush=True)
         return {
             "id": cell["id"],
             "repeat": repeat,
             "grid_sha": grid_sha,
+            "git_sha": commit,
             "checks": checks,
             "passed": ok,
+            "crashed": crashed,
             "seconds": round(time.monotonic() - started, 1),
         }
 
-    rows = [json.loads(x) for x in LOG.read_text().splitlines()] if LOG.exists() else []
-    seen = {(r["id"], r["repeat"]) for r in rows if r["grid_sha"] == grid_sha}
+    seen = {(r["id"], r["repeat"]) for r in read_log(log) if r["grid_sha"] == grid_sha}
     jobs = [(r, c) for r in range(1, args.repeat + 1) for c in cells if (c["id"], r) not in seen][
         : args.batch or None
     ]
+    if log.exists() and not log.read_bytes().endswith(bytes([10])):
+        with log.open("a") as handle:  # a cut-short last line must not swallow the next record
+            handle.write(chr(10))
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        for result in pool.map(trial, jobs):
-            with LOG.open("a") as handle:
-                handle.write(json.dumps(result) + "\n")
+        for future in as_completed([pool.submit(trial, job) for job in jobs]):
+            with log.open("a") as handle:  # on disk as each trial finishes, so Ctrl-C loses little
+                handle.write(json.dumps(future.result()) + chr(10))
     ids = {c["id"] for c in cells}
     results = [
         r
-        for r in (json.loads(x) for x in LOG.read_text().splitlines())
+        for r in read_log(log)
         if r["grid_sha"] == grid_sha and r["id"] in ids and r["repeat"] <= args.repeat
     ]
     summary = summarize(cells, results, args.repeat, grid_sha, subset=bool(args.limit))
     if args.aggregate_only:
         summary["misses"] = len(summary["misses"])
-    (LATEST if summary["complete"] else PARTIAL).write_text(
+    (latest if summary["complete"] else partial).write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
     )
     print(json.dumps({k: v for k, v in summary.items() if k != "misses"}, indent=2))
     if not summary["complete"]:
-        print(
-            f"{summary['status']}: no final scoreboard written; --resume continues a partial run."
-        )
+        print(f"{summary['status']}: no final scoreboard; --resume continues a partial run.")
     return 0
 
 
@@ -416,6 +468,7 @@ def main() -> int:
     go.add_argument("--limit", type=int, default=0)
     go.add_argument("--batch", type=int, default=0, help="run at most N pending trials")
     go.add_argument("--workers", type=int, default=6)
+    go.add_argument("--tag", default="", help="suffix for the log and scoreboards (sealed grids)")
     go.add_argument("--resume", action="store_true", help="continue the trials log of this grid")
     go.add_argument(
         "--aggregate-only", action="store_true", help="no per-cell misses (sealed grid)"
