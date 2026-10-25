@@ -11,6 +11,7 @@ from typing import Any
 
 from langchain_core.tools import BaseTool
 
+from src.contract import clauses_from_geoid
 from src.geo import detect_level, split_comparison
 from src.guards import universe_mismatch
 from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
@@ -271,6 +272,10 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
         have.add("county")
     if "tract" in written:
         have.add("tract")
+    for part in named:  # a GEOID in the report carries the hierarchy it encodes (parsing only)
+        coded = clauses_from_geoid(part)
+        if coded:
+            have |= {coded[0], *(clause.split(":")[0] for clause in coded[2].split("+") if clause)}
     missing = [part for part in need if part not in have]
     if not missing:
         return None

@@ -589,6 +589,64 @@ def test_the_needs_table_is_what_the_censuss_own_metadata_says(row: str, single:
     assert finish._NEEDS.get((detect_level(row) or "", single), ()) == derived
 
 
+# --- a GEOID the user wrote carries the hierarchy it encodes -----------------------------------
+
+GEOID_TRACT = "1400000US55025000100"  # tract 000100 in Dane County (025), Wisconsin (55)
+GEOID_COUNTY = "0500000US55025"
+GEOID_STATE = "0400000US55"
+
+
+@pytest.mark.parametrize(
+    ("question", "frame"),
+    [
+        (
+            f"Population of block group 1 in tract {GEOID_TRACT}, Dane County, Wisconsin",
+            _frame("block group", [GEOID_TRACT, "Dane County, Wisconsin"], ["block group 1"]),
+        ),
+        (
+            f"Population of block group 1 in tract {GEOID_TRACT}",
+            _frame("block group", [GEOID_TRACT], ["block group 1"]),
+        ),
+        (
+            f"Poverty in tract 71 of county {GEOID_COUNTY}",
+            _frame("tract", [GEOID_COUNTY], ["tract 71"]),
+        ),
+    ],
+)
+async def test_a_geoid_the_user_wrote_supplies_the_parents_it_encodes(
+    question: str, frame: dict[str, Any]
+) -> None:
+    response, record, _fetched = await _ask(question, frame)
+    assert record.timings
+    assert STOPPED not in response.answer
+
+
+@pytest.mark.parametrize(
+    ("question", "frame", "lacks"),
+    [
+        # too short to be a tract GEOID, so it encodes nothing
+        (
+            "Population of block group 1 in tract 1400000US5502",
+            _frame("block group", ["1400000US5502"], ["block group 1"]),
+            "county",
+        ),
+        # a state GEOID encodes the state and no county
+        (
+            f"Poverty in tract 71 of {GEOID_STATE}",
+            _frame("tract", [GEOID_STATE], ["tract 71"]),
+            "county",
+        ),
+    ],
+)
+async def test_a_geoid_supplies_only_what_it_encodes(
+    question: str, frame: dict[str, Any], lacks: str
+) -> None:
+    response, record, fetched = await _ask(question, frame)
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert lacks in response.answer
+    assert record.timings == [] and fetched == []
+
+
 # --- a phrase that points at a place without naming it -----------------------------------------
 
 
