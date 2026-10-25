@@ -21,7 +21,7 @@ Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
 | CC-121 stays open until CC-102 and CC-120 are both complete; no Jira write made | `owner` |
 | Four gate rounds (Gate 1 + cold Gate 2 each), E2E once after and once post-merge; credits approved | `owner` |
 | Answer text is written by code (the model supplies the missing state, so it cannot write the explanation) | `default` |
-| Partial cases are refused: a county name with no state, a tract named only by a city, and a phrase that points at a place without naming it ("my county") | `owner` |
+| Partial cases are refused: a county name with no state, a tract named only by a city, and a phrase that points at a place without naming it ("my county") | `owner`; **status: the county-name case is NOT refused** (see "Copilot review") |
 | The split-call prompt (~500 tokens, ~580 with `pointing`, against ~150 on `origin/main`) is left as is and recorded: this file, the PR body, a comment on CC-3 (posted 2026-10-24) and one on CC-102 with the PR link | `owner` |
 | No new follow-up ticket: the findings map to CC-119, CC-106, CC-114, CC-120 and CC-104 (listed under known limits) | `owner` |
 | E2E, the PR and the Jira comments follow `docs/playbooks/run-slice.md` without asking | `owner` |
@@ -150,7 +150,9 @@ passes or the owner logs a waiver. CC-123 (the ~5 GB demo process) did not trigg
 What I know about the red: one run each, so a 1.8 s gap is inside the 18.9 to 21.7 s spread PLAN.md recorded
 for earlier runs, and the baseline is a different day. Median moved +0.2 s and `t_llm` +0.7 s, which fits
 the added split call, but nothing here proves it. A same-day `origin/main` run at `--repeat 3` (worktree
-`cc102-base`, 1160bde) is in progress; its numbers go here and in the PR.
+`cc102-base`, 1160bde) was started and stopped: my local test runs competed with it (one trial took 49 s against
+a 31 s slowest trial on the branch run), so its latency is not trustworthy. It is owed, to be rerun on its own
+after a fresh run of the final code; the numbers go here and in the PR.
 
 The check itself: the split report plus `finish.incomplete` over all 62 in-scope golden questions x 5 runs
 refused only t03 (5 of 5, the intended refusal) and no valid question. t03 and t17 are not among the demo's
@@ -160,6 +162,33 @@ misses on other questions).
 
 Not verified: the regression-minus-sealed gap (the sealed run is the owner's); the pre-flight claim of 6,896
 tract rows for Texas (recorded in the ticket, not re-run); the same-day baseline above.
+
+## Copilot review on PR #112 (2026-10-25)
+
+Three findings on `finish.py`; replies are on the PR.
+- **GEOID in the report** (fixed, 33ffe78): a supported GEOID the model reports supplies the level and parents
+  it encodes (`clauses_from_geoid`); parsing only, no match against the question. Resolved.
+- **A county named without its state is not refused** (open). I had said it was; I had not run it. Real model,
+  7 variants x 5: 0 of 35 refused ("Cook County" becomes "Cook County, Illinois" from the model's knowledge, and
+  the check does not second-guess it). Three designs measured on 30 valid and 12 no-state county questions x 5:
+
+  | Design | Valid refused (of 150) | No-state let through (of 60) |
+  | --- | --- | --- |
+  | `states` quote list, code checks each quote is in the question | 34, then 31 with a tighter wording | 0, then 1 |
+  | yes/no `state_written` flag | 2 | 55 |
+  | `states` entries with separate "written" and "state" slots | 33 | 0 |
+
+  The model writes "Illinois" for the user's "IL", so quotes fail; a flag follows what it knows. Matching the
+  question against a state table would work but is the keyword scan CLAUDE.md bans. Owner's call; none of the
+  three is in the code.
+- **Parents are pooled** (open): one `county_named` and one `named` list serve every numbered place, so "tract 71
+  in Dane County, Wisconsin with tract 305 in Texas" passes. Fixing it needs a report that attaches each number to
+  its parents; restructuring the report risks what iteration 7 broke. It fails open to the loop as before.
+
+The owner also asked, on seeing the quote checks: "text matching sounds like regex, did you remember the regex
+policy?" There is no `re` in them (regex call sites 64 to 62), but `numbered` and `pointing` check that the
+model's quote is in the question. That is text matching, kept only because it stops a fabricated quote from
+causing a false refusal; the GEOID fix has none. The owner decides whether the two stay.
 
 ## Known limits and findings (owner: no new ticket; they map to existing CC-3 tickets)
 
