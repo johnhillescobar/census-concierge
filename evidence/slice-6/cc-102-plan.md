@@ -25,6 +25,7 @@ Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
 | The split-call prompt (~500 tokens, ~580 with `pointing`, against ~150 on `origin/main`) is left as is and recorded: this file, the PR body, a comment on CC-3 (posted 2026-10-24) and one on CC-102 with the PR link | `owner` |
 | No new follow-up ticket: the findings map to CC-119, CC-106, CC-114, CC-120 and CC-104 (listed under known limits) | `owner` |
 | E2E, the PR and the Jira comments follow `docs/playbooks/run-slice.md` without asking | `owner` |
+| Skip gate round 4 and go straight to the E2E ("too much, jump to end to end", 2026-10-24) | `owner` |
 | Work bound `MAX_COMPARISON_WORK = 50_000` and warning code `comparison_too_large` | `default` |
 | Wait up to `FRAME_WAIT_SECONDS = 3.0` for the model's report before the first tool runs; past it, treat the question as complete | `default` |
 
@@ -184,8 +185,12 @@ One source defect found: `single = bool(written)` asked "every block group in co
 the subagent's golden lint that read capitalised words as place names (the keyword proxy the repo bans);
 golden t17 is covered by the E2E scorer.
 
-**Owed.** Gate 1 round 4 on the fix commit (bounded: covering test only, at most ~40 mutations); Gate 2
-round 4 (cold red team); E2E; PR; post-merge E2E.
+**Round 4.** A bounded Gate 1 and a cold red-team Gate 2 were started on 2d2ffc5 and stopped within
+minutes on the owner's word; neither produced a result. So the fix commit (the `pointing` check and numbers
+judged at their own unit's level) has tests written test-first and passing, but no mutation check and no
+cold review. The PR says so.
+
+**Owed.** E2E before the PR; the PR; E2E after the merge.
 
 ## Outward writes
 
