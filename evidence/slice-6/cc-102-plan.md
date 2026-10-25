@@ -26,6 +26,7 @@ Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
 | No new follow-up ticket: the findings map to CC-119, CC-106, CC-114, CC-120 and CC-104 (listed under known limits) | `owner` |
 | E2E, the PR and the Jira comments follow `docs/playbooks/run-slice.md` without asking | `owner` |
 | Skip gate round 4 and go straight to the E2E ("too much, jump to end to end", 2026-10-24) | `owner` |
+| Record the E2E as red on p95 latency; no waiver is logged ("set this red due to latency", 2026-10-24) | `owner` |
 | Work bound `MAX_COMPARISON_WORK = 50_000` and warning code `comparison_too_large` | `default` |
 | Wait up to `FRAME_WAIT_SECONDS = 3.0` for the model's report before the first tool runs; past it, treat the question as complete | `default` |
 
@@ -121,13 +122,44 @@ no pointing word (4 of 5). Why a list and not a boolean: a boolean fired on "med
 Split-call latency in these runs: p50 1.0 s, p95 1.3-1.5 s, max 3.0-3.7 s (0 of 540 over the 3 s wait in the
 last rates run), beside the loop.
 
-## Not verified: needs the full E2E
+## E2E before the PR (2026-10-24): RED on p95 latency
 
-- `answered_rate`, the golden set and p95 against the 20 s ceiling (PLAN.md records 18.9-21.7 s) with the
-  detector in place, at the same `--repeat`; and the regression-minus-sealed gap (the sealed run is the
-  owner's: see the command given in chat; I never read the sealed set).
-- t03 and t17 under `make demo` with the new scorer.
-- The pre-flight claim of 6,896 tract rows for Texas (recorded in the ticket, not re-run).
+`make eval` and `make demo` recipes run on 9409542 (code = 2d2ffc5), `--repeat 3`, real keys, 62 questions,
+186 trials; transcripts `cc-102-e2e-pre.txt` (demo), `cc-102-e2e-pre-eval.txt`, `cc-102-e2e-pre-grid.txt`,
+never read. `make check` equivalents were green first (823 api tests, 110 web tests, typecheck, client drift,
+budgets, invariants). Baseline column: the recorded run on `origin/main` (2026-10-04).
+
+| | origin/main | CC-102 branch |
+| --- | --- | --- |
+| `demo.p95_latency_seconds` | 18.928 | **20.695, over the 20 s ceiling: RED** |
+| median / mean latency | 10.25 s / 15.64 s | 10.49 s / 11.81 s |
+| slowest trial | 820.4 s | 31.1 s |
+| long_tail `answered_rate` (floor 0.70) | 0.750 | 0.725 |
+| core / trap answered rate | 0.833 / 0.926 | 0.750 / 0.944 |
+| overall answered rate | 0.806 | 0.790 |
+| retrieval@10, selector@1, synthetic alignment | 0.9, 0.85, 0.544 | unchanged (the change does not touch retrieval) |
+| grid, 70 cells x 3 | not recorded | 210 of 210 complete, pass rate 1.0, 0 misses |
+| demo misses | 36 | 39 |
+| regex call sites | 64 | 62 |
+
+Chart: `.claude/cc-102-e2e-latency-distribution.svg` (`scripts/plot_e2e_latency.py`, origin/main against this run).
+The 820 s outlier is gone; the tail near the p95 is slightly higher. No waiver is logged (owner's call, and
+the owner's to add): the red stands. `make check` and CI fail on `demo.p95_latency_seconds` until a later run
+passes or the owner logs a waiver. CC-123 (the ~5 GB demo process) did not trigger: peak about 240 MB.
+
+What I know about the red: one run each, so a 1.8 s gap is inside the 18.9 to 21.7 s spread PLAN.md recorded
+for earlier runs, and the baseline is a different day. Median moved +0.2 s and `t_llm` +0.7 s, which fits
+the added split call, but nothing here proves it. A same-day `origin/main` run at `--repeat 3` (worktree
+`cc102-base`, 1160bde) is in progress; its numbers go here and in the PR.
+
+The check itself: the split report plus `finish.incomplete` over all 62 in-scope golden questions x 5 runs
+refused only t03 (5 of 5, the intended refusal) and no valid question. t03 and t17 are not among the demo's
+misses, so the scorer and golden changes behave. q41 (Ann Arbor) went from 0 to 3 of 3 misses with "wrong
+table (none)"; the check did not refuse it, and I did not find the cause (the baseline also has "(none)"
+misses on other questions).
+
+Not verified: the regression-minus-sealed gap (the sealed run is the owner's); the pre-flight claim of 6,896
+tract rows for Texas (recorded in the ticket, not re-run); the same-day baseline above.
 
 ## Known limits and findings (owner: no new ticket; they map to existing CC-3 tickets)
 
