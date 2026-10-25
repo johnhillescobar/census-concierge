@@ -11,10 +11,16 @@ seed only they hold and keeping the file outside the repo; `run --grid PATH --ag
 prints counts, never questions.
 
 `run` asks each cell through POST /ask and scores the URLs and rows it gets back, separately from
-the demo's answered rate. Checks are reported as distinct numbers: cap, level, http, cardinality,
-variables, em_pairing, geo_id, years, fail_closed. A cell passes when every applicable check does.
-The summary lands in evidence/url-grid-latest.json only when every trial ran; a partial run writes
-evidence/url-grid-partial.json, and trials recorded against another grid are ignored.
+the demo's answered rate. Checks are reported as distinct numbers: cap, level, dataset, geography,
+table, http, cardinality, variables, em_pairing, geo_id, years. A cell passes when every applicable
+check does; an unpublished level must return no rows (cardinality). The summary lands in
+evidence/url-grid-latest.json only when every trial ran; a partial run writes
+evidence/url-grid-partial.json, and trials from another grid or another commit are never reused.
+`--limit` runs get a "-subset" suffix, `--batch` accumulates, `--resume` continues.
+
+Sealed grid: `run --grid PATH --tag sealed-x --aggregate-only`. The tag must contain "sealed" (so
+the log and scoreboards are gitignored), nothing per-cell is printed, and dimension buckets with
+fewer than five cells are left out. The grid file and the log still name cells: keep both private.
 
 Live usage per run: one /ask per cell per repeat (about 20 s, one model loop and one to three
 Census calls each); `generate` makes one Census call per cell.
@@ -53,8 +59,14 @@ sys.path.insert(0, str(ROOT / "api"))
 from src.census_url import CENSUS_API, CensusURL, redact_text  # noqa: E402
 from src.retrieval import availability, metadata  # noqa: E402
 
+CELL_KEYS = (
+    *("id", "level", "scope", "dataset", "table_id", "in_spec", "expected_geoid", "estimates"),
+    *("expected_rows", "fail_closed", "years", "unpublished", "question"),
+)
+MIN_BUCKET = 5  # sealed runs print no dimension bucket smaller than this many cells
 CAP = 50  # the Census `get` limit, NAME and GEO_ID included
 COUNTS = ("1", "24", "25", "whole")
+NL = "\n"
 CHECKS = (
     *("cap", "level", "dataset", "geography", "table", "http", "cardinality"),
     *("variables", "em_pairing", "geo_id", "years"),
@@ -139,11 +151,15 @@ def reference(
     if in_spec:
         params["in"] = in_spec
     url = CensusURL(f"{CENSUS_API}/{year}/acs/acs5?{urlencode(params)}").with_key(key)
-    try:
-        response = client.get(url)
-        payload = response.json() if response.status_code == 200 else []
-    except (httpx.HTTPError, ValueError) as exc:
-        raise RuntimeError(f"reference for {level}: {redact_text(str(exc))[:120]}") from None
+    for attempt in range(3):  # a throttled or flaky call is retried, then raised, never "empty"
+        try:
+            response = client.get(url)
+            payload = response.json() if response.status_code == 200 else []
+        except (httpx.HTTPError, ValueError) as exc:
+            raise RuntimeError(f"reference for {level}: {redact_text(str(exc))[:120]}") from None
+        if response.status_code != 429 and response.status_code < 500:
+            break
+        time.sleep(2 * attempt)
     if response.status_code not in {200, 204}:  # a transient failure must not read as "no rows"
         raise RuntimeError(f"reference for {level}: HTTP {response.status_code}")
     return payload[1:] if isinstance(payload, list) and len(payload) > 1 else []
@@ -174,6 +190,16 @@ def phrase_geo(level: str, scope: str, parent: str, place: str) -> str:
 def unpublished(matrix: dict[str, Any], dataset: str, table: str, years: list[int]) -> list[int]:
     """Requested years in which this table does not exist for the dataset."""
     return [y for y in years if table not in matrix[dataset].get(str(y), {})]
+
+
+def table_for(
+    rng: random.Random, pool: list[str], matrix: dict[str, Any], dataset: str, years: list[int]
+) -> str:
+    """Draw a table, redrawing while it exists in none of the requested years (unwinnable)."""
+    while True:
+        table = rng.choice(pool)
+        if not years or len(unpublished(matrix, dataset, table, years)) < len(years):
+            return table
 
 
 def count_phrase(count: str, table: str) -> str:
@@ -218,7 +244,7 @@ def generate(seed: int) -> dict[str, Any]:
         years: list[int] | None = None,
         fail_closed: bool = False,
     ) -> None:
-        table = rng.choice(pool[count])
+        table = table_for(rng, pool[count], matrix, dataset, years or [])
         with httpx.Client(timeout=60.0) as client:
             chain = parents_for(client, key, year, level.requires, rng)
             if chain is None:
@@ -304,11 +330,14 @@ def dump_toml(grid: dict[str, Any]) -> str:
 
 
 def git_sha() -> str:
+    """HEAD, plus `+dirty` when tracked code differs from it: that run is not that commit."""
     try:
-        out = subprocess.run(
+        sha = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT
-        )
-        return out.stdout.strip()
+        ).stdout.strip()
+        code = ["scripts", "api", "evals", "Makefile"]
+        clean = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *code], cwd=ROOT)
+        return sha + ("" if clean.returncode == 0 else "+dirty")
     except OSError:
         return ""
 
@@ -319,8 +348,9 @@ def summarize(
     repeat: int,
     grid_sha: str,
     subset: bool = False,
+    min_cells: int = 0,
 ) -> dict[str, Any]:
-    complete = not subset and len(results) == len(cells) * repeat
+    complete = not subset and len({(r["id"], r["repeat"]) for r in results}) == len(cells) * repeat
     rates: dict[str, list[bool]] = defaultdict(list)
     for row in results:
         for check, ok in row["checks"].items():
@@ -336,7 +366,7 @@ def summarize(
         "status": "FINAL" if complete else ("SUBSET" if subset else "PARTIAL"),
         "complete": complete,
         "grid_sha": grid_sha,
-        "git_sha": git_sha(),
+        "git_sha": git_sha(),  # where the summary was written; each trial carries its own
         "finished": datetime.now(UTC).isoformat(timespec="seconds"),
         "cells": len(cells),
         "repeat": repeat,
@@ -346,7 +376,11 @@ def summarize(
         "checks": {
             k: {"rate": round(sum(v) / len(v), 3), "n": len(v)} for k, v in sorted(rates.items())
         },
-        "by_dimension": {k: round(sum(v) / len(v), 3) for k, v in sorted(by.items())},
+        "by_dimension": {
+            k: round(sum(v) / len(v), 3)
+            for k, v in sorted(by.items())
+            if len(v) >= min_cells * repeat
+        },
         "max_seconds": seconds[-1] if seconds else 0,
         "p95_seconds": seconds[math.ceil(0.95 * len(seconds)) - 1] if seconds else 0,
         "crashed": sum(bool(r.get("crashed")) for r in results),
@@ -375,15 +409,15 @@ def read_log(path: Path) -> list[dict[str, Any]]:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.repeat < 1:
+        raise SystemExit("--repeat must be at least 1")
     missing = [k for k in ("OPENAI_API_KEY", "CENSUS_API_KEY") if not os.environ.get(k)]
     if missing:
         raise SystemExit(
             f"{', '.join(missing)} must be set; a keyless run scores outages as misses"
         )
-    if args.aggregate_only and not args.tag:
-        raise SystemExit(
-            "--aggregate-only needs --tag: a sealed run must not overwrite the baseline"
-        )
+    if args.aggregate_only and "sealed" not in args.tag:
+        raise SystemExit("--aggregate-only needs --tag with 'sealed' in it (gitignored outputs)")
     tag = "-".join(t for t in (args.tag, "subset" if args.limit else "") if t)
     log, latest, partial = (
         path.with_stem(path.stem + (f"-{tag}" if tag else "")) for path in (LOG, LATEST, PARTIAL)
@@ -391,13 +425,16 @@ def run(args: argparse.Namespace) -> int:
     raw = args.grid.read_bytes()
     grid_sha = hashlib.sha256(raw).hexdigest()[:12]
     cells = tomllib.loads(raw.decode())["cell"][: args.limit or None]
+    stale_keys = sorted({k for c in cells for k in CELL_KEYS if k not in c})
+    if stale_keys:
+        raise SystemExit(f"grid lacks {stale_keys}: regenerate it with `url_grid.py generate`")
+    from fastapi.testclient import TestClient
+    from src.main import app
+
     if not (args.resume or args.batch):
         log.unlink(missing_ok=True)
     for stale in (latest, partial):  # a stale scoreboard can never sit beside a run in progress
         stale.unlink(missing_ok=True)
-    from fastapi.testclient import TestClient
-    from src.main import app
-
     commit = git_sha()
 
     def trial(job: tuple[int, dict[str, Any]]) -> dict[str, Any]:
@@ -409,13 +446,14 @@ def run(args: argparse.Namespace) -> int:
             with TestClient(app) as client:
                 response = client.post("/ask", json={"question": cell["question"]})
             body = response.json() if response.status_code == 200 else {}
+            crashed = "" if response.status_code == 200 else f"HTTP {response.status_code}"
         except Exception as exc:  # noqa: BLE001 - one crashed ask is a miss, not an aborted run
             crashed = type(exc).__name__
         checks = score(cell, body if isinstance(body, dict) else {})
         ok = passed(checks)
-        label = f"{cell['id']} r{repeat}" if not args.aggregate_only else "trial"
-        note = f" CRASH {crashed}" if crashed else ""
-        print(f"{'ok  ' if ok else 'MISS'} {label}{note}", flush=True)
+        if not args.aggregate_only:  # a sealed run prints no per-cell outcome, in any order
+            note = f" CRASH {crashed}" if crashed else ""
+            print(f"{'ok  ' if ok else 'MISS'} {cell['id']} r{repeat}{note}", flush=True)
         return {
             "id": cell["id"],
             "repeat": repeat,
@@ -427,24 +465,35 @@ def run(args: argparse.Namespace) -> int:
             "seconds": round(time.monotonic() - started, 1),
         }
 
-    seen = {(r["id"], r["repeat"]) for r in read_log(log) if r["grid_sha"] == grid_sha}
+    seen = {  # another commit's trial is evidence about that commit, never reused
+        (r["id"], r["repeat"])
+        for r in read_log(log)
+        if r["grid_sha"] == grid_sha and r.get("git_sha") == commit
+    }
     jobs = [(r, c) for r in range(1, args.repeat + 1) for c in cells if (c["id"], r) not in seen][
         : args.batch or None
     ]
-    if log.exists() and not log.read_bytes().endswith(bytes([10])):
+    if log.exists() and not log.read_bytes().endswith(NL.encode()):
         with log.open("a") as handle:  # a cut-short last line must not swallow the next record
-            handle.write(chr(10))
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            handle.write(NL)
+    pool = ThreadPoolExecutor(max_workers=args.workers)
+    try:
         for future in as_completed([pool.submit(trial, job) for job in jobs]):
             with log.open("a") as handle:  # on disk as each trial finishes, so Ctrl-C loses little
-                handle.write(json.dumps(future.result()) + chr(10))
+                handle.write(json.dumps(future.result()) + NL)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)  # an interrupt must not run the queue live
     ids = {c["id"] for c in cells}
-    results = [
-        r
+    latest_rows = {  # the newest row per trial wins, so a rerun on a new commit replaces the old
+        (r["id"], r["repeat"]): r
         for r in read_log(log)
         if r["grid_sha"] == grid_sha and r["id"] in ids and r["repeat"] <= args.repeat
-    ]
-    summary = summarize(cells, results, args.repeat, grid_sha, subset=bool(args.limit))
+    }
+    results = list(latest_rows.values())
+    min_cells = MIN_BUCKET if args.aggregate_only else 0
+    summary = summarize(
+        cells, results, args.repeat, grid_sha, subset=bool(args.limit), min_cells=min_cells
+    )
     if args.aggregate_only:
         summary["misses"] = len(summary["misses"])
     (latest if summary["complete"] else partial).write_text(

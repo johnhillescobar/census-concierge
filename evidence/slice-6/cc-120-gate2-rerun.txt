@@ -1,0 +1,204 @@
+CC-120 Gate 2 re-run on fix commit 2ba57c6 (base a39290f = origin/main)
+=== check_invariants --base origin/main ===
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 62 (base 62, delta +0)
+
+5 violation(s).
+
+exit=1
+=== check_budgets ===
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+BUDGETS
+
+  ok    api src LOC               4511 <= 4600
+  ok    api src files               26 <= 40
+  ok    largest file LOC           407 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       977 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         20.695 <= 20
+        run 2026-10-25T03:18:25+00:00; slowest trial 31.074s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.725 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 20.695 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+exit=1
+=== ruff check ===
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+All checks passed!
+exit=0
+=== ruff format --check ===
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+193 files already formatted
+exit=0
+=== mypy api/src ===
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Success: no issues found in 26 source files
+exit=0
+=== pytest -q ===
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+........................................................................ [  7%]
+........................................................................ [ 15%]
+........................................................................ [ 23%]
+......................................................sssssssssssssssss. [ 31%]
+.sss.................................................................... [ 39%]
+........................................................................ [ 46%]
+........................................................................ [ 54%]
+........................................................................ [ 62%]
+........................................................................ [ 70%]
+...................................F.................................... [ 78%]
+........................................................................ [ 85%]
+...........................sssssssssss..s.ss............................ [ 93%]
+...........................................................              [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x000001B5E3C0E360>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001B5E3C0FC20>
+
+    def test_invariants_print_every_named_pattern(capsys: Any, monkeypatch: Any) -> None:
+        monkeypatch.setattr(sys, "argv", ["check_invariants.py"])
+>       assert inv.main() == 0
+E       assert 1 == 0
+E        +  where 1 = <function main at 0x000001B5E1C82660>()
+E        +    where <function main at 0x000001B5E1C82660> = inv.main
+
+api\tests\test_invariants.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+5 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-adb5ff81fb9736177\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 888 passed, 34 skipped, 1 warning in 19.53s
+exit=1
+
+=== machine notes ===
+check_invariants: only failure is "eval phrasing in api/src" (5 hits: contract.py:29, geo.py:41, geo.py:52,
+geo_list.py:80, guards.py:31), the known/accepted leakage hits. budget increases, new regex (+0), new exemptions: ok.
+check_budgets: only failure is p95 20.695 > 20 from origin/main's own evidence/latest.json (known/accepted).
+pytest: the one failure (test_invariants_print_every_named_pattern) is the same 5 leakage hits via inv.main() != 0; 888 passed.
+ruff, ruff format, mypy: clean.
+
+=== Pass 1: /code-review (skill, forked agent) on HEAD~1..HEAD, findings ===
+ 1. url_grid.py:437  as_completed + ThreadPoolExecutor __exit__ (shutdown wait=True, no cancel_futures): an exception from
+    future.result() or Ctrl-C leaves every queued trial running live with results discarded (probe: 10 asks, 0 logged).
+ 2. url_grid.py:91/110  score() hard-indexes cell["in_spec"] / cell["expected_geoid"]; a grid generated before this commit
+    raises KeyError outside trial()'s try, aborting the run (probe: 10 asks, 0 logged).
+ 3. test_url_grid.py:428  aggregate-only privacy test asserts on question text that is never printed; mutating the label line to print
+    cell ids leaves all 61 tests green.
+ 4. url_grid.py:394  --batch implies resume; stale complete log for same grid sha -> FINAL with git_sha=current HEAD, zero asks.
+ 5. url_grid.py:349  aggregate-only still logs per-cell checks to evidence/url-grid-trials-sealed.jsonl; by_dimension buckets of n=1..3.
+ 6. url_grid.py:147  reference() raises on any 5xx/400, generate() has no retry/skip and writes only at the end.
+ 7. url_grid.py:323  complete is a count, not coverage of distinct (id, repeat); duplicate rows can yield FINAL with a hole.
+ 8. url_grid.py:221  generate() draws ACS1 tables from the ACS5 pool; unpublished can equal all years (cell unpassable).
+ 9. url_grid.py:411  non-200 /ask response is scored a miss but not counted in `crashed`.
+10. url_grid.py:396  baseline scoreboard/log deleted before the app import that can fail.
+11. url_grid.py:14   docstring lists checks wrongly (no dataset/geography/table; names nonexistent fail_closed), omits --tag/--batch semantics.
+12. url_grid.py:89   reuse: CensusURL(u).dataset exists; estimate_count duplicates is_estimate.
+13. url_grid.py:434  chr(10)/bytes([10]) instead of literals.
+14. url_grid.py:169  phrase_geo now emits raw Census level identifiers in questions.
+
+=== Pass 2: own cold read of scripts/url_grid.py + review-pr.md; probes run offline with the test harness stubs ===
+Probe A (stale log -> FINAL): run under sha OLDSHA, then batch=5 under NEWSHA ->
+  "NEW ASKS: 0 FINAL NEWSHA ['OLDSHA']"  (zero asks, FINAL, top-level git_sha NEWSHA, trial shas OLDSHA)   [= pass-1 #4]
+Probe B: --repeat 0 -> "REPEAT0: FINAL 0 0.0" (FINAL scoreboard with zero trials).
+Probe C: --aggregate-only --tag sealed stdout -> ['MISS trial', 'ok   trial', '{'] (per-trial pass/miss stream in job order;
+  cell order/structure is public from the visible grid) and sealed scoreboard by_dimension = {'level=county': 0.5, ...}.
+Other: .gitignore covers only evidence/*sealed*; --tag is free text, so a tag without "sealed" leaves the per-cell log trackable;
+  url-grid-trials.jsonl / url-grid-partial*.json are not ignored. generate() has no test. Only 2 fail_closed cells in the visible grid.
+Verified fixed: place/parent/table/dataset/years scoring (tests fail on each defect alone), unpublished() per table,
+  reference() non-200, key via with_key, git_sha cwd, percentile rule equals scripts/run_demo.py percentile, tagged paths keep
+  sealed/--limit off the visible baseline, incremental log, cut-line repair, missing keys refuse the run.

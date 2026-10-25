@@ -5,7 +5,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import random
 import sys
+import threading
+import time
 import types
 from pathlib import Path
 from typing import Any
@@ -17,6 +20,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import url_grid  # noqa: E402
 
+NL = chr(10)
 CELL: dict[str, Any] = {
     "id": "u000",
     "level": "county",
@@ -316,7 +320,7 @@ class _Asks:
     def post(self, path: str, json: dict[str, str]) -> types.SimpleNamespace:
         self.asked.append(json["question"])
         answer = self.answers.get(json["question"], _body())
-        if isinstance(answer, Exception):
+        if isinstance(answer, BaseException):
             raise answer
         return types.SimpleNamespace(status_code=200, json=lambda: answer)
 
@@ -343,8 +347,9 @@ class _Run:
     def tagged(path: Path, suffix: str) -> Path:
         return path.with_stem(path.stem + f"-{suffix}") if suffix else path
 
-    def logged(self, cell_id: str, repeat: int = 1, sha: str = "") -> None:
+    def logged(self, cell_id: str, repeat: int = 1, sha: str = "", git: str = "") -> None:
         row = {**_trial(cell_id, repeat), "grid_sha": sha or self.sha}
+        row["git_sha"] = git or url_grid.git_sha()
         with self.log.open("a") as handle:
             handle.write(json.dumps(row) + "\n")
 
@@ -433,6 +438,7 @@ def test_aggregate_only_reports_a_miss_count_never_cell_ids(
     shown = capsys.readouterr()
     assert summary["misses"] == 1
     assert "SEALED-QUESTION" not in shown.out + shown.err
+    assert "u000" not in shown.out + shown.err
 
 
 # --- what a place, table and dataset mismatch costs, and what a sealed run may touch ---------
@@ -541,3 +547,130 @@ def test_batches_accumulate_into_one_log_without_resume(grid_run: _Run) -> None:
 def test_each_trial_records_the_commit_it_ran_on(grid_run: _Run) -> None:
     summary = grid_run.go()
     assert summary["git_shas"] == [url_grid.git_sha()]
+
+
+# --- run control: what a rerun, an interrupt or an old grid may and may not do ---------------
+
+
+def test_trials_from_another_commit_are_asked_again_not_reused(grid_run: _Run) -> None:
+    grid_run.logged("u000", git="oldcommit")
+    grid_run.logged("u001", git="oldcommit")
+    summary = grid_run.go(batch=2)
+    assert len(grid_run.asks.asked) == 2
+    assert summary["git_shas"] == [url_grid.git_sha()]
+
+
+def test_a_duplicated_log_row_is_not_a_second_trial(grid_run: _Run) -> None:
+    grid_run.logged("u000")
+    grid_run.logged("u000")
+    summary = grid_run.go(batch=1)
+    assert grid_run.asks.asked == ["SEALED-QUESTION-1"]
+    assert (summary["status"], summary["trials"]) == ("FINAL", 2)
+
+
+def test_a_non_200_answer_is_counted_as_crashed(
+    grid_run: _Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    post = grid_run.asks.post
+
+    def throttled(path: str, json: dict[str, str]) -> types.SimpleNamespace:
+        post(path, json)
+        return types.SimpleNamespace(status_code=429, json=lambda: {})
+
+    monkeypatch.setattr(grid_run.asks, "post", throttled)
+    summary = grid_run.go()
+    assert (summary["crashed"], summary["pass_rate"]) == (2, 0.0)
+
+
+def test_zero_repeats_is_refused_not_scored_as_final(grid_run: _Run) -> None:
+    with pytest.raises(SystemExit, match="repeat"):
+        grid_run.go(repeat=0)
+
+
+def test_a_grid_from_before_a_cell_field_was_added_is_refused_before_anything_is_deleted(
+    grid_run: _Run,
+) -> None:
+    grid_run.latest.write_text('{"status": "FINAL"}')
+    grid_run.grid.write_text(NL.join(["[[cell]]", 'id = "u000"', 'question = "q"']))
+    with pytest.raises(SystemExit, match="regenerate"):
+        grid_run.go()
+    assert grid_run.latest.exists() and grid_run.asks.asked == []
+
+
+def test_a_sealed_tag_must_say_sealed(grid_run: _Run) -> None:
+    with pytest.raises(SystemExit, match="sealed"):
+        grid_run.go(aggregate_only=True, tag="private")
+
+
+def test_a_sealed_run_prints_no_cell_id_and_no_small_bucket(
+    grid_run: _Run, capsys: pytest.CaptureFixture[str]
+) -> None:
+    summary = grid_run.go(aggregate_only=True, tag="sealed")
+    shown = capsys.readouterr()
+    assert "u000" not in shown.out + shown.err and "u001" not in shown.out + shown.err
+    assert summary["by_dimension"] == {}
+
+
+def test_a_visible_run_keeps_every_dimension_bucket(grid_run: _Run) -> None:
+    assert "level=county" in grid_run.go()["by_dimension"]
+
+
+def test_an_interrupt_does_not_run_the_queued_trials_live(
+    grid_run: _Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = threading.Event()
+    post = grid_run.asks.post
+
+    def slow(path: str, json: dict[str, str]) -> types.SimpleNamespace:
+        if json["question"] == "SEALED-QUESTION-1":
+            release.wait(timeout=3)  # the worker is busy here when the interrupt lands
+        return post(path, json)
+
+    cells = [{**CELL, "id": f"u00{i}", "question": f"SEALED-QUESTION-{i}"} for i in range(3)]
+    grid_run.grid.write_text(url_grid.dump_toml({"generated": {}, "skipped": [], "cell": cells}))
+    grid_run.asks.answers["SEALED-QUESTION-0"] = KeyboardInterrupt()
+    monkeypatch.setattr(grid_run.asks, "post", slow)
+    with pytest.raises(KeyboardInterrupt):
+        grid_run.go()
+    release.set()
+    time.sleep(0.2)
+    assert "SEALED-QUESTION-2" not in grid_run.asks.asked
+
+
+def test_the_table_drawn_for_a_year_series_exists_in_one_of_its_years() -> None:
+    matrix = {"acs1": {"2019": {"B2": {}}, "2020": {"B2": {}}}}
+    rng = random.Random(0)
+    drawn = {url_grid.table_for(rng, ["B1", "B2"], matrix, "acs1", [2019]) for _ in range(20)}
+    assert drawn == {"B2"}
+    assert url_grid.table_for(rng, ["B1"], matrix, "acs1", []) == "B1"
+
+
+def test_a_flaky_reference_call_is_retried_before_it_is_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(url_grid.time, "sleep", lambda _s: None)
+    statuses = iter([503, 429, 200])
+
+    class Flaky:
+        def get(self, url: str) -> types.SimpleNamespace:
+            return types.SimpleNamespace(status_code=next(statuses), json=lambda: [["NAME"], ["x"]])
+
+    assert url_grid.reference(Flaky(), "k", 2024, "county") == [["x"]]  # type: ignore[arg-type]
+
+
+def test_git_sha_marks_uncommitted_code_as_dirty(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake(cmd: list[str], **_kw: Any) -> types.SimpleNamespace:
+        code = 1 if "diff" in cmd and fake.dirty else 0
+        return types.SimpleNamespace(stdout="abc123\n", returncode=code)
+
+    monkeypatch.setattr(url_grid.subprocess, "run", fake)
+    fake.dirty = False  # type: ignore[attr-defined]
+    assert url_grid.git_sha() == "abc123"
+    fake.dirty = True  # type: ignore[attr-defined]
+    assert url_grid.git_sha() == "abc123+dirty"
+
+
+def test_two_rows_for_one_trial_do_not_stand_in_for_a_missing_trial() -> None:
+    cells = [CELL, {**CELL, "id": "u001"}]
+    once = _trial("u000")
+    assert url_grid.summarize(cells, [once, once], 1, "abc")["status"] == "PARTIAL"
