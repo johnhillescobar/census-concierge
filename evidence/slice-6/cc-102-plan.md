@@ -21,7 +21,7 @@ Local commits only (see `git log`); nothing pushed, no PR, no Jira write.
 | CC-121 stays open until CC-102 and CC-120 are both complete; no Jira write made | `owner` |
 | Four gate rounds (Gate 1 + cold Gate 2 each), E2E once after and once post-merge; credits approved | `owner` |
 | Answer text is written by code (the model supplies the missing state, so it cannot write the explanation) | `default` |
-| Partial cases are refused: a county name with no state, a tract named only by a city, and a phrase that points at a place without naming it ("my county") | `owner`; **status: the county-name case is NOT refused** (see "Copilot review") |
+| Partial cases are refused: a county name with no state, a tract named only by a city, and a phrase that points at a place without naming it ("my county") | `owner`; **status: the county-name case is NOT refused; the owner decided to leave it as a known limit (2026-10-25)** (see "Copilot review") |
 | The split-call prompt (~500 tokens, ~580 with `pointing`, against ~150 on `origin/main`) is left as is and recorded: this file, the PR body, a comment on CC-3 (posted 2026-10-24) and one on CC-102 with the PR link | `owner` |
 | No new follow-up ticket: the findings map to CC-119, CC-106, CC-114, CC-120 and CC-104 (listed under known limits) | `owner` |
 | E2E, the PR and the Jira comments follow `docs/playbooks/run-slice.md` without asking | `owner` |
@@ -168,7 +168,7 @@ tract rows for Texas (recorded in the ticket, not re-run); the same-day baseline
 Three findings on `finish.py`; replies are on the PR.
 - **GEOID in the report** (fixed, 33ffe78): a supported GEOID the model reports supplies the level and parents
   it encodes (`clauses_from_geoid`); parsing only, no match against the question. Resolved.
-- **A county named without its state is not refused** (open). I had said it was; I had not run it. Real model,
+- **A county named without its state is not refused** (known limit, owner decision 2026-10-25). I had said it was; I had not run it. Real model,
   7 variants x 5: 0 of 35 refused ("Cook County" becomes "Cook County, Illinois" from the model's knowledge, and
   the check does not second-guess it). Three designs measured on 30 valid and 12 no-state county questions x 5:
 
@@ -179,9 +179,9 @@ Three findings on `finish.py`; replies are on the PR.
   | `states` entries with separate "written" and "state" slots | 33 | 0 |
 
   The model writes "Illinois" for the user's "IL", so quotes fail; a flag follows what it knows. Matching the
-  question against a state table would work but is the keyword scan CLAUDE.md bans. Owner's call; none of the
-  three is in the code.
-- **Parents are pooled** (open): one `county_named` and one `named` list serve every numbered place, so "tract 71
+  question against a state table would work but is the keyword scan CLAUDE.md bans. Owner decision: leave it as
+  a known limit; none of the three is in the code.
+- **Parents are pooled** (known limit; the owner asked for the thread to be closed, 2026-10-25): one `county_named` and one `named` list serve every numbered place, so "tract 71
   in Dane County, Wisconsin with tract 305 in Texas" passes. Fixing it needs a report that attaches each number to
   its parents; restructuring the report risks what iteration 7 broke. It fails open to the loop as before.
 
