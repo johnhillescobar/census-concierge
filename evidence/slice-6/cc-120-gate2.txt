@@ -1,0 +1,273 @@
+# CC-120 Gate 2 transcript. Reviewed commit 056dd3a (worktree branch reset to it; main was a39290f).
+
+$ uv sync
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Using CPython 3.12.12
+Creating virtual environment at: .venv
+Resolved 136 packages in 1ms
+   Building census-concierge-api @ file:///C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a44b3acf884587298/api
+      Built census-concierge-api @ file:///C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a44b3acf884587298/api
+Prepared 1 package in 756ms
+Installed 76 packages in 2.50s
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anyio==4.14.2
+ + ast-serialize==0.8.0
+ + census-concierge-api==0.1.0 (from file:///C:/Users/johnh/Dropbox/Python/census-concierge/.claude/worktrees/agent-a44b3acf884587298/api)
+ + certifi==2026.7.22
+ + cffi==2.1.1
+ + cfgv==3.5.0
+ + charset-normalizer==3.5.1
+ + click==8.4.2
+ + colorama==0.4.6
+ + cryptography==50.0.0
+ + distlib==0.4.3
+ + distro==1.9.0
+ + fastapi==0.141.1
+ + filelock==3.32.3
+ + google-auth==2.56.3
+ + google-genai==2.18.1
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpcore2==2.10.0
+ + httpx==0.28.1
+ + httpx2==2.10.0
+ + identify==2.6.19
+ + idna==3.18
+ + iniconfig==2.3.0
+ + jiter==0.16.0
+ + jsonpatch==1.33
+ + jsonpointer==3.1.1
+ + langchain-core==1.5.5
+ + langchain-protocol==0.0.18
+ + langsmith==0.11.0
+ + librt==0.15.0
+ + mypy==2.3.0
+ + mypy-extensions==1.1.0
+ + nodeenv==1.10.0
+ + numpy==2.5.2
+ + openai==3.0.0
+ + orjson==3.12.0
+ + packaging==26.3
+ + pathspec==1.1.1
+ + platformdirs==4.11.3
+ + pluggy==1.6.0
+ + pre-commit==4.6.2
+ + psycopg==3.3.6
+ + psycopg-binary==3.3.6
+ + psycopg-pool==3.3.3
+ + pyasn1==0.6.4
+ + pyasn1-modules==0.4.2
+ + pycparser==3.0
+ + pydantic==2.13.4
+ + pydantic-core==2.46.4
+ + pygments==2.20.0
+ + pytest==9.1.1
+ + pytest-asyncio==1.4.0
+ + python-discovery==1.5.2
+ + python-dotenv==1.2.2
+ + pyyaml==6.0.3
+ + requests==2.34.2
+ + requests-toolbelt==1.0.0
+ + ruff==0.16.3
+ + sniffio==1.3.1
+ + starlette==1.6.0
+ + tenacity==9.1.4
+ + tqdm==4.70.0
+ + truststore==0.10.4
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + tzdata==2026.4
+ + urllib3==2.7.0
+ + uuid-utils==0.17.0
+ + uvicorn==0.52.4
+ + virtualenv==21.7.4
+ + websockets==16.1.1
+ + xxhash==4.0.0
+ + zstandard==0.25.0
+exit=0
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  ok    budget increases               
+  FAIL  new regex                      
+        api/src/compare.py
+        1 -> 3 regex call(s). Regex is a last resort: let the model compose structure and have code validate it (CLAUDE.md, Do not).
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 64 (base 62, delta +2)
+
+6 violation(s).
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+exit=1
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4396 <= 4600
+  ok    api src files               26 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens       977 <= 1200
+  ok    doc lines                 1753 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+exit=0
+
+$ uv run ruff check .
+All checks passed!
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+exit=0
+
+$ uv run ruff format --check .
+184 files already formatted
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+exit=0
+
+$ uv run mypy api/src
+Success: no issues found in 26 source files
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+exit=0
+
+$ uv run pytest -q
+........................................................................ [ 10%]
+........................................................................ [ 20%]
+........................................................................ [ 30%]
+..................................sssssssssssssssss..sss................ [ 40%]
+........................................................................ [ 51%]
+........................................................................ [ 61%]
+........................................................................ [ 71%]
+.....F.................................................................. [ 81%]
+.....................................................................sss [ 92%]
+ssssssss..s.ss..........................................                 [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x0000021BFF659970>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021BFF659820>
+
+    def test_invariants_print_every_named_pattern(capsys: Any, monkeypatch: Any) -> None:
+        monkeypatch.setattr(sys, "argv", ["check_invariants.py"])
+>       assert inv.main() == 0
+E       assert 1 == 0
+E        +  where 1 = <function main at 0x0000021BFF3E44A0>()
+E        +    where <function main at 0x0000021BFF3E44A0> = inv.main
+
+api\tests\test_invariants.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+5 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a44b3acf884587298\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 669 passed, 34 skipped, 1 warning in 15.28s
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+exit=1
+
+# ---- Pass 2 follow-up probes (read-only; scratch scripts outside the repo) ----
+
+$ uv run python scripts/check_invariants.py --base a3f0930   (merge-base of 056dd3a and origin/main; branch is 38 commits behind main)
+  FAIL  eval phrasing in api/src   (same 5 hits as above)
+  FAIL  budget increases           budgets.toml [size] api_src_loc 4400 -> 4600  (comes from parent commit 7aebf3a, not from 056dd3a)
+  ok    new regex                  (the "1 -> 3 regex calls in compare.py" failure against origin/main is staleness: main's CC-102 changes are not on this branch)
+  info  api/src regex call sites: 64 (base 64, delta +0)
+  6 violation(s).
+
+$ leak probe: _leak_hits over all 247 visible eval questions (107 from url_breadth_grid.toml, 140 from other evals) vs the same without the grid
+  hits with grid, GRID-ONLY (not hit by the other 140 questions):
+    gram4  'zip code tabulation area'  api/src/contract.py [29, 166]; api/src/geo.py [41, 42, 43, 362, 376]
+    regex2 'district columbia'         api/src/geo_list.py [80]
+    regex2 'statistical area'          api/src/guards.py [31]
+    regex2 'united states'             api/src/geo.py [52, 351]
+  the other 13 hits are already baselined and unchanged.
+  Sources: contract.py:29 ZCTA geography table row; geo.py:41-43 alias map ("zcta"/"zip" -> "zip code tabulation area"); geo.py:52 _US regex; geo_list.py:80 DC regex "district of columbia"; guards.py:31 regex alternation containing "statistical area".
+
+$ grid statistics (evals/url_breadth_grid.toml)
+  107 cells; var_count 1:30 24:29 25:25 whole:23; depth 0:29 1:36 2:37 3:5; 34 levels; 90 tables
+  fail_closed cells: 2 (u105 place/remainder (or part), u106 tract; both ACS1)
+  time cells: single 1, acs5_series 1, acs1_series 1, gap 1
+  ambiguous question text for distinct levels (level.split("/")[0]):
+    'american indian area' -> 4 levels; 'metropolitan statistical area' -> 2 levels; 'place' -> 'place' and 'place/remainder (or part)'
+  cell keys carry no place, in_spec or GEOID (only level, depth, scope, table_id, expected_rows, ...)
+
+$ availability matrix probe (main checkout's index_store, read-only)
+  acs1 years [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024]
+  B28012 in acs1: 2016 False, 2017 False, 2018 False, 2019 False, 2021 True ...   (u104 asks B28012 ACS1 for 2019, 2020, 2021 and sets unpublished=[2020] only)
+
+$ /code-review skill (forked agent a32fee51ba0e438c5) on 056dd3a, 15 findings returned; summarized in the handback report.

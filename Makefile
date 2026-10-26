@@ -4,7 +4,7 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo e2e latency-chart gate lint types test fmt invariants hooks metadata index serve web-test client
+.PHONY: check eval demo url-grid e2e latency-chart gate lint types test fmt invariants hooks metadata index serve web-test client
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
 check: lint types test invariants web-test
@@ -35,6 +35,11 @@ demo:
 	npm --prefix web run build
 	uv run python scripts/run_demo.py --repeat 3
 	uv run python scripts/run_grid.py --repeat 3
+
+## URL breadth grid (CC-120): variables x level x depth x time, scored on the URL. Separate
+## from `make demo`; about 320 live /ask calls at --repeat 3. Writes evidence/url-grid-latest.json.
+url-grid:
+	uv run python scripts/url_grid.py run --repeat 3
 
 ## Capture eval + demo into evidence/slice-<N>/<ticket>-e2e-<pre|post>.txt
 ## Usage: make e2e SLICE=3 TICKET=CC-71 PHASE=pre
