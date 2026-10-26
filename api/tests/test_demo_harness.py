@@ -458,3 +458,31 @@ def test_geography_level_is_decoded_from_the_for_clause() -> None:
     url = "https://api.census.gov/data/2024/acs/acs5?get=B19013_001E&for=zip+code+tabulation+area:90210"
     assert run_demo.fetched_level(url) == "zip code tabulation area"
     assert run_demo.fetched_level("https://api.census.gov/data/2024/acs/acs5?get=NAME") == ""
+
+
+def test_overlapping_calls_in_one_bucket_count_once() -> None:
+    clock = run_demo.Clock()
+    clock.spans = {"llm": [(0.0, 3.0), (1.0, 2.5), (5.0, 6.0)]}
+    assert clock.llm == 4.0
+
+
+def test_buckets_add_up_without_double_counting() -> None:
+    clock = run_demo.Clock()
+    clock.spans = {
+        "llm": [(0.0, 2.0)],
+        "rerank": [(2.0, 5.0)],
+        "census": [(6.0, 7.0), (6.5, 7.5)],
+    }
+    assert clock.seconds("rerank") == 3.0
+    assert clock.census == 1.5
+    assert clock.seconds() == 6.5
+    clock.reset()
+    assert clock.seconds() == 0.0
+
+
+def test_search_split_reaches_the_summary_and_the_record() -> None:
+    trials = [_trial(t_rerank=2.0, t_embed=0.2), _trial(t_rerank=4.0, t_embed=0.4)]
+    summary = run_demo.summarize(trials, repeat=1, prompt="p", index="i")
+    assert summary["t_rerank"] == 3.0
+    assert summary["t_embed"] == 0.3
+    assert summary["trials"][0]["t_rerank"] == 2.0
