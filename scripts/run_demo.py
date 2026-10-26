@@ -27,7 +27,7 @@ import re
 import sys
 import time
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -205,12 +205,34 @@ def merge_evidence(
 
 @dataclass
 class Clock:
-    llm: float = 0.0
-    census: float = 0.0
+    """Wall-clock intervals per bucket. Overlapping calls in one bucket count once."""
+
+    spans: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
+
+    def add(self, bucket: str, started: float) -> None:
+        self.spans.setdefault(bucket, []).append((started, time.perf_counter()))
 
     def reset(self) -> None:
-        self.llm = 0.0
-        self.census = 0.0
+        self.spans = {}
+
+    def seconds(self, *buckets: str) -> float:
+        """Union length of the named buckets' intervals (every bucket if none named)."""
+        spans = sorted(
+            s for name in (buckets or tuple(self.spans)) for s in self.spans.get(name, [])
+        )
+        total, end = 0.0, -math.inf
+        for start, stop in spans:
+            total += max(0.0, stop - max(start, end))
+            end = max(end, stop)
+        return total
+
+    @property
+    def llm(self) -> float:
+        return self.seconds("llm")
+
+    @property
+    def census(self) -> float:
+        return self.seconds("census")
 
 
 @dataclass
@@ -231,13 +253,18 @@ class Trial:
     t_ours: float
     detail: str
     rows: int = 0
+    t_rerank: float = 0.0
+    t_embed: float = 0.0
 
 
 def install_clock(clock: Clock) -> None:
     from src import ask as ask_mod
+    from src.retrieval import embedding, rerank
 
     original_complete = ask_mod._openai_complete
     original_dispatch = ask_mod.dispatch
+    original_choose = rerank.choose
+    original_embed = embedding.embed_query
 
     async def complete(
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
@@ -246,20 +273,36 @@ def install_clock(clock: Clock) -> None:
         try:
             return await original_complete(messages, openai_tools)
         finally:
-            clock.llm += time.perf_counter() - started
+            clock.add("llm", started)
 
     async def dispatch(tool: Any, call: dict[str, Any], record: Any) -> str:
         started = time.perf_counter()
         try:
             return await original_dispatch(tool, call, record)
         finally:
-            elapsed = time.perf_counter() - started
-            name = getattr(tool, "name", "")
-            if name in CENSUS_TOOLS:
-                clock.census += elapsed
+            if getattr(tool, "name", "") in CENSUS_TOOLS:
+                clock.add("census", started)
+
+    # Both run inside search_tables, which is not a Census tool, so they used to be
+    # booked as "ours". Split out so the residual is only our own code.
+    def choose(*args: Any, **kwargs: Any) -> Any:
+        started = time.perf_counter()
+        try:
+            return original_choose(*args, **kwargs)
+        finally:
+            clock.add("rerank", started)
+
+    def embed_query(*args: Any, **kwargs: Any) -> Any:
+        started = time.perf_counter()
+        try:
+            return original_embed(*args, **kwargs)
+        finally:
+            clock.add("embed", started)
 
     ask_mod._openai_complete = complete  # type: ignore[method-assign]
     ask_mod.dispatch = dispatch  # type: ignore[method-assign]
+    rerank.choose = choose  # type: ignore[assignment]
+    embedding.embed_query = embed_query  # type: ignore[assignment]
 
 
 def _mean(values: list[float]) -> float:
@@ -287,6 +330,8 @@ def trial_record(trial: Trial) -> dict[str, Any]:
         "t_llm": round(trial.t_llm, 3),
         "t_census_api": round(trial.t_census_api, 3),
         "t_ours": round(trial.t_ours, 3),
+        "t_rerank": round(trial.t_rerank, 3),
+        "t_embed": round(trial.t_embed, 3),
         "rows": trial.rows,
     }
 
@@ -317,6 +362,8 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "t_llm": _mean([trial.t_llm for trial in trials]),
         "t_census_api": _mean([trial.t_census_api for trial in trials]),
         "t_ours": _mean([trial.t_ours for trial in trials]),
+        "t_rerank": _mean([trial.t_rerank for trial in trials]),
+        "t_embed": _mean([trial.t_embed for trial in trials]),
         "prompt_hash": prompt,
         "index_hash": index,
         "by_tier": by_tier,
@@ -344,7 +391,7 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
     elapsed = time.perf_counter() - started
     t_llm = clock.llm
     t_census = clock.census
-    t_ours = max(0.0, elapsed - t_llm - t_census)
+    t_ours = max(0.0, elapsed - clock.seconds())
     url = redact_text(" ".join(census_urls(body)))
     warnings = [
         str(item.get("code") or "") for item in body.get("warnings") or [] if isinstance(item, dict)
@@ -368,6 +415,8 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
         t_ours=t_ours,
         detail=detail,
         rows=len(body.get("rows") or []),
+        t_rerank=clock.seconds("rerank"),
+        t_embed=clock.seconds("embed"),
     )
 
 
@@ -387,6 +436,10 @@ def _print_report(summary: dict[str, Any], floors: tuple[float, float]) -> None:
     print(
         f"  t_llm          {summary['t_llm']:.3f}s   t_census_api {summary['t_census_api']:.3f}s"
         f"   t_ours {summary['t_ours']:.3f}s   (means; not gated)"
+    )
+    print(
+        f"  search split:  t_rerank {summary['t_rerank']:.3f}s   t_embed {summary['t_embed']:.3f}s"
+        "   (own buckets, not in t_ours)"
     )
     print(f"  prompt_hash    {summary['prompt_hash']}   index_hash {summary['index_hash']}")
     if summary["misses"]:
