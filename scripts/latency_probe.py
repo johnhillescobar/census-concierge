@@ -27,6 +27,7 @@ import sys
 import time
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -57,7 +58,9 @@ PRIORITY = (
 )
 ARMS = ("A0", "L1", "L2", "C1")
 INJECT_TARGETS = ("census", "chat", "rerank", "embed", "assemble", "unwrapped")
-RERANK_TIMEOUT_MS = 3000
+# Gemini rejects a server deadline under 10 s (HTTP 400), so L2 bounds the wait client-side.
+RERANK_TIMEOUT_S = 3.0
+BOUND_POOL = ThreadPoolExecutor(max_workers=16)
 
 
 @dataclass
@@ -248,24 +251,20 @@ def install_spans() -> None:
         rec, began = STATE.rec, time.perf_counter()
         response = None
         try:
-            response = generate(self, *a, **kw)
+            if STATE.arm == "L2":
+                future = BOUND_POOL.submit(generate, self, *a, **kw)
+                try:
+                    response = future.result(timeout=RERANK_TIMEOUT_S)
+                except FutureTimeout as exc:
+                    raise TimeoutError("rerank bound exceeded") from exc
+            else:
+                response = generate(self, *a, **kw)
             return response
         finally:  # a timeout loses the response; the span still records the wait
             if rec:
                 llm_span("rerank", rec, began, response, str(kw.get("model")))
 
     genai.models.Models.generate_content = gemini  # type: ignore[method-assign]
-
-    real_client = genai.Client
-
-    def client(*a: Any, **kw: Any) -> Any:
-        if STATE.arm == "L2":
-            from google.genai import types
-
-            kw["http_options"] = types.HttpOptions(timeout=RERANK_TIMEOUT_MS)
-        return real_client(*a, **kw)
-
-    genai.Client = client  # type: ignore[assignment,misc]
 
     real_choose = rerank.choose
 
@@ -601,7 +600,7 @@ def cmd_report(args: argparse.Namespace) -> int:
                         f"  llm:{t:<8} calls/q={len(own) / len(sel):.2f} {toks} s: "
                         f"{stats([c['s'] for c in own])}"
                     )
-            census = [c for r in sel for c in r["census_requests"]]
+            census = [c for r in sel for c in r.get("census_requests", [])]
             if census:
                 print(
                     f"  census req/q={len(census) / len(sel):.2f}  "
@@ -631,7 +630,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
             tot = [r["total_s"] for r in sel]
             rr = [c["s"] for r in sel for c in r["llm_calls"] if c["tier"] == "rerank"]
             ch = [c["s"] for r in sel for c in r["llm_calls"] if c["tier"] == "chat"]
-            scored = [r for r in sel if r["expected"] and r["tier"] != "trap"]
+            scored = [r for r in sel if r.get("expected") and r["tier"] != "trap"]
             match = sum(r["table_id"] == r["expected"] for r in scored) / max(1, len(scored))
             answered = sum(r["answered"] for r in sel) / len(sel)
             census = statistics.fmean(r["exclusive"].get("census", 0) for r in sel)
