@@ -45,18 +45,19 @@ raises `TimeoutError`, which `choose` treats as a failure). This is a different 
 from the design doc's wording ("bounded at 3 s"); the bound and the fallback are the same.
 `L2` and `A0` were rerun together, interleaved, into `arms-l2-rerun.jsonl`.
 
-## Census requests hung to the 60 s timeout in the evening (2026-10-26)
+## Census requests hung to the 60 s timeout (2026-10-26 and 2026-10-27)
 
 Both Census call sites use `httpx.get(..., timeout=60.0)` (`fetch.py:112`, `geo_list.py:220`).
 
 - `arms-clean.jsonl` (288 trials), `q40-x12.jsonl` and `arms-c1-r1-rerun.jsonl`: no Census
   request over 55 s.
-- The sealed run (20:57 to about 22:55) and `arms-l2-rerun.jsonl` (from 23:00): many requests
+- The sealed run (2026-10-26 20:57 to 22:55), `arms-l2-rerun.jsonl` (from 23:00) and the cold
+  replay (2026-10-27 about 06:10): many requests
   end at 60 to 67 s with status 0. In the first 55 rerun trials, 20 requests and 15 trials.
 - Re-fetching the 13 distinct URLs that hung in the rerun, once each at about 23:30: 12 returned
   in 0.6 to 4.5 s (HTTP 200, one 204, one 400), 1 hung again to 75.9 s. The hangs are mostly
   transient and not tied to a URL.
-- Consequence: totals in the evening runs carry Census timeout time. They are kept, never
+- Consequence: totals in those runs carry Census timeout time. They are kept, never
   dropped, and every statistic is shown with and without trials over 60 s. LLM per-call times
   are not affected. The `make demo` p95 is exposed to the same episodes, and its run time is
   stated next to its number.

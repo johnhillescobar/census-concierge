@@ -482,7 +482,10 @@ def _get(url: str) -> tuple[int, float]:
     import httpx
 
     began = time.perf_counter()
-    status = httpx.get(url, timeout=60.0).status_code
+    try:
+        status = httpx.get(url, timeout=60.0).status_code
+    except httpx.HTTPError:  # a hang or a dropped connection is a measurement, status 0
+        status = 0
     return status, time.perf_counter() - began
 
 
