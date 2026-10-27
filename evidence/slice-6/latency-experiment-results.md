@@ -195,7 +195,8 @@ spans note records one q40 trial at 25.2 s). A Census hang does not explain it (
 60 s or more, and the hang shows up in `census`, not `t_ours`). If that E2E predates the
 rerank/embed split, `t_ours` then included the rerank and embed time, and a rerank stall (q18 has
 shown rerank calls of 15.5 s here and 32.9 s earlier) would land in it; the E2E date was not
-checked, so this is a candidate and not a finding. Reported as not reproducible with this repeat
+checked, so this is a candidate and not a finding. The 2026-10-27 demo shows the mechanism: its
+two slowest trials are 45.6 s and 27.3 s rerank stalls. Reported as not reproducible with this repeat
 count.
 
 ## Duplicate Census requests (post hoc, not pre-registered)
@@ -242,7 +243,36 @@ category level.
 
 ## Scoreboard (`make demo`, same `--repeat 3`)
 
-SCOREBOARD_PLACEHOLDER
+`make demo` recipe (`npm ci`, `npm run build`, `scripts/run_demo.py --repeat 3`), run on this
+branch on 2026-10-27, 11:19 to 12:02 UTC (43 minutes), n = 186 trials, same `--repeat 3` and
+question set as the committed `evidence/latest.json`. Read from the run's `evidence/latest.json`
+(kept as [`cc-113-demo-latest.json`](cc-113-demo-latest.json); the repo's `latest.json` is not
+changed by this PR), not from the transcript.
+
+| figure | this run | committed `latest.json` |
+| --- | --- | --- |
+| `demo.p95_latency_seconds` | **24.194** (ceiling 20.0) | 20.695 |
+| p50 trial seconds | 11.54 | |
+| answered rate, long_tail (headline) | 0.667 | |
+| answered rate, all trials | 0.737 | |
+| answered by tier | core 0.75 (n=12), long_tail 0.667 (n=120), trap 0.889 (n=54) | |
+| mean seconds per trial: llm / rerank / embed / census / ours | 6.30 / 3.61 / 0.38 / 2.62 / 0.18 | |
+| trials over 60 s / over 30 s | 0 / 2 | |
+| `answered_rate` floor (long_tail) | 0.667 against a floor of 0.7 | |
+| URL grid (`run_grid.py --repeat 3`) | 210 / 210 trials, pass rate 0.99 | |
+
+By tier, trial seconds p50 / p95: long_tail 10.55 / 20.48, trap 13.61 / 24.19, core 14.39 / 52.94.
+There were no trials over 60 s, so with and without trials over 60 s are the same. The Census
+hangs of 2026-10-26 and 2026-10-27 morning did not appear in this window. p95 is over the 20.0
+ceiling, as it is in the committed file; `check_budgets` reports it, and this PR does not touch
+that gate, `budgets.toml` or `/ask`. The raw trial lines are in
+[`cc-113-demo-scoreboard.txt`](cc-113-demo-scoreboard.txt).
+
+What sets this p95 (post hoc): per-trial rerank seconds are p50 2.5, p95 8.8, max 45.6. The two
+slowest trials are rerank stalls (q02 repeat 3: 52.9 s with 45.6 s of rerank; q11 repeat 3:
+35.7 s with 27.3 s), 5 trials have a rerank over 15 s, and 7 of the 13 trials over 20 s have a
+rerank over 8 s. Subtracting everything above 3 s from each trial's rerank would give p95 17.3 s
+(4 s cap: 18.2 s); that is an estimate from recorded times, not an experiment.
 
 ## Incidents
 

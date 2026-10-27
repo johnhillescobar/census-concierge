@@ -1,0 +1,29 @@
+## lint
+All checks passed!
+199 files already formatted
+## types
+Success: no issues found in 26 source files
+## test
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 907 passed, 34 skipped, 1 warning in 72.01s (0:01:12)
+## invariants
+
+5 violation(s).
+
+## web-test
+62:web-test:
+63-	npm --prefix web ci && npm --prefix web test && npm --prefix web run typecheck
+64-
+65-## Regenerate packages/client from the live OpenAPI schema. --check is in `make check`.
+## client drift
+🚀 C:\Users\johnh\AppData\Local\Temp\tmp1zyujp1m\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp1zyujp1m\schema.d.ts [58.4ms]
+packages/client is up to date.
+## budgets
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+

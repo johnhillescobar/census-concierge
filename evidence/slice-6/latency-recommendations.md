@@ -10,7 +10,10 @@ touched and none of these proposes touching it: the p95 gate keeps reading the r
 
 Two different things set the p95, depending on the window. In a clean window (the main run,
 2026-10-25) no A0 or L1 trial was over 24 s (C1 reached 41 s) and the A0 p95 of 19.5 s is the LLM: 6.6 chat calls per question
-(about 5.7 s of a 10.8 s median) and a rerank whose p95 is 3 to 4x the chat p95. In a hang window
+(about 5.7 s of a 10.8 s median) and a rerank whose p95 is 3 to 4x the chat p95. The `make demo` of 2026-10-27 (a clean Census
+window, no trial over 60 s) has p95 24.2 s against the 20.0 ceiling, and its worst trials are
+rerank stalls: 52.9 s with 45.6 s in the rerank, 35.7 s with 27.3 s, and 7 of its 13 trials over
+20 s have a rerank over 8 s. In a hang window
 (2026-10-26 and 2026-10-27) 17.5% of sealed A0 trials (21 of 120) are over 60 s and the p95 is 76 s: a Census
 request waits out the 60 s client timeout. Our own code is about 0.3 s per question. Expected
 savings below are therefore stated per window, and a recommendation that only helps in one window
@@ -30,14 +33,14 @@ where the change helps; evidence quality and risk are stated beside it and break
 | # | category | change | saving, clean window (p50 / p95) | saving, hang window (p50 / p95) | effort | p95 s per effort | basis |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Census | Bound the total wait on a Census request, hedge one retry | 0 / 0 | 0 / about 50 s | S | about 50 | measured cause, estimated fix |
-| 2 | Census | Do not repeat an identical Census request within one question | about 0.5 s mean / up to 5.7 s | same | M | up to 2.9 | measured upper bound |
-| 3 | LLM | Bound the rerank wait at 3 s with the existing fallback | about 0 / 1 to 2 s | 0 | S | 1 to 2 | measured on LLM time, confounded on totals |
+| 2 | LLM | Bound the rerank wait at 3 s with the existing fallback | about 0.7 s / up to 6.9 s (demo: p95 24.2 s to about 17.3 s) | 0 | S | up to 6.9 | measured stalls, estimated saving |
+| 3 | Census | Do not repeat an identical Census request within one question | about 0.5 s mean / up to 5.7 s | same | M | up to 2.9 | measured upper bound |
 | 4 | LLM | Cap chat-loop turns | about 1 / 2 to 3 s | same | M | 1.0 to 1.5 | estimated |
 | 5 | ours | Build the Gemini client once, not per rerank call | about 0.33 / about 0.33 s | same | S | 0.33 | measured |
 | 6 | Census | Keep `MAX_IN_FLIGHT = 5` (no change) | none | none | none | none | measured |
 
 Rank 5 is last on seconds per effort but is a small, riskless diff with no cost to MOE, GEOID,
-universe or alternatives, so it ships with rank 1 in the draft story below. Ranks 3 and 4 trade
+universe or alternatives, so it ships with rank 1 in draft story B below. Ranks 2 and 4 trade
 seconds against answered rate and table-match, so each needs its own A/B before it ships.
 
 ### 1. Census: bound the total wait on a request and hedge one retry
@@ -69,7 +72,32 @@ seconds against answered rate and table-match, so each needs its own A/B before 
     proven one; the golden-set records are the direct evidence.
 - **Not recommended:** lowering the 60 s without a retry (turns a transient hang into a failure).
 
-### 2. Census: do not repeat an identical request within one question
+### 2. LLM: bound the rerank wait at 3 s, keep the code's own fallback
+
+- **Evidence.** Rerank call p95 is 6.3 s (main run), 6.0 s (rerun) and 5.1 s (sealed), against
+  chat p95 of 1.5 to 1.6 s. In the `make demo` of 2026-10-27, which had no Census hang, the
+  per-trial rerank time is p50 2.5 s, p95 8.8 s, max 45.6 s; 5 trials have a rerank over 15 s;
+  the two slowest trials (52.9 s and 35.7 s) are 45.6 s and 27.3 s of rerank; 7 of the 13 trials
+  over 20 s have a rerank over 8 s. With a 3 s client-side bound (Gemini rejects a server
+  deadline under 10 s), the rerun's rerank p95 is 3.0 s, LLM-only trial p95 falls 14.3 s to
+  12.6 s (measured, 1.7 s), and table-match is 0.783 against 0.800 (down 1.7 points). Trial-total
+  p95 was not lower in that run (it was inside a Census hang window), so the controlled
+  experiment is inconclusive at the total.
+- **Expected saving.** Subtracting everything above 3 s from each demo trial's rerank (assuming
+  the fallback costs nothing and the chat loop is unchanged) gives p50 11.5 s to 10.9 s and p95
+  24.2 s to 17.3 s (4 s cap: 18.2 s), max 52.9 s to 28.1 s. That is an estimate from recorded
+  trial times, not an experiment. Hang window: 0, the Census wait dominates.
+- **Cost and risk.** The fallback is the top retrieval candidate, so a cut-off rerank can pick
+  the wrong table, and with it the wrong universe (households against families). The measured cost
+  was 1.7 points of table-match and 4 points of answered (0.750 to 0.708) on 72 trials per arm,
+  inside the noise but not shown to be zero; a rerank that stalls for 27 s may also have been the
+  one that would have picked the right table. Alternatives are still listed. Needs a same-repeat
+  A/B on a clean window before shipping.
+- **Not recommended as-is:** switching the rerank to `gpt-4o-mini` (L1). It cuts p50 by 3.4 s,
+  but costs 10 points of table-match (0.850 to 0.750) and 5.6 points of answered. Every one of
+  those points is a user handed the wrong table.
+
+### 3. Census: do not repeat an identical request within one question
 
 - **Evidence.** 295 of 944 requests (31.2%) repeat an earlier request in the same trial, in 83 of
   288 trials; repeat-request seconds per trial are mean 0.99 s, p95 5.7 s, max 29 s; 9 of the 10
@@ -80,24 +108,6 @@ seconds against answered rate and table-match, so each needs its own A/B before 
   GEOID or universe cost. The record of requests already made lives on the request record, not
   in module state. The risk is a dedupe key that is too loose (two different requests treated as
   one): key on the full URL without the API key.
-
-### 3. LLM: bound the rerank wait at 3 s, keep the code's own fallback
-
-- **Evidence.** Rerank call p95 is 6.3 s (main run), 6.0 s (rerun) and 5.1 s (sealed), against chat
-  p95 of 1.5 to 1.6 s. With a 3 s client-side bound (Gemini rejects a server deadline under 10 s),
-  rerank p95 is 3.0 s, LLM-only trial p95 falls 14.3 s to 12.6 s (measured, 1.7 s), and
-  table-match is 0.783 against 0.800 (down 1.7 points). Trial-total p95 was not lower in that run
-  (it was inside a Census hang window), so the hypothesis is inconclusive at the total.
-- **Expected saving.** Clean window: p50 about 0; p95 1 to 2 s on trials where the rerank was the
-  long call. Hang window: 0, the Census wait dominates.
-- **Cost and risk.** The fallback is the top retrieval candidate, so a cut-off rerank can pick
-  the wrong table, and with it the wrong universe (households against families). The measured cost
-  was 1.7 points of table-match and 4 points of answered (0.750 to 0.708) on 72 trials per arm,
-  inside the noise but not shown to be zero. Alternatives are still listed. Needs a same-repeat
-  A/B on a clean window before shipping.
-- **Not recommended as-is:** switching the rerank to `gpt-4o-mini` (L1). It cuts p50 by 3.4 s,
-  but costs 10 points of table-match (0.850 to 0.750) and 5.6 points of answered. Every one of
-  those points is a user handed the wrong table.
 
 ### 4. LLM: cap chat-loop turns
 
@@ -134,16 +144,45 @@ seconds against answered rate and table-match, so each needs its own A/B before 
 
 ## Ranking rationale
 
-The order is the table's: p95 seconds saved per unit of effort. 1 is far ahead because one
-timeout is 60 s. 2 has a measured upper bound and is a medium diff. 3 and 4 are worth 1 to 3 s but
-cost answered rate and table-match risk, so they follow an experiment. 5 is the smallest saving
+The order is the table's: p95 seconds saved per unit of effort. 1 is far ahead in a hang window because one
+timeout is 60 s; 2 is the largest saving in a clean window, where the gate is read, and a small
+diff. 3 has a measured upper bound and is a medium diff. 2 and 4 cost answered-rate and table-match
+risk, so each follows an A/B. 5 is the smallest saving
 and the safest, which is why it travels with 1.
 
 None of these changes the p95 ceiling or how it is measured. If after 1 to 3 the demo still
 sits above 20 s in a clean window, the next candidates are 4 and 5, each with its own A/B; the
 gate stays as written, and a ceiling is never moved to fit a number.
 
-## Draft fix story (ready to file; not filed)
+## Draft fix stories (ready to file; not filed)
+
+### Story A: bound the rerank wait (the clean-window p95)
+
+**Title:** Bound the Gemini rerank wait at 3 s and fall back to the top candidate
+
+**Description.** CC-113 found the clean-window p95 is set by rerank stalls: in the 2026-10-27
+`make demo`, per-trial rerank is p95 8.8 s with a maximum of 45.6 s, and 7 of 13 trials over 20 s
+have a rerank over 8 s. Capping each trial's rerank at 3 s would have moved that demo's p95 from
+24.2 s to about 17.3 s (estimate). Evidence: `evidence/slice-6/latency-experiment-results.md`.
+
+**Acceptance criteria**
+
+1. A rerank call that has not returned in 3 s is abandoned and `rerank.choose` returns the top
+   retrieval candidate, the fallback it already has. Gemini rejects a server deadline under 10 s,
+   so the bound is client-side.
+2. The abandoned call does not keep a thread or connection until the process exits.
+3. The PR runs the same-repeat A/B on one window (A0 against the bound) and quotes answered rate
+   and table-match for both, plus `demo.p95_latency_seconds`. The bound ships only if table-match
+   is within 3 points of A0 on `long_tail`; otherwise the PR reports the number and stops.
+4. Alternatives are still listed and the universe is still shown; a test fails if a fallback
+   answer drops the related tables or the `M` variables.
+5. `budgets.toml` is unchanged and `demo.p95_latency_seconds` is still read from the run.
+6. No regex or keyword matching; no new graph node.
+
+**Expected effect:** clean window p50 about 0.7 s, p95 up to about 6.9 s (estimated); the PR
+replaces the estimate with its own measurement.
+
+### Story B: bound and hedge Census requests, and build the Gemini client once
 
 **Title:** Bound and hedge Census requests, and build the Gemini client once
 
@@ -172,12 +211,12 @@ sealed p95 is 76 s against 25 s without the hung trials. (2) `rerank._choose_gem
 7. No regex or keyword matching; no new graph node; no module named `*_manager`, `*_service` and
    the like.
 
-**Out of scope:** a rerank bound or a different rerank model (recommendation 3), a chat-turn cap
-(4), request dedupe (2, separate story). Each needs its own same-repeat A/B on a clean window.
+**Out of scope:** a rerank bound or a different rerank model (story A), a chat-turn cap
+(recommendation 4), request dedupe (recommendation 3, separate story). Each needs its own same-repeat A/B on a clean window.
 
 **Expected effect:** clean window 0.3 s at p50 and p95 (the client); hang window about 50 s at
 p95. Estimated; the PR replaces the estimate with its own measurement.
 
 **Companion story, to file after the one above:** "Do not repeat an identical Census request
-within a question" (recommendation 2), with the dedupe record on the request record and a test
+within a question" (recommendation 3), with the dedupe record on the request record and a test
 that two distinct URLs are never merged.
