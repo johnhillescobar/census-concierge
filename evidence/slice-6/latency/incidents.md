@@ -53,7 +53,7 @@ Both Census call sites use `httpx.get(..., timeout=60.0)` (`fetch.py:112`, `geo_
   request over 55 s.
 - The sealed run (20:57 to about 22:55) and `arms-l2-rerun.jsonl` (from 23:00): many requests
   end at 60 to 67 s with status 0. In the first 55 rerun trials, 20 requests and 15 trials.
-- Re-fetching the 13 distinct URLs that hung in the rerun, once each at about 23:40: 12 returned
+- Re-fetching the 13 distinct URLs that hung in the rerun, once each at about 23:30: 12 returned
   in 0.6 to 4.5 s (HTTP 200, one 204, one 400), 1 hung again to 75.9 s. The hangs are mostly
   transient and not tied to a URL.
 - Consequence: totals in the evening runs carry Census timeout time. They are kept, never
