@@ -487,17 +487,36 @@ def _get(url: str) -> tuple[int, float]:
     return status, time.perf_counter() - began
 
 
-def cold_variant(url: str) -> str | None:
-    """The same query asking for one extra variable of the same table: a URL no one has asked."""
-    from urllib.parse import parse_qs, quote
+def cold_variant(url: str, ordinal: int) -> str | None:
+    """The same query plus one real sibling variable of the table, so the URL is new to the server.
 
-    query = parse_qs(urlparse(url).query)
-    names = [v for v in query.get("get", [""])[0].split(",") if "_" in v]
+    `ordinal` picks a different sibling each time; None when the table has no sibling left.
+    An invented variable ID returns HTTP 400, which is not a cold request: the first replay
+    did exactly that and its cold arm was discarded.
+    """
+    import gzip
+    from urllib.parse import parse_qs
+
+    parts = urlparse(url)
+    asked = parse_qs(parts.query).get("get", [""])[0].split(",")
+    bits = parts.path.split("/")
+    if "data" not in bits or "acs" not in bits:
+        return None
+    year, dataset = bits[bits.index("data") + 1], bits[bits.index("acs") + 1]
+    path = demo.ROOT / "data" / "raw" / dataset / year / "variables.json.gz"
+    if not path.exists():
+        return None
+    with gzip.open(path, "rt", encoding="utf-8") as handle:
+        known = json.load(handle)["variables"]
+    names = [v for v in asked if v in known and v[1:2].isdigit()]  # not NAME or GEO_ID
     if not names:
         return None
     table = names[0].split("_")[0]
-    extra = f"{table}_{len(names) + 3:03d}E"
-    return url.replace("get=", f"get={quote(extra)},", 1)
+    siblings = sorted(k for k in known if k.startswith(f"{table}_") and k.endswith(("E", "M")))
+    siblings = [k for k in siblings if k not in asked]
+    if ordinal >= len(siblings):
+        return None
+    return url.replace("get=", f"get={siblings[ordinal]},", 1)
 
 
 def cmd_replay(args: argparse.Namespace) -> int:
@@ -516,10 +535,14 @@ def cmd_replay(args: argparse.Namespace) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("a", encoding="utf-8") as sink:
         for repeat in range(1, args.repeat + 1):
-            for workers in (1, 5, 12):
+            for slot, workers in enumerate((1, 5, 12)):
                 for qid, urls in sets.items():
-                    for temp in ("cold", "warm"):
-                        batch = [cold_variant(u) if temp == "cold" else u for u in urls]
+                    for temp in args.temperatures.split(","):
+                        ordinal = (repeat - 1) * 3 + slot
+                        distinct = list(dict.fromkeys(urls))
+                        batch = [
+                            cold_variant(u, ordinal) if temp == "cold" else u for u in distinct
+                        ]
                         batch = [b for b in batch if b]
                         full = [CensusURL(b).with_key(key) for b in batch]
                         began = time.perf_counter()
@@ -592,6 +615,125 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    """Per arm: totals per repeat (spread), rerank and chat per-call, table match, answered."""
+    rows = [json.loads(line) for p in args.files for line in Path(p).read_text().splitlines()]
+    for tier in ("all", "long_tail", "trap"):
+        print(f"\n## tier {tier}   (p50 / p95 of trial total, seconds; per repeat then pooled)")
+        for arm in sorted({r["arm"] for r in rows}):
+            sel = [r for r in rows if r["arm"] == arm and (tier == "all" or r["tier"] == tier)]
+            if not sel:
+                continue
+            per = []
+            for rep in sorted({r["repeat"] for r in sel}):
+                t = [r["total_s"] for r in sel if r["repeat"] == rep]
+                per.append(f"r{rep}: {percentile(t, 50)}/{percentile(t, 95)}")
+            tot = [r["total_s"] for r in sel]
+            rr = [c["s"] for r in sel for c in r["llm_calls"] if c["tier"] == "rerank"]
+            ch = [c["s"] for r in sel for c in r["llm_calls"] if c["tier"] == "chat"]
+            scored = [r for r in sel if r["expected"] and r["tier"] != "trap"]
+            match = sum(r["table_id"] == r["expected"] for r in scored) / max(1, len(scored))
+            answered = sum(r["answered"] for r in sel) / len(sel)
+            census = statistics.fmean(r["exclusive"].get("census", 0) for r in sel)
+            print(
+                f"{arm}  n={len(sel)}  pooled {percentile(tot, 50)}/{percentile(tot, 95)}  "
+                f"[{'  '.join(per)}]\n"
+                f"    rerank/call p50={percentile(rr, 50)} p95={percentile(rr, 95)}  "
+                f"chat/call p50={percentile(ch, 50)} p95={percentile(ch, 95)}  "
+                f"chat calls/q={len(ch) / len(sel):.2f}\n"
+                f"    answered={answered:.3f}  table-match={match:.3f}  census s mean={census:.2f}"
+            )
+    return 0
+
+
+def cmd_duplicates(args: argparse.Namespace) -> int:
+    """Census requests that repeat an earlier URL in the same trial, and the slow trials."""
+    rows = [json.loads(line) for p in args.files for line in Path(p).read_text().splitlines()]
+    total = dups = with_dup = 0
+    dup_seconds: list[float] = []
+    for r in rows:
+        seen: set[str] = set()
+        seconds, n = 0.0, 0
+        for c in r["census_requests"]:
+            total += 1
+            if c["url"] in seen:
+                dups, n, seconds = dups + 1, n + 1, seconds + c["s"]
+            seen.add(c["url"])
+        with_dup += bool(n)
+        dup_seconds.append(seconds)
+    print(f"requests {total}; exact repeats within a trial {dups} ({dups / total:.1%})")
+    print(
+        f"trials with a repeat {with_dup} of {len(rows)}; repeat request seconds per trial: "
+        f"mean {statistics.fmean(dup_seconds):.2f} p95 {percentile(dup_seconds, 95)} "
+        f"max {max(dup_seconds):.2f}"
+    )
+    slow = [r for r in rows if r["total_s"] > args.over]
+    print(f"\ntrials over {args.over} s: {len(slow)}")
+    for r in slow:
+        chat = [c for c in r["llm_calls"] if c["tier"] == "chat"]
+        top = max(r["llm_calls"], key=lambda c: c["s"], default={"tier": "-", "s": 0})
+        urls = [c["url"] for c in r["census_requests"]]
+        print(
+            f"  {r['arm']} {r['id']} {r['total_s']}s llm={r['exclusive'].get('llm', 0):.1f} "
+            f"census={r['exclusive'].get('census', 0):.1f} chat_calls={len(chat)} "
+            f"requests={len(urls)} distinct={len(set(urls))} slowest_llm={top['tier']} {top['s']}"
+        )
+    xs = [sum(c["tier"] == "chat" for c in r["llm_calls"]) for r in rows]
+    ys = [r["total_s"] for r in rows]
+    corr = statistics.correlation(xs, ys) if len(set(xs)) > 1 else 0.0
+    print(f"\ncorrelation(chat calls, trial total) = {corr:.2f}")
+    return 0
+
+
+def cmd_replay_report(args: argparse.Namespace) -> int:
+    """Wall seconds by fetch concurrency and temperature, plus the named questions."""
+    rows = [json.loads(line) for line in Path(args.file).read_text().splitlines()]
+    codes: dict[tuple[str, int], int] = {}
+    for r in rows:
+        for status in r["statuses"]:
+            codes[(r["temperature"], status)] = codes.get((r["temperature"], status), 0) + 1
+    print("status counts by temperature:", dict(sorted(codes.items())))
+    for temp in ("cold", "warm"):
+        for workers in (1, 5, 12):
+            sel = [r for r in rows if r["workers"] == workers and r["temperature"] == temp]
+            many = [r["wall_s"] for r in sel if r["requests"] >= 3]
+            few = [r["wall_s"] for r in sel if r["requests"] < 3]
+            per = [
+                percentile(
+                    [r["wall_s"] for r in sel if r["repeat"] == k and r["requests"] >= 3], 50
+                )
+                for k in sorted({r["repeat"] for r in sel})
+            ]
+            print(
+                f"{temp} workers={workers}: >=3 requests median {percentile(many, 50)} "
+                f"(per repeat {per}); <3 requests median {percentile(few, 50)}; "
+                f"all p95 {percentile([r['wall_s'] for r in sel], 95)}"
+            )
+    by_level: dict[str, list[float]] = {}
+    for r in rows:
+        if r["workers"] == 1 and r["temperature"] == "warm":
+            for level, secs in zip(r["levels"], r["per_request_s"], strict=False):
+                by_level.setdefault(level, []).append(secs)
+    for level, secs in sorted(by_level.items()):
+        print(
+            f"warm per-request level={level}: n={len(secs)} p50={percentile(secs, 50)} "
+            f"p95={percentile(secs, 95)}"
+        )
+    for qid in args.ids.split(","):
+        for workers in (1, 5, 12):
+            sel = [
+                r
+                for r in rows
+                if r["id"] == qid and r["workers"] == workers and r["temperature"] == "warm"
+            ]
+            if sel:
+                print(
+                    f"{qid} workers={workers}: requests={sel[0]['requests']} "
+                    f"wall median {percentile([r['wall_s'] for r in sel], 50)}"
+                )
+    return 0
+
+
 # Which attributed name must hold the injected seconds for each injection target.
 EXPECT = {
     "census": "census",
@@ -647,8 +789,17 @@ def main() -> int:
     replay.add_argument("--source", required=True)
     replay.add_argument("--out", required=True)
     replay.add_argument("--repeat", type=int, default=3)
+    replay.add_argument("--temperatures", default="cold,warm", help="comma list of cold, warm")
     report = sub.add_parser("report")
     report.add_argument("files", nargs="+")
+    dup = sub.add_parser("duplicates")
+    dup.add_argument("files", nargs="+")
+    dup.add_argument("--over", type=float, default=20.0)
+    rr = sub.add_parser("replay-report")
+    rr.add_argument("file")
+    rr.add_argument("--ids", default="q18,q21,q08")
+    compare = sub.add_parser("compare")
+    compare.add_argument("files", nargs="+")
     validity = sub.add_parser("validity")
     validity.add_argument("files", nargs="+")
     args = parser.parse_args()
@@ -657,6 +808,9 @@ def main() -> int:
         "replay": cmd_replay,
         "report": cmd_report,
         "validity": cmd_validity,
+        "compare": cmd_compare,
+        "duplicates": cmd_duplicates,
+        "replay-report": cmd_replay_report,
     }
     return handlers[args.cmd](args)
 
