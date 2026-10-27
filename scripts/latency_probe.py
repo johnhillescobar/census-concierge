@@ -208,7 +208,7 @@ def install_spans() -> None:
     from openai.resources.chat.completions import AsyncCompletions, Completions
     from openai.resources.embeddings import Embeddings
     from src import ask as ask_mod
-    from src import fetch, guards
+    from src import guards
     from src.census_url import redact_text
     from src.retrieval import index, rerank
 
@@ -338,7 +338,6 @@ def install_spans() -> None:
                 rec.add(f"tool:{getattr(tool, 'name', '')}", began)
 
     ask_mod.dispatch = dispatch  # type: ignore[assignment]
-    fetch.MAX_IN_FLIGHT = 5
 
 
 def percentile(values: list[float], p: float) -> float:
@@ -433,7 +432,8 @@ def build_client() -> Any:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    missing = [k for k in ("OPENAI_API_KEY", "CENSUS_API_KEY") if not os.environ.get(k)]
+    needed = ("OPENAI_API_KEY", "CENSUS_API_KEY", "GEMINI_API_KEY")  # no Gemini: rerank falls back
+    missing = [k for k in needed if not os.environ.get(k)]
     if missing:
         print(f"Missing {', '.join(missing)}", file=sys.stderr)
         return 2
@@ -442,6 +442,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.ids:
         entries = [e for e in entries if str(e["id"]) in args.ids.split(",")]
     arms = args.arms.split(",")
+    unknown = [a for a in arms if a not in ARMS]
+    if unknown:
+        print(f"Unknown arm(s) {unknown}; choose from {ARMS}", file=sys.stderr)
+        return 2
     client = build_client()
     out = Path(args.out)
     if args.aggregate_only and not (out.parent.name == "evidence" and "sealed" in out.name):
@@ -449,6 +453,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             "--aggregate-only needs --out evidence/<name containing 'sealed'> (gitignored)",
             file=sys.stderr,
         )
+        return 2
+    if out.exists() and out.stat().st_size and not args.append:
+        print(f"{out} exists; pass --append to add rows or choose a new --out", file=sys.stderr)
         return 2
     out.parent.mkdir(parents=True, exist_ok=True)
     total, done = len(entries) * len(arms) * args.repeat, 0
@@ -524,7 +531,7 @@ def cold_variant(url: str, ordinal: int) -> str | None:
 def cmd_replay(args: argparse.Namespace) -> int:
     from src.census_url import CensusURL
 
-    key = os.environ.get("CENSUS_API_KEY", "")
+    key = os.environ.get("CENSUS_API_KEY")
     if not key:
         print("Missing CENSUS_API_KEY", file=sys.stderr)
         return 2
@@ -656,7 +663,7 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
     for r in rows:
         seen: set[str] = set()
         seconds, n = 0.0, 0
-        for c in r["census_requests"]:
+        for c in r.get("census_requests", []):
             total += 1
             if c["url"] in seen:
                 dups, n, seconds = dups + 1, n + 1, seconds + c["s"]
@@ -667,14 +674,14 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
     print(
         f"trials with a repeat {with_dup} of {len(rows)}; repeat request seconds per trial: "
         f"mean {statistics.fmean(dup_seconds):.2f} p95 {percentile(dup_seconds, 95)} "
-        f"max {max(dup_seconds):.2f}"
+        f"max {max(dup_seconds, default=0.0):.2f}"
     )
     slow = [r for r in rows if r["total_s"] > args.over]
     print(f"\ntrials over {args.over} s: {len(slow)}")
     for r in slow:
         chat = [c for c in r["llm_calls"] if c["tier"] == "chat"]
         top = max(r["llm_calls"], key=lambda c: c["s"], default={"tier": "-", "s": 0})
-        urls = [c["url"] for c in r["census_requests"]]
+        urls = [c["url"] for c in r.get("census_requests", [])]
         print(
             f"  {r['arm']} {r['id']} {r['total_s']}s llm={r['exclusive'].get('llm', 0):.1f} "
             f"census={r['exclusive'].get('census', 0):.1f} chat_calls={len(chat)} "
@@ -690,6 +697,8 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
 def cmd_replay_report(args: argparse.Namespace) -> int:
     """Wall seconds by fetch concurrency and temperature, plus the named questions."""
     rows = [json.loads(line) for line in Path(args.file).read_text().splitlines()]
+    if args.temperature:
+        rows = [r for r in rows if r["temperature"] == args.temperature]
     codes: dict[tuple[str, int], int] = {}
     for r in rows:
         for status in r["statuses"]:
@@ -698,6 +707,8 @@ def cmd_replay_report(args: argparse.Namespace) -> int:
     for temp in ("cold", "warm"):
         for workers in (1, 5, 12):
             sel = [r for r in rows if r["workers"] == workers and r["temperature"] == temp]
+            if not sel:
+                continue
             many = [r["wall_s"] for r in sel if r["requests"] >= 3]
             few = [r["wall_s"] for r in sel if r["requests"] < 3]
             per = [
@@ -764,8 +775,9 @@ def cmd_validity(args: argparse.Namespace) -> int:
                 note = f"unaccounted={r['unaccounted_s']}"
             else:
                 held = inside.get(EXPECT[target], 0.0)
-                good = gt > 0 and abs(held - gt) <= 0.5
-                note = f"{EXPECT[target]} holds {held}"
+                excl = r.get("exclusive", {}).get(EXPECT[target], 0.0)
+                good = gt > 0 and abs(held - gt) <= 0.5 and excl >= gt - 0.5
+                note = f"{EXPECT[target]} holds {held} (excl {excl:.1f})"
             ok_all &= good
             print(
                 f"{target:<10} {r['id']:<4} injected={gt:<6} {note:<28} "
@@ -787,6 +799,7 @@ def main() -> int:
     run.add_argument("--questions-file")
     run.add_argument("--ids", default="")
     run.add_argument("--aggregate-only", action="store_true")
+    run.add_argument("--append", action="store_true", help="add to an existing --out file")
     replay = sub.add_parser("replay")
     replay.add_argument("--source", required=True)
     replay.add_argument("--out", required=True)
@@ -800,6 +813,7 @@ def main() -> int:
     rr = sub.add_parser("replay-report")
     rr.add_argument("file")
     rr.add_argument("--ids", default="q18,q21,q08")
+    rr.add_argument("--temperature", default="", help="only rows of cold or warm")
     compare = sub.add_parser("compare")
     compare.add_argument("files", nargs="+")
     validity = sub.add_parser("validity")

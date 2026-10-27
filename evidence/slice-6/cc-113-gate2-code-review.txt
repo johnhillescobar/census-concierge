@@ -1,0 +1,112 @@
+CC-113 Gate 2, pass 1 of 2: /code-review (effort: high)
+Target: origin/main...feat/cc-113-latency-research (HEAD a1cf031, base b9a5ca5)
+Reviewer: cold subagent, no caller context. 2026-10-27.
+Constraint: a live benchmark was running, so nothing was executed except git, ruff and
+local python over evidence files. mypy and pytest were NOT run.
+
+Verdict: NOT YET. 10 findings from the skill; 4 re-verified by the reviewer against the repo
+(marked VERIFIED). Line numbers in the skill's raw JSON for the two results-file findings are
+off (it counted a different line ending); corrected numbers are in the second section.
+
+=========================================================================================
+SECTION 1. /code-review output, verbatim
+=========================================================================================
+
+[
+  {
+    "file": "evidence/slice-6/latency-experiment-results.md",
+    "line": 205,
+    "summary": "The 'Scoreboard (`make demo`, same `--repeat 3`)' section still contains the literal text `SCOREBOARD_PLACEHOLDER`.",
+    "failure_scenario": "CLAUDE.md defines done as quoting the `make demo` scoreboard, and the design doc says the full-baseline `make demo` is 'the scoreboard and the source of the p95'. This ticket exists because `demo.p95_latency_seconds` is over the 20 s ceiling. The results file ships with no demo pass rate and no demo p95 to set the probe numbers against. Every probe p95 (19.5 s, 76 s sealed) is quoted without the number the gate actually reads. A reader cannot tell whether 19.5 s on the probe set reproduces the gate's p95."
+  },
+  {
+    "file": "evidence/slice-6/latency-experiment-results.md",
+    "line": 228,
+    "summary": "The 'Reproduce' block cannot be run as written. `latency_probe.py validity` is given no files, but its subparser has `files nargs=\"+\"`, so argparse exits with an error.",
+    "failure_scenario": "A reviewer runs the first reproduce line (`uv run python scripts/latency_probe.py validity`) and gets `error: the following arguments are required: files`. The `--inject census|chat|rerank|embed|assemble|unwrapped` runs that produce `validity-*.jsonl` are not listed anywhere in the block. The instrument-validity claim (the injected delay lands in the right bucket) therefore cannot be regenerated from the documented commands."
+  },
+  {
+    "file": "scripts/latency_probe.py",
+    "line": 749,
+    "summary": "`cmd_validity` does not test the exclusive attribution that every report uses. It scores the non-control targets with `injected_inside`, which is inclusive overlap by span name (`overlap` against a union of spans of that name). It never checks that other buckets hold under 0.5 s of the injection, which the design's pass rule requires.",
+    "failure_scenario": "Reports use `attribute()` with `PRIORITY` (`exclusive`). Validity passes if 'census holds G' by raw overlap, and the nested `tool:fetch_data` span also overlaps G fully. If PRIORITY or the span boundaries were wrong and the seconds landed in `tool:*` or `unaccounted` in `exclusive`, validity would still print PASS. The design says 'every other category holds under 0.5 s'. That half is not implemented, and only the `unwrapped` control reads `exclusive`/`unaccounted`. The 'instrument validated to 0.001 s' claim in the results is stronger than what the check proves."
+  },
+  {
+    "file": "scripts/latency_probe.py",
+    "line": 524,
+    "summary": "In `cmd_replay`, the cold arm silently drops every URL for which `cold_variant` returns None, including all DP and S tables and any table with no spare sibling variable. A question can end up with `requests: 0` or fewer requests than its warm counterpart, and the record is still written.",
+    "failure_scenario": "`batch = [b for b in batch if b]` shrinks the cold set to about 25-33 of 61 distinct URLs. Cold records with 0-2 requests are compared with warm records of the full URL set. `replay-report` medians for '<3 requests' and 'all p95' mix those zero-request records in. The cold-vs-warm conclusion in the results rests on non-paired, differently sized sets. The 'cold at 5 workers is slower by 0.4 to 1.3 s' reading is therefore biased, and this is only partly disclosed. The 25-33 coverage is mentioned, but the zero-request rows are not filtered."
+  },
+  {
+    "file": "evidence/slice-6/latency/replay-cold-report.txt",
+    "line": 4,
+    "summary": "The committed cold report prints `warm workers=N: ... median 0.0 ... p95 0.0` for all three worker counts. These come from `percentile([])` returning 0.0 on an empty selection, because the file has only cold rows. `replay-report.txt` also still includes the invalid cold rows, all HTTP 400.",
+    "failure_scenario": "`cmd_replay_report` loops over both temperatures regardless of what is in the file, and `demo.percentile` returns 0.0 for an empty list. A reader sees 'warm ... median 0.0' as a measurement. `replay-report.txt` lines such as 'cold workers=5 ... median 0.715' come from the discarded 846/846 HTTP 400 run and sit next to the valid warm lines with no marker. Both are committed artifacts that look like results."
+  },
+  {
+    "file": "evidence/slice-6/latency-experiment-results.md",
+    "line": 156,
+    "summary": "Two numbers in the write-up do not match the data it cites. '7 of the 10 trials over 20 s had 8 or 9 chat calls' is 8 of 10 in `duplicates.txt`. The reproduce text also points at `arms-clean.jsonl`, which still contains the invalid L2 rows.",
+    "failure_scenario": "`duplicates.txt` lists chat_calls = 9, 6, 9, 7, 8, 9, 8, 9, 9, 9 for the 10 slow trials. Eight of those are 8 or 9, not 7. The same figure is repeated in Recommendation 5, which the 'cap chat-loop turns' saving estimate is derived from. The `report`/`compare` commands in 'Reproduce' read `arms-clean.jsonl`, whose L2 rows are the invalid first arm (answered 0.542), so running them prints invalid L2 statistics as if valid."
+  },
+  {
+    "file": "scripts/latency_probe.py",
+    "line": 63,
+    "summary": "The probe keeps its state at module level: a `State` class with mutable class attributes, a module-level `STATE`, and a module-level `BOUND_POOL`. `ARMS` is defined but never used.",
+    "failure_scenario": "CLAUDE.md, Architecture: 'No module-level mutable state; pass context as arguments.' `STATE.rec/arm/inject` and a 16-thread pool are mutated and shared across all wrappers. `ARMS` is dead code, and `--arms` is not validated against it. A typo such as `--arms l1` or `A1` silently runs the unmodified A0 path under the wrong label. Each such trial is recorded as a different arm, and the arm comparison does not detect it."
+  },
+  {
+    "file": "scripts/latency_probe.py",
+    "line": 254,
+    "summary": "In the L2 arm, a timed-out Gemini call leaves its worker running in the 16-thread `BOUND_POOL`. The pool is non-daemon, so abandoned calls keep running, still hold their HTTP connections, and can exhaust the pool.",
+    "failure_scenario": "`future.result(timeout=3.0)` raises `TimeoutError`, but `generate` keeps running in the pool for up to the SDK default. Repeated rerank tails (up to 15-32 s) queue behind abandoned calls. Later `BOUND_POOL.submit` calls then wait before they start, and that wait is counted against the 3 s bound. L2 therefore measures a worse bound than the one proposed in Recommendation 4. At process exit the interpreter blocks on the leftover workers. L2 drew 24 hang trials against A0's 10 in the rerun, and the results attribute that entirely to Census without checking this."
+  },
+  {
+    "file": "scripts/latency_probe.py",
+    "line": 341,
+    "summary": "`install_spans` sets `fetch.MAX_IN_FLIGHT = 5`, and `run_trial` then sets it on every trial, so the line in `install_spans` does nothing. Separately, `cmd_duplicates` and `cmd_report` disagree on `census_requests` for aggregate-only files.",
+    "failure_scenario": "The duplicated assignment is dead and hides the A0 default, which is a hard-coded 5 instead of the production constant. If `fetch.MAX_IN_FLIGHT` changes in `api/src`, A0 stops being 'as shipped' without any warning. Running `duplicates` on an `--aggregate-only` sealed file raises KeyError because it reads `r[\"census_requests\"]`, which `cmd_run` pops. `report` uses `.get`, so the two subcommands disagree. `max(dup_seconds)` on an empty file also raises."
+  },
+  {
+    "file": "evidence/slice-6/latency/arms.jsonl",
+    "line": 1,
+    "summary": "About 21k lines of overlapping raw data are committed. `arms.jsonl` and `arms-clean.jsonl` are near-duplicates, and the logs (`arms.log` has 15.5k lines) are mostly repeated 'Event loop is closed' tracebacks.",
+    "failure_scenario": "`arms.jsonl` (288 rows, including the contaminated C1 repeat 1 and the invalid L2 arm) is committed next to `arms-clean.jsonl` (288 rows) built from it. A 15.5k-line log contains 1,632 'Event loop is closed' lines. These come from the app creating a new `AsyncOpenAI()` per call under `TestClient`, which the probe never documents as noise. Future reviewers and any tool that reads `arms.jsonl` instead of `arms-clean.jsonl` get invalid or contaminated rows, and the real signal in the logs is buried."
+  }
+]
+
+=========================================================================================
+SECTION 2. Reviewer re-verification of the skill's findings (added after the skill returned)
+=========================================================================================
+
+Corrected line numbers (the worktree file is the one to edit):
+  - SCOREBOARD_PLACEHOLDER: latency-experiment-results.md:219 (skill said 205).        VERIFIED
+  - Reproduce `validity` with no files: latency-experiment-results.md:238 (skill: 228). VERIFIED
+    (the subparser is `validity.add_argument("files", nargs="+")`, latency_probe.py)
+  - "7 of the 10 ... 8 or 9 chat calls": results.md "Chat loop" section and
+    recommendations.md rec 5. duplicates.txt chat_calls = 9,6,9,7,8,9,8,9,9,9, so 8 of 10.  VERIFIED
+    by recomputing from arms-clean.jsonl.
+  - ARMS unused: only reference is its definition at latency_probe.py:59.                 VERIFIED
+  - replay-cold-report.txt lines 4-6 print "warm ... median 0.0": file has only cold rows. VERIFIED
+  - replay-cold.jsonl: of 207 records, 50 have requests=0, 131 have requests=1, 15 have 2,
+    only 11 have >= 3 (q08 x9 at 10 requests, q21 x2 at 3). Warm replay.jsonl has 94 requests
+    per (repeat, workers) slot; cold has 25 to 33.                                         VERIFIED
+  - cmd_validity uses injected_inside (per-name overlap), not exclusive attribution.      VERIFIED by reading
+  - cmd_duplicates reads r["census_requests"] (KeyError on aggregate-only rows).          VERIFIED by reading
+  - BOUND_POOL starvation (finding 8) and "AsyncOpenAI per call" (finding 10): plausible,
+    not independently measured (no API calls allowed). Treat as UNVERIFIED hypotheses.
+    Note that L2's hang-trial count is also explained by the arm being a contiguous block of
+    24 trials (see review-pr transcript), so finding 8 is not needed to explain it.
+
+Extra items found by this reviewer while verifying (not in the skill's list):
+  A. scripts/latency_probe.py:436 `cmd_run` requires OPENAI_API_KEY and CENSUS_API_KEY but not
+     GEMINI_API_KEY. A missing key makes rerank._choose_gemini raise KeyError, which
+     rerank.choose swallows, so every arm silently falls back to the top candidate: the same
+     silent failure as the invalid first L2 arm in incidents.md. Fail closed in cmd_run.
+  B. scripts/latency_probe.py:527 `os.environ.get("CENSUS_API_KEY", "")` is flagged by
+     scripts/check_invariants.py as "empty secret defaults" (a hard FAIL). See the review-pr
+     transcript.
+  C. scripts/latency_probe.py:455 cmd_run opens --out in append mode; re-running the same
+     command appends a second set of rows to the same file with no marker. Low.
+
+ruff check scripts/latency_probe.py: All checks passed. ruff format --check: already formatted.

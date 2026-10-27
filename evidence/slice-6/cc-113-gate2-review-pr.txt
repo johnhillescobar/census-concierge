@@ -1,0 +1,295 @@
+CC-113 Gate 2, pass 2 of 2: docs/playbooks/review-pr.md
+Target: origin/main...feat/cc-113-latency-research (HEAD a1cf031, base b9a5ca5), 33 files, +21,272 lines
+Reviewer: cold subagent, no caller context. 2026-10-27.
+Constraint: a live benchmark was running. Not run: pytest, mypy, make check, npm, the probe, any API.
+Run: scripts/check_budgets.py and scripts/check_invariants.py with the worktree venv python
+(pure file and git reads), ruff check / format --check on scripts/latency_probe.py, and local
+python -I over the evidence jsonl files. No file with "sealed" in its name was read.
+
+VERDICT: NOT YET. Most important reason: scripts/check_invariants.py --base origin/main exits
+non-zero on a violation this diff introduces (empty secret default at scripts/latency_probe.py:527).
+The playbook says the review is over until the machines exit 0. After that, several quoted
+numbers do not match the files they cite (section 6) and the scoreboard is still a placeholder.
+
+=========================================================================================
+1. The machines
+=========================================================================================
+
+--- scripts/check_budgets.py ---
+  ok  api src LOC 4511 <= 4600 ; api src files 26 <= 40 ; largest file LOC 407 <= 410
+  ok  web src LOC 3349 <= 3350 ; system prompt tokens 977 <= 1200 ; doc lines 1800 <= 1800
+  ok  graph nodes 0 <= 8 ; agent tools 4 <= 6 ; api routes 4 <= 10 ; tool schemas 8 <= 12
+  ok  domain models 11 <= 15 ; direct dependencies 8 <= 25
+  FAIL p95 latency (s): 20.695 <= 20   (run 2026-10-25T03:18:25+00:00, slowest trial 31.074s)
+  ok  retrieval_at_10, selector_at_1, answered_rate, synthetic_alignment
+  Reading: the one failure is evidence/latest.json inherited from origin/main (the breach CC-113
+  studies). This diff changes neither budgets.toml nor latest.json. Not caused by the diff.
+  Note: doc lines is exactly at its ceiling (1800); the new evidence/*.md files are not counted.
+
+--- scripts/check_invariants.py --base origin/main ---
+  FAIL empty secret defaults
+       scripts/latency_probe.py:527
+       missing CENSUS_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY must fail closed, not default to empty
+  FAIL eval phrasing in api/src  (contract.py:29, geo.py:41, geo.py:52, geo_list.py:80, guards.py:31)
+       api/src is untouched by this diff (git diff --stat shows no api/ path), so these five
+       are pre-existing / environment-dependent on this checkout, not introduced here.
+       Owner decision (baseline file), out of scope for CC-113.
+  ok  budget increases ; budget log matches values ; new regex (delta +0) ; new exemptions
+  ok  census key in artifacts ; key attached only via CensusURL ; forbidden module names
+  ok  ticket-named tests ; prompt assertions ; blocking clarification ; banned frameworks
+  6 violation(s) in total: 1 introduced by this diff (secret default), 5 pre-existing.
+
+--- ruff ---
+  .venv/Scripts/ruff.exe check scripts/latency_probe.py   -> All checks passed
+  .venv/Scripts/ruff.exe format --check scripts/latency_probe.py -> 1 file already formatted
+
+--- not run (benchmark in progress) ---
+  mypy api/src, pytest -m "not integration". The diff touches no api/src and adds no test, so
+  neither can change; the caller should still let `make check` run when the benchmark ends.
+
+=========================================================================================
+2. The claim
+=========================================================================================
+CC-113 is research: the claim is "the owner can now see which of LLM, Census or our code sets the
+p95, with numbers, and has a ranked, ready-to-file fix story". Stated plainly in
+latency-recommendations.md. No user-facing capability changes, and the files say so.
+Scope (what the ticket requires, checked):
+  - design doc committed before any run: commit 04bd4a4 precedes 87837ad (first probe commit)
+    and every data commit.                                                              OK
+  - NO fix: `git diff --stat origin/main...HEAD -- api budgets.toml docs Makefile pyproject.toml
+    .claude` is empty. Only scripts/latency_probe.py and evidence/slice-6/** are touched.  OK
+  - /ask unchanged, budgets.toml unchanged.                                              OK
+  - no key leaked: 2800 `key=` occurrences in the diff, all `key=REDACTED`; no sk-/AIza-style
+    token; the probe refuses to write a line that demo.leaks_key() flags.                OK
+  - sealed data: no tracked path contains "sealed"; .gitignore:71 `evidence/*sealed*` covers
+    evidence/latency-sealed-cc113.jsonl; the probe's --aggregate-only needs an --out under
+    evidence/ with "sealed" in the name and strips census_requests/table_id/expected and
+    renames id to sealed-N. Sealed figures in the results appear as aggregates only. Those
+    figures could NOT be checked here (the source file is gitignored and must not be read);
+    see section 6, "unverifiable".                                                       OK
+  - ">= 3 repeats and spread shown": arms 3 repeats with per-repeat p95 shown; replay 3
+    repeats with per-repeat medians; q40 x12.                                              OK
+  - long_tail and trap separate, with and without trials over 60 s: yes for the L2 rerun and
+    sealed; main run has no trial over 60 s so with == without (stated).                  OK
+  - 99% reconciliation: reported honestly as met on main A0 (72/72), missed pooled (142/144 =
+    98.6%) and on sealed.                                                                 OK
+  - instrument validity: validity.txt 18/18 PASS + negative control. See 6.9 for what the check
+    does and does not prove.
+  - files budget: 33 files against "under ~15 or an explanation". 27 are raw evidence under
+    evidence/slice-6/latency/ (data, two logs of 15.5k and 1.3k lines). Explanation is implicit;
+    the PR body should say it. arms.jsonl is superseded by arms-clean.jsonl and contains the
+    contaminated C1 repeat 1 and the invalid L2 arm; consider deleting arms.jsonl or marking it.
+
+=========================================================================================
+3. Silent-wrong-answer review
+=========================================================================================
+No response path changed (no api/src diff). URL / MOE / GEOID / universe / alternatives are
+handled only in the recommendations, as costs. Checked each recommendation:
+  - Rec 1 (hedge Census): retries the identical URL, so M variables, GEOID, universe, related
+    tables unchanged; failure path still shows the URL. Acceptable.
+  - Rec 2 (client once): none.
+  - Rec 3 (dedupe): same URL key; no cost.
+  - Rec 4 (bound rerank): states the table-match / universe-mixup cost. Acceptable.
+  - Rec 5 (cap turns): states the answered-rate risk.
+  - &key=: the probe builds URLs only through CensusURL(...).with_key(key) in cmd_replay and
+    records redacted text (redact_text) for everything else. OK.
+  - Guards / silent repair / numbers through the model: not touched.
+  - One gap: the draft story (AC 4) says "a test fails if a retried or failed request drops"
+    MOE etc. Good. It does not say a retry must not run for a request whose first attempt
+    returned HTTP 400 (a real answer). See finding F7.
+
+=========================================================================================
+4. Shape / Tests
+=========================================================================================
+  - No new tool, route, model, node, module name; probe is a script. The probe holds module
+    level mutable state (STATE, BOUND_POOL); the architecture rule targets the app, the probe is
+    a script, so Low (also raised by /code-review).
+  - No test added. CC-113 is research; evidence is the committed data. Nothing asserts on
+    prompt wording. No fake retrieval.
+  - docs/ARCHITECTURE.md unchanged; shape unchanged. OK.
+
+=========================================================================================
+5. Number check, results.md and recommendations.md against evidence/slice-6/latency/
+   (recomputed with python -I from arms-clean.jsonl, arms-l2-rerun.jsonl, replay*.jsonl,
+    q40-x12.jsonl; percentile = the repo's nearest-rank rule from run_demo.percentile)
+=========================================================================================
+MATCH (no action):
+  Reconciliation 72/72, 142/144 (98.6%). Main-run table: every A0/L1/C1 total p50/p95, per-repeat
+  p95 [16.6,19.5,23.7] [13.6,12.8,13.1] [25.6,39.8,17.1], answered and table-match values.
+  Per-call chat/rerank/embed p50/p95 for main and rerun A0 (4.1x, 3.8x). L2 rerun table except
+  the two cells in 6.4 and 6.5: 10 and 24 trials over 60 s, <=60 s p50/p95 (11.18/21.53,
+  10.31/25.68), all-trial p50/p95 (11.62/78.15, 12.90/130.65), by-tier with and without, per-repeat
+  p95 (77.1,78.1,74.9 and 130.6,91.2,129.7), rerank p95 3.00, table-match .800/.783.
+  First L2 arm invalid numbers (0.18 s, 0.542, 0.533). L1 deltas (3.4, 5.9, 7.1, 5.6, 10 points).
+  Replay: warm medians and per-repeat values, q18/q21/q08 walls, per-level p50/p95, 1.65 s and
+  0.07 s differences, 3.4 requests/question. Cold status counts 17 of 257. Duplicates 295/944,
+  31.2%, 83/288, mean 0.99, p95 5.7, max 29, 9 of the 10 trials over 20 s contain a repeat.
+  Chat 6.57 calls, correlation 0.66. q40: 30 trials in this ticket (12+12+6), max 23.904.
+  Hang counts: 20 requests and 15 trials in the first 55 rerun trials, all status 0.
+  Named ours A0 all 0.33/1.2/2.58 (see 6.4 for the percentile method), L1 0.01 s median,
+  with-rerank trials 0.328 s vs without-rerank 0.0 s (69 of 72 trials rerank): this supports
+  Rec 2 well.
+
+=========================================================================================
+6. FINDINGS (file:line, what, severity, fix)
+=========================================================================================
+
+F1  scripts/latency_probe.py:527   HIGH (blocks per playbook)
+    `key = os.environ.get("CENSUS_API_KEY", "")` fails check_invariants "empty secret defaults".
+    The next line does fail closed, but the machine does not read that.
+    Fix: `key = os.environ.get("CENSUS_API_KEY")` then `if not key:`; (or os.environ[...] in try).
+    Also line 436: cmd_run requires OPENAI/CENSUS but not GEMINI_API_KEY; a missing Gemini key
+    makes every rerank silently fall back to the top candidate (the invalid-L2 failure mode in
+    incidents.md). Add GEMINI_API_KEY to `missing` unless the arms are L1 only.
+
+F2  evidence/slice-6/latency-experiment-results.md:219   MEDIUM (blocks "done" until filled)
+    `SCOREBOARD_PLACEHOLDER`. CLAUDE.md defines done as the make demo scoreboard. The caller says
+    make demo is running; fill with demo.p95_latency_seconds, pass rate, the run time and window
+    (the results file says the demo is exposed to the same Census hangs). Also note
+    evidence/latest.json shows 20.695 s from 2026-10-25T03:18Z, which is not this branch's run.
+
+F3  latency-experiment-results.md:132-133   MEDIUM (claim the data contradicts)
+    "its repeat-1 URLs fetch B01003 rather than B18101". The q08 A0 repeat 1 trial made 31
+    requests: 21 for B01003 (ONE distinct URL, county:*&in=state:50, repeated 21 times) and 10
+    for B18101_001E/_001M (10 distinct counties). It fetches both, and the 20 duplicate
+    B01003 calls are the single largest source of the 295 duplicates.
+    Fix: replace with "21 of its 31 requests are the same B01003 county-list URL; the other 10
+    are B18101 with M" and cite it in Rec 3 (it is the best evidence for dedupe).
+
+F4  latency-experiment-results.md:164-165, 80, 89 and latency-recommendations.md:90
+    MEDIUM (inconsistent percentile method; changes a quoted effect)
+    The cited reports and the demo gate use nearest-rank p95 (run_demo.percentile). Several
+    quoted figures use linear interpolation instead, and so do not appear in the cited files:
+      - ":search_tables p95 1.21 s on long_tail": arms-report.txt says 1.245 (nearest-rank);
+        1.21 is linear.
+      - "every other named span p95 is under 0.26 s": arms-report.txt long_tail
+        tool:resolve_geography p95 = 0.312. FALSE under the repo rule (0.255 linear).
+      - "LLM-only p95 14.28 -> 12.09, down 2.2 s": arms-l2-rerun-report.txt says llm p95
+        14.336 -> 12.633, a 1.7 s drop. (rec 4 repeats "14.3 to 12.1 (2.2 s)".)
+      - Named-ours A0 p95 1.21 / 1.24 / 0.38 are linear; nearest-rank is 1.22 / 1.27 / 0.41.
+        The H-Ours miss of the 1 s rule stands either way.
+    Fix: recompute these with `latency_probe.py report`'s method, or add one line stating the
+    method; change 2.2 s to 1.7 s; change "<0.26" to "<0.32"; 1.21 to 1.25.
+
+F5  latency-experiment-results.md:80 vs :61   LOW
+    A0 rerank call p95 is "5.97 (max 9.2)" in the L2 table and "6.02" in the table above for
+    the same n=72 rerun A0; arms-l2-rerun-report.txt says 6.017 (max 9.22). Use 6.02.
+
+F6  latency-experiment-results.md:193 and latency-recommendations.md:107   LOW
+    "7 of the 10 trials over 20 s had 8 or 9 chat calls": duplicates.txt gives 8 of 10.
+    Rec 5's "about 2 to 3 s" saving is an estimate, so the conclusion survives. Fix: 8 of 10.
+
+F7  latency-recommendations.md:36-60, 146-148 and results.md:18-22   MEDIUM (unreported data)
+    The write-up says Census failures are 60 to 67 s status-0 hangs. In arms-l2-rerun.jsonl the
+    70 status-0 requests are: 44 at 60 to 63 s, 2 at about 52 s, and 24 that failed in 0.3 to
+    1.4 s (13 in A0, 11 in L2; q21 alone has 7). The 24 fast failures and the 52 s ones are not
+    mentioned anywhere. A "retry after 10 s" does not touch the fast failures (the draft story
+    AC 1 only retries after 10 s), and probe status 0 is any exception (a dropped connection,
+    not only a timeout). Also httpx timeout=60.0 is per phase, so hung requests run to 62.8 s
+    here and 75.9 s in the re-fetch test: a bound must be a total deadline, not a smaller
+    per-phase timeout. Fix: report the three populations, add "retry once on a connection error
+    as well as on a 10 s wait", and say which clock the bound uses.
+
+F8  latency-experiment-results.md:135-143 and :137 ("61 distinct URLs")   MEDIUM
+    Cold-vs-warm is weaker than written. (a) replay.jsonl (warm) replays 94 requests per slot
+    (q08 = 31 requests, duplicates included) because it was produced before/without the
+    de-duplication that is in the committed script (distinct = list(dict.fromkeys(urls)),
+    latency_probe.py:542); replay-cold.jsonl replays de-duplicated URLs (q08 = 10). The
+    committed `replay` command therefore does not reproduce replay.jsonl. (b) The "cold" numbers
+    that are compared are medians over 1 to 2 questions: at 5 workers repeat 1 is q08 (10 req,
+    3.27 s) and q21 (3 req, 1.57 s), repeat 3 is q08 alone (2.46 s), against warm medians over
+    8 questions (q08 there is 31 requests, 5.2 s). 50 of 207 cold records have 0 requests and
+    131 have 1. (c) the "61 distinct" is the sum of per-question distinct URLs; the global
+    distinct count is 55, and the warm replay used 94.
+    "Inconclusive" and "no cache lever is supported" remain correct. The "slower by 0.4 to
+    1.3 s" sentence should go, or be replaced by "not comparable: cold is 1 to 2 questions".
+    Also the hang hit repeat 1 at 12 workers (62.2 s) as well as repeat 2, not only repeat 2.
+    Fix: add one sentence on (a) and (b); re-run warm de-duplicated if the number is kept.
+
+F9  evidence/slice-6/latency/replay-report.txt and replay-cold-report.txt   LOW
+    replay-report.txt includes 846 invalid HTTP 400 cold rows next to valid warm rows, no marker.
+    replay-cold-report.txt prints "warm ... median 0.0 p95 0.0" (an empty selection through
+    percentile() returning 0.0). Both look like measurements. Fix in cmd_replay_report: skip a
+    temperature with no rows; add a header line to replay-report.txt saying the cold block is
+    the discarded run.
+
+F10 latency-experiment-results.md:176-181   LOW/MEDIUM
+    The 47.8 s q40 trial is described as a trial total and explained by a candidate rerank tail.
+    The source (evidence/slice-6/cc-113-latency-spans.md:40) says it was `t_ours` = 47.8 s after
+    the rerank/embed split, i.e. NOT rerank time, which the split moved out of t_ours. A rerank
+    tail therefore does not explain a large t_ours, and "process state (CC-123)" in the source
+    was dropped. Also "none is over 25 s" is not true of the earlier set in the same file:
+    spans.md:18 has q40 r1 total = 25.2 s. Reporting "not reproducible" is the right outcome;
+    fix the candidate-cause sentence and the 25 s claim.
+
+F11 latency-recommendations.md:44 vs :51   LOW
+    "the slowest legitimate response seen is a 2.2 MB place:* query at 3.2 s" conflicts with the
+    next section's "4.3 s daytime maximum", and arms-clean.jsonl has a 4.311 s HTTP 200 place
+    request (also 4.279 s and 4.197 s county). Use 4.3 s.
+
+F12 latency-recommendations.md:12   LOW
+    "In a clean window nothing was over 24 s": the main run's C1 arm (MAX_IN_FLIGHT=1) has trials
+    of 38.7, 39.8 and 41.0 s. True of A0, L1 only. Say "no A0 trial".
+
+F13 latency-experiment-results.md:91-93   LOW
+    "the difference is smaller than the spread across repeats" is false for the all-trial totals:
+    A0 per-repeat p95 74.9 to 78.1 (spread 3.2) against L2 91.2 to 130.6; the 52 s gap exceeds
+    both spreads. Inconclusive is still right, because the arms are contiguous blocks (24
+    trials, about 5 min each, per run_trial order repeat -> arm -> question), so a Census burst
+    can land in one arm. State that reason instead; "interleaved" in the design and results
+    overstates the protection (it is block-interleaved by repeat).
+
+F14 latency-recommendations.md:124-132   LOW
+    The design rule is "ranked by expected seconds saved at p95 per unit of effort". Rec 4 is
+    effort S with 1 to 2 s at p95; Rec 2 is effort S with 0.33 s at p95; by the stated rule Rec 4
+    outranks Rec 2, and Rec 5 (M, 2 to 3 s) outranks Rec 3 (M, up to 5.7 s upper bound, estimated
+    wall saving smaller) arguably. The rationale ranks by evidence quality instead. Fix: say so
+    in one sentence ("ranked by confidence-weighted saving, not the design rule") or reorder.
+    Rec 2 text "1.04 calls per question that reranks" is 1.04 per question overall (69 of 72
+    trials rerank).
+
+F15 scripts/latency_probe.py:749-770 (cmd_validity), results.md:30-33   LOW
+    "within 0.001 s ... in the right bucket" overstates what the check proves: it scores
+    injected_inside (overlap with the union of spans of that name, inclusive), and never checks
+    that other buckets stay under 0.5 s of the injected seconds, which the design's pass rule
+    requires. The unwrapped negative control does read exclusive/unaccounted, so the
+    reconciliation side is validated. Fix: soften the sentence or add the other-bucket check
+    against the existing validity-*.jsonl (no rerun needed: `exclusive` is in each record).
+
+F16 latency-experiment-results.md:236-249 (Reproduce)   LOW
+    `latency_probe.py validity` has no files and the --inject commands are absent; the
+    reproduce block also passes `replay` without the de-dup caveat (F8) and `report
+    arms-clean.jsonl` prints the invalid L2 block without a marker. Fix: list the six
+    `run --inject ... --out validity-*.jsonl` commands and `validity validity-*.jsonl`.
+
+F17 scripts/latency_probe.py:455, 341, 59, 63   LOW (hygiene)
+    cmd_run appends to --out, so a re-run doubles rows; `fetch.MAX_IN_FLIGHT = 5` is set
+    twice (install_spans:341 is dead because run_trial overrides it) and hard-codes the shipped
+    value instead of reading it; ARMS is unused so a mistyped --arms value silently runs the
+    unmodified path under a new label; cmd_duplicates raises KeyError on aggregate-only rows.
+    Fix: validate args.arms against ARMS; read the shipped value once at import.
+
+F18 evidence/slice-6/latency/arms.jsonl, arms.log (15.5k lines), c1-rerun.log, q40.log   LOW
+    arms.jsonl is superseded and partly invalid; arms.log is mostly repeated "Event loop is
+    closed" tracebacks and contains local machine paths (C:\Users\johnh\...). Not a secret, but
+    bulk. Fix: delete arms.log or truncate to the progress lines; keep arms.jsonl only if the
+    PR says why.
+
+UNVERIFIABLE here (sealed aggregates; source is gitignored and must not be read):
+    sealed A0/C1 reconciliation (91.7%, 87.5%, max 0.61/0.84 s), sealed named-ours (0.73 / 1.54 /
+    2.77), sealed p50/p95 table, "21 of 120 and 32 of 120 over 60 s", "4 of 40 questions".
+    One question for the owner: sealed named-ours p50 is 0.73 s against 0.33 s on the golden set,
+    which Rec 2 (client build, 0.33 s) does not explain; say so or drop "about 0.3 s" as a
+    universal figure.
+
+Nothing found in these areas: key leakage, sealed data committed, /ask or budgets.toml changes,
+api/src changes, new regex, new module names, ticket-named tests, graph nodes.
+
+=========================================================================================
+7. Verdict
+=========================================================================================
+3. NOT YET. Single most important reason: check_invariants exits non-zero on
+scripts/latency_probe.py:527 (F1). Once fixed (a one-line change plus the Gemini-key guard),
+the remaining blockers are F2 (scoreboard) and the wrong figures in F3, F4, F6, F7, F8, F10.
+None of the findings changes a recommendation's direction; F4 changes one quoted effect (2.2 s
+to 1.7 s) and F7 widens Rec 1.

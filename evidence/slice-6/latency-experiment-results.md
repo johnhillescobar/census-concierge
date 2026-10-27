@@ -8,7 +8,8 @@ Raw data, reports and incidents: [`latency/`](latency/). No fix is made in this 
 All runs used `api/src` at `origin/main` b9a5ca5 (PR #114's `t_rerank`/`t_embed` split is in).
 The probe is `scripts/latency_probe.py` (final commit on this branch). Times are seconds.
 "Pre-registered" statistics are the ones the design doc fixed before any run; "post hoc"
-ones were found afterwards and are labelled so.
+ones were found afterwards and are labelled so. Percentiles use the nearest-rank method of
+`scripts/run_demo.py`, as the `make demo` gate does.
 
 ## Read this first
 
@@ -16,10 +17,13 @@ ones were found afterwards and are labelled so.
    `geo_list.py:220` use `httpx.get(..., timeout=60.0)`. The first main run
    (2026-10-25 evening, 288 trials, 944 requests) had none over 55 s. On 2026-10-26 and
    2026-10-27 the sealed run, the L2/A0 rerun and the cold replay all had them (status 0,
-   60 to 67 s each). Re-fetching 12 of the 13 distinct URLs that hung in the rerun returned
+   mostly 60 to 63 s each; see the populations below). Re-fetching 12 of the 13 distinct URLs that hung in the rerun returned
    in 0.6 to 4.5 s, so the hang is mostly transient, not tied to a URL (`incidents.md`).
    Every statistic below is shown **with and without trials over 60 s**, and no trial is
-   dropped.
+   dropped. The 70 status-0 requests in the L2/A0 rerun are three populations, not one: 44 end
+   at 59 to 63 s (the timeout), 2 at about 52 s, and 24 fail in 0.3 to 1.4 s (a dropped
+   connection). The `httpx` timeout is per phase, so a request can run past 60 s (62.8 s here,
+   75.9 s in the re-fetch test).
 2. In clean windows the p95 is driven by **the LLM**: the chat loop makes 6.6 calls per
    question (about 5.7 s of a 10.8 s median) and the rerank has a 4x heavier tail than chat.
    In hang windows the p95 is driven by **Census timeouts**. Our own code is about 0.3 s.
@@ -27,9 +31,14 @@ ones were found afterwards and are labelled so.
 
 ## Reconciliation and instrument validity (pre-registered)
 
-Validity (`latency/validity.txt`): an injected delay lands in the right bucket to within
-0.001 s for Census, chat, rerank, embed and assemble; the unwrapped negative control lands
-in `unaccounted` (10.2 to 10.3 s for 10 s injected), so the instrument fails when it should.
+Validity (`latency/validity.txt`, 3 questions per target, 5 s injected per call): the injected
+seconds fall inside the right leaf span to within 0.001 s (inclusive overlap) for Census, chat,
+rerank, embed and assemble, and the exclusive time of that category is at least the injected
+seconds. Inclusive overlap also lands in enclosing wrapper spans (a Census call sits inside
+`finish`), which exclusive attribution gives to the leaf; this shows the injected category holds
+all of the injection, not that no other category holds any of it. The unwrapped negative
+control lands in `unaccounted` (10.2 to 10.3 s for 10 s injected), so the instrument fails when
+it should.
 An earlier chat/embed injection never fired (the OpenAI SDK sends through a vendored
 `httpx2`); fixed and kept as `injector-bug-*.jsonl`.
 
@@ -72,13 +81,13 @@ same); per-repeat p95 in brackets:
 | L1 | 7.40 / 13.63 [13.6, 12.8, 13.1] | 7.39 / 13.63 | 10.20 / 16.40 | 0.708 | 0.750 |
 | C1 | 9.74 / 28.64 [25.6, 39.8, 17.1] | 9.74 / 38.72 | 13.66 / 22.85 | 0.806 | 0.867 |
 
-Second half (L2), from the valid rerun `arms-l2-rerun.jsonl` (A0 and L2 interleaved, 3
-repeats). The rerun ran inside a Census hang window, so totals are shown both ways:
+Second half (L2), from the valid rerun `arms-l2-rerun.jsonl` (A0 and L2 run as
+block-interleaved by repeat, 3 repeats). The rerun ran inside a Census hang window, so totals are shown both ways:
 
 | arm | rerank call p95 | trials over 60 s | total p50 / p95, all | total p50 / p95, <= 60 s | LLM-only p95 | table-match |
 | --- | --- | --- | --- | --- | --- | --- |
-| A0 | 5.97 (max 9.2) | 10 of 72 | 11.62 / 78.15 | 11.18 / 21.53 | 14.28 | 0.800 |
-| L2 | 3.00 (max 3.0) | 24 of 72 | 12.90 / 130.65 | 10.31 / 25.68 | 12.09 | 0.783 |
+| A0 | 6.02 (max 9.2) | 10 of 72 | 11.62 / 78.15 | 11.18 / 21.53 | 14.34 | 0.800 |
+| L2 | 3.00 (max 3.0) | 24 of 72 | 12.90 / 130.65 | 10.31 / 25.68 | 12.63 | 0.783 |
 
 By tier, without trials over 60 s (p50 / p95): long_tail A0 11.07 / 18.17, L2 10.44 / 26.06;
 trap A0 14.09 / 21.53, L2 12.28 / 15.17. With them: long_tail A0 11.62 / 85.02, L2 12.54 /
@@ -86,11 +95,11 @@ trap A0 14.09 / 21.53, L2 12.28 / 15.17. With them: long_tail A0 11.62 / 85.02, 
 78.1, 74.9; L2 130.6, 91.2, 129.7.
 
 **Result: inconclusive.** The bound works as designed (rerank p95 6.0 to 3.0 s; LLM-only p95
-down 2.2 s; table-match down 1.7 points, inside the 3-point limit). But the pre-registered test
+down 1.7 s; table-match down 1.7 points, inside the 3-point limit). But the pre-registered test
 is on trial-total p95, and there L2 is not lower by 2 s: it is 4.2 s higher without trials
-over 60 s and 52 s higher with them, and the difference is smaller than the spread across
-repeats. L2 drew 24 hang trials against A0's 10, so the totals are confounded by Census, not
-by the rerank. The reject rule ("L2 moves total p95 by under 1 s") is not met either.
+over 60 s and 52 s higher with them. Each arm runs as one contiguous block per repeat, so a
+Census burst can land in one arm: L2 drew 24 hang trials against A0's 10, and the totals are
+confounded by Census, not by the rerank. The reject rule ("L2 moves total p95 by under 1 s") is not met either.
 
 L1 (post hoc reading, not a registered confirm arm): p50 falls 3.4 s with per-repeat p50
 spread of 1.1 s, a clear effect; p95 falls 5.9 s but the A0 per-repeat p95 spread is 7.1 s, so
@@ -129,18 +138,22 @@ arm alone is inconclusive.
 Named questions, as asked in the ticket: q21 (Rio Grande Valley SNAP) 10 requests, warm replay 9.53 / 2.84 / 3.03 s at 1 / 5 / 12
 workers. q18 (Milwaukee renter vs owner) 6 requests, 8.23 / 2.74 / 2.98 s; its rerank tail is
 the larger problem (rerank calls up to 15.5 s in the C1 arm). q08 (rural Vermont disability)
-31 requests, 11 distinct, 22.44 / 5.27 / 3.59 s, and its repeat-1 URLs fetch B01003 rather
-than B18101.
+31 requests, 22.44 / 5.27 / 3.59 s. In repeat 1, 21 of the 31 requests are one identical
+B01003 county-list URL for Vermont and 10 are B18101 (with `M`), so 11 are distinct. That repeat
+is the clearest case for de-duplicating requests (below).
 
-**Cold versus warm: inconclusive.** The first cold replay was invalid (846 of 846 requests
-returned HTTP 400, the variable ID was invented; fixed to pick a real sibling variable, which
-covers about 25 to 33 of the 61 distinct URLs). The rerun hit a hang window in repeat 2
-(17 of 257 requests returned status 0; repeat-2 medians are 61 to 72 s). In the two unaffected
-repeats, cold at 5 workers is 1.57 and 2.46 s against warm 1.14 and 1.12: cold is slower by
-0.4 to 1.3 s, but the cold query carries one extra variable, so it is not a paired
-comparison, and the gap is not larger than the spread. The pre-flight (design doc) measured
-first hit against repeat at 0.3 s or less on 0.7 to 1.2 MB queries. No cache lever is
-supported by this evidence, and a Census-side cache is not ours to control.
+**Cold versus warm: inconclusive, and not comparable as run.** The first cold replay was
+invalid (846 of 846 requests returned HTTP 400, the variable ID was invented; those rows remain
+in `replay.jsonl` and are excluded from `replay-report.txt` with `--temperature warm`). The
+fixed cold arm adds one real sibling variable to each query, which finds a sibling for 25 to 33 of the 55
+distinct URLs in the A0 repeat-1 sets (33, 29 and 25 requests in the three repeats) (the `replay` command de-duplicates; the warm arm in
+`replay.jsonl` was run by an earlier version that replayed duplicates, 94 requests per slot,
+q08 = 31). So the two arms differ in request set and payload. The cold medians cover 1 to 2
+questions with 3 or more requests, against 8 warm, and 50 of 207 cold records have no request
+at all. A hang window also hit it (17 of 257 requests returned status 0; repeat-2 medians are 61
+to 72 s, and 12 workers in repeat 1 is 62 s). The pre-flight in the design doc measured first
+hit against repeat at 0.3 s or less on 0.7 to 1.2 MB queries. No cache lever is supported by
+this evidence, and a Census-side cache is not ours to control.
 
 **Post hoc, Census timeouts.** In the sealed A0 arm Census exclusive time is p50 2.5 s and p95
 64.3 s (max 184.9 s); LLM is p95 15.2 s. The slow A0 trials have 61 to 67 s of Census time,
@@ -156,14 +169,14 @@ Named "ours" spans (retrieval, guards, assemble, `tool:*`, finish), main run A0:
 
 | set | named ours p50 | p95 | max |
 | --- | --- | --- | --- |
-| A0 all (n=72) | 0.33 | 1.21 | 2.58 |
-| A0 long_tail (n=54) | 0.34 | 1.24 | 2.58 |
-| A0 trap (n=12) | 0.30 | 0.38 | 0.41 |
-| sealed A0 (n=120) | 0.73 | 1.54 | 2.77 |
+| A0 all (n=72) | 0.33 | 1.22 | 2.58 |
+| A0 long_tail (n=54) | 0.34 | 1.27 | 2.58 |
+| A0 trap (n=12) | 0.30 | 0.41 | 0.41 |
+| sealed A0 (n=120) | 0.72 | 1.53 | 2.77 |
 
-Largest span: `tool:search_tables`, p95 1.21 s on long_tail; every other named span p95 is under
-0.26 s. **Result: not confirmed and not rejected.** The confirm rule (named ours p95 under 1 s
-on long_tail) misses at 1.24 s; the reject rule (any named span p95 over 2 s) does not fire. Our
+Largest span: `tool:search_tables`, p95 1.25 s on long_tail; next is `tool:resolve_geography`
+at 0.31 s, and every other named span is under 0.01 s. **Result: not confirmed and not rejected.** The confirm rule (named ours p95 under 1 s
+on long_tail) misses at 1.27 s; the reject rule (any named span p95 over 2 s) does not fire. Our
 code is 3% of the median trial, so the conclusion "ours is not the cause" stands whichever
 side of 1 s it is on. Reconciliation is above.
 
@@ -171,14 +184,19 @@ side of 1 s it is on. Reconciliation is above.
 0.01 s at the median. Under Gemini it is 0.33 s. `rerank._choose_gemini` builds a new
 `genai.Client` for every call, and building one costs 0.32 to 0.47 s when the machine is quiet
 (measured directly, no API call), plus a one-time 1.7 s import on the first call. That time sits
-outside every LLM span.
+outside every LLM span. It accounts for 0.33 s; the sealed median is 0.72 s, and the other
+0.4 s is not explained (sealed rows carry no span detail).
 
-**The 47.8 s q40 repeat-3 trial: not reproducible.** 30 q40 trials in this ticket (12 isolated
-in `q40-x12.jsonl`, 12 in the main arms, 6 in the rerun), plus 12 isolated runs earlier in the
-ticket's own findings: the slowest is 23.9 s and none is over 25 s. A hang does not explain
-47.8 s (a timeout is 60 s or more). A 30 s rerank tail would (q18 has shown rerank calls of
-15.5 s here and 32.9 s earlier), but that is unverified for q40. It is reported as not
-reproducible with this repeat count, with the rerank tail as the candidate cause.
+**The 47.8 s q40 repeat-3 trial: not reproducible.** The 47.8 s is a `t_ours` value from the
+post-merge E2E (`cc-113-latency-spans.md`), not a trial total. This ticket ran 30 q40 trials
+(12 isolated in `q40-x12.jsonl`, 12 in the main arms, 6 in the rerun) after the earlier 12
+isolated runs: the slowest trial total is 23.9 s and the largest named-ours time is 1.4 s (the
+spans note records one q40 trial at 25.2 s). A Census hang does not explain it (a timeout is
+60 s or more, and the hang shows up in `census`, not `t_ours`). If that E2E predates the
+rerank/embed split, `t_ours` then included the rerank and embed time, and a rerank stall (q18 has
+shown rerank calls of 15.5 s here and 32.9 s earlier) would land in it; the E2E date was not
+checked, so this is a candidate and not a finding. Reported as not reproducible with this repeat
+count.
 
 ## Duplicate Census requests (post hoc, not pre-registered)
 
@@ -190,7 +208,7 @@ distinct (`duplicates.txt`).
 ## Chat loop (post hoc, not pre-registered)
 
 6.57 chat calls per question on A0 (about 5.7 s of a 10.8 s median trial); the number of chat
-calls correlates 0.66 with trial total, and 7 of the 10 trials over 20 s had 8 or 9 chat calls.
+calls correlates 0.66 with trial total, and 8 of the 10 trials over 20 s had 8 or 9 chat calls.
 That is a correlation, not an experiment: no arm in this ticket changes the loop.
 
 ## Sealed set (aggregates only)
@@ -214,6 +232,14 @@ rows, so table-match is not computed. 21 of 120 A0 trials and 32 of 120 C1 trial
 60 s, and they are what moves the sealed p95. The sealed run overlapped my main run once
 (about 76 s), and my API steps were held while the owner's sealed run was in progress.
 
+## Limitations of the probe
+
+`latency_probe.py` is a script, not shipped code: it keeps module-level state (`STATE`,
+`BOUND_POOL`) that `api/src` may not. In arm L2 the abandoned Gemini call keeps running in its
+worker thread after the 3 s bound, so it still uses quota; the longest L2 rerank span is 3.002 s,
+so there is no sign it slowed other calls. The sealed rows carry no span detail below the
+category level.
+
 ## Scoreboard (`make demo`, same `--repeat 3`)
 
 SCOREBOARD_PLACEHOLDER
@@ -235,7 +261,9 @@ Details and timestamps in [`latency/incidents.md`](latency/incidents.md).
 ## Reproduce
 
 ```text
-uv run python scripts/latency_probe.py validity
+# validity, one run per target in census chat rerank embed assemble unwrapped:
+uv run python scripts/latency_probe.py run --arms A0 --repeat 1 --ids q18,q21,q01 --inject TARGET --inject-seconds 5 --out evidence/slice-6/latency/validity-TARGET.jsonl
+uv run python scripts/latency_probe.py validity evidence/slice-6/latency/validity-TARGET.jsonl
 uv run python scripts/latency_probe.py run --arms A0,L1,L2,C1 --repeat 3 --out evidence/slice-6/latency/arms.jsonl
 uv run python scripts/latency_probe.py run --arms A0,L2 --repeat 3 --out evidence/slice-6/latency/arms-l2-rerun.jsonl
 uv run python scripts/latency_probe.py report evidence/slice-6/latency/arms-clean.jsonl
@@ -243,10 +271,14 @@ uv run python scripts/latency_probe.py compare evidence/slice-6/latency/arms-cle
 uv run python scripts/latency_probe.py duplicates evidence/slice-6/latency/arms-clean.jsonl
 uv run python scripts/latency_probe.py replay --source evidence/slice-6/latency/arms-clean.jsonl --out evidence/slice-6/latency/replay.jsonl
 uv run python scripts/latency_probe.py replay --source evidence/slice-6/latency/arms-clean.jsonl --temperatures cold --out evidence/slice-6/latency/replay-cold.jsonl
-uv run python scripts/latency_probe.py replay-report evidence/slice-6/latency/replay-cold.jsonl
+uv run python scripts/latency_probe.py replay-report evidence/slice-6/latency/replay-cold.jsonl --temperature cold
 # owner only, sealed set, aggregates only:
 uv run python scripts/latency_probe.py run --arms A0,C1 --repeat 3 --questions-file <sealed file> --aggregate-only --out evidence/latency-sealed-cc113.jsonl
 ```
 
 `arms-clean.jsonl` is `arms.jsonl` minus the contaminated C1 repeat 1, plus
-`arms-c1-r1-rerun.jsonl`. It still holds the invalid first L2 arm; do not use its L2 rows.
+`arms-c1-r1-rerun.jsonl`. It still holds the invalid first L2 arm; the `report` and `compare`
+lines for `L2` on that file are invalid and are not cited. `run` refuses to write into an existing
+file unless `--append` is given. `arms.jsonl` stays as the raw record
+(it holds the contaminated C1 repeat 1 and the invalid first L2 arm); the stderr logs of those runs
+were removed, they held only `Event loop is closed` noise.
