@@ -174,3 +174,23 @@ Decisions:
 - `default`: gates run in worktree `census-cc-123-C` (the branch name `feat/cc-121-answer-figures` is checked out, with uncommitted edits, in the owner's main tree; it is moved to the rebased tip at the end, after stashing).
 
 Outward writes still to come (each listed before it happens): move the branch ref; push; PR; one short Jira comment per gate on CC-121; the close card after the post-merge E2E.
+
+## Gates on the rebased tree and E2E pre-PR (2026-10-28)
+
+- Gate 1 (`cc-121-gate1-rebased.txt`): 210 of 210 runnable mutation checks caught; unit suite 1048 passed, the one failure is the pre-existing leakage wrapper. It found one product gap no test covered (a discovery answer that names a year lost its text); fixed below.
+- Gate 2 pass 1, cold bugs (`cc-121-gate2-rebased-bugs.txt`) and pass 2, invariants (`...-invariants.txt`): fixed in 85832c5 and 15f3bb7: a discovery answer keeps published years, dataset digits and pool title digits; a quoted URL and geography clause are the response's own text; a negative estimate between -1 and 0 keeps its sign; prose with no number skips the allowed-set build; the warning bounds a stray token; three false statements in `ARCHITECTURE.md` corrected and the mechanism text moved there (not counted); the doc cap holds at 1800. 9 of 9 new mutations caught (`cc-121-gate2-fixes-mutations.txt`). Pass 2 measured against the superseded 10-18 ticket text at first (my brief); its C1-C3 are void under the 10-19 owner decision and the 10-22 amendment.
+- Gate 2 re-run on the fix commit (`...-rerun-bugs.txt`, `...-rerun-invariants.txt`): no crash, key leak, or URL, MOE, GEOID, universe or alternatives regression. Not fixed, stated for the PR: (1) the digits-only check cannot tell a number on the wrong place, variable or year (state FIPS 17 carries "17%"; the other place's value passes), by design; (2) it drops legitimate framing that holds an ordinal ("3rd"), a number from the question ("65 and over") or a count from tool text, which fails safe: the rendered figures stand alone; (3) the allowed-set build costs 0.8 s at 147k cells (once, only when the prose has a digit); (4) a stray year prints as "2,019" in the warning (cosmetic); (5) label lookups re-read the variables file per vintage, about 0.13 s each, on the request path.
+- E2E pre-PR, rebased tree (`cc-121-e2e-pre.txt`) against unchanged main on the same day (`cc-121-e2e-base-main.txt`, worktree with `api/src` identical to main), `run_demo --repeat 3`, n=186:
+
+| | main | CC-121 |
+|---|---|---|
+| long_tail `answered_rate` | 0.692 | 0.717 |
+| overall answered | 0.763 | 0.774 |
+| `demo.p95_latency_seconds` | 22.584 | 23.344 |
+| slowest trial | 76.558 s | 56.951 s |
+| `t_llm` / `t_census_api` / `t_rerank` / `t_embed` / `t_ours` | 6.18 / 2.47 / 4.33 / 0.42 / 0.15 | 6.84 / 2.79 / 4.01 / 0.42 / 0.14 |
+| misses | 44 | 42 |
+
+  Same-code runs vary about 2 points on long_tail; the +2.5 is not a gain and nothing regressed. p95 differs by 0.76 s and the slowest trials differ by 19 s in the other direction, so the p95 change is inside the noise of this pipeline (CC-113). selector@1 0.825 and retrieval@10 0.90 on the rebased run (retrieval and rerank code are untouched by this ticket). `run_demo` reports about 120 `RuntimeError: Event loop is closed` lines from `AsyncClient.aclose()` on both trees (the event-loop finding of CC-123; filed as CC-127), not failed trials.
+- Budgets: `api src LOC` 4712 > 4600 (main 4511; CC-121 +201: `figures.py` +175, `contract.py` +23, `fetch.py` +3). Doc lines 1800 of 1800, web LOC 3350 of 3350. The agent did not edit `budgets.toml`; the raise (about +112) is the owner's commit. p95 23.344 > 20 and the 5 leakage-baseline entries fail on main too.
+- Not done and not mine: the sealed-set run and the regression-minus-sealed gap (owner-held); the offline unsupported-figure judge on the final mechanism (no owner-committed bar, `cc-121-decision-3-acceptance-bar.md` is advisory); post-merge E2E and the close card.
