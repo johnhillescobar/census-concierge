@@ -42,10 +42,12 @@ perturb the P numbers.
   reaped at trial 44 of repeat 1, so W1 contains the point of failure. Real APIs, real keys.
 - Same questions, same order, same repeat count, fresh process, in every run.
 - Trees: **M** = `origin/main` 635449d; **C** = CC-121 branch `feat/cc-121-answer-figures`
-  at f901c73 (committed state; its uncommitted evidence files are irrelevant to `api/src`).
-  The merge-base of C and M is recorded in the results.
-- Run order interleaved `M, C, M, C, M, C` for arm P (3 complete attempts per tree), then one
-  arm-T run per tree. A Census hang window or provider drift cannot line up with one tree.
+  at f901c73 (committed state; its uncommitted evidence files are irrelevant to `api/src`);
+  **B** = their merge-base 1160bde. C is 42 commits behind M and `api/src` differs between
+  M and B in 6 files, so C against M mixes CC-121 with main's drift. B isolates it: **C
+  against B is CC-121's effect; M against B is main's drift.** (Added before any run.)
+- Run order interleaved `M, C, B, M, C, B, M, C, B` for arm P (3 complete attempts per
+  tree), then one arm-T run per tree. A Census hang window or provider drift cannot line up with one tree.
 - **Containment**: each run is detached from the harness, and a watchdog in the probe kills
   its own process above 9 GB private bytes. A kill is data (`killed at trial k, N GB`), not a
   failure to report.
@@ -81,8 +83,11 @@ reported as unreliable):
 - **H-main**: the growth is on `origin/main`. *Confirmed* if >= 2 of 3 M runs show retained
   growth or reproduce the incident. *Rejected* if 0 of 3 M runs do while >= 2 of 3 C runs do.
   Otherwise inconclusive (both trees alike, or neither reproduces; see "not reproducible").
-- **H-CC121**: CC-121 adds or enlarges it. *Confirmed* if the C post-GC slope exceeds the M
-  slope and the two 95% CIs do not overlap. *Rejected* if the CIs overlap.
+- **H-base**: the growth predates CC-121 and main's recent changes. *Confirmed* if >= 2 of 3 B
+  runs show retained growth or reproduce the incident.
+- **H-CC121**: CC-121 adds or enlarges it. *Confirmed* if the C post-GC slope exceeds the B
+  slope and the two 95% CIs do not overlap. *Rejected* if the CIs overlap. (M is reported
+  beside them; a C-over-M difference alone is not attributed to CC-121.)
 - **H-lifecycle**: a named request-lifecycle path owns the growth. Decided by the leaf arms
   below: a path owns it if its per-call slope times its calls per trial (from arm P counters)
   is >= 50% of the W1 post-GC slope.
