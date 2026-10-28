@@ -20,3 +20,21 @@ attempt, copied here. The re-run is `evidence/slice-6/memory/validity.jsonl`: 5 
 
 The incident that opened CC-123 was reaped near 5 GB on this machine. The design is amended
 and committed; the 2 GB reproduction threshold is unchanged.
+
+## 3. The run driver was killed by the Claude Code host at W1 run C-r3, trial 44 of 62
+
+The host stopped the background shell "because the system is running low on memory" while the
+session was idle. It was not the experiment's own watchdog (6 GB, not reached). At the kill the
+probe process held 609.6 MB private (post-GC), so **the host's memory pressure did not come from
+this process**; what else was using memory was not measured. Result: 7 complete W1 runs
+(M x3, C x2, B x2), one partial (`w1-C-P-r3.partial`, 44 trials), and no arm-T (tracemalloc) runs.
+The planned B-r3 and the three arm-T runs were not run: the owner chose to stop there and finish
+the cheap leaf arms only.
+
+## 4. Four leaf arms were under-sized (design error), re-run
+
+`run_all.py` set L3, L4, L5, L5c to 100 iterations. The design says the first 100 iterations are
+warm-up and samples are every 10, so 100 iterations leave no measurement window (reported as
+"too few trials"). The 100-iteration files are kept as `leaf-*.short100`. L4, L5, L5c were re-run at
+300 iterations, L3 at 200 (Census network; 20 samples, still "too few trials" for the 62-trial
+window rule, so L3 is read from its curve, not classified).
