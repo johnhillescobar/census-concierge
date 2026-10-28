@@ -1,0 +1,176 @@
+### probe1: figures.checked prose edge cases (KEPT = text survives)
+KEPT    'Cook County earns 76,000.' -> ''
+KEPT    'Cook County earns 76,000 \xb1 1,200.' -> ''
+DROPPED 'Cook County earns 76,000\xb11,200.' -> "The model's text stated 76,000\xb11,200, not in the fetched data; figures below replace it."
+DROPPED 'Cook County earns \u224876,000.' -> "The model's text stated \u224876,000, not in the fetched data; figures below replace it."
+DROPPED 'Cook County earns about 76k.' -> "The model's text stated 76k, not in the fetched data; figures below replace it."
+DROPPED 'Cook County earns $76,000-$78,000.' -> "The model's text stated 78,000, not in the fetched data; figures below replace it."
+DROPPED "DuPage's 99,500 is the answer" -> "The model's text stated 99,500, not in the fetched data; figures below replace it."
+DROPPED 'Cook County is wealthier than DuPage at 99,500' -> "The model's text stated 99,500, not in the fetched data; figures below replace it."
+KEPT    'Cook County earns seventy-six thousand dollars.' -> ''
+KEPT    'Cook County earns about half of a million' -> ''
+DROPPED 'Income in 2019,2023 compared' -> "The model's text stated 20,192,023, not in the fetched data; figures below replace it."
+DROPPED 'Income for years 2019, 2023' -> "The model's text stated 2,019, not in the fetched data; figures below replace it."
+KEPT    'Data covers 2023.' -> ''
+DROPPED 'In km\xb2 terms' -> "The model's text stated km\xb2, not in the fetched data; figures below replace it."
+DROPPED '1st place, 2nd place' -> "The model's text stated 1st, 2nd, not in the fetched data; figures below replace it."
+KEPT    '7,6,0,0,0' -> ''
+DROPPED 'Value \u221276000' -> "The model's text stated \u221276000, not in the fetched data; figures below replace it."
+KEPT    'Value \uff17\uff16\uff10\uff10\uff10' -> ''
+KEPT    'Value \u0667\u0666\u0660\u0660\u0660' -> ''
+DROPPED 'Value \u2077\u2076\u2070\u2070\u2070' -> "The model's text stated \u2077\u2076\u2070\u2070\u2070, not in the fetched data; figures below replace it."
+DROPPED 'Cook ranks #1' -> "The model's text stated #1, not in the fetched data; figures below replace it."
+KEPT    '76,000.' -> ''
+KEPT    'ACS 5-year estimates, 2023' -> ''
+DROPPED 'ACS 1-year estimates, 2023' -> "The model's text stated 1, not in the fetched data; figures below replace it."
+DROPPED 'Table B19013 vs S1901' -> "The model's text stated s1901, not in the fetched data; figures below replace it."
+DROPPED '1e5 and inf and nan' -> "The model's text stated 100,000, not in the fetched data; figures below replace it."
+DROPPED 'Cook is 0.76 of 100000' -> "The model's text stated 0.76, 100,000, not in the fetched data; figures below replace it."
+DROPPED 'Margin of error is 1.2 thousand' -> "The model's text stated 1.2, not in the fetched data; figures below replace it."
+DROPPED 'COVID-19 era' -> "The model's text stated 19, not in the fetched data; figures below replace it."
+KEPT    'Cook county (17031) FIPS 17031' -> ''
+KEPT    'Cook county FIPS 031 state 17' -> ''
+DROPPED 'tract 9.01' -> "The model's text stated 9.01, not in the fetched data; figures below replace it."
+KEPT    'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -> ''
+vars 114000
+labels_for 10 vintages: 25.66s {'2015': {'B00001_001E': 'Total: - Something long label here 1'}}
+one variables(): 3.30s
+max loop stall during labels_for: 4.920s
+### probe2: labels_for cost with synthetic variables.json.gz (28.8k entries ~ real acs5 size), 10 vintages
+vars 28800
+labels_for 10 vintages: 1.82s {'2015': {'B00001_001E': 'Total: - Something long label here 1'}}
+one variables(): 0.16s
+max loop stall during labels_for: 0.907s
+'No figures were fetched for this request; see the warnings and the URL.'
+  warnings: [('answer_figures_unverified', "The model's text stated 12, not in the fetched data; it was removed.")]
+'No figures were fetched for this request; see the warnings and the URL.'
+  warnings: [('answer_figures_unverified', "The model's text stated 12, 16, b19001, not in the fetched data; it was removed.")]
+'No figures were fetched for this request; see the warnings and the URL.'
+  warnings: [('answer_figures_unverified', "The model's text stated 2,023, 5, not in the fetched data; it was removed.")]
+'Chose B19013 for Cook County. Related: B19001 (income brackets), B17001 poverty in the past 12 months.'
+  -> 'B19013_001E: 76,000 (margin of error 1,200), Cook County, Illinois (0500000US17031), acs5 2023.' [('answer_figures_unverified', "The model's text stated 12, not in the fetched data; figures below replace it.")]
+'Chose B19013. Alternative B25119 median household income by tenure.'
+  -> 'B19013_001E: 76,000 (margin of error 1,200), Cook County, Illinois (0500000US17031), acs5 2023.' [('answer_figures_unverified', "The model's text stated b25119, not in the fetched data; figures below replace i")]
+'Chose B19013 for Cook County, 2019-2023 ACS 5-year data.'
+  -> 'Chose B19013 for Cook County, 2019-2023 ACS 5-year data.' []
+'Chose B19013 for Cook County (ACS 5-year, vintage 2023: covers 2019 through 2023).'
+  -> 'Chose B19013 for Cook County (ACS 5-year, vintage 2023: covers 2019 through 2023).' []
+### pytest api/tests/test_figures.py test_chart test_guards test_ask_loop
+.................                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_figures.py::test_figures_carry_label_estimate_margin_place_geoid_and_vintage
+  C:\Users\johnh\worktrees\census-cc-123-C\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+305 passed, 1 warning in 5.65s
+== leaks that PASS the check (text kept, no warning)
+KEPT    'Cook County is 5 percent below DuPage.'
+KEPT    'Cook County is about 17 percent lower.'
+KEPT    "Cook's income is 1,200."
+KEPT    "Cook County income is 99,500 and DuPage's is 76,000."
+KEPT    'Cook County income is seventy-six thousand and DuPage ninety-nine thousand five hundred.'
+DROPPED 'Cook County income is 12.'
+DROPPED 'The gap is about 30 percent.'
+KEPT    "7,6,0,0,0 is Cook's income"
+KEPT    'Cook is 2023 dollars higher'
+== huge token echoed into warning detail
+warning detail length: 200077
+== chart titles
+'Top 10 counties by income' -> 'B19013' ['answer_figures_unverified']
+'Median income 2023' -> 'Median income 2023' []
+'Income by county (2019-2023)' -> 'Income by county (2019-2023)' []
+rows=100 cols=49: assemble 0.05s, answer lines=23
+rows=3000 cols=49: assemble 1.93s, answer lines=23
+rows=15000 cols=49: assemble 9.52s, answer lines=23
+1.1MB prose: 0.14s 82
+--- attribution: figures.checked alone vs whole assemble
+rows=3000 cols=49: checked=1.61s assemble=1.73s assemble_without_check=0.13s
+rows=3000 cols=3: checked=0.18s assemble=0.26s assemble_without_check=0.02s
+rows=15000 cols=3: checked=0.97s assemble=1.31s assemble_without_check=0.12s
+MUT [abs(float(token.replace(",", "")))] => 141 passed, 1 warning in 0.66s
+MUT [*codes, ] => 1 failed, 94 passed, 1 warning in 0.40s
+MUT [str.maketrans("-–—/] => Binary file (standard input) matches
+MUT [str.maketrans("-–—/] => Binary file (standard input) matches
+MUT [str.maketrans("-–—/] => Binary file (standard input) matches
+MUT [codes = [] => 141 passed, 1 warning in 0.68s
+MUT [if not lines and not _numbers(prose):] => 1 failed, 7 passed, 1 warning in 0.30s
+MUT [key.endswith("E") and "_" in key] => 1 failed, 1 warning in 0.26s
+MUT ["component_count" not in cell[0]] => 1 failed, 100 passed, 1 warning in 0.50s
+MUT [texts += [str(x) for hit in pool for x in [hit.get("table_id] => 1 failed, 104 passed, 1 warning in 0.40s
+MUT [texts += [str(getattr(record, "table_id", "") or ""), *datas] => 1 failed, 104 passed, 1 warning in 0.49s
+DROPPED 'Chose B19013. URL: https://api.census.gov/data/2023/acs/acs5?get=NAME,B19013_001E,B19013_001M&for=county:031&in=state:1 | ["The model's text stated acs5?get=name,b19013_001e,b19013_001m&for=county:031&in=state:17, not in the"]
+DROPPED 'Fetch: https://api.census.gov/data/2023/acs/acs5?get=NAME,B19013_001E&for=county:031&in=state:17 (acs5)' | ["The model's text stated acs5?get=name,b19013_001e&for=county:031&in=state:17, not in the fetched dat"]
+DROPPED 'Variables B19013_001E and B19013_001M, for county:031 in state:17.' | ["The model's text stated county:031, state:17, not in the fetched data; figures below replace it."]
+DROPPED 'Geography county:031 (state:17)' | ["The model's text stated county:031, state:17, not in the fetched data; figures below replace it."]
+'No figures were fetched for this request; see the warnings and the URL.'
+["The model's text stated acs5?get=name,b19013_001e,b19013_001m&for=county:031&in=state:17, not in the fetched data; it wa"]
+'-0.5' -> '0.5'
+'-0' -> '0'
+'-0.0' -> '0.0'
+'0.5' -> '0.5'
+'-5.5' -> '-5.5'
+'1234.5' -> '1,234.5'
+'-1234.5' -> '-1,234.5'
+'+7' -> '7'
+'1_000' -> '1,000'
+'\u0667\u0666\u0660\u0660\u0660' -> '76,000'
+'12.' -> '12.'
+'1e3' -> '1e3'
+'  5' -> '5'
+' ' -> ' '
+'\uff10\uff10\uff15' -> '5'
+'1,234' -> '1,234'
+B19013_001E: 0.5 (margin of error 0.2), Cook (0500000US17031), acs5 2023.
+ok year '\uff12\uff10\uff12\uff13'
+ok year '2023 '
+ok year 'abc'
+ok year ''
+Binary file (standard input) matches
+DROPPED 'Margins of error are at the 90% confidence level.' | ["The model's text stated 90, not in the fetched data; figures below rep"]
+KEPT    'Chose B19013 (median household income) for Cook County, ACS 5-year 2019-2023, a 5-year period estimate.' | []
+DROPPED 'Chose B19013 for the 2019-2023 period; 2020 data were affected by the pandemic.' | ["The model's text stated 2,020, not in the fetched data; figures below "]
+KEPT    'Cook County, Illinois (FIPS 17031) is shown.' | []
+DROPPED 'Chose table B19013 over B19001 (household income in 16 brackets).' | ["The model's text stated 16, b19001, not in the fetched data; figures b"]
+KEPT    'This is the first of two options.' | []
+
+### mutation notes (copy of api/ in scratch, figures.py mutated, test_figures.py run)
+Killed: sort of combined rows, MAX_FIGURES cut, sentinel exclusion from allowed, omission reasons, GEOID digits,
+label prefix, drop wording, NO_FIGURES fallback, "not available", per-vintage grouping, leading-dot rule,
+sentinel in render, built-url year, _YEARS, status_code, leg codes, estimate-column filter, pool ids, table_id.
+Survived: removing abs() in _numbers (equivalent: '-' is turned into a space before parsing, so no token is negative).
+No surviving non-equivalent mutant found among those tried.
+
+### FINDINGS (reproduced above)
+F1 (high) figures.checked/_allowed: with no fetched rows (tables-only discovery question, or fetch not yet done) the
+   allowed set holds only table_id, pool table ids/members and record years. probe3: a framing like
+   "B19013 holds median household income in the past 12 months; B01001 is sex by age." -> whole answer replaced
+   by "No figures were fetched for this request; see the warnings and the URL." + warning "stated 12".
+F2 (medium) pool titles/universes are not in allowed even with rows: probe4 "Related: B19001 ..., B17001 poverty in the
+   past 12 months" -> framing dropped ("stated 12"); naming an alternative table not in pool (B25119) -> dropped.
+F3 (medium) quoting the URL or a geography clause is dropped: probe7 "URL: https://api.census.gov/data/2023/acs/acs5?get=...
+   &for=county:031&in=state:17" and "for county:031 in state:17" -> dropped (token never splits on : ? & =).
+F4 (medium) _shown('-0.5') -> '0.5': sign of a negative estimate in (-1,0) is lost in the rendered figure (probe8).
+F5 (medium/low) cost: checked() builds the whole allowed set even when the prose has no digit; 3000 rows x 49 cols
+   adds 1.6s synchronous (blocks the event loop), 15000 rows x 3 cols adds ~1s (probe6).
+F6 (medium/low) _labels re-reads and re-parses variables.json.gz per vintage per fetch (no cache); realistic size
+   28.8k entries: 0.16s each, 10 vintages 1.8s, event loop stalled 0.9s (probe2).
+F7 (low) the check is digits-only: number words, wrong-place and MOE-as-estimate values, and any value equal to any
+   cell/FIPS/year/dataset digit pass unflagged (probe5). "7,6,0,0,0" is read as 76000 (commas deleted).
+F8 (low) false positives: "90% confidence", "2020" not fetched, "5th", "km2", "76,000+/-1,200" (no spaces), "≈76,000",
+   "−" (U+2212) negatives, "2019,2023", "Top 10" chart title (probe1/5/9).
+F9 (low) warning detail echoes up to 5 unbounded model tokens (200 KB token -> 200 KB detail), and years are
+   formatted '2,020' in the notice (probe5/9).
+KEPT    'ACS 2018-2022 for Cook County.' []
+KEPT    'ACS 2018 to 2022 estimates.' []
+DROPPED 'Households with 65+ residents' ["The model's text stated 65, not in the fetched data; figures"]
+DROPPED 'Data from the 2010s' ["The model's text stated 2010s, not in the fetched data; figu"]
+DROPPED 'B25010 average household size, 1-person and 2-person households' ["The model's text stated 1, 2, not in the fetched data; figur"]
+
+### code-review skill (medium) raw findings, then my verification
+Skill output (summary): (1) span start year 2018 not allowed; (2) discovery answers wiped when no rows; (3) "65+", "2010s", "Q1" tokens false strays;
+(4) _render/_allowed run up to 3x per response; (5) mixed acs1/acs5 labels use one dataset; (6) int(year) outside try in labels_for;
+(7) _warn_unverified no-op when warnings None / joins notices into one detail; (8) judge_figures plan access; (9) pre-line CSS.
+Verification: (1) NOT reproduced when rows exist (probe10 above: period cell carries the span) - only a failure with no rows (same as F1).
+(2) = F1, reproduced. (3) see probe10. (4) cost only, folded into F5. (5), (6), (8): not reproduced (year/plan are system-set), dropped.
+(7) warnings=None is a documented tested behaviour and assemble always passes a list: dropped. (9) cosmetic: dropped.
