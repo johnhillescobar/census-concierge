@@ -1,0 +1,167 @@
+CC-113 Gate 2 RE-RUN: review of c7d9704 against the 19 findings of the first Gate 2
+Target: origin/main...feat/cc-113-latency-research (HEAD c7d9704). Reviewer: cold subagent. 2026-10-27.
+Constraint: a live benchmark was running. Run: git, ruff, check_invariants, local python over
+evidence files. Not run: make check, pytest, mypy, npm, any probe command, any API.
+No file with "sealed" in its name was read.
+
+VERDICT: NOT YET (narrowly). No blocker in the probe or the machines. Two wrong numbers
+in the write-ups (N1, N2) and one committed artifact that repeats the noise F18 removed (N3)
+must be fixed; the scoreboard placeholder (F2) is expected to remain until make demo ends.
+
+=========================================================================================
+1. Machines
+=========================================================================================
+git diff --stat origin/main -- api evals budgets.toml   -> empty (no api, evals or budget change)
+check_invariants.py --base origin/main                  -> exit 1, 5 violations, all
+  "eval phrasing in api/src" (contract.py:29, geo.py:41, geo.py:52, geo_list.py:80, guards.py:31),
+  in files this diff does not touch. No new violation. "empty secret defaults" is now ok.
+  budget increases / budget log / new regex (+0) / new exemptions / census key in artifacts: ok.
+ruff check scripts/latency_probe.py                     -> All checks passed
+ruff format --check scripts/latency_probe.py            -> 1 file already formatted
+Diff scope (origin/main...HEAD): scripts/latency_probe.py and evidence/slice-6/** only. OK.
+
+=========================================================================================
+2. The 19 findings (numbering = review-pr F1..F18, F19 = the sealed-figures item;
+   code-review items are mapped onto them, and the three that map to none are in section 3)
+=========================================================================================
+F1  empty secret default / Gemini key      FIXED. os.environ.get("CENSUS_API_KEY") then `if not key`;
+    cmd_run requires OPENAI, CENSUS and GEMINI keys (rerank.py:67 reads GEMINI_API_KEY, so the
+    requirement is right). Invariant now ok. (Slightly strict for L1-only runs; harmless.)
+F2  SCOREBOARD_PLACEHOLDER                 EXPECTED, not counted.
+F3  q08 "fetches B01003 rather than B18101"  FIXED. results.md:138-140 now says 21 of 31 requests are
+    one B01003 county-list URL, 10 are B18101, 11 distinct. Recomputed: 31 reqs, 11 distinct, top
+    URL x21. Rec 2 cites it.
+F4  percentile method                      FIXED for every figure I recomputed (see section 4). The
+    write-ups never state the method (no "nearest" in either file); the commit message does.
+    Optional one-line fix, see N5.
+F5  A0 rerank p95 6.02 vs 5.97             FIXED (6.02 in both tables; recomputed 6.017, max 9.216).
+F6  "7 of 10" chat calls                   FIXED, 8 of 10 in results.md:208 and recs:105 (9,6,9,7,8,9,8,9,9,9).
+F7  Census failure populations             FIXED. 70 status-0 = 44 at 59-63 s, 2 at ~52 s (51.95, 52.06),
+    24 at 0.3-1.4 s (max 1.426). Recomputed. Retry on connection error, total deadline (not per-phase)
+    and 62.8 s / 75.9 s are in recs and draft AC 1. HTTP 400 is not a connection error, so AC 1 does
+    not retry a real answer.
+F8  cold-vs-warm                           PARTLY FIXED. Good: "slower by 0.4 to 1.3 s" removed; "not
+    comparable as run"; warm replay.jsonl is the pre-dedupe version (94 req/slot, q08 31) and the cold
+    set is de-duplicated; cold medians cover 1 to 2 questions vs 8 warm; 50 of 207 cold records have
+    zero requests (verified: 50 zero, 11 with >=3 = q08 x9, q21 x2); hang hit 12 workers repeat 1
+    too (62.2 s). NEW ERROR introduced by the fix: see N1 ("finds a sibling for 55 of the distinct URLs").
+F9  replay reports                         FIXED. --temperature filter plus skip-empty; replay-cold-report.txt
+    no longer prints "warm ... 0.0"; replay-report.txt no longer carries the 846 HTTP 400 cold rows.
+    Nit: the Reproduce block has no `replay-report replay.jsonl --temperature warm` line.
+F10 q40 47.8 s                             FIXED. Now said to be t_ours from the post-merge E2E, the
+    25.2 s trial in the spans note is mentioned, and the rerank-stall cause is a labelled candidate
+    ("E2E date was not checked"). The spans note says that E2E ran on merged main a39290f (PR #112),
+    i.e. BEFORE the split, so the candidate is in fact plausible; the hedge is safe. 30 q40 trials
+    (12+12+6), max total 23.904, max named ours 1.36: recomputed.
+F11 4.3 s vs 3.2 s                         FIXED (recs:54-55; max HTTP 200 request 4.311 s recomputed).
+F12 "nothing over 24 s"                    FIXED ("no A0 or L1 trial was over 24 s (C1 reached 41 s)";
+    A0 max 23.90, L1 17.82, C1 40.98).
+F13 "smaller than the spread"/interleaved  MOSTLY FIXED. The false sentence is gone; results.md:98 states
+    the real reason (contiguous block per repeat, L2 24 hang trials vs A0 10). results.md:81 still
+    says "A0 and L2 interleaved" (inherited from the design doc). See N4.
+F14 ranking vs rule                        FIXED. Table has "p95 s per effort" (50 / up to 2.9 / 1-2 /
+    1.0-1.5 / 0.33), ranks follow it, tie-break stated; "1.04 calls per question that reranks" replaced
+    by "69 of 72 trials rerank" (verified 69 of 72). Nit: recs:143 says "next candidates are 4 and 5"
+    but 5 already ships with 1 in the draft story.
+F15 validity overstates                    PARTLY FIXED. The exclusive check was added (cmd_validity:
+    excl >= gt - 0.5) and validity.txt regenerated; I recomputed excl for chat/census/assemble from the
+    validity-*.jsonl and they match. But the check is weaker than the prose: results.md:35-36 says
+    "so no other category can hold them". excl >= gt is satisfied by non-injected time in the same
+    category (chat q18: excl 69.7 against 40.0 injected, 29.7 s of slack), so a leak of up to the slack
+    would still pass. Exact only for assemble. Low; soften to "at least" or compute per-injection
+    exclusive overlap. See N6.
+F16 Reproduce block                        FIXED. validity commands per target, `--inject` and
+    `--inject-seconds` exist in the argparse; arms-clean.jsonl L2 invalidity stated; `run` refusal and
+    `--append` stated.
+F17 probe hygiene                          MOSTLY FIXED. --append / refuse-overwrite added; ARMS validated
+    (unknown arm exits 2); dead MAX_IN_FLIGHT line removed; cmd_duplicates uses r.get for
+    census_requests. NOT fixed: run_trial still hard-codes 5 (shipped value is 5, fetch.py:26, so A0 is
+    correct today); `max(dup_seconds)` at latency_probe.py:677 still raises on an empty file. Both Low.
+F18 bulk evidence                          FIXED for the logs (arms.log, c1-rerun.log, q40.log, replay.log
+    removed; the 15.5k-line noise and local paths are gone). arms.jsonl kept on purpose and the reason
+    is written in results.md:268-273 (raw record, contaminated C1 r1 and invalid L2). Reason holds.
+    The 33-file count still needs one sentence in the PR body. But see N3: c7d9704 then added a new
+    3,635-line noise log.
+F19 sealed figures                         NOT CHECKABLE. Consistency only: sealed A0 21/120 over 60 s and
+    C1 32/120 agree with the n= columns (120-99, 120-88). Sealed named-ours changed 0.73/1.54 ->
+    0.72/1.53 with the nearest-rank edit; cannot be re-derived here.
+
+=========================================================================================
+3. Code-review items that map to no F-number
+=========================================================================================
+CR7 module-level mutable state (State, STATE, BOUND_POOL) in the probe   NOT FIXED, not disclosed.
+    The architecture rule targets the app; the probe is a script. Low. One sentence in the results
+    ("probe keeps run state at module level; it is a one-process script") would close it.
+CR8 L2 timeout leaves the Gemini worker running in the 16-thread BOUND_POOL   NOT FIXED, not disclosed.
+    Unverified hypothesis (the reviewer could not measure). Evidence against material harm: L2 rerank
+    max is 3.002 s (n=72), so the wait never exceeded the bound, and 24 hang trials are explained by
+    the contiguous-block design. Still a limitation of the L2 arm. Low. Add one line to the L2 section.
+CR-A/B/C (Gemini key, empty default, append) -> F1 and F17, fixed.
+
+=========================================================================================
+4. Regression review of c7d9704 and number check
+=========================================================================================
+Probe edits, each read in the diff:
+  - GEMINI_API_KEY required: correct, matches rerank.py:67. No regression.
+  - refuse existing --out unless --append: placed after build_client() (so the app is built before
+    the refusal; harmless). Sealed flow: --aggregate-only check runs first, then the refusal.
+    A resumed sealed run would need --append: expected.
+  - arm-name validation: ARMS = (A0, L1, L2, C1); default --arms A0. Fine.
+  - validity exclusive check: see F15.
+  - replay-report --temperature plus skip-empty: correct; output of both committed reports matches the
+    new behaviour.
+  - removed `fetch.MAX_IN_FLIGHT = 5` in install_spans and the unused `fetch` import: run_trial sets it
+    every trial; ruff passes (no undefined name).
+  - os.environ.get("CENSUS_API_KEY") without default: fine.
+Nothing found that breaks the probe.
+
+Recomputed with `latency_probe.percentile` (nearest rank) from arms-clean.jsonl, arms-l2-rerun.jsonl,
+q40-x12.jsonl, replay*.jsonl. All of these MATCH the write-ups:
+  main A0/L1/C1 total p50/p95 (all, long_tail, trap), per-repeat p95 [16.6,19.5,23.7] [13.6,12.8,13.1]
+  [25.6,39.8,17.1], answered and table-match; L1 deltas (3.4, 5.9, per-repeat spreads 1.1 and 7.1, 10 and
+  5.6 points); per-call chat/rerank/embed p50/p95 and ratios 4.1x, 3.8x; L2 rerun table (10 and 24 trials
+  over 60 s, 11.62/78.15, 11.18/21.53, 12.90/130.65, 10.31/25.68, LLM-only 14.34/12.63, 6.02 and 3.00,
+  0.800/0.783), the tier lines with and without, per-repeat 77.1/78.1/74.9 and 130.6/91.2/129.7;
+  named ours A0 0.33/1.22/2.58, long_tail 0.34/1.27/2.58, trap 0.30/0.41/0.41; tool spans p95
+  search_tables 1.245, resolve_geography 0.312, others <0.01; reconciliation 72/72 and 142/144;
+  duplicates 295/944, 31.2%, 83/288; 6.57 chat calls, 5.7 s; replay warm medians and 1.65 s / 0.07 s;
+  cold status counts 17 of 257; status-0 populations 44/2/24; 4.311 s max HTTP 200.
+  Rounding nit: "52 s higher with them" is 52.50 s (130.648 - 78.147), would round to 53.
+
+NEW FINDINGS
+N1  evidence/slice-6/latency-experiment-results.md:145-146   MEDIUM (a number the files contradict, introduced by c7d9704)
+    "finds a sibling for 55 of the distinct URLs in the A0 repeat-1 sets". 55 is the GLOBAL distinct URL
+    count of those sets (61 summed per question). The cold arm replays only 33 / 29 / 25 requests per
+    (repeat, workers) slot (replay-cold.jsonl, verified), because cold_variant returns None for DP, S and
+    sibling-less tables. Fix: "finds a sibling for 25 to 33 of the 55 distinct URLs (33, 29 and 25 per
+    repeat; the rest have no sibling variable)".
+N2  evidence/slice-6/latency-recommendations.md:14   MEDIUM (pre-existing, missed in the first Gate 2)
+    "25% of sealed A0 trials are over 60 s". results.md:228 and the n= column say 21 of 120 = 17.5%
+    (long_tail 14 of 84 = 16.7%; the 25% fits neither; C1 is 26.7%). Fix: "17.5% (21 of 120) of sealed
+    A0 trials".
+N3  evidence/slice-6/cc-113-demo-post.txt (+ cc-113-demo-started.txt)   LOW/MEDIUM (process)
+    c7d9704 commits the raw stderr of the still-running make demo: 3,635 lines, mostly repeated
+    "Event loop is closed" tracebacks with C:\Users\johnh\... paths, the same noise F18 had removed from
+    arms.log. It is already modified in the working tree (the demo is still writing), so the committed
+    snapshot is stale. No key leak (0 "key=" lines, no AIza/sk- strings). Fix: do not commit the raw
+    log; commit only the scoreboard lines (pass rate, demo.p95_latency_seconds, window) once the demo ends
+    and put them in the Scoreboard section.
+N4  latency-experiment-results.md:81   LOW
+    "A0 and L2 interleaved" overstates the protection; line 98 says each arm is one contiguous block per
+    repeat. Fix: "alternating by repeat (block-interleaved)".
+N5  latency-experiment-results.md / latency-recommendations.md   LOW
+    No line states the percentile method. Add "p50/p95 are nearest-rank, as in scripts/run_demo.py and
+    the repo gate" to the intro of results.md.
+N6  latency-experiment-results.md:35-36 and cmd_validity   LOW   (see F15)
+    "so no other category can hold them" is stronger than excl >= injected proves. Soften or tighten.
+N7  scripts/latency_probe.py:677 and CR7/CR8   LOW   (see F17, CR7, CR8)
+    `max(dup_seconds)` on an empty list; module-level probe state; abandoned Gemini worker in L2. Either
+    fix `max(..., default=0.0)` and add one limitations sentence, or leave and say so.
+
+=========================================================================================
+5. What is left before READY
+=========================================================================================
+  1. Fix N1 and N2 (two numbers).  2. Resolve N3 (do not commit the raw demo log; commit the scoreboard).
+  3. Fill F2 when make demo ends (expected).  4. N4-N7 are optional one-liners.
+Nothing found in: key leakage, api/src or budgets.toml changes, new regex, new module names,
+ticket-named tests, graph nodes, probe regressions.
