@@ -73,7 +73,7 @@ def _numbers(text: str) -> list[float | str]:
 def _shown(raw: str) -> str:
     whole, dot, fraction = raw.partition(".")
     try:
-        return f"{int(whole):,}{dot}{fraction}"
+        return f"{'-' if whole.startswith('-') else ''}{abs(int(whole)):,}{dot}{fraction}"
     except ValueError:
         return raw
 
@@ -132,11 +132,24 @@ def _render(rows: list[dict[str, str | None]], record: Any) -> tuple[list[str], 
 def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -> set[float | str]:
     """What the response carries: cells, keys, years, status codes, dataset digits, system texts."""
     fetch = getattr(record, "fetch", None)
-    vintages = getattr(record, "vintages", None) or []
+    vintages = list(getattr(record, "vintages", None) or [])
+    published = getattr(record, "published_vintages", None)
+    if published and not rows:  # nothing was fetched: the answer may name what is published
+        vintages += [(name, year) for name in ("acs1", "acs5") for year in published(name)]
     datasets = {str(row.get("dataset") or "") for row in rows} | {str(name) for name, _ in vintages}
     texts = [*texts, *("".join(c if c.isdigit() else " " for c in name) for name in datasets)]
     pool = getattr(record, "pool", None) or []
-    texts += [str(getattr(record, "table_id", "") or ""), *datasets]
+    texts += [
+        str(getattr(record, "table_id", "") or ""),
+        *datasets,
+        str(getattr(record, "url", "")),
+    ]
+    texts += [f"{hit.get('title')} {hit.get('universe')}" for hit in pool]
+    geographies = [
+        getattr(record, "geography", None),
+        *(getattr(record, "geographies", None) or []),
+    ]
+    texts += [f"{g.name} {g.geoid} {g.for_spec} {g.in_spec}" for g in geographies if g]
     texts += [str(reason) for reason in getattr(fetch, "omission_reasons", None) or []]
     texts += [str(x) for hit in pool for x in [hit.get("table_id"), *(hit.get("members") or [])]]
     for row in rows:
@@ -157,9 +170,12 @@ def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -
 
 def stray(text: str, rows: list[dict[str, str | None]], record: Any) -> list[float | str]:
     """The numbers in the text that the response does not carry."""
+    numbers = _numbers(text)
+    if not numbers:
+        return []
     lines, texts = _render(rows, record)
     allowed = _allowed(rows, record, [*texts, *lines])
-    return sorted({number for number in _numbers(text) if number not in allowed}, key=str)
+    return sorted({number for number in numbers if number not in allowed}, key=str)
 
 
 def checked(prose: str, rows: list[dict[str, str | None]], record: Any) -> tuple[str, str]:
@@ -174,7 +190,7 @@ def checked(prose: str, rows: list[dict[str, str | None]], record: Any) -> tuple
     bad = stray(prose, rows, record)
     problem = ""
     if bad:
-        listed = ", ".join(f"{n:,.10g}" if isinstance(n, float) else n for n in bad[:5])
+        listed = ", ".join(f"{n:,.10g}" if isinstance(n, float) else n[:40] for n in bad[:5])
         problem = f"The model's text stated {listed}, not in the fetched data; " + (
             "figures below replace it." if lines else "it was removed."
         )

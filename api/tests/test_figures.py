@@ -1093,3 +1093,142 @@ def test_labels_come_back_only_for_the_variables_asked_for(
     }
     monkeypatch.setattr(metadata, "variables", lambda dataset, year: found)
     assert figures._labels("acs5", 2023, {"B01001_001E"}) == {"B01001_001E": "Total"}
+
+
+# --- Gate 2 findings on the rebased tree ----------------------------------------------------
+
+
+def _discovery(**more: Any) -> SimpleNamespace:
+    """A question about which table holds something: nothing was fetched or built."""
+    pool = [
+        {
+            "table_id": "B19013",
+            "title": "Median Household Income in the Past 12 Months (In 2023 Dollars)",
+            "universe": "Households",
+            "members": [],
+        }
+    ]
+    return SimpleNamespace(
+        fetch=None,
+        table_facts=None,
+        universe="",
+        pool=pool,
+        table_id="B19013",
+        vintages=[],
+        published_vintages=lambda dataset: {2021, 2022, 2023},
+        **more,
+    )
+
+
+def test_discovery_answer_keeps_published_years_dataset_and_title_digits() -> None:
+    prose = "B19013 holds median household income in the past 12 months, in the 2023 5-year ACS."
+    answer, problem = figures.checked(prose, [], _discovery())
+    assert (answer, problem) == (prose, "")
+
+
+def test_discovery_answer_still_drops_a_figure_the_response_does_not_carry() -> None:
+    answer, problem = figures.checked("B19013 shows about 4,500 households.", [], _discovery())
+    assert answer == figures.NO_FIGURES
+    assert "4,500" in problem
+
+
+def test_discovery_year_no_dataset_publishes_is_still_flagged() -> None:
+    _answer, problem = figures.checked("Available for 2031.", [], _discovery())
+    assert "2,031" in problem or "2031" in problem
+
+
+def test_a_pool_table_may_be_named_with_its_title_digits_and_an_unknown_one_may_not() -> None:
+    record = _record()
+    record.pool = [
+        {"table_id": "B17001", "title": "Poverty Status in the Past 12 Months", "universe": ""}
+    ]
+    prose = "Related: B17001, poverty status in the past 12 months."
+    answer, problem = figures.checked(prose, [COOK], record)
+    assert problem == ""
+    assert answer.startswith(prose)
+    _answer, problem = figures.checked("Related: B25119, tenure.", [COOK], record)
+    assert "b25119" in problem
+
+
+def test_a_quoted_url_and_geography_clause_are_the_response_own_text() -> None:
+    url = CensusURL(
+        "https://api.census.gov/data/2023/acs/acs5?get=NAME,B19013_001E,B19013_001M"
+        "&for=county:031&in=state:17"
+    )
+    geography = SimpleNamespace(
+        name="Cook County", geoid="0500000US17031", for_spec="county:031", in_spec="state:17"
+    )
+    record = _record()
+    record.url, record.geography, record.geographies = url, geography, []
+    prose = f"Fetched from {url} for county:031 in state:17."
+    answer, problem = figures.checked(prose, [COOK], record)
+    assert problem == ""
+    assert answer.startswith(prose)
+    record.url, record.geography = None, None
+    _answer, problem = figures.checked(prose, [COOK], record)
+    assert problem != ""
+
+
+@pytest.mark.parametrize(
+    ("raw", "shown"),
+    [("-0.5", "-0.5"), ("-0", "-0"), ("-5.5", "-5.5"), ("-1234.5", "-1,234.5"), ("0.5", "0.5")],
+)
+def test_a_negative_estimate_keeps_its_sign(raw: str, shown: str) -> None:
+    assert figures._shown(raw) == shown
+
+
+def test_prose_without_a_digit_builds_no_allowed_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*_args: Any, **_kwargs: Any) -> set[float | str]:
+        raise AssertionError("the allowed set was built for prose that has no number")
+
+    monkeypatch.setattr(figures, "_allowed", boom)
+    answer, problem = figures.checked("Two counties compared.", [COOK, DUPAGE], _record())
+    assert problem == ""
+    assert answer.startswith("Two counties compared.")
+
+
+def test_the_warning_names_a_long_stray_token_in_bounded_length() -> None:
+    _answer, problem = figures.checked("Income is 1" + "9" * 5000 + "x.", [COOK], _record())
+    assert problem
+    assert len(problem) < 300
+
+
+def test_a_discovery_response_keeps_its_framing_end_to_end() -> None:
+    record = ExecutionRecord(
+        pool=[
+            {
+                "table_id": "B19013",
+                "title": "Median Household Income in the Past 12 Months (In 2023 Dollars)",
+                "universe": "Households",
+                "members": [],
+            },
+            {
+                "table_id": "B19001",
+                "title": "Household Income in the Past 12 Months, 16 brackets",
+                "universe": "Households",
+                "members": [],
+            },
+        ],
+        table_id="B19013",
+        tables_only=True,
+    )
+    record.published_vintages = lambda dataset: {2022, 2023}
+    prose = (
+        "B19013 holds median household income in the 2023 5-year ACS; B19001 splits it into "
+        "16 brackets."
+    )
+    response = assemble(json.dumps({"answer": prose, "chart": None}), record)
+    assert response.answer == prose
+    assert not [w for w in response.warnings if w.code == "answer_figures_unverified"]
+    assert {a.table_id for a in response.alternatives} == {"B19001"}
+
+
+def test_a_published_year_that_was_not_fetched_is_flagged_when_figures_were() -> None:
+    record = _record()
+    record.vintages = [("acs5", 2023)]
+    record.published_vintages = lambda dataset: {2021, 2022, 2023}
+    _answer, problem = figures.checked("Compared with 2022.", [COOK], record)
+    assert "2,022" in problem
+    answer, problem = figures.checked("Fetched for 2023.", [COOK], record)
+    assert problem == ""
+    assert answer.startswith("Fetched for 2023.")

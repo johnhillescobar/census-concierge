@@ -35,11 +35,6 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
 | `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
-
-## Answer text
-
-| code | condition |
-|---|---|
 | `answer_figures_unverified` | The model's text or chart title stated a number the response does not carry; the rendered figures (or the table ID, for a title) replace it. |
 
 ## Slice 3 warning codes — years

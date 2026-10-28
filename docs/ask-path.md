@@ -1,7 +1,6 @@
 # Ask path — live behavior
 
-`docs/ARCHITECTURE.md` is the short inventory. This file is the execution
-record for `POST /ask` after slice 3 ([CC-2](https://johnhillescobar.atlassian.net/browse/CC-2) Done).
+`docs/ARCHITECTURE.md` is the short inventory. This file is the execution record for `POST /ask` after slice 3 ([CC-2](https://johnhillescobar.atlassian.net/browse/CC-2) Done).
 
 ## Loop
 
@@ -19,24 +18,7 @@ Four tools:
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
 
 `assemble()` builds `AskResponse` from the execution record. `guards.evaluate()`
-attaches warning codes from `docs/requirements.md`. None of them block.
-
-The model writes framing only; the prompt bars every figure. Code renders the figures
-([CC-121](https://johnhillescobar.atlassian.net/browse/CC-121)): `figures.py` makes one sentence per
-fetched estimate (the first 20, then "k of n shown"): label, `E` and `M`, place, GEOID, dataset and
-vintage, sentinels as "not available", then the table title and universe, each in its own vintage.
-They follow the framing in `answer`. `take_chart` first reads every number in the framing with
-`float()`; one the response does not carry (row cells, years asked and built, HTTP status codes, the
-dataset's digits, the table IDs it names, the fetch's omission reasons, numbers in labels, title and
-universe) drops the framing, leaves the rendered
-figures alone and adds `answer_figures_unverified`. A token with a digit that `float()` cannot read
-(`$78k`, `#3`, `78,462USD`) counts as not carried unless the whole token is carried (a cell, a key, a
-table ID, a dataset name). A model chart title gets the same test; a title that fails is replaced by the
-table ID; one warning per response carries both notices. Combined rows come first under the cap of 20. A fraction character (the one-half sign) counts as a figure. A number written in words is not read; the
-prompt bars those. The check proves every number is in the response, not that it describes the right
-place or year (a state FIPS of 17 carries "17 percent"); the offline judge measures that residual. No
-model call, no regex. `fetch_data` looks up the labels (one thread per vintage) and keeps them on its
-artifact.
+attaches warning codes from `docs/requirements.md`. None of them block. Answer figures: `docs/ARCHITECTURE.md`.
 
 ## Finish path
 
