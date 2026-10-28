@@ -146,8 +146,31 @@ Findings, both reproduced by me and fixed:
 - F1: a framing that quotes an omission reason such as `vintage_gap_2020` lost its text, because the code holds a year and was not carried. The fetch's `omission_reasons` are carried.
 The five strict xfail tests became plain tests. 27 of 27 fix mutations caught (`cc-121-fixes-mutations.txt`). 801 tests pass, `api_src_loc` 4581 of 4600, regex delta +0.
 
+## E2E pre-PR: first attempt interrupted, rerun of the demo step (2026-10-22)
+
+The `gate.ps1 e2e-pre` subagent ran the eval steps to exit 0 (`eval_retrieval`, `eval_retrieval --tier long_tail --rerank`, `score_synthetic`, `npm ci`, `npm run build`; `make` is not installed here, so it ran the Makefile lines) and `run_demo --repeat 3` reached trial 44 of 186 when Claude Code reaped the shell for low memory. The orphaned demo process held about 5 GB; the subagent killed it and appended `# INTERRUPTED` to `cc-121-e2e-pre.txt` (kept). No scoreboard exists from that attempt; the `demo.*` keys in `evidence/latest.json` are from an earlier run and are not CC-121 numbers.
+
+Before rerunning I checked the one memory source my change adds: label lookups (`figures._labels`, a gunzip and parse of about 28,000 variables) cost 0.15 s each, peak about 340 MB for 36 parallel lookups and settle near 136 MB; the demo drives the app through a test client one request at a time, so that is not the 5 GB. Where the 5 GB comes from is not known yet (whether it also happens on `main` is untested).
+
+Rerun: `scripts/e2e_capture.py --slice 6 --ticket CC-121 --phase pre --from demo --quiet`, which appends to the partial transcript, started detached from the harness (a reap cannot kill it) with a watchdog that samples the largest python process every 20 s and kills the run above 9 GB. Run by me, not a subagent: the subagent route adds nothing for a script run whose output I do not read, and the harness reap is independent of who starts the shell. I do not read the transcript; I quote gated keys and `demo.misses` only.
+
 ## Pending batches (nothing done yet; each needs its own "yes")
 
 - M1: memory. Rewrite `project_cc121_answer_figures.md` and `feedback_phase1_yardstick_url_is_product.md` once the direction is final.
 - G: Gate 1, Gate 2 (fresh `general-purpose` subagents, transcripts under `evidence/slice-6/`), E2E pre-PR (`scripts/e2e_capture.py`, needs keys and credits), PR, merge, E2E post, Jira close card.
 - Ruling needed: CLAUDE.md says phases persist to "git/PR/evidence and Jira"; `run-slice.md` says "or Jira". Default: one short Jira comment per gate.
+
+## Rebase onto main and pre-flight re-run (2026-10-28)
+
+Why: CC-123 closed (the ~5 GB did not reproduce in 7 complete runs on main, CC-121 and the merge-base; PR #116, `evidence/slice-6/memory-experiment-results.md`), CC-102 and CC-120 are done, so CC-121's blockers are cleared. The branch was 50 commits behind `origin/main` 635449d and had never been pushed.
+
+- Rebase: 29 commits replayed with no conflicts (`git rebase origin/main`, worktree `census-cc-123-C`, branch `cc121-rebase`). Old tip kept as `backup/cc-121-pre-rebase-2` (f901c73). Files changed on both sides, auto-merged and re-read: `api/src/ask.py` (one call site), `api/src/contract.py`, `api/tests/test_ask_loop.py`. The merged diff against main in `ask.py`, `contract.py`, `fetch.py`, `prompts.py` is the same small change as before.
+- `make check` steps run by hand (make is not installed): ruff check and format pass; mypy passes (27 files); `check_invariants --base origin/main` fails only `eval phrasing in api/src`, the same 5 baseline entries that fail on main (identical output on main); `generate_client --check` passes; `pytest -m "not integration"` 1048 passed, 34 skipped, 1 failed = `test_invariants_print_every_named_pattern`, which wraps that same invariant and also fails on main.
+- **New finding: two budgets break only after the rebase.** `api src LOC` 4696 > 4600 and `doc lines` 1823 > 1800. Main is at 4511 and 1800; CC-121 adds 185 counted source lines (`figures.py` 159, `contract.py` +23, `fetch.py` +3) and 24 doc lines (`ask-path.md` 17, `requirements.md` 6, `ARCHITECTURE.md` 1). CC-121 measured 4581 of 4600 before main grew by 115.
+- `p95_latency_seconds` 20.695 > 20 also fails, as on main.
+
+Decisions:
+- `owner` (2026-10-28): run the gates on the current code now; trim later. The owner may raise the budgets but wants the need explained first. No budget edit is made by the agent.
+- `default`: gates run in worktree `census-cc-123-C` (the branch name `feat/cc-121-answer-figures` is checked out, with uncommitted edits, in the owner's main tree; it is moved to the rebased tip at the end, after stashing).
+
+Outward writes still to come (each listed before it happens): move the branch ref; push; PR; one short Jira comment per gate on CC-121; the close card after the post-merge E2E.
