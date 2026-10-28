@@ -28,6 +28,12 @@ MUTATIONS = [
         "discovery",
     ),
     (
+        "published years alone are not response text",
+        "if published and not rows:",
+        "if False and not rows:",
+        "published_year_that_no_title_carries",
+    ),
+    (
         "published vintages offered even when rows were fetched",
         "if published and not rows:",
         "if published:",

@@ -67,7 +67,7 @@ visible rather than being papered over.
 
 ## Contract
 
-`AskResponse`: `answer`, `urls[]` (one key-redacted URL per attempted request),
+`AskResponse`: `answer` (framing, then the figures code renders), `urls[]` (one key-redacted URL per attempted request),
 `legs[]` (`for_spec` identifies the geography), year buckets (`requested` /
 `attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`,
 `universe`, `table_id`, `plan` (`ResultPlan`: selected table, estimate IDs from

@@ -1095,7 +1095,7 @@ def test_labels_come_back_only_for_the_variables_asked_for(
     assert figures._labels("acs5", 2023, {"B01001_001E"}) == {"B01001_001E": "Total"}
 
 
-# --- Gate 2 findings on the rebased tree ----------------------------------------------------
+# --- Discovery answers, quoted URLs and signs ----------------------------------------------------
 
 
 def _discovery(**more: Any) -> SimpleNamespace:
@@ -1232,3 +1232,14 @@ def test_a_published_year_that_was_not_fetched_is_flagged_when_figures_were() ->
     answer, problem = figures.checked("Fetched for 2023.", [COOK], record)
     assert problem == ""
     assert answer.startswith("Fetched for 2023.")
+
+
+def test_discovery_framing_may_name_a_published_year_that_no_title_carries() -> None:
+    record = _discovery()
+    record.pool[0]["title"] = "Median Household Income"
+    prose = "B19013 is published for 2021 and 2022."
+    answer, problem = figures.checked(prose, [], record)
+    assert (answer, problem) == (prose, "")
+    record.published_vintages = lambda dataset: {0}
+    _answer, problem = figures.checked(prose, [], record)
+    assert "2,021" in problem

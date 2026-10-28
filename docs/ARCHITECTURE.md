@@ -84,29 +84,31 @@ four-tool loop still runs, and model args cannot undo the pin.
 `Alternative` carries title and universe. Optional `chart` is a `ChartSpec` (line/bar roles over
 `rows`); invalid model chart output is discarded (`chart_unavailable`).
 
+`ambiguous_place` carries ranked `GeoSpec` candidates. Start:
+`uv run uvicorn src.main:app --reload` (from `api/`, or with `PYTHONPATH=api`).
+
+`make demo` is `scripts/run_demo.py --repeat 3` (golden set except holdout).
+
 ### Answer figures (CC-121)
 
 The model writes framing only; the prompt bars every figure. `figures.py` renders one sentence per
 fetched estimate (the first 20, then "k of n shown"): label, `E` and `M`, place, GEOID, dataset and
-vintage, sentinels as "not available", then each vintage's table title and universe. They follow the
+vintage, a sentinel estimate as "not available" (a sentinel margin as "not published"), then each vintage's table title and universe. They follow the
 framing in `answer`. `fetch_data` looks the labels up (one thread per vintage, a read of the variables
 metadata) and keeps them on its artifact.
 
 `take_chart` reads every number in the framing with `float()`. A number the response does not carry
 drops the framing, leaves the rendered figures alone and adds `answer_figures_unverified` (one warning
-per response). Carried: row cells, years asked, built or published when nothing was fetched, HTTP
+per response). Carried: row cells, years asked and built (and, when nothing was fetched, the published vintages), HTTP
 status codes, the dataset's digits, the table IDs and the titles and universes of the pool tables, the
 fetch's omission reasons, the quoted URL and geography clause, and the numbers in labels, title and
 universe. A token with a digit that `float()` cannot read counts as not carried unless the whole token
 is. A model chart title gets the same test and is replaced by the table ID when it fails.
 
 The check proves every number is in the response, not that it describes the right place or year (a
-state FIPS of 17 carries "17 percent"); a number written in words is not read, the prompt bars those.
+state FIPS of 17 carries "17 percent"); a number written in words is not read, the prompt bars those. The sign is ignored, and a hyphen
+splits a token. The notice names at most five stray numbers.
 No model call, no regex.
-`ambiguous_place` carries ranked `GeoSpec` candidates. Start:
-`uv run uvicorn src.main:app --reload` (from `api/`, or with `PYTHONPATH=api`).
-
-`make demo` is `scripts/run_demo.py --repeat 3` (golden set except holdout).
 
 ## Chat UI
 

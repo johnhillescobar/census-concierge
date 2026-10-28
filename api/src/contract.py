@@ -401,8 +401,8 @@ def take_chart(
     record: Any = None,
 ) -> dict[str, Any]:
     """The answer and chart in the model's reply. With a record, text and chart title that state
-    a number the response does not carry are replaced and a warning is appended to `warnings`;
-    without a record nothing is checked."""
+    a number the response does not carry are replaced, with a warning appended to `warnings` when
+    given; without a record nothing is checked."""
     text = answer.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
