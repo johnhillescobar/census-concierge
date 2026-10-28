@@ -132,7 +132,8 @@ class Tracker:
     created: dict[str, int] = field(default_factory=dict)
 
     def watch(self, name: str, cls: type) -> None:
-        original = cls.__init__
+        target: Any = cls
+        original = target.__init__
         self.refs.setdefault(name, [])
         self.created.setdefault(name, 0)
 
@@ -142,7 +143,7 @@ class Tracker:
             with contextlib.suppress(TypeError):
                 self.refs[name].append(weakref.ref(instance))
 
-        cls.__init__ = init  # type: ignore[method-assign]
+        target.__init__ = init
 
     def live(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -281,6 +282,10 @@ def slope_of(
     return ols([float(t["i"]) for t in body], [pick(t) for t in body])
 
 
+def live_count(name: str) -> Callable[[dict[str, Any]], float]:
+    return lambda t: float(t["live"].get(name, 0))
+
+
 def analyze(trials: list[dict[str, Any]]) -> dict[str, Any]:
     """Apply the design's decision rules to one run's trial records."""
     trials = sorted(trials, key=lambda t: t["i"])
@@ -297,7 +302,7 @@ def analyze(trials: list[dict[str, Any]]) -> dict[str, Any]:
         "threads": slope_of(trials, lambda t: float(t["post"]["threads"])),
     }
     for name in trials[-1].get("live", {}):
-        count_slopes[name] = slope_of(trials, lambda t, n=name: float(t["live"].get(n, 0)))
+        count_slopes[name] = slope_of(trials, live_count(name))
     resource = sorted(name for name, (_, lo, _) in count_slopes.items() if lo > COUNT_GROWTH)
     plateau = high <= GROWTH_MB and last_max <= HIGH_WATER_FACTOR * first and not resource
     high_water = plateau and peak_pre / MB > 1.5 * first
@@ -418,7 +423,7 @@ def census_probe_url() -> str:
     )
 
 
-def make_step(path: str, tree: Path) -> tuple[Callable[[], None], Callable[[], None]]:
+def make_step(path: str, tree: Path) -> tuple[Callable[[], Any], Callable[[], Any]]:
     """(step, teardown) for one leaf arm. Imports resolve against the TREE's api/."""
     sys.path.insert(0, str(tree / "api"))
     if path == "L1":
@@ -530,7 +535,7 @@ def _inject_spike(held: list[Any], i: int) -> None:
         held.clear()
 
 
-VALIDITY = {
+VALIDITY: dict[str, tuple[Callable[[list[Any], int], None], dict[str, Any]]] = {
     "python-retained": (
         _inject_python,
         {"verdict": "retained growth", "owner": "python", "slope": 20.0},
