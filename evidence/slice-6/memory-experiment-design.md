@@ -49,7 +49,7 @@ perturb the P numbers.
 - Run order interleaved `M, C, B, M, C, B, M, C, B` for arm P (3 complete attempts per
   tree), then one arm-T run per tree. A Census hang window or provider drift cannot line up with one tree.
 - **Containment**: each run is detached from the harness, and a watchdog in the probe kills
-  its own process above 9 GB private bytes. A kill is data (`killed at trial k, N GB`), not a
+  its own process above 6 GB private bytes (lowered from 9 GB before any W1 run: the incident was reaped near 5 GB on this machine). A kill is data (`killed at trial k, N GB`), not a
   failure to report.
 - Sealed set: not used and not read. This experiment measures memory, not answer quality.
 
@@ -62,10 +62,11 @@ the slope. `slope` = OLS slope of `x_i` over trials 11 to 62, with a 95% confide
 | verdict | rule |
 | --- | --- |
 | **retained growth** | lower CI bound of slope > 5 MB per trial |
-| **plateau** | upper CI bound of slope <= 5 MB per trial **and** max of `x_i` over the last 20 trials <= 1.15 x median of `x_i` over trials 11 to 30 |
+| **resource growth** | not retained growth, but the lower CI bound of the slope of the handle count, the thread count, or the live-instance count of any tracked class (`httpx.Client`, `httpx.AsyncClient`, `openai.OpenAI`, `openai.AsyncOpenAI`, `genai.Client`, event loops, sockets; weak references, counted after the collect) is > 0.5 per trial |
+| **plateau** | upper CI bound of slope <= 5 MB per trial **and** max of `x_i` over the last 20 trials <= 1.15 x median of `x_i` over trials 11 to 30 **and** no resource growth |
 | **inconclusive** | neither; the arm is extended to `--repeat 3` (186 trials) before a verdict |
 | **reproduced (incident)** | peak private bytes in a run > 2 GB (the incident was about 5 GB at trial 44, roughly 100 MB per trial) |
-| **high-water, not growth** | pre-GC peak is high but the plateau rule passes |
+| **high-water, not growth** | the plateau rule passes and the largest pre-GC private-bytes sample (warm-up included) exceeds 1.5 x the median of `x_i` over trials 11 to 30 |
 
 Attribution of a retained-growth run (arm T and arm P together; the growth magnitudes must
 agree within a factor of 2, otherwise tracing perturbed it and the arm-T attribution is
@@ -96,7 +97,10 @@ reported as unreliable):
 
 Each is a loop of 300 iterations (100 for the heavy loads) in a fresh process, no
 `run_demo`, sampled every 10 iterations with the same post-GC sampler. The slope rule is the
-one above, per iteration, in KB.
+one above, per iteration, in KB, with no threshold of its own: a path **owns** the growth only by
+the H-lifecycle rule (slope per iteration times its constructions per trial from arm P is >= 50%
+of the W1 slope); a path whose slope CI sits entirely below 20 KB per iteration is reported as
+no growth. Samples are every 10 iterations; the first 100 iterations are warm-up.
 
 | arm | path | network |
 | --- | --- | --- |
@@ -109,7 +113,7 @@ one above, per iteration, in KB.
 
 ## Instrument validity (run first, recorded)
 
-Offline harness, 30 trials per run, no API keys. Each run injects a known per-trial
+Offline harness, 62 trials per run (the windows need it), one fresh process per case, no API keys. Each run injects a known per-trial
 allocation; the classifier must name the owner and the plateau rule must fail, and the
 controls must pass.
 
@@ -118,7 +122,7 @@ controls must pass.
 2. **Native allocation**: `ctypes` `malloc` of 20 MB per trial, never freed (invisible to
    `tracemalloc`). Expected: retained growth, owner native, plateau fails.
 3. **Resource growth**: open and hold 20 sockets per trial. Expected: handle-count slope
-   about 20 per trial, owner client / loop / handle, plateau fails.
+   about 20 per trial (+/- 20%), verdict resource growth, plateau fails (memory alone may stay flat).
 4. **Negative control**: constant workload, no injection. Expected: plateau passes.
 5. **High-water control**: allocate 500 MB at trial 5, free it at trial 8. Expected: plateau
    passes (pre-GC peak high, post-GC flat) and verdict "high-water, not growth".

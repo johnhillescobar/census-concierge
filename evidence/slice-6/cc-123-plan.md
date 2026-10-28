@@ -10,8 +10,8 @@ fix for a reliability blocker; it does not change what `/ask` answers.
 1. **Design** (this commit): `memory-experiment-design.md`. No run before it is committed. Done when committed.
 2. **Probe**: `scripts/memory_probe.py` (script only, zero `api/src` lines). Instrument validity (five
    offline injections) must pass before any W1 run.
-3. **Runs**: leaf arms L1-L6, W1 on trees M and C (6 arm-P runs interleaved, 2 arm-T runs). Raw output to
-   `evidence/slice-6/memory/`. Detached, 9 GB watchdog.
+3. **Runs**: leaf arms L1-L6, W1 on trees M, C and B (9 arm-P runs interleaved, 3 arm-T runs). Raw output to
+   `evidence/slice-6/memory/`. Detached, 6 GB watchdog (was 9 GB in the first design commit; lowered before any W1 run).
 4. **Results**: `memory-experiment-results.md` (verdict per hypothesis, numbers, commands, commit).
 5. **Fix**, only for the measured cause (AC7). Tests mutation-checked. Gate 1, Gate 2, E2E twice (AC8).
 6. PR, merge by the owner, E2E post, Jira close comment by the owner.
@@ -26,10 +26,10 @@ fix for a reliability blocker; it does not change what `/ask` answers.
 
 ## Decisions
 
-- `default`: trees M = `origin/main` 635449d and C = CC-121 `f901c73`. Revertible.
+- `default`: trees M = `origin/main` 635449d, C = CC-121 `f901c73`, B = their merge-base `1160bde` (isolates CC-121 from main's drift). Revertible.
 - `default`: W1 is one repeat (62 trials), not `--repeat 3`, because the incident died at trial 44 of repeat 1.
   Extended to 186 only for an inconclusive verdict.
-- `default`: thresholds in the design (5 MB per trial, 2 GB reproduction, 9 GB kill). Revertible before the first run.
+- `default`: thresholds in the design (5 MB per trial, 2 GB reproduction, 6 GB kill). Revertible before the first run.
 
 ## Open
 
