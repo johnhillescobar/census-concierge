@@ -26,6 +26,7 @@ T16 = "Compare poverty by census tract within the city of Denver"
 T11 = "Unemployment in Middlebury, Vermont each year since 2017"
 T12 = "1-year ACS poverty for Fresno County, 2018 through 2022"
 T13 = "Broadband subscription trend by census tract in Wayne County, 2018 to 2022"
+T09 = "Number of cell phones in Denver since 2017"
 T14 = "How has the share of households with a computer changed since 2013?"
 Q24 = "Median household income for ZCTA 90210"
 
