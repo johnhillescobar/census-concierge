@@ -1,0 +1,220 @@
+CC-117 Gate 1 transcript  (range d0d7995..c45681a, tests added on top: 49c958d, 76f5443)
+Unit tests only. No make demo/eval, no live OpenAI/Gemini/Census calls.
+
+== 1. Baseline at c45681a (before any test was added) ==
+$ uv run pytest api/tests -q -p no:cacheprovider
+1 failed, 1062 passed, 34 skipped, 1 warning in 74.77s (0:01:14)
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+  -> PRE-EXISTING: 5 leakage violations (geography vocabulary: 'zip code tabulation area' in
+     contract.py / geo.py, 'united states' geo.py, 'district columbia' geo_list.py,
+     'statistical area' guards.py). Same failure on main d0d7995 per the caller. Not fixed;
+     evals/leakage_baseline.txt and budgets.toml untouched.
+
+== 2. Adversarial matrix rows that apply ==
+docs/process-evidence.md lists four slice-0 retrieval rows (identical-input float noise, family
+returned by one member, ranking change on tuning set alone, "largest jump" intuition). None is
+touched by this range: no embedding, rerank scoring, fusion, or family code changed (rerank.py
+changed prompt text only; CLAUDE.md forbids asserting on prompt wording). The rows below are
+the change-specific probes the caller required, with the test that covers each.
+
+ Row | Test (file) | Status
+ word the old pin matched is not forced to a table (search) | test_search_never_adds_a_table_the_index_did_not_return x4 (test_ask_tools.py) | in range
+ word the old pin matched is not forced to a table (finish) | test_finish_with_a_pool_builds_its_first_table_without_searching x3; test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick x3 (test_ask_loop.py) | ADDED
+ old measure_unavailable guard no longer fires | test_a_device_count_question_raises_no_measure_warning (test_guards.py) | ADDED
+ finish with non-empty pool does not re-search | test_finish_with_a_pool_builds_its_first_table_without_searching | ADDED
+ finish builds from pool[0] | same test + test_every_tract_listing_replaces_a_county_url | ADDED / changed in range
+ finish builds from the plan table | test_finish_builds_the_plan_table_when_retrieval_returns_nothing | ADDED
+ selector pick outside pool never invents a table | test_unknown_selector_id_keeps_retrieval_order (existing) + test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives | existing + ADDED
+ alternatives still list the pool when the pick is wrong | test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives | ADDED
+ fakes vary by input | search fakes map question -> ids; the selector fake picks the LAST hit, so the expected table differs per parametrized case and cannot come from a constant | n/a
+
+Tests deleted in the range (nothing left to mutate): test_cell_phone_and_computer_questions_pin_b28001,
+test_cell_phones_warn_before_fetch, test_computer_share_is_not_a_missing_measure,
+test_measure_unavailable_still_ships_the_url, test_poverty_and_uninsured_wording_pin_tables.
+Changed in range: ask_fixtures._search (cell phone -> ["B28001"]), test_every_tract_listing_replaces_a_county_url
+(pool B27010 -> B27001; mutation-checked below), and test_search_never_adds_a_table_... (replaces the pin test).
+
+Note on the plan-table row: an earlier version of the plan test put the plan table in a non-empty pool. The
+mutation "finish ignores the plan table" was NOT caught (first run: NOT-CAUGHT), because dispatch() already
+pins build_url's table_id to record.override via pin_tool_args, so finish's plan term is observable only when
+the pool is empty. The test was rewritten (76f5443) and now fails under that mutation (see section 3).
+In the first run the "re-searches" mutation also listed the plan test, which is not a test of that behaviour
+(its pool is empty so a search happens either way); that pairing was removed from the driver and the mutation
+re-run on its own (section 4).
+
+== 3. Mutation run (driver: scratchpad mutate.py). Each mutation is applied, only the named test is run, the
+== tree is restored to HEAD and the test re-run. Tree is verified clean before and after each mutation.
+$ git status --short  (must be clean before mutating)
+
+==============================================================================
+MUTATION: search re-injects a phrase-pinned table
+$ git diff --stat HEAD -- api/src
+ api/src/tools.py    | 22 ++++++++++++++++++++++
+ api/src/vintages.py | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 70 insertions(+)
+
+BAD  (mutated, expected failing) api/tests/test_ask_tools.py::test_search_never_adds_a_table_the_index_did_not_return
+     4 failed, 1 warning in 9.50s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_tools.py::test_search_never_adds_a_table_the_index_did_not_return
+     4 passed, 1 warning in 0.43s
+==============================================================================
+MUTATION: finish re-adds phrase pin (table from pin, re-search when pin missing from pool)
+$ git diff --stat HEAD -- api/src
+ api/src/finish.py   | 14 ++++++++++----
+ api/src/vintages.py | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+), 4 deletions(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 failed, 1 warning in 8.32s
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 failed, 1 warning in 1.94s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 passed, 1 warning in 3.13s
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 passed, 1 warning in 0.54s
+==============================================================================
+MUTATION: finish ignores the pool head when choosing the table
+$ git diff --stat HEAD -- api/src
+ api/src/finish.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 failed, 1 warning in 2.78s
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 failed, 1 warning in 0.81s
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_every_tract_listing_replaces_a_county_url
+     1 failed, 1 warning in 3.45s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 passed, 1 warning in 0.68s
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 passed, 1 warning in 0.54s
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_every_tract_listing_replaces_a_county_url
+     1 passed, 1 warning in 1.76s
+==============================================================================
+MUTATION: finish ignores the plan table
+$ git diff --stat HEAD -- api/src
+ api/src/finish.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_builds_the_plan_table_when_retrieval_returns_nothing
+     1 failed, 1 warning in 0.98s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_builds_the_plan_table_when_retrieval_returns_nothing
+     1 passed, 1 warning in 0.37s
+==============================================================================
+MUTATION: finish re-searches even with a non-empty pool
+$ git diff --stat HEAD -- api/src
+ api/src/finish.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 failed, 1 warning in 4.64s
+NOT-CAUGHT (mutated yet passing) api/tests/test_ask_loop.py::test_finish_builds_the_plan_table_when_retrieval_returns_nothing
+     1 passed, 1 warning in 0.37s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 passed, 1 warning in 0.49s
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_builds_the_plan_table_when_retrieval_returns_nothing
+     1 passed, 1 warning in 0.42s
+==============================================================================
+MUTATION: finish never searches
+$ git diff --stat HEAD -- api/src
+ api/src/finish.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 failed, 1 warning in 0.93s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 passed, 1 warning in 0.69s
+==============================================================================
+MUTATION: promote inserts a selector id that is not in the pool
+$ git diff --stat HEAD -- api/src
+ api/src/tools.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_tools.py::test_unknown_selector_id_keeps_retrieval_order
+     1 failed, 1 warning in 3.15s
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives
+     1 failed, 1 warning in 0.74s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_tools.py::test_unknown_selector_id_keeps_retrieval_order
+     1 passed, 1 warning in 2.80s
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives
+     1 passed, 1 warning in 0.46s
+==============================================================================
+MUTATION: assemble drops the pool from the alternatives
+$ git diff --stat HEAD -- api/src
+ api/src/ask.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives
+     1 failed, 1 warning in 5.91s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives
+     1 passed, 1 warning in 0.47s
+==============================================================================
+MUTATION: search ignores the selector pick
+$ git diff --stat HEAD -- api/src
+ api/src/tools.py | 1 -
+ 1 file changed, 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_tools.py::test_search_never_adds_a_table_the_index_did_not_return
+     4 failed, 1 warning in 2.78s
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 failed, 1 warning in 3.34s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_tools.py::test_search_never_adds_a_table_the_index_did_not_return
+     4 passed, 1 warning in 0.94s
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick
+     3 passed, 1 warning in 0.53s
+==============================================================================
+MUTATION: measure_unavailable guard restored
+$ git diff --stat HEAD -- api/src
+ api/src/guards.py   |  3 ++-
+ api/src/vintages.py | 48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 50 insertions(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_guards.py::test_a_device_count_question_raises_no_measure_warning
+     1 failed, 1 warning in 1.32s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_guards.py::test_a_device_count_question_raises_no_measure_warning
+     1 passed, 1 warning in 4.64s
+==============================================================================
+TOTAL  GOOD (restored, passing) checks: 16   BAD (mutated, failing) checks: 15
+
+== 4. Re-run of the mutation whose test pairing was corrected
+$ git status --short  (must be clean before mutating)
+
+==============================================================================
+MUTATION: finish re-searches even with a non-empty pool
+$ git diff --stat HEAD -- api/src
+ api/src/finish.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+BAD  (mutated, expected failing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 failed, 1 warning in 5.70s
+restored: clean
+GOOD (restored, expected passing) api/tests/test_ask_loop.py::test_finish_with_a_pool_builds_its_first_table_without_searching
+     3 passed, 1 warning in 5.05s
+==============================================================================
+TOTAL  GOOD (restored, passing) checks: 1   BAD (mutated, failing) checks: 1
+
+== 5. Summary
+GOOD (restored, passing): 16 in section 3 (+1 in section 4)
+BAD  (mutated, failing) : 15 in section 3 (+1 in section 4)
+The single NOT-CAUGHT line in section 3 is the mis-paired plan test described in section 2; it is superseded by
+section 4 (re-run of that mutation with its own test) and the plan test is BAD under "finish ignores the plan table".
+Every added or changed test is BAD under its mutation and GOOD when restored.
+
+== 6. Final full unit run on the branch, tree clean, nothing else running
+$ uv run pytest api/tests -q -p no:cacheprovider
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1071 passed, 34 skipped, 1 warning in 95.77s (0:01:35)
+  -> the one failure is the pre-existing leakage test (section 1); no other failure.
