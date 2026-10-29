@@ -104,8 +104,8 @@ class Sweep(ast.NodeTransformer):
             node.test = ast.UnaryOp(op=ast.Not(), operand=node.test)
         return node
 
-    visit_If = negate  # type: ignore[assignment]
-    visit_IfExp = negate  # type: ignore[assignment]
+    visit_If = negate
+    visit_IfExp = negate
 
     def visit_Constant(self, node: ast.Constant) -> ast.AST:
         if type(node.value) is int and node.value > 1:
@@ -124,9 +124,9 @@ class Sweep(ast.NodeTransformer):
     def visit_Expr(self, node: ast.Expr) -> ast.AST:
         return node if isinstance(node.value, ast.Constant) else self.drop(node)  # docstrings stay
 
-    visit_Assign = drop  # type: ignore[assignment]
-    visit_AugAssign = drop  # type: ignore[assignment]
-    visit_Return = drop  # type: ignore[assignment]
+    visit_Assign = drop
+    visit_AugAssign = drop
+    visit_Return = drop
 
 
 def pytest(tests: list[str]) -> int:

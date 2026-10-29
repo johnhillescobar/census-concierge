@@ -15,6 +15,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 EV = Path(__file__).resolve().parent
 EDGE = ".,;:!?()[]{}\"'*_`~<>=+$"
@@ -22,17 +23,17 @@ ANSWERS = "cc-121-answers-base-fixed.jsonl"
 JUDGES = ["cc-121-judged-base-fixed-gpt-4.1.jsonl", "cc-121-judged-base-fixed-gpt-5.5.jsonl"]
 
 
-def load(name):
+def load(name: str) -> list[dict[str, Any]]:
     return [json.loads(line) for line in (EV / name).open(encoding="utf-8") if line.strip()]
 
 
-def words(text):
+def words(text: str) -> list[str]:
     for ch in "-–—/|\n":
         text = text.replace(ch, " ")
     return text.split()
 
 
-def number(tok):
+def number(tok: str) -> tuple[float, int] | None:
     t = tok.strip(EDGE).rstrip("%").strip(EDGE).replace(",", "")
     try:
         value = float(t)
@@ -41,12 +42,12 @@ def number(tok):
     return value, (len(t.split(".")[1]) if "." in t else 0)
 
 
-def numbers(text):
+def numbers(text: str) -> list[tuple[float, int]]:
     """(value, decimals) for every token float() reads."""
     return [parsed for tok in words(text) if (parsed := number(tok)) is not None]
 
 
-def flat(obj):
+def flat(obj: Any) -> str:
     """Every string inside nested dicts and lists, space-joined (labels are system text)."""
     if isinstance(obj, dict):
         return " ".join(flat(v) for v in obj.values())
@@ -55,8 +56,8 @@ def flat(obj):
     return "" if obj is None else str(obj)
 
 
-def allowed(rec):
-    vals = set()
+def allowed(rec: dict[str, Any]) -> set[float]:
+    vals: set[float] = set()
     for row in rec["rows"]:
         for key, cell in row.items():
             if key == "GEO_ID" and cell:
@@ -72,10 +73,10 @@ def allowed(rec):
     return vals
 
 
-def flags(rec):
+def flags(rec: dict[str, Any]) -> list[float]:
     """Numeric tokens in the answer that match no allowed value at the precision written."""
     ok = allowed(rec)
-    bad = []
+    bad: list[float] = []
     for value, dec in numbers(rec["answer"]):
         value = abs(value)
         if any(abs(round(a, dec) - value) < 1e-9 for a in ok):
@@ -84,13 +85,13 @@ def flags(rec):
     return bad
 
 
-def year_like(v):
+def year_like(v: float) -> bool:
     return 1900 <= v <= 2100 and v == int(v)
 
 
-def line_markers(text):
+def line_markers(text: str) -> list[float]:
     """Values of tokens that open a line and look like list numbering ("3." or "3)")."""
-    out = []
+    out: list[float] = []
     for line in text.split("\n"):
         parts = line.strip().lstrip("-*• ").split()
         if parts and parts[0][-1:] in ".)" and parts[0][:-1].isdigit():
@@ -98,7 +99,7 @@ def line_markers(text):
     return out
 
 
-def crosstab(label, flagged, verdicts):
+def crosstab(label: str, flagged: list[bool], verdicts: list[dict[str, Any]]) -> None:
     pairs = [(v["verdict"] == "unsupported", f) for v, f in zip(verdicts, flagged, strict=True)]
     print(
         f"  {label}: flags {sum(flagged)}; judge unsupported {sum(u for u, _ in pairs)}; "
@@ -107,7 +108,7 @@ def crosstab(label, flagged, verdicts):
     )
 
 
-def main():
+def main() -> None:
     recs = load(ANSWERS)
     t0 = time.perf_counter()
     res = [flags(r) for r in recs]
@@ -137,7 +138,7 @@ def main():
                 bad.remove(m)
         exempt.append(bool(bad))
 
-    unparsed = collections.Counter()
+    unparsed: collections.Counter[str] = collections.Counter()
     for r in recs:
         for tok in words(r["answer"]):
             t = tok.strip(EDGE)
@@ -181,7 +182,7 @@ def main():
         "baseline": load("cc-121-answers-baseline.jsonl"),
         "after": load("cc-121-answers-after.jsonl"),
     }
-    tally = collections.Counter()
+    tally: collections.Counter[tuple[bool, bool]] = collections.Counter()
     for sid, k in key.items():
         rec = next(r for r in files[k["arm"]] if r["id"] == k["id"] and r["repeat"] == k["repeat"])
         tally[(bool(flags(rec)), lab[sid] == "unsupported")] += 1
@@ -193,7 +194,7 @@ def main():
     )
 
 
-def probe(label):
+def probe(label: str) -> None:
     """Digits-only reading of one probe run, beside the repeat-1 slice of the base-fixed run."""
     arms = {
         label: (
