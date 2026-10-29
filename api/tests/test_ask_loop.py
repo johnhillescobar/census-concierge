@@ -12,6 +12,7 @@ from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse, GeoSpec, ResultPlan
 from src.fetch import FetchDataTool
+from src.finish import finish_tools
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
 from src.vintages import requested_years
@@ -1472,3 +1473,101 @@ async def test_a_plan_that_names_the_places_never_asks_the_model_to_split() -> N
     plan = ResultPlan(table_id="B01003", geographies=[DANE])
     await run_ask("anything", complete=complete, tools=_tools(record), record=record, override=plan)
     assert calls and all(calls)
+
+
+def _stub_pool(*table_ids: str) -> list[dict[str, Any]]:
+    return [
+        {"table_id": table_id, "title": "", "universe": "Households", "members": []}
+        for table_id in table_ids
+    ]
+
+
+def _with_search(
+    tools: dict[str, Any], hits_by_question: dict[str, list[str]], calls: list[str]
+) -> None:
+    def search(question: str, k: int = 10) -> list[str]:
+        calls.append(question)
+        return hits_by_question.get(question, [])[:k]
+
+    tools["search_tables"] = SearchTablesTool(
+        search=search,
+        describe=_describe,
+        select=lambda _question, hits: hits[-1]["table_id"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("question", "pool", "expected"),
+    [
+        ("median family income in Harris County", ["B19013", "B19113"], "B19013"),
+        ("poverty in Harris County", ["B28002", "B17001"], "B28002"),
+        ("median gross rent in Harris County", ["B01003", "B25064"], "B01003"),
+    ],
+)
+async def test_finish_with_a_pool_builds_its_first_table_without_searching(
+    question: str, pool: list[str], expected: str
+) -> None:
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {}, calls)
+    record.pool = _stub_pool(*pool)
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    await finish_tools(dispatch, tools, record)
+    assert calls == []
+    assert record.table_id == expected
+    assert f"{expected}_001E" in str(record.url)
+
+
+async def test_finish_builds_the_plan_table_ahead_of_the_pool_head() -> None:
+    record = ExecutionRecord(question="median family income in Harris County")
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {}, calls)
+    record.pool = _stub_pool("B19013", "B19001")
+    record.override = ResultPlan(table_id="B19001")
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    await finish_tools(dispatch, tools, record)
+    assert calls == []
+    assert record.table_id == "B19001"
+
+
+@pytest.mark.parametrize(
+    ("question", "retrieved", "expected"),
+    [
+        ("median gross rent in Harris County", ["B19013", "B01003"], "B01003"),
+        ("poverty in Harris County", ["B27001", "B28002"], "B28002"),
+        ("number of cell phones in Harris County", ["B19001", "B19113"], "B19113"),
+    ],
+)
+async def test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick(
+    question: str, retrieved: list[str], expected: str
+) -> None:
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {question: retrieved}, calls)
+    await finish_tools(dispatch, tools, record)
+    assert calls == [question]
+    assert [hit["table_id"] for hit in record.pool][0] == expected
+    assert sorted(hit["table_id"] for hit in record.pool) == sorted(retrieved)
+    assert record.table_id == expected
+
+
+async def test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives() -> None:
+    question = "median gross rent in Harris County"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {question: ["B19013", "B19113"]}, calls)
+    tools["search_tables"].select = lambda _question, _hits: "B25064"
+    response = await run_ask(question, complete=_stopped(), tools=tools, record=record)
+    assert response.table_id == "B19013"
+    listed = {item.table_id for item in response.alternatives}
+    assert "B19113" in listed
+    assert "B25064" not in {response.table_id, *listed}
+    assert "B25064" not in " ".join(response.urls)

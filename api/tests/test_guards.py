@@ -1242,6 +1242,11 @@ def _computer_facts(dataset: str, year: int, table_id: str) -> dict[str, object]
     }
 
 
+def test_a_device_count_question_raises_no_measure_warning() -> None:
+    record = ExecutionRecord(question=T09, table_id="B28001")
+    assert "measure_unavailable" not in _codes(record)
+
+
 def test_absent_computer_years_are_named_and_the_url_ships() -> None:
     record = ExecutionRecord(question=T14, table_id="B28001")
     record.fetch = _fetch(
