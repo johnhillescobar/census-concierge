@@ -90,7 +90,7 @@ def _envelope(answer: str, chart: dict | None) -> str:
 def test_year_series_keeps_a_line_chart() -> None:
     record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
     response = assemble(_envelope("Income rose.", LINE), record)
-    assert response.answer == "Income rose."
+    assert response.answer.startswith("Income rose.")
     assert response.chart is not None
     assert response.chart.model_dump() == {**LINE, "series_by": None}
     assert response.chart_unavailable is False
@@ -203,10 +203,10 @@ def test_variable_series_is_kept() -> None:
 
 def test_scalar_result_has_no_chart() -> None:
     record = ExecutionRecord(rows=[HARRIS])
-    response = assemble(_envelope("Population is 4.8 million.", BAR), record)
+    response = assemble(_envelope("Population is large.", BAR), record)
     assert response.chart is None
     assert response.chart_unavailable is False
-    assert response.answer == "Population is 4.8 million."
+    assert response.answer.startswith("Population is large.")
     assert response.rows[0]["B01003_001E"] == "4838303"
     assert response.moe[0]["B01003_001M"] == "123"
 
@@ -214,7 +214,7 @@ def test_scalar_result_has_no_chart() -> None:
 def test_prose_answer_stays_a_prose_answer() -> None:
     record = ExecutionRecord(rows=[HARRIS])
     response = assemble("Harris County has data.", record)
-    assert response.answer == "Harris County has data."
+    assert response.answer.startswith("Harris County has data.")
     assert response.chart is None
     assert response.chart_unavailable is False
 
@@ -222,7 +222,7 @@ def test_prose_answer_stays_a_prose_answer() -> None:
 def test_prose_comparison_gets_a_geography_bar() -> None:
     record = ExecutionRecord(rows=[AUSTIN, TEXAS], table_id="B25064")
     response = assemble("Austin is higher.", record)
-    assert response.answer == "Austin is higher."
+    assert response.answer.startswith("Austin is higher.")
     assert response.chart is not None
     assert response.chart.type == "bar"
     assert response.chart.x == "geography"
@@ -244,7 +244,7 @@ def test_unknown_chart_type_is_discarded() -> None:
     response = assemble(_envelope("Austin is higher.", payload), record)
     assert response.chart is None
     assert response.chart_unavailable is True
-    assert response.answer == "Austin is higher."
+    assert response.answer.startswith("Austin is higher.")
     assert len(response.rows) == 2
     assert response.moe[0]["B25064_001M"] == "14"
 
@@ -302,7 +302,7 @@ def test_fenced_json_still_extracts_the_chart() -> None:
     record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
     blob = "```json\n" + _envelope("Income rose.", LINE) + "\n```"
     response = assemble(blob, record)
-    assert response.answer == "Income rose."
+    assert response.answer.startswith("Income rose.")
     assert response.chart is not None
     assert response.chart.type == "line"
 

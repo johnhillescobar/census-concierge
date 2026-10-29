@@ -1,0 +1,402 @@
+# CC-121 Gate 2 re-run, pass 2 (project invariants), HEAD 85832c5, origin/main a5b133c
+
+$ uv run python scripts/check_budgets.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+BUDGETS
+
+  FAIL  api src LOC               4712 <= 4600
+  ok    api src files               27 <= 40
+  ok    largest file LOC           407 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1055 <= 1200
+  ok    doc lines                 1800 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         20.695 <= 20
+        run 2026-10-25T03:18:25+00:00; slowest trial 31.074s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.725 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+2 budget(s) exceeded:
+
+  - api src LOC: 4712 (limit 4600)
+  - p95 latency (s): 20.695 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+exit=1
+$ uv run python scripts/check_invariants.py --base origin/main
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 62 (base 62, delta +0)
+
+5 violation(s).
+
+exit=1
+$ uv run ruff check .
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+All checks passed!
+exit=0
+$ uv run ruff format --check .
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+228 files already formatted
+exit=0
+$ uv run mypy api/src
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Success: no issues found in 27 source files
+exit=0
+$ uv run pytest -q -m not integration -p no:cacheprovider
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 19%]
+......................................................sssssssssssssssss. [ 26%]
+.sss.................................................................... [ 32%]
+........................................................................ [ 39%]
+........................................................................ [ 45%]
+........................................................................ [ 52%]
+........................................................................ [ 59%]
+........................................................................ [ 65%]
+........................................................................ [ 72%]
+.................................................F...................... [ 78%]
+........................................................................ [ 85%]
+.........................................sssssssssss..s.ss.............. [ 91%]
+........................................................................ [ 98%]
+.................                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x000001DB14D72ED0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DB14D738C0>
+
+    def test_invariants_print_every_named_pattern(capsys: Any, monkeypatch: Any) -> None:
+        monkeypatch.setattr(sys, "argv", ["check_invariants.py"])
+>       assert inv.main() == 0
+E       assert 1 == 0
+E        +  where 1 = <function main at 0x000001DB7F987740>()
+E        +    where <function main at 0x000001DB7F987740> = inv.main
+
+api\tests\test_invariants.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+5 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\worktrees\census-cc-123-C\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1062 passed, 34 skipped, 1 warning in 80.49s (0:01:20)
+exit=1
+
+## api src LOC per file (check_budgets._loc definition; main -> branch)
+api/src/ask.py main 407 branch 407 delta 0
+api/src/contract.py main 377 branch 400 delta 23
+api/src/fetch.py main 365 branch 368 delta 3
+api/src/figures.py main 0 branch 175 delta 175
+api/src/prompts.py main 36 branch 36 delta 0
+web/src/App.css main 295 branch 296 delta 1
+ docs/ARCHITECTURE.md | 21 +++++++++++++++++++++
+ docs/ask-path.md     |  5 ++---
+ docs/requirements.md |  1 +
+ 3 files changed, 24 insertions(+), 3 deletions(-)
+docs/ARCHITECTURE.md main 139 branch 160
+docs/ask-path.md main 180 branch 179
+docs/requirements.md main 61 branch 62
+
+$ uv run python scripts/generate_client.py --check
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmph09abb14\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmph09abb14\schema.d.ts [51.8ms]
+packages/client is up to date.
+exit=0
+
+==============================================================================
+FINDINGS (pass 2, project invariants) - HEAD 85832c5, origin/main a5b133c
+==============================================================================
+Read: CLAUDE.md, review-pr.md, run-slice.md, requirements.md, ask-path.md, ARCHITECTURE.md,
+evidence/slice-6/cc-121-decision-{1,2,3}*.md, cc-121-jira-description-2026-10-18.md, cc-121-plan.md,
+cc-121-preflight.md, cc-121-probe-results.md, cc-121-results.md. Nothing under a path containing "sealed" read.
+Note: the "Implementation amendment (2026-10-22)" lines are NOT in cc-121-jira-description-2026-10-18.md or any
+file in this checkout (grep -ril "implementation amendment" finds nothing in the repo); the amendment could not be
+read. The caller's statement of the accepted mechanism was used instead.
+
+MACHINES (exit codes are in the output above)
+  check_budgets            exit 1: api src LOC 4712 > 4600 (branch only); p95 20.695 > 20 (also main; evidence/latest.json
+                           is not in the branch diff)
+  check_invariants --base  exit 1: only 'eval phrasing in api/src', the same 5 baseline entries (contract.py:29, geo.py:41,
+                           geo.py:52, geo_list.py:80, guards.py:31). contract.py:29 is byte-identical on origin/main (same
+                           2 occurrences of 'zip code tabulation area'); geo.py, geo_list.py, guards.py are unchanged by
+                           the branch. 'budget increases', 'new regex', 'new exemptions', 'ticket-named tests',
+                           'prompt assertions', 'forbidden module names': ok. Regex call sites 62 (base 62, delta +0).
+  ruff check / format      exit 0 / exit 0
+  mypy api/src             exit 0
+  pytest -m "not integration"  exit 1: 1 failed, 1062 passed, 34 skipped; the one failure is
+                           test_invariants_print_every_named_pattern (wraps the same baseline invariant; fails on main).
+  generate_client --check  exit 0 (packages/client up to date)
+  => the branch changes none of the 3 known baseline failures. It adds exactly one failure: api src LOC.
+
+API SRC LOC (check_budgets._loc: non-blank, non-# lines), origin/main -> HEAD
+  api/src/figures.py   0   -> 175   (+175, new)
+  api/src/contract.py  377 -> 400   (+23)
+  api/src/fetch.py     365 -> 368   (+3)
+  api/src/ask.py       407 -> 407   (0)       api/src/prompts.py 36 -> 36 (0)
+  total 4511 -> 4712 (+201); cap 4600; over by 112. Largest file 407 <= 410; web src 3349 -> 3350 of 3350 (zero headroom).
+  budgets.toml, evals/, scripts/check_*.py are not in the branch diff (no budget edited).
+
+DOC LINES: 1800 <= 1800 (zero headroom). Net delta vs main is 0 for counted files: ask-path.md -1 (two lines re-flowed to
+one, plus a pointer clause), requirements.md +1; docs/ARCHITECTURE.md +21 is excluded by design.
+
+DOC vs CODE (api/src/figures.py, take_chart in api/src/contract.py), statement by statement
+ True: the model writes framing only (prompts.py:40); one sentence per estimate cell, capped at 20, with "k of n shown"
+   (figures.py:15,103); label, E, M, place, GEOID, dataset, vintage (figures.py:80-100); table title + universe per vintage
+   (figures.py:107-125); sentences follow the framing (figures.py:199); fetch_data looks labels up, one thread per vintage,
+   and keeps them on its artifact (figures.py:48-55, fetch.py:409); numbers read with float() (figures.py:63-68); a stray
+   number drops the framing, leaves the rendered figures, one warning per response (figures.py:187-198,
+   contract.py:387-394); a digit-bearing token float() cannot read is carried only as a whole token (figures.py:68); the
+   chart title gets the same test and falls back to the table ID (contract.py:468-471); FIPS 17 carries "17 percent"
+   (known gap, stated); number words are not read (stated); no model call, no regex (confirmed: no `re` import, regex
+   delta +0).
+ False or imprecise:
+  D1 ARCHITECTURE.md:91 "sentinels as 'not available'": only a sentinel/missing ESTIMATE reads "not available"
+     (figures.py:94, and its M is then dropped). A sentinel MARGIN reads "margin of error not published" (figures.py:92).
+     Reproduced: E=76000, M=-555555555 -> "76,000 (margin of error not published)".
+  D2 ARCHITECTURE.md:97 "years asked, built or published when nothing was fetched": the code carries requested, attempted,
+     succeeded, failed and omitted years, the vintages built and the built URL's year ALWAYS (figures.py:17,135-163); only
+     the published vintages are conditional on `not rows` (figures.py:137). The sentence reads as if built years were also
+     conditional.
+  D3 ARCHITECTURE.md:105-109 structure: the new "### Answer figures (CC-121)" heading was inserted mid-section, so the
+     unrelated lines "`ambiguous_place` carries ranked GeoSpec candidates. Start: uv run uvicorn ..." and "`make demo` is
+     scripts/run_demo.py ..." now sit under it, and "No model call, no regex." runs straight into the `ambiguous_place`
+     line with no blank line. Command: sed -n 86,110p docs/ARCHITECTURE.md
+  D4 Missing from the docs (code behaviour a maintainer cannot learn from them): (a) when the framing is dropped and there
+     are no rendered figures the answer is the fixed text NO_FIGURES (figures.py:16,199); (b) sign is ignored (`abs`,
+     figures.py:67), so "-80,000" is carried by 80,000; (c) "-", en/em dash, "/" and "|" split a token, so "2015-2019" is
+     two numbers (figures.py:18); (d) combined rows are shown first under the cap (figures.py:33); (e) identical table
+     facts across vintages are printed once, otherwise prefixed by their years (figures.py:124); (f) the notice lists at
+     most the first 5 stray numbers (figures.py:193); (g) the check runs only when take_chart gets a record
+     (contract.py:421), i.e. only via assemble(); (h) float() also reads "7.6e4" and "76_000" (reproduced: both pass as
+     76000), harmless but undocumented.
+  D5 ask-path.md "Contract" section (line 70) lists `answer` with no hint that it is framing + rendered figures; the only
+     pointer is the clause added at line 21. The mechanism text lives only in ARCHITECTURE.md (by design, to save counted
+     lines). Not false; a reader of the Contract section misses it.
+  D6 contract.py:403-405 docstring: "a warning is appended to `warnings`"; with warnings=None the text is replaced with NO
+     warning (_warn_unverified, contract.py:393-394). test_take_chart_without_a_warnings_list_still_replaces_the_text
+     (test_figures.py:633) pins that silent replacement. Unreachable in production (the one caller passes a list), but it
+     is the "silent repair" shape the playbook bars.
+
+OTHER FINDINGS
+  F1 (follow-up, user-visible) figures.py:193 formats a stray year as "2,019". Reproduced: framing "Nothing in 2019." with
+     no fetch -> notice "The model's text stated 2,019, not in the fetched data; it was removed." `f"{n:,.10g}"`
+     thousands-groups every float, years included. Cosmetic, but the notice is the one place the user is told what was
+     removed.
+  F2 (follow-up, fail-open default) contract.py:401 `record: Any = None`: the check is opt-in. A future caller of take_chart
+     that omits `record` ships unchecked model prose with no warning. One production caller today (ask.py:243). The
+     default exists for existing tests (test_figures.py:626 pins "no record -> untouched").
+  F3 (nit, single-caller abstractions) figures.py:132 `_allowed` has one caller (`stray`); `labels_for` one caller
+     (fetch.py:409); `checked` one caller (contract.py:425). CLAUDE.md: inline until a second caller exists. Counter:
+     `_allowed` is ~40 lines and inlining does not lower LOC; `stray` has two callers; `checked`/`labels_for` cross a
+     module boundary. The local import (contract.py:422-423, figures -> vintages -> contract cycle) is the cost.
+  F4 (nit, shape) the render/check is called from `take_chart`, a chart function. The reason is evident: ask.py is 407 of
+     410 lines, so a new call in assemble() would breach max_file_loc. State it in the PR.
+  F5 (nit, tests) test_figures.py:1180 monkeypatches the private `figures._allowed` to prove it is not built for digit-free
+     prose (couples a test to an internal and a performance choice); :1098 a section header names a review pass ("Gate 2
+     findings on the rebased tree") rather than a behaviour; :90,:128,:753-754,:799,:843 assert fragments of the
+     code-written notice ("it was removed", "figures below", "chart title"): system text, not LLM prose or prompt wording,
+     so allowed, but they break on an edit to the notice.
+  F6 (nit) the string "answer_figures_unverified" is written twice in contract.py (:390, :394).
+  F7 (evidence hygiene) evidence/slice-6/cc-121-results.md still reports the SUPERSEDED design (model shown the first 20
+     figures: 68.3% -> 30.0%) with "Not done yet" for make demo. No measurement of the final code exists in the tree
+     except cc-121-probe-results.md (40 trials, repeat 1, prompt only, no rendering). The PR must not quote the 30.0% as
+     the result of this mechanism. No cc-121-e2e-pre.txt exists for the rebased tree (only cc-121-e2e-base*).
+  F8 (scope) 96 files vs "under ~15": 15 outside evidence/ (6 src/web, 5 tests, 3 docs, 1 script) + 81 under evidence/.
+
+CHECKS WITH NO FINDING
+  - Regex: none in the diff (added lines of api/ scripts/ web/ searched for "re.", "import re": no hit); delta +0.
+  - Forbidden module names: figures.py, judge_figures.py match none of *_manager/_orchestrator/_factory/_policy/_strategy/
+    _service.
+  - Tests named after tickets: none (machine ok; test_figures.py function names carry no CC-N or finding id).
+  - Assertions on prompt wording: none (no test imports prompts or system_prompt). On LLM prose: none; test answers are
+    fixed strings fed to the check.
+  - Module-level mutable state: figures.py has only constants (_BREAKS is a str.translate table never mutated). conftest
+    adds an autouse fixture that monkeypatches figures._labels to return {} for every test; tests needing labels pass them
+    explicitly. It is a same-answer fake for the metadata cache only, not for retrieval.
+  - Validator validating a validator: none. The title check runs on text ChartSpec's own validator accepted, but it tests
+    a different property (numbers) of the model's text, not the validator's output.
+  - Numbers through the model: none. _tool_content (fetch.py:185) is unchanged; labels are set on the artifact only.
+  - Key redaction: figures.py uses str(record.url) only as an allowed-token source (CensusURL str is redacted) and never
+    emits it; no URL is formatted another way.
+  - Blocking clarification: none added. Silent repair: framing/title replacement always adds answer_figures_unverified when
+    a warnings list is passed (only exception: D6).
+  - Refusal path (finish.incomplete -> assemble(stop, record)): the text has no digits and rows are empty, so
+    figures.checked returns it unchanged. degraded_answer text digits come from table_id/NAME, which are carried.
+  - ARCHITECTURE.md updated in the same change (module row line 51 + section); requirements.md has the new warning row.
+  - URL, MOE, GEOID, universe: every rendered sentence carries E+M (or "not published"), GEOID, dataset and vintage; the
+    table sentence carries universe; urls[], rows, moe, geoid, universe, alternatives are built from the artifact and
+    unchanged by the diff.
+
+TEST EDITS (== to startswith, text swaps)
+  test_chart.py x6, test_guards.py x1, test_ask_loop.py x1 (startswith): forced. With row cells present the answer is
+    framing + "\n\n" + rendered figures, so equality cannot hold. Each still asserts the part it should (the framing is
+    kept verbatim and first; a replaced framing would fail). They do not assert the appended block; test_figures.py covers
+    it (:51 order and content, :626-:660).
+  test_chart.py "Population is 4.8 million." -> "Population is large.": forced (4.8 is not in 4838303, so the old text would
+    now be replaced); the test is about "scalar result has no chart" and still asserts that.
+  test_ask_loop.py assemble(question, record) -> assemble("Both places resolved.", record) x4: forced for 3 (the questions
+    say "since 2017"/"since 2019" and the record has no vintages, so the year is not carried; the check would add a second
+    warning and break the == [ambiguous_place] / == [] assertions). NOT forced for the Detroit/Phoenix test (its question
+    has no digit): a harmless consistency edit. Side effect: a response with no fetch whose framing repeats a year the
+    user asked for is replaced by NO_FIGURES plus a warning (figures.py:137 allows published vintages only when the
+    record can list them).
+  Assertions lost by the loosened tests: none material.
+
+CHART TITLE (contract.py:468-471), within scope? Yes, as a judgement call. It applies the SAME numeric check to text the
+  model wrote and reuses the existing table-ID title fallback; it does not generate or alter chart structure, so chart
+  generation (out of scope) is not touched. Only a title the model sent (`saw`) is checked; code-built titles are not.
+  It was Gate 2 blocker B2 on the earlier pass.
+
+WEB (web/src/App.css +1: `.answer { white-space: pre-line; }`): forced by the design. App.tsx:275 renders the answer in one
+  <p className="answer"> and the figure sentences are newline-separated; without it they collapse into one run-on line.
+  It consumes the last web LOC line (3350 of 3350, no budget touched). No test covers CSS. The owner may revert it; the
+  figures then run together in the UI.
+
+ACCEPTANCE CRITERIA (older text in jira-description-2026-10-18.md, read through the current mechanism; the 2026-10-04
+restored text and the 2026-10-22 amendment are not in the checkout)
+  AC1 rendered content: E, M, label, GEOID, vintage, universe; sentinel "not available"; >20 -> "k of n shown"
+      -> MET (re-scoped from tool content to the answer): test_figures.py:51, :66, :76, :481, :500.
+  AC2 judge-measured unsupported-figure rate, baseline vs after, same judge/questions, --repeat >= 3
+      -> NOT MET in tree / E2E-only. scripts/judge_figures.py exists; the only "after" arms (cc-121-answers-after-*,
+         2026-10-19) measure the superseded design; the only run of the final prompt is the 40-trial repeat-1 probe
+         (cc-121-answers-probe-nodigits.jsonl: judge 2/40 vs 28/40 baseline), with no rendering and no check.
+  AC3 target 0 unsupported -> E2E-only; not provable by measurement per decision-3 (0/120 has a 3.0% upper bound); owner call.
+  AC4 judge agreement with a hand-labelled sample -> PARTIAL: cc-121-handlabel-key.json and 29/30 (gpt-4.1) in
+      cc-121-results.md, labelled on the first instrument's answers; the judge prompt changed afterwards and was not
+      re-validated.
+  AC5 subset question, only the total fetched, never a subset figure -> E2E-only. Code side: a figure is always shown with
+      its own variable label, so the rendered sentence names the total; the framing can still say "subset" in words (passes).
+  AC6 failed/no-row answers contain no figures; a sentinel never appears as a figure -> MET for digits: test_figures.py:66,
+      :112, :119, :330, :668, :998. Number WORDS in the framing pass the check (stated, owner decision).
+  AC7 demo answered rate, selector@1, retrieval@10 no regression; p95 <= 20 -> E2E-only. Not run on this tree. p95 is 20.695
+      on main already; label lookups add ~0.1 s per vintage on the request path (fetch.py:409).
+  AC8 no test asserts prompt wording or LLM prose -> MET (see above; notice fragments are code-written).
+  AC9a no regex / word list -> MET (regex delta +0; no word set; _BREAKS/_EDGE are character lists, see judgement call 5).
+  AC9b no budget is raised -> MET as an edit (budgets.toml untouched) but the build FAILS: api src LOC 4712 > 4600.
+  AC9c ask-path.md states what the model sees after fetch_data -> PARTIAL: the model sees what it always saw (counts, URLs;
+      _tool_content unchanged); ARCHITECTURE.md says the model writes framing only; ask-path.md says nothing (D5).
+  Test cases: happy single-value / novel -> E2E-only; edge >20 rows -> MET (:76, :481); regression charts and alternatives
+      -> MET by the existing suite (alternatives/comparisons code untouched); failure -> MET (:668, :998).
+  Current-mechanism properties: model writes qualitative framing -> prompt change only (E2E-only); code renders figures from
+      structured fields -> MET; deterministic numeric-token check removes unverifiable prose -> MET; no regex -> MET; no
+      number-word list/parser -> MET; no runtime judge model call -> MET (judge_figures.py is offline, scripts/ only);
+      derived figures out of scope -> MET (combined rows are computed by existing finish_aggregation); chart generation out
+      of scope -> MET (only a title is checked).
+
+JUDGEMENT CALLS THE PR DESCRIPTION MUST STATE
+  1. api src LOC 4712 vs 4600 (figures.py 175, contract.py +23, fetch.py +3); no budget edited; the owner decides a written
+     raise (or a trim of at least 112 lines). doc lines and web src LOC sit exactly at their caps (1800, 3350).
+  2. The framing is replaced WHOLE, not repaired, when any number is uncarried; the rendered figures stand alone, with a
+     warning.
+  3. The check lives in take_chart (a chart function) because ask.py is 407 of 410 lines; `record` defaults to None (F2).
+  4. The allowed set is broad by design: every row cell, all years the fetch mentions, built/published vintages, HTTP codes,
+     dataset digits, pool table IDs/titles/universes, omission reasons, geography and URL text. Consequence: it proves a
+     number is in the response, not that it is the right place/variable/year (FIPS 17 carries "17 percent"); comparatives
+     and number words pass; only the prompt bars them.
+  5. _numbers is a tokenizer built from character lists (_BREAKS, _EDGE, _LEAD) and float(): no regex and no word list, but
+     not "nothing" either; the 2026-10-18 text banned a tokenizer over prose, the owner's J2/Option A allows a digits-only
+     check.
+  6. The chart title is checked and replaced by the table ID (same numeric rule, text the model wrote).
+  7. Figure cap 20 and "k of n shown" (a default, not an owner decision); labels are looked up on the request path (~0.1 s
+     per vintage).
+  8. web `white-space: pre-line` is one CSS line that exhausts web LOC (3350 of 3350).
+  9. scripts/judge_figures.py stays as measurement-only; no after-measurement of the final mechanism exists; results.md is
+     stale (F7). Quote only post-rebase E2E numbers.
+ 10. Test edits: 8 equality to startswith, 1 text swap, 4 assemble() text swaps (3 forced, 1 not), 1 autouse fixture.
+ 11. A response with no fetch whose framing repeats a user-asked year is replaced by NO_FIGURES unless the record can list
+     published vintages.
+ 12. The branch carries an empty "budget(cc-121)" commit (0cf0a7d) and 81 evidence files; the merge squashes.
+
+VERDICT: Not yet, for the single reason that check_budgets exits non-zero on this branch only (api src LOC 4712 > 4600),
+which the playbook treats as ending the review until the owner decides a written raise or a trim. Apart from that: no
+silent-wrong-answer finding, no invariant violation, baseline failures unchanged; the code would be "Ship it with
+follow-ups" (D1-D6 doc fixes, F1, F2; E2E not yet run on this tree).

@@ -9,9 +9,15 @@ from pathlib import Path
 
 import pytest
 from psycopg_pool import AsyncConnectionPool
-from src import store
+from src import figures, store
 
 URL = os.environ.get("DATABASE_URL")
+
+
+@pytest.fixture(autouse=True)
+def no_label_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """fetch_data labels figures from the metadata cache; keep every other test off it."""
+    monkeypatch.setattr(figures, "_labels", lambda *_args: {})
 
 
 @pytest.fixture(scope="session")

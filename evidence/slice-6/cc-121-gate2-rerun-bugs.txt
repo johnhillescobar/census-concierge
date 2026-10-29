@@ -1,0 +1,60 @@
+# Gate 2 re-run pass 1 (generic bugs), HEAD 85832c5
+
+## Method
+Read CLAUDE.md, git diff origin/main...HEAD -- api web scripts, figures.py/contract.py take_chart/fetch.py/ask.py/prompts.py in full,
+scripts/judge_figures.py, test_figures.py (headers + the Gate 2 block). Ran code with uv run python (sys.path.insert(0,'api')).
+Pytest: 319 passed (test_figures, test_chart, test_ask_loop, test_guards). Full api/tests: 1062 passed, 34 skipped, 1 failed:
+test_invariants.py::test_invariants_print_every_named_pattern -> "eval phrasing in api/src" at contract.py:29, geo.py:41/52,
+geo_list.py:80 (lines this diff does not touch; looks environmental; not checked against main).
+code-review skill (medium) ran: confirmed items folded in below; its multi-table, label-dataset, extra chart text fields,
+warnings=None findings were NOT reproduced (one table_id per URL; plan.dataset is the final dataset; ChartSpec extra="forbid"
+has only `title`; warnings=None is the documented default and assemble always passes a list).
+
+## Previous-fix checks (all hold)
+(a) discovery answer, nothing fetched, kept: published years, "5-year", table IDs, title digits (test + ExecutionRecord e2e: kept, no warning)
+(b) invented figure in discovery dropped: "B19013 shows about 4,500 households." -> NO_FIGURES + warning
+(c) figures fetched, published-unfetched year flagged: "Compared with 2022." -> flagged 2,022
+(d) quoted CensusURL + "county:031 in state:17" kept; removing url OR geography flags it
+(e) _shown("-0.5")="-0.5", "-0"="-0", "-1234.5"="-1,234.5"
+(f) prose with no digit: _allowed not called (monkeypatched boom), 0.018s at 147k cells
+(g) warning detail: 5 x 40 chars max; 5000-char token -> <300 chars
+Security: str(CensusURL) is redacted; key digits never enter the allowed set; "SECRETKEY" in prose/URL never appears in model_dump_json().
+No regression found to URL (urls field untouched), MOE (rendered "margin of error N" / "not published"), GEOID (in each line), universe line, alternatives.
+
+## Findings (reproduced)
+1 MEDIUM figures.py:_allowed/_numbers (l.126-170): the allowed set is one context-free pool of numbers, so invented figures pass.
+  30 tracts x 11 B01001 vars (counts 0-400): "About {N}% are children." is KEPT for 97 of N=1..100.
+  Cook+DuPage fixture: "About 17% of households are low income." KEPT (17 = state FIPS); "Roughly 31 percent rent." KEPT (31 = county code).
+  Swapped/misattributed: "Cook County earns 99,500." (DuPage's value) KEPT; "Cook County has 1,200 households." (the MOE) KEPT.
+  Sign ignored (abs): cell -2500 + prose "Net change of 2,500." KEPT; cell 76000 + prose "Net change of -76,000." KEPT.
+  Number words never checked: "about seventy-six thousand dollars", "about one hundred thousand dollars, double the national figure" KEPT.
+2 MEDIUM figures.py:_allowed called from checked/stray whenever the prose has any digit (a year is enough); synchronous in async assemble.
+  rows 1500 tracts x 49 vars (147,000 cells): 0.80 s; 3000 x 49: 1.67 s; 9000 x 49: 5.10 s (event loop blocked). no-digit prose: 0.018 / 0.10 / 0.27 s.
+  contract.py take_chart repeats it for the chart title: title with a digit 1.72 s vs 0.85 s without (1500x49). Without record: 0.013 s.
+  fetch.py:409 labels_for: metadata.variables is not cached; each vintage re-parses the whole gz file: acs5 2023 0.13 s (28k vars), acs1 0.19 s,
+  ~32 MB peak per vintage; 9 vintages 0.74 s wall added to the fetch.
+3 MEDIUM (false positive) figures._numbers: legitimate framing is discarded.
+  acs1 fallback (fetch.acs1_ineligible=True, dataset acs5), prose "ACS 1-year is not published for these counties, so the 5-year estimates are used."
+    -> dropped, "stated 1" (alongside the system's own acs1_geography_ineligible warning).
+  "Cook County ranks 3rd." / "The 2nd table is B19001" -> dropped ("3rd"/"2nd" read as tokens, never equal to a number).
+  Numbers from the user's question ("65 and over") -> dropped (record.question not in the allowed set).
+  Numbers the response carries elsewhere: Comparison.threshold "2418.677324" (prose "2418.677324" or "2,418.68") -> dropped;
+  tool text the model was shown ("The fetch returned 2 rows.", "3 of 3 legs") -> dropped.
+4 MEDIUM/LOW figures.py:NO_FIGURES + checked(): in a discovery turn (tables_only, nothing fetched) one stray number replaces the whole answer.
+  prose "B19013 gives the median; B19001 splits households into 16 income brackets, from 2019 onward." ->
+  answer 'No figures were fetched for this request; see the warnings and the URL.', urls == [] (there is no URL to see), alternatives still present.
+  The same prose without the digits is kept.
+5 LOW figures._shown/CENSUS_MISSING: decimal sentinels are not recognised, so they render as figures:
+  cell "-666666666.0" -> "Median household income: -666,666,666.0 (margin of error not published)"; same for -888888888.0, -555555555.00, -222222222.0,
+  and as an MOE "margin of error -666,666,666.0". (CENSUS_MISSING is pre-existing; whether the API emits ".0" for a variable is not verified here.)
+6 LOW figures.checked l.~189: years in the warning are formatted with a thousands separator: "from 2018 through 2022" -> "The model's text stated 2,018, 2,022, ...".
+  Also tokens are shown casefolded ("b19013_002e").
+7 LOW tests: test_figures.py test_discovery_answer_keeps_published_years_dataset_and_title_digits and test_a_discovery_response_keeps_its_framing_end_to_end use only "2023",
+  which the pool title "(In 2023 Dollars)" already carries. With published_vintages returning {0} (no real year) both prose still pass,
+  while "Published for 2021 and 2022." is then dropped: the published-years branch (figures.py ~l.133-136) can be removed without a test failing
+  (years part; the dataset-digit part is covered via "5-year").
+
+## Checked, found nothing
+exceptions->500: empty rows, no record attrs, fetch=None, labels={} , metadata cache missing (caught), 5000-digit cells (int() ValueError handled), inf/nan strings, non-numeric cells ("(X)","N","250000+") all render without raising.
+async: labels_for awaited correctly; to_thread + gather with empty set returns {}. judge_figures.py: no defect found. web/src/App.css pre-line: fine.
+RuntimeError/stop/refusal answers (finish.incomplete, degraded_answer, "X failed twice") contain no digits, so the check does not replace them.

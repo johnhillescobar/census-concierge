@@ -384,11 +384,25 @@ class AskResponse(BaseModel):
     chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
 
 
+def _warn_unverified(warnings: list[Any] | None, detail: str) -> None:
+    """One answer_figures_unverified warning per response: a later notice joins the first."""
+    for item in warnings or []:
+        if getattr(item, "code", "") == "answer_figures_unverified":
+            item.detail = f"{item.detail} {detail}"
+            return
+    if warnings is not None:
+        warnings.append(AskWarning(code="answer_figures_unverified", detail=detail))
+
+
 def take_chart(
     answer: str,
     rows: list[dict[str, str | None]],
     warnings: list[Any] | None = None,
+    record: Any = None,
 ) -> dict[str, Any]:
+    """The answer and chart in the model's reply. With a record, text and chart title that state
+    a number the response does not carry are replaced, with a warning appended to `warnings` when
+    given; without a record nothing is checked."""
     text = answer.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
@@ -404,6 +418,13 @@ def take_chart(
         raw = body.get("chart")
         saw = raw is not None
         payload = raw if isinstance(raw, dict) else {}
+    if record is not None:
+        # figures reaches vintages, which imports this module
+        from src.figures import checked, stray
+
+        cleaned, problem = checked(cleaned, rows, record)
+        if problem:
+            _warn_unverified(warnings, problem)
     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
     spec: ChartSpec | None = None
     unavailable = False
@@ -412,11 +433,11 @@ def take_chart(
             spec = ChartSpec.model_validate(payload)
         except ValidationError:
             unavailable = True
+    table_id = str((rows[0].get("table_id") if rows else "") or "")
     years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
     geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
     estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
     if spec is None and not unavailable:
-        table_id = str((rows[0].get("table_id") if rows else "") or "")
         names = sorted({str(row.get("NAME") or "") for row in rows} - {""})
         by_geo = f"{table_id}: {', '.join(names)}" if names else table_id
 
@@ -442,4 +463,10 @@ def take_chart(
     codes = {getattr(item, "code", "") for item in warnings or []}
     if spec.x == "year" and "overlapping_vintage" in codes:
         fits = False
-    return none if not fits else {"answer": cleaned, "chart": spec, "chart_unavailable": False}
+    if not fits:
+        return none
+    if record is not None and saw and stray(spec.title, rows, record):
+        spec = spec.model_copy(update={"title": table_id})
+        notice = "The chart title stated a number not in the fetched data; table ID replaces it."
+        _warn_unverified(warnings, notice)
+    return {"answer": cleaned, "chart": spec, "chart_unavailable": False}

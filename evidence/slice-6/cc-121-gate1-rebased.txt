@@ -1,0 +1,708 @@
+CC-121 Gate 1 on the rebased tree (branch cc121-rebase, HEAD a9ebf03, origin/main a5b133c)
+
+$ uv run pytest -q -m "not integration"
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+........................................................................ [  6%]
+........................................................................ [ 13%]
+........................................................................ [ 19%]
+......................................................sssssssssssssssss. [ 26%]
+.sss.................................................................... [ 33%]
+........................................................................ [ 39%]
+........................................................................ [ 46%]
+........................................................................ [ 53%]
+........................................................................ [ 59%]
+........................................................................ [ 66%]
+........................................................................ [ 73%]
+...................................F.................................... [ 79%]
+........................................................................ [ 86%]
+...........................sssssssssss..s.ss............................ [ 93%]
+........................................................................ [ 99%]
+...                                                                      [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x0000016F46A01340>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000016F47383620>
+
+    def test_invariants_print_every_named_pattern(capsys: Any, monkeypatch: Any) -> None:
+        monkeypatch.setattr(sys, "argv", ["check_invariants.py"])
+>       assert inv.main() == 0
+E       assert 1 == 0
+E        +  where 1 = <function main at 0x0000016F441331A0>()
+E        +    where <function main at 0x0000016F441331A0> = inv.main
+
+api\tests\test_invariants.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+5 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\worktrees\census-cc-123-C\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1048 passed, 34 skipped, 1 warning in 71.41s (0:01:11)
+[exit 1]
+
+$ uv run python -B -X utf8 evidence/slice-6/cc-121-fixes-mutations.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Exception in thread Thread-3 (_readerthread):
+Traceback (most recent call last):
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+    buffer.append(fh.read())
+                  ^^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb1 in position 406: invalid start byte
+CC-121 batch F1: mutation check of the Gate 2 fixes (api/tests/test_figures.py)
+Every line below is real pytest output. The CSS rule and judge-script text have no test.
+
+GOOD unmutated code
+     141 passed, 1 warning in 0.73s
+
+Traceback (most recent call last):
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-fixes-mutations.py", line 285, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-fixes-mutations.py", line 269, in main
+    code, out = run(case)
+                ^^^^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-fixes-mutations.py", line 253, in run
+    return pytest(case.test)
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-fixes-mutations.py", line 234, in pytest
+    return done.returncode, done.stdout + done.stderr
+                            ~~~~~~~~~~~~^~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'
+[exit 1]
+
+# first attempt above died in subprocess decoding (cp1252 reader on a Windows console); rerun with PYTHONUTF8=1, same script, no edits
+$ PYTHONUTF8=1 uv run python -B -X utf8 evidence/slice-6/cc-121-fixes-mutations.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+CC-121 batch F1: mutation check of the Gate 2 fixes (api/tests/test_figures.py)
+Every line below is real pytest output. The CSS rule and judge-script text have no test.
+
+GOOD unmutated code
+     141 passed, 1 warning in 0.67s
+
+BAD  mutation: digit-bearing token float() cannot read skipped  [test_a_figure_glued_to_a_mark_float_cannot_read_is_still_checked]
+     CAUGHT  ['13 failed, 1 warning in 0.49s']
+BAD  mutation: carried figure glued to a mark skipped  [test_a_carried_figure_glued_to_a_mark_is_not_trusted]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: carried tokens compared with their case  [test_identifiers_the_response_carries_pass_whole_and_others_do_not]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: keys and table prefixes not carried  [test_identifiers_the_response_carries_pass_whole_and_others_do_not]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: cell strings not carried whole  [test_an_identifier_in_a_row_the_cap_cut_is_still_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: dataset of the built vintages not carried  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[vintages_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: years of the built vintages not carried  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[vintages_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: year of the built URL not carried  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[built_url_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: fetch status code not carried  [test_a_failure_the_fetch_reports_keeps_its_framing[fetch_status]]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: leg status codes not carried  [test_a_failure_the_fetch_reports_keeps_its_framing[leg_status]]
+     CAUGHT  ['1 failed, 1 warning in 0.27s']
+BAD  mutation: notice says figures follow when none do  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[vintages_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.27s']
+BAD  mutation: notice drops the figures claim  [test_the_notice_says_figures_follow_only_when_they_do]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: combined rows not first under the cap  [test_combined_rows_are_shown_before_the_cap_cuts_anything]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: trailing colon of a label kept  [test_a_label_loses_its_estimate_prefix_and_joins_its_levels]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: model chart title not checked  [test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id]
+     CAUGHT  ['1 failed, 1 warning in 0.27s']
+BAD  mutation: clean chart title replaced  [test_a_chart_title_with_only_carried_numbers_is_kept]
+     CAUGHT  ['1 failed, 1 warning in 0.27s']
+BAD  mutation: uncarried chart title kept  [test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: chart title notice has another code  [test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: chart title checked without a record  [test_a_chart_title_is_not_checked_without_a_record]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: built table ID not carried  [test_the_table_ids_the_response_names_may_be_named]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: dataset names not carried whole  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[dataset_name]]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: alternative tables not carried  [test_the_table_ids_the_response_names_may_be_named]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: leading point stripped from a number  [test_a_leading_point_is_part_of_the_number]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: second notice becomes a second warning  [test_a_bad_answer_and_a_bad_chart_title_make_one_warning]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: chart kept though the response cannot draw it  [test_a_chart_the_response_cannot_draw_gets_no_title_notice]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: fraction characters not read as figures  [test_a_fraction_character_is_a_figure_too]
+     CAUGHT  ['4 failed, 1 warning in 0.35s']
+BAD  mutation: omission reasons not carried  [test_the_reason_the_fetch_gives_for_an_omitted_year_may_be_quoted]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+
+TALLY  27 of 27 mutations CAUGHT
+GOOD restored code (files identical to the snapshot)
+     141 passed, 1 warning in 0.68s
+[exit 0]
+
+# cc-121-gate1-mutations.py is pinned to f59eee8 (its docstring says it stops at "old text occurs 0 times" on later commits); run for the record
+$ PYTHONUTF8=1 uv run python -B -X utf8 evidence/slice-6/cc-121-gate1-mutations.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+CC-121 Gate 1: mutation check of api/tests/test_figures.py
+code under test: f59eee8 (render the figures by code, check the model's text digit by digit);
+api/src is identical at branch tip 52f4292. Every line below is real pytest output.
+
+Adversarial matrix: docs/process-evidence.md lists four rows, all slice-0 retrieval probes
+(identical inputs ranked by float noise, a family returned by one member, a ranking change
+measured on the tuning set alone, "expect the largest jump" checked against the number).
+None of them targets answer figures, so the probes here come from the Gate 1 brief instead:
+off-by-one and dropped digits, European separators, ranges and fractions, rounded millions,
+float-readable words without digits, marks around a figure, dataset specificity, rows without
+year or dataset or place, non-estimate columns, a 25-column row, a place with no estimates,
+the take_chart hook (no record, no warnings list, failed fetch, chart kept), sentinels.
+
+KNOWN GAP, not tested as solved: the check compares digits only. A framing that attaches a
+carried number to the wrong place (it says Cook County earns 99,500, which is DuPage's) passes.
+
+Not tested, by the owner's decision (no word list anywhere): a number written in words.
+
+DEFECTS (api/src not touched): a token that holds a digit but that float() cannot read is
+skipped, so a figure glued to a mark passes unchecked. test_a_figure_glued_to_a_mark_float_
+cannot_read_is_still_checked asserts the correct behaviour under xfail(strict=True) for five
+inputs; the FIX lines at the end repair each one in api/src and show the xfail turning into a
+strict XPASS (a failure), proving the test is sensitive to the defect and not to something else.
+
+BAD  = the behaviour is reverted; the test must fail (CAUGHT).  GOOD = the code as committed.
+
+GOOD unmutated code
+     141 passed, 1 warning in 0.65s
+
+BAD  mutation: margin of error left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: margin read from the estimate column  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: place name left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: GEOID left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.27s']
+BAD  mutation: dataset left out of the vintage  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: no thousands separators  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: universe left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: table title left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+Traceback (most recent call last):
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-gate1-mutations.py", line 689, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-gate1-mutations.py", line 661, in main
+    code, out = run(case)
+                ^^^^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\cc-121-gate1-mutations.py", line 645, in run
+    assert text.count(case.old) == 1, f"{case.name}: old text occurs {text.count(case.old)} times"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: figures not appended after the framing: old text occurs 0 times
+[exit 1]
+
+$ PYTHONUTF8=1 uv run python -B -X utf8 evidence/slice-6/gate1-mutations.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Gate 1 mutation check of the CC-121 tests, on the code as committed (HEAD).
+
+code under test: the working tree at HEAD; api/src is unchanged by this pass
+
+GOOD unmutated code
+     141 passed, 1 warning in 0.81s
+
+89 earlier cases still match today's source and are reused;
+23 are STALE (their target lines were rewritten) and are re-authored above:
+     STALE  figures not appended after the framing  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     STALE  carried figure flagged instead of the stray one  [test_numbers_that_equal_the_rows_pass_however_they_are_written]
+     STALE  dataset digits not carried  [test_numbers_from_the_dataset_title_and_geography_columns_pass]
+     STALE  title, universe and rendered lines not carried  [test_numbers_from_the_dataset_title_and_geography_columns_pass]
+     STALE  row cells not carried  [test_numbers_from_the_dataset_title_and_geography_columns_pass]
+     STALE  sentinel cells carried  [test_a_number_equal_only_to_a_sentinel_is_not_carried]
+     STALE  chart dropped when the text is replaced  [test_the_chart_survives_when_the_text_is_replaced]
+     STALE  warning never added  [test_the_chart_survives_when_the_text_is_replaced]
+     STALE  a figure within one percent counted as carried  [test_a_figure_that_differs_in_any_digit_is_not_carried]
+     STALE  trailing zeros ignored when comparing figures  [test_a_figure_that_differs_in_any_digit_is_not_carried]
+     STALE  periods dropped like thousands separators  [test_a_period_is_not_read_as_a_thousands_separator]
+     STALE  carried figure flagged instead of the stray one (range)  [test_a_range_of_two_carried_figures_passes]
+     STALE  rounded millions counted as carried  [test_a_rounded_figure_with_a_magnitude_word_is_not_carried]
+     STALE  tokens without a digit read as numbers  [test_words_float_would_read_are_not_figures]
+     STALE  sentinel cells carried (text form)  [test_a_sentinel_written_in_the_models_text_is_replaced]
+     STALE  dataset digits not carried (span)  [test_the_dataset_decides_which_span_the_text_may_name]
+     STALE  any span carried whatever the dataset  [test_the_dataset_decides_which_span_the_text_may_name]
+     STALE  GEO_ID read whole so its FIPS digits are lost  [test_the_fips_digits_of_a_geoid_are_carried]
+     STALE  period column not carried  [test_the_period_of_a_vintage_may_be_named_in_a_real_response]
+     STALE  warning appended to a missing list  [test_take_chart_without_a_warnings_list_still_replaces_the_text]
+     STALE  warning added when the text was kept  [test_take_chart_warns_only_when_it_replaced_the_text]
+     STALE  warning never added (hook)  [test_take_chart_warns_only_when_it_replaced_the_text]
+     STALE  model chart reset when the text is dropped  [test_the_models_own_chart_spec_survives_when_the_text_is_replaced]
+13 more are SUPERSEDED: one revert no longer fails their test (see the
+marks-and-separators note above), so each is checked below by a pair of reverts and by
+a keep-test written in this pass:
+     SUPERSEDED  hyphen not a break between figures  [test_a_stray_figure_after_a_separator_is_found[hyphen]]
+     SUPERSEDED  en dash not a break between figures  [test_a_stray_figure_after_a_separator_is_found[en_dash]]
+     SUPERSEDED  em dash not a break between figures  [test_a_stray_figure_after_a_separator_is_found[em_dash]]
+     SUPERSEDED  slash not a break between figures  [test_a_stray_figure_after_a_separator_is_found[slash]]
+     SUPERSEDED  pipe not a break between figures  [test_a_stray_figure_after_a_separator_is_found[pipe]]
+     SUPERSEDED  slash not a break between figures (fraction)  [test_a_fraction_is_two_figures_and_neither_is_carried]
+     SUPERSEDED  dollar sign not stripped from a figure  [test_marks_around_a_figure_do_not_hide_it[dollar]]
+     SUPERSEDED  percent sign not stripped from a figure  [test_marks_around_a_figure_do_not_hide_it[percent]]
+     SUPERSEDED  markdown asterisk not stripped from a figure  [test_marks_around_a_figure_do_not_hide_it[bold]]
+     SUPERSEDED  opening parenthesis not stripped from a figure  [test_marks_around_a_figure_do_not_hide_it[parenthesis]]
+     SUPERSEDED  double quote not stripped from a figure  [test_marks_around_a_figure_do_not_hide_it[double_quote]]
+     SUPERSEDED  semicolon not stripped from a figure  [test_marks_around_a_figure_do_not_hide_it[semicolon]]
+     SUPERSEDED  labels returned for variables nobody asked for  [test_a_label_loses_its_estimate_prefix_and_joins_its_levels]
+
+BAD  mutation: margin of error left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: margin read from the estimate column  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: place name left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: GEOID left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: dataset left out of the vintage  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: no thousands separators  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: universe left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.39s']
+BAD  mutation: table title left out  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.40s']
+BAD  mutation: sentinel shown as a figure  [test_a_sentinel_is_never_shown_as_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: unavailable estimate shown as zero  [test_a_sentinel_is_never_shown_as_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.67s']
+BAD  mutation: unpublished margin shown as blank  [test_a_sentinel_is_never_shown_as_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.47s']
+BAD  mutation: no cap on figures shown  [test_a_long_result_shows_the_first_twenty_and_says_how_many_there_are]
+     CAUGHT  ['1 failed, 1 warning in 0.41s']
+BAD  mutation: cut figures not counted  [test_a_long_result_shows_the_first_twenty_and_says_how_many_there_are]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: shown count reported as the total  [test_a_long_result_shows_the_first_twenty_and_says_how_many_there_are]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: a stray number does not drop the text  [test_a_number_the_response_does_not_carry_replaces_the_models_text]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: empty answer when every figure is dropped  [test_nothing_fetched_leaves_a_clean_text_alone_and_removes_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: clean text dropped when nothing was fetched  [test_nothing_fetched_leaves_a_clean_text_alone_and_removes_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: labels read from one fixed vintage  [test_each_vintage_is_read_with_its_own_label_title_and_universe]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: table facts read from one fixed vintage  [test_each_vintage_is_read_with_its_own_label_title_and_universe]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: every label looked up at one fixed vintage  [test_labels_are_looked_up_once_per_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: only KeyError tolerated on label lookup  [test_a_failed_label_lookup_is_empty_not_an_error]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: ask.py does not pass the record  [test_assemble_adds_the_figures_and_warns_when_the_text_states_another]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: label lookup has no fallback  [test_assemble_adds_the_figures_and_warns_when_the_text_states_another]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: labels not kept on the artifact  [test_fetch_data_carries_each_vintages_labels_on_its_artifact]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: requested years not carried  [test_every_year_the_fetch_reports_may_be_named[requested_years]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: attempted years not carried  [test_every_year_the_fetch_reports_may_be_named[attempted_years]]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: succeeded years not carried  [test_every_year_the_fetch_reports_may_be_named[succeeded_years]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: failed years not carried  [test_every_year_the_fetch_reports_may_be_named[failed_years]]
+     CAUGHT  ['1 failed, 1 warning in 0.41s']
+BAD  mutation: omitted years not carried  [test_every_year_the_fetch_reports_may_be_named[omitted_years]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: missing dataset or year rendered as None  [test_a_row_with_no_year_or_dataset_renders_no_vintage_text]
+     CAUGHT  ['2 failed, 1 passed, 1 warning in 0.37s']
+BAD  mutation: empty place or vintage left as a dangling comma  [test_a_row_with_no_year_or_dataset_renders_no_vintage_text]
+     CAUGHT  ['1 failed, 2 passed, 1 warning in 0.32s']
+BAD  mutation: dataset left out of the vintage (no year)  [test_a_row_with_no_year_or_dataset_renders_no_vintage_text]
+     CAUGHT  ['1 failed, 2 passed, 1 warning in 0.37s']
+BAD  mutation: year left out of the vintage (no dataset)  [test_a_row_with_no_year_or_dataset_renders_no_vintage_text]
+     CAUGHT  ['1 failed, 2 passed, 1 warning in 0.35s']
+BAD  mutation: missing GEOID rendered as (None)  [test_a_row_missing_part_of_its_place_renders_the_rest]
+     CAUGHT  ['2 failed, 1 passed, 1 warning in 0.34s']
+BAD  mutation: missing place name rendered as None  [test_a_row_missing_part_of_its_place_renders_the_rest]
+     CAUGHT  ['2 failed, 1 passed, 1 warning in 0.31s']
+BAD  mutation: margin and id columns rendered as figures  [test_only_estimate_columns_are_rendered_as_figures]
+     CAUGHT  ['1 failed, 1 warning in 0.39s']
+BAD  mutation: NAME rendered as a figure  [test_only_estimate_columns_are_rendered_as_figures]
+     CAUGHT  ['1 failed, 1 warning in 0.42s']
+BAD  mutation: annotation columns rendered as figures  [test_only_estimate_columns_are_rendered_as_figures]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: no cap on figures shown (wide row)  [test_one_wide_row_shows_twenty_figures_and_counts_the_rest]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: cut figures not counted (wide row)  [test_one_wide_row_shows_twenty_figures_and_counts_the_rest]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: shown count reported as the total (wide row)  [test_one_wide_row_shows_twenty_figures_and_counts_the_rest]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: table facts printed when no figure was shown  [test_a_result_with_a_place_but_no_estimate_cells_renders_no_figures]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: record universe not used when the facts lack one  [test_the_universe_comes_from_the_table_facts_then_from_the_record]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: record universe preferred over the vintage's own  [test_the_universe_comes_from_the_table_facts_then_from_the_record]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: year prefix printed even when every vintage agrees  [test_the_facts_line_is_printed_once_when_every_vintage_agrees]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: decimals dropped from a shown figure  [test_a_figure_keeps_its_decimals_and_its_sign]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: sign dropped from a shown figure  [test_a_figure_keeps_its_decimals_and_its_sign]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: zero margin shown as not published  [test_a_figure_keeps_its_decimals_and_its_sign]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: estimate prefix left on the label  [test_a_label_loses_its_estimate_prefix_and_joins_its_levels]
+     CAUGHT  ['1 failed, 1 warning in 0.49s']
+BAD  mutation: label levels joined with a colon  [test_a_label_loses_its_estimate_prefix_and_joins_its_levels]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: variables the metadata lacks looked up anyway  [test_a_label_loses_its_estimate_prefix_and_joins_its_levels]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: only the last variable of a vintage looked up  [test_labels_are_asked_for_every_variable_of_a_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: no cap on figures shown (labels)  [test_labels_are_asked_only_for_the_figures_that_are_shown]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: rows without a vintage looked up  [test_rows_without_a_vintage_are_not_looked_up]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: labels read from the wrong fetch attribute  [test_assemble_renders_the_labels_the_fetch_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: labels looked up in the wrong dataset  [test_fetch_data_looks_labels_up_in_the_dataset_it_fetched]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: text checked even without a record  [test_take_chart_without_a_record_leaves_the_text_alone]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: envelope checked instead of its answer (bare_json)  [test_take_chart_checks_the_text_inside_the_envelope[bare_json]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: envelope checked instead of its answer (fenced_json)  [test_take_chart_checks_the_text_inside_the_envelope[fenced_json]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: plain-text reply not checked  [test_take_chart_checks_a_reply_that_is_not_json]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: text not checked when nothing was fetched  [test_take_chart_after_a_failed_fetch_keeps_a_clean_text_and_replaces_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: clean text dropped when nothing was fetched (hook)  [test_take_chart_after_a_failed_fetch_keeps_a_clean_text_and_replaces_a_figure]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: digit-bearing token float() cannot read skipped  [test_a_figure_glued_to_a_mark_float_cannot_read_is_still_checked]
+     CAUGHT  ['13 failed, 1 warning in 0.51s']
+BAD  mutation: carried figure glued to a mark skipped  [test_a_carried_figure_glued_to_a_mark_is_not_trusted]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: carried tokens compared with their case  [test_identifiers_the_response_carries_pass_whole_and_others_do_not]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: keys and table prefixes not carried  [test_identifiers_the_response_carries_pass_whole_and_others_do_not]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: cell strings not carried whole  [test_an_identifier_in_a_row_the_cap_cut_is_still_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: dataset of the built vintages not carried  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[vintages_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: years of the built vintages not carried  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[vintages_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: year of the built URL not carried  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[built_url_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: fetch status code not carried  [test_a_failure_the_fetch_reports_keeps_its_framing[fetch_status]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: leg status codes not carried  [test_a_failure_the_fetch_reports_keeps_its_framing[leg_status]]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: notice says figures follow when none do  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[vintages_only]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: notice drops the figures claim  [test_the_notice_says_figures_follow_only_when_they_do]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: combined rows not first under the cap  [test_combined_rows_are_shown_before_the_cap_cuts_anything]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: trailing colon of a label kept  [test_a_label_loses_its_estimate_prefix_and_joins_its_levels]
+     CAUGHT  ['1 failed, 1 warning in 0.40s']
+BAD  mutation: model chart title not checked  [test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: clean chart title replaced  [test_a_chart_title_with_only_carried_numbers_is_kept]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: uncarried chart title kept  [test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: chart title notice has another code  [test_a_chart_title_that_states_an_uncarried_number_is_replaced_by_the_table_id]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: chart title checked without a record  [test_a_chart_title_is_not_checked_without_a_record]
+     CAUGHT  ['1 failed, 1 warning in 0.40s']
+BAD  mutation: built table ID not carried  [test_the_table_ids_the_response_names_may_be_named]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: dataset names not carried whole  [test_a_text_before_any_fetch_may_name_the_year_and_dataset_it_built[dataset_name]]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: alternative tables not carried  [test_the_table_ids_the_response_names_may_be_named]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: leading point stripped from a number  [test_a_leading_point_is_part_of_the_number]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: second notice becomes a second warning  [test_a_bad_answer_and_a_bad_chart_title_make_one_warning]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: chart kept though the response cannot draw it  [test_a_chart_the_response_cannot_draw_gets_no_title_notice]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: fraction characters not read as figures  [test_a_fraction_character_is_a_figure_too]
+     CAUGHT  ['4 failed, 1 warning in 0.41s']
+BAD  mutation: omission reasons not carried  [test_the_reason_the_fetch_gives_for_an_omitted_year_may_be_quoted]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: figures not appended after the framing  [test_figures_carry_label_estimate_margin_place_geoid_and_vintage]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: carried figure flagged instead of the stray one (numbers_that_equal_t)  [test_numbers_that_equal_the_rows_pass_however_they_are_written]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: carried figure flagged instead of the stray one (a_range_of_two_carri)  [test_a_range_of_two_carried_figures_passes]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: dataset digits not carried  [test_numbers_from_the_dataset_title_and_geography_columns_pass]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: title, universe and rendered lines not carried  [test_numbers_from_the_dataset_title_and_geography_columns_pass]
+     CAUGHT  ['1 failed, 1 warning in 0.29s']
+BAD  mutation: row cells not carried  [test_numbers_from_the_dataset_title_and_geography_columns_pass]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: dataset digits not carried (span)  [test_the_dataset_decides_which_span_the_text_may_name]
+     CAUGHT  ['2 failed, 1 warning in 0.31s']
+BAD  mutation: any span carried whatever the dataset  [test_the_dataset_decides_which_span_the_text_may_name]
+     CAUGHT  ['2 failed, 1 warning in 0.33s']
+BAD  mutation: sentinel cells carried (a_number_equal_only_)  [test_a_number_equal_only_to_a_sentinel_is_not_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: sentinel cells carried (a_sentinel_written_i)  [test_a_sentinel_written_in_the_models_text_is_replaced]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: chart dropped when the text is replaced  [test_the_chart_survives_when_the_text_is_replaced]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: warning never added  [test_the_chart_survives_when_the_text_is_replaced]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: a figure within one percent counted as carried  [test_a_figure_that_differs_in_any_digit_is_not_carried]
+     CAUGHT  ['2 failed, 2 passed, 1 warning in 0.40s']
+BAD  mutation: trailing zeros ignored when comparing figures  [test_a_figure_that_differs_in_any_digit_is_not_carried]
+     CAUGHT  ['2 failed, 2 passed, 1 warning in 0.37s']
+BAD  mutation: periods dropped like thousands separators  [test_a_period_is_not_read_as_a_thousands_separator]
+     CAUGHT  ['2 failed, 1 warning in 0.43s']
+BAD  mutation: rounded millions counted as carried  [test_a_rounded_figure_with_a_magnitude_word_is_not_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: GEO_ID read whole so its FIPS digits are lost  [test_the_fips_digits_of_a_geoid_are_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: period column not carried  [test_the_period_of_a_vintage_may_be_named_in_a_real_response]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: warning appended to a missing list  [test_take_chart_without_a_warnings_list_still_replaces_the_text]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: warning added when the text was kept  [test_take_chart_warns_only_when_it_replaced_the_text]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: warning never added (hook)  [test_take_chart_warns_only_when_it_replaced_the_text]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: model chart reset when the text is dropped  [test_the_models_own_chart_spec_survives_when_the_text_is_replaced]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: a notice joins a warning of any code  [test_a_notice_joins_only_the_unverified_warning_never_another_code]
+     CAUGHT  ['1 failed, 1 warning in 0.39s']
+BAD  mutation: only the first warning is searched for the unverified one  [test_a_notice_joins_only_the_unverified_warning_never_another_code]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: a cell that is not a number shown as nothing  [test_a_cell_that_is_not_a_plain_number_is_shown_as_the_census_sent_it]
+     CAUGHT  ['4 failed, 1 warning in 0.40s']
+BAD  mutation: a cell that is not a number shown as zero  [test_a_cell_that_is_not_a_plain_number_is_shown_as_the_census_sent_it]
+     CAUGHT  ['4 failed, 1 warning in 0.37s']
+BAD  mutation: rendered lines not carried  [test_every_cell_may_be_quoted_and_every_shown_cell_is_stated_as_sent]
+     CAUGHT  ['1 failed, 1 warning in 0.44s']
+BAD  mutation: decimals dropped from a shown figure  [test_every_cell_may_be_quoted_and_every_shown_cell_is_stated_as_sent]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: row cells not carried (quoted)  [test_every_cell_may_be_quoted_and_every_shown_cell_is_stated_as_sent]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: sentinel shown as a figure (fuzz)  [test_every_cell_may_be_quoted_and_every_shown_cell_is_stated_as_sent]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: margin read from the estimate column (fuzz)  [test_every_cell_may_be_quoted_and_every_shown_cell_is_stated_as_sent]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: year of the built URL not read  [test_a_real_record_carries_what_the_check_reads_from_it[built_url]]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: year of a real CensusURL broken  [test_a_real_record_carries_what_the_check_reads_from_it[built_url]]
+     CAUGHT  ['1 failed, 1 warning in 0.40s']
+BAD  mutation: status code of a leg not read  [test_a_real_record_carries_what_the_check_reads_from_it[leg_status]]
+     CAUGHT  ['1 failed, 1 warning in 0.42s']
+BAD  mutation: alternative table not carried  [test_a_real_record_carries_what_the_check_reads_from_it[search_pool]]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: alternative family members not carried  [test_a_real_record_carries_what_the_check_reads_from_it[search_pool]]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: vintage dataset not carried  [test_a_real_record_carries_what_the_check_reads_from_it[vintages]]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: vintage year not carried  [test_a_real_record_carries_what_the_check_reads_from_it[vintages]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: the unverified notice not added to the real response  [test_a_real_record_carries_what_the_check_reads_from_it[leg_status]]
+     CAUGHT  ['1 failed, 1 warning in 0.62s']
+BAD  mutation: the stand-in for a dropped text is empty  [test_a_dropped_text_with_no_figures_to_show_is_never_a_blank_answer]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: a dropped text with nothing to show is left blank  [test_a_dropped_text_with_no_figures_to_show_is_never_a_blank_answer]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: thousands separators not removed when reading  [test_a_figure_written_with_separators_that_the_cap_cut_is_still_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: the notice appears at the cap  [test_the_cut_notice_appears_only_when_a_figure_was_cut[at_cap]]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: the notice never appears  [test_the_cut_notice_appears_only_when_a_figure_was_cut[over_cap]]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: table facts asked without the dataset  [test_table_facts_are_asked_in_the_dataset_of_each_row]
+     CAUGHT  ['1 failed, 1 warning in 0.39s']
+BAD  mutation: years listed without a separator  [test_vintages_that_share_a_description_are_listed_together]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: six stray numbers listed  [test_the_notice_lists_the_first_five_stray_numbers_in_order]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: stray numbers listed without a comma  [test_the_notice_lists_the_first_five_stray_numbers_in_order]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: second notice not joined with a space  [test_the_two_notices_of_one_response_are_joined_in_order]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: second notice replaces the first  [test_the_two_notices_of_one_response_are_joined_in_order]
+     CAUGHT  ['1 failed, 1 warning in 0.42s']
+BAD  mutation: labels returned for variables nobody asked for  [test_labels_come_back_only_for_the_variables_asked_for]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: dollar sign not stripped from a carried figure  [test_marks_around_a_carried_figure_do_not_change_it[dollar]]
+     CAUGHT  ['1 failed, 1 warning in 0.57s']
+BAD  mutation: pre-fix state: dollar sign not stripped, unreadable tokens skipped  [test_marks_around_a_figure_do_not_hide_it[dollar]]
+     CAUGHT  ['1 failed, 1 warning in 0.44s']
+BAD  mutation: percent sign not stripped from a carried figure  [test_marks_around_a_carried_figure_do_not_change_it[percent]]
+     CAUGHT  ['1 failed, 1 warning in 0.52s']
+BAD  mutation: pre-fix state: percent sign not stripped, unreadable tokens skipped  [test_marks_around_a_figure_do_not_hide_it[percent]]
+     CAUGHT  ['1 failed, 1 warning in 0.47s']
+BAD  mutation: markdown asterisk not stripped from a carried figure  [test_marks_around_a_carried_figure_do_not_change_it[bold]]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: pre-fix state: markdown asterisk not stripped, unreadable tokens skipped  [test_marks_around_a_figure_do_not_hide_it[bold]]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: opening parenthesis not stripped from a carried figure  [test_marks_around_a_carried_figure_do_not_change_it[parenthesis]]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: pre-fix state: opening parenthesis not stripped, unreadable tokens skipped  [test_marks_around_a_figure_do_not_hide_it[parenthesis]]
+     CAUGHT  ['1 failed, 1 warning in 0.48s']
+BAD  mutation: double quote not stripped from a carried figure  [test_marks_around_a_carried_figure_do_not_change_it[double_quote]]
+     CAUGHT  ['1 failed, 1 warning in 0.43s']
+BAD  mutation: pre-fix state: double quote not stripped, unreadable tokens skipped  [test_marks_around_a_figure_do_not_hide_it[double_quote]]
+     CAUGHT  ['1 failed, 1 warning in 0.45s']
+BAD  mutation: semicolon not stripped from a carried figure  [test_marks_around_a_carried_figure_do_not_change_it[semicolon]]
+     CAUGHT  ['1 failed, 1 warning in 0.42s']
+BAD  mutation: pre-fix state: semicolon not stripped, unreadable tokens skipped  [test_marks_around_a_figure_do_not_hide_it[semicolon]]
+     CAUGHT  ['1 failed, 1 warning in 0.37s']
+BAD  mutation: hyphen not a break between carried figures  [test_a_range_of_two_carried_figures_passes_whatever_the_separator[hyphen]]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: pre-fix state: hyphen not a break, unreadable tokens skipped  [test_a_stray_figure_after_a_separator_is_found[hyphen]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: en dash not a break between carried figures  [test_a_range_of_two_carried_figures_passes_whatever_the_separator[en_dash]]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: pre-fix state: en dash not a break, unreadable tokens skipped  [test_a_stray_figure_after_a_separator_is_found[en_dash]]
+     CAUGHT  ['1 failed, 1 warning in 0.38s']
+BAD  mutation: em dash not a break between carried figures  [test_a_range_of_two_carried_figures_passes_whatever_the_separator[em_dash]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: pre-fix state: em dash not a break, unreadable tokens skipped  [test_a_stray_figure_after_a_separator_is_found[em_dash]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: slash not a break between carried figures  [test_a_range_of_two_carried_figures_passes_whatever_the_separator[slash]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: pre-fix state: slash not a break, unreadable tokens skipped  [test_a_stray_figure_after_a_separator_is_found[slash]]
+     CAUGHT  ['1 failed, 1 warning in 0.30s']
+BAD  mutation: pipe not a break between carried figures  [test_a_range_of_two_carried_figures_passes_whatever_the_separator[pipe]]
+     CAUGHT  ['1 failed, 1 warning in 0.32s']
+BAD  mutation: pre-fix state: pipe not a break, unreadable tokens skipped  [test_a_stray_figure_after_a_separator_is_found[pipe]]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: pre-fix state: slash not a break, unreadable tokens skipped (fraction)  [test_a_fraction_is_two_figures_and_neither_is_carried]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: framing dropped from the answer (year_series_keeps_a_line_chart)  [test_year_series_keeps_a_line_chart]
+     CAUGHT  ['1 failed, 1 warning in 0.36s']
+BAD  mutation: figures placed before the framing (year_series_keeps_a_line_chart)  [test_year_series_keeps_a_line_chart]
+     CAUGHT  ['1 failed, 1 warning in 0.27s']
+BAD  mutation: framing dropped from the answer (scalar_result_has_no_chart)  [test_scalar_result_has_no_chart]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: figures placed before the framing (scalar_result_has_no_chart)  [test_scalar_result_has_no_chart]
+     CAUGHT  ['1 failed, 1 warning in 0.25s']
+BAD  mutation: framing dropped from the answer (prose_answer_stays_a_prose_answer)  [test_prose_answer_stays_a_prose_answer]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: figures placed before the framing (prose_answer_stays_a_prose_answer)  [test_prose_answer_stays_a_prose_answer]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: framing dropped from the answer (prose_comparison_gets_a_geography_b)  [test_prose_comparison_gets_a_geography_bar]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: figures placed before the framing (prose_comparison_gets_a_geography_b)  [test_prose_comparison_gets_a_geography_bar]
+     CAUGHT  ['1 failed, 1 warning in 0.28s']
+BAD  mutation: framing dropped from the answer (unknown_chart_type_is_discarded)  [test_unknown_chart_type_is_discarded]
+     CAUGHT  ['1 failed, 1 warning in 0.25s']
+BAD  mutation: figures placed before the framing (unknown_chart_type_is_discarded)  [test_unknown_chart_type_is_discarded]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: framing dropped from the answer (fenced_json_still_extracts_the_char)  [test_fenced_json_still_extracts_the_chart]
+     CAUGHT  ['1 failed, 1 warning in 0.31s']
+BAD  mutation: figures placed before the framing (fenced_json_still_extracts_the_char)  [test_fenced_json_still_extracts_the_chart]
+     CAUGHT  ['1 failed, 1 warning in 0.33s']
+BAD  mutation: framing dropped from the answer (zip_language_warns_without_blocking)  [test_zip_language_warns_without_blocking_a_zcta_row]
+     CAUGHT  ['1 failed, 1 warning in 0.35s']
+BAD  mutation: figures placed before the framing (zip_language_warns_without_blocking)  [test_zip_language_warns_without_blocking_a_zcta_row]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: framing dropped from the answer (sequential_single_place_calls_are_r)  [test_sequential_single_place_calls_are_repaired_by_finish_tools]
+     CAUGHT  ['1 failed, 1 warning in 0.50s']
+BAD  mutation: figures placed before the framing (sequential_single_place_calls_are_r)  [test_sequential_single_place_calls_are_repaired_by_finish_tools]
+     CAUGHT  ['1 failed, 1 warning in 0.51s']
+BAD  mutation: a warning on every answer (and_phrased_comparison_resolves_bot)  [test_and_phrased_comparison_resolves_both_geographies]
+     CAUGHT  ['1 failed, 1 warning in 0.42s']
+BAD  mutation: a warning on every answer (and_phrased_comparison_across_state)  [test_and_phrased_comparison_across_states]
+     CAUGHT  ['1 failed, 1 warning in 0.34s']
+BAD  mutation: a warning on every answer (three_way_and_list_comparison)  [test_three_way_and_list_comparison]
+     CAUGHT  ['1 failed, 1 warning in 0.43s']
+BAD  mutation: a warning on every answer (bare_unqualified_city_names_resolve)  [test_bare_unqualified_city_names_resolve_all_places]
+     CAUGHT  ['1 failed, 1 warning in 0.41s']
+Traceback (most recent call last):
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\gate1-mutations.py", line 627, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\gate1-mutations.py", line 592, in main
+    code, out = run(item)
+                ^^^^^^^^^
+  File "C:\Users\johnh\worktrees\census-cc-123-C\evidence\slice-6\gate1-mutations.py", line 529, in run
+    assert text.count(old) == 1, f"{item.name}: old text occurs {text.count(old)} times"
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: numeric characters read as figures (1/2): old text occurs 0 times
+[exit 1]
+
+# note: gate1-mutations.py ran all 183 of its reused+new mutations (183 CAUGHT, 0 NOT CAUGHT, above), then stopped at its FIXED stage with the AssertionError above: that stage re-applies the isdigit->isnumeric repair, which commit 410839d already made, so its old text no longer occurs. It never printed its COVERAGE or TALLY lines. The same two repairs are mutation-checked by cc-121-fixes-mutations.py (fraction character, omission reasons: CAUGHT above).
+
+# Step 3: merged-path probe (scratch script, not committed). Paths read: git diff origin/main HEAD for ask.py, contract.py, fetch.py, prompts.py, conftest.py, test_ask_loop.py, test_chart.py, test_guards.py; git diff 1160bde origin/main for ask.py, contract.py, vintages.py, tools.py, fetch.py (fetch.py, vintages.py, tools.py: no change on main); git grep of every AskResponse( / take_chart / assemble( call site at HEAD.
+$ cat probe.py
+import sys
+sys.path.insert(0, "api")
+from src.ask import ExecutionRecord, assemble
+from src.finish import degraded_answer
+
+def show(tag, r):
+    print(tag, "|", repr(r.answer[:200]), "|", [w.code for w in r.warnings])
+
+# 1 refusal text (code-written) with empty record
+rec = ExecutionRecord(question="Rent by block group in tract 1201 of Ohio")
+show("refusal", assemble("This question is incomplete and cannot be searched: every block group in a tract identified by its number needs state and county, and it names only the state. Name the county and ask again.", rec))
+# 2 degraded answer, tract name with digits
+row = {"NAME": "Census Tract 9501.02, Dane County, Wisconsin", "GEO_ID": "1400000US55025950102", "state": "55", "county": "025", "year": "2023", "dataset": "acs5", "B01003_001E": "4100", "B01003_001M": "300"}
+rec = ExecutionRecord(question="q", rows=[row], table_id="B01003")
+show("degraded", assemble(degraded_answer(rec), rec))
+# 3 tables-only discovery answer, pool, no fetch
+rec = ExecutionRecord(question="Which table holds broadband?", table_id="B28002")
+rec.tables_only = True
+rec.pool = [{"table_id": "B28002", "title": "Presence and Types of Internet Subscriptions in Household", "universe": "Households", "members": []}]
+show("tables_only_year", assemble("B28002 is the table, published in the 2023 ACS 5-year estimates.", rec))
+show("tables_only_plain", assemble("B28002 is the table for internet subscriptions.", rec))
+
+$ uv run python -B probe.py
+refusal | 'This question is incomplete and cannot be searched: every block group in a tract identified by its number needs state and county, and it names only the state. Name the county and ask again.' | []
+degraded | 'Recovered B01003 data for Census Tract 9501.02, Dane County, Wisconsin after a retry; see the table and URL below.\n\nB01003_001E: 4,100 (margin of error 300), Census Tract 9501.02, Dane County, Wiscons' | []
+tables_only_year | 'No figures were fetched for this request; see the warnings and the URL.' | ['answer_figures_unverified']
+tables_only_plain | 'B28002 is the table for internet subscriptions.' | []
+
+$ git status --short
+?? evidence/slice-6/cc-121-gate1-rebased.txt
+$ git diff --stat -- api

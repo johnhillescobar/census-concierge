@@ -1,0 +1,959 @@
+Gate 2 re-run (cold) on branch feat/cc-121-answer-figures at 1323281 vs origin/main 1160bde
+Written 2026-10-21T12:56:03Z by a fresh review subagent. Raw command output below, in the order run.
+NOTE: this path previously held the CC-103 Gate 2 re-run (git: 'git show 1323281:evidence/slice-6/gate2-rerun.txt').
+
+##### $ git log --oneline origin/main..HEAD | head -5
+1323281 fix(CC-121): close the Gate 2 findings on the figure check
+fad1954 evidence(CC-121): Gate 2 transcript written by the review subagent
+a3fc0c2 evidence(CC-121): plan batch G2 and the end-to-end run order
+dee6286 evidence(CC-121): record the Gate 1 result in the plan
+dbd5da7 test(CC-121): the mutation harness reads CRLF working copies
+
+##### $ git diff --stat origin/main...HEAD -- . :!evidence
+ api/src/ask.py             |   2 +-
+ api/src/contract.py        |  22 +-
+ api/src/fetch.py           |   3 +
+ api/src/figures.py         | 178 ++++++++++
+ api/src/prompts.py         |   2 +-
+ api/tests/conftest.py      |   8 +-
+ api/tests/test_ask_loop.py |  10 +-
+ api/tests/test_chart.py    |  14 +-
+ api/tests/test_figures.py  | 786 +++++++++++++++++++++++++++++++++++++++++++++
+ api/tests/test_guards.py   |   2 +-
+ docs/ARCHITECTURE.md       |   1 +
+ docs/ask-path.md           |  16 +
+ docs/requirements.md       |   6 +
+ scripts/judge_figures.py   | 164 ++++++++++
+ web/src/App.css            |   1 +
+ 15 files changed, 1198 insertions(+), 17 deletions(-)
+
+##### $ git status --short
+ M evidence/slice-6/gate2-rerun.txt
+?? .vscode/_launch-census-payload-snippet-verify.json
+?? .vscode/settings.json
+
+##### $ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4572 <= 4600
+  ok    api src files               27 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1055 <= 1200
+  ok    doc lines                 1778 <= 1800
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  ok    p95 latency (s)         18.928 <= 20
+        run 2026-10-04T04:51:00+00:00; slowest trial 820.448s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate             0.75 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met.
+
+##### exit code: 0
+
+##### $ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 64 (base 64, delta +0)
+
+All invariants held.
+
+##### exit code: 0
+
+##### $ uv run ruff check .
+All checks passed!
+##### exit code: 0
+
+##### $ uv run ruff format --check .
+202 files already formatted
+##### exit code: 0
+
+##### $ uv run mypy api/src
+Success: no issues found in 27 source files
+##### exit code: 0
+
+##### $ uv run pytest -q -m "not integration"
+........................................................................ [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................sssssssssssssssss..sss.......... [ 36%]
+........................................................................ [ 45%]
+........................................................................ [ 54%]
+........................................................................ [ 63%]
+........................................................................ [ 72%]
+........................................................................ [ 81%]
+........................................................................ [ 90%]
+................................sssssssssss..s.ss....................... [ 99%]
+...                                                                      [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+761 passed, 34 skipped, 1 warning in 28.08s
+##### exit code: 0
+
+##### $ git diff origin/main...HEAD -- api/src web/src api/tests/conftest.py api/tests/test_ask_loop.py api/tests/test_chart.py api/tests/test_guards.py
+diff --git a/api/src/ask.py b/api/src/ask.py
+index 3f2d9d7..7c3ed91 100644
+--- a/api/src/ask.py
++++ b/api/src/ask.py
+@@ -249,7 +249,7 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
+     year = record.vintages[-1][1] if record.vintages else None
+     rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
+     return AskResponse(
+-        **take_chart(answer, rows, warnings),
++        **take_chart(answer, rows, warnings, record),
+         **series_from_record(record),
+         rows=rows,
+         moe=moe_rows(rows),
+diff --git a/api/src/contract.py b/api/src/contract.py
+index 30010fb..91fb354 100644
+--- a/api/src/contract.py
++++ b/api/src/contract.py
+@@ -375,7 +375,11 @@ def take_chart(
+     answer: str,
+     rows: list[dict[str, str | None]],
+     warnings: list[Any] | None = None,
++    record: Any = None,
+ ) -> dict[str, Any]:
++    """The answer and chart in the model's reply. With a record, text and chart title that state
++    a number the response does not carry are replaced and a warning is appended to `warnings`;
++    without a record nothing is checked."""
+     text = answer.strip()
+     if text.startswith("```"):
+         text = text.split("\n", 1)[-1]
+@@ -391,6 +395,15 @@ def take_chart(
+         raw = body.get("chart")
+         saw = raw is not None
+         payload = raw if isinstance(raw, dict) else {}
++    if record is not None:
++        from src.figures import (
++            checked,
++            stray,
++        )  # figures reaches vintages, which imports this module
++
++        cleaned, problem = checked(cleaned, rows, record)
++        if problem and warnings is not None:
++            warnings.append(AskWarning(code="answer_figures_unverified", detail=problem))
+     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
+     spec: ChartSpec | None = None
+     unavailable = False
+@@ -399,11 +412,18 @@ def take_chart(
+             spec = ChartSpec.model_validate(payload)
+         except ValidationError:
+             unavailable = True
++    table_id = str((rows[0].get("table_id") if rows else "") or "")
++    if record is not None and spec is not None and stray(spec.title, rows, record):
++        spec = spec.model_copy(update={"title": table_id})
++        notice = (
++            "The chart title stated a number not in the fetched data; the table ID replaces it."
++        )
++        if warnings is not None:
++            warnings.append(AskWarning(code="answer_figures_unverified", detail=notice))
+     years = {str(row.get("year") or row.get("vintage") or "") for row in rows} - {""}
+     geos = {str(row.get("GEO_ID") or "") for row in rows} - {""}
+     estimates = {key for row in rows for key in row if key.endswith("E") and "_" in key}
+     if spec is None and not unavailable:
+-        table_id = str((rows[0].get("table_id") if rows else "") or "")
+         names = sorted({str(row.get("NAME") or "") for row in rows} - {""})
+         by_geo = f"{table_id}: {', '.join(names)}" if names else table_id
+ 
+diff --git a/api/src/fetch.py b/api/src/fetch.py
+index 48f2d94..8b663fa 100644
+--- a/api/src/fetch.py
++++ b/api/src/fetch.py
+@@ -11,6 +11,7 @@ import httpx
+ from langchain_core.tools import BaseTool
+ from pydantic import BaseModel, ConfigDict, Field
+ 
++from src import figures
+ from src.census_url import CensusURL, redact_text
+ from src.contract import GeoSpec, RequestLeg
+ from src.tools import ToolInput, ToolResult
+@@ -56,6 +57,7 @@ class FetchDataResult(ToolResult):
+     omission_reasons: list[str]
+     dataset: str = ""
+     acs1_ineligible: bool = False
++    labels: dict[str, dict[str, str]] = Field(default_factory=dict)
+ 
+ 
+ def unique_years(years: list[int]) -> list[int]:
+@@ -404,4 +406,5 @@ class FetchDataTool(BaseTool):
+             dataset=plan.dataset,
+             acs1_ineligible=plan.acs1_ineligible,
+         )
++        result.labels = await figures.labels_for(rows, plan.dataset)
+         return _tool_content(result), result
+diff --git a/api/src/figures.py b/api/src/figures.py
+new file mode 100644
+index 0000000..fd5dd00
+--- /dev/null
++++ b/api/src/figures.py
+@@ -0,0 +1,178 @@
++"""The figures an answer states: rendered by code from the rows; the model's text is checked.
++
++The model writes framing only. Every number it still writes must be one the response itself
++carries; a text with any other number is dropped and the rendered figures stand alone.
++"""
++
++from __future__ import annotations
++
++import asyncio
++from typing import Any
++
++from src.retrieval import metadata
++from src.vintages import CENSUS_MISSING
++
++MAX_FIGURES = 20
++NO_FIGURES = "No figures were fetched for this request; see the warnings and the URL."
++_YEARS = ("requested_years", "attempted_years", "succeeded_years", "failed_years", "omitted_years")
++_BREAKS = str.maketrans("-–—/|", "     ")
++_EDGE = ".,;:!?()[]{}\"'*_`~<>=+$%"
++
++
++def _cells(
++    rows: list[dict[str, str | None]],
++) -> tuple[list[tuple[dict[str, str | None], str, str]], int]:
++    """The first MAX_FIGURES estimate cells as (row, variable, year), and how many there are."""
++    found = [
++        (row, key, str(row.get("year") or ""))
++        for row in rows
++        for key in row
++        if key.endswith("E") and "_" in key
++    ]
++    found.sort(key=lambda cell: "component_count" not in cell[0])  # combined rows first
++    return found[:MAX_FIGURES], len(found)
++
++
++def _labels(dataset: str, year: int, wanted: set[str]) -> dict[str, str]:
++    try:
++        found = metadata.variables(dataset, year)
++    except Exception:  # noqa: BLE001 - a label lookup must never fail a fetch that succeeded
++        return {}
++    return {
++        key: found[key].label.removeprefix("Estimate!!").replace("!!", " - ").rstrip(":")
++        for key in wanted & found.keys()
++    }
++
++
++async def labels_for(rows: list[dict[str, str | None]], dataset: str) -> dict[str, dict[str, str]]:
++    """Variable labels for the figures that will be shown: one lookup per vintage, off the loop."""
++    wanted: dict[str, set[str]] = {}
++    for _row, key, year in _cells(rows)[0]:
++        if year.isdigit():
++            wanted.setdefault(year, set()).add(key)
++    found = await asyncio.gather(
++        *(asyncio.to_thread(_labels, dataset, int(year), keys) for year, keys in wanted.items())
++    )
++    return dict(zip(wanted, found, strict=True))
++
++
++def _numbers(text: str) -> list[float | str]:
++    """Every token that holds a digit: its value if float() reads it, else the token itself."""
++    found: list[float | str] = []
++    for token in text.translate(_BREAKS).split():
++        token = token.strip(_EDGE)
++        if any(char.isdigit() for char in token):
++            try:
++                found.append(abs(float(token.replace(",", ""))))
++            except ValueError:
++                found.append(token.casefold())
++    return found
++
++
++def _shown(raw: str) -> str:
++    whole, dot, fraction = raw.partition(".")
++    try:
++        return f"{int(whole):,}{dot}{fraction}"
++    except ValueError:
++        return raw
++
++
++def _render(rows: list[dict[str, str | None]], record: Any) -> tuple[list[str], list[str]]:
++    """The figure sentences, and the texts (labels, titles, universe) they rest on."""
++    shown, total = _cells(rows)
++    labels = getattr(getattr(record, "fetch", None), "labels", None) or {}
++    lines: list[str] = []
++    texts: list[str] = []
++    for row, key, year in shown:
++        est, moe = (
++            None if row.get(k) in CENSUS_MISSING else row.get(k) for k in (key, key[:-1] + "M")
++        )
++        value = (
++            f"{_shown(est)} (margin of error {_shown(moe) if moe else 'not published'})"
++            if est
++            else "not available"
++        )
++        label = labels.get(year, {}).get(key, key)
++        texts.append(label)
++        geoid = row.get("GEO_ID")
++        place = " ".join(part for part in (row.get("NAME"), f"({geoid})" if geoid else "") if part)
++        vintage = " ".join(part for part in (row.get("dataset"), year) if part)
++        lines.append(f"{label}: {value}" + "".join(f", {p}" for p in (place, vintage) if p) + ".")
++    if total > MAX_FIGURES:
++        lines.append(f"{MAX_FIGURES} of {total} figures shown; the table has the rest.")
++    table_facts = getattr(record, "table_facts", None)
++    table = shown[0][1].split("_")[0] if shown else ""
++    about: dict[str, list[str]] = {}
++    for dataset, year in dict.fromkeys(
++        (str(row.get("dataset") or ""), year) for row, _key, year in shown
++    ):
++        facts = (
++            table_facts(dataset, int(year), table) if table_facts and year.isdigit() else None
++        ) or {}
++        title, universe = (
++            facts.get("title"),
++            facts.get("universe") or getattr(record, "universe", ""),
++        )
++        text = " ".join(
++            [
++                f"Table {table}: {title}." if title else "",
++                f"Universe: {universe}" if universe else "",
++            ]
++        ).strip()
++        if text:
++            about.setdefault(text, []).append(year)
++    texts += list(about)
++    lines += [
++        text if len(about) == 1 else f"{', '.join(years)}: {text}" for text, years in about.items()
++    ]
++    return lines, texts
++
++
++def _allowed(rows: list[dict[str, str | None]], record: Any, texts: list[str]) -> set[float | str]:
++    """What the response carries: cells, keys, years, status codes, dataset digits, system texts."""
++    fetch = getattr(record, "fetch", None)
++    vintages = getattr(record, "vintages", None) or []
++    datasets = {str(row.get("dataset") or "") for row in rows} | {str(name) for name, _ in vintages}
++    texts = [*texts, *("".join(c if c.isdigit() else " " for c in name) for name in datasets)]
++    for row in rows:
++        for key, cell in row.items():
++            if cell not in CENSUS_MISSING:
++                texts += [str(cell), key, key.split("_")[0]]
++                texts += [str(cell).split("US")[-1]] if key == "GEO_ID" else []
++    allowed = {number for text in texts for number in _numbers(text)}
++    codes = [
++        getattr(fetch, "status_code", 0),
++        *(x.status_code for x in getattr(fetch, "legs", None) or []),
++    ]
++    years = [year for name in _YEARS for year in getattr(fetch, name, None) or []]
++    built = getattr(getattr(record, "url", None), "year", None)
++    allowed.update(float(n) for n in [*codes, *years, *(year for _, year in vintages), built] if n)
++    return allowed
++
++
++def stray(text: str, rows: list[dict[str, str | None]], record: Any) -> list[float | str]:
++    """The numbers in the text that the response does not carry."""
++    lines, texts = _render(rows, record)
++    allowed = _allowed(rows, record, [*texts, *lines])
++    return sorted({number for number in _numbers(text) if number not in allowed}, key=str)
++
++
++def checked(prose: str, rows: list[dict[str, str | None]], record: Any) -> tuple[str, str]:
++    """The answer to show, and why the model's text was dropped ("" when it was kept).
++
++    The answer is the model's framing followed by the rendered figures. A framing that states
++    a number the response does not carry is replaced by the rendered figures alone.
++    """
++    lines, _texts = _render(rows, record)
++    if not lines and not _numbers(prose):
++        return prose, ""
++    bad = stray(prose, rows, record)
++    problem = ""
++    if bad:
++        listed = ", ".join(f"{n:,.10g}" if isinstance(n, float) else n for n in bad[:5])
++        problem = f"The model's text stated {listed}, not in the fetched data; " + (
++            "figures below replace it." if lines else "it was removed."
++        )
++        prose = ""
++    block = "\n".join(lines)
++    return "\n\n".join(part for part in (prose.strip(), block) if part) or NO_FIGURES, problem
+diff --git a/api/src/prompts.py b/api/src/prompts.py
+index 4f9916f..e18b335 100644
+--- a/api/src/prompts.py
++++ b/api/src/prompts.py
+@@ -37,7 +37,7 @@ Call build_url with the selected table ID before fetch_data. Code handles the re
+ 
+ For multi-year retrieval, call fetch_data once with the requested years; the tool handles the individual years. Warnings do not skip fetching a built request.
+ 
+-Use only successfully fetched data as evidence. Never invent or retype estimates. Keep answer to a concise qualitative summary and relevant context, system-provided warnings, or limitations. Describe failed or omitted years only as reported in the fetch summary.
++Use only successfully fetched data as evidence. Write the answer as qualitative framing only: which table was chosen and why, the geography and years, what the figures in the result are about, and any limitation. Write no figure in the answer: no estimate, margin of error, count, share, percentage, rate, ranking or comparison of values between places or years, and no number written in words. Years, table IDs and variable names are fine. The system shows the figures from the fetched data itself. Describe failed or omitted years only as reported in the fetch summary.
+ 
+ Partial success is not total failure. Use only successfully retrieved data for any chart. If the fetch reports total failure, return exactly:
+ {"answer":"Fetch failed; no estimates available.","chart":null}
+diff --git a/api/tests/conftest.py b/api/tests/conftest.py
+index 803e8d6..8486b87 100644
+--- a/api/tests/conftest.py
++++ b/api/tests/conftest.py
+@@ -9,11 +9,17 @@ from pathlib import Path
+ 
+ import pytest
+ from psycopg_pool import AsyncConnectionPool
+-from src import store
++from src import figures, store
+ 
+ URL = os.environ.get("DATABASE_URL")
+ 
+ 
++@pytest.fixture(autouse=True)
++def no_label_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
++    """fetch_data labels figures from the metadata cache; keep every other test off it."""
++    monkeypatch.setattr(figures, "_labels", lambda *_args: {})
++
++
+ @pytest.fixture(scope="session")
+ def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
+     if sys.platform == "win32":
+diff --git a/api/tests/test_ask_loop.py b/api/tests/test_ask_loop.py
+index e3ce36b..28a0f65 100644
+--- a/api/tests/test_ask_loop.py
++++ b/api/tests/test_ask_loop.py
+@@ -779,7 +779,7 @@ async def test_and_phrased_comparison_resolves_both_geographies() -> None:
+     assert record.geo_status["compare"] is True
+     assert record.geo_status["compare_count"] == 2
+     assert [row.for_spec for row in record.geographies[:2]] == ["place:4805000", "place:19000"]
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert [item.code for item in response.warnings] == ["ambiguous_place"]
+     assert "Lake Dallas city, Texas" in response.warnings[0].detail
+     assert [row.for_spec for row in response.plan.geographies] == ["place:4805000", "place:19000"]
+@@ -798,7 +798,7 @@ async def test_and_phrased_comparison_across_states() -> None:
+     assert record.geo_status["compare"] is True
+     assert record.geo_status["compare_count"] == 2
+     assert len(record.geographies) == 2
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert response.warnings == []
+     fetch = tools["fetch_data"]
+     assert fetch.last_geographies is not None
+@@ -818,7 +818,7 @@ async def test_three_way_and_list_comparison() -> None:
+     assert record.geo_status["compare"] is True
+     assert record.geo_status["compare_count"] == 3
+     assert len(record.geographies) == 3
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert response.warnings == []
+     assert [row.for_spec for row in response.plan.geographies] == [
+         "place:4805000",
+@@ -853,7 +853,7 @@ async def test_bare_unqualified_city_names_resolve_all_places() -> None:
+         "place:0644000",
+         "place:3651000",
+     ]
+-    response = assemble(question, record)
++    response = assemble("Both places resolved.", record)
+     assert response.warnings == []
+     fetch = tools["fetch_data"]
+     assert fetch.last_geographies is not None
+@@ -908,7 +908,7 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
+     warnings_by_code = {item.code: item for item in response.warnings}
+     assert "ambiguous_place" in warnings_by_code
+     assert "Lake Dallas city, Texas" in warnings_by_code["ambiguous_place"].detail
+-    assert response.answer == "Austin and Dallas compared."
++    assert response.answer.startswith("Austin and Dallas compared.")
+ 
+ 
+ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparison() -> None:
+diff --git a/api/tests/test_chart.py b/api/tests/test_chart.py
+index 8a23c6e..3a3a8ce 100644
+--- a/api/tests/test_chart.py
++++ b/api/tests/test_chart.py
+@@ -90,7 +90,7 @@ def _envelope(answer: str, chart: dict | None) -> str:
+ def test_year_series_keeps_a_line_chart() -> None:
+     record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
+     response = assemble(_envelope("Income rose.", LINE), record)
+-    assert response.answer == "Income rose."
++    assert response.answer.startswith("Income rose.")
+     assert response.chart is not None
+     assert response.chart.model_dump() == {**LINE, "series_by": None}
+     assert response.chart_unavailable is False
+@@ -203,10 +203,10 @@ def test_variable_series_is_kept() -> None:
+ 
+ def test_scalar_result_has_no_chart() -> None:
+     record = ExecutionRecord(rows=[HARRIS])
+-    response = assemble(_envelope("Population is 4.8 million.", BAR), record)
++    response = assemble(_envelope("Population is large.", BAR), record)
+     assert response.chart is None
+     assert response.chart_unavailable is False
+-    assert response.answer == "Population is 4.8 million."
++    assert response.answer.startswith("Population is large.")
+     assert response.rows[0]["B01003_001E"] == "4838303"
+     assert response.moe[0]["B01003_001M"] == "123"
+ 
+@@ -214,7 +214,7 @@ def test_scalar_result_has_no_chart() -> None:
+ def test_prose_answer_stays_a_prose_answer() -> None:
+     record = ExecutionRecord(rows=[HARRIS])
+     response = assemble("Harris County has data.", record)
+-    assert response.answer == "Harris County has data."
++    assert response.answer.startswith("Harris County has data.")
+     assert response.chart is None
+     assert response.chart_unavailable is False
+ 
+@@ -222,7 +222,7 @@ def test_prose_answer_stays_a_prose_answer() -> None:
+ def test_prose_comparison_gets_a_geography_bar() -> None:
+     record = ExecutionRecord(rows=[AUSTIN, TEXAS], table_id="B25064")
+     response = assemble("Austin is higher.", record)
+-    assert response.answer == "Austin is higher."
++    assert response.answer.startswith("Austin is higher.")
+     assert response.chart is not None
+     assert response.chart.type == "bar"
+     assert response.chart.x == "geography"
+@@ -244,7 +244,7 @@ def test_unknown_chart_type_is_discarded() -> None:
+     response = assemble(_envelope("Austin is higher.", payload), record)
+     assert response.chart is None
+     assert response.chart_unavailable is True
+-    assert response.answer == "Austin is higher."
++    assert response.answer.startswith("Austin is higher.")
+     assert len(response.rows) == 2
+     assert response.moe[0]["B25064_001M"] == "14"
+ 
+@@ -302,7 +302,7 @@ def test_fenced_json_still_extracts_the_chart() -> None:
+     record = ExecutionRecord(rows=[DENVER_2019, DENVER_2024])
+     blob = "```json\n" + _envelope("Income rose.", LINE) + "\n```"
+     response = assemble(blob, record)
+-    assert response.answer == "Income rose."
++    assert response.answer.startswith("Income rose.")
+     assert response.chart is not None
+     assert response.chart.type == "line"
+ 
+diff --git a/api/tests/test_guards.py b/api/tests/test_guards.py
+index 788757c..cc062b7 100644
+--- a/api/tests/test_guards.py
++++ b/api/tests/test_guards.py
+@@ -932,7 +932,7 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
+     ]
+     assert _codes(record) == ["zcta_not_zip"]
+     response = assemble("ZCTA, not ZIP", record)
+-    assert response.answer == "ZCTA, not ZIP"
++    assert response.answer.startswith("ZCTA, not ZIP")
+     assert [item.code for item in response.warnings] == ["zcta_not_zip"]
+     assert "10001" in response.warnings[0].detail
+     assert "ACS1" in response.warnings[0].detail
+diff --git a/web/src/App.css b/web/src/App.css
+index e29366e..00ff74c 100644
+--- a/web/src/App.css
++++ b/web/src/App.css
+@@ -136,6 +136,7 @@ h1 {
+ 
+ .answer {
+   margin: 0 0 1rem;
++  white-space: pre-line;
+ }
+ 
+ .meta {
+##### exit code: 0
+
+##### $ (pass 1, cold read) context commands: usages of the changed functions
+api/src/ask.py:26:    take_chart,
+api/src/ask.py:62:    table_facts: Any = None
+api/src/ask.py:252:        **take_chart(answer, rows, warnings, record),
+api/src/ask.py:353:    record.table_facts = facts
+api/src/ask.py:370:            table_facts=facts,
+api/src/ask.py:382:            table_facts=facts,
+api/src/compare.py:82:    from src.vintages import CENSUS_MISSING
+api/src/compare.py:85:    if not isinstance(raw, str) or raw in CENSUS_MISSING:
+api/src/contract.py:374:def take_chart(
+api/src/contract.py:399:        from src.figures import (
+api/src/fetch.py:14:from src import figures
+api/src/fetch.py:225:    table_facts: Callable[[str, int, str], dict[str, Any] | None] | None = None
+api/src/fetch.py:338:            self.table_facts,
+api/src/fetch.py:386:                self.table_facts,
+api/src/fetch.py:409:        result.labels = await figures.labels_for(rows, plan.dataset)
+api/src/guards.py:15:    CENSUS_MISSING as _MISSING,
+api/src/tools.py:240:    table_facts: TableFacts
+api/src/tools.py:265:        facts = self.table_facts(dataset, year, table_id)
+api/src/vintages.py:40:CENSUS_MISSING = {
+api/src/vintages.py:218:                moe[f"{key[:-1]}M"] = None if raw in CENSUS_MISSING else raw
+
+##### $ grep -n 'key=' web/src/App.tsx (React key used for warnings)
+42:                <th key={header} scope="col">
+55:                <tr key={`${row.year}:${row.period}:${row.geoid}:${row.name}:${row.variable}`}>
+133:              <pre key={item} className="census-url">
+152:              <li key={warning.code}>
+
+##### $ git show --stat --format='%h %s' 5f242d8; git log origin/main -3 --format='%h %s' -- budgets.toml
+5f242d8 budget(cc-121): raise api src loc forwrites the answer without seeing the fetched figures
+3b785a4 budget(cc-121): raise api src loc forwrites the answer without seeing the fetched figures
+49cca12 budget(CC-103): correct the 2026-10-02 api_src_loc log entry to 4400
+b4aa5f0 budget(cc-103): raise api src loc multi=parent wildcard listings collapsed
+0
+
+##### $ gh pr list --head feat/cc-121-answer-figures --state all
+111	docs: correct stale CLAUDE.md claims about p95 and Makefile targets	feat/cc-121-answer-figures	MERGED	2026-10-20T00:50:34Z
+
+##### $ git diff --name-only origin/main...HEAD -- . ':!evidence' | wc -l ; total files
+15
+86
+
+##### $ grep -c CAUGHT / tail of evidence/slice-6/cc-121-fixes-mutations.txt
+46:TALLY  19 of 19 mutations CAUGHT
+TALLY  19 of 19 mutations CAUGHT
+GOOD restored code (files identical to the snapshot)
+     101 passed, 1 warning in 0.45s
+
+##### $ PYTHONPATH=api uv run python /tmp/t_labels.py   # label lookup cost
+import asyncio, time
+from src import figures
+from src.retrieval import metadata
+t=time.perf_counter(); v=metadata.variables("acs5",2023); print("one parse", round(time.perf_counter()-t,3), len(v))
+rows=[{"B01003_001E":"1","B01003_001M":"2","year":str(y),"NAME":"x","GEO_ID":"0100000US"} for y in range(2016,2025) if y!=2020]
+t=time.perf_counter(); out=asyncio.run(figures.labels_for(rows,"acs5")); print("labels_for 8 vintages", round(time.perf_counter()-t,3), {k:v for k,v in list(out.items())[:2]})
+--- output ---
+one parse 0.093 28261
+labels_for 8 vintages 0.702 {'2016': {'B01003_001E': 'Total'}, '2017': {'B01003_001E': 'Total'}}
+
+##### $ PYTHONPATH=api uv run python probe.py   # adversarial probes P1-P6 (source then output)
+import json
+from types import SimpleNamespace
+from src import figures
+from src.ask import ExecutionRecord, assemble
+from src.contract import take_chart
+
+COOK = {"NAME": "Cook County, Illinois", "GEO_ID": "0500000US17031", "state": "17", "county": "031",
+        "year": "2023", "dataset": "acs5", "B19013_001E": "76000", "B19013_001M": "1200"}
+
+# P1: text AND chart title both state an uncarried number
+env = json.dumps({"answer": "Cook earns 99,999.", "chart": {"type": "bar", "x": "geography", "y": "estimate", "title": "Cook 88,888", "show_moe": True}})
+dup = dict(COOK, GEO_ID="0500000US17043", NAME="DuPage County, Illinois")
+r = assemble(env, ExecutionRecord(rows=[COOK, dup], table_id="B19013"))
+print("P1 warning codes:", [w.code for w in r.warnings])
+print("P1 chart title:", r.chart.title if r.chart else None)
+
+# P2: ".5" read as 5 (edge strip eats the leading dot); acs5 puts 5 in the allowed set
+rec = SimpleNamespace(fetch=None, table_facts=None, universe="")
+print("P2 '.5' stray:", figures.stray("about .5 of residents", [COOK], rec), "| '0.5' stray:", figures.stray("about 0.5 of residents", [COOK], rec))
+
+# P3: a number glued to a unit/word
+print("P3 stray '76,000-dollar':", figures.stray("a 76,000-dollar median", [COOK], rec))
+print("P3b stray '76000USD':", figures.stray("76000USD", [COOK], rec))
+
+# P4: number words
+print("P4 number words:", figures.stray("about seventy-six thousand dollars", [COOK], rec))
+
+# P5: combined row first under the cap + labels keyed from raw rows
+comb = {"NAME": "combined (2 areas)", "GEO_ID": "", "year": "2023", "dataset": "acs5", "B19013_001E": "175500", "B19013_001M": "2418.5", "component_count": "2"}
+rec2 = SimpleNamespace(fetch=SimpleNamespace(labels={"2023": {"B19013_001E": "Median household income"}}, requested_years=[2023]), table_facts=None, universe="Households")
+print(figures.checked("", [COOK, dup, comb], rec2)[0])
+
+# P6: empty table_id and chart title replaced
+env2 = json.dumps({"answer": "ok", "chart": {"type": "bar", "x": "geography", "y": "estimate", "title": "Cook 88,888", "show_moe": True}})
+rows_no_tid = [dict(COOK), dict(dup)]
+out = take_chart(env2, rows_no_tid, [], rec2)
+print("P6 replaced title (rows carry no table_id):", repr(out["chart"].title) if out["chart"] else out)
+--- output ---
+P1 warning codes: ['answer_figures_unverified', 'answer_figures_unverified']
+P1 chart title: B19013
+P2 '.5' stray: [] | '0.5' stray: [0.5]
+P3 stray '76,000-dollar': []
+P3b stray '76000USD': ['76000usd']
+P4 number words: []
+Median household income: 175,500 (margin of error 2,418.5), combined (2 areas), acs5 2023.
+Median household income: 76,000 (margin of error 1,200), Cook County, Illinois (0500000US17031), acs5 2023.
+Median household income: 76,000 (margin of error 1,200), DuPage County, Illinois (0500000US17043), acs5 2023.
+Universe: Households
+P6 replaced title (rows carry no table_id): ''
+
+##### $ PYTHONPATH=api uv run python perf.py   # cost of the figure check on a 15000-row result
+import json, time
+from types import SimpleNamespace
+from src import figures
+from src.contract import take_chart
+rows=[{"NAME":f"Census Tract {i}, Harris County, Texas","GEO_ID":f"1400000US48201{i:06d}","state":"48","county":"201","tract":f"{i:06d}","year":"2023","dataset":"acs5","table_id":"B19013",
+       **{f"B19013_{j:03d}E":str(1000+i+j) for j in range(1,5)}, **{f"B19013_{j:03d}M":str(j) for j in range(1,5)}} for i in range(15000)]
+rec=SimpleNamespace(fetch=SimpleNamespace(labels={}, requested_years=[2023]), table_facts=None, universe="Households")
+env=json.dumps({"answer":"Tracts in Harris County.","chart":{"type":"bar","x":"geography","y":"estimate","title":"Income by tract","show_moe":True}})
+t=time.perf_counter(); out=take_chart(env, rows, [], rec); print("take_chart 15000 rows x 8 numeric cols:", round(time.perf_counter()-t,2),"s")
+t=time.perf_counter(); figures.checked("x", rows, rec); print("checked alone:", round(time.perf_counter()-t,2),"s")
+--- output ---
+take_chart 15000 rows x 8 numeric cols: 3.12 s
+checked alone: 1.44 s
+
+##### $ PYTHONPATH=api uv run python probe2.py   # label coverage with combined rows across two vintages
+import asyncio
+from src import figures
+from src.ask import ExecutionRecord, assemble
+from src.fetch import FetchDataResult
+
+def row(i, y):
+    return {"NAME": f"Tract {i}, Harris County, Texas", "GEO_ID": f"1400000US48201{i:06d}", "year": str(y), "dataset": "acs5",
+            "B01003_001E": str(100 + i), "B01003_001M": "10"}
+raw = [row(i, y) for y in (2018, 2019) for i in range(30)]
+labels = asyncio.run(figures.labels_for(raw, "acs5"))   # real metadata cache
+print("labels asked for years:", sorted(labels))
+fetch = FetchDataResult(ok=True, url="", urls=[], rows=raw, status_code=200, detail="", legs=[], requested_years=[2018, 2019],
+    attempted_years=[2018, 2019], succeeded_years=[2018, 2019], failed_years=[], omitted_years=[], omission_reasons=[], dataset="acs5", labels=labels)
+rec = ExecutionRecord(rows=raw, table_id="B01003", fetch=fetch, vintages=[("acs5", 2018), ("acs5", 2019)],
+                      question="total population of all tracts in Harris County combined, 2018 and 2019")
+r = assemble("Tracts combined.", rec)
+for line in r.answer.split("\n")[:6]:
+    print(line)
+print([w.code for w in r.warnings])
+--- output ---
+labels asked for years: ['2018']
+Tracts combined.
+
+Total: 3,435 (margin of error 54.77225575), combined (30 areas), acs5 2018.
+B01003_001E: 3,435 (margin of error 54.77225575), combined (30 areas), acs5 2019.
+Total: 100 (margin of error 10), Tract 0, Harris County, Texas (1400000US48201000000), acs5 2018.
+Total: 101 (margin of error 10), Tract 1, Harris County, Texas (1400000US48201000001), acs5 2018.
+['overlapping_vintage', 'moe_aggregation_degraded']
+
+##### $ git diff --check origin/main...HEAD -- . ':!evidence'
+##### exit code: 0
+
+##### $ PYTHONPATH=api uv run python probe3.py   # table IDs of alternatives; failure branch with no rows (source then output)
+from src.ask import ExecutionRecord, assemble
+
+COOK = {"NAME": "Cook County, Illinois", "GEO_ID": "0500000US17031", "state": "17", "county": "031",
+        "year": "2023", "dataset": "acs5", "B19013_001E": "76000", "B19013_001M": "1200"}
+pool = [{"table_id": "B19001", "title": "Household Income in the Past 12 Months", "universe": "Households", "members": []}]
+
+# P7: framing names the chosen table and a related table the response itself lists under alternatives
+r = assemble("Chose B19013 for the median; B19001 shows the distribution instead.",
+             ExecutionRecord(rows=[COOK], table_id="B19013", pool=pool))
+print("P7 alternatives in response:", [a.table_id for a in r.alternatives])
+print("P7 warnings:", [(w.code, w.detail) for w in r.warnings])
+print("P7 answer head:", repr(r.answer[:70]))
+
+# P8: nothing fetched; framing names the table that was built and the dataset
+r = assemble("Table B19013 in ACS5 for 2023 returned no data.",
+             ExecutionRecord(rows=[], table_id="B19013", vintages=[("acs5", 2023)]))
+print("P8 warnings:", [(w.code, w.detail) for w in r.warnings])
+print("P8 answer:", repr(r.answer))
+--- output ---
+P7 alternatives in response: ['B19001']
+P7 warnings: [('answer_figures_unverified', "The model's text stated b19001, not in the fetched data; figures below replace it.")]
+P7 answer head: 'B19013_001E: 76,000 (margin of error 1,200), Cook County, Illinois (05'
+P8 warnings: [('answer_figures_unverified', "The model's text stated acs5, b19013, not in the fetched data; it was removed.")]
+P8 answer: 'No figures were fetched for this request; see the warnings and the URL.'
+
+##### $ PYTHONPATH=api uv run python perf2.py   # realistic tract counts (source then output)
+import json, time
+from types import SimpleNamespace
+from src import figures
+from src.contract import take_chart
+def mk(n):
+    return [{"NAME":f"Census Tract {i}, Harris County, Texas","GEO_ID":f"1400000US48201{i:06d}","state":"48","county":"201","tract":f"{i:06d}","year":"2023","dataset":"acs5","table_id":"B19013",
+       "B19013_001E":str(1000+i),"B19013_001M":"7"} for i in range(n)]
+rec=SimpleNamespace(fetch=SimpleNamespace(labels={}, requested_years=[2023]), table_facts=None, universe="Households")
+env=json.dumps({"answer":"Tracts.","chart":{"type":"bar","x":"geography","y":"estimate","title":"Income by tract","show_moe":True}})
+for n in (1000, 5265, 15000):
+    rows=mk(n)
+    t=time.perf_counter(); take_chart(env, rows, [], rec); a=time.perf_counter()-t
+    t=time.perf_counter(); take_chart(json.dumps({"answer":"Tracts."}), rows, [], rec); b=time.perf_counter()-t
+    print(f"rows={n}: take_chart with a model chart title {a:.2f}s, without {b:.2f}s")
+--- output ---
+rows=1000: take_chart with a model chart title 0.11s, without 0.07s
+rows=5265: take_chart with a model chart title 0.99s, without 0.39s
+rows=15000: take_chart with a model chart title 2.62s, without 1.03s
+
+##### $ PYTHONPATH=api uv run python probe4.py   # chart title warning when the chart is later dropped; float() grammar (source then output)
+import json
+from src.ask import ExecutionRecord, assemble
+COOK = {"NAME": "Cook County, Illinois", "GEO_ID": "0500000US17031", "year": "2023", "dataset": "acs5",
+        "B19013_001E": "76000", "B19013_001M": "1200"}
+# P9: a model line chart (x=year) with an uncarried number in its title, but the rows hold one year only,
+# so the chart cannot be drawn and is dropped by the fits filter.
+env = json.dumps({"answer": "Income over time.", "chart": {"type": "line", "x": "year", "y": "estimate", "title": "Income rose 12% since 2010", "show_moe": True}})
+r = assemble(env, ExecutionRecord(rows=[COOK], table_id="B19013"))
+print("P9 chart:", r.chart, "| chart_unavailable:", r.chart_unavailable)
+print("P9 warnings:", [(w.code, w.detail) for w in r.warnings])
+# P10: stray 1_000 / exponent readings are numeric equals, not bypasses
+from types import SimpleNamespace
+from src import figures
+rec = SimpleNamespace(fetch=None, table_facts=None, universe="")
+print("P10 '76_000':", figures.stray("76_000", [COOK], rec), "| '7.6e4':", figures.stray("7.6e4", [COOK], rec), "| '001_002':", figures.stray("001_002", [COOK], rec))
+--- output ---
+P9 chart: None | chart_unavailable: False
+P9 warnings: [('answer_figures_unverified', 'The chart title stated a number not in the fetched data; the table ID replaces it.')]
+P10 '76_000': [] | '7.6e4': [] | '001_002': [1002.0]
+
+##### $ /code-review high origin/main...HEAD (code under api/, scripts/, web/ only; read-only: no --fix, no --comment)
+##### (Skill launched as a forked background agent @code-review; its reply, verbatim:)
+```json
+[
+  {
+    "file": "api/src/figures.py",
+    "line": 123,
+    "summary": "_allowed() never admits the selected table ID (record.table_id) or the IDs of alternative tables, so the digit check treats table IDs in the model's text as invented figures. The prompt tells the model that table IDs are fine.",
+    "failure_scenario": "Rows are empty, for example after a failed fetch or a no-data answer. The model writes 'B19013 is the best match for median income; the fetch failed.' The token 'b19013' is not in the allowed set. checked() drops the whole framing and returns NO_FIGURES ('No figures were fetched...'), so the user loses the explanation of which table was chosen. The same happens when rows exist and the model names an alternative such as 'B19001 or B19013 might also help'. The alternative's ID is flagged, the framing is dropped, and a spurious answer_figures_unverified warning is added. This discards the 'which table and why' content the concierge exists to give."
+  },
+  {
+    "file": "api/src/figures.py",
+    "line": 37,
+    "summary": "labels_for() calls metadata.variables(), which gunzips and json-parses the whole ACS variables file on every call, with no caching. It runs once per vintage on every fetch_data.",
+    "failure_scenario": "metadata.variables() has no cache and _read() does gzip.open plus json.load of the full variables.json. That is tens of thousands of entries, parsed per vintage inside asyncio.to_thread. A 6-year query parses the file 6 times in parallel threads (GIL-bound) before the answer can be returned. This adds latency to the hot path that budgets.toml caps. Only the `wanted` keys are needed, but the whole file is loaded and then filtered, again on every request."
+  },
+  {
+    "file": "api/src/contract.py",
+    "line": 416,
+    "summary": "The chart-title check runs and appends an answer_figures_unverified warning before the chart is known to survive the `fits` filter. The `fits` filter can then discard the chart.",
+    "failure_scenario": "The model returns a line chart whose title states an uncarried number, but the rows hold a single year, so `fits` is False and the chart is dropped. The user still gets a warning that 'The chart title stated a number not in the fetched data; the table ID replaces it.' No chart is shown, and the warning claims a replacement that never appears. Separately, when rows is empty, table_id is '' and model_copy(update=...) bypasses validation, so a ChartSpec with an empty title can be produced."
+  },
+  {
+    "file": "api/src/figures.py",
+    "line": 70,
+    "summary": "_allowed() adds every digit-bearing cell of every row, plus the digits of the dataset name, to the allowed set regardless of which variable or place it belongs to. A cell value or a dataset digit written as a different quantity passes the check.",
+    "failure_scenario": "The dataset is 'acs5', so 5.0 is always allowed. The model writes 'about 5 percent of households are renters' and nothing is flagged. Likewise a component_count of 2, a state FIPS cell such as '48', a year, or any other small cell value lets an invented share or ranking through. The check cannot catch a fabricated small number, even though the prompt forbids every figure, shares and percentages included. Written-out numbers ('four million') have no digits and pass untouched."
+  },
+  {
+    "file": "api/src/figures.py",
+    "line": 54,
+    "summary": "_numbers() reads every token through float(), and float() accepts underscore separators and exponent notation. A token such as '1_000' or '1e5' is read as a numeric value and can match a carried cell.",
+    "failure_scenario": "Under float() semantics, '4_838_303' parses as 4838303 and matches the estimate cell. Tokens like '1e3' parse as 1000 and match a cell of '1000'. A token the product treats as an unreadable identifier (casefolded string) is quietly treated as a number elsewhere. Beyond that, a token like '001_002' is read as 1002, so allowed and stray results depend on Python's float grammar rather than on how a user would read the digits."
+  },
+  {
+    "file": "api/src/figures.py",
+    "line": 148,
+    "summary": "stray() and checked() each call _render() and rebuild the full allowed set. take_chart then calls stray() a second time for the title. Every call repeats the table_facts lookups and the string/number tokenization of every row cell.",
+    "failure_scenario": "For one response, _render() (cells, labels, table_facts lookups) and _allowed() (tokenizing every cell of every row, repeated per call) run twice on the answer and again for the chart title. With wide multi-year rows this is repeated O(rows x columns) work that one computed (lines, allowed) pair would avoid. Compute it once per take_chart call and reuse it for both the text and the title."
+  },
+  {
+    "file": "api/src/figures.py",
+    "line": 33,
+    "summary": "Labels are looked up only for plan.dataset, but rows carry their own per-row dataset. _render later looks labels up by year only.",
+    "failure_scenario": "A fetch where some years fall back to a different dataset (acs1 for some vintages, acs5 for others) gets labels from plan.dataset for every year. A year that was actually fetched from the other dataset shows that dataset's variable label, or none, so the key (e.g. 'B19013_001E') is printed. labels is also keyed by year only, so two datasets with the same year collide."
+  },
+  {
+    "file": "api/src/contract.py",
+    "line": 398,
+    "summary": "take_chart() takes `record: Any = None`, and a None record silently disables all figure checking. The function-local import of src.figures hides a circular dependency.",
+    "failure_scenario": "Any caller that omits `record` returns unchecked model text with no error or warning, and the docstring states 'without a record nothing is checked'. Only assemble() passes it today. The default makes the safe path opt-in, so a future caller bypasses the guarantee silently. The lazy `from src.figures import checked, stray` inside the function body, noted as a vintages/contract cycle, is a structural bandaid: figures should live where contract can import it, or the check should be called from assemble() instead."
+  },
+  {
+    "file": "scripts/judge_figures.py",
+    "line": 62,
+    "summary": "The collect stage sets `ask.MODEL` as module-level state after importing, then reads `labels()` through metadata for every year. Any year that is not an int, or a metadata read error, stops the whole trial and drops its row.",
+    "failure_scenario": "int(y) is applied to every distinct r['year'] in the kept rows. A non-digit year value raises ValueError inside one(), which sits outside the try/except that only wraps run_ask. That trial raises out of as_completed and aborts the run partway. The jsonl already holds the completed trials, but the CLI refuses a rerun with the same label ('a finished run is evidence'), so the half-written evidence file blocks the retry."
+  },
+  {
+    "file": "api/src/figures.py",
+    "line": 22,
+    "summary": "Estimate cells are selected with key.endswith('E') and '_' in key. This takes any underscore-containing column ending in 'E', and the MAX_FIGURES cap counts all of them.",
+    "failure_scenario": "A row column such as 'table_id' does not end in E, but a stamped provenance or annotation column (for example a name ending in 'E') would be rendered as an estimate. The same predicate is duplicated in contract.take_chart (`estimates = {key ... key.endswith('E') and '_' in key}`) and in judge_figures. The 20-figure cap and the 'N of M figures shown' message then count the wrong cells. A shared helper for 'estimate column' would remove the three copies."
+  }
+]
+```
+
+==================================================================================================
+GATE 2 RE-RUN: FINDINGS AND VERDICT (written after the commands above; every claim below was run)
+==================================================================================================
+Code under review: net change origin/main...HEAD (1323281) outside evidence/: 15 files, +1198 -17.
+Machines (review-pr.md "First"): budgets, invariants --base origin/main (regex delta +0, no budget
+raised), ruff check, ruff format --check, mypy api/src, pytest -m "not integration" (761 passed,
+34 skipped): ALL EXIT 0. Nothing ends the review.
+
+--------------------------------------------------------------------------------------------------
+PASS 1: generic bugs, code only (my own read of the code diff, done before I opened cc-121-plan.md; I
+had seen the commit subjects and the docs diff, so it is not intent-blind. Then /code-review at `high`
+in a forked agent, raw reply above; I reproduced or rejected each item)
+--------------------------------------------------------------------------------------------------
+No silent wrong answer found. The earlier blockers (digit-bearing token float() cannot read; model
+chart title unchecked) are fixed: "$78.4K", "76000USD", "#3", a zero-width space and a stray title
+number are all caught (probe.py P1, P3b; tests at test_figures.py:380-422, 690-712).
+
+Reproduced:
+ F1 follow-up  web/src/App.tsx:152 renders <li key={warning.code}>; contract.py:406 and :422 can both
+    append code "answer_figures_unverified" in one response (stray text AND stray chart title), so two
+    <li> share a key. Codes were unique per response before (each guard runs once). probe.py P1 prints
+    ['answer_figures_unverified', 'answer_figures_unverified']. No test covers both at once.
+ F2 follow-up  Table IDs are not "carried" unless they are a row key prefix. figures.py:131-151 ignores
+    record.table_id and record.pool/alternatives. (a) Rows exist, framing names a related table that the
+    same response lists under alternatives: framing is dropped and the warning says "stated b19001, not
+    in the fetched data" (probe3.py P7). (b) No rows (build/fetch failed): "Table B19013 in ACS5 for 2023
+    returned no data." becomes NO_FIGURES with "stated acs5, b19013" (probe3.py P8; vintages supply only
+    the digit 5, not the token acs5). Fails safe and warns, but prompts.py:40 tells the model "table IDs
+    are fine", and naming the runner-up table is the concierge's job. Both inflate the fallback rate
+    that E2E has to report.
+ F3 follow-up  Cost of the check on big results, run synchronously inside assemble() on the event loop:
+    take_chart on 5,265 tract rows takes 0.99 s with a model chart title vs 0.39 s without; 15,000 rows
+    2.62 s vs 1.03 s (perf2.py). The title check calls stray() again (contract.py:416), which rebuilds
+    _render() and _allowed() that checked() just built. Compute the pair once per take_chart.
+ F4 follow-up  labels_for re-parses the whole variables.json.gz per vintage, no cache: 0.093 s each,
+    0.70 s for 8 vintages (t_labels.py). Known as B5 in the plan; E2E p95 is the test.
+ F5 nit        contract.py:416-422: the title warning is appended before the `fits` filter (line 446),
+    so a chart that is then dropped still yields "the table ID replaces it" (probe4.py P9).
+ F6 nit        figures.py:63: _EDGE strips a leading "." so ".5" is read as 5.0 and passes whenever 5 is
+    carried (every ACS5 response carries 5 through "acs5"); "0.5" is caught (probe.py P2). Same class as
+    the documented "5 percent" residual, not a new one.
+ F7 nit        Labels are fetched from the first 20 RAW cells (figures.py:47-56) but rendered with combined
+    rows first (figures.py:32-33). With two vintages of a combined result, 2018 shows "Total" and 2019 shows
+    "B01003_001E" (probe2.py). Cosmetic. Also a multi-level label keeps its inner colon ("Total: - Male",
+    pinned by test_figures.py:543).
+ F8 nit        5f242d8 is an empty commit whose subject reads "budget(cc-121): raise api src loc forwrites ..."
+    (same subject as main's 3b785a4, which holds the real raise). The tree has no budget change
+    (`git diff origin/main -- budgets.toml` is empty; invariants pass). The PR body must say so; squash on merge.
+ F9 nit        judge_figures.py: `judge` overwrites cc-121-judged-<label>-<model>.jsonl without the
+    exists-check `collect` has. Measurement script, not product.
+
+Rejected from /code-review (not reproducible or not a defect):
+ - "labels use plan.dataset while rows carry their own dataset" (items 7): VintagePlan holds ONE dataset
+   per fetch (vintages.py), so a single fetch cannot mix acs1 and acs5 years. PLAUSIBLE only.
+ - "int(y) on a non-digit year aborts the judge run" (item 9): years are code-stamped digit strings or the
+   key is absent. PLAUSIBLE only.
+ - "float() accepts 1_000 and 1e5" (item 5): they equal the carried value, so no wrong number gets
+   through; "001_002" is read as 1002 and is flagged (fail-safe). probe4.py P10.
+ - "record=None disables the check, lazy import" (item 8): only assemble() calls take_chart with a record;
+   the lazy import is commented. Design taste.
+ - "estimate predicate duplicated" (item 10): true (contract.py, guards.py, vintages.py already had it;
+   figures.py and the judge add two). Nit.
+Known, owner-decided residuals (docs/ask-path.md), not findings: a number written in words is not read;
+a carried small number (acs5's "5", a FIPS "17") attached to the wrong claim passes; comparisons the
+response carries under `comparisons` are not in the allowed set (fails safe).
+
+--------------------------------------------------------------------------------------------------
+PASS 2: docs/playbooks/review-pr.md
+--------------------------------------------------------------------------------------------------
+Machines: all green (above).
+The claim (from the diff; no PR exists yet, `gh pr list` shows only the merged #111 from an earlier use of
+this branch name): a user now gets every fetched estimate printed by code with its margin of error,
+GEOID, vintage, table title and universe under the model's framing, and framing or a chart title that
+states a number the response does not carry is replaced with a warning.
+Evidence: NOT YET RUN and not counted against the change (E2E is the next phase). It must show, at the
+same --repeat as the baseline (evidence/slice-6/cc-121-e2e-base-*): long_tail demo.answered_rate within 3
+points of baseline; demo.p95_latency_seconds against 20 with F3/F4 included; the rate of
+answer_figures_unverified (F2 inflates it); the judge's unsupported rate against the stored baseline;
+regression-minus-sealed gap. At n=40 a move under ~10 points is noise.
+Scope: in slice 6 (CC-121 is first in the order; "Not in this slice" is auth and PDF). 15 files outside
+evidence/ (the "~15" line; the other 71 are evidence). scripts/judge_figures.py and the .answer CSS line are
+the "while we were here" candidates; both are named in the ticket plan and the CSS line is needed for the
+multi-line answer. docs/ARCHITECTURE.md and docs/ask-path.md updated; requirements.md has the new code.
+Silent-wrong-answer: URL, MOE, GEOID and universe are on the new figure lines and the unchanged response
+fields; failure branches unchanged (series_from_record). No URL string is built (redaction untouched).
+Numbers never go back through the model (_tool_content unchanged; labels come from the metadata cache).
+No guard blocks. The two replacements (framing, chart title) are not silent: each adds a warning.
+Shape: no tool, route, model, node added; FetchDataResult gains one field. No module-level mutable state,
+no regex added (delta +0), no *_manager-style name.
+Tests: behaviour, seeded rows, no model. Three assertions pin the system's own message text
+(test_figures.py:698, 750-751, 756); that is code output, not prompt or LLM prose, so a nit. No
+same-answer-for-every-input fake (facts stub varies by year in the per-vintage test).
+
+VERDICT: Ship it with follow-ups. No silent-wrong-answer finding; both earlier blockers are fixed and
+verified by probe. Follow-ups F1-F4 (F2 and F3 are the ones E2E will feel); nits F5-F9.

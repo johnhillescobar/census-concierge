@@ -1,7 +1,6 @@
 # Ask path — live behavior
 
-`docs/ARCHITECTURE.md` is the short inventory. This file is the execution
-record for `POST /ask` after slice 3 ([CC-2](https://johnhillescobar.atlassian.net/browse/CC-2) Done).
+`docs/ARCHITECTURE.md` is the short inventory. This file is the execution record for `POST /ask` after slice 3 ([CC-2](https://johnhillescobar.atlassian.net/browse/CC-2) Done).
 
 ## Loop
 
@@ -19,7 +18,7 @@ Four tools:
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
 
 `assemble()` builds `AskResponse` from the execution record. `guards.evaluate()`
-attaches warning codes from `docs/requirements.md`. None of them block.
+attaches warning codes from `docs/requirements.md`. None of them block. Answer figures: `docs/ARCHITECTURE.md`.
 
 ## Finish path
 
@@ -68,7 +67,7 @@ visible rather than being papered over.
 
 ## Contract
 
-`AskResponse`: `answer`, `urls[]` (one key-redacted URL per attempted request),
+`AskResponse`: `answer` (framing, then the figures code renders), `urls[]` (one key-redacted URL per attempted request),
 `legs[]` (`for_spec` identifies the geography), year buckets (`requested` /
 `attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`,
 `universe`, `table_id`, `plan` (`ResultPlan`: selected table, estimate IDs from
