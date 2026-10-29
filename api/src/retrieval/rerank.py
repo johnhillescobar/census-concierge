@@ -31,10 +31,11 @@ crosses that subject with another variable.
 When several candidates share a subject, match the TITLE to what the question \
 asks — not the narrowest cross-tab unless the question names that breakdown.
 
-Sibling tables share a universe and differ in breakdown. Choose the one whose \
-universe AND breakdown are the measure asked for, not one that merely contains \
-it: not a table of summed totals when the question wants a typical value or \
-bands, not a table crossed with another variable the question never names. \
+Sibling tables share a universe and differ in breakdown. A title that starts \
+with Aggregate holds a sum across everyone (total minutes, total dollars): it \
+answers a question about totals, never about one typical person or household. \
+Otherwise take the plainest title whose subject is the question's subject, and \
+reject a candidate that adds a breakdown the question never names.
 When a B and C table both fit, prefer the B table — C tables collapse categories.
 
 Return JSON: {"table": "Bxxxxx"}"""
