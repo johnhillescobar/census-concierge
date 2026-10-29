@@ -1,0 +1,47 @@
+CC-117 Gate 2 project-invariants pass: d0d7995..c45681a (feat/cc-117-no-table-pins)
+
+MACHINES
+- check_invariants --base d0d7995: exit 1, 5 violations (ZCTA x2 files, united states, district columbia,
+  statistical area). Run in a d0d7995 worktree: the same 5 violations, same text, exit 1. Not new.
+  Regex call sites in api/src: 62 -> 55 (delta -7). budget increases / new regex / new exemptions: ok.
+- check_budgets: only p95 latency FAIL (23.344 > 20, run 2026-10-28T15:21:55); identical on d0d7995. Not new.
+- ruff check / format --check: clean (230 files). (mypy and pytest not run; out of scope for this pass.)
+- worktree removed afterward.
+
+INVARIANTS
+- No phrase/keyword list selects, injects or promotes a table: OK. 7 regexes, 6 table constants, pinned_table,
+  device_table, _with_device_table and the finish.py pin branch are deleted; build table = plan table or pool[0].
+- Selector prompt has no table IDs or measure-specific rule: OK. Only "Bxxxxx" format; the rule names
+  "Aggregate" titles with "(total minutes, total dollars)" as examples (see finding 3).
+- Regex count fell: OK (62 -> 55).
+- No budget raised/weakened: OK. budgets.toml untouched; leakage_baseline.txt only lost 8 CC-117 lines.
+- No *_manager/orchestrator/factory/policy/strategy/service module: OK (name-status shows only M, no new source files).
+- No validator-of-validator: OK (measure_unavailable guard removed, none added).
+- URL/MOE/GEOID/universe/alternatives: OK. The diff touches none of the assembly code; finish.py change only
+  narrows the search retry to an empty pool.
+- Evidence consistency: OK. Checked: (a) long_tail 0.708 -> 0.683, core 0.833/0.750, trap 0.870/0.704, p95
+  28.4/25.7 against cc-117-{baseline,branch}-latest.json: match. (b) miss trials 44 vs 57 against MISS
+  lines in baseline-main-e2e.txt / e2e-pre.txt: match (and the 6502.6s q18 r2 trial). (c) selector
+  0.850/0.850/0.825 and 0.775/0.775/0.800 against selector-base-r*/selector-post-r*: match
+  (85/85/82, 78/78/80); q11/q21 got-lists match; v5 text matches rerank.py at HEAD.
+- Docs accurate: PARTIAL. See finding 1.
+
+FINDINGS (by severity)
+1. LOW-MED, stale doc: docs/ask-path.md line 28 still says retries search "(including a wording pin if the
+   pool missed it)". That behaviour was removed; line 15 was updated but not this one.
+2. MED (known, owner decision): the t08/t09/t12/t18 losses are retrieval@10 misses the pins had hidden, and
+   the device question no longer gets the measure_unavailable warning (docs/requirements.md says "not raised
+   today"; golden t09 still expects it). The ledger discloses both under "Losses". Trap tier, not gated.
+3. LOW: "names no measure" in the ledger is slightly overstated: the prompt's Aggregate example
+   "(total minutes, total dollars)" is derived from the commute case. It is a general title-reading
+   principle, not a pin; flag it for the leakage tripwire's human reader only.
+4. PROCESS: the ledger says the demo on adopted prompt v5 is pending. All demo numbers (cc-117-e2e-pre.txt,
+   branch-latest.json) were captured at bf44ecd (prompt v1); HEAD c45681a (v5) has selector-only and
+   held-out evidence (selector 0.800, holdout 7/8) but no demo scoreboard. Final E2E and the
+   regression-minus-sealed gap are still owed.
+5. INFO: the 33-entry "misses" list in the latest.json files is per question, not per trial; it does not
+   contradict the 44/57 trial counts.
+
+VERDICT: Ship it with follow-ups: fix ask-path.md:28; run the demo at c45681a and quote it; owner decision
+on the t08/t09/t12/t18 and measure_unavailable losses. None is a silent-wrong-answer finding introduced
+beyond what the ledger discloses.

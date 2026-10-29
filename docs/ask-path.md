@@ -25,7 +25,7 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 `finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
 stops without a URL, or with the wrong listing level, an incomplete comparison,
 or an ACS1 request that never built `/acs/acs1`, it
-retries: search (including a wording pin if the pool missed it); resolve
+retries: search (only if the pool is empty); resolve
 (listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.

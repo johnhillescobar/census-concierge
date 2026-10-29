@@ -50,7 +50,7 @@ q10, q17, q18, q20, q34, q41 miss in both arms. Floor 0.70 met. Historical 0.875
 | v2 | 0.783 | 3 | |
 | v3 | 0.800 | 1 | |
 | v4 | 0.783 | 2 | |
-| **v5 (adopted)** | **0.800** | **0** | shorter; names no measure and no table |
+| **v5 (adopted)** | **0.800** | **0** | shorter; no table ID and no measure rule; its Aggregate example (minutes, dollars) is generic title vocabulary |
 
 Five variants, no table ID or measure name in any. Texts and harness: `cc-117-variants/`.
 
