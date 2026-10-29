@@ -1521,18 +1521,19 @@ async def test_finish_with_a_pool_builds_its_first_table_without_searching(
     assert f"{expected}_001E" in str(record.url)
 
 
-async def test_finish_builds_the_plan_table_ahead_of_the_pool_head() -> None:
-    record = ExecutionRecord(question="median family income in Harris County")
+async def test_finish_builds_the_plan_table_when_retrieval_returns_nothing() -> None:
+    question = "median family income in Harris County"
+    record = ExecutionRecord(question=question)
     tools = _tools(record)
     calls: list[str] = []
     _with_search(tools, {}, calls)
-    record.pool = _stub_pool("B19013", "B19001")
     record.override = ResultPlan(table_id="B19001")
     record.geography = _harris()
     record.geographies = [_harris()]
     record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
     await finish_tools(dispatch, tools, record)
-    assert calls == []
+    assert calls == [question]
+    assert record.pool == []
     assert record.table_id == "B19001"
 
 
