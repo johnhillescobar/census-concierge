@@ -156,36 +156,25 @@ async def test_same_question_does_not_reselect() -> None:
     assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
 
 
-async def test_cell_phone_and_computer_questions_pin_b28001() -> None:
-    def search(question: str, k: int = 10) -> list[str]:
-        del question
-        return ["B28010", "B28003"][:k]
-
+@pytest.mark.parametrize(
+    "question",
+    [
+        "poverty in Fresno County",
+        "median gross rent in Austin",
+        "Number of cell phones in Denver since 2017",
+        "how did the poverty of attention change after the merger",
+    ],
+)
+async def test_search_never_adds_a_table_the_index_did_not_return(question: str) -> None:
     tool = SearchTablesTool(
-        search=search,
+        search=lambda _question, k=10: ["B01003", "B08301"][:k],
         describe=_describe,
-        select=lambda question, hits: "B28010",
+        select=lambda _question, _hits: "B08301",
     )
-    phones = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "search_tables",
-            "args": {"question": "Number of cell phones in Denver since 2017"},
-            "id": "c1",
-        }
+    result = await tool.ainvoke(
+        {"type": "tool_call", "name": "search_tables", "args": {"question": question}, "id": "c1"}
     )
-    computers = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "search_tables",
-            "args": {
-                "question": "How has the share of households with a computer changed since 2013?"
-            },
-            "id": "c2",
-        }
-    )
-    assert [hit["table_id"] for hit in phones.artifact.hits][0] == "B28001"
-    assert [hit["table_id"] for hit in computers.artifact.hits][0] == "B28001"
+    assert [hit["table_id"] for hit in result.artifact.hits] == ["B08301", "B01003"]
 
 
 async def test_broadband_is_not_pinned_to_b28001(search_tool: SearchTablesTool) -> None:

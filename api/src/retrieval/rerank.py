@@ -31,16 +31,11 @@ crosses that subject with another variable.
 When several candidates share a subject, match the TITLE to what the question \
 asks — not the narrowest cross-tab unless the question names that breakdown.
 
-Sibling rules (same universe, different table):
-- Commute length / how long people travel → "Travel Time to Work" (time bands), \
-NOT "Aggregate Travel Time... (in Minutes)" — those are summed minutes, not commute length.
-- Households receiving SNAP / food stamps → "Public Assistance Income or Food \
-Stamps/SNAP for Households", NOT receipt crossed with age, poverty, disability, \
-or income medians.
-- What people studied / college major / field of degree → "Total Fields of \
-Bachelor's Degrees Reported" or "Field of Bachelor's Degree", NOT enrollment \
-or general educational attainment tables.
-- When a B and C table both fit, prefer the B table — C tables collapse categories.
+Sibling tables share a universe and differ in breakdown. Choose the one whose \
+universe AND breakdown are the measure asked for, not one that merely contains \
+it: not a table of summed totals when the question wants a typical value or \
+bands, not a table crossed with another variable the question never names. \
+When a B and C table both fit, prefer the B table — C tables collapse categories.
 
 Return JSON: {"table": "Bxxxxx"}"""
 

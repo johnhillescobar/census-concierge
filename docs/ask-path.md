@@ -12,7 +12,7 @@ Four tools:
 
 | tool | module | does |
 |---|---|---|
-| `search_tables` | `tools.py` | `index.search` top-10, then `rerank.choose`; wording pins live in `vintages.pinned_table` |
+| `search_tables` | `tools.py` | `index.search` top-10, then `rerank.choose`; no wording pin picks or adds a table |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |

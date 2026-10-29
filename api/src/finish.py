@@ -14,7 +14,7 @@ from langchain_core.tools import BaseTool
 from src.contract import clauses_from_geoid
 from src.geo import detect_level, split_comparison
 from src.guards import universe_mismatch
-from src.vintages import latest_vintages, pinned_table, requested_years, wants_acs1
+from src.vintages import latest_vintages, requested_years, wants_acs1
 
 Dispatch = Callable[..., Awaitable[str]]
 Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
@@ -347,12 +347,8 @@ async def finish_tools(
     if plan is not None and plan.geographies:
         redo = False
     if not url or redo:
-        pin = pinned_table(question)
         search = tools.get("search_tables")
-        if search is not None and (
-            not record.pool
-            or (pin is not None and all(hit["table_id"] != pin for hit in record.pool))
-        ):
+        if search is not None and not record.pool:
             await dispatch(search, {"id": "search_tables", "args": {"question": question}}, record)
         if geo is not None and not redone and (redo or not record.geographies):
             status = getattr(record, "geo_status", None) or {}
@@ -370,10 +366,8 @@ async def finish_tools(
                 geo, {"id": "resolve_geography", "args": {"query": "nationwide"}}, record
             )
         status = getattr(record, "geo_status", None) or {}
-        table = (
-            (plan.table_id if plan is not None else "")
-            or pin
-            or (str(record.pool[0]["table_id"]) if record.pool else "")
+        table = (plan.table_id if plan is not None else "") or (
+            str(record.pool[0]["table_id"]) if record.pool else ""
         )
         build = tools.get("build_url")
         if (

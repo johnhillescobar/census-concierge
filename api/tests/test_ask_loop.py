@@ -408,10 +408,10 @@ async def test_every_tract_listing_replaces_a_county_url() -> None:
     record.geography = wayne
     record.geographies = [wayne]
     record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
-    record.pool = [{"table_id": "B27010", "universe": "Population", "members": []}]
-    record.table_id = "B27010"
+    record.pool = [{"table_id": "B27001", "universe": "Population", "members": []}]
+    record.table_id = "B27001"
     record.url = CensusURL(
-        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M"
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M"
         "&for=county:163&in=state:26"
     )
     response = await run_ask(
