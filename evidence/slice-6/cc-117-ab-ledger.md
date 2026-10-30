@@ -73,4 +73,32 @@ Baseline 7/8, adopted v5 7/8, every run. Same single miss (h02) in both arms.
 
 - Sealed set and regression-minus-sealed gap: owner-held, not run.
 - Retrieval@10 not re-measured by the capture on the branch (block stale); the index is unchanged (`index_hash` equal).
-- Demo on the adopted prompt v5: pending (final E2E on the last commit).
+- Grid (visible / held-out) and `searches per question`: not run or instrumented for this ticket.
+- Latency: see the final section; the p95 is not comparable.
+
+## Final E2E: adopted prompt v5, commit 9b39eef, isolated worktree, `--repeat 3`, n=186
+
+HEAD was 9b39eef at start, at the resume and at the end (`cc-117-final-head.txt`). The first attempt died with
+the session before any scoreboard; the demo was re-run with `--from demo` (eval, rerank, synthetic, build had
+completed). Raw: `cc-117-e2e-final.txt`, `cc-117-final-latest.json`; the earlier v1-prompt run is `cc-117-e2e-v1-prompt.txt`.
+
+| | baseline d0d7995 | v1 prompt bf44ecd | **final 9b39eef** |
+|---|---|---|---|
+| long_tail answered (gated, floor 0.70) | 0.708 | 0.683 | **0.708 (delta 0.0)** |
+| core / trap / overall | 0.833 / 0.870 / 0.763 | 0.750 / 0.704 / 0.694 | 0.750 / 0.685 / 0.704 |
+| miss trials | 44 | 57 | 55 |
+| selector@1 long_tail (`--rerank`, n=40) | 0.85/0.85/0.825 | 0.775/0.775/0.80 | 0.80 (one run in the capture) |
+| held-out h01-h08 selector@1 | 7/8 x3 | | 7/8 x3 |
+| retrieval@10 long_tail | 0.90 | 0.90 (stale block) | 0.90 |
+| demo p95 | 28.4 s | 25.7 s | 23.8 s |
+
+**p95 is not usable as a comparison.** The final run's mean `t_llm` is 46 s and mean `t_rerank` 121 s (a normal
+run is about 6.8 s and 4 s), the run spanned a long idle gap, and the baseline held a 6,502 s trial. All three
+p95s are over the 20 s ceiling, as on main. Nothing here shows this change moved latency.
+
+Outcomes that differ from baseline (misses of 3): the pin-served trap questions t08, t09, t14, t18 (0 to 3 each;
+t12 recovered to 0); q21 (0 to 3, see Losses); q18 3 to 1, q12 2 to 1, t15 3 to 0, q07 2 to 0 (gains, not
+pin-related); q38 0 to 1 (got C02015 for B02015), t04 0 to 1, t16 3 to 1, q04 2 to 3 (core, expected table
+returned, other trial failure) are single-trial moves without a table change attributable to this PR.
+q11 (commute) misses 3 of 3 in the demo in both arms, so the selector fix measured in the harness did not
+change the demo outcome.
