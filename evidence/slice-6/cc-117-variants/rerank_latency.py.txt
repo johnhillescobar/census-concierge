@@ -1,0 +1,20 @@
+import sys, time, tomllib, statistics
+sys.path.insert(0, "scripts"); sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv()
+import eval_retrieval as ev
+from src.retrieval.index import load
+from src.retrieval.rerank import Candidate, choose
+ids = ["q01","q05","q11","q15","q21","q25","q30","q38"]
+qs = {q["id"]: q for q in tomllib.load(open("evals/golden_questions.toml","rb"))["question"]}
+qs = [qs[i] for i in ids if i in qs]
+search = ev.load_retriever(False); idx = load(); pos = {t:i for i,t in enumerate(idx.tables)}
+pools = {q["id"]: list(search(q["text"], 30)) for q in qs}
+choose(qs[0]["text"], [Candidate(t, idx.titles[pos[t]], idx.universes[pos[t]]) for t in pools[qs[0]["id"]][:5]])  # warm: imports, client
+for depth in (10, 20, 30, 10):
+    lat = []
+    for q in qs:
+        c = [Candidate(t, idx.titles[pos[t]], idx.universes[pos[t]]) for t in pools[q["id"]][:depth]]
+        for _ in range(3):
+            t0 = time.perf_counter(); choose(q["text"] + f" ({time.perf_counter():.6f})", c); lat.append(time.perf_counter() - t0)
+    lat.sort()
+    print(f"depth {depth:2}: n={len(lat)} median {statistics.median(lat):.2f}s  mean {statistics.mean(lat):.2f}s  p90 {lat[int(len(lat)*0.9)-1]:.2f}s  max {lat[-1]:.2f}s")

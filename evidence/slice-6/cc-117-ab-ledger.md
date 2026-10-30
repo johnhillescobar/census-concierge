@@ -144,3 +144,23 @@ plus q21 (see Losses) and one of q11 / q12 per run.
 Still open after round 2: **t09** is never retrieved (B28001 "Types of Computers in Household" shares no words with
 "cell phones") and its `measure_unavailable` warning is gone; **q21** is a golden question where the selector's pick is arguably
 the better table; **t07** misses 3/3 at every depth.
+
+## Round 2 E2E: depth 30 + prompt v7, commit 24936d6, run 1 (`cc-117-e2e-d30-run1.txt`, `cc-117-d30-run1-latest.json`)
+
+HEAD 24936d6 at start and end (`cc-117-d30-run1-head.txt`). `--repeat 3`, n=186, isolated worktree.
+
+| | baseline d0d7995 | depth 10 + v5 | **depth 30 + v7** |
+|---|---|---|---|
+| long_tail answered (floor 0.70) | 0.708 | 0.708 | **0.692 (83/120: one trial under the floor)** |
+| core / trap / overall | 0.833 / 0.870 / 0.763 | 0.750 / 0.685 / 0.704 | 0.750 / 0.815 / 0.731 |
+| mean t_llm / t_rerank | 6.9 / 85 (hung trial) | 46 / 121 (hung trials) | 6.5 / 5.0 (no hang) |
+| demo p95 | 28.4 | 23.8 | 31.1 |
+
+Recovered to baseline: t08, t12, t18 (0 misses each). Changed vs baseline (misses of 3): q21 0->3 (golden under review),
+q29 0->1 (no table), q30 0->1 (B05001 for B05011), q41 2->3 (misses on main too), t09 0->3 (not retrievable),
+t14 0->2, t07 1->3 (misses 3/3 at every depth in the selector probe), t04 0->1 (unrelated warning), q04 (core) 2->3 (table
+returned, other failure). Gains: q07 2->0, q35 1->0, q43 1->0, t15 3->1, t16 3->0.
+
+Latency is not attributable to pool depth: direct rerank timing, sequential, 24 calls per depth
+(`cc-117-variants/rerank_latency.py.txt`): median 3.25 s (depth 10), 3.24 s (20), 3.28 s (30), 3.16 s (10 again); tails of
+12-40 s appear at every depth including 10. The demo p95 above is Gemini's tail, not the prompt size.
