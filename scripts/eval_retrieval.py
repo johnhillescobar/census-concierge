@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS = ROOT / "evals" / "golden_questions.toml"
 EVIDENCE = ROOT / "evidence" / "latest.json"
 TOP_K = 5
-# Retriever gate: containment in the pool the selector sees (rerank uses top 10).
+# Retriever gate: containment in the pool the selector sees (rerank uses POOL_DEPTH).
 RETRIEVER_DEPTH = 10
 
 load_dotenv(ROOT / ".env")
@@ -78,7 +78,7 @@ def load_retriever(rerank: bool = False):
     Falls back to a stub that always misses, so the harness is runnable on an
     empty repository. A stub scoring above zero would be a bug in the harness.
 
-    With `rerank`, an LLM picks one table out of the top ten and it is promoted
+    With `rerank`, an LLM picks one table out of the POOL_DEPTH pool and it is promoted
     to first. That measures what slice 1's agent will do with the same list —
     `search()` itself never selects.
     """
@@ -210,7 +210,7 @@ def main() -> int:
     parser.add_argument(
         "--rerank",
         action="store_true",
-        help="let an LLM pick one of the top ten, as slice 1's agent will",
+        help="let an LLM pick one of the top POOL_DEPTH, as the ask loop will",
     )
     args = parser.parse_args()
 

@@ -167,7 +167,7 @@ class SearchTablesTool(BaseTool):
     search: SearchFn
     describe: DescribeTable
     select: SelectFn | None = None
-    _picks: dict[str, str] = PrivateAttr(default_factory=dict)
+    _picks: dict[tuple[str, int], str] = PrivateAttr(default_factory=dict)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
@@ -186,10 +186,10 @@ class SearchTablesTool(BaseTool):
                 }
             )
         if len(hits) > 1:
-            picked = self._picks.get(question)
+            picked = self._picks.get((question, k))
             if picked is None:
                 picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
-                self._picks[question] = picked
+                self._picks[(question, k)] = picked
             hits = _promote(hits, picked)[:SHOWN]
         artifact = SearchTablesResult(hits=hits)
         if not hits:

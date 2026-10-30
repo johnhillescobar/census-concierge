@@ -175,6 +175,30 @@ async def test_selector_reads_the_deep_pool_and_the_answer_stays_ten_wide() -> N
     assert shown == [ranked[26], *ranked[:9]]
 
 
+async def test_a_shallow_search_does_not_fix_the_pick_for_a_deeper_one() -> None:
+    ranked = [f"B{90000 + n}" for n in range(1, 31)]
+    reads: list[int] = []
+
+    def select(_question: str, hits: list[dict[str, object]]) -> str:
+        reads.append(len(hits))
+        return str(hits[-1]["table_id"])
+
+    tool = SearchTablesTool(
+        search=lambda _question, k=10: ranked[:k], describe=_describe, select=select
+    )
+    for call, k in (("c1", 5), ("c2", 30)):
+        result = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "x", "k": k},
+                "id": call,
+            }
+        )
+    assert reads == [5, 30]
+    assert result.artifact.hits[0]["table_id"] == ranked[-1]
+
+
 @pytest.mark.parametrize(
     "question",
     [
