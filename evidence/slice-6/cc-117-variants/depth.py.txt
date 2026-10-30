@@ -1,0 +1,15 @@
+import sys, tomllib
+sys.path.insert(0, "scripts"); sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv()
+import eval_retrieval as ev
+qs = [q for q in tomllib.load(open("evals/golden_questions.toml", "rb"))["question"] if q.get("expect_table")]
+search = ev.load_retriever(False)
+ranks = {}
+for q in qs:
+    r = list(search(q["text"], 60)); e = q["expect_table"]
+    ranks[q["id"]] = (r.index(e) + 1) if e in r else None
+for i in ("t08", "t09", "t12", "t18", "q21", "t14"): print(i, "rank of expected table:", ranks[i])
+for tier in ("long_tail", "trap"):
+    ids = [q["id"] for q in qs if q.get("tier") == tier and not q.get("holdout")]
+    n = len(ids)
+    print(tier, f"n={n}", *[f"@{k}={sum(1 for i in ids if ranks[i] and ranks[i] <= k)/n:.3f}" for k in (10, 15, 20, 30, 60)])

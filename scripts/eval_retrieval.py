@@ -100,13 +100,17 @@ def load_retriever(rerank: bool = False):
     if not rerank:
         return search
 
-    from src.retrieval.rerank import Candidate, choose  # type: ignore[import-not-found]
+    from src.retrieval.rerank import (  # type: ignore[import-not-found]
+        POOL_DEPTH,
+        Candidate,
+        choose,
+    )
 
     index = load()
     position = {table: i for i, table in enumerate(index.tables)}
 
     def search_and_rerank(question: str, k: int) -> list[str]:
-        ranked = search(question, max(k, 10))
+        ranked = search(question, max(k, POOL_DEPTH))
         if not ranked:
             # choose() reads candidates[0] unconditionally; search() returning
             # [] for a no-match question is a documented, tested case, not an

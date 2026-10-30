@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL
 from src.contract import GeoSpec
+from src.retrieval.rerank import POOL_DEPTH
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -26,7 +27,7 @@ class ToolResult(BaseModel):
 
 class SearchTablesInput(ToolInput):
     question: str = Field(description="The user's question, verbatim.")
-    k: int = Field(default=10, ge=1, le=20, description="Candidate pool size.")
+    k: int = Field(default=POOL_DEPTH, ge=1, le=POOL_DEPTH, description="Candidate pool size.")
 
 
 class SearchTablesResult(ToolResult):
@@ -85,6 +86,7 @@ class BuildUrlResult(ToolResult):
     universe: str = ""
 
 
+SHOWN = 10  # the selector reads POOL_DEPTH; the answer lists its pick plus the best-ranked rest
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
 SelectFn = Callable[[str, list[dict[str, Any]]], str]
@@ -170,7 +172,7 @@ class SearchTablesTool(BaseTool):
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
 
-    async def _arun(self, question: str, k: int = 10) -> tuple[str, SearchTablesResult]:
+    async def _arun(self, question: str, k: int = POOL_DEPTH) -> tuple[str, SearchTablesResult]:
         table_ids = await asyncio.to_thread(self.search, question, k)
         hits: list[dict[str, Any]] = []
         for table_id in table_ids:
@@ -188,7 +190,7 @@ class SearchTablesTool(BaseTool):
             if picked is None:
                 picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
                 self._picks[question] = picked
-            hits = _promote(hits, picked)
+            hits = _promote(hits, picked)[:SHOWN]
         artifact = SearchTablesResult(hits=hits)
         if not hits:
             return "0 candidates", artifact

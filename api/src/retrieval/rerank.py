@@ -21,6 +21,11 @@ from dataclasses import dataclass
 # gpt-4o-mini over the same frozen top-10 pool.
 MODEL = "gemini-3.7-flash"
 
+# The selector reads this many ranked candidates. The retriever ranks the plain
+# base table of a family below narrower cross-tabs, often past 10 and sometimes
+# past 20, so a pool of 10 hides it from the selector. Search tool and eval share it.
+POOL_DEPTH = 30
+
 PROMPT = """Pick the ACS table that best answers the question.
 
 Match the UNIVERSE — households, families, population and housing units are \
@@ -31,11 +36,12 @@ crosses that subject with another variable.
 When several candidates share a subject, match the TITLE to what the question \
 asks — not the narrowest cross-tab unless the question names that breakdown.
 
-Sibling tables share a universe and differ in breakdown. A title that starts \
-with Aggregate holds a sum across everyone (total minutes, total dollars): it \
-answers a question about totals, never about one typical person or household. \
-Otherwise take the plainest title whose subject is the question's subject, and \
-reject a candidate that adds a breakdown the question never names.
+Sibling tables share a universe and differ in breakdown. Take the candidate \
+whose title is the bare subject of the question. Skip a longer title that adds \
+"by ..." unless the question names that breakdown, and skip a title built around \
+a summary statistic (Aggregate, Median, Mean, Share, Index) unless the question \
+asks for that statistic. Aggregate means a sum across everyone, so it answers \
+only totals.
 When a B and C table both fit, prefer the B table — C tables collapse categories.
 
 Return JSON: {"table": "Bxxxxx"}"""

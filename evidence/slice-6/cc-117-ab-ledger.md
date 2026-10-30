@@ -102,3 +102,45 @@ pin-related); q38 0 to 1 (got C02015 for B02015), t04 0 to 1, t16 3 to 1, q04 2 
 returned, other trial failure) are single-trial moves without a table change attributable to this PR.
 q11 (commute) misses 3 of 3 in the demo in both arms, so the selector fix measured in the harness did not
 change the demo outcome.
+
+## Round 2: the trap-tier loss is a pool-depth problem (solved in this ticket)
+
+Jira check (live, read-only): no ticket in CC-3 owns retriever recall of plain base tables. CC-117 excludes
+"the retrieval stack or reranker model" but says the fix is "in retrieval or the selector, measured and general".
+Pool depth `k` is a tool parameter, not the retrieval stack, so it is changed here.
+
+Where the pin-served tables rank in the retriever (`cc-117-variants/depth.py.txt`):
+t12 rank 12, t18 rank 12, t08 rank 27, t09 not in the top 60, t14 rank 7, q21 rank 4. The retriever puts the plain
+base table of a family below its narrower cross-tabs. Trap retrieval@K (n=14): @10 0.571, @15 0.786, @30 0.857, @60 0.929;
+long_tail dev (n=40): @10 0.90, @15 0.925, @60 0.95.
+
+Selector over a deeper pool, prompt v5, 3 picks per question (`cc-117-variants/depth_eval.py.txt`):
+
+| pool depth | long_tail selector@1 | trap selector@1 | trap questions recovered |
+|---|---|---|---|
+| 10 | 0.808 / 0.817 | 0.500 | |
+| 15 | 0.800 | 0.714 | t12, t18, t16 |
+| 20 | 0.800 | 0.714 | same (t08 is rank 27) |
+| 30 | 0.800 | 0.833 | t08, t12, t18, t16; t14 1/3 |
+
+Change: `POOL_DEPTH = 30` in `rerank.py`, shared by the search tool and `eval_retrieval.py --rerank`. The selector reads 30
+candidates; the tool returns the pick plus the best-ranked rest, capped at 10 (`SHOWN`), so alternatives, the allowed-table
+set and the response size are unchanged. Test: `test_selector_reads_the_deep_pool_and_the_answer_stays_ten_wide`,
+mutation-checked both ways (no cap; depth back to 10).
+
+At depth 30 the pool holds seven "Aggregate Travel Time" tables and the v5 prompt stopped following its own rule (q11 flipped
+to 3/3). Prompt rewrites at depth 30 (`variant_depth.py.txt`, long_tail + trap, 3 picks):
+
+| variant | long_tail | trap | misses outside the 7 persistent |
+|---|---|---|---|
+| v5 (previous) | 0.792 | 0.857 | q11 2/3, q12 2/3 |
+| v6 | 0.808 | 0.810 | q11 1/3, q12 1/3, t14 1/3, t17 1/3 |
+| **v7 (adopted)** | **0.825** | **0.833** | t14 1/3 |
+
+Through the real eval path (`--rerank`, depth 30, v7, three runs): long_tail selector@1 0.80 / 0.80 / 0.80; held-out
+h01-h08 7/8 / 7/8 / 7/8 (same single miss, h02). Persistent long_tail misses, identical on main: q10, q17, q18, q20, q34, q41;
+plus q21 (see Losses) and one of q11 / q12 per run.
+
+Still open after round 2: **t09** is never retrieved (B28001 "Types of Computers in Household" shares no words with
+"cell phones") and its `measure_unavailable` warning is gone; **q21** is a golden question where the selector's pick is arguably
+the better table; **t07** misses 3/3 at every depth.

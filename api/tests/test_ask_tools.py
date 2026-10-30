@@ -156,6 +156,25 @@ async def test_same_question_does_not_reselect() -> None:
     assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
 
 
+async def test_selector_reads_the_deep_pool_and_the_answer_stays_ten_wide() -> None:
+    ranked = [f"B{90000 + n}" for n in range(1, 41)]
+    seen: list[list[str]] = []
+
+    def select(_question: str, hits: list[dict[str, object]]) -> str:
+        seen.append([str(hit["table_id"]) for hit in hits])
+        return ranked[26]
+
+    tool = SearchTablesTool(
+        search=lambda _question, k=10: ranked[:k], describe=_describe, select=select
+    )
+    result = await tool.ainvoke(
+        {"type": "tool_call", "name": "search_tables", "args": {"question": "x"}, "id": "c1"}
+    )
+    shown = [hit["table_id"] for hit in result.artifact.hits]
+    assert seen == [ranked[:30]]
+    assert shown == [ranked[26], *ranked[:9]]
+
+
 @pytest.mark.parametrize(
     "question",
     [

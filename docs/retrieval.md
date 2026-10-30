@@ -51,7 +51,7 @@ With `semantic.npz` present, ranking is **embeddings only**
 (`text-embedding-3-large`). BM25 postings are loaded and not consulted.
 BM25 runs only if the semantic file is missing (a `--bm25-only` index).
 
-`search_tables` then calls `rerank.choose()` (Gemini) over the top-10 pool.
+`search_tables` then calls `rerank.choose()` (Gemini) over the top-30 pool (`POOL_DEPTH`, since CC-117; the plain base table of a family ranks below its cross-tabs, often past 10).
 `index.search()` does not. That split is [CC-54](https://johnhillescobar.atlassian.net/browse/CC-54).
 
 Gated metrics: long-tail retriever `@10`, selector `@1`, `synthetic_alignment`.
