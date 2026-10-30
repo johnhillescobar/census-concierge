@@ -164,3 +164,44 @@ returned, other failure). Gains: q07 2->0, q35 1->0, q43 1->0, t15 3->1, t16 3->
 Latency is not attributable to pool depth: direct rerank timing, sequential, 24 calls per depth
 (`cc-117-variants/rerank_latency.py.txt`): median 3.25 s (depth 10), 3.24 s (20), 3.28 s (30), 3.16 s (10 again); tails of
 12-40 s appear at every depth including 10. The demo p95 above is Gemini's tail, not the prompt size.
+
+## The gated selector_at_1 now measures a different instrument (re-baseline, owner to acknowledge)
+
+`scripts/eval_retrieval.py --rerank` used to hand the selector `max(k, 10)` = 10 candidates. It now hands it
+`POOL_DEPTH` = 30, the same pool the ask loop reads, so the number describes the product. `budgets.toml [quality]`
+still reads the same keys (`selector_at_1_min = 0.70`, `check_budgets.py` reads `selector_at_1`); its comment says
+"over that pool", which was a 10-table pool when the floor was set. No budget was edited.
+
+Comparable pairs only: **depth 10, Sibling rules (main): 0.85 / 0.85 / 0.825. Depth 10, prompt v5: 0.775 / 0.775 / 0.80.
+Depth 30, prompt v5: 0.82 / 0.80 / 0.775 (`cc-117-d30-selector-r*.txt`). Depth 30, prompt v7 (adopted): 0.80 / 0.80 / 0.80
+(`cc-117-v7-selector-r*.txt`).** The `cc-117-d30-*` files are the v5 prompt at depth 30; `cc-117-v7-*` is the adopted prompt.
+The depth-30 numbers are not directly comparable with main's depth-10 baseline: a deeper pool also makes the selector's job
+harder, so the same floor on the new instrument is, if anything, stricter.
+
+## Gate 2 round 2 (commit range d0d7995..24936d6; fixes in 16b148d)
+
+- Invariants pass (`cc-117-gate2-review-pr-round2.txt`): all OK; machine failures identical to clean d0d7995. Prompt n-gram
+  check against all 70 golden question texts: 0 shared 3-grams and 4-grams.
+- Cold read: no high/medium bug. Fixed: the pick cache ignored `k` (now keyed `(question, k)`, test mutation-checked); stale
+  "top ten" help text and a `launch.json` comment. Accepted: a pick beyond rank 10 drops retrieval rank 10 from the response
+  (cosmetic; the pick is always first). Kept: `ask_fixtures.py` returns a single hit for device questions, so those ask-loop
+  tests exercise fetch and vintages, not selection.
+- Open for the owner after both rounds: the long_tail floor (see run 1 and run 2), t09, q21, and the metric redefinition above.
+
+## Raw evidence for the Round 2 depth tables (captured at 16b148d, adopted prompt v7)
+
+`cc-117-depth-ranks.txt` reproduces the ranks and retrieval@K figures exactly (t08 27, t09 none, t12 12, t18 12, q21 4, t14 7;
+trap @10/@15/@30/@60 = 0.571/0.786/0.857/0.929). `cc-117-pools-t08-t09-t12-t18-q21.txt` lists the full top-10 pool, the
+selector picks and the expected table for the five questions. `cc-117-depth-eval.txt` is the selector by pool depth with the
+**adopted v7 prompt** (the earlier table in Round 2 was prompt v5; both are real, different prompts):
+
+| pool depth | long_tail | trap | trap misses (of 3) |
+|---|---|---|---|
+| 10 | 0.817 | 0.500 | t07, t08, t09, t12, t14, t16, t18 all 3 |
+| 15 | 0.792 | 0.762 | t07, t08, t09 all 3; t14 1 |
+| 20 | 0.800 | 0.714 | t07, t08, t09, t14 all 3 |
+| 30 | 0.800 | 0.810 | t07, t09 all 3; t14 2 |
+
+Across both prompts the pattern holds: depth 30 is the only one that recovers t08 (rank 27); depths 15-20 recover t12 and t18;
+t07 and t09 miss at every depth; the long_tail selector is flat within run-to-run spread (0.79-0.82).
+This capture ran while the repeat demo was in flight, so that run's latency is not clean (its answered rate is unaffected).

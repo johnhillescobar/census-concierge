@@ -1,0 +1,58 @@
+CC-117 Gate 2 project-invariants pass, round 2: git diff d0d7995..24936d6 (feat/cc-117-no-table-pins)
+(working tree HEAD is 277cd46; 24936d6..277cd46 touches evidence only, no api/src, scripts or budgets)
+
+MACHINES
+- check_invariants --base d0d7995: exit 1, 5 violations (ZCTA x2, united states, district columbia,
+  statistical area). Same 5, same text, in a scratch worktree of d0d7995 (removed afterwards). Not new.
+  Regex call sites api/src 62 -> 55 (-7). budget increases / new regex / new exemptions: ok.
+- check_budgets: only p95 latency FAIL (23.344 > 20, run 2026-10-28T15:21:55); identical on d0d7995.
+  selector_at_1 0.825, answered_rate 0.717, retrieval_at_10 0.9 read from that stale latest.json.
+- ruff check, ruff format --check (231 files), mypy api/src (27 files): clean.
+- pytest not run (out of scope; test_invariants_print_every_named_pattern known-failing).
+
+INVARIANTS
+- No pattern/keyword over question text selects, injects or promotes a table: OK. pinned_table, device_table,
+  _with_device_table, 7 regexes, 6 table constants, the finish.py pin branch and the measure_unavailable
+  guard deleted; finish builds plan table or pool[0]; search retries only on an empty pool.
+- Selector prompt free of table IDs / measure rules / eval phrasing: OK. Only "Bxxxxx" format. N-gram check of
+  PROMPT (4/3/2-grams, tokenised) against all 70 golden question texts at 24936d6: zero 4-grams, zero 3-grams,
+  three generic 2-grams (housing units, is the, units are). Words Aggregate/Median/Mean/Share/Index are title
+  vocabulary; "Aggregate means a sum across everyone" is a general title rule, traceable to the old commute
+  rule but not to a question phrase.
+- Regex count fell: OK (62 -> 55).
+- No budget raised/weakened: OK. budgets.toml untouched; leakage_baseline.txt only lost 8 CC-117 lines.
+- Forbidden module names: OK (only M in api/src, no new files).
+- URL / MOE / GEOID / universe / alternatives: OK. Assembly code untouched. SHOWN=10 caps hits at pick + best 9
+  (same width as the old pool of 10); the allowed-table set and ask.py alternatives read record.pool, so are
+  no larger. Test test_selector_reads_the_deep_pool_and_the_answer_stays_ten_wide exists.
+- Refusal path (incomplete geography): untouched.
+- eval_retrieval.py change: DISCLOSED ONLY PARTLY. Ledger line 126 says POOL_DEPTH is "shared by the search tool
+  and eval_retrieval.py --rerank" but does not say that the gated selector_at_1 is now measured over a 30-wide
+  pool (was max(k,10)). Baseline 0.85/0.85/0.825 is depth 10; branch 0.80x3 is depth 30. Same budgets.toml keys
+  (selector_at_1_min 0.70; check_budgets.py:349 reads "selector_at_1"), floor unchanged and met. Gap ~5 pts,
+  under the ~10-pt noise line.
+- docs/ask-path.md and docs/retrieval.md: OK. Line 15 and line 28 of ask-path updated (round-1 finding fixed);
+  retrieval.md says top-30 (POOL_DEPTH). retrieval.md:28 "rerank of top 10 70%/82%" is a historical measurement.
+  requirements.md says measure_unavailable "not raised today".
+
+LEDGER SPOT-CHECK (Round 2 sections)
+- v7 selector 0.80/0.80/0.80: cc-117-v7-selector-r1..r3 = 80/80/80%. MATCH.
+- Held-out 7/8 x3: cc-117-v7-holdout and d30-holdout r1..r3 = @1 88% (n=8). MATCH.
+- Round 2 E2E (HEAD 277cd46 ledger) long_tail 0.692, core 0.75, trap 0.815, overall 0.731, p95 31.1, t_llm 6.5,
+  t_rerank 5.0 vs cc-117-d30-run1-latest.json: MATCH.
+- v7 text vs rerank.py PROMPT paragraph (variants/v7.txt): identical.
+- NOT VERIFIABLE: depth table (0.808/0.817, 0.500, 0.714, 0.833), trap retrieval@K (0.571/0.786/0.857/0.929)
+  and the ranks (t12 12, t18 12, t08 27, t09 >60): evidence holds only the scripts (depth.py.txt,
+  depth_eval.py.txt, variant_depth.py.txt), no captured output. cc-117-d30-selector-r1..r3 read 82/80/78%,
+  which the ledger never cites (undocumented which prompt they used).
+
+FINDINGS (severity)
+1. MED: gated long_tail answered_rate 0.692 (83/120) in the depth-30 + v7 run, below the 0.70 floor; ledger
+   admits "one trial under". Single run, within noise, but the floor is not met at this HEAD. p95 31.1 vs 20.
+2. MED (known, owner decision): golden t09 still expects measure_unavailable, now never raised; t09 not
+   retrievable. Disclosed in ledger and requirements.md.
+3. LOW-MED: eval_retrieval.py depth change not framed as a change to the gated metric's definition (see above).
+4. LOW: Round 2 depth/trap-recall numbers have no captured output; reproducibility is scripts-only.
+5. LOW: .vscode/launch.json:503 comment still mentions pinned_table (not a doc, harmless).
+
+VERDICT: Ship it with follow-ups (1-4); no silent-wrong-answer finding, no budget weakened.
