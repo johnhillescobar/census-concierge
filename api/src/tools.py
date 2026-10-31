@@ -27,7 +27,7 @@ class ToolResult(BaseModel):
 
 class SearchTablesInput(ToolInput):
     question: str = Field(description="The user's question, verbatim.")
-    topic: str = Field(
+    topic: str | None = Field(
         default="",
         description=(
             "The measure the question asks about in a few words: the subject and any breakdown, "
@@ -95,6 +95,7 @@ class BuildUrlResult(ToolResult):
     universe: str = ""
 
 
+MAX_TOPIC = 200  # a measure phrase; longer text is the model pasting the question
 SHOWN = 10  # the selector reads POOL_DEPTH; the answer lists its pick plus the best-ranked rest
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
@@ -182,9 +183,9 @@ class SearchTablesTool(BaseTool):
         raise NotImplementedError("search_tables is async-only")
 
     async def _arun(
-        self, question: str, topic: str = "", k: int = POOL_DEPTH
+        self, question: str, topic: str | None = "", k: int = POOL_DEPTH
     ) -> tuple[str, SearchTablesResult]:
-        topic = topic.strip()
+        topic = (topic or "").strip()[:MAX_TOPIC]
         table_ids = await asyncio.to_thread(self.search, topic or question, k)
         hits: list[dict[str, Any]] = []
         for table_id in table_ids:

@@ -212,16 +212,18 @@ async def test_search_uses_the_topic_and_the_selector_still_reads_the_question()
         return "B08301"
 
     tool = SearchTablesTool(search=search, describe=_describe, select=select)
-    asked = "Population of Phoenix in 2024 from the 1-year ACS"
+    asked = "How many people live here in 2023 from the 1-year ACS"
     for call, args in (
         ("c1", {"question": asked, "topic": "population"}),
         ("c2", {"question": asked}),
         ("c3", {"question": asked, "topic": "  "}),
         ("c4", {"question": asked, "topic": "total population"}),
+        ("c5", {"question": asked, "topic": None}),
+        ("c6", {"question": asked, "topic": "p" * 500}),
     ):
         await tool.ainvoke({"type": "tool_call", "name": "search_tables", "args": args, "id": call})
-    assert queries == ["population", asked, asked, "total population"]
-    assert read == [asked, asked, asked]
+    assert queries == ["population", asked, asked, "total population", asked, "p" * 200]
+    assert read == [asked] * 4  # blank and null topics share the question-only pick
 
 
 @pytest.mark.parametrize(
