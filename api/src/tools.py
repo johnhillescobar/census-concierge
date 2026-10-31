@@ -27,6 +27,15 @@ class ToolResult(BaseModel):
 
 class SearchTablesInput(ToolInput):
     question: str = Field(description="The user's question, verbatim.")
+    topic: str = Field(
+        default="",
+        description=(
+            "The measure the question asks about in a few words: the subject and any breakdown, "
+            "with no place names, years or dataset names (a question about median home value in "
+            "a named state in 2022 has topic 'median home value'). The index is searched with "
+            "this; the question is still read when the table is picked."
+        ),
+    )
     k: int = Field(default=POOL_DEPTH, ge=1, le=POOL_DEPTH, description="Candidate pool size.")
 
 
@@ -167,13 +176,16 @@ class SearchTablesTool(BaseTool):
     search: SearchFn
     describe: DescribeTable
     select: SelectFn | None = None
-    _picks: dict[tuple[str, int], str] = PrivateAttr(default_factory=dict)
+    _picks: dict[tuple[str, str, int], str] = PrivateAttr(default_factory=dict)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
 
-    async def _arun(self, question: str, k: int = POOL_DEPTH) -> tuple[str, SearchTablesResult]:
-        table_ids = await asyncio.to_thread(self.search, question, k)
+    async def _arun(
+        self, question: str, topic: str = "", k: int = POOL_DEPTH
+    ) -> tuple[str, SearchTablesResult]:
+        topic = topic.strip()
+        table_ids = await asyncio.to_thread(self.search, topic or question, k)
         hits: list[dict[str, Any]] = []
         for table_id in table_ids:
             meta = self.describe(table_id) or {}
@@ -186,10 +198,10 @@ class SearchTablesTool(BaseTool):
                 }
             )
         if len(hits) > 1:
-            picked = self._picks.get((question, k))
+            picked = self._picks.get((question, topic, k))
             if picked is None:
                 picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
-                self._picks[(question, k)] = picked
+                self._picks[(question, topic, k)] = picked
             hits = _promote(hits, picked)[:SHOWN]
         artifact = SearchTablesResult(hits=hits)
         if not hits:

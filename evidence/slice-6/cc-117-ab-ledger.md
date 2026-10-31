@@ -205,3 +205,36 @@ selector picks and the expected table for the five questions. `cc-117-depth-eval
 Across both prompts the pattern holds: depth 30 is the only one that recovers t08 (rank 27); depths 15-20 recover t12 and t18;
 t07 and t09 miss at every depth; the long_tail selector is flat within run-to-run spread (0.79-0.82).
 This capture ran while the repeat demo was in flight, so that run's latency is not clean (its answered rate is unaffected).
+
+## Round 3: the model supplies the measure as the search query (`topic`)
+
+Why: depth cannot fix a question the retriever embeds badly. "Population of Phoenix in 2024 from the 1-year ACS" puts B01003
+at rank **45**; "Total population of Phoenix" puts it at rank **1**. Place, year and dataset words dilute the measure
+(`cc-117-variants/t07.py` was a one-off probe; the numbers are in `cc-117-topic-recall.txt`).
+
+Change: `search_tables` gets an optional `topic` argument, composed by the model (no new LLM call, no regex, index and
+reranker unchanged). The index is searched with `topic` when given, with the question otherwise (the code-only `finish_tools`
+path has no model to write one); the selector still reads the full question. The pick cache is keyed `(question, topic, k)`.
+Test `test_search_uses_the_topic_and_the_selector_still_reads_the_question`, mutation-checked three ways (topic ignored,
+topic not normalised, cache ignores topic). Tool-description example contains no place or eval phrasing (the leakage
+invariant caught an earlier draft naming a state).
+
+Offline, `gpt-4o-mini` at temperature 0 writing a measure-only query per dev question (`cc-117-topics.json`, raw
+`cc-117-topic-recall.txt`, `cc-117-topic-selector.txt`; head `cc-117-topic-eval-head.txt`):
+
+| expected table within the pool | question as query | topic as query |
+|---|---|---|
+| long_tail @10 / @30 (n=40) | 0.900 / 0.925 | 0.875 / 0.950 |
+| trap @10 / @30 (n=14) | 0.571 / 0.857 | 0.857 / **1.000** |
+| selector@1 at depth 30, v7 prompt, 3 picks: long_tail / trap / core | 0.808 / 0.786 / 1.000 | **0.817 / 0.929 / 1.000** |
+
+Rank moves: t07 45 -> 1, t09 none -> 24, t08 27 -> 18, t12 12 -> 4, t18 12 -> 9; q36 1 -> 13 is the one that got worse (still in
+the 30). Only trap miss left offline: t14.
+
+In the real loop (`scripts/ask_one.py`, `gpt-4o-mini` as the agent), `topic` was filled on 6 of 6 questions tried and the
+selected table was the expected one for t07, t09, t08, t12 and t18 (B01003, B28001, B19001, B17001, B27001). q11 still selects
+"Aggregate Travel Time ... by Sex" (misses on main too). Note the model also shortens the `question` argument ("not just the
+median" and "across every tract" were dropped from three of the six); that predates this change.
+
+The `eval_retrieval.py --rerank` instrument still searches with the question (no model in that script), so the gated
+`selector_at_1` is a conservative reading of the product; the demo is the end-to-end measure.

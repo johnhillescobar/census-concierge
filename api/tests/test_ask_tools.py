@@ -199,6 +199,31 @@ async def test_a_shallow_search_does_not_fix_the_pick_for_a_deeper_one() -> None
     assert result.artifact.hits[0]["table_id"] == ranked[-1]
 
 
+async def test_search_uses_the_topic_and_the_selector_still_reads_the_question() -> None:
+    queries: list[str] = []
+    read: list[str] = []
+
+    def search(query: str, k: int = 10) -> list[str]:
+        queries.append(query)
+        return ["B01003", "B08301"][:k]
+
+    def select(question: str, _hits: list[dict[str, object]]) -> str:
+        read.append(question)
+        return "B08301"
+
+    tool = SearchTablesTool(search=search, describe=_describe, select=select)
+    asked = "Population of Phoenix in 2024 from the 1-year ACS"
+    for call, args in (
+        ("c1", {"question": asked, "topic": "population"}),
+        ("c2", {"question": asked}),
+        ("c3", {"question": asked, "topic": "  "}),
+        ("c4", {"question": asked, "topic": "total population"}),
+    ):
+        await tool.ainvoke({"type": "tool_call", "name": "search_tables", "args": args, "id": call})
+    assert queries == ["population", asked, asked, "total population"]
+    assert read == [asked, asked, asked]
+
+
 @pytest.mark.parametrize(
     "question",
     [
