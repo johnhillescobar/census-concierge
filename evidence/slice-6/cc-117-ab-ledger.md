@@ -238,3 +238,45 @@ median" and "across every tract" were dropped from three of the six); that preda
 
 The `eval_retrieval.py --rerank` instrument still searches with the question (no model in that script), so the gated
 `selector_at_1` is a conservative reading of the product; the demo is the end-to-end measure.
+
+## Round 3 E2E: topic search + depth 30 + v7, commit 1f9115b (`cc-117-e2e-topic.txt`, `cc-117-topic-latest.json`)
+
+HEAD 1f9115b at start and end (`cc-117-topic-head.txt`). `--repeat 3`, n=186, isolated worktree. No hung trials
+(`t_llm` 5.9 s, `t_rerank` 4.3 s), so this is the first latency reading that is comparable.
+
+A second clean sample of unmodified main exists: the CC-121 session's post-merge run on d0d7995
+(commit 72c8a47; copy in `cc-117-main-second-sample-latest.json`). Both main samples are used below.
+
+| long_tail answered (floor 0.70, needs 84/120) | trials | rate |
+|---|---|---|
+| main sample 1 (this ticket's pre-run) | 85 | 0.708 |
+| main sample 2 (CC-121 post-merge, same commit) | 87 | 0.725 |
+| depth 10 + v5 | 85 | 0.708 |
+| depth 30 + v7, run 1 / run 2 | 83 / 84 | 0.692 / 0.700 |
+| **topic + depth 30 + v7** | **81** | **0.675** |
+
+| | main 1 | main 2 | depth 30 run 1 | depth 30 run 2 | **topic + depth 30** |
+|---|---|---|---|---|---|
+| core | 0.833 | 0.750 | 0.750 | 0.917 | 0.750 |
+| trap | 0.870 | 0.926 | 0.815 | 0.741 | **0.870** |
+| overall | 0.763 | 0.785 | 0.731 | 0.726 | 0.737 |
+| p95 | 28.4 (hung trial) | 22.0 | 31.1 | 50.0 (hung) | **24.5** |
+
+AC (long_tail within 3 points of the pre-run): 0.675 vs 0.708 is -3.3 points, **outside the limit on this run**; vs main
+sample 2 it is -5.0. The floor is missed (81 < 84). Runs 1 and 2 at depth 30 were -1.6 and -0.8.
+
+Where the long_tail trials went (misses of 3, main 1 / main 2 -> topic run):
+- **q21 0 -> 3**: all three. The selector picks a "Receipt of Food Stamps/SNAP ... for Households" table over golden B19058.
+  Without q21 the long_tail count would be 84 (vs 85 / 87).
+- **q15 0 / 1 -> 2** (B05012 for B05002), **q38 0 / 1 -> 1** (C02015 for B02015), **q40 0 -> 1** (B25137 for B25041): real selector
+  effects; q15 is the one topic search may have caused. q08 0 -> 2 is a geography miss ("wrong geography level county") with
+  the right table, not a table choice.
+- Gains: q07 2 / 0 -> 0, q35 1 -> 0, q43 1 -> 0.
+
+Trap: t08, t12, t18 at 0 misses (as on main), t07 **0** (main 1 / 2). t09 selects B28001 in 1 of 3 trials (B28010 in the others)
+and fails all three on the missing `measure_unavailable` warning, which nothing raises any more. t14 misses 2 of 3 (main 0: the
+pin). The trap gap to main sample 2 (0.926 vs 0.870) is t09 and t14.
+
+Net: pin removal is now a wash on t07, t08, t12 and t18 and the cost has narrowed to four golden questions that need an owner
+decision (q21, t14, t09-warning) plus selector noise on q15 / q38 / q40. The long_tail floor is not reliably met by this branch
+(81, 84, 83 trials) and is only just met by main (85, 87).
