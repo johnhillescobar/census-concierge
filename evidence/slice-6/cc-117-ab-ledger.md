@@ -280,3 +280,29 @@ pin). The trap gap to main sample 2 (0.926 vs 0.870) is t09 and t14.
 Net: pin removal is now a wash on t07, t08, t12 and t18 and the cost has narrowed to four golden questions that need an owner
 decision (q21, t14, t09-warning) plus selector noise on q15 / q38 / q40. The long_tail floor is not reliably met by this branch
 (81, 84, 83 trials) and is only just met by main (85, 87).
+
+## Round 4: q15, q38, q40, and whether a weak topic should be backstopped by the question
+
+Goldens at this point: q21 expects C22001 and t09 has no warning requirement (commit 8cf374f, owner-approved rebaseline;
+main is re-run against them, see below).
+
+Real loop, `scripts/ask_one.py`, three runs each on the branch:
+- **q38** selected B02015 in 3 of 3 (topic "Asian population"). The demo's single C02015 trial was selector noise.
+- **q15** selected **B05012** "Nativity in the United States" in 3 of 3 (topic "foreign-born population"), not golden B05002. B05012
+  is the most direct table for foreign-born versus native counts; this is the q21 situation again. Golden not changed without an
+  owner decision (changing it would need another run of main).
+- **q40**: the model's `topic` decides it. "number of housing units" selected B25137 (Bedrooms by Occupancy Status);
+  "number of zero or one-bedroom units" and "...by number of bedrooms" selected B25041. One of four samples dropped the breakdown.
+
+Pool strategies, sampled topics (3 per question at temperature 0.8, `cc-117-topics-sampled.json`; raw `cc-117-pool-strategies.txt`;
+script `cc-117-variants/topic_robust.py.txt`), selector@1 with the adopted prompt, 3 picks per question:
+
+| pool built from | long_tail | trap | expected table in pool (long_tail / trap) |
+|---|---|---|---|
+| question only, depth 30 | 0.800 | 0.786 | 0.925 / 0.857 |
+| **topic only (the branch)** | **0.842** | **0.929** | **0.942 / 1.000** |
+| topic top 20 + question fill to 30 | 0.842 | 0.905 | 0.925 / 0.929 |
+| rank fusion of topic and question | 0.825 | 0.905 | 0.925 / 0.929 |
+
+A question backstop does not beat topic-only: both hybrids lose t09 and gain nothing. Code unchanged. q40's miss is a weak topic
+from the model (1 of 4 samples); the tool description already says to keep any breakdown.
