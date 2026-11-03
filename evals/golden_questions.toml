@@ -188,7 +188,7 @@ tier = "long_tail"
 [[question]]
 id = "q21"
 text = "Households receiving SNAP benefits in the Rio Grande Valley"
-expect_table = "B19058"
+expect_table = "C22001"
 expect_geo_level = "county"
 topic = "public_assistance"
 tier = "long_tail"
@@ -444,11 +444,11 @@ expect_table = "B28001"
 expect_geo_level = "place"
 topic = "devices"
 tier = "trap"
-expect_warning = "measure_unavailable"
 note = """The Census counts no devices anywhere in ACS. B28001 counts HOUSEHOLDS \
-in which someone has a smartphone. The universe correction must come before any \
-series is fetched. Denver clears 65k, so ACS1 is available for 2017-2019 and \
-2021-2023; 2020 is not."""
+in which someone has a smartphone. Denver clears 65k, so ACS1 is available for \
+2017-2019 and 2021-2023; 2020 is not. The measure_unavailable warning this entry \
+used to require has no trigger since the phrase pins were removed (CC-117); the \
+answer still states the universe, but not the explanation."""
 
 [[question]]
 id = "t10"
