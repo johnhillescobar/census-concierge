@@ -226,6 +226,40 @@ async def test_search_uses_the_topic_and_the_selector_still_reads_the_question()
     assert read == [asked] * 4  # blank and null topics share the question-only pick
 
 
+async def test_the_selector_never_sees_a_table_the_vintage_does_not_publish() -> None:
+    published = {("acs5", "B25064"), ("acs5", "B19013B"), ("acs1", "B17001")}
+    asked: list[int] = []
+    read: list[list[str]] = []
+
+    def search(_query: str, k: int = 10) -> list[str]:
+        asked.append(k)
+        return ["B17001", "B19013", "B25064", "B01003"][:k]
+
+    def select(_question: str, hits: list[dict[str, object]]) -> str:
+        read.append([str(hit["table_id"]) for hit in hits])
+        return str(hits[-1]["table_id"])
+
+    tool = SearchTablesTool(
+        search=search,
+        describe=_describe,
+        select=select,
+        published=lambda dataset, table_id: (dataset, table_id) in published,
+    )
+    results = {}
+    for call, args in (
+        ("c1", {"question": "x"}),
+        ("c2", {"question": "x", "dataset": "acs1"}),
+        ("c3", {"question": "x", "k": 1}),
+    ):
+        out = await tool.ainvoke(
+            {"type": "tool_call", "name": "search_tables", "args": args, "id": call}
+        )
+        results[call] = [hit["table_id"] for hit in out.artifact.hits]
+    assert results == {"c1": ["B25064", "B19013"], "c2": ["B17001"], "c3": ["B19013"]}
+    assert read == [["B19013", "B25064"]]
+    assert asked == [50, 50, 21]
+
+
 @pytest.mark.parametrize(
     "question",
     [

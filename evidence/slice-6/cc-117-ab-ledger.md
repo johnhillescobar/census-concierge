@@ -306,3 +306,27 @@ script `cc-117-variants/topic_robust.py.txt`), selector@1 with the adopted promp
 
 A question backstop does not beat topic-only: both hybrids lose t09 and gain nothing. Code unchanged. q40's miss is a weak topic
 from the model (1 of 4 samples); the tool description already says to keep any breakdown.
+
+## Round 5: the pool offered tables the vintage does not publish (found by tracing q21)
+
+Run on the branch with the rebaselined goldens (`cc-117-final4-latest.json`, HEAD 0bfc9f3): long_tail 0.667 (80/120) against main's
+0.700 (84/120). q21 returned **no table** in 3 of 3 trials, not a wrong one. Trace (`scripts/ask_one.py`): the selector picked C22001,
+`build_url` answered "C22001 is not in acs5 2024", twice, and the answer ended with no URL.
+
+Ground truth, Census API, `/data/2024/acs/{acs5,acs1}/groups/{table}.json`: C22001 acs5 404 / acs1 200; B24010 acs5 404 / acs1 200;
+B22001 and B19058 200 in both. In the availability matrix, **70 of 636 indexed tables (11%) are not in the latest ACS5**, including
+34 of 45 C tables. B15010 (what q41's selector picked) is among them. The failures with "wrong table (none)" on main and on the
+branch (q17, q21, q34, q41) are this: the selector offers a table the default dataset cannot serve, `build_url` fails, and the user
+gets no URL, which the project treats as the worst outcome.
+
+Two golden mistakes follow. The earlier re-baseline of q21 to C22001 (8cf374f) named a table that cannot be fetched in ACS5;
+`verify_golden.py` checks the metadata, not the vintage. It is reverted to B19058 (3d30869). q17's golden B24010 is unpublished in
+ACS5 2024 (ACS1 only), so q17 cannot pass on the default dataset on any code; that is the owner's call and is not changed here.
+
+Fix (plain set membership against the availability matrix; no regex, no model call): `search_tables` takes an optional `dataset`
+(acs5 unless the question asks for 1-year), fetches 20 extra candidates, and keeps only tables, or tables with a family member,
+that the dataset's latest vintage publishes. Test `test_the_selector_never_sees_a_table_the_vintage_does_not_publish`,
+mutation-checked four ways (no filter, members ignored, dataset ignored, no over-fetch). Largest file 409/410 lines.
+
+Real loop after the fix: q21 selects B22001 and returns data; q41 selects B15012 (its golden); q17 selects B24114; q34 selects B24060.
+`eval_retrieval.py --rerank` does not apply this filter, so it still overstates the pool the product uses.

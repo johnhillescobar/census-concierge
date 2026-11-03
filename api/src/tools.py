@@ -36,6 +36,9 @@ class SearchTablesInput(ToolInput):
             "this; the question is still read when the table is picked."
         ),
     )
+    dataset: Literal["acs5", "acs1"] = Field(
+        default="acs5", description="acs5, or acs1 only if the question asks for 1-year data."
+    )
     k: int = Field(default=POOL_DEPTH, ge=1, le=POOL_DEPTH, description="Candidate pool size.")
 
 
@@ -95,6 +98,7 @@ class BuildUrlResult(ToolResult):
     universe: str = ""
 
 
+UNPUBLISHED_SLACK = 20  # extra candidates fetched so tables the vintage lacks can be dropped
 MAX_TOPIC = 200  # a measure phrase; longer text is the model pasting the question
 SHOWN = 10  # the selector reads POOL_DEPTH; the answer lists its pick plus the best-ranked rest
 DescribeTable = Callable[[str], dict[str, Any] | None]
@@ -103,6 +107,7 @@ SelectFn = Callable[[str, list[dict[str, Any]]], str]
 AllowedTables = Callable[[], set[str]]
 AllowedGeographies = Callable[[], set[tuple[str, str, str]]]
 LatestVintage = Callable[[str], int]
+Published = Callable[[str, str], bool]
 TableFacts = Callable[[str, int, str], dict[str, Any] | None]
 LastGeography = Callable[[], GeoSpec | None]
 
@@ -177,16 +182,18 @@ class SearchTablesTool(BaseTool):
     search: SearchFn
     describe: DescribeTable
     select: SelectFn | None = None
-    _picks: dict[tuple[str, str, int], str] = PrivateAttr(default_factory=dict)
+    published: Published | None = None
+    _picks: dict[tuple[str, str, str, int], str] = PrivateAttr(default_factory=dict)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
 
     async def _arun(
-        self, question: str, topic: str | None = "", k: int = POOL_DEPTH
+        self, question: str, topic: str | None = "", dataset: str = "acs5", k: int = POOL_DEPTH
     ) -> tuple[str, SearchTablesResult]:
         topic = (topic or "").strip()[:MAX_TOPIC]
-        table_ids = await asyncio.to_thread(self.search, topic or question, k)
+        wanted = k + UNPUBLISHED_SLACK if self.published else k
+        table_ids = await asyncio.to_thread(self.search, topic or question, wanted)
         hits: list[dict[str, Any]] = []
         for table_id in table_ids:
             meta = self.describe(table_id) or {}
@@ -198,11 +205,17 @@ class SearchTablesTool(BaseTool):
                     "members": list(meta.get("members") or []),
                 }
             )
+        if self.published:
+            hits = [
+                hit
+                for hit in hits
+                if any(self.published(dataset, t) for t in (hit["table_id"], *hit["members"]))
+            ][:k]
         if len(hits) > 1:
-            picked = self._picks.get((question, topic, k))
+            picked = self._picks.get((question, topic, dataset, k))
             if picked is None:
                 picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
-                self._picks[(question, topic, k)] = picked
+                self._picks[(question, topic, dataset, k)] = picked
             hits = _promote(hits, picked)[:SHOWN]
         artifact = SearchTablesResult(hits=hits)
         if not hits:
