@@ -26,10 +26,10 @@ MODEL = "gemini-3.7-flash"
 # past 20, so a pool of 10 hides it from the selector. Search tool and eval share it.
 POOL_DEPTH = 30
 
-# One selector call takes about 3.8 s and one in ten takes more than 5.7 s; a slow draw is
-# provider-side and random, not tied to the question (up to 20 s on the same pool that takes
-# 3 s on the next call). Cut a slow call off and ask again rather than wait it out. Gemini
-# rejects a deadline under 10 s (400 INVALID_ARGUMENT), so 10 is the floor.
+# One selector call takes about 3 s, but some take 10 to 20 s. The slow ones are hidden thinking
+# tokens (1,200 to 1,700 on a 15 s call, none on a 2 s call): this model does not honour
+# thinking_budget=0 and rejects thinking_level MINIMAL. Cut a slow call off and ask again.
+# Gemini rejects a deadline under 10 s (400 INVALID_ARGUMENT), so 10 is the floor.
 TIMEOUT_S = 10
 ATTEMPTS = 2
 

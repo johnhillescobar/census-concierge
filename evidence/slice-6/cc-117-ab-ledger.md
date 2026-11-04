@@ -397,3 +397,20 @@ provider's speed drifts between sweeps, so the medians differ):
 The cap works, but the 10 s floor limits it: a call that hangs costs 10 s plus a normal second attempt, about
 13 to 15 s, against up to 21 s before. A hedge (start the second call at about 6 s without cancelling the first) would
 cut it further and was not built.
+
+### Correction to Round 6: the selector's slow tail is hidden thinking, not random
+
+Round 6 said the tail is random. Repeated calls on one question showed it is not: q41 took 14 to 19 s in 5 of 6
+calls and q34 8 to 17 s in 4 of 6, even with the deadline. Reading `usage_metadata` on those calls
+(`cc-117-variants/thinking_usage.py.txt`): the output is 11 tokens every time, and the time follows the thoughts.
+
+| call | seconds | thoughts tokens |
+|---|---|---|
+| q41 | 15.7 / 9.5 / 4.8 | 1746 / 1225 / 347 |
+| q34 | 10.1 / 2.0 / 3.0 | 1242 / none / none |
+| q02 | 2.5 / 2.4 / 2.0 | 75 / none / 78 |
+
+`rerank.py` already sends `thinking_budget=0`; `gemini-3.7-flash` does not honour it. `thinking_level=MINIMAL` is
+rejected (`400: not supported for this model`) and `LOW` still spends 170 to 1248 thoughts tokens
+(`cc-117-variants/thinking_level.py.txt`). So the cap and one retry (Round 7) bound the damage, and the tail itself
+needs a different model or setting, which is outside this ticket (no change of reranker model).
