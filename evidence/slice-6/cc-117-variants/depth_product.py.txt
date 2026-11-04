@@ -1,0 +1,19 @@
+import sys, json, collections
+from concurrent.futures import ThreadPoolExecutor
+sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv(".env")
+from src.retrieval import rerank
+from src.retrieval.rerank import Candidate, choose
+rerank.TIMEOUT_S = 60  # measure the pick, not the cap
+rerank.ATTEMPTS = 1
+pools = json.load(open(sys.argv[1])); reps = int(sys.argv[2]); depths = [int(x) for x in sys.argv[3:]]
+for depth in depths:
+    def one(a):
+        qid, _ = a; p = pools[qid]
+        return qid, choose(p["text"], [Candidate(*c) for c in p["cands"][:depth]]) == p["expect"]
+    jobs = [(i, r) for r in range(reps) for i in pools]
+    with ThreadPoolExecutor(8) as ex: res = list(ex.map(one, jobs))
+    def rate(f):
+        sel = [ok for i, ok in res if f(pools[i])]; return sum(sel) / len(sel)
+    miss = collections.Counter(i for i, ok in res if not ok)
+    print(f"depth {depth:2}: long_tail {rate(lambda p: p['tier']=='long_tail' and not p['holdout']):.3f} trap {rate(lambda p: p['tier']=='trap'):.3f} core {rate(lambda p: p['tier']=='core'):.3f} holdout {rate(lambda p: p['holdout']):.3f} | misses/{reps}: {dict(sorted(miss.items()))}", flush=True)

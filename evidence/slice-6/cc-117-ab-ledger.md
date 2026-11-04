@@ -414,3 +414,59 @@ calls and q34 8 to 17 s in 4 of 6, even with the deadline. Reading `usage_metada
 rejected (`400: not supported for this model`) and `LOW` still spends 170 to 1248 thoughts tokens
 (`cc-117-variants/thinking_level.py.txt`). So the cap and one retry (Round 7) bound the damage, and the tail itself
 needs a different model or setting, which is outside this ticket (no change of reranker model).
+
+## Round 8: the end-to-end at the final code (branch 6c7c512 against main on the same harness and goldens)
+
+Both runs in isolated worktrees, `--repeat 3`, n=186, HEAD logged at start and end (`census-cc-117-pair3.head`).
+Branch 6c7c512. Main = origin/main c8ec7f5 + the demo-harness fix (69b09b7) + the branch's golden file (t09 only).
+Artifacts: `cc-117-final7-latest.json`, `cc-117-main4-latest.json`, `cc-117-final7-stdout.txt`, `cc-117-main4-stdout.txt`.
+
+| | main (c8ec7f5) | branch (6c7c512) |
+|---|---|---|
+| long_tail answered (floor 84/120) | **0.767 (92)** | **0.667 (80)** |
+| trap | 0.907 | 0.944 |
+| core | 0.750 | 0.750 |
+| demo.p95_latency_seconds (ceiling 20) | 28.5 | 29.6 |
+| trials over 20 s | 46 | 38 |
+| rerank per trial: mean / p95 | 4.7 / 10.5 | 4.7 / 13.5 |
+
+The gated criterion "long_tail within 3 points of the pre-run" is NOT met by this run (-10.0 points against main in the
+same window; -3.3 to -5.8 against the earlier main samples 0.708, 0.725, 0.700). Main itself spans 0.700 to 0.767 across
+five samples, so one pair cannot settle it.
+
+**Latency is the provider's window, not this branch.** Gemini was slow for both runs (p95 28.5 and 29.6; 46 and 38 trials
+over 20 s). Earlier runs (p95 20.3 and 21.0) were in a faster window. The p95 is red on both sides and stays a human
+decision (waiver) or CC-125/CC-126.
+
+**Where the branch loses to main, per question (misses of 3):**
+
+| question | main | branch | cause |
+|---|---|---|---|
+| q41 | 0 | 3 | **the 10 s deadline**: rerank was 20.9, 19.7, 20.3 s = two timed-out attempts, then the fallback to the top-ranked table (C15010). Main picks B15012 in 3 to 8 s. |
+| q15 | 0 | 3 | B05012 ("Nativity in the United States") beats the golden B05002; it appears only in the 30-deep pool (rank 21) |
+| q21 | 0 | 2 | B22001 (SNAP receipt) over the golden B19058 |
+| q38 | 0 | 2 | C02015 over B02015 despite the B-over-C sentence |
+| q40 | 0 | 2 | B25137 over B25041 |
+| t14 | 0 | 2 | B28010 / B28003; main reaches B28001 through its device pin |
+| q08 | 0 | 1 | geography-level miss, right table |
+| gains: q12 (-1), t07 (-2), t13 (-1), t15 (-1) | | | |
+
+**Deadline and retry, measured against its premise.** In the branch run, long_tail trials with a selector call over 10 s
+were answered 3 of 8; on main 3 of 11. The six branch trials with about 20 s of rerank (q41 x3, q26, q34, t06) were
+answered 1 of 6. A deadline only pays when the retry is much faster than the call it cut off; questions that trigger long
+thinking (q41, q34) are slow again on retry, so the cap costs 10 s and then falls back to the top-ranked table. The pool
+for q41 is 1,439 tokens at depth 30; main reads a shorter pool and finishes in 3 to 8 s.
+
+**Pool depth, offline, no deadline (66 pools captured from the loop's own topics, 3 repeats, selector only):**
+
+| depth | long_tail | trap | core | held-out |
+|---|---|---|---|---|
+| 10 | 0.767 | 0.786 | 1.000 | 0.750 |
+| 15 | 0.800 | 0.810 | 1.000 | 0.750 |
+| 20 | 0.817 | 0.857 | 1.000 | 0.875 |
+| 30 | 0.825 | 0.976 | 1.000 | 0.875 |
+
+Depth 30 is best on every tier, so the demo losses at depth 30 are not a depth effect on average; q15 is the one question
+that is missed at depth 20 and 30 only (the competing table is not in a 10-deep pool). The offline numbers do not show
+the demo's q38, q40 and q21 misses (the demo composes its own topic each run, so its pool differs from the captured one).
+Harness: `cc-117-variants/depth_product.py.txt`.
