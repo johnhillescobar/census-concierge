@@ -330,3 +330,45 @@ mutation-checked four ways (no filter, members ignored, dataset ignored, no over
 
 Real loop after the fix: q21 selects B22001 and returns data; q41 selects B15012 (its golden); q17 selects B24114; q34 selects B24060.
 `eval_retrieval.py --rerank` does not apply this filter, so it still overstates the pool the product uses.
+
+## Round 6: the question the selector reads, prompt v8, and where search_tables spends its time
+
+Harness: `cc-117-variants/pool_capture.py.txt` (captures, per golden question, the exact pool the product hands
+the selector: the loop model's own `topic`, depth 30, published filter), `pool_eval.py.txt` (scores a prompt over
+those pools), `pools-product.json` (the captured pools). Run from the repo root.
+
+**The model's copy of the question.** `search_tables` took `question` from the model's tool call. The schema said
+"verbatim" and nothing enforced it; the model dropped the breakdown or the period in some draws (q15: "by county in
+Minnesota"; t14: "changed since 2013"). `dispatch` now supplies `record.question` (`f8356c2`, two mutation-checked
+tests). Re-traced q15, t14, q30 twice each: the selector received the full text and the picks did not change
+(q15 B05012 x2, t14 B28010 x2, q30 B05011 x2). So the dropped words were not the cause of those two losses.
+
+**Prompt.** The "by ..." rule was the suspect for q15 and was not the cause: B05012 sits at rank 21 of the pool and
+is picked 5 of 5 under every variant; B05002 is at rank 9. It is the selector's reading of the titles
+("Nativity in the United States" against "Place of Birth by Nativity and Citizenship Status"), and arguably B05012
+is the better answer. q15's golden is left as is (owner's call, CC-3 AC10). v8 (cross-tab taken only when the
+question also concerns what follows "by") against v7 (shipped in 1be4cc3), 6 repeats over the product pools:
+
+| | long_tail (40) | trap (14) | core (4) | held-out (8) | t14 misses /6 |
+|---|---|---|---|---|---|
+| v7 | 0.800 | 0.929 | 1.000 | 0.875 | 6 |
+| **v8 (adopted)** | **0.817** | **0.976** | 1.000 | 0.875 | 2 |
+
+v9 and v10 (3 repeats) were not better (long_tail 0.808 / 0.792). No table ID, no measure rule, 0 shared 3-grams
+with the golden question texts. The held-out miss (h02) is the same on every variant. These are offline selector
+numbers; the demo is still the measure.
+
+**Latency of `search_tables`** (66 golden questions, one call each, spans around each step):
+
+| step | median s | p90 s | max s |
+|---|---|---|---|
+| total | 4.25 | 6.25 | 19.98 |
+| index search (embed + fuse) | 0.41 | 0.57 | 2.08 |
+| describe (3300 calls) | 0.000 | 0.000 | 0.000 |
+| published check (3422 calls) | 0.000 | 0.000 | 0.000 |
+| selector (Gemini) | 3.84 | 5.73 | 19.46 |
+
+The selector call is 90% of the time and all of the tail. The tail is random, not per question or per pool size:
+the same call repeated 6 times on one question took 3.6, 3.6, 7.5, 10.4, 16.4, 19.2 and 20.8 s, while the question
+that took 19.98 s in the sweep took 2.3 to 3.8 s on repeat. Pool size is not the cause (earlier: median 3.2 to
+3.3 s at depths 10, 20 and 30). `rerank._choose_gemini` sets no request timeout and no retry.

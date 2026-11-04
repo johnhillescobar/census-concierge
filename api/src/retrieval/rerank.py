@@ -37,11 +37,11 @@ When several candidates share a subject, match the TITLE to what the question \
 asks — not the narrowest cross-tab unless the question names that breakdown.
 
 Sibling tables share a universe and differ in breakdown. Take the candidate \
-whose title is the bare subject of the question. Skip a longer title that adds \
-"by ..." unless the question names that breakdown, and skip a title built around \
-a summary statistic (Aggregate, Median, Mean, Share, Index) unless the question \
-asks for that statistic. Aggregate means a sum across everyone, so it answers \
-only totals.
+whose title names the subject of the question. A longer title that adds "by ..." \
+is a cross-tab: take it only when the question also concerns what follows "by", \
+otherwise take the plainer title. Also skip a title built around a summary \
+statistic (Aggregate, Median, Mean, Share, Index) unless the question asks for \
+that statistic. Aggregate means a sum across everyone, so it answers only totals.
 When a B and C table both fit, prefer the B table — C tables collapse categories.
 
 Return JSON: {"table": "Bxxxxx"}"""

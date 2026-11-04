@@ -1,0 +1,37 @@
+import sys, json, time, asyncio, statistics as st
+sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv(".env")
+from src.ask import ExecutionRecord, default_tools
+from src import tools as T
+pools = json.load(open(sys.argv[1])); N = int(sys.argv[2]) if len(sys.argv) > 2 else 66
+tool = default_tools(ExecutionRecord())["search_tables"]
+spans = {}
+def wrap(obj, name, label):
+    f = getattr(obj, name)
+    def g(*a, **k):
+        t = time.perf_counter()
+        try: return f(*a, **k)
+        finally: spans.setdefault(label, []).append(time.perf_counter() - t)
+    return g
+orig_pick = T._pick_table
+def pick(*a, **k):
+    t = time.perf_counter()
+    try: return orig_pick(*a, **k)
+    finally: spans.setdefault("select", []).append(time.perf_counter() - t)
+T._pick_table = pick
+object.__setattr__(tool, "search", wrap(tool, "search", "index_search")) if False else None
+tool.search = wrap(tool, "search", "index_search"); tool.describe = wrap(tool, "describe", "describe"); tool.published = wrap(tool, "published", "published")
+async def main():
+    totals = []
+    for qid in list(pools)[:N]:
+        p = pools[qid]; tool._picks.clear()
+        t = time.perf_counter()
+        await tool._arun(question=p["text"], topic=p["topic"], dataset="acs5")
+        totals.append((time.perf_counter() - t, qid))
+    return totals
+totals = asyncio.run(main())
+def line(label, xs, per=False):
+    xs = sorted(xs); n = len(xs); print(f"{label:14} n={n:4} median {st.median(xs):6.3f}  p90 {xs[int(.9*(n-1))]:6.3f}  max {xs[-1]:6.3f}  sum/q {sum(xs)/len(totals):6.3f}")
+line("total", [t for t, _ in totals])
+for k in ("index_search", "describe", "published", "select"): line(k, spans.get(k, [0]))
+print("slowest:", sorted(totals, reverse=True)[:5])
