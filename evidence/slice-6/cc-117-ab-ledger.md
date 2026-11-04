@@ -372,3 +372,28 @@ The selector call is 90% of the time and all of the tail. The tail is random, no
 the same call repeated 6 times on one question took 3.6, 3.6, 7.5, 10.4, 16.4, 19.2 and 20.8 s, while the question
 that took 19.98 s in the sweep took 2.3 to 3.8 s on repeat. Pool size is not the cause (earlier: median 3.2 to
 3.3 s at depths 10, 20 and 30). `rerank._choose_gemini` sets no request timeout and no retry.
+
+## Round 7: timeout and one retry on the selector call
+
+`rerank.choose` now gives the Gemini request a 10 s deadline (`TIMEOUT_S`) and makes up to two attempts
+(`ATTEMPTS`); two failures still fall back to the retrieval top. Four tests, each mutation-checked
+(no retry, no timeout, retry on success).
+
+**A first attempt at 6 s was wrong, and the unit tests could not see it.** Gemini rejects a deadline under 10 s
+(`400 INVALID_ARGUMENT: Manually set deadline 6s is too short. Minimum allowed deadline is 10s.`). Every call then
+failed and fell back to the top-ranked table, which made `search_tables` look fast (selector median 0.92 s against
+3.8 s) and changed the picks (q15 B05011, q12 B27010). The faked `generate_content` in the tests accepts any
+deadline. It was caught because 0.9 s was too good to believe and the picks were re-read. 10 s is the floor.
+
+`search_tables` over the 66 golden questions, selector spans, with the 10 s deadline and retry (two sweeps; the
+provider's speed drifts between sweeps, so the medians differ):
+
+| sweep | total median s | total p90 s | total max s | selector max s |
+|---|---|---|---|---|
+| before (no deadline) | 4.25 | 6.25 | 19.98 | 19.46 |
+| 1 | 3.08 | 5.37 | 14.90 | 14.58 |
+| 2 | 3.13 | 4.41 | 7.60 | 7.34 |
+
+The cap works, but the 10 s floor limits it: a call that hangs costs 10 s plus a normal second attempt, about
+13 to 15 s, against up to 21 s before. A hedge (start the second call at about 6 s without cancelling the first) would
+cut it further and was not built.
