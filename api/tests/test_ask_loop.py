@@ -1572,3 +1572,38 @@ async def test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives() -> 
     assert "B19113" in listed
     assert "B25064" not in {response.table_id, *listed}
     assert "B25064" not in " ".join(response.urls)
+
+
+@pytest.mark.parametrize("override", [None, ResultPlan(dataset="acs5")])
+async def test_the_selector_reads_the_users_question_not_the_models_copy(
+    override: ResultPlan | None,
+) -> None:
+    read: list[str] = []
+
+    def select(question: str, hits: list[dict[str, Any]]) -> str:
+        read.append(question)
+        return hits[0]["table_id"]
+
+    tool = SearchTablesTool(
+        search=lambda question, k=10: ["B01003", "B19013"][:k], describe=_describe, select=select
+    )
+    record = ExecutionRecord()
+    record.override = override
+    record.question = "population by county, with margins of error"
+    call = {"id": "1", "args": {"question": "population", "topic": "population"}}
+    await dispatch(tool, call, record)
+    assert read == ["population by county, with margins of error"]
+
+
+async def test_a_loop_with_no_recorded_question_keeps_the_models_argument() -> None:
+    read: list[str] = []
+
+    def select(question: str, hits: list[dict[str, Any]]) -> str:
+        read.append(question)
+        return hits[0]["table_id"]
+
+    tool = SearchTablesTool(
+        search=lambda question, k=10: ["B01003", "B19013"][:k], describe=_describe, select=select
+    )
+    await dispatch(tool, {"id": "1", "args": {"question": "population"}}, ExecutionRecord())
+    assert read == ["population"]

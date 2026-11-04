@@ -260,7 +260,7 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
     ok = False
     content = ""
     try:
-        args = pin_tool_args(name, call.get("args") or {}, record.override)
+        args = pin_tool_args(name, call.get("args") or {}, record.override, record.question)
         if name == "resolve_geography" and record.override and record.override.geographies:
             content, ok = "override geography", True
         else:

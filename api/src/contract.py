@@ -277,10 +277,14 @@ def apply_override(record: Any, plan: ResultPlan | None) -> None:
     }
 
 
-def pin_tool_args(name: str, args: dict[str, Any], plan: ResultPlan | None) -> dict[str, Any]:
-    if plan is None:
-        return args
+def pin_tool_args(
+    name: str, args: dict[str, Any], plan: ResultPlan | None, question: str = ""
+) -> dict[str, Any]:
     out = dict(args)
+    if name == "search_tables" and question:
+        out["question"] = question  # the selector reads the user's words, not the model's copy
+    if plan is None:
+        return out
     years = override_years(plan)
     if name == "build_url":
         if plan.table_id:
