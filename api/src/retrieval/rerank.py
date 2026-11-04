@@ -89,7 +89,7 @@ def _choose_gemini(question: str, listing: str, model: str) -> str | None:
 def _choose_openai(question: str, listing: str, model: str) -> str | None:
     from openai import OpenAI
 
-    response = OpenAI(timeout=TIMEOUT_S).chat.completions.create(
+    response = OpenAI(timeout=TIMEOUT_S, max_retries=0).chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[

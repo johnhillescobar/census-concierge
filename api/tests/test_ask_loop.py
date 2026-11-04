@@ -1607,3 +1607,35 @@ async def test_a_loop_with_no_recorded_question_keeps_the_models_argument() -> N
     )
     await dispatch(tool, {"id": "1", "args": {"question": "population"}}, ExecutionRecord())
     assert read == ["population"]
+
+
+async def test_a_plan_pins_the_dataset_the_selector_pool_is_filtered_for() -> None:
+    seen: list[str] = []
+    tool = SearchTablesTool(
+        search=lambda question, k=10: ["B01003", "B19013"][:k],
+        describe=_describe,
+        select=lambda question, hits: hits[0]["table_id"],
+        published=lambda dataset, table_id: seen.append(dataset) is None,
+    )
+    record = ExecutionRecord()
+    record.override = ResultPlan(dataset="acs1")
+    await dispatch(tool, {"id": "1", "args": {"question": "population", "dataset": "acs5"}}, record)
+    assert set(seen) == {"acs1"}
+
+
+async def test_finish_searches_the_dataset_the_question_asks_for() -> None:
+    question = "1-year ACS median family income in Harris County"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    seen: list[str] = []
+    tools["search_tables"] = SearchTablesTool(
+        search=lambda question, k=10: ["B19013", "B19113"][:k],
+        describe=_describe,
+        select=lambda question, hits: hits[0]["table_id"],
+        published=lambda dataset, table_id: seen.append(dataset) is None,
+    )
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    await finish_tools(dispatch, tools, record)
+    assert seen and set(seen) == {"acs1"}

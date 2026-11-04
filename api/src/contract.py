@@ -285,6 +285,8 @@ def pin_tool_args(
         out["question"] = question  # the selector reads the user's words, not the model's copy
     if plan is None:
         return out
+    if name == "search_tables":
+        out["dataset"] = plan.dataset
     years = override_years(plan)
     if name == "build_url":
         if plan.table_id:

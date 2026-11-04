@@ -191,7 +191,7 @@ class SearchTablesTool(BaseTool):
     async def _arun(
         self, question: str, topic: str | None = "", dataset: str = "acs5", k: int = POOL_DEPTH
     ) -> tuple[str, SearchTablesResult]:
-        topic = (topic or "").strip()[:MAX_TOPIC]
+        topic = (topic or "")[:MAX_TOPIC].strip()
         wanted = k + UNPUBLISHED_SLACK if self.published else k
         table_ids = await asyncio.to_thread(self.search, topic or question, wanted)
         hits: list[dict[str, Any]] = []

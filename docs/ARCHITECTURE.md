@@ -68,8 +68,9 @@ import or request time. The loaded index is the one sanctioned module-level
 cache (read-only).
 
 `search()` ranks embeddings. BM25 is in `lexical.json.gz` and unused while
-`semantic.npz` exists. `search_tables` calls `rerank.choose()`; `search()`
-does not. Detail: `docs/retrieval.md`.
+`semantic.npz` exists. `search_tables(question, topic, dataset, k)` searches the model's
+`topic`, keeps tables the dataset's latest vintage publishes, and calls `rerank.choose()` over
+the user's own question (dispatch supplies it); `search()` does not. Detail: `docs/retrieval.md`.
 
 636 family documents (from 1,458). Synthetics committed, not embedded.
 Availability: `index_store/availability.json.gz` (not parquet).

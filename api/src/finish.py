@@ -349,7 +349,8 @@ async def finish_tools(
     if not url or redo:
         search = tools.get("search_tables")
         if search is not None and not record.pool:
-            await dispatch(search, {"id": "search_tables", "args": {"question": question}}, record)
+            asked = {"question": question, "dataset": "acs1" if wants_acs1(question) else "acs5"}
+            await dispatch(search, {"id": "search_tables", "args": asked}, record)
         if geo is not None and not redone and (redo or not record.geographies):
             status = getattr(record, "geo_status", None) or {}
             queries = list(getattr(record, "geo_queries", None) or [])
