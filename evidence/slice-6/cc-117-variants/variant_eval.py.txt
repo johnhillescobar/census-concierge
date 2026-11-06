@@ -11,8 +11,12 @@ head = rerank.PROMPT.split("Sibling tables share")[0]
 body = open(variant_path, encoding="utf-8").read().strip()
 if body != "CURRENT":
     rerank.PROMPT = head + body + '\n\nReturn JSON: {"table": "Bxxxxx"}'
-qs = [q for q in tomllib.load(open("evals/golden_questions.toml", "rb"))["question"]
-      if q.get("expect_table") and q.get("tier") == tier and bool(q.get("holdout")) == (tier == "holdout")]
+# "holdout" is a membership flag on long_tail entries, not a tier: select it apart from the tier.
+def wanted(q):
+    if not q.get("expect_table"):
+        return False
+    return bool(q.get("holdout")) if tier == "holdout" else q.get("tier") == tier and not q.get("holdout")
+qs = [q for q in tomllib.load(open("evals/golden_questions.toml", "rb"))["question"] if wanted(q)]
 search = ev.load_retriever(False); idx = load(); pos = {t: i for i, t in enumerate(idx.tables)}
 pools = {q["id"]: list(search(q["text"], 10)) for q in qs}
 def one(a):
