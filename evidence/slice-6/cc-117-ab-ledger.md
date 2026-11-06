@@ -476,3 +476,29 @@ Harness: `cc-117-variants/depth_product.py.txt`.
 Round 8 showed the 10 s deadline turning slow-but-correct selections (q41) into fast wrong ones, with no p95 gain over main.
 `rerank.py` and `test_rerank.py` are back to main's behaviour apart from `POOL_DEPTH` and the prompt. The bound on the wait is
 CC-125's story, which also covers the thinking-token tail (finding posted there). Branch re-run below.
+
+## Round 10 - branch re-run without the deadline (d7464e4, `--repeat 3`, n=186, HEAD d7464e4 at start and end)
+
+| | main (Round 8) | branch with deadline (6c7c512) | branch without (d7464e4) |
+|---|---|---|---|
+| long_tail answered | 0.767 (92) | 0.667 (80) | **0.683 (82)** |
+| trap | 0.907 | 0.944 | 0.926 |
+| core | 0.750 | 0.750 | 0.750 |
+| demo p95 | 28.5 s | 29.6 s | 20.39 s (ceiling 20) |
+
+Misses of 3 trials, per question (only questions whose count differs between runs):
+
+| question | main | with deadline | without |
+|---|---|---|---|
+| q15 | 0 | 3 | 3 |
+| q21 | 0 | 2 | 3 |
+| q41 | 0 | 3 | 3 |
+| q38 | 0 | 2 | 1 |
+| q40 | 0 | 2 | 1 |
+| t14 | 0 | 2 | 1 |
+| q12 | 1 | 0 | 0 |
+
+**Correction to Round 8:** q41 was not caused by the deadline. Without it q41 still misses 3 of 3, picking C15010 over
+B15012 (rerank 7 to 18 s; main picks B15012). The deadline did not change the long_tail rate beyond the noise in these
+samples (0.667 vs 0.683). Remaining gap to main in this window: q15, q21, q41 (9 trials), q38, q40, t14 (3 more).
+Floor 84/120 is not met (82).
