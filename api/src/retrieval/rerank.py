@@ -26,13 +26,6 @@ MODEL = "gemini-3.7-flash"
 # past 20, so a pool of 10 hides it from the selector. Search tool and eval share it.
 POOL_DEPTH = 30
 
-# One selector call takes about 3 s, but some take 10 to 20 s. The slow ones are hidden thinking
-# tokens (1,200 to 1,700 on a 15 s call, none on a 2 s call): this model does not honour
-# thinking_budget=0 and rejects thinking_level MINIMAL. Cut a slow call off and ask again.
-# Gemini rejects a deadline under 10 s (400 INVALID_ARGUMENT), so 10 is the floor.
-TIMEOUT_S = 10
-ATTEMPTS = 2
-
 PROMPT = """Pick the ACS table that best answers the question.
 
 Match the UNIVERSE — households, families, population and housing units are \
@@ -80,7 +73,6 @@ def _choose_gemini(question: str, listing: str, model: str) -> str | None:
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
             thinking_config=types.ThinkingConfig(thinking_budget=0),
-            http_options=types.HttpOptions(timeout=TIMEOUT_S * 1000),
         ),
     )
     return _pick_table(response.text or "{}")
@@ -89,7 +81,7 @@ def _choose_gemini(question: str, listing: str, model: str) -> str | None:
 def _choose_openai(question: str, listing: str, model: str) -> str | None:
     from openai import OpenAI
 
-    response = OpenAI(timeout=TIMEOUT_S, max_retries=0).chat.completions.create(
+    response = OpenAI().chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
         messages=[
@@ -106,13 +98,13 @@ def choose(question: str, candidates: list[Candidate], model: str = MODEL) -> st
     listing = "\n".join(
         f"{c.table_id}: {c.title} | universe: {c.universe or 'not published'}" for c in candidates
     )
-    pick = _choose_gemini if model.startswith("gemini") else _choose_openai
-    for _ in range(ATTEMPTS):
-        try:
-            picked = pick(question, listing, model)
-            break
-        except Exception:  # noqa: BLE001 - a reranker that fails must not lose the ranking
-            picked = None
+    try:
+        if model.startswith("gemini"):
+            picked = _choose_gemini(question, listing, model)
+        else:
+            picked = _choose_openai(question, listing, model)
+    except Exception:  # noqa: BLE001 - a reranker that fails must not lose the ranking
+        return fallback
     # Never invent a table: a hallucinated ID would be a 400 from the Census API
     # that the agent then "fixes" by inventing a different wrong call.
     return picked if picked and any(c.table_id == picked for c in candidates) else fallback

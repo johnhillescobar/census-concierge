@@ -470,3 +470,9 @@ Depth 30 is best on every tier, so the demo losses at depth 30 are not a depth e
 that is missed at depth 20 and 30 only (the competing table is not in a 10-deep pool). The offline numbers do not show
 the demo's q38, q40 and q21 misses (the demo composes its own topic each run, so its pool differs from the captured one).
 Harness: `cc-117-variants/depth_product.py.txt`.
+
+## Round 9 - the deadline and retry are removed
+
+Round 8 showed the 10 s deadline turning slow-but-correct selections (q41) into fast wrong ones, with no p95 gain over main.
+`rerank.py` and `test_rerank.py` are back to main's behaviour apart from `POOL_DEPTH` and the prompt. The bound on the wait is
+CC-125's story, which also covers the thinking-token tail (finding posted there). Branch re-run below.
