@@ -12,6 +12,7 @@ from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import AskResponse, GeoSpec, ResultPlan
 from src.fetch import FetchDataTool
+from src.finish import finish_tools
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
 from src.vintages import requested_years
@@ -408,10 +409,10 @@ async def test_every_tract_listing_replaces_a_county_url() -> None:
     record.geography = wayne
     record.geographies = [wayne]
     record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
-    record.pool = [{"table_id": "B27010", "universe": "Population", "members": []}]
-    record.table_id = "B27010"
+    record.pool = [{"table_id": "B27001", "universe": "Population", "members": []}]
+    record.table_id = "B27001"
     record.url = CensusURL(
-        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27010_001E,B27010_001M"
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B27001_001E,B27001_001M"
         "&for=county:163&in=state:26"
     )
     response = await run_ask(
@@ -1472,3 +1473,169 @@ async def test_a_plan_that_names_the_places_never_asks_the_model_to_split() -> N
     plan = ResultPlan(table_id="B01003", geographies=[DANE])
     await run_ask("anything", complete=complete, tools=_tools(record), record=record, override=plan)
     assert calls and all(calls)
+
+
+def _stub_pool(*table_ids: str) -> list[dict[str, Any]]:
+    return [
+        {"table_id": table_id, "title": "", "universe": "Households", "members": []}
+        for table_id in table_ids
+    ]
+
+
+def _with_search(
+    tools: dict[str, Any], hits_by_question: dict[str, list[str]], calls: list[str]
+) -> None:
+    def search(question: str, k: int = 10) -> list[str]:
+        calls.append(question)
+        return hits_by_question.get(question, [])[:k]
+
+    tools["search_tables"] = SearchTablesTool(
+        search=search,
+        describe=_describe,
+        select=lambda _question, hits: hits[-1]["table_id"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("question", "pool", "expected"),
+    [
+        ("median family income in Harris County", ["B19013", "B19113"], "B19013"),
+        ("poverty in Harris County", ["B28002", "B17001"], "B28002"),
+        ("median gross rent in Harris County", ["B01003", "B25064"], "B01003"),
+    ],
+)
+async def test_finish_with_a_pool_builds_its_first_table_without_searching(
+    question: str, pool: list[str], expected: str
+) -> None:
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {}, calls)
+    record.pool = _stub_pool(*pool)
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    await finish_tools(dispatch, tools, record)
+    assert calls == []
+    assert record.table_id == expected
+    assert f"{expected}_001E" in str(record.url)
+
+
+async def test_finish_builds_the_plan_table_when_retrieval_returns_nothing() -> None:
+    question = "median family income in Harris County"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {}, calls)
+    record.override = ResultPlan(table_id="B19001")
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    await finish_tools(dispatch, tools, record)
+    assert calls == [question]
+    assert record.pool == []
+    assert record.table_id == "B19001"
+
+
+@pytest.mark.parametrize(
+    ("question", "retrieved", "expected"),
+    [
+        ("median gross rent in Harris County", ["B19013", "B01003"], "B01003"),
+        ("poverty in Harris County", ["B27001", "B28002"], "B28002"),
+        ("number of cell phones in Harris County", ["B19001", "B19113"], "B19113"),
+    ],
+)
+async def test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_pick(
+    question: str, retrieved: list[str], expected: str
+) -> None:
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {question: retrieved}, calls)
+    await finish_tools(dispatch, tools, record)
+    assert calls == [question]
+    assert [hit["table_id"] for hit in record.pool][0] == expected
+    assert sorted(hit["table_id"] for hit in record.pool) == sorted(retrieved)
+    assert record.table_id == expected
+
+
+async def test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives() -> None:
+    question = "median gross rent in Harris County"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    calls: list[str] = []
+    _with_search(tools, {question: ["B19013", "B19113"]}, calls)
+    tools["search_tables"].select = lambda _question, _hits: "B25064"
+    response = await run_ask(question, complete=_stopped(), tools=tools, record=record)
+    assert response.table_id == "B19013"
+    listed = {item.table_id for item in response.alternatives}
+    assert "B19113" in listed
+    assert "B25064" not in {response.table_id, *listed}
+    assert "B25064" not in " ".join(response.urls)
+
+
+@pytest.mark.parametrize("override", [None, ResultPlan(dataset="acs5")])
+async def test_the_selector_reads_the_users_question_not_the_models_copy(
+    override: ResultPlan | None,
+) -> None:
+    read: list[str] = []
+
+    def select(question: str, hits: list[dict[str, Any]]) -> str:
+        read.append(question)
+        return hits[0]["table_id"]
+
+    tool = SearchTablesTool(
+        search=lambda question, k=10: ["B01003", "B19013"][:k], describe=_describe, select=select
+    )
+    record = ExecutionRecord()
+    record.override = override
+    record.question = "population by county, with margins of error"
+    call = {"id": "1", "args": {"question": "population", "topic": "population"}}
+    await dispatch(tool, call, record)
+    assert read == ["population by county, with margins of error"]
+
+
+async def test_a_loop_with_no_recorded_question_keeps_the_models_argument() -> None:
+    read: list[str] = []
+
+    def select(question: str, hits: list[dict[str, Any]]) -> str:
+        read.append(question)
+        return hits[0]["table_id"]
+
+    tool = SearchTablesTool(
+        search=lambda question, k=10: ["B01003", "B19013"][:k], describe=_describe, select=select
+    )
+    await dispatch(tool, {"id": "1", "args": {"question": "population"}}, ExecutionRecord())
+    assert read == ["population"]
+
+
+async def test_a_plan_pins_the_dataset_the_selector_pool_is_filtered_for() -> None:
+    seen: list[str] = []
+    tool = SearchTablesTool(
+        search=lambda question, k=10: ["B01003", "B19013"][:k],
+        describe=_describe,
+        select=lambda question, hits: hits[0]["table_id"],
+        published=lambda dataset, table_id: seen.append(dataset) is None,
+    )
+    record = ExecutionRecord()
+    record.override = ResultPlan(dataset="acs1")
+    await dispatch(tool, {"id": "1", "args": {"question": "population", "dataset": "acs5"}}, record)
+    assert set(seen) == {"acs1"}
+
+
+async def test_finish_searches_the_dataset_the_question_asks_for() -> None:
+    question = "1-year ACS median family income in Harris County"
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    seen: list[str] = []
+    tools["search_tables"] = SearchTablesTool(
+        search=lambda question, k=10: ["B19013", "B19113"][:k],
+        describe=_describe,
+        select=lambda question, hits: hits[0]["table_id"],
+        published=lambda dataset, table_id: seen.append(dataset) is None,
+    )
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    await finish_tools(dispatch, tools, record)
+    assert seen and set(seen) == {"acs1"}

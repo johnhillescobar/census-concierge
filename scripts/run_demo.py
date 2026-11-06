@@ -510,35 +510,36 @@ def main() -> int:
     prompt = short_hash(ROLE)
     index = index_hash()
     trials: list[Trial] = []
-    client = TestClient(app)
-    served = inspect_served_build(client)
-    print(
-        f"served_build  GET / {served['status_code']}  "
-        f"{served['content_type'] or 'no-content-type'}  "
-        f"title={'yes' if served['has_title'] else 'no'}  "
-        f"root={'yes' if served['has_root'] else 'no'}  "
-        f"acao={served['acao'] or 'none'}",
-        flush=True,
-    )
-    if not served_build_ok(served):
+    # Entered as a context manager: a bare TestClient leaves one event loop alive per request.
+    with TestClient(app) as client:
+        served = inspect_served_build(client)
         print(
-            "Frontend is not being served. "
-            "Build it first: npm --prefix web ci && npm --prefix web run build",
-            file=sys.stderr,
+            f"served_build  GET / {served['status_code']}  "
+            f"{served['content_type'] or 'no-content-type'}  "
+            f"title={'yes' if served['has_title'] else 'no'}  "
+            f"root={'yes' if served['has_root'] else 'no'}  "
+            f"acao={served['acao'] or 'none'}",
+            flush=True,
         )
-        return 2
-    total = len(questions) * args.repeat
-    for round_id in range(1, args.repeat + 1):
-        for entry in questions:
-            trial = _ask(client, clock, entry, round_id)
-            trials.append(trial)
-            write_progress(len(trials), total, trial)
-            if args.verbose:
-                mark = "ok" if trial.answered else "MISS"
-                print(
-                    f"  {mark:<4} {trial.id} r{round_id}  {trial.latency_s:.1f}s"
-                    f"  {trial.table_id or '—'}  {trial.detail}"
-                )
+        if not served_build_ok(served):
+            print(
+                "Frontend is not being served. "
+                "Build it first: npm --prefix web ci && npm --prefix web run build",
+                file=sys.stderr,
+            )
+            return 2
+        total = len(questions) * args.repeat
+        for round_id in range(1, args.repeat + 1):
+            for entry in questions:
+                trial = _ask(client, clock, entry, round_id)
+                trials.append(trial)
+                write_progress(len(trials), total, trial)
+                if args.verbose:
+                    mark = "ok" if trial.answered else "MISS"
+                    print(
+                        f"  {mark:<4} {trial.id} r{round_id}  {trial.latency_s:.1f}s"
+                        f"  {trial.table_id or '—'}  {trial.detail}"
+                    )
 
     summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index)
     blob = json.dumps(summary)

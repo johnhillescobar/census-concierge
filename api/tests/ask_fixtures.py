@@ -62,7 +62,7 @@ def _search(question: str, k: int = 10) -> list[str]:
     if "health insurance" in q:
         return ["B27001"][:k]
     if "cell phone" in q or "mobile phone" in q or "households with a computer" in q:
-        return ["B28010", "B28003"][:k]
+        return ["B28001"][:k]
     if "income" in q:
         return ["B19013"][:k]
     if "population" in q:

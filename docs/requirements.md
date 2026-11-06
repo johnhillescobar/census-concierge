@@ -41,7 +41,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 
 | code | condition |
 |---|---|
-| `measure_unavailable` | Census does not measure it. Offer the nearest real thing and name its universe. |
+| `measure_unavailable` | Census does not measure it. Offer the nearest real thing and name its universe. Not raised today: CC-117 removed its phrase trigger. |
 | `acs1_geography_ineligible` | ACS1 is published only for places of 65,000+. |
 | `vintage_gap_2020` | No standard 2020 ACS1 release. Show a gap; never interpolate. |
 | `boundary_change_2020` | Tract / block-group geometry was redrawn across 2020. |

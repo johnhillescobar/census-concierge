@@ -1,0 +1,39 @@
+import sys, json, tomllib, os
+from concurrent.futures import ThreadPoolExecutor
+sys.path.insert(0, "scripts"); sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv()
+import eval_retrieval as ev
+from openai import OpenAI
+qs = [q for q in tomllib.load(open("evals/golden_questions.toml", "rb"))["question"]
+      if q.get("expect_table") and not q.get("holdout") and q.get("tier") in ("long_tail", "trap", "core")]
+INSTR = ("Write a short search phrase naming only the Census measure this question asks about: the subject and, if asked, "
+         "the breakdown. Leave out place names, years, dataset names such as ACS or 1-year, and filler words. "
+         "Example: 'median home value in Ohio in 2022' -> 'median home value'. Reply with the phrase only.")
+client = OpenAI()
+def topic(q):
+    r = client.chat.completions.create(model="gpt-4o-mini", temperature=0,
+        messages=[{"role": "system", "content": INSTR}, {"role": "user", "content": q["text"]}])
+    return q["id"], r.choices[0].message.content.strip().strip("'\"")
+with ThreadPoolExecutor(8) as ex: topics = dict(ex.map(topic, qs))
+json.dump(topics, open(sys.argv[1], "w"), indent=1)
+search = ev.load_retriever(False)
+def rrf(a, b, k=60):
+    sc = {}
+    for lst in (a, b):
+        for r, t in enumerate(lst, 1): sc[t] = sc.get(t, 0) + 1 / (k + r)
+    return [t for t, _ in sorted(sc.items(), key=lambda x: -x[1])]
+def rank(lst, e): return lst.index(e) + 1 if e in lst else None
+rows = []
+for q in qs:
+    full = list(search(q["text"], 60)); top = list(search(topics[q["id"]], 60)); fused = rrf(full, top)
+    rows.append((q["id"], q["tier"], q["expect_table"], rank(full, q["expect_table"]), rank(top, q["expect_table"]), rank(fused, q["expect_table"]), topics[q["id"]]))
+def rate(col, tier, k):
+    s = [r for r in rows if r[1] == tier]
+    return sum(1 for r in s if r[col] and r[col] <= k) / len(s)
+print("recall of expected table      @10    @30   (full question | topic only | fused)")
+for tier in ("long_tail", "trap", "core"):
+    print(f"{tier:9} n={sum(1 for r in rows if r[1]==tier):2}  " + "  ".join(f"{n}: {rate(c,tier,10):.3f}/{rate(c,tier,30):.3f}" for n, c in (("full", 3), ("topic", 4), ("fused", 5))))
+print("\nper question where ranks differ materially (id exp | full topic fused | topic text):")
+for r in rows:
+    if (r[3] or 99) > 10 or (r[4] or 99) > 10 or (r[5] or 99) > 10:
+        print(f"{r[0]:4} {r[2]:8} | {str(r[3]):>4} {str(r[4]):>4} {str(r[5]):>4} | {r[6]}")

@@ -14,19 +14,6 @@ REASON_OVERLAP = "overlapping_vintage"
 REASON_MAX = "max_years"
 REASON_NO_URL = "no_url"
 REASON_UNPUBLISHED = "unpublished_vintage"
-DEVICE_TABLE = "B28001"
-RENT_TABLE = "B25064"
-FAMILY_INCOME_TABLE = "B19113"
-DISTRIBUTION_TABLE = "B19001"
-POVERTY_TABLE = "B17001"
-HEALTH_TABLE = "B27001"
-_DEVICE = re.compile(r"\b(?:cell phones?|mobile phones?)\b", re.IGNORECASE)
-_COMPUTER = re.compile(r"\bhouseholds with a computer\b", re.IGNORECASE)
-_RENT = re.compile(r"\bmedian gross rent\b", re.IGNORECASE)
-_FAMILY_INCOME = re.compile(r"\bmedian family income\b", re.IGNORECASE)
-_DISTRIBUTION = re.compile(r"\bincome distribution\b", re.IGNORECASE)
-_POVERTY = re.compile(r"\bpoverty\b", re.IGNORECASE)
-_UNINSURED = re.compile(r"\bwithout health insurance\b", re.IGNORECASE)
 _ACS1 = re.compile(r"\b(?:1-year|acs1)\b", re.IGNORECASE)
 _SINCE_WORD = re.compile(r"\bsince\s+(?:19|20)\d{2}\b", re.IGNORECASE)
 _SINCE = re.compile(r"\b(?:since|from|through)\s+((?:19|20)\d{2})\b", re.IGNORECASE)
@@ -85,41 +72,6 @@ def requested_years(question: str, latest: int) -> list[int]:
 
 def wants_acs1(question: str) -> bool:
     return _ACS1.search(question) is not None
-
-
-def device_table(question: str) -> str | None:
-    text = str(question or "")
-    if _DEVICE.search(text) or _COMPUTER.search(text):
-        return DEVICE_TABLE
-    return None
-
-
-def pinned_table(question: str) -> str | None:
-    if hit := device_table(question):
-        return hit
-    if _RENT.search(question):
-        return RENT_TABLE
-    if _FAMILY_INCOME.search(question):
-        return FAMILY_INCOME_TABLE
-    if _DISTRIBUTION.search(question):
-        return DISTRIBUTION_TABLE
-    if _POVERTY.search(question):
-        return POVERTY_TABLE
-    if _UNINSURED.search(question):
-        return HEALTH_TABLE
-    return None
-
-
-def measure_unavailable(record: Any) -> AskWarning | None:
-    if not _DEVICE.search(str(getattr(record, "question", "") or "")):
-        return None
-    return AskWarning(
-        code="measure_unavailable",
-        detail=(
-            "ACS does not count devices; B28001 counts households in which "
-            "someone has a smartphone (universe: Households)"
-        ),
-    )
 
 
 def variable_not_in_vintage(record: Any) -> AskWarning | None:

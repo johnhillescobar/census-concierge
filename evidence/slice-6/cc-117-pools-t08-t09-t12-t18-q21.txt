@@ -1,0 +1,75 @@
+Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+
+=== t08  expected B19001  (NOT IN TOP 10)
+Q: Give me the income distribution, not just the median, for Travis County
+selector picks x3: {'B25118': 3}
+   1. B19082   Shares of Aggregate Household Income by Quintile | Households
+   2. B19301   Per Capita Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars) | Total population
+   3. B19081   Mean Household Income of Quintiles | Households
+   4. B25118   Tenure by Household Income in the Past 12 Months (in 2024 Inflation-Adjusted D | Occupied housing units  <-- PICKED
+   5. B19202   Median Nonfamily Household Income in the Past 12 Months (in 2024 Inflation-Adj | Nonfamily households
+   6. B19083   Gini Index of Income Inequality | Households
+   7. B19127   Aggregate Family Income in the Past 12 Months (in 2024 Inflation-Adjusted Doll | Families
+   8. B19025   Aggregate Household Income in the Past 12 Months (in 2024 Inflation-Adjusted D | Households
+   9. B19070   Aggregate Other Types of Income in the Past 12 Months (in 2024 Inflation-Adjus | Households
+  10. B25120   Aggregate Household Income in the Past 12 Months (in 2024 Inflation-Adjusted D | Occupied housing units
+  expected table is: B19001  Household Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars) | Households
+
+=== t09  expected B28001  (NOT IN TOP 10)
+Q: Number of cell phones in Denver since 2017
+selector picks x3: {'B28010': 3}
+   1. B25046   Aggregate Number of Vehicles Available by Tenure | Occupied housing units
+   2. B25083   Median Value (Dollars) for Mobile Homes | Owner-occupied mobile homes
+   3. B28011   Internet Subscriptions in Household | Households
+   4. B28002   Presence and Types of Internet Subscriptions in Household | Households
+   5. B25043   Tenure by Telephone Service Available by Age of Householder | Occupied housing units
+   6. B07201   Geographical Mobility in the Past Year for Current Residence--Metropolitan Sta | Population 1 year and over living in a Met
+   7. B28012   Age and Enrollment Status by Computer Ownership and Internet Subscription Stat | Population in households
+   8. B19301   Per Capita Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars) | Total population
+   9. B28010   Computers in Household | Households  <-- PICKED
+  10. B07413   Geographical Mobility in the Past Year by Tenure for Residence 1 Year Ago in t | Population 1 year and over in households i
+  expected table is: B28001  Types of Computers in Household | Households
+
+=== t12  expected B17001  (NOT IN TOP 10)
+Q: 1-year ACS poverty for Fresno County, 2018 through 2022
+selector picks x3: {'B17020': 3}
+   1. B17024   Age by Ratio of Income to Poverty Level in the Past 12 Months | Population for whom poverty status is dete
+   2. B17002   Ratio of Income to Poverty Level in the Past 12 Months | Population for whom poverty status is dete
+   3. B17026   Ratio of Income to Poverty Level of Families in the Past 12 Months | Families
+   4. B17020   Poverty Status in the Past 12 Months by Age | Population for whom poverty status is dete  <-- PICKED
+   5. B19301   Per Capita Income in the Past 12 Months (in 2024 Inflation-Adjusted Dollars) | Total population
+   6. C17013   Poverty Status in the Past 12 Months of Families by Number of Persons in Famil | Families
+   7. B17101   Poverty Status in the Past 12 Months of People in Housing Units | Population in households for whom poverty 
+   8. B17025   Poverty Status in the Past 12 Months by Nativity | Population for whom poverty status is dete
+   9. B05010   Ratio of Income to Poverty Level in the Past 12 Months by Nativity of Children | Own children under 18 years in families an
+  10. C05010   Ratio of Income to Poverty Level in the Past 12 Months by Nativity of Children | Own children under 18 years in families an
+  expected table is: B17001  Poverty Status in the Past 12 Months by Sex by Age | Population for whom poverty status is determined
+
+=== t18  expected B27001  (NOT IN TOP 10)
+Q: Total population without health insurance across every tract in Wayne County
+selector picks x3: {'B27010': 3}
+   1. C27014   Public Health Insurance by Work Experience | Civilian noninstitutionalized population 1
+   2. B27003   Public Health Insurance Status by Sex by Age | Civilian noninstitutionalized population
+   3. C27021   Health Insurance Coverage Status by Living Arrangement | Civilian noninstitutionalized population
+   4. B18135   Age by Disability Status by Health Insurance Coverage Status | Civilian noninstitutionalized population
+   5. C27016   Health Insurance Coverage Status by Ratio of Income to Poverty Level in the Pa | Civilian noninstitutionalized population f
+   6. B27018   Public Health Insurance by Ratio of Income to Poverty Level in the Past 12 Mon | Civilian noninstitutionalized population f
+   7. B27014   Public Health Insurance by Work Experience by Sex | Civilian noninstitutionalized population 1
+   8. B27017   Private Health Insurance by Ratio of Income to Poverty Level in the Past 12 Mo | Civilian noninstitutionalized population f
+   9. B27010   Types of Health Insurance Coverage by Age | Civilian noninstitutionalized population  <-- PICKED
+  10. B27016   Health Insurance Coverage Status and Type by Ratio of Income to Poverty Level  | Civilian noninstitutionalized population f
+  expected table is: B27001  Health Insurance Coverage Status by Sex by Age | Civilian noninstitutionalized population
+
+=== q21  expected B19058  (rank 4)
+Q: Households receiving SNAP benefits in the Rio Grande Valley
+selector picks x3: {'C22001': 3}
+   1. C22001   Receipt of Food Stamps/SNAP in the Past 12 Months for Households | Households  <-- PICKED
+   2. B22001   Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of People 60 Yea | Households
+   3. B22003   Receipt of Food Stamps/SNAP in the Past 12 Months by Poverty Status in the Pas | Households
+   4. B19058   Public Assistance Income or Food Stamps/SNAP in the Past 12 Months for Househo | Households  <-- EXPECTED
+   5. B22010   Receipt of Food Stamps/SNAP in the Past 12 Months by Disability Status for Hou | Households
+   6. B22002   Receipt of Food Stamps/SNAP in the Past 12 Months by Presence of Children Unde | Households
+   7. B19123   Family Size by Cash Public Assistance Income or Households Receiving Food Stam | Families
+   8. B22008   Median Household Income in the Past 12 Months (in 2024 Inflation-Adjusted Doll | Households
+   9. B09010   Receipt of Supplemental Security Income (SSI), Cash Public Assistance Income,  | Population under 18 years in households
+  10. B22007   Receipt of Food Stamps/SNAP in the Past 12 Months by Family Type by Number of  | Families

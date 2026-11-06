@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from src.census_url import CENSUS_API, CensusURL
 from src.contract import GeoSpec
-from src.vintages import pinned_table
+from src.retrieval.rerank import POOL_DEPTH
 
 # --- markers. Direct BaseModel subclasses named these are excluded from the
 # domain-model budget; every tool I/O class subclasses one of them instead. ---
@@ -27,7 +27,19 @@ class ToolResult(BaseModel):
 
 class SearchTablesInput(ToolInput):
     question: str = Field(description="The user's question, verbatim.")
-    k: int = Field(default=10, ge=1, le=20, description="Candidate pool size.")
+    topic: str | None = Field(
+        default="",
+        description=(
+            "The measure the question asks about in a few words: the subject and any breakdown, "
+            "with no place names, years or dataset names (a question about median home value in "
+            "a named state in 2022 has topic 'median home value'). The index is searched with "
+            "this; the question is still read when the table is picked."
+        ),
+    )
+    dataset: Literal["acs5", "acs1"] = Field(
+        default="acs5", description="acs5, or acs1 only if the question asks for 1-year data."
+    )
+    k: int = Field(default=POOL_DEPTH, ge=1, le=POOL_DEPTH, description="Candidate pool size.")
 
 
 class SearchTablesResult(ToolResult):
@@ -86,12 +98,16 @@ class BuildUrlResult(ToolResult):
     universe: str = ""
 
 
+UNPUBLISHED_SLACK = 20  # extra candidates fetched so tables the vintage lacks can be dropped
+MAX_TOPIC = 200  # a measure phrase; longer text is the model pasting the question
+SHOWN = 10  # the selector reads POOL_DEPTH; the answer lists its pick plus the best-ranked rest
 DescribeTable = Callable[[str], dict[str, Any] | None]
 SearchFn = Callable[[str, int], list[str]]
 SelectFn = Callable[[str, list[dict[str, Any]]], str]
 AllowedTables = Callable[[], set[str]]
 AllowedGeographies = Callable[[], set[tuple[str, str, str]]]
 LatestVintage = Callable[[str], int]
+Published = Callable[[str, str], bool]
 TableFacts = Callable[[str, int, str], dict[str, Any] | None]
 LastGeography = Callable[[], GeoSpec | None]
 
@@ -103,26 +119,6 @@ def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
     return [hit for hit in hits if hit["table_id"] == picked] + [
         hit for hit in hits if hit["table_id"] != picked
     ]
-
-
-def _with_device_table(
-    question: str, hits: list[dict[str, Any]], describe: DescribeTable
-) -> list[dict[str, Any]]:
-    table_id = pinned_table(question)
-    if not table_id:
-        return hits
-    if any(hit["table_id"] == table_id for hit in hits):
-        return _promote(hits, table_id)
-    meta = describe(table_id) or {}
-    if not meta:
-        return hits
-    injected = {
-        "table_id": table_id,
-        "title": meta.get("title", ""),
-        "universe": meta.get("universe", ""),
-        "members": list(meta.get("members") or []),
-    }
-    return [injected, *[hit for hit in hits if hit["table_id"] != table_id]]
 
 
 def _pick_table(question: str, hits: list[dict[str, Any]], select: SelectFn | None) -> str:
@@ -186,13 +182,18 @@ class SearchTablesTool(BaseTool):
     search: SearchFn
     describe: DescribeTable
     select: SelectFn | None = None
-    _picks: dict[str, str] = PrivateAttr(default_factory=dict)
+    published: Published | None = None
+    _picks: dict[tuple[str, str, str, int], str] = PrivateAttr(default_factory=dict)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("search_tables is async-only")
 
-    async def _arun(self, question: str, k: int = 10) -> tuple[str, SearchTablesResult]:
-        table_ids = await asyncio.to_thread(self.search, question, k)
+    async def _arun(
+        self, question: str, topic: str | None = "", dataset: str = "acs5", k: int = POOL_DEPTH
+    ) -> tuple[str, SearchTablesResult]:
+        topic = (topic or "")[:MAX_TOPIC].strip()
+        wanted = k + UNPUBLISHED_SLACK if self.published else k
+        table_ids = await asyncio.to_thread(self.search, topic or question, wanted)
         hits: list[dict[str, Any]] = []
         for table_id in table_ids:
             meta = self.describe(table_id) or {}
@@ -204,13 +205,18 @@ class SearchTablesTool(BaseTool):
                     "members": list(meta.get("members") or []),
                 }
             )
+        if self.published:
+            hits = [
+                hit
+                for hit in hits
+                if any(self.published(dataset, t) for t in (hit["table_id"], *hit["members"]))
+            ][:k]
         if len(hits) > 1:
-            picked = self._picks.get(question)
+            picked = self._picks.get((question, topic, dataset, k))
             if picked is None:
                 picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
-                self._picks[question] = picked
-            hits = _promote(hits, picked)
-        hits = _with_device_table(question, hits, self.describe)
+                self._picks[(question, topic, dataset, k)] = picked
+            hits = _promote(hits, picked)[:SHOWN]
         artifact = SearchTablesResult(hits=hits)
         if not hits:
             return "0 candidates", artifact

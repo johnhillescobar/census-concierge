@@ -1,0 +1,12 @@
+import sys, json, collections
+sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv(".env")
+from src.retrieval import rerank
+from src.retrieval.rerank import Candidate, choose
+pools = json.load(open(sys.argv[1])); head = rerank.PROMPT.split("Sibling tables share")[0]
+for v in sys.argv[2:]:
+    body = open(v, encoding="utf-8").read().replace("\\n", "").strip()
+    rerank.PROMPT = head + body + '\n\nReturn JSON: {"table": "Bxxxxx"}'
+    for qid in ("q15", "t14", "q12", "q21"):
+        p = pools[qid]; c = collections.Counter(choose(p["text"], [Candidate(*x) for x in p["cands"]]) for _ in range(5))
+        print(v.split('/')[-1], qid, "expect", p["expect"], dict(c))

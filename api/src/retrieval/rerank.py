@@ -21,6 +21,11 @@ from dataclasses import dataclass
 # gpt-4o-mini over the same frozen top-10 pool.
 MODEL = "gemini-3.7-flash"
 
+# The selector reads this many ranked candidates. The retriever ranks the plain
+# base table of a family below narrower cross-tabs, often past 10 and sometimes
+# past 20, so a pool of 10 hides it from the selector. Search tool and eval share it.
+POOL_DEPTH = 30
+
 PROMPT = """Pick the ACS table that best answers the question.
 
 Match the UNIVERSE — households, families, population and housing units are \
@@ -31,16 +36,13 @@ crosses that subject with another variable.
 When several candidates share a subject, match the TITLE to what the question \
 asks — not the narrowest cross-tab unless the question names that breakdown.
 
-Sibling rules (same universe, different table):
-- Commute length / how long people travel → "Travel Time to Work" (time bands), \
-NOT "Aggregate Travel Time... (in Minutes)" — those are summed minutes, not commute length.
-- Households receiving SNAP / food stamps → "Public Assistance Income or Food \
-Stamps/SNAP for Households", NOT receipt crossed with age, poverty, disability, \
-or income medians.
-- What people studied / college major / field of degree → "Total Fields of \
-Bachelor's Degrees Reported" or "Field of Bachelor's Degree", NOT enrollment \
-or general educational attainment tables.
-- When a B and C table both fit, prefer the B table — C tables collapse categories.
+Sibling tables share a universe and differ in breakdown. Take the candidate \
+whose title names the subject of the question. A longer title that adds "by ..." \
+is a cross-tab: take it only when the question also concerns what follows "by", \
+otherwise take the plainer title. Also skip a title built around a summary \
+statistic (Aggregate, Median, Mean, Share, Index) unless the question asks for \
+that statistic. Aggregate means a sum across everyone, so it answers only totals.
+When a B and C table both fit, prefer the B table — C tables collapse categories.
 
 Return JSON: {"table": "Bxxxxx"}"""
 

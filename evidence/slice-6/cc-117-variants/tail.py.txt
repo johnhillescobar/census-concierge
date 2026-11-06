@@ -1,0 +1,12 @@
+import sys, json, time
+from concurrent.futures import ThreadPoolExecutor
+sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv(".env")
+from src.retrieval.rerank import Candidate, choose
+pools = json.load(open(sys.argv[1]))
+def go(qid):
+    p = pools[qid]; t = time.perf_counter(); choose(p["text"], [Candidate(*c) for c in p["cands"]]); return time.perf_counter() - t
+for qid in ("h03", "q41", "q34", "q15", "q02"):
+    if qid not in pools: continue
+    xs = [go(qid) for _ in range(6)]
+    print(qid, "tokens~", sum(len(" ".join(c)) for c in pools[qid]["cands"]) // 4, " ".join(f"{x:5.1f}" for x in xs), flush=True)

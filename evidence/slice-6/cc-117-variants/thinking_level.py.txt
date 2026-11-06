@@ -1,0 +1,20 @@
+import sys, json, time, os
+sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv(".env")
+from google import genai
+from google.genai import types
+from src.retrieval import rerank
+pools = json.load(open(os.environ["TEMP"] + "/cc117/pools.json"))
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+def cfg(level):
+    return types.GenerateContentConfig(response_mime_type="application/json", thinking_config=types.ThinkingConfig(thinking_level=level), http_options=types.HttpOptions(timeout=60000))
+for level in sys.argv[1:]:
+    for qid in ("q41", "q34", "q41", "q15"):
+        p = pools[qid]; listing = "\n".join(f"{c[0]}: {c[1]} | universe: {c[2]}" for c in p["cands"])
+        t = time.perf_counter()
+        try:
+            r = client.models.generate_content(model=rerank.MODEL, contents=f"{rerank.PROMPT}\n\nQuestion: {p['text']}\n\nCandidates:\n{listing}", config=cfg(level))
+            u = r.usage_metadata
+            print(level, qid, f"{time.perf_counter()-t:5.1f}s thoughts", getattr(u, "thoughts_token_count", None), (r.text or "").strip()[:30].replace("\n", " "), flush=True)
+        except Exception as e:
+            print(level, qid, "EXC", str(e)[:160]); break

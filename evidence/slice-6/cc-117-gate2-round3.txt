@@ -1,0 +1,37 @@
+CC-117 Gate 2, round 3: fresh read-only subagents on the delta since 1f9115b (tip 92c2692). Two passes.
+
+PASS A - generic cold code review (reported findings, ranked; dispositions are mine):
+ 1. dataset filter not pinned in the finish fallback or by a plan override. CONFIRMED. FIXED: finish.py asks the
+    dataset wants_acs1 names; pin_tool_args pins plan.dataset for search_tables. Two tests, mutation-checked.
+ 2. A family kept via a published member can lead with an unpublished base id. PLAUSIBLE. NOT CHANGED: build_url
+    accepts pool members (tools.py "not in the search pool or its family members"); rare. Recorded in the ledger.
+ 3. t09 golden dropped expect_warning. CONFIRMED in the diff. This was the owner's rebaseline decision; reported
+    apart from code gains in the PR and ledger, with the cost named (no universe explanation for device questions).
+ 4. OpenAI client keeps SDK max_retries=2, so 10 s x 3 x 2 attempts. CONFIRMED. FIXED: max_retries=0.
+ 5. Retry loop retries non-transient errors and falls back silently. PLAUSIBLE. NOT CHANGED here; the silent
+    fallback is the pre-existing behaviour and is the lesson of the 6 s deadline (ledger Round 7, CC-125 comment).
+ 6. A bad dataset value ("ACS5") fails Literal validation. PLAUSIBLE, same exposure as resolve_geography. NOT CHANGED.
+ 7. Minor: strip()[:MAX_TOPIC] can leave a trailing space. FIXED (slice, then strip).
+ Verified fine by the reviewer: question pin ordering; timeout carried to the request; retry tests fail at
+ ATTEMPTS=1; index.search ranking unchanged; empty pool after the filter; run_demo context manager.
+
+PASS B - review-pr playbook (verdict NOT YET; the reviewer's own list):
+ - Machines: check_budgets FAIL on p95 23.344 read from the stale evidence/latest.json (main's committed file also
+   fails at 22.058; no waiver). check_invariants: the same 5 eval-phrasing hits as origin/main (verified on a
+   git archive of main). Regex call sites 62 -> 55 (-7, zero margin). ruff, ruff format, mypy clean.
+ - Claim and evidence: last full demo was final4 (0bfc9f3); the tip had no scoreboard. DISPOSITION: a full
+   end-to-end at the final tip is in progress (the branch and main, same harness and goldens). The reviewer cites
+   retrieval@10 0.875; that is the rerank sub-block (also 0.875 on main's second sample). The gated long_tail
+   retrieval@10 is 0.90 in every saved run, branch and main.
+ - Scope: topic, dataset, the published filter, the question pin, POOL_DEPTH 10 -> 30 and the selector deadline are
+   additions around retrieval and the selector. DISPOSITION: owner decision, stated in the PR. The published filter
+   checks the latest vintage only: 3 of 636 indexed tables are published in an older ACS5 vintage but not the latest
+   (B02014, B02017, B09008); not changed.
+ - Tests: no ticket-named tests, no prompt-wording assertions. Gate 1 transcript for rounds 3-7: see
+   cc-117-gate1-rounds3-7.txt.
+ - Golden and scorer: disclosed; eval_retrieval.py --rerank now uses 30 candidates, so selector_at_1 is a different
+   instrument and budgets.toml's "over that pool" comment is stale. Not edited (budget file: owner commit).
+ - Unresolved outcomes: q21, q15, t14, t09 (warning gone), q17 (golden unpublished). Need owner acceptance lines.
+ - Required, still open: sealed run and the regression-minus-sealed gap (owner-run); grid not run; budgets.toml
+   comment and p95 waiver are owner commits.
+ - docs/ARCHITECTURE.md search_tables signature: FIXED.

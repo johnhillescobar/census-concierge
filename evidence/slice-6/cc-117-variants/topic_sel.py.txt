@@ -1,0 +1,18 @@
+import sys, json, tomllib, collections
+from concurrent.futures import ThreadPoolExecutor
+sys.path.insert(0, "scripts"); sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv()
+import eval_retrieval as ev
+from src.retrieval.index import load
+from src.retrieval.rerank import Candidate, choose
+topics = json.load(open(sys.argv[1])); mode = sys.argv[2]; depth = int(sys.argv[3]); reps = 3
+qs = [q for q in tomllib.load(open("evals/golden_questions.toml", "rb"))["question"] if q["id"] in topics]
+search = ev.load_retriever(False); idx = load(); pos = {t: i for i, t in enumerate(idx.tables)}
+pools = {q["id"]: list(search(topics[q["id"]] if mode == "topic" else q["text"], depth)) for q in qs}
+def one(a):
+    q, _ = a; r = pools[q["id"]]
+    return q["id"], q["tier"], choose(q["text"], [Candidate(t, idx.titles[pos[t]], idx.universes[pos[t]]) for t in r]) == q["expect_table"]
+with ThreadPoolExecutor(8) as ex: res = list(ex.map(one, [(q, r) for r in range(reps) for q in qs]))
+out = {t: sum(ok for i, tt, ok in res if tt == t) / sum(1 for i, tt, ok in res if tt == t) for t in ("long_tail", "trap", "core")}
+miss = collections.Counter(i for i, t, ok in res if not ok)
+print(f"{mode:5} pool depth {depth}: long_tail {out['long_tail']:.3f}  trap {out['trap']:.3f}  core {out['core']:.3f} | misses/3: {dict(sorted(miss.items()))}")

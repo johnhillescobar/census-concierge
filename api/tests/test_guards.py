@@ -1243,17 +1243,8 @@ def _computer_facts(dataset: str, year: int, table_id: str) -> dict[str, object]
     }
 
 
-def test_cell_phones_warn_before_fetch() -> None:
-    record = ExecutionRecord(question=T09)
-    assert _codes(record) == ["measure_unavailable"]
-    warning = evaluate(record)[0]
-    assert "smartphone" in warning.detail
-    assert "Households" in warning.detail
-    assert "B28001" in warning.detail
-
-
-def test_computer_share_is_not_a_missing_measure() -> None:
-    record = ExecutionRecord(question=T14, table_id="B28001")
+def test_a_device_count_question_raises_no_measure_warning() -> None:
+    record = ExecutionRecord(question=T09, table_id="B28001")
     assert "measure_unavailable" not in _codes(record)
 
 
@@ -1360,18 +1351,6 @@ def test_overlapping_vintage_still_ships_the_url() -> None:
     )
     response = assemble("answer still ships", record)
     assert [item.code for item in response.warnings] == ["overlapping_vintage"]
-    assert response.urls
-
-
-def test_measure_unavailable_still_ships_the_url() -> None:
-    record = ExecutionRecord(question=T09, table_id="B28001")
-    record.fetch = _fetch(
-        urls=["https://api.census.gov/data/2023/acs/acs1?get=NAME,GEO_ID,B28001_005E,B28001_005M"],
-        requested_years=[2017, 2023],
-        attempted_years=[2017, 2023],
-    )
-    response = assemble("ships", record)
-    assert [item.code for item in response.warnings] == ["measure_unavailable"]
     assert response.urls
 
 

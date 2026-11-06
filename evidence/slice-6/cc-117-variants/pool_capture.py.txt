@@ -1,0 +1,34 @@
+"""Capture, per golden question, the exact pool the product hands the selector.
+Topic = what the loop's own model writes for search_tables (real tool schema, ROLE prompt)."""
+import sys, json, tomllib, asyncio
+sys.path.insert(0, "api")
+from dotenv import load_dotenv; load_dotenv(".env")
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from openai import AsyncOpenAI
+from src.ask import ExecutionRecord, default_tools, MODEL
+from src.prompts import ROLE
+out_path = sys.argv[1]
+qs = [q for q in tomllib.load(open("evals/golden_questions.toml", "rb"))["question"] if q.get("expect_table")]
+tools = default_tools(ExecutionRecord()); tool = tools["search_tables"]
+spec = convert_to_openai_tool(tool)
+cap = {}
+def grab(question, hits):
+    cap["hits"] = [h["table_id"] for h in hits]; cap["cands"] = [(h["table_id"], h["title"], h["universe"]) for h in hits]
+    return hits[0]["table_id"]
+tool.select = grab
+async def one(q, sem):
+    async with sem:
+        r = await AsyncOpenAI().chat.completions.create(model=MODEL, messages=[{"role":"system","content":ROLE},{"role":"user","content":q["text"]}], tools=[spec], tool_choice={"type":"function","function":{"name":"search_tables"}})
+        args = json.loads(r.choices[0].message.tool_calls[0].function.arguments or "{}")
+        return q, args
+async def main():
+    sem = asyncio.Semaphore(6)
+    got = await asyncio.gather(*[one(q, sem) for q in qs])
+    res = {}
+    for q, args in got:
+        cap.clear()
+        await tool._arun(question=q["text"], topic=args.get("topic", ""), dataset=args.get("dataset", "acs5") or "acs5")
+        res[q["id"]] = {"text": q["text"], "tier": q["tier"], "holdout": bool(q.get("holdout")), "expect": q["expect_table"], "topic": args.get("topic", ""), "cands": cap.get("cands", [])}
+    json.dump(res, open(out_path, "w"), indent=1)
+    print(len(res), "pools; empty:", [i for i, v in res.items() if not v["cands"]])
+asyncio.run(main())

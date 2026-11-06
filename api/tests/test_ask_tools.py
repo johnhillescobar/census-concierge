@@ -156,36 +156,129 @@ async def test_same_question_does_not_reselect() -> None:
     assert [hit["table_id"] for hit in second.artifact.hits][0] == "B27001"
 
 
-async def test_cell_phone_and_computer_questions_pin_b28001() -> None:
-    def search(question: str, k: int = 10) -> list[str]:
-        del question
-        return ["B28010", "B28003"][:k]
+async def test_selector_reads_the_deep_pool_and_the_answer_stays_ten_wide() -> None:
+    ranked = [f"B{90000 + n}" for n in range(1, 41)]
+    seen: list[list[str]] = []
+
+    def select(_question: str, hits: list[dict[str, object]]) -> str:
+        seen.append([str(hit["table_id"]) for hit in hits])
+        return ranked[26]
+
+    tool = SearchTablesTool(
+        search=lambda _question, k=10: ranked[:k], describe=_describe, select=select
+    )
+    result = await tool.ainvoke(
+        {"type": "tool_call", "name": "search_tables", "args": {"question": "x"}, "id": "c1"}
+    )
+    shown = [hit["table_id"] for hit in result.artifact.hits]
+    assert seen == [ranked[:30]]
+    assert shown == [ranked[26], *ranked[:9]]
+
+
+async def test_a_shallow_search_does_not_fix_the_pick_for_a_deeper_one() -> None:
+    ranked = [f"B{90000 + n}" for n in range(1, 31)]
+    reads: list[int] = []
+
+    def select(_question: str, hits: list[dict[str, object]]) -> str:
+        reads.append(len(hits))
+        return str(hits[-1]["table_id"])
+
+    tool = SearchTablesTool(
+        search=lambda _question, k=10: ranked[:k], describe=_describe, select=select
+    )
+    for call, k in (("c1", 5), ("c2", 30)):
+        result = await tool.ainvoke(
+            {
+                "type": "tool_call",
+                "name": "search_tables",
+                "args": {"question": "x", "k": k},
+                "id": call,
+            }
+        )
+    assert reads == [5, 30]
+    assert result.artifact.hits[0]["table_id"] == ranked[-1]
+
+
+async def test_search_uses_the_topic_and_the_selector_still_reads_the_question() -> None:
+    queries: list[str] = []
+    read: list[str] = []
+
+    def search(query: str, k: int = 10) -> list[str]:
+        queries.append(query)
+        return ["B01003", "B08301"][:k]
+
+    def select(question: str, _hits: list[dict[str, object]]) -> str:
+        read.append(question)
+        return "B08301"
+
+    tool = SearchTablesTool(search=search, describe=_describe, select=select)
+    asked = "How many people live here in 2023 from the 1-year ACS"
+    for call, args in (
+        ("c1", {"question": asked, "topic": "population"}),
+        ("c2", {"question": asked}),
+        ("c3", {"question": asked, "topic": "  "}),
+        ("c4", {"question": asked, "topic": "total population"}),
+        ("c5", {"question": asked, "topic": None}),
+        ("c6", {"question": asked, "topic": "p" * 500}),
+    ):
+        await tool.ainvoke({"type": "tool_call", "name": "search_tables", "args": args, "id": call})
+    assert queries == ["population", asked, asked, "total population", asked, "p" * 200]
+    assert read == [asked] * 4  # blank and null topics share the question-only pick
+
+
+async def test_the_selector_never_sees_a_table_the_vintage_does_not_publish() -> None:
+    published = {("acs5", "B25064"), ("acs5", "B19013B"), ("acs1", "B17001")}
+    asked: list[int] = []
+    read: list[list[str]] = []
+
+    def search(_query: str, k: int = 10) -> list[str]:
+        asked.append(k)
+        return ["B17001", "B19013", "B25064", "B01003"][:k]
+
+    def select(_question: str, hits: list[dict[str, object]]) -> str:
+        read.append([str(hit["table_id"]) for hit in hits])
+        return str(hits[-1]["table_id"])
 
     tool = SearchTablesTool(
         search=search,
         describe=_describe,
-        select=lambda question, hits: "B28010",
+        select=select,
+        published=lambda dataset, table_id: (dataset, table_id) in published,
     )
-    phones = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "search_tables",
-            "args": {"question": "Number of cell phones in Denver since 2017"},
-            "id": "c1",
-        }
+    results = {}
+    for call, args in (
+        ("c1", {"question": "x"}),
+        ("c2", {"question": "x", "dataset": "acs1"}),
+        ("c3", {"question": "x", "k": 1}),
+    ):
+        out = await tool.ainvoke(
+            {"type": "tool_call", "name": "search_tables", "args": args, "id": call}
+        )
+        results[call] = [hit["table_id"] for hit in out.artifact.hits]
+    assert results == {"c1": ["B25064", "B19013"], "c2": ["B17001"], "c3": ["B19013"]}
+    assert read == [["B19013", "B25064"]]
+    assert asked == [50, 50, 21]
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "poverty in Fresno County",
+        "median gross rent in Austin",
+        "Number of cell phones in Denver since 2017",
+        "how did the poverty of attention change after the merger",
+    ],
+)
+async def test_search_never_adds_a_table_the_index_did_not_return(question: str) -> None:
+    tool = SearchTablesTool(
+        search=lambda _question, k=10: ["B01003", "B08301"][:k],
+        describe=_describe,
+        select=lambda _question, _hits: "B08301",
     )
-    computers = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "search_tables",
-            "args": {
-                "question": "How has the share of households with a computer changed since 2013?"
-            },
-            "id": "c2",
-        }
+    result = await tool.ainvoke(
+        {"type": "tool_call", "name": "search_tables", "args": {"question": question}, "id": "c1"}
     )
-    assert [hit["table_id"] for hit in phones.artifact.hits][0] == "B28001"
-    assert [hit["table_id"] for hit in computers.artifact.hits][0] == "B28001"
+    assert [hit["table_id"] for hit in result.artifact.hits] == ["B08301", "B01003"]
 
 
 async def test_broadband_is_not_pinned_to_b28001(search_tool: SearchTablesTool) -> None:

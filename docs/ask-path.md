@@ -12,7 +12,7 @@ Four tools:
 
 | tool | module | does |
 |---|---|---|
-| `search_tables` | `tools.py` | `index.search` top-10, then `rerank.choose`; wording pins live in `vintages.pinned_table` |
+| `search_tables` | `tools.py` | `index.search` top-30 (`POOL_DEPTH`) on the model's `topic` (the question if none), keeping only tables the dataset's latest vintage publishes, then `rerank.choose` over the full question; the answer lists the pick plus the best 9; no wording pin picks or adds a table |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
@@ -25,7 +25,7 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 `finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
 stops without a URL, or with the wrong listing level, an incomplete comparison,
 or an ACS1 request that never built `/acs/acs1`, it
-retries: search (including a wording pin if the pool missed it); resolve
+retries: search (only if the pool is empty); resolve
 (listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.

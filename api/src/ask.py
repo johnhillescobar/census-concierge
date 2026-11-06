@@ -260,7 +260,7 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
     ok = False
     content = ""
     try:
-        args = pin_tool_args(name, call.get("args") or {}, record.override)
+        args = pin_tool_args(name, call.get("args") or {}, record.override, record.question)
         if name == "resolve_geography" and record.override and record.override.geographies:
             content, ok = "override geography", True
         else:
@@ -341,10 +341,13 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
         return table if isinstance(table, dict) else None
 
+    def is_published(dataset: str, table_id: str) -> bool:
+        return facts(dataset, latest(dataset), table_id) is not None
+
     record.table_facts = facts
     record.published_vintages = lambda d: {int(year) for year in matrix["datasets"].get(d, {})}
     return {
-        "search_tables": SearchTablesTool(search=search, describe=describe),
+        "search_tables": SearchTablesTool(search=search, describe=describe, published=is_published),
         "resolve_geography": ResolveGeographyTool(
             list_geographies=lambda level, parts, dataset="acs5", vintage=2024: list_census_names(
                 level, parts, dataset=dataset, vintage=vintage, key=key
