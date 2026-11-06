@@ -502,3 +502,11 @@ Misses of 3 trials, per question (only questions whose count differs between run
 B15012 (rerank 7 to 18 s; main picks B15012). The deadline did not change the long_tail rate beyond the noise in these
 samples (0.667 vs 0.683). Remaining gap to main in this window: q15, q21, q41 (9 trials), q38, q40, t14 (3 more).
 Floor 84/120 is not met (82).
+
+## Round 11 - rebased onto origin/main c8ec7f5
+
+The branch was rebased onto `c8ec7f5` (PR #118, evidence only); code, tests and docs are byte-identical to the pre-rebase tip
+`191bd56` (`git diff` over `api scripts docs evals budgets.toml` is empty). Every commit SHA changed. Commits cited in this
+ledger and in the `*-head.txt` files map as follows (old -> new): f4b23d1 -> f9f9a3a (deadline added), 92c2692 -> 13d0d1f,
+6c7c512 -> d62b3c3 (code tip of the deadline runs), d7464e4 -> 815de3c (deadline removed; code tip of the final run),
+758e284 -> e70cee5, 191bd56 -> 8b805ad. The scoreboards were measured on the old SHAs; the code at the new SHAs is the same.
