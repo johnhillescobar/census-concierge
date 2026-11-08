@@ -1,0 +1,73 @@
+Bounded final Gate 2 re-review, 2026-11-02
+Repository: C:/Users/johnh/Dropbox/Python/census-concierge
+Branch: feat/cc-117-no-table-pins
+Review base: HEAD = 1be4cc343bfddbd8270dba44c2374d12ed4890f1
+Review head: scoped working tree, including the three new untracked files.
+Scope (18 paths): AGENTS.md; .agents/skills/{run-slice,review-pr}/SKILL.md;
+CLAUDE.md; Makefile; README.md; docs/playbooks/{run-slice,review-pr}.md;
+scripts/{gate.ps1,gate.sh,check_budgets.py}; api/tests/{test_process,test_budgets}.py;
+.claude/skills/{run-slice,review-pr}/SKILL.md;
+.cursor/commands/{run-slice,review-pr}.md; .cursor/rules/00-guardrails.mdc.
+All scoped paths modified against HEAD except AGENTS.md and the two .agents skills,
+which are new/untracked. Other working-tree changes are excluded.
+
+Generic code-only pass: COMPLETE. No concrete actionable bug findings in the
+scoped diff. Reviewed both handoff scripts, adapter pointers, canonical workflow
+changes, documentation counting and changed test behavior. Findings recorded
+before running the invariants machine checks. No caller implementation intent,
+slice plan, implementation evidence, secrets, sealed sets or E2E transcripts read.
+
+Invariants pass: STOPPED at first required machine check.
+Command: .venv/Scripts/python.exe scripts/check_budgets.py
+Exit code: 1
+Raw command output follows:
+
+BUDGETS
+
+  ok    api src LOC               4671 <= 4800
+  ok    api src files               27 <= 40
+  ok    largest file LOC           409 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1055 <= 1200
+  ok    doc lines                 1813 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         23.344 <= 20
+        run 2026-10-28T15:21:55+00:00; slowest trial 56.951s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  ok    answered_rate            0.717 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 23.344 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+
+
+Verdict: NOT YET. Full-budget check fails on p95 latency: 23.344s > 20s.
+All structural budgets and the printed quality floors pass, including doc lines
+1813 <= 1820. This is a full-budget failure, not a structural-only pass verdict.
+No other checks performed after failure. check_invariants, lint/format, mypy,
+pytest and the remaining invariants review were not run; no approval implied.
+No source edits or external/live API actions performed. Only this evidence file
+was created/updated. The plan and other evidence remained excluded.

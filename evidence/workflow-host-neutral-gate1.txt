@@ -1,0 +1,224 @@
+Bounded Gate 1: host workflow adapters; no implementation changes, live APIs or external writes.
+Scope: expanded existing test_the_trio_pointers_resolve; new Codex run-slice and review-pr skill pointers.
+Plugins: autoload disabled; pytest_asyncio explicitly enabled. Bytecode and pytest cache disabled.
+
+CONTEXT: branch
+$ git branch --show-current
+feat/cc-117-no-table-pins
+EXIT CODE: 0
+
+CONTEXT: HEAD
+$ git rev-parse HEAD
+0bfc9f309b4c63845ae87b6a2a991ae1cdf4b330
+EXIT CODE: 0
+
+CONTEXT: working-tree status (names only)
+$ git status --short
+ M .claude/PLAN.md
+ M .claude/skills/run-slice/SKILL.md
+ M .cursor/commands/run-slice.md
+ M .cursor/rules/00-guardrails.mdc
+ M CLAUDE.md
+ M Makefile
+ M README.md
+ M api/tests/test_process.py
+ M docs/playbooks/review-pr.md
+ M docs/playbooks/run-slice.md
+ M scripts/gate.ps1
+ M scripts/gate.sh
+?? .agents/
+?? .vscode/_launch-census-payload-snippet-verify.json
+?? .vscode/settings.json
+?? AGENTS.md
+?? evidence/grid-latest.json
+?? evidence/grid-trials.jsonl
+?? evidence/slice-6/cc-102-e2e-post-latest.json
+?? evidence/slice-6/cc-102-e2e-post.txt
+?? evidence/slice-6/cc-117-main-rebaselined-e2e.txt
+?? evidence/slice-6/cc-117-main-rebaselined-head.txt
+?? evidence/slice-6/cc-117-main-rebaselined-latest.json
+?? evidence/slice-6/cc-121-close-plan.md
+?? evidence/slice-6/cc-121-e2e-interrupted-attempt.txt
+?? evidence/slice-6/cc-121-e2e-pre-longtail.txt
+?? evidence/workflow-host-neutral-gate1.txt
+?? evidence/workflow-host-neutral-plan.md
+EXIT CODE: 0
+
+CONTEXT: scoped uncommitted diff
+$ git diff -- api/tests/test_process.py .agents/skills/run-slice/SKILL.md .agents/skills/review-pr/SKILL.md
+diff --git a/api/tests/test_process.py b/api/tests/test_process.py
+index 8863dcb..7b5256a 100644
+--- a/api/tests/test_process.py
++++ b/api/tests/test_process.py
+@@ -57,8 +57,7 @@ EXPECTED_TRANSCRIPTS = 2
+ #: non-empty) would not - one surviving row passes that.
+ MATRIX_MIN_ROWS = 4
+ 
+-#: The trios: one canonical playbook, a Claude Code skill and a Cursor command
+-#: that are thin pointers to it. Nothing else checks that the pointers resolve.
++#: Shared playbooks with Claude Code, Cursor and Codex discovery adapters.
+ TRIOS = ("run-slice", "review-pr")
+ 
+ CITATION = re.compile(r"(?:PR #\d+|slice-\d+)")
+@@ -258,13 +257,14 @@ def test_no_lookalike_characters_inside_code_spans(path: Path) -> None:
+ 
+ @pytest.mark.parametrize("name", TRIOS)
+ def test_the_trio_pointers_resolve(name: str) -> None:
+-    """The skill and the command must name the canonical playbook, and it must
++    """Every host adapter must name the canonical playbook, and it must
+     exist. A rename that updates one pointer and not the others is the drift."""
+     playbook = ROOT / "docs" / "playbooks" / f"{name}.md"
+     skill = ROOT / ".claude" / "skills" / name / "SKILL.md"
+     command = ROOT / ".cursor" / "commands" / f"{name}.md"
++    codex_skill = ROOT / ".agents" / "skills" / name / "SKILL.md"
+     assert playbook.is_file(), f"missing canonical playbook {playbook}"
+-    for pointer in (skill, command):
++    for pointer in (skill, command, codex_skill):
+         assert pointer.is_file(), f"missing trio pointer {pointer}"
+         assert f"docs/playbooks/{name}.md" in pointer.read_text(encoding="utf-8"), (
+             f"{pointer} does not point at docs/playbooks/{name}.md"
+EXIT CODE: 0
+SCOPED SHA256 api/tests/test_process.py 7ae2a4e43d05d7f9aeb501bc7bd7eebe3ccf300f1c4f4789607fe57cb664fcfd
+SCOPED SHA256 .agents/skills/run-slice/SKILL.md 30b683596f0ca2854be37d450e17ca4e2eae5f4facd26e6d5099d50500fed880
+SCOPED SHA256 .agents/skills/review-pr/SKILL.md 34d47464f267996ec3ab97eddc4ab0b7378773076572786ee4c6043e40ab37ad
+
+GOOD: unmodified process tests; require pass
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -p pytest_asyncio.plugin -p no:cacheprovider -q api/tests/test_process.py
+........................                                                 [100%]
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_expected_number_of_transcripts_are_pinned
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+24 passed, 1 warning in 1.18s
+EXIT CODE: 0
+CONTINUATION: direct .agents write was denied by sandbox; neither mutation nor attempted finally restoration could write. Using owner-authorized equivalent isolated temporary fixture. Earlier captured output remains unchanged.
+CONTINUATION: sandbox also denied temporary fixture subdirectory creation; retrying original bounded mutation checks with required elevated filesystem permission. Prior evidence preserved without edits.
+
+BAD: run-slice Codex canonical pointer broken; require assertion failure
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -B -m pytest -p pytest_asyncio.plugin -p no:cacheprovider -q api/tests/test_process.py::test_the_trio_pointers_resolve[run-slice]
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_the_trio_pointers_resolve[run-slice] __________________
+
+name = 'run-slice'
+
+    @pytest.mark.parametrize("name", TRIOS)
+    def test_the_trio_pointers_resolve(name: str) -> None:
+        """Every host adapter must name the canonical playbook, and it must
+        exist. A rename that updates one pointer and not the others is the drift."""
+        playbook = ROOT / "docs" / "playbooks" / f"{name}.md"
+        skill = ROOT / ".claude" / "skills" / name / "SKILL.md"
+        command = ROOT / ".cursor" / "commands" / f"{name}.md"
+        codex_skill = ROOT / ".agents" / "skills" / name / "SKILL.md"
+        assert playbook.is_file(), f"missing canonical playbook {playbook}"
+        for pointer in (skill, command, codex_skill):
+            assert pointer.is_file(), f"missing trio pointer {pointer}"
+>           assert f"docs/playbooks/{name}.md" in pointer.read_text(encoding="utf-8"), (
+                f"{pointer} does not point at docs/playbooks/{name}.md"
+            )
+E           AssertionError: C:\Users\johnh\Dropbox\Python\census-concierge\.agents\skills\run-slice\SKILL.md does not point at docs/playbooks/run-slice.md
+E           assert 'docs/playbooks/run-slice.md' in '---\nname: run-slice\ndescription: Run or resume a census-concierge slice or PR through pre-flight, mutation-tested G...phase needs a clean checkout. Return evidence\npaths, verdicts and permitted summaries as specified in the playbook.\n'
+E            +  where '---\nname: run-slice\ndescription: Run or resume a census-concierge slice or PR through pre-flight, mutation-tested G...phase needs a clean checkout. Return evidence\npaths, verdicts and permitted summaries as specified in the playbook.\n' = read_text(encoding='utf-8')
+E            +    where read_text = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.agents/skills/run-slice/SKILL.md').read_text
+
+api\tests\test_process.py:269: AssertionError
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_trio_pointers_resolve[run-slice]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_the_trio_pointers_resolve[run-slice]
+1 failed, 1 warning in 0.31s
+
+EXIT CODE: 1
+RESTORE FINALLY: .agents/skills/run-slice/SKILL.md byte equality=True
+
+GOOD: run-slice restored pointer; require pass
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -B -m pytest -p pytest_asyncio.plugin -p no:cacheprovider -q api/tests/test_process.py::test_the_trio_pointers_resolve[run-slice]
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_trio_pointers_resolve[run-slice]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.06s
+
+EXIT CODE: 0
+
+BAD: review-pr Codex canonical pointer broken; require assertion failure
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -B -m pytest -p pytest_asyncio.plugin -p no:cacheprovider -q api/tests/test_process.py::test_the_trio_pointers_resolve[review-pr]
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_the_trio_pointers_resolve[review-pr] __________________
+
+name = 'review-pr'
+
+    @pytest.mark.parametrize("name", TRIOS)
+    def test_the_trio_pointers_resolve(name: str) -> None:
+        """Every host adapter must name the canonical playbook, and it must
+        exist. A rename that updates one pointer and not the others is the drift."""
+        playbook = ROOT / "docs" / "playbooks" / f"{name}.md"
+        skill = ROOT / ".claude" / "skills" / name / "SKILL.md"
+        command = ROOT / ".cursor" / "commands" / f"{name}.md"
+        codex_skill = ROOT / ".agents" / "skills" / name / "SKILL.md"
+        assert playbook.is_file(), f"missing canonical playbook {playbook}"
+        for pointer in (skill, command, codex_skill):
+            assert pointer.is_file(), f"missing trio pointer {pointer}"
+>           assert f"docs/playbooks/{name}.md" in pointer.read_text(encoding="utf-8"), (
+                f"{pointer} does not point at docs/playbooks/{name}.md"
+            )
+E           AssertionError: C:\Users\johnh\Dropbox\Python\census-concierge\.agents\skills\review-pr\SKILL.md does not point at docs/playbooks/review-pr.md
+E           assert 'docs/playbooks/review-pr.md' in '---\nname: review-pr\ndescription: Review a census-concierge PR or branch for project invariants, budgets, scope and ...roject invariants pass. A slash command is optional;\nthe cold review and project checks are required in every host.\n'
+E            +  where '---\nname: review-pr\ndescription: Review a census-concierge PR or branch for project invariants, budgets, scope and ...roject invariants pass. A slash command is optional;\nthe cold review and project checks are required in every host.\n' = read_text(encoding='utf-8')
+E            +    where read_text = WindowsPath('C:/Users/johnh/Dropbox/Python/census-concierge/.agents/skills/review-pr/SKILL.md').read_text
+
+api\tests\test_process.py:269: AssertionError
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_trio_pointers_resolve[review-pr]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_the_trio_pointers_resolve[review-pr]
+1 failed, 1 warning in 0.25s
+
+EXIT CODE: 1
+RESTORE FINALLY: .agents/skills/review-pr/SKILL.md byte equality=True
+
+GOOD: review-pr restored pointer; require pass
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -B -m pytest -p pytest_asyncio.plugin -p no:cacheprovider -q api/tests/test_process.py::test_the_trio_pointers_resolve[review-pr]
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_trio_pointers_resolve[review-pr]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.07s
+
+EXIT CODE: 0
+
+GOOD: final restored process suite; require pass
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -B -m pytest -p pytest_asyncio.plugin -p no:cacheprovider -q api/tests/test_process.py
+........................                                                 [100%]
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_expected_number_of_transcripts_are_pinned
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+24 passed, 1 warning in 1.15s
+
+EXIT CODE: 0
+PRESERVATION: api/tests/test_process.py byte equality=True
+PRESERVATION: .agents/skills/run-slice/SKILL.md byte equality=True
+PRESERVATION: .agents/skills/review-pr/SKILL.md byte equality=True
+PRESERVATION: .claude/PLAN.md byte equality=True
+PRESERVATION: budgets.toml byte equality=True
+RESULT: PASS; both mutations caught; restored tests pass; no remaining blocker

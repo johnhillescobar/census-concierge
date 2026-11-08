@@ -67,6 +67,10 @@ baked in, managed Postgres, object storage for PDFs. The index is a GitHub
 Release asset, never built during `docker build`. The container filesystem is
 ephemeral.
 
+### Structured intent (2026-11-08; target, not yet shipped)
+The model owns meaning; deterministic execution receives structured intent and metadata, never question prose or reconstructed English. No regex/keyword/substring fallback. Missing intent returns bounded model repair (at most two attempts within existing budgets); exact identifiers and grounded NAME lookup remain valid.
+Keep requested meaning, assumptions/defaults and execution distinct. Unsupported data is explicit, never invented. Original text stays in model interpretation, semantic retrieval, storage/display and audit. One loop, no planner/validator stack. CC-104 preserves advanced CC-114 work; PLAN/Jira define ownership, including CC-122's bounded slice-6 operations. Current behavior remains in ARCHITECTURE.md.
+
 ## 6. Retrieval
 
 Census titles have no overlap with how people ask (`bike to work` → B08301).
@@ -113,6 +117,12 @@ nothing.
    in prompts or code. Golden or scorer changes re-baseline and are reported
    apart from code gains.
 
+### Understanding and completion gates (2026-11-08)
+CC-133 implements early independent oracles, baselines, isolation tests and AC/TC closure checks; CC-132 certifies the final release. PLAN contains per-story targets and cumulative non-regression rules; Jira carries the full protocol. These are future gates, not current performance claims.
+Final regression AND sealed gates: repeat 3, joint interpretation >=98% overall and >=95% per category (case and trial rates), overall 95% confidence lower bound >=95%; >=200 independent families/suite and >=30/category. Categories: geography/coverage, time/product, measure/universe/cells, operations, follow-ups and ambiguous/incomplete/unavailable cases. All applicable fields must match independently reviewed expectations; cluster paraphrases/repeats by family.
+Supported answerable-request determinate coverage >=95%, accuracy among determinate interpretations >=98%; report negative controls separately. Freeze oracle/scorer and sampling before results; self-confidence is not proof. Fixed intent must execute identically under changed/absent question wording, including repair. Wrong cells/coverage fail despite HTTP success. Zero silent substitutions/fabrications in acceptance suites is not a universal guarantee.
+Every in-scope AC/TC requires verified PASS evidence before shipping; post-merge E2E precedes Done. The canonical run-slice matrix applies now; CC-133 adds automation. Missing evidence/precision blocks readiness; no budget or quality-gate weakening.
+
 ## 9. Open decisions
 
 - ~~**Canvas model**~~ — **living workspace** (CC-11), not a card stack.
@@ -132,8 +142,9 @@ nothing.
   costlier from the checkpointer (msgpack blobs). Windows note: psycopg async
   needs a `SelectorEventLoop`, not the default Proactor loop. Fork-from-latest
   (below) means one state row per thread is enough; no per-turn history rows.
-- **Phase 2 foundations (after slice 8; decided 2026-09-29, NOT built before
-  then).** The app becomes a conversation over *agent state*: turns, datasets
+- **Phase 2 foundations (after slice 8; decided 2026-09-29; 2026-11-08 exception:
+  CC-122 bounded summaries/derived figures now ship in slice 6).** The remaining
+  foundations stay after slice 8. The app becomes a conversation over *agent state*: turns, datasets
   fetched by Census URLs, derived datasets, charts. Tools/skills/MCPs run
   deterministic typed computations (add/subtract columns, correlation,
   regression); the agent never writes code. Guards (MOE, universe, overlapping

@@ -149,12 +149,14 @@ def _doc_lines() -> int:
     and must grow with the system, and the frozen ideation transcript.
     """
     patterns = (
+        "AGENTS.md",
         "CLAUDE.md",
         ".claude/DESIGN.md",
         ".claude/PLAN.md",
         ".cursor/rules/*.mdc",
         ".cursor/commands/*.md",
         ".claude/skills/*/SKILL.md",
+        ".agents/skills/*/SKILL.md",
         "docs/playbooks/*.md",
         "docs/requirements.md",
         "docs/ask-path.md",

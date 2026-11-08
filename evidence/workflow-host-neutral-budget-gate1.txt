@@ -1,0 +1,116 @@
+GOOD: current counting behavior
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.06s
+BAD: omit counting AGENTS.md
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_doc_lines_counts_each_agent_catalog ___________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-876/test_doc_lines_counts_each_age0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BF6A0CC560>
+
+    def test_doc_lines_counts_each_agent_catalog(tmp_path: Path, monkeypatch: Any) -> None:
+        monkeypatch.setattr(bud, "ROOT", tmp_path)
+        _write_lines(tmp_path / "CLAUDE.md", 1)
+        docs = tmp_path / "docs"
+        for name, count in CATALOGS:
+            _write_lines(docs / name, count)
+        _write_lines(docs / "ARCHITECTURE.md", 100)
+    
+        expected = 1 + sum(count for _name, count in CATALOGS)
+        assert bud._doc_lines() == expected
+    
+        for name, count in CATALOGS:
+            path = docs / name
+            path.unlink()
+            assert bud._doc_lines() == expected - count, name
+            _write_lines(path, count)
+    
+        for name in ("AGENTS.md", ".agents/skills/run-slice/SKILL.md"):
+            path = tmp_path / name
+            _write_lines(path, 7)
+>           assert bud._doc_lines() == expected + 7, name
+E           AssertionError: AGENTS.md
+E           assert 27 == (27 + 7)
+E            +  where 27 = <function _doc_lines at 0x000001BF689C56C0>()
+E            +    where <function _doc_lines at 0x000001BF689C56C0> = bud._doc_lines
+
+api\tests\test_budgets.py:203: AssertionError
+============================== warnings summary ===============================
+api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog - ...
+1 failed, 1 warning in 0.22s
+GOOD: restored counting AGENTS.md
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.21s
+BAD: omit counting .agents/skills/*/SKILL.md
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_doc_lines_counts_each_agent_catalog ___________________
+
+tmp_path = WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-878/test_doc_lines_counts_each_age0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001BF6A138F50>
+
+    def test_doc_lines_counts_each_agent_catalog(tmp_path: Path, monkeypatch: Any) -> None:
+        monkeypatch.setattr(bud, "ROOT", tmp_path)
+        _write_lines(tmp_path / "CLAUDE.md", 1)
+        docs = tmp_path / "docs"
+        for name, count in CATALOGS:
+            _write_lines(docs / name, count)
+        _write_lines(docs / "ARCHITECTURE.md", 100)
+    
+        expected = 1 + sum(count for _name, count in CATALOGS)
+        assert bud._doc_lines() == expected
+    
+        for name, count in CATALOGS:
+            path = docs / name
+            path.unlink()
+            assert bud._doc_lines() == expected - count, name
+            _write_lines(path, count)
+    
+        for name in ("AGENTS.md", ".agents/skills/run-slice/SKILL.md"):
+            path = tmp_path / name
+            _write_lines(path, 7)
+>           assert bud._doc_lines() == expected + 7, name
+E           AssertionError: .agents/skills/run-slice/SKILL.md
+E           assert 27 == (27 + 7)
+E            +  where 27 = <function _doc_lines at 0x000001BF68931760>()
+E            +    where <function _doc_lines at 0x000001BF68931760> = bud._doc_lines
+
+api\tests\test_budgets.py:203: AssertionError
+============================== warnings summary ===============================
+api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog - ...
+1 failed, 1 warning in 0.06s
+GOOD: restored counting .agents/skills/*/SKILL.md
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_budgets.py::test_doc_lines_counts_each_agent_catalog
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 0.06s
+PASS: both runtime mutations failed as required; source files never mutated.

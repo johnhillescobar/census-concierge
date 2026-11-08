@@ -1,7 +1,10 @@
 # Playbook: reviewing a PR
 
-Canonical. `.claude/skills/review-pr/` and `.cursor/commands/review-pr.md` are
-thin pointers to this file — edit here, not there.
+Canonical for every host. `.claude/skills/review-pr/`,
+`.cursor/commands/review-pr.md` and `.agents/skills/review-pr/` are thin pointers
+to this file — edit shared procedure here. A host without slash commands runs
+the same checks and review directly. Gate 2's separate cold bug pass is defined
+in `docs/playbooks/run-slice.md`.
 
 ## First: run the machines
 
@@ -87,6 +90,8 @@ also `docs/retrieval.md`. Then:
 - A new test file is not evidence that anything works. `make demo` output is.
 
 ## The verdict
+
+Reconcile every AC/TC against run-slice.md's evidence matrix and PLAN's metric gates. Missing/failed/unrun/unverified items mean **Not yet**; follow-up tickets cannot excuse them without an explicit owner scope amendment. Require applicable head evidence and post-merge E2E before Done. CC-133 automation is planned, not already installed.
 
 Say one of three things, and mean it:
 

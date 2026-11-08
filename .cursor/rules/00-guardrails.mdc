@@ -13,6 +13,10 @@ Always read before any non-trivial change: `CLAUDE.md` · `.claude/DESIGN.md` ·
 `.claude/PLAN.md`. Then the catalog that matches the work — not all of them
 every turn:
 
+For Gate 2's code-only bug pass, defer `.claude/PLAN.md`, implementation notes
+and intent until findings are recorded; then load them for the invariants pass
+per `docs/playbooks/run-slice.md`. This ordering applies in every host.
+
 - Current shape: `docs/ARCHITECTURE.md`
 - Response, URL, Census interpretation, UI rendering, or review:
   `docs/requirements.md`
@@ -52,6 +56,8 @@ geography level; say so and ship no URL (`40-census-domain.mdc`, Geography).
 
 ## Never
 
+- Reinterpret question wording with regex/keyword/substring heuristics or legacy fallbacks; execution consumes structured intent (CLAUDE.md).
+- Ship with unverified AC/TC or failed cumulative metric gates; follow PLAN and the canonical run-slice evidence matrix.
 - Ask a blocking clarification question. Users who do not know the ecosystem
   **cannot answer one.** Show candidates as results plus an editable plan strip.
 - Add a graph node for branching. Nodes are durable checkpoints only.

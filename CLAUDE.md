@@ -1,5 +1,10 @@
 # census-concierge
 
+Shared project rules for every coding-agent host, including Claude Code,
+Cursor and Codex. The filename and `.claude/PLAN.md` path are retained for
+compatibility. `AGENTS.md` is the host-neutral entry point; the playbooks in
+`docs/playbooks/` are canonical. Host-specific skills and commands are adapters.
+
 Helps people who work with Census data find tables **outside their specialty**
 and pull them into a working dataset, conversationally.
 
@@ -78,19 +83,7 @@ with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
   regressions.
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
-- Use regex or keyword matching before the alternatives are exhausted. Regex is a last
-  resort: allowed only after plain code (parsing, set membership, lookups in
-  `geography.json`) and the model have both been tried and failed, and the PR must say why.
-  This is an agent. Understanding a
-  question (its wording, the level, the places, whether to call the model) is the model's
-  job, never a pattern's: each pattern handles the phrasings its author imagined and silently
-  fails the rest, which is how the predecessor grew to 38,000 lines. When a phrasing breaks,
-  the fix is to let the model compose structure and have code validate it, never another
-  pattern. Gate on the loop's own result. If a model call costs latency, measure the p95;
-  do not pre-empt it with a heuristic.
-  You have exhausted the alternatives only after up to 100 solve-and-measure iterations and
-  up to 3 subagents, cheapest option first; spend more tokens only after cheaper options
-  fail. Show those attempts in the PR before proposing any regex.
+- Interpret question wording with regex/keyword/substring heuristics, including legacy fallbacks. The model supplies structured intent; deterministic execution receives no prose, even through a broad record. Missing/late intent returns bounded model repair. Exact identifier/metadata/NAME lookup and arithmetic remain valid; they cannot infer scope/parents/time from sentences. Keep requested meaning distinct from execution. Migration and metric gates: PLAN, CC-104/129–133.
 
 ## Jira — status source of truth
 
@@ -113,6 +106,8 @@ against merged `main`. Every phase persists to git / the PR / `evidence/slice-<N
 and **Jira** before the next; a fresh context rebuilds from those, never from chat
 history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;
 matrix and worked examples: `docs/process-evidence.md`.
+
+**Before shipping, every in-scope AC/TC must be verified PASS with linked commit-specific evidence.** Missing/failed/unrun items block readiness/Done; only explicit dated owner amendments remove scope. Gate 2 checks the matrix; post-merge E2E precedes closure. Canonical detail: `docs/playbooks/run-slice.md`.
 
 ## Traps
 

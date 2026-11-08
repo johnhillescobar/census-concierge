@@ -57,8 +57,7 @@ EXPECTED_TRANSCRIPTS = 2
 #: non-empty) would not - one surviving row passes that.
 MATRIX_MIN_ROWS = 4
 
-#: The trios: one canonical playbook, a Claude Code skill and a Cursor command
-#: that are thin pointers to it. Nothing else checks that the pointers resolve.
+#: Shared playbooks with Claude Code, Cursor and Codex discovery adapters.
 TRIOS = ("run-slice", "review-pr")
 
 CITATION = re.compile(r"(?:PR #\d+|slice-\d+)")
@@ -258,13 +257,14 @@ def test_no_lookalike_characters_inside_code_spans(path: Path) -> None:
 
 @pytest.mark.parametrize("name", TRIOS)
 def test_the_trio_pointers_resolve(name: str) -> None:
-    """The skill and the command must name the canonical playbook, and it must
+    """Every host adapter must name the canonical playbook, and it must
     exist. A rename that updates one pointer and not the others is the drift."""
     playbook = ROOT / "docs" / "playbooks" / f"{name}.md"
     skill = ROOT / ".claude" / "skills" / name / "SKILL.md"
     command = ROOT / ".cursor" / "commands" / f"{name}.md"
+    codex_skill = ROOT / ".agents" / "skills" / name / "SKILL.md"
     assert playbook.is_file(), f"missing canonical playbook {playbook}"
-    for pointer in (skill, command):
+    for pointer in (skill, command, codex_skill):
         assert pointer.is_file(), f"missing trio pointer {pointer}"
         assert f"docs/playbooks/{name}.md" in pointer.read_text(encoding="utf-8"), (
             f"{pointer} does not point at docs/playbooks/{name}.md"

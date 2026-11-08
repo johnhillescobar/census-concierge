@@ -67,7 +67,7 @@ client:
 	uv run python scripts/generate_client.py
 
 ## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
-## Usage: make gate PHASE=gate2 SLICE=0 [ENGINE=cursor]. See docs/playbooks/run-slice.md.
+## Usage: make gate PHASE=gate2 SLICE=0. Prints a host-neutral handoff, not an agent launch.
 gate:
 	bash scripts/gate.sh $(PHASE) $(SLICE)
 
