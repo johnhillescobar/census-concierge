@@ -69,7 +69,7 @@ ephemeral.
 
 ### Structured intent (2026-11-08; target, not yet shipped)
 The model owns meaning; deterministic execution receives structured intent and metadata, never question prose or reconstructed English. No regex/keyword/substring fallback. Missing intent returns bounded model repair (at most two attempts within existing budgets); exact identifiers and grounded NAME lookup remain valid.
-Keep requested meaning, assumptions/defaults and execution distinct. Unsupported data is explicit, never invented. Original text stays in model interpretation, semantic retrieval, storage/display and audit. One loop, no planner/validator stack. CC-104 preserves advanced CC-114 work; PLAN/Jira define ownership, including CC-122's bounded slice-6 operations. Current behavior remains in ARCHITECTURE.md.
+Keep requested meaning, assumptions/defaults and execution distinct. Unsupported data is explicit, never invented. Original text stays in model interpretation, semantic retrieval, storage/display and audit. One loop, no planner/validator stack. Per PLAN, remove/revert the prior CC-114 workaround implementation and rebuild against its original AC/TC; do not preserve silent-failure behavior as a compatibility contract. CC-104 follows the corrected intent boundary. PLAN/Jira define ownership, including CC-122's bounded slice-6 operations. Current behavior remains in ARCHITECTURE.md.
 
 ## 6. Retrieval
 
