@@ -1,0 +1,21 @@
+{
+  "_breakpoints_doc": "Census table rows -> model-facing fetch_data string. Breakpoints: api/src/fetch.py _rows_from_payload; FetchDataTool._arun (figure_lines call); api/src/figures.py figure_lines; api/src/ask.py dispatch (message.content); scripts/ask_one.py _trace_tool ainvoke when name==fetch_data. See launch-census-payload-breakpoints.md.",
+  "name": "agent: census payload (live, Windows)",
+  "type": "debugpy",
+  "request": "launch",
+  "program": "${workspaceFolder}/scripts/ask_one.py",
+  "args": ["${input:askQuestion}"],
+  "console": "integratedTerminal",
+  "cwd": "${workspaceFolder}",
+  "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "envFile": "${workspaceFolder}/.env",
+  "env": {
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8",
+    "PYTHONPATH": "${workspaceFolder}/api"
+  },
+  "justMyCode": false,
+  "showReturnValue": true,
+  "subProcess": false
+}
