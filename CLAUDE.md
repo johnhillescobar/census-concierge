@@ -83,7 +83,7 @@ with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
   regressions.
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
-- Interpret question wording with regex/keyword/substring heuristics, including legacy fallbacks. The model supplies structured intent; deterministic execution receives no prose, even through a broad record. Missing/late intent returns bounded model repair. Exact identifier/metadata/NAME lookup and arithmetic remain valid; they cannot infer scope/parents/time from sentences. Keep requested meaning distinct from execution. Migration and metric gates: PLAN, CC-104/129–133.
+- Never interpret question wording with regex, keyword, substring or equivalent semantic heuristics, including legacy fallbacks. Once the model supplies structured intent, deterministic downstream code validates and executes that intent without reinterpreting the question wording. Missing or invalid intent returns bounded model repair; it never activates a prose parser. Exact identifier parsing, authoritative metadata lookup, grounded NAME matching after the model identifies an entity, URL encoding and arithmetic remain valid. They must not infer scope, parents or time from question wording. Keep requested meaning distinct from execution. Migration and metric gates: PLAN, CC-104/129–133.
 
 ## Jira — status source of truth
 
