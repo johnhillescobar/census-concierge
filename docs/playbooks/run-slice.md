@@ -165,10 +165,13 @@ evidence before reruns and link both runs. The subagent writes
 `evidence/slice-<N>/<phase>.txt`; the caller does not edit it afterward.
 `.gitattributes` forces LF so it stays byte-stable.
 
-Without `make`, run the underlying Makefile recipes in order; use
-`uv run python scripts/e2e_capture.py --slice <N> --ticket <CC-N> --phase pre|post --quiet`
-for E2E capture. A missing runtime, database, credential, network permission or
-fresh-context capability is a reported blocker, never a skipped check reported
-as passing. Live E2E needs the documented API keys and credit; Plus usage is
-separate. Sealed sets stay owner-held on every host, whether or not host hooks
-enforce access; request only the permitted aggregate results.
+Without `make`, execute and capture every command listed under the `eval` and
+`demo` recipes in the Makefile, in recipe order. This includes both
+`run_demo.py --repeat 3` and `run_grid.py --repeat 3`; the optional
+`scripts/e2e_capture.py` helper does not run the geography grid and is not a
+substitute for that command. Record all command output in the phase evidence.
+A missing runtime, database, credential, network permission or fresh-context
+capability is a reported blocker, never a skipped check reported as passing.
+Live E2E needs the documented API keys and credit; Plus usage is separate.
+Sealed sets stay owner-held on every host, whether or not host hooks enforce
+access; request only the permitted aggregate results.
