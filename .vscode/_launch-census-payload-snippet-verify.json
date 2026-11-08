@@ -1,5 +1,5 @@
 {
-  "_breakpoints_doc": "Census table rows -> model-facing fetch_data string. Breakpoints: api/src/fetch.py _rows_from_payload; FetchDataTool._arun (figure_lines call); api/src/figures.py figure_lines; api/src/ask.py dispatch (message.content); scripts/ask_one.py _trace_tool ainvoke when name==fetch_data. See launch-census-payload-breakpoints.md.",
+  "_breakpoints_doc": "Where Census rows become the fetch_data tool result. The model sees only message.content, a metadata string (row count, legs, failed years, URLs); the Census rows travel in message.artifact (a FetchDataResult). Breakpoints: api/src/fetch.py _rows_from_payload (parses the payload into rows); FetchDataTool._arun, the final `return _tool_content(result), result` (content string, then artifact); fetch.py _tool_content (builds message.content); api/src/ask.py dispatch, `artifact = getattr(message, 'artifact', None)` then _absorb, which stores artifact.rows in record.rows; scripts/ask_one.py _trace_tool ainvoke when name==fetch_data (prints message.content only).",
   "name": "agent: census payload (live, Windows)",
   "type": "debugpy",
   "request": "launch",
