@@ -13,6 +13,10 @@ Always read before any non-trivial change: `CLAUDE.md` · `.claude/DESIGN.md` ·
 `.claude/PLAN.md`. Then the catalog that matches the work — not all of them
 every turn:
 
+For Gate 2's code-only bug pass, defer `.claude/PLAN.md`, implementation notes
+and intent until findings are recorded; then load them for the invariants pass
+per `docs/playbooks/run-slice.md`. This ordering applies in every host.
+
 - Current shape: `docs/ARCHITECTURE.md`
 - Response, URL, Census interpretation, UI rendering, or review:
   `docs/requirements.md`
@@ -52,21 +56,23 @@ geography level; say so and ship no URL (`40-census-domain.mdc`, Geography).
 
 ## Never
 
-- Ask a blocking clarification question. Users who do not know the ecosystem
+- Do not reinterpret question wording with regex, keyword, substring, or equivalent semantic heuristics, including legacy fallbacks. Downstream code must consume and validate structured intent (CLAUDE.md).
+- Do not ship with unverified AC/TC or failed cumulative metric gates; follow PLAN and the canonical run-slice evidence matrix.
+- Do not ask a blocking clarification question. Users who do not know the ecosystem
   **cannot answer one.** Show candidates as results plus an editable plan strip.
-- Add a graph node for branching. Nodes are durable checkpoints only.
-- Create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
+- Do not add a graph node for branching. Nodes are durable checkpoints only.
+- Do not create a module named `*_manager`, `*_orchestrator`, `*_factory`, `*_policy`,
   `*_strategy`, or `*_service`.
-- Add a validator that validates another validator's output.
-- Introduce an abstraction before a second caller exists. Inline it.
-- Work ahead of the current slice in `.claude/PLAN.md`. If something belongs to a
+- Do not add a validator that validates another validator's output.
+- Do not introduce an abstraction before a second caller exists; inline it.
+- Do not work ahead of the current slice in `.claude/PLAN.md`. If something belongs to a
   later slice, say which one and stop.
-- Carry slice state in the conversation. Persist each phase to the repo; a reset
+- Do not carry slice state in the conversation. Persist each phase to the repo; a reset
   session rebuilds from `.claude/PLAN.md` + `evidence/slice-<N>/` + the PR body.
-- Ship a new test without mutation-checking it: revert the behaviour it covers,
+- Do not ship a new test without mutation-checking it: revert the behaviour it covers,
   confirm the test fails, restore.
-- Read the sealed eval set or tune against its misses (owner-held, outside the
-  repo, hook-blocked). Never copy eval phrasing or places into prompts, tool
+- Do not read the sealed eval set or tune against its misses (owner-held, outside the
+  repo, hook-blocked). Do not copy eval phrasing or places into prompts, tool
   descriptions or code. DESIGN §8.6.
 
 ## When unsure

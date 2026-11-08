@@ -58,6 +58,11 @@ budgets.toml  complexity limits, enforced in CI
 
 ## Working on this
 
+Agent entry point: `AGENTS.md`. Claude Code, Cursor and Codex share the rules
+in `CLAUDE.md` and the canonical `docs/playbooks/` workflows. Existing Claude
+skills and Cursor commands remain supported; Codex skills live in
+`.agents/skills/`. Gate scripts print handoffs for fresh contexts in any host.
+
 ```
 make check   # budgets, lint, types, tests — under 60s
 make eval    # retrieval scoreboard

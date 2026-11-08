@@ -1,7 +1,8 @@
 # Playbook: running a slice
 
-Canonical. `.claude/skills/run-slice/SKILL.md` and `.cursor/commands/run-slice.md`
-are thin pointers - edit here, not there. Worked examples and the adversarial
+Canonical for every host. `.claude/skills/run-slice/SKILL.md`,
+`.cursor/commands/run-slice.md` and `.agents/skills/run-slice/SKILL.md`
+are thin pointers - edit shared procedure here. Worked examples and the adversarial
 matrix are in `docs/process-evidence.md`, read at audit time, not every turn.
 
 A slice (`.claude/PLAN.md`) ships as one or more PRs, each through this pipeline. A
@@ -10,12 +11,12 @@ PR that has not been demonstrated is not finished, however good the diff looks.
 ## The pipeline
 
 ```
-0  trust        one-time per machine: `agent --trust`, then `agent status`.
-                Skip if you only use Claude Code.
+0  trust        complete the selected host's workspace trust setup.
+                Cursor CLI: `agent --trust`, then `agent status`.
 1  pre-flight   run every technical claim before writing code (table below)
 2  implement    interactive session only. Ends at one commit.
 3  Gate 1       tests for the adversarial matrix; every new test mutation-checked
-4  Gate 2       cold review of the diff: `/code-review`, then review-pr.md
+4  Gate 2       cold bug review of the diff, then review-pr.md
 5  fix          each fix is new code: tests + mutation check. Re-run Gate 2 once
                 if the fixes were non-trivial, then stop.
 6  E2E pre-PR   run the real thing, scoreboard in the PR, transcript on disk
@@ -41,11 +42,18 @@ A claim that fails is corrected in the PR notes, with the command that settled i
 before implementation starts. Fixing it silently in code leaves the notes wrong for
 the next reader. Not a numbered gate - it costs a `grep`.
 
+## AC/TC clearance — required for every story
+Before implementation assign stable IDs/expected outcomes to every in-scope AC and TC. The PR/Jira matrix records ID, command/test, expected/observed result, PASS/FAIL/NOT RUN/UNKNOWN, evidence, tested head, relevant hashes/repeats, mutation result for new tests and reviewer verification.
+Every item must be verified PASS before merge readiness; missing/failed/unrun items block. Gate 2 verifies substance. Only a dated explicit owner amendment removes scope (reason/destination recorded), never silent N/A/PASS. Existing applicable evidence may be reused with rationale; rerun affected checks after changes. Owner-only merge remains.
+Refresh the matrix with required post-merge E2E on merged main before Done. No sealed/E2E transcript reads; use authorized aggregates. CC-133 automates closure integrity; review applies now. PLAN/Jira prescribe B/P/A/L comparisons, cumulative floors and predeclared sampling; do not rerun until green.
+
 ## 2. Implement
 
-Interactive, Claude Code or Cursor. Never headless: `agent --force` / `--yolo` is
-all-or-nothing with no per-command allowlist, and the diff has to stay in the
-session that writes it.
+Interactive in the selected host (Claude Code, Cursor, Codex or equivalent),
+with normal approval and sandbox controls. Never use headless implementation
+or blanket permission bypasses such as `agent --force` / `--yolo`; the diff
+has to stay in the session that writes it. Host selection changes adapters,
+not project rules, checks, skills, budgets or owner responsibilities.
 
 ## 3. Gate 1 - tests and the mutation check
 
@@ -62,11 +70,13 @@ Read the code with no knowledge of intent. Not a duplicate of Gate 1: a test fro
 the same mental model as the implementation cannot falsify that model. Two passes:
 
 - **generic bugs**: `/code-review` (Claude Code) or the same cold read in a fresh
-  subagent (Cursor Task / New Chat) — code only, no intent.
+  subagent/session in any host — code only, no implementation intent. Do not read
+  the slice plan, implementation notes or the caller's explanation until this
+  pass has recorded its findings. Shared project rules still apply.
 - **project invariants**: `docs/playbooks/review-pr.md`. Run the machines first; a
   non-zero exit ends the review.
 
-Gate 1 and Gate 2 also read the catalog matching touched paths: response / URL /
+Gate 1 and Gate 2's invariants pass also read the catalog matching touched paths: response / URL /
 Census / UI → `docs/requirements.md`; `/ask` → `docs/ask-path.md`; index /
 search / rerank → `docs/retrieval.md`; scope → `docs/slices.md`.
 
@@ -105,8 +115,9 @@ passes only with the owner's `[waiver]` line in `budgets.toml`, for that one run
 Every phase **persists its output before the next begins** - to git, the PR body,
 `evidence/slice-<N>/`, `.claude/PLAN.md`, **Jira** (project `CC`), or
 `docs/process-evidence.md`. A phase that has not persisted has not finished. A
-fresh context - Claude Code `/clear` or a subagent, Cursor New Chat or an
-`agent` invocation - **reconstructs state from those artifacts, never from conversation history**.
+fresh context in any host **reconstructs state from those artifacts, never from conversation history**.
+The shared `.claude/PLAN.md` and `.claude/DESIGN.md` paths remain valid for all
+hosts; do not fork their state into host-specific copies.
 
 **Jira (project `CC`) is the status source of truth.** Close with
 `uv run python scripts/jira_transition.py CC-N --done --comment "…"` (evidence in
@@ -134,12 +145,33 @@ Added 2026-10-04 after a review session drifted (`evidence/checkpoint-2026-10-04
 Run Gate 1, Gate 2 and E2E in a fresh context so their reads and tool output do not
 stay resident for the rest of the slice.
 
-| | Claude Code | Cursor |
-| --- | --- | --- |
-| gate phase | fresh `general-purpose` subagent, **not** `fork` | fresh Task subagent or New Chat — same prompt, no caller context |
-| isolated checkout | subagent `isolation: worktree` | worktree when the phase needs a clean checkout |
+| | Claude Code | Cursor | Codex / other hosts |
+| --- | --- | --- | --- |
+| gate phase | fresh `general-purpose` subagent, **not** `fork` | fresh Task subagent or New Chat | fresh subagent without caller history; Codex `fork_context: false` when supported, otherwise a fresh session |
+| isolated checkout | subagent `isolation: worktree` | worktree when needed | explicit worktree when needed; do not assume subagents isolate files |
 
-`scripts/gate.sh` / `scripts/gate.ps1` print the subagent prompt for either host;
-neither shell can spawn the subagent. The subagent writes
+`scripts/gate.sh` / `scripts/gate.ps1` print the same host-neutral handoff;
+they do not launch agents or choose an engine. The parent uses its host's
+delegation tool, or hands the prompt to a fresh session if none is available.
+Use native slash commands where available; the equivalent cold review is
+required even when the command is absent. Do not replace it with self-review.
+
+Pass only the repo path, phase, slice, exact review base/head and evidence path,
+not caller history or implementation intent. Record branch, HEAD and any scoped
+uncommitted changes in the evidence. Preserve unrelated user changes; mutations
+run one at a time in an isolated worktree when necessary. Do not run gate phases
+concurrently against shared files or the same evidence output. Preserve earlier
+evidence before reruns and link both runs. The subagent writes
 `evidence/slice-<N>/<phase>.txt`; the caller does not edit it afterward.
 `.gitattributes` forces LF so it stays byte-stable.
+
+Without `make`, execute and capture every command listed under the `eval` and
+`demo` recipes in the Makefile, in recipe order. This includes both
+`run_demo.py --repeat 3` and `run_grid.py --repeat 3`; the optional
+`scripts/e2e_capture.py` helper does not run the geography grid and is not a
+substitute for that command. Record all command output in the phase evidence.
+A missing runtime, database, credential, network permission or fresh-context
+capability is a reported blocker, never a skipped check reported as passing.
+Live E2E needs the documented API keys and credit; Plus usage is separate.
+Sealed sets stay owner-held on every host, whether or not host hooks enforce
+access; request only the permitted aggregate results.

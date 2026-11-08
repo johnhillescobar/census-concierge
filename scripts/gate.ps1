@@ -8,9 +8,9 @@
   phase   gate1 | gate2 | e2e-pre | e2e-post  (1 / 2 / pre / post accepted as shorthand)
   slice   the slice number, e.g. 0
 
-  Neither host can spawn a subagent from a shell script. This prints the prompt;
-  the parent session delegates to a fresh general-purpose subagent (Claude Code)
-  or Task subagent / New Chat (Cursor). Capture raw output to
+  This prints a host-neutral prompt; it does not launch agents. The parent
+  delegates to a fresh subagent without caller history, or a fresh session.
+  Claude Code, Cursor and Codex use the same phase requirements. Capture raw output to
   evidence/slice-<slice>/<phase>.txt — the subagent writes it, not the caller.
 #>
 [CmdletBinding()]
@@ -40,6 +40,11 @@ $task = switch ($Phase) {
 }
 
 $e2e = $Phase -in 'e2e-pre', 'e2e-post'
+$setup = if ($Phase -eq 'gate2') {
+  'Read CLAUDE.md and docs/playbooks/run-slice.md. Record the code-only bug review before reading .claude/PLAN.md or implementation notes. Then read the plan and applicable catalogs for the invariants pass.'
+} else {
+  'Read CLAUDE.md, docs/playbooks/run-slice.md, and the current slice in .claude/PLAN.md first. Gate 1 also reads the catalogs matching touched paths.'
+}
 $capture = if ($e2e) {
   "Redirect every command's output to $out (no tee). Do not Read that file."
 } else {
@@ -54,12 +59,17 @@ $report = if ($e2e) {
 }
 
 @"
-Hand this to a fresh general-purpose subagent (not fork), isolation: worktree when needed:
+Hand this to a fresh subagent without caller history, or a fresh session.
+Claude Code: general-purpose, not fork. Cursor: fresh Task / New Chat.
+Codex: fork_context: false when supported. Use an explicit worktree when needed.
 
-  Read CLAUDE.md, docs/playbooks/run-slice.md, and the current slice in
-  .claude/PLAN.md first. You have no context from the caller.
-  Gate 1 and Gate 2 also read the catalog matching touched paths
+  You have no context from the caller. Work from the repo and persisted evidence.
+  Record repo path, branch, HEAD, review base/head and scoped uncommitted changes.
+  $setup
+  Catalogs matching touched paths:
   (docs/requirements.md, docs/ask-path.md, docs/retrieval.md, docs/slices.md).
+  Without make, execute the underlying Makefile recipes in order.
+  Preserve prior evidence before reruns; never overwrite another gate's output.
   Do exactly this phase, nothing downstream:
   $task
   $capture

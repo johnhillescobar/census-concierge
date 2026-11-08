@@ -196,3 +196,9 @@ def test_doc_lines_counts_each_agent_catalog(tmp_path: Path, monkeypatch: Any) -
         path.unlink()
         assert bud._doc_lines() == expected - count, name
         _write_lines(path, count)
+
+    for name in ("AGENTS.md", ".agents/skills/run-slice/SKILL.md"):
+        path = tmp_path / name
+        _write_lines(path, 7)
+        assert bud._doc_lines() == expected + 7, name
+        path.unlink()
