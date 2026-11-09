@@ -117,3 +117,30 @@ refusal detail does; D2 candidates are level names in `detail`, not executable s
 D3 a wrong-length `levels` is now refused for repair; D5 an override is checked against its own plan.
 Known silent-by-design: a stated null with a bare name resolves to state/place by NAME match, unflagged.
 Leakage invariant: 6 violation entries vs 5 on main, only because the level table moved to geo_level.py.
+
+---
+
+## Status at fef4f1e (2026-11-08, night) - supersedes the status tables above
+
+Rebased onto origin/main 94566f5 (budget PRs #123 and #124 merged: api_src_loc 4890). The tree equals the
+E2E-tested head 828042c apart from `budgets.toml`. Hashes changed on every rebase; subjects identify commits.
+
+Decisions (owner, this session): AC2 split (Jira comment 10829); leakage baseline lines approved as a
+standalone commit that follows the CC-114 merge; p95 waiver approved per run (log line written once a run
+has `demo.generated_at` and p95, as its own commit before the evidence PR).
+
+- **AC2a delivered:** tracts inside one named place -> the containing counties' tracts, county-wide candidate
+  with `geography_unsupported` naming the counties (`api/src/geo_within.py`, `test_tracts_in_place.py`).
+  Verified live: Detroit -> `for=tract:*&in=state:26+county:163`, 627 tracts, 3 of 3 runs.
+- **AC2b moved to CC-131 AC4:** nearest-supported executable candidates for an unpublished level (t15).
+- **Leakage:** `chore/leakage-baseline-cc-114` (11 lines, exact counts, written for the post-merge state) must
+  land after this PR merges, not before: before it the three geo_level.py lines are stale entries.
+- **Budgets:** api src 4876/4890, largest file 408/410, docs 1819/1820. No other limit touched.
+- **Gate 2:** one re-run done (gate2.txt on c2589c5, gate2-r2.txt on e0be1ee). Round-2 fixes and the
+  derivation are tested and mutation-checked (34 of 34) but have no independent cold review: the playbook
+  allows no further re-run, so a third review is the owner's call.
+- **E2E pre-PR:** running on 828042c (isolated worktree); results go to `evidence/slice-6/cc-114/e2e-pre/`.
+  AC4, TC1, TC4, GC3 and the INH rows stay NOT RUN until they are in.
+
+Column the matrix lacked (run-slice.md): tested head. Offline rows are tested at fef4f1e (= 828042c + budget
+file); live rows at 828042c; the anchor at 4b24f77.
