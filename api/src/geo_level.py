@@ -73,7 +73,7 @@ def note_intent(record: Any, name: str, call: dict[str, Any], failed: bool = Fal
     if name != "resolve_geography" or "level" not in args or call.get("origin") == "repair":
         return
     stated, status = declared_levels(args), record.geo_status or {}
-    unserved = failed or (status.get("legal") is False and not status.get("refused"))
+    unserved = failed or status.get("legal") is False  # a refused level is unserved too
     for level in filter(None, stated):  # a level asked for and not served must not just vanish
         (record.unmet_levels.add if unserved else record.unmet_levels.discard)(level)
     if failed or not record.geographies:  # a failed, refused or empty call keeps the legs it left

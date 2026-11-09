@@ -603,11 +603,34 @@ async def test_an_unserved_level_is_cleared_once_a_later_call_serves_it() -> Non
     assert record.unmet_levels == set()
 
 
-async def test_a_level_name_that_is_not_published_is_not_an_unserved_request() -> None:
+async def test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped_silently() -> None:
+    """Seen live: the model stated a metro level, the lookup refused it, the model then fetched the
+    city. Refusing the level does not end the request: the URL must say it answers another level."""
     record = ExecutionRecord()
-    geo = _tools(record)["resolve_geography"]
-    await dispatch(geo, {"id": "1", "args": {"level": "city proper", "query": "Austin"}}, record)
-    assert record.unmet_levels == set()
+    tools = _tools(record)
+    steps = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"level": "congressional district", "query": "Texas"}),
+        ("resolve_geography", {"level": "place", "query": "Austin, Texas"}),
+        ("build_url", {"table_id": "B01003"}),
+        ("fetch_data", {}),
+    ]
+    queue: list[dict[str, Any]] = [
+        {"content": "", "tool_calls": [{"id": str(i), "name": n, "args": a}]}
+        for i, (n, a) in enumerate(steps)
+    ]
+
+    async def complete(messages: list[dict[str, Any]], tools_: list[dict[str, Any]]) -> Any:
+        del messages
+        if not tools_:
+            return {"content": "{}", "tool_calls": []}
+        return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
+
+    response = await run_ask("population of Austin", complete=complete, tools=tools, record=record)
+    assert record.unmet_levels == {"congressional district"}
+    assert CensusURL(response.urls[0]).for_level() == "place"
+    flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
+    assert flag and "no URL fetches congressional district" in flag[0].detail
 
 
 def test_an_unserved_level_not_covered_by_the_url_is_flagged_and_a_covered_one_is_not() -> None:
