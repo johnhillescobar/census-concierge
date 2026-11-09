@@ -66,7 +66,7 @@ async def test_tracts_in_a_place_are_the_tracts_of_the_county_it_lies_in() -> No
         "tract:*",
         "state:26 county:163",
     )
-    assert result.compare is False and result.legal is False
+    assert result.compare is False and result.legal is True and result.wider is True
     assert "place boundary is not applied" in result.detail and "Wayne County" in result.detail
 
 
@@ -132,10 +132,11 @@ async def test_the_derived_url_reaches_the_user_at_tract_level_with_a_warning() 
     url = CensusURL(response.urls[0])
     assert url.for_level() == "tract" and "county:163" in str(url) and "state:26" in str(url)
     codes = [w.code for w in response.warnings]
-    assert "geography_unsupported" in codes and "geography_level_mismatch" not in codes
-    assert "Wayne County" in next(
-        w.detail for w in response.warnings if w.code == "geography_unsupported"
-    )
+    # the t16 golden: containment is not expressible, the county is used, and the warning says so
+    assert "geography_not_nested" in codes
+    assert "geography_unsupported" not in codes and "geography_level_mismatch" not in codes
+    detail = next(w.detail for w in response.warnings if w.code == "geography_not_nested")
+    assert "Wayne County" in detail and "place boundary is not applied" in detail
 
 
 async def test_the_model_is_told_the_derived_tracts_as_an_ordinary_success() -> None:

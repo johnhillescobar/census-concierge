@@ -111,7 +111,7 @@ parent name fails the whole call rather than silently keeping the others.
 A named-county parent of a tract wildcard is `for=tract:*` without listing
 tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is
-`geography_not_nested` with no invented fetch, except tracts in one named place (ACS5): the `county (or part)` row names its counties and their tracts ship as a `geography_unsupported` candidate (`geo_within.py`; county-wide, the place boundary not applied). A `:*` wildcard stays one GET.
+`geography_not_nested` with no invented fetch, except tracts in one named place (ACS5): the `county (or part)` row names its counties and their tracts are fetched county-wide with `geography_not_nested` naming the counties (`geo_within.py`; the place boundary is not applied). A `:*` wildcard stays one GET.
 
 A question must carry what its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
 The split call (`plan_split`) also reports the question's `level`, the places it `named`, those identified only

@@ -46,6 +46,8 @@ class ResolveGeographyResult(ToolResult):
     inferred: bool = False
     # The level the model stated is not published for the dataset; the refusal must stand.
     refused: bool = False
+    # Executable but wider than asked (the counties a place lies in): warn, still run.
+    wider: bool = False
 
 
 def level_name(token: str | None) -> str | None:
@@ -91,6 +93,7 @@ def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
         "compare_count": int(get("compare_count", 0) or 0),
         "inferred": bool(get("inferred", False)),
         "refused": bool(get("refused", False)),
+        "wider": bool(get("wider", False)),
     }
 
 

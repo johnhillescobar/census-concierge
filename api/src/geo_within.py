@@ -1,7 +1,7 @@
 """Tracts inside a named place, from the counties ACS 5-year says the place lies in.
 
 Census has no tract-inside-place row; the tracts of those counties are the nearest executable
-answer. It covers the place and more, so it is an unsupported candidate with a warning that says so.
+answer. It covers the place and more, so it is flagged `geography_not_nested`, naming the counties.
 """
 
 from __future__ import annotations
@@ -60,7 +60,8 @@ async def tracts_in_place(
     result = ResolveGeographyResult(
         specs=[*specs, *hit.specs[1:]],  # other same-name places stay visible as candidates
         wildcard=True,
-        legal=False,
+        legal=True,  # tract:* in a state and county is an ordinary Census request
+        wider=True,
         detail=(
             f"tracts inside a place are not published; showing every tract in the {len(specs)} "
             f"county(ies) {place.name} lies in ({named}). The place boundary is not applied"

@@ -201,7 +201,7 @@ def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
 
 def geography_not_nested(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
-    if not status or status.get("nested") is not False:
+    if not status or not (status.get("nested") is False or status.get("wider")):
         return None
     detail = str(status.get("detail") or "").strip()
     if not detail:
