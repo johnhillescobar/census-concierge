@@ -36,7 +36,11 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
         {
             "content": "",
             "tool_calls": [
-                {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                {
+                    "id": "2",
+                    "name": "resolve_geography",
+                    "args": {"level": None, "query": "Harris County, Texas"},
+                }
             ],
         },
         {
@@ -110,7 +114,11 @@ async def test_in_year_uses_that_vintage_not_latest() -> None:
         {
             "content": "",
             "tool_calls": [
-                {"id": "2", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                {
+                    "id": "2",
+                    "name": "resolve_geography",
+                    "args": {"level": None, "query": "Harris County, Texas"},
+                }
             ],
         },
         {
@@ -298,7 +306,12 @@ async def test_block_group_state_listing_finishes_with_a_url() -> None:
         tools=tools,
         record=record,
     )
-    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    # The model made no geography call, so finish chose the level from the question's words:
+    # that is shown as unverified, not passed off as a level the model stated.
+    assert [item.code for item in response.warnings] == [
+        "geography_unsupported",
+        "geography_level_unverified",
+    ]
     assert response.urls
     assert "group:*" in response.urls[0]
 
@@ -341,7 +354,9 @@ async def test_block_group_listing_replaces_a_state_url() -> None:
         GeoLevel("block group", "150", ("state", "county", "tract"), ("county", "tract"), "tract"),
     ]
     tools["resolve_geography"] = _geo_tool(table=entries)
-    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "Wyoming"}}, record)
+    await dispatch(
+        tools["resolve_geography"], {"id": "1", "args": {"level": None, "query": "Wyoming"}}, record
+    )
     await dispatch(
         tools["search_tables"],
         {"id": "2", "args": {"question": "median household income in Wyoming"}},
@@ -495,7 +510,9 @@ async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "1", "args": {"query": "Fresno County"}}, record
+        tools["resolve_geography"],
+        {"id": "1", "args": {"level": None, "query": "Fresno County"}},
+        record,
     )
     await dispatch(
         tools["search_tables"],
@@ -550,7 +567,9 @@ async def test_acs1_year_span_replaces_an_acs5_url() -> None:
 async def test_texas_only_rent_compare_adds_austin() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "Texas"}}, record)
+    await dispatch(
+        tools["resolve_geography"], {"id": "1", "args": {"level": None, "query": "Texas"}}, record
+    )
     await dispatch(
         tools["search_tables"],
         {"id": "2", "args": {"question": "median gross rent in Texas"}},
@@ -676,7 +695,9 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     tools = _tools(record)
     await dispatch(tools["search_tables"], {"id": "1", "args": {"question": "population"}}, record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"query": "Cook County"}}, record
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": "county", "query": "Cook County"}},
+        record,
     )
     assert len(record.geographies) == 3
     assert record.geography is not None
@@ -715,7 +736,10 @@ async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
         tools["resolve_geography"],
         {
             "id": "2",
-            "args": {"query": "Median gross rent in Austin versus the Texas average"},
+            "args": {
+                "level": None,
+                "query": "Median gross rent in Austin versus the Texas average",
+            },
         },
         record,
     )
@@ -731,7 +755,7 @@ async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"query": "Springfield versus the Texas average"}},
+        {"id": "2", "args": {"level": None, "query": "Springfield versus the Texas average"}},
         record,
     )
     assert record.geo_status is not None
@@ -750,7 +774,7 @@ async def test_and_phrased_comparison_resolves_both_geographies() -> None:
     question = "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"places": ["Austin city, Texas", "Dallas city, Texas"]}
+    places = {"level": "place", "places": ["Austin city, Texas", "Dallas city, Texas"]}
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
@@ -769,7 +793,7 @@ async def test_and_phrased_comparison_across_states() -> None:
     question = "Compare the population of Detroit city, Michigan and Phoenix city, Arizona."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"places": ["Detroit city, Michigan", "Phoenix city, Arizona"]}
+    places = {"level": "place", "places": ["Detroit city, Michigan", "Phoenix city, Arizona"]}
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
@@ -789,7 +813,10 @@ async def test_three_way_and_list_comparison() -> None:
     )
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"places": ["Austin city, Texas", "Houston city, Texas", "San Antonio city, Texas"]}
+    places = {
+        "level": "place",
+        "places": ["Austin city, Texas", "Houston city, Texas", "San Antonio city, Texas"],
+    }
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
@@ -820,7 +847,7 @@ async def test_bare_unqualified_city_names_resolve_all_places() -> None:
     question = "Compare the population of Chicago, Los Angeles and New York City since 2017."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
+    places = {"level": "place", "places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
@@ -855,13 +882,21 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
         {
             "content": "",
             "tool_calls": [
-                {"id": "1", "name": "resolve_geography", "args": {"query": "Austin city, Texas"}}
+                {
+                    "id": "1",
+                    "name": "resolve_geography",
+                    "args": {"level": None, "query": "Austin city, Texas"},
+                }
             ],
         },
         {
             "content": "",
             "tool_calls": [
-                {"id": "2", "name": "resolve_geography", "args": {"query": "Dallas city, Texas"}}
+                {
+                    "id": "2",
+                    "name": "resolve_geography",
+                    "args": {"level": None, "query": "Dallas city, Texas"},
+                }
             ],
         },
         {
@@ -904,7 +939,11 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
         {
             "content": "",
             "tool_calls": [
-                {"id": "1", "name": "resolve_geography", "args": {"query": "Springfield"}}
+                {
+                    "id": "1",
+                    "name": "resolve_geography",
+                    "args": {"level": None, "query": "Springfield"},
+                }
             ],
         },
         {
@@ -913,7 +952,7 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
                 {
                     "id": "2",
                     "name": "resolve_geography",
-                    "args": {"query": "Springfield, Illinois"},
+                    "args": {"level": None, "query": "Springfield, Illinois"},
                 }
             ],
         },
@@ -944,10 +983,14 @@ async def test_bare_name_and_its_own_city_stay_two_distinct_legs() -> None:
     state-vs-its-namesake-city comparison must keep both legs."""
     record = ExecutionRecord(question="Compare New York and New York City, NY.")
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "1", "args": {"query": "New York"}}, record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"query": "New York City, NY"}},
+        {"id": "1", "args": {"level": None, "query": "New York"}},
+        record,
+    )
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": None, "query": "New York City, NY"}},
         record,
     )
     assert record.geo_queries == ["New York", "New York City, NY"]
@@ -964,7 +1007,11 @@ async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None
         {
             "content": "",
             "tool_calls": [
-                {"id": "1", "name": "resolve_geography", "args": {"query": "Harris County, Texas"}}
+                {
+                    "id": "1",
+                    "name": "resolve_geography",
+                    "args": {"level": None, "query": "Harris County, Texas"},
+                }
             ],
         },
         {
@@ -1028,7 +1075,7 @@ async def test_unauthorized_geography_cannot_reach_fetch() -> None:
     tools["resolve_geography"] = _geo_tool(table=[GeoLevel("state", "040", (), (), "")])
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"query": "all counties in Oregon"}},
+        {"id": "1", "args": {"level": None, "query": "all counties in Oregon"}},
         record,
     )
     assert record.geographies == []

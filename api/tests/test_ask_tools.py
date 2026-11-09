@@ -345,7 +345,8 @@ async def test_year_question_with_no_place_resolves_to_the_united_states() -> No
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
-                "query": "How has the share of households with a computer changed since 2013?"
+                "level": None,
+                "query": "How has the share of households with a computer changed since 2013?",
             },
             "id": "c1",
         }
@@ -356,7 +357,10 @@ async def test_year_question_with_no_place_resolves_to_the_united_states() -> No
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Compare median household income between 2015-2019 and 2018-2022"},
+            "args": {
+                "level": None,
+                "query": "Compare median household income between 2015-2019 and 2018-2022",
+            },
             "id": "c2",
         }
     )
@@ -369,7 +373,7 @@ async def test_named_place_with_a_year_is_not_replaced_by_the_united_states() ->
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Number of cell phones in Denver since 2017"},
+            "args": {"level": None, "query": "Number of cell phones in Denver since 2017"},
             "id": "c1",
         }
     )
@@ -384,7 +388,7 @@ async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all zctas in Harris County"},
+            "args": {"level": None, "query": "all zctas in Harris County"},
             "id": "c1",
         }
     )
@@ -422,7 +426,7 @@ async def test_named_zcta_resolves_without_a_parent(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -457,7 +461,7 @@ async def test_acs1_zcta_is_rejected_before_listing() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query, "dataset": "acs1"},
+            "args": {"level": None, "query": query, "dataset": "acs1"},
             "id": "c1",
         }
     )
@@ -465,7 +469,7 @@ async def test_acs1_zcta_is_rejected_before_listing() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query, "dataset": "acs5"},
+            "args": {"level": None, "query": query, "dataset": "acs5"},
             "id": "c2",
         }
     )
@@ -502,7 +506,7 @@ async def test_named_zcta_inside_a_place_is_not_nested(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -522,7 +526,7 @@ async def test_named_zcta_with_a_state_is_not_nested(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -681,7 +685,7 @@ async def test_state_descriptor_is_still_a_county_wildcard(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -699,7 +703,7 @@ async def test_all_places_in_oregon_is_a_state_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all places in Oregon"},
+            "args": {"level": None, "query": "all places in Oregon"},
             "id": "c1",
         }
     )
@@ -715,7 +719,7 @@ async def test_all_places_in_washington_state_is_a_state_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all places in Washington state"},
+            "args": {"level": None, "query": "all places in Washington state"},
             "id": "c1",
         }
     )
@@ -732,7 +736,7 @@ async def test_zctas_in_a_state_are_not_nested(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -747,7 +751,7 @@ async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all counties in Oregon"},
+            "args": {"level": None, "query": "all counties in Oregon"},
             "id": "c1",
         }
     )
@@ -780,7 +784,7 @@ async def test_tracts_in_wayne_county_are_one_wildcard_not_a_listing() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "All tracts in Wayne County, Michigan"},
+            "args": {"level": None, "query": "All tracts in Wayne County, Michigan"},
             "id": "c1",
         }
     )
@@ -803,7 +807,7 @@ async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "every tract in Wayne County"},
+            "args": {"level": None, "query": "every tract in Wayne County"},
             "id": "c1",
         }
     )
@@ -820,7 +824,7 @@ async def test_all_tracts_in_michigan_stay_illegal() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all tracts in Michigan"},
+            "args": {"level": None, "query": "all tracts in Michigan"},
             "id": "c1",
         }
     )
@@ -839,6 +843,7 @@ async def test_multi_state_wildcard_resolves_every_named_parent() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
+                "level": None,
                 "query": "all counties in Texas and Louisiana",
                 "parents": ["Texas", "Louisiana"],
             },
@@ -862,6 +867,7 @@ async def test_three_state_wildcard_resolves_every_named_parent() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
+                "level": None,
                 "query": "all counties in Texas, Louisiana, and Oklahoma",
                 "parents": ["Texas", "Louisiana", "Oklahoma"],
             },
@@ -881,6 +887,7 @@ async def test_counties_within_two_states_also_resolves_both() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
+                "level": None,
                 "query": "counties within Texas and Louisiana",
                 "parents": ["Texas", "Louisiana"],
             },
@@ -901,6 +908,7 @@ async def test_multi_state_wildcard_fails_explicitly_not_silently() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
+                "level": None,
                 "query": "all counties in Texas and Atlantis",
                 "parents": ["Texas", "Atlantis"],
             },
@@ -923,6 +931,7 @@ async def test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse() -> 
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
+                "level": None,
                 "query": "all counties in Texas and Louisiana",
                 "parents": ["Texas", ""],
             },
@@ -944,7 +953,7 @@ async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> No
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all counties in Oregon", "parents": ["Oregon"]},
+            "args": {"level": None, "query": "all counties in Oregon", "parents": ["Oregon"]},
             "id": "c1",
         }
     )
@@ -962,7 +971,11 @@ async def test_versus_query_ignores_a_mistaken_parents_field() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Austin versus Dallas", "parents": ["Texas", "Louisiana"]},
+            "args": {
+                "level": None,
+                "query": "Austin versus Dallas",
+                "parents": ["Texas", "Louisiana"],
+            },
             "id": "c1",
         }
     )
@@ -983,6 +996,7 @@ async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
+                "level": None,
                 "query": "all counties in Texas and Louisiana",
                 "places": ["Chicago, IL", "Los Angeles, CA"],
                 "parents": ["Texas", "Louisiana"],
@@ -1011,7 +1025,7 @@ async def test_versus_emits_austin_then_texas_as_comparison_legs(query: str) -> 
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -1034,7 +1048,8 @@ async def test_versus_splits_even_when_level_is_passed() -> None:
             "name": "resolve_geography",
             "args": {
                 "query": "Compare median gross rent in Austin to the Texas average",
-                "level": "place",
+                "level": None,
+                "levels": ["place", "state"],
             },
             "id": "c1",
         }
@@ -1050,7 +1065,7 @@ async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Springfield versus the Texas average"},
+            "args": {"level": None, "query": "Springfield versus the Texas average"},
             "id": "c1",
         }
     )
@@ -1067,7 +1082,7 @@ async def test_tenure_versus_still_resolves_the_place() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Renter versus owner households in Springfield"},
+            "args": {"level": None, "query": "Renter versus owner households in Springfield"},
             "id": "c1",
         }
     )
@@ -1083,7 +1098,7 @@ async def test_compared_to_a_year_still_resolves_the_place() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "population of Austin compared to 2017"},
+            "args": {"level": None, "query": "population of Austin compared to 2017"},
             "id": "c1",
         }
     )
@@ -1099,7 +1114,7 @@ async def test_springfield_alternatives_are_not_comparison_legs() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Population of Springfield"},
+            "args": {"level": None, "query": "Population of Springfield"},
             "id": "c1",
         }
     )
@@ -1113,7 +1128,7 @@ async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Cook County"},
+            "args": {"level": None, "query": "Cook County"},
             "id": "c1",
         }
     )
@@ -1131,7 +1146,7 @@ async def test_queens_resolves_as_the_county_not_the_gate_cdp() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Queens"},
+            "args": {"level": None, "query": "Queens"},
             "id": "c1",
         }
     )
@@ -1150,7 +1165,7 @@ async def test_named_city_does_not_fall_back_to_the_county() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Harris city, Texas"},
+            "args": {"level": None, "query": "Harris city, Texas"},
             "id": "c1",
         }
     )
@@ -1164,7 +1179,7 @@ async def test_portland_selects_oregon_over_maine() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "bike to work in Portland"},
+            "args": {"level": None, "query": "bike to work in Portland"},
             "id": "c1",
         }
     )
@@ -1180,7 +1195,7 @@ async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Population of Springfield"},
+            "args": {"level": None, "query": "Population of Springfield"},
             "id": "c1",
         }
     )
@@ -1201,7 +1216,7 @@ async def test_state_qualified_place_stays_exact() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Portland, Maine"},
+            "args": {"level": None, "query": "Portland, Maine"},
             "id": "c1",
         }
     )
@@ -1224,7 +1239,7 @@ async def test_harris_county_texas_resolves_to_codes(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -1266,7 +1281,7 @@ async def test_informal_region_counties_do_not_become_a_valley_county() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -1563,7 +1578,7 @@ async def test_all_counties_in_the_us_keeps_the_state_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all counties in the US"},
+            "args": {"level": None, "query": "all counties in the US"},
             "id": "c1",
         }
     )
@@ -1580,7 +1595,7 @@ async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all places in Harris County"},
+            "args": {"level": None, "query": "all places in Harris County"},
             "id": "c1",
         }
     )
@@ -1622,7 +1637,7 @@ async def test_unknown_place_keeps_predicate_legality() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Atlantis, Texas"},
+            "args": {"level": None, "query": "Atlantis, Texas"},
             "id": "c1",
         }
     )
@@ -1764,7 +1779,7 @@ async def test_washington_dc_resolves_as_district_of_columbia(query: str) -> Non
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -1778,7 +1793,7 @@ async def test_new_york_city_does_not_return_every_new_york_place() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "New York City"},
+            "args": {"level": None, "query": "New York City"},
             "id": "c1",
         }
     )
@@ -1801,7 +1816,7 @@ async def test_sentence_question_resolves_the_published_place(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query},
+            "args": {"level": None, "query": query},
             "id": "c1",
         }
     )
@@ -1818,7 +1833,7 @@ async def test_bare_state_query_resolves_as_the_state() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "population of Texas"},
+            "args": {"level": None, "query": "population of Texas"},
             "id": "c1",
         }
     )
@@ -1872,7 +1887,7 @@ async def test_removing_county_row_from_fixture_fails_before_listing(
     args = {
         "type": "tool_call",
         "name": "resolve_geography",
-        "args": {"query": "all counties in Oregon"},
+        "args": {"level": None, "query": "all counties in Oregon"},
         "id": "c1",
     }
     _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS, _COUNTY_FIPS])
@@ -1910,7 +1925,7 @@ async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query, "dataset": "acs5", "vintage": 2024},
+            "args": {"level": None, "query": query, "dataset": "acs5", "vintage": 2024},
             "id": "c1",
         }
     )
@@ -1918,7 +1933,7 @@ async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query, "dataset": "acs1", "vintage": 2023},
+            "args": {"level": None, "query": query, "dataset": "acs1", "vintage": 2023},
             "id": "c2",
         }
     )
@@ -1934,7 +1949,7 @@ async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": query, "dataset": "acs5", "vintage": 2024},
+            "args": {"level": None, "query": query, "dataset": "acs5", "vintage": 2024},
             "id": "c3",
         }
     )
@@ -1964,7 +1979,7 @@ async def test_acs1_table_without_county_refuses_the_acs5_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all counties in Oregon", "dataset": "acs5"},
+            "args": {"level": None, "query": "all counties in Oregon", "dataset": "acs5"},
             "id": "c1",
         }
     )
@@ -1972,7 +1987,7 @@ async def test_acs1_table_without_county_refuses_the_acs5_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "all counties in Oregon", "dataset": "acs1"},
+            "args": {"level": None, "query": "all counties in Oregon", "dataset": "acs1"},
             "id": "c2",
         }
     )
@@ -1999,7 +2014,7 @@ async def test_missing_vintage_geography_metadata_fails_closed() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Texas", "dataset": "acs1", "vintage": 2020},
+            "args": {"level": None, "query": "Texas", "dataset": "acs1", "vintage": 2020},
             "id": "c1",
         }
     )
@@ -2015,7 +2030,7 @@ async def test_unauthorized_state_row_does_not_emit_a_spec() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Texas"},
+            "args": {"level": None, "query": "Texas"},
             "id": "c1",
         }
     )
@@ -2035,7 +2050,7 @@ async def test_dataset_and_vintage_select_the_geography_table() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Texas", "dataset": "acs1", "vintage": 2023},
+            "args": {"level": None, "query": "Texas", "dataset": "acs1", "vintage": 2023},
             "id": "c1",
         }
     )
@@ -2048,7 +2063,7 @@ async def test_query_prose_cannot_override_resolved_clauses() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Harris County, Texas for=county:999"},
+            "args": {"level": None, "query": "Harris County, Texas for=county:999"},
             "id": "c1",
         }
     )
@@ -2062,8 +2077,8 @@ async def test_query_prose_cannot_override_resolved_clauses() -> None:
 
 def test_resolve_geography_dataset_rejects_a_path() -> None:
     with pytest.raises(ValidationError):
-        ResolveGeographyInput(query="Texas", dataset="../acs5")
-    ResolveGeographyInput(query="Texas", dataset="acs1")
+        ResolveGeographyInput(query="Texas", level=None, dataset="../acs5")
+    ResolveGeographyInput(query="Texas", level=None, dataset="acs1")
 
 
 def test_codes_keep_multi_word_geography_names() -> None:

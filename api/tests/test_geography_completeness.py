@@ -528,7 +528,7 @@ async def test_two_named_places_still_fetch_and_compare_with_margins() -> None:
     places = ["Chicago city, Illinois", "Los Angeles city, California"]
     steps = [
         ("search_tables", {"question": question}),
-        ("resolve_geography", {"places": places}),
+        ("resolve_geography", {"level": None, "places": places}),
         ("build_url", {"table_id": "B25064"}),
         ("fetch_data", {}),
     ]
@@ -556,7 +556,7 @@ async def test_tracts_inside_a_named_county_still_fetch_and_compare_with_margins
     ]
     steps = [
         ("search_tables", {"question": question}),
-        ("resolve_geography", {"query": "every tract in Dane County, Wisconsin"}),
+        ("resolve_geography", {"level": None, "query": "every tract in Dane County, Wisconsin"}),
         ("build_url", {"table_id": "B17001"}),
         ("fetch_data", {}),
     ]

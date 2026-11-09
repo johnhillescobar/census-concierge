@@ -12,6 +12,7 @@ from pydantic import ConfigDict
 
 from src.compare import unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
+from src.geo_level import LEVELS, ResolveGeographyResult, declared_levels, level_name
 from src.geo_list import (
     WILDCARD,
     WITHIN,
@@ -22,26 +23,9 @@ from src.geo_list import (
     rank_matches,
     token_is_dc,
 )
+from src.geo_within import tracts_in_place
 from src.retrieval.metadata import GeoLevel
-from src.tools import ResolveGeographyInput, ToolResult
-
-_LEVELS = {
-    "county": "county",
-    "counties": "county",
-    "state": "state",
-    "states": "state",
-    "place": "place",
-    "places": "place",
-    "city": "place",
-    "cities": "place",
-    "tract": "tract",
-    "tracts": "tract",
-    "block group": "block group",
-    "block groups": "block group",
-    "zcta": "zip code tabulation area",
-    "zctas": "zip code tabulation area",
-    "zip": "zip code tabulation area",
-}
+from src.tools import ResolveGeographyInput
 
 _VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
 _COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
@@ -55,19 +39,6 @@ _IN_PLACE = re.compile(
     r"\b(?:in|for)\s+(?!((?:19|20)\d{2})\b)([A-Za-z][A-Za-z.'-]*)",
     re.I,
 )
-
-
-class ResolveGeographyResult(ToolResult):
-    specs: list[GeoSpec]
-    wildcard: bool
-    legal: bool
-    detail: str
-    nested: bool = True
-    compare: bool = False
-    # Leading `specs` entries that are genuine one-per-place picks; entries
-    # after this count are leftover ambiguous candidates, not places to
-    # fetch. Only meaningful when `compare` is True.
-    compare_count: int = 0
 
 
 ListGeographies = Callable[..., list[dict[str, str]]]
@@ -85,7 +56,7 @@ def _fail(
 
 
 def _compare_result(
-    specs: list[GeoSpec], extra: list[GeoSpec], *, legal: bool, detail: str = ""
+    specs: list[GeoSpec], extra: list[GeoSpec], *, legal: bool, inferred: bool, detail: str = ""
 ) -> ResolveGeographyResult:
     return ResolveGeographyResult(
         specs=specs + extra,
@@ -94,6 +65,7 @@ def _compare_result(
         detail=detail,
         compare=True,
         compare_count=len(specs),
+        inferred=inferred,
     )
 
 
@@ -128,7 +100,7 @@ def nests_in(child: str, parent: str, entries: list[GeoLevel]) -> bool:
 
 def detect_level(text: str) -> str | None:
     folded = text.casefold()
-    for alias, level in sorted(_LEVELS.items(), key=lambda item: -len(item[0])):
+    for alias, level in sorted(LEVELS.items(), key=lambda item: -len(item[0])):
         if re.search(rf"\b{re.escape(alias)}\b", folded):
             return level
     return None
@@ -197,6 +169,7 @@ class ResolveGeographyTool(BaseTool):
         places: list[str] | None = None,
         parents: list[str] | None = None,
         level: str | None = None,
+        levels: list[str | None] | None = None,
         dataset: str = "acs5",
         vintage: int | None = None,
     ) -> tuple[str, ResolveGeographyResult]:
@@ -215,12 +188,19 @@ class ResolveGeographyTool(BaseTool):
                 return _fail(f"unresolved wildcard parent(s): {', '.join(bad)}", wildcard=True)
             specs = [hit.specs[0] for _d, hit in picks]
             extra = [row for _d, hit in picks for row in hit.specs[1:]]
-            return f"{len(specs)} wildcard geographies", _compare_result(specs, extra, legal=True)
+            flag = any(hit.inferred for _d, hit in picks)
+            return f"{len(specs)} wildcard geographies", _compare_result(
+                specs, extra, legal=True, inferred=flag
+            )
         legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
         sides = legs if len(legs) >= 2 else split_comparison(query)
+        if levels and len(levels) != len(sides or []):
+            return _fail("levels pairs with two or more places, one entry each")
         if sides:
+            stated = declared_levels({"places": sides, "levels": levels, "level": level})
+            legs_at = zip(sides, stated, strict=True)
             resolved = await asyncio.gather(
-                *(self._resolve(side, None, dataset, year, entries) for side in sides)
+                *(self._resolve(side, lv, dataset, year, entries) for side, lv in legs_at)
             )
             hits = [hit for _detail, hit in resolved]
             if all(hit.legal and hit.specs for hit in hits):
@@ -229,12 +209,15 @@ class ResolveGeographyTool(BaseTool):
                 summary = " vs ".join(spec.for_spec for spec in specs)
                 return (
                     f"{len(specs)} geographies: {summary}",
-                    _compare_result(specs, extra, legal=True),
+                    _compare_result(
+                        specs, extra, legal=True, inferred=any(h.inferred for h in hits)
+                    ),
                 )
             for hit in hits:
                 if hit.legal and hit.specs:
                     return f"1 geography: {hit.specs[0].for_spec}", hit
-        return await self._resolve(legs[0] if legs else query, level, dataset, year, entries)
+        ordinary = await self._resolve(legs[0] if legs else query, level, dataset, year, entries)
+        return await tracts_in_place(self, names, level, dataset, year, entries, ordinary)
 
     async def _resolve(
         self,
@@ -255,18 +238,24 @@ class ResolveGeographyTool(BaseTool):
                 vintage=year,
             )
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
-            return f"1 geography: {spec.for_spec}", result
+            return f"1 geography: {spec.for_spec}", result.model_copy(update={"inferred": True})
         wildcard_match = WILDCARD.search(query) or WITHIN.search(query)
         wildcard = wildcard_match is not None
         parent_text = parent_override or (wildcard_match.group(2) if wildcard_match else query)
         state = find_state(parent_text)
         known = {entry.name for entry in entries}
+        inferred = False  # True: code read the level from the query's words or a fallback
         if level:
-            for_level = _LEVELS.get(level.casefold()) or (level if level in known else None)
+            for_level = level_name(level) if level_name(level) in known else None
             if for_level is None:
-                return _fail(f"unknown geography level {level!r}")
+                names = ", ".join(dict.fromkeys(entry.name for entry in entries))
+                detail, refusal = _fail(
+                    f"unknown geography level {level!r}; published here: {names}"
+                )
+                return detail, refusal.model_copy(update={"refused": True})
         else:
             for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
+            inferred = for_level is not None
         if for_level is None:
             token = place_token(query, state[0] if state else None)
             dc_as_state = token_is_dc(token) if state is not None and state[1] == "11" else False
@@ -300,7 +289,9 @@ class ResolveGeographyTool(BaseTool):
                 dataset=dataset,
                 vintage=year,
             )
-            result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
+            result = ResolveGeographyResult(
+                specs=[spec], wildcard=False, legal=True, detail="", inferred=inferred
+            )
             return f"1 geography: {spec.for_spec}", result
 
         leftover_parents: list[dict[str, str]] = []
@@ -380,7 +371,7 @@ class ResolveGeographyTool(BaseTool):
                 level=for_level, name=f"ZCTA5 {code}",
                 for_spec=f"{for_level}:{code}", dataset=dataset, vintage=year)
             return f"1 geography: {spec.for_spec}", ResolveGeographyResult(
-                specs=[spec], wildcard=False, legal=True, detail="")
+                specs=[spec], wildcard=False, legal=True, detail="", inferred=inferred)
         # fmt: on
         if wildcard:
             parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
@@ -405,7 +396,7 @@ class ResolveGeographyTool(BaseTool):
                 for row in leftover_parents
             ]
             result = ResolveGeographyResult(
-                specs=[spec, *others], wildcard=True, legal=True, detail=""
+                specs=[spec, *others], wildcard=True, legal=True, detail="", inferred=inferred
             )
             return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
 
@@ -415,6 +406,7 @@ class ResolveGeographyTool(BaseTool):
         token = place_token(query, state[0] if state else None)
         matched = named_rows(token, rows)
         if not matched and for_level == "place" and not level and detect_level(query) is None:
+            inferred = True  # no place matched; the county listing is a different level
             matched = named_rows(
                 token,
                 await asyncio.to_thread(
@@ -434,7 +426,9 @@ class ResolveGeographyTool(BaseTool):
             for row in matched
         ]
         detail = f"no {for_level} matched {query!r}" if not specs else ""
-        result = ResolveGeographyResult(specs=specs, wildcard=False, legal=True, detail=detail)
+        result = ResolveGeographyResult(
+            specs=specs, wildcard=False, legal=True, detail=detail, inferred=inferred
+        )
         n = len(specs)
         chosen = specs[0] if specs else None
         one = (

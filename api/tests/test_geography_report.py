@@ -441,7 +441,7 @@ async def _ask_then_resolve(question: str, split_reply: dict[str, Any], query: s
             return {"content": "done", "tool_calls": []}
         name, args = [
             ("search_tables", {"question": question}),
-            ("resolve_geography", {"query": query}),
+            ("resolve_geography", {"level": None, "query": query}),
         ][turns["n"] - 1]
         return {"content": "", "tool_calls": [{"id": str(turns["n"]), "name": name, "args": args}]}
 

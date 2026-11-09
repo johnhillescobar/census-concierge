@@ -1,0 +1,577 @@
+CC-114 GATE 1 TRANSCRIPT (tests + mutation check)
+=================================================
+Reviewer: fresh-context gate-1 subagent, isolated worktree
+Review base : origin/main 4b24f77f647ffa20de3e3c4eeed75ad416affc95
+Head tested : 5409a1e6a9f5d3f091e0084a1b2cd7cdd38ce652 (branch cc-114/level-fidelity, detached checkout)
+git status --short at start (before additions): clean
+Product code edits: none (every mutation was restored by checking the file out of HEAD; each restore verified clean)
+Test additions (api/tests/ only, uncommitted, untracked): test_level_repair.py (4 tests), test_level_per_leg.py (1),
+  test_expected_level_scoring.py (1), test_level_inferred_flow.py (2), test_level_stated_run.py (1)
+git status --short at end:
+  ?? api/tests/test_expected_level_scoring.py
+  ?? api/tests/test_level_inferred_flow.py
+  ?? api/tests/test_level_per_leg.py
+  ?? api/tests/test_level_repair.py
+  ?? api/tests/test_level_stated_run.py
+
+------------------------------------------------------------------------------------------
+1. STATIC CHECKS AND FULL SUITE (head 5409a1e + the 9 added tests)
+------------------------------------------------------------------------------------------
+
+$ uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+242 files already formatted
+
+$ uv run mypy api/src
+Success: no issues found in 28 source files
+
+$ uv run pytest api -q -p no:cacheprovider  (tail)
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1112 passed, 34 skipped, 1 warning in 48.04s
+
+
+Before the additions, the same pytest run on the bare head 5409a1e was: 1 failed, 1103 passed, 34 skipped.
+Only failure on both runs: api/tests/test_invariants.py::test_invariants_print_every_named_pattern.
+
+------------------------------------------------------------------------------------------
+2. BASELINE PROOF: the same test on origin/main 4b24f77 (detached checkout in this worktree)
+------------------------------------------------------------------------------------------
+$ detached checkout of origin/main      -> HEAD 4b24f77f647ffa20de3e3c4eeed75ad416affc95
+$ uv run pytest api/tests/test_invariants.py::test_invariants_print_every_named_pattern -q -p no:cacheprovider
+BASELINE (origin/main): 1 failed   -> 5 violation(s), all "eval phrasing in api/src" (leakage baseline):
+    api/src/contract.py:29   gram4 'zip code tabulation area'  2 occurrence(s)
+    api/src/geo.py:41        gram4 'zip code tabulation area'  5 occurrence(s)
+    api/src/geo.py:52        regex2 'united states'            2 occurrence(s)
+    api/src/geo_list.py:80   regex2 'district columbia'        1 occurrence(s)
+    api/src/guards.py:31     regex2 'statistical area'         1 occurrence(s)
+$ detached checkout of 5409a1e          -> HEAD 5409a1e6a9f5d3f091e0084a1b2cd7cdd38ce652
+HEAD (5409a1e): 1 failed            -> 6 violation(s), the same category:
+    api/src/contract.py:29     gram4 'zip code tabulation area'  2 occurrence(s)
+    api/src/geo.py:35          regex2 'united states'            2 occurrence(s)
+    api/src/geo.py:349         gram4 'zip code tabulation area'  2 occurrence(s)
+    api/src/geo_level.py:31    gram4 'zip code tabulation area'  3 occurrence(s)   <-- NEW FILE ENTRY
+    api/src/geo_list.py:80     regex2 'district columbia'        1 occurrence(s)
+    api/src/guards.py:32       regex2 'statistical area'         1 occurrence(s)
+FACT: the test is red on both, so the failure is pre-existing. NOTE FOR GATE 2 / OWNER: the head moves the
+`_LEVELS` alias table from geo.py into the new api/src/geo_level.py (`LEVELS`). The 'zip code tabulation area'
+occurrences total 7 on main (2+5) and 7 on head (2+2+3): none added, but the leakage check now reports them
+under 6 file entries instead of 5, so a future baseline entry would have to name geo_level.py. Not a new
+failure, not a new phrase.
+
+------------------------------------------------------------------------------------------
+3. ADVERSARIAL MATRIX: which AC/TC each new test covers
+------------------------------------------------------------------------------------------
+Tests in the commit (23): api/tests/test_level_fidelity.py (22) + test_demo_harness.py::test_a_list_of_expected_levels_is_scored_per_leg (1)
+
+test_level_fidelity.py
+ the_schema_requires_the_model_to_state_a_level ............. AC2 (D1), TC5  [mutation: level optional again]
+ a_call_that_omits_the_level_is_refused_..._bounded ......... AC2 (D1)       [same mutation; the "failed twice" bound is pre-existing dispatch
+                                                                              behaviour and is not mutated here]
+ a_repair_call_never_overwrites_the_stated_level ............ AC2 (D4)       [note_intent origin check]
+ declared_levels_follow_the_legs ............................ TC2 (D3)       [3 mutations]
+ only_a_resolve_call_that_states_a_level_records_one ........ AC2 (D4)       [2 mutations]
+ the_stated_level_is_run_even_when_the_query_names_another .. AC2, TC1 (D2)  [_resolve ignores stated level]
+ a_level_the_model_did_not_state_is_marked_inferred ......... AC2 (D6)       [inferred never set]
+ an_unpublished_level_is_refused_with_the_published_names ... AC2 (D2), TC5  [published names dropped]
+ a_published_level_with_no_alias_is_run_by_exact_metadata ... TC3            [exact-metadata fallthrough removed]
+ each_comparison_leg_is_run_at_its_own_stated_level ......... TC2 (D3)       *** WEAK: its mutation SURVIVES (see section 4, run 1) ***
+ a_single_level_stated_for_mixed_legs_is_not_corrected ...... TC2 (D3)       [scalar level dropped]
+ a_fetch_at_another_level_is_flagged_and_still_shows_url .... AC2, TC5 (D5)  [guard returns nothing; detail drops asked level]
+ a_fetch_at_the_stated_level_is_not_flagged ................. AC2 (D5)       [allowed set empty; for_level returns whole clause]
+ the_nationwide_fallback_cannot_hide_a_substituted_level .... TC5            [us level exempted] (URL-level only; see gaps)
+ every_fetched_url_is_held_to_the_stated_level .............. AC2, TC5 (D5)  [only first URL checked]
+ a_leg_with_no_stated_level_is_checked_against_lookup ....... AC2, TC2       [2 mutations]
+ a_table_question_is_never_flagged_for_its_level ............ AC2            [tables_only exemption removed]
+ a_geography_resolved_without_a_stated_level_is_unverified .. AC2 (D6)       [stated forced True]
+ a_level_the_code_inferred_is_unverified .................... AC2 (D6)       [status['inferred'] ignored]
+ a_stated_level_run_as_stated_raises_no_level_warning ....... AC2 (D6)       [guard always fires]
+ a_users_own_plan_is_not_a_model_reading .................... AC2 (D6)       [override exemption removed]
+ a_loop_whose_model_states_the_level_raises_no_warning ...... AC2, TC1       [ask loop stops recording intent]
+test_demo_harness.py
+ a_list_of_expected_levels_is_scored_per_leg ................ GC2, TC2 (D7)  [2 of 3 mutations caught; the "level nobody expected" mutation SURVIVES
+                                                                              -> closed by the added test_expected_level_scoring.py]
+
+Added by Gate 1 (api/tests/ only, each mutation-checked below)
+ test_level_repair.py (4)           finish's repair calls are marked origin=repair and carry the stated levels
+                                    (sequential-places repair, real-dispatch no-overwrite, nationwide fallback, multi-parent split) ... AC2 (D4), TC5
+ test_level_per_leg.py (1)          a leg is not resolved at a level other than its stated one (closes the survivor of the
+                                    weak comparison-leg test) ... TC2 (D3)
+ test_expected_level_scoring.py (1) list expectation: all legs fetched plus an unexpected level is a miss ... GC2, TC2 (D7)
+ test_level_inferred_flow.py (2)    artifact.inferred reaches geo_status and the warning through the real tool call ... AC2 (D6)
+ test_level_stated_run.py (1)       a stated state level builds a state for= URL for a county-worded query ... TC1, AC2 (D2)
+
+AC/TC with NO covering test or only a weak one (after the additions):
+ * TC5 "guard fires for ... raw for_spec, override": only the nationwide/us:1 URL shape is exercised directly, and that
+   test fabricates the record (a hand-built ExecutionRecord with url=us:1) rather than the finish_tools fallback producing
+   it; the finish_tools wiring (origin=repair, level null) is now covered by test_level_repair.py. There is NO test for a
+   raw build_url for_spec at another level (structurally limited: build_url only accepts a for_spec already in
+   record.geographies), and NO test that an override plan at a level the question did not ask for is flagged: both guards
+   deliberately exempt an override (asked_levels stays [] and the unverified guard returns None), so an override level is
+   checked by nothing. That is a design choice, not a test defect, but TC5's override branch is unmet as written in the plan.
+ * TC1 "for=tract for a tract question": no unit test builds a tract URL. Stated-level tests use place and state (the
+   fixture's tract row needs state+county; a probe of level=tract returned an illegal combination for a plain request).
+   TC1 therefore relies on the demo grid.
+ * scripts/verify_golden.py change (accepts a list of levels) has no test at all.
+ * AC1, AC3, AC4, AC6, GC1, GC3, TC4, INH are not Gate 1 test items (committed rule, git diff, E2E, make check, bridge).
+   AC3 note: the diff stat lists no evals/ path, so no golden was edited. AC5 is this file.
+ * Pre-existing, noted for Gate 2: finish_tools builds the repair call's level with `_listing_level(question)` (a regex over
+   the question's words) and `_listing_query`. The call is marked origin=repair so it cannot overwrite the stated level,
+   but its level is word-derived input to an executed URL. CC-104 owns removing it.
+
+------------------------------------------------------------------------------------------
+4. MUTATION CHECK  (one behavior at a time; GOOD = original code, BAD = mutated, RESTORED = after checking the file out of HEAD)
+------------------------------------------------------------------------------------------
+
+##### RUN 1: 33 mutations against the commit tests (plus the 4 test_level_repair.py tests added in this gate)
+
+
+=== MUTATION: level optional again (default None in ResolveGeographyInput)
+    file: api/src/tools.py
+    covers: test_the_schema_requires_the_model_to_state_a_level, test_a_call_that_omits_the_level_is_refused_for_repair_and_is_bounded
+GOOD (original code)  -> 2 passed, 1 warning in 0.15s
+BAD  (mutated code)   -> 2 failed, 1 warning in 0.45s
+      FAILED api/tests/test_level_fidelity.py::test_the_schema_requires_the_model_to_state_a_level
+      FAILED api/tests/test_level_fidelity.py::test_a_call_that_omits_the_level_is_refused_for_repair_and_is_bounded
+RESTORED (original)   -> 2 passed, 1 warning in 0.18s
+    git status of api/src/tools.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: note_intent ignores origin==repair (repair call overwrites stated level)
+    file: api/src/geo_level.py
+    covers: test_a_repair_call_never_overwrites_the_level_the_model_stated
+GOOD (original code)  -> 1 passed, 1 warning in 0.20s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.34s
+      FAILED api/tests/test_level_fidelity.py::test_a_repair_call_never_overwrites_the_level_the_model_stated
+RESTORED (original)   -> 1 passed, 1 warning in 0.25s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: declared_levels ignores per-leg `levels`
+    file: api/src/geo_level.py
+    covers: test_declared_levels_follow_the_legs_the_call_resolves
+GOOD (original code)  -> 1 passed, 1 warning in 0.15s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.37s
+      FAILED api/tests/test_level_fidelity.py::test_declared_levels_follow_the_legs_the_call_resolves
+RESTORED (original)   -> 1 passed, 1 warning in 0.25s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: declared_levels drops the scalar level (legs get null)
+    file: api/src/geo_level.py
+    covers: test_declared_levels_follow_the_legs_the_call_resolves, test_a_single_level_stated_for_mixed_legs_is_not_quietly_corrected
+GOOD (original code)  -> 2 passed, 1 warning in 0.19s
+BAD  (mutated code)   -> 2 failed, 1 warning in 0.43s
+      FAILED api/tests/test_level_fidelity.py::test_declared_levels_follow_the_legs_the_call_resolves
+      FAILED api/tests/test_level_fidelity.py::test_a_single_level_stated_for_mixed_legs_is_not_quietly_corrected
+RESTORED (original)   -> 2 passed, 1 warning in 0.19s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: level_name stops folding case/whitespace
+    file: api/src/geo_level.py
+    covers: test_declared_levels_follow_the_legs_the_call_resolves
+GOOD (original code)  -> 1 passed, 1 warning in 0.18s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.29s
+      FAILED api/tests/test_level_fidelity.py::test_declared_levels_follow_the_legs_the_call_resolves
+RESTORED (original)   -> 1 passed, 1 warning in 0.25s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: note_intent records for any tool, not only resolve_geography
+    file: api/src/geo_level.py
+    covers: test_only_a_resolve_call_that_states_a_level_records_one
+GOOD (original code)  -> 1 passed, 1 warning in 0.19s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.44s
+      FAILED api/tests/test_level_fidelity.py::test_only_a_resolve_call_that_states_a_level_records_one
+RESTORED (original)   -> 1 passed, 1 warning in 0.17s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: note_intent records a call that states no level (null by omission)
+    file: api/src/geo_level.py
+    covers: test_only_a_resolve_call_that_states_a_level_records_one
+GOOD (original code)  -> 1 passed, 1 warning in 0.18s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.39s
+      FAILED api/tests/test_level_fidelity.py::test_only_a_resolve_call_that_states_a_level_records_one
+RESTORED (original)   -> 1 passed, 1 warning in 0.25s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: _resolve ignores the stated level and uses detect_level on the query
+    file: api/src/geo.py
+    covers: test_the_stated_level_is_run_even_when_the_query_names_another
+GOOD (original code)  -> 1 passed, 1 warning in 0.21s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.37s
+      FAILED api/tests/test_level_fidelity.py::test_the_stated_level_is_run_even_when_the_query_names_another
+RESTORED (original)   -> 1 passed, 1 warning in 0.20s
+    git status of api/src/geo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: inferred flag never set when the level came from the query's words
+    file: api/src/geo.py
+    covers: test_a_level_the_model_did_not_state_is_marked_inferred
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.40s
+      FAILED api/tests/test_level_fidelity.py::test_a_level_the_model_did_not_state_is_marked_inferred
+RESTORED (original)   -> 1 passed, 1 warning in 0.21s
+    git status of api/src/geo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: unknown-level failure drops the published names
+    file: api/src/geo.py
+    covers: test_an_unpublished_level_is_refused_with_the_published_names
+GOOD (original code)  -> 1 passed, 1 warning in 0.17s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.44s
+      FAILED api/tests/test_level_fidelity.py::test_an_unpublished_level_is_refused_with_the_published_names
+RESTORED (original)   -> 1 passed, 1 warning in 0.28s
+    git status of api/src/geo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: level_name has no exact-metadata fallthrough (alias table only)
+    file: api/src/geo_level.py
+    covers: test_a_published_level_with_no_alias_is_run_by_exact_metadata_match
+GOOD (original code)  -> 1 passed, 1 warning in 0.18s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.36s
+      FAILED api/tests/test_level_fidelity.py::test_a_published_level_with_no_alias_is_run_by_exact_metadata_match
+RESTORED (original)   -> 1 passed, 1 warning in 0.15s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: comparison legs resolved with null level (per-leg level dropped)
+    file: api/src/geo.py
+    covers: test_each_comparison_leg_is_run_at_its_own_stated_level
+GOOD (original code)  -> 1 passed, 1 warning in 0.28s
+BAD  (mutated code)   -> 1 passed, 1 warning in 0.25s
+RESTORED (original)   -> 1 passed, 1 warning in 0.25s
+    git status of api/src/geo.py after restore: clean
+RESULT: SURVIVED (the tests passed against the broken code)
+
+=== MUTATION: geography_level_mismatch returns None (guard compares nothing)
+    file: api/src/geo_level.py
+    covers: test_a_fetch_at_another_level_is_flagged_and_still_shows_its_url, test_the_nationwide_fallback_cannot_hide_a_substituted_level, test_every_fetched_url_is_held_to_the_stated_level, test_a_leg_with_no_stated_level_is_checked_against_the_level_the_lookup_chose
+GOOD (original code)  -> 4 passed, 1 warning in 0.22s
+BAD  (mutated code)   -> 4 failed, 1 warning in 0.48s
+      FAILED api/tests/test_level_fidelity.py::test_a_fetch_at_another_level_is_flagged_and_still_shows_its_url
+      FAILED api/tests/test_level_fidelity.py::test_the_nationwide_fallback_cannot_hide_a_substituted_level
+      FAILED api/tests/test_level_fidelity.py::test_every_fetched_url_is_held_to_the_stated_level
+      FAILED api/tests/test_level_fidelity.py::test_a_leg_with_no_stated_level_is_checked_against_the_level_the_lookup_chose
+RESTORED (original)   -> 4 passed, 1 warning in 0.15s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: mismatch warning detail omits the level the question asked for
+    file: api/src/geo_level.py
+    covers: test_a_fetch_at_another_level_is_flagged_and_still_shows_its_url
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.41s
+      FAILED api/tests/test_level_fidelity.py::test_a_fetch_at_another_level_is_flagged_and_still_shows_its_url
+RESTORED (original)   -> 1 passed, 1 warning in 0.16s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: guard ignores the stated level (allowed set empty: flags every fetch)
+    file: api/src/geo_level.py
+    covers: test_a_fetch_at_the_stated_level_is_not_flagged
+GOOD (original code)  -> 1 passed, 1 warning in 0.18s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.39s
+      FAILED api/tests/test_level_fidelity.py::test_a_fetch_at_the_stated_level_is_not_flagged
+RESTORED (original)   -> 1 passed, 1 warning in 0.15s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: guard exempts the us level (nationwide fallback invisible)
+    file: api/src/geo_level.py
+    covers: test_the_nationwide_fallback_cannot_hide_a_substituted_level
+GOOD (original code)  -> 1 passed, 1 warning in 0.28s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.37s
+      FAILED api/tests/test_level_fidelity.py::test_the_nationwide_fallback_cannot_hide_a_substituted_level
+RESTORED (original)   -> 1 passed, 1 warning in 0.16s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: guard checks only the first fetched URL
+    file: api/src/geo_level.py
+    covers: test_every_fetched_url_is_held_to_the_stated_level
+GOOD (original code)  -> 1 passed, 1 warning in 0.20s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.40s
+      FAILED api/tests/test_level_fidelity.py::test_every_fetched_url_is_held_to_the_stated_level
+RESTORED (original)   -> 1 passed, 1 warning in 0.15s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: null leg no longer allowed the level the lookup chose
+    file: api/src/geo_level.py
+    covers: test_a_leg_with_no_stated_level_is_checked_against_the_level_the_lookup_chose
+GOOD (original code)  -> 1 passed, 1 warning in 0.19s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.44s
+      FAILED api/tests/test_level_fidelity.py::test_a_leg_with_no_stated_level_is_checked_against_the_level_the_lookup_chose
+RESTORED (original)   -> 1 passed, 1 warning in 0.17s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: null leg allows any fetched level (treated as wildcard)
+    file: api/src/geo_level.py
+    covers: test_a_leg_with_no_stated_level_is_checked_against_the_level_the_lookup_chose
+GOOD (original code)  -> 1 passed, 1 warning in 0.20s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.48s
+      FAILED api/tests/test_level_fidelity.py::test_a_leg_with_no_stated_level_is_checked_against_the_level_the_lookup_chose
+RESTORED (original)   -> 1 passed, 1 warning in 0.17s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: mismatch guard applies to table-only questions
+    file: api/src/geo_level.py
+    covers: test_a_table_question_is_never_flagged_for_its_level
+GOOD (original code)  -> 1 passed, 1 warning in 0.24s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.31s
+      FAILED api/tests/test_level_fidelity.py::test_a_table_question_is_never_flagged_for_its_level
+RESTORED (original)   -> 1 passed, 1 warning in 0.20s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: CensusURL.for_level returns the whole for= value (tract:*) not the level
+    file: api/src/census_url.py
+    covers: test_a_fetch_at_the_stated_level_is_not_flagged
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.39s
+      FAILED api/tests/test_level_fidelity.py::test_a_fetch_at_the_stated_level_is_not_flagged
+RESTORED (original)   -> 1 passed, 1 warning in 0.15s
+    git status of api/src/census_url.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: unverified guard treats an empty asked_levels as stated
+    file: api/src/geo_level.py
+    covers: test_a_geography_resolved_without_a_stated_level_is_unverified
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.42s
+      FAILED api/tests/test_level_fidelity.py::test_a_geography_resolved_without_a_stated_level_is_unverified
+RESTORED (original)   -> 1 passed, 1 warning in 0.21s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: unverified guard ignores status['inferred']
+    file: api/src/geo_level.py
+    covers: test_a_level_the_code_inferred_is_unverified_even_when_the_model_stated_none
+GOOD (original code)  -> 1 passed, 1 warning in 0.19s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.51s
+      FAILED api/tests/test_level_fidelity.py::test_a_level_the_code_inferred_is_unverified_even_when_the_model_stated_none
+RESTORED (original)   -> 1 passed, 1 warning in 0.19s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: unverified guard fires even for a level run as stated
+    file: api/src/geo_level.py
+    covers: test_a_stated_level_that_was_run_as_stated_raises_no_level_warning
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.45s
+      FAILED api/tests/test_level_fidelity.py::test_a_stated_level_that_was_run_as_stated_raises_no_level_warning
+RESTORED (original)   -> 1 passed, 1 warning in 0.19s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: unverified guard ignores the user's override plan
+    file: api/src/geo_level.py
+    covers: test_a_users_own_plan_is_not_a_model_reading
+GOOD (original code)  -> 1 passed, 1 warning in 0.22s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.33s
+      FAILED api/tests/test_level_fidelity.py::test_a_users_own_plan_is_not_a_model_reading
+RESTORED (original)   -> 1 passed, 1 warning in 0.18s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: ask loop stops recording the stated level (note_intent call removed)
+    file: api/src/ask.py
+    covers: test_a_loop_whose_model_states_the_level_raises_no_level_warning
+GOOD (original code)  -> 1 passed, 1 warning in 0.23s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.33s
+      FAILED api/tests/test_level_fidelity.py::test_a_loop_whose_model_states_the_level_raises_no_level_warning
+RESTORED (original)   -> 1 passed, 1 warning in 0.30s
+    git status of api/src/ask.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: finish repair call (sequential places) not marked origin=repair
+    file: api/src/finish.py
+    covers: test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair, test_a_repair_resolution_never_replaces_the_level_the_model_stated
+GOOD (original code)  -> 2 passed, 1 warning in 0.32s
+BAD  (mutated code)   -> 2 failed, 1 warning in 0.40s
+      FAILED api/tests/test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+      FAILED api/tests/test_level_repair.py::test_a_repair_resolution_never_replaces_the_level_the_model_stated
+RESTORED (original)   -> 2 passed, 1 warning in 0.21s
+    git status of api/src/finish.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: finish repair of sequential places drops the stated levels
+    file: api/src/finish.py
+    covers: test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.34s
+      FAILED api/tests/test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+RESTORED (original)   -> 1 passed, 1 warning in 0.22s
+    git status of api/src/finish.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: nationwide fallback not marked origin=repair
+    file: api/src/finish.py
+    covers: test_the_nationwide_fallback_is_a_repair_call_that_states_no_level
+GOOD (original code)  -> 1 passed, 1 warning in 0.16s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.34s
+      FAILED api/tests/test_level_repair.py::test_the_nationwide_fallback_is_a_repair_call_that_states_no_level
+RESTORED (original)   -> 1 passed, 1 warning in 0.18s
+    git status of api/src/finish.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: multi-parent split repair not marked origin=repair / no unit level
+    file: api/src/finish.py
+    covers: test_a_repair_of_a_multi_parent_listing_is_marked_as_repair
+GOOD (original code)  -> 1 passed, 1 warning in 0.17s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.36s
+      FAILED api/tests/test_level_repair.py::test_a_repair_of_a_multi_parent_listing_is_marked_as_repair
+RESTORED (original)   -> 1 passed, 1 warning in 0.17s
+    git status of api/src/finish.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: wrong_levels ignores a missing leg (list expectation not per leg)
+    file: scripts/run_demo.py
+    covers: test_a_list_of_expected_levels_is_scored_per_leg
+GOOD (original code)  -> 1 passed, 1 warning in 0.08s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.25s
+      FAILED api/tests/test_demo_harness.py::test_a_list_of_expected_levels_is_scored_per_leg
+RESTORED (original)   -> 1 passed, 1 warning in 0.08s
+    git status of scripts/run_demo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: wrong_levels ignores a level nobody expected
+    file: scripts/run_demo.py
+    covers: test_a_list_of_expected_levels_is_scored_per_leg
+GOOD (original code)  -> 1 passed, 1 warning in 0.04s
+BAD  (mutated code)   -> 1 passed, 1 warning in 0.05s
+RESTORED (original)   -> 1 passed, 1 warning in 0.06s
+    git status of scripts/run_demo.py after restore: clean
+RESULT: SURVIVED (the tests passed against the broken code)
+
+=== MUTATION: miss_detail no longer names the wrong level
+    file: scripts/run_demo.py
+    covers: test_a_list_of_expected_levels_is_scored_per_leg
+GOOD (original code)  -> 1 passed, 1 warning in 0.03s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.30s
+      FAILED api/tests/test_demo_harness.py::test_a_list_of_expected_levels_is_scored_per_leg
+RESTORED (original)   -> 1 passed, 1 warning in 0.04s
+    git status of scripts/run_demo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+SUMMARY: 31 caught, 2 survived/partial of 33 run
+
+
+##### RUN 2: re-targeted at survivors 1 and 2 of run 1 with added tests
+
+=== MUTATION: comparison legs resolved with null level (per-leg level dropped) [added test]
+    file: api/src/geo.py
+    covers: test_a_leg_is_not_resolved_at_a_level_other_than_the_one_stated
+GOOD (original code)  -> 1 passed, 1 warning in 0.22s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.37s
+      FAILED api/tests/test_level_per_leg.py::test_a_leg_is_not_resolved_at_a_level_other_than_the_one_stated
+RESTORED (original)   -> 1 passed, 1 warning in 0.19s
+    git status of api/src/geo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: wrong_levels ignores a level nobody expected [added test]
+    file: scripts/run_demo.py
+    covers: test_every_expected_leg_fetched_plus_an_unexpected_level_is_not_answered
+GOOD (original code)  -> 1 passed, 1 warning in 0.05s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.24s
+      FAILED api/tests/test_expected_level_scoring.py::test_every_expected_leg_fetched_plus_an_unexpected_level_is_not_answered
+RESTORED (original)   -> 1 passed, 1 warning in 0.04s
+    git status of scripts/run_demo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+SUMMARY: 2 caught, 0 survived/partial of 2 run
+
+
+##### RUN 3: geo_status drops the inferred flag, against the committed tests and the existing modified loop test
+
+=== MUTATION: geo_status drops the inferred flag (record never learns the level was inferred) [new tests only]
+    file: api/src/geo_level.py
+    covers: api/tests/test_level_fidelity.py, api/tests/test_level_repair.py, api/tests/test_level_per_leg.py, api/tests/test_expected_level_scoring.py, test_a_list_of_expected_levels_is_scored_per_leg
+GOOD (original code)  -> 29 passed, 1 warning in 0.34s
+BAD  (mutated code)   -> 29 passed, 1 warning in 0.45s
+RESTORED (original)   -> 29 passed, 1 warning in 0.40s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: SURVIVED (the tests passed against the broken code)
+
+=== MUTATION: geo_status drops the inferred flag [existing modified test that exercises the wiring]
+    file: api/src/geo_level.py
+    covers: test_block_group_state_listing_finishes_with_a_url
+GOOD (original code)  -> 1 passed, 1 warning in 0.41s
+BAD  (mutated code)   -> 1 passed, 1 warning in 0.26s
+RESTORED (original)   -> 1 passed, 1 warning in 0.39s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: SURVIVED (the tests passed against the broken code)
+
+SUMMARY: 0 caught, 2 survived/partial of 2 run
+
+
+##### RUN 4: same status-flow mutation and its inverse, against the added test_level_inferred_flow.py
+
+=== MUTATION: geo_status drops the inferred flag [added test through the real tool call]
+    file: api/src/geo_level.py
+    covers: test_a_null_level_the_code_inferred_from_the_query_is_warned_as_unverified
+GOOD (original code)  -> 1 passed, 1 warning in 0.18s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.38s
+      FAILED api/tests/test_level_inferred_flow.py::test_a_null_level_the_code_inferred_from_the_query_is_warned_as_unverified
+RESTORED (original)   -> 1 passed, 1 warning in 0.26s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+=== MUTATION: unverified guard fires for a level run as stated [added test through the real tool call]
+    file: api/src/geo_level.py
+    covers: test_a_stated_level_run_as_stated_is_not_warned_as_unverified
+GOOD (original code)  -> 1 passed, 1 warning in 0.20s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.34s
+      FAILED api/tests/test_level_inferred_flow.py::test_a_stated_level_run_as_stated_is_not_warned_as_unverified
+RESTORED (original)   -> 1 passed, 1 warning in 0.24s
+    git status of api/src/geo_level.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+SUMMARY: 2 caught, 0 survived/partial of 2 run
+
+
+##### RUN 5: built-URL level mutation against the added test_level_stated_run.py
+
+=== MUTATION: _resolve ignores the stated level and uses detect_level on the query [added test, built URL]
+    file: api/src/geo.py
+    covers: test_a_stated_state_level_builds_a_state_for_clause_for_a_county_worded_query
+GOOD (original code)  -> 1 passed, 1 warning in 0.15s
+BAD  (mutated code)   -> 1 failed, 1 warning in 0.43s
+      FAILED api/tests/test_level_stated_run.py::test_a_stated_state_level_builds_a_state_for_clause_for_a_county_worded_query
+RESTORED (original)   -> 1 passed, 1 warning in 0.22s
+    git status of api/src/geo.py after restore: clean
+RESULT: CAUGHT (all named tests failed)
+
+SUMMARY: 1 caught, 0 survived/partial of 1 run
+
+
+------------------------------------------------------------------------------------------
+5. SUMMARY
+------------------------------------------------------------------------------------------
+New tests in the commit: 23 (22 in test_level_fidelity.py + 1 in test_demo_harness.py).
+New tests added by this gate: 9 (5 new files in api/tests/). Total new tests: 32.
+Mutation runs: 40 (runs 1-5 above). CAUGHT 36, SURVIVED 4.
+The 4 survivals, all against the tests as committed (nothing hidden):
+  1. "comparison legs resolved with null level (per-leg level dropped)" vs test_each_comparison_leg_is_run_at_its_own_stated_level
+     -> test passes against the broken code (the fixture legs infer to the same levels). The test is not mutation-sensitive.
+        Closed by added test_level_per_leg.py (mutation 33, CAUGHT). The original test remains weak on its own.
+  2. "wrong_levels ignores a level nobody expected" vs test_a_list_of_expected_levels_is_scored_per_leg
+     -> the missing-leg check masks it. Closed by added test_expected_level_scoring.py (CAUGHT).
+  3. "geo_status drops the inferred flag" vs all 23 committed tests -> no committed test proved artifact.inferred reaches
+     the record. Closed by added test_level_inferred_flow.py (CAUGHT).
+  4. same mutation vs the existing modified test_ask_loop.py::test_block_group_state_listing_finishes_with_a_url -> that test
+     passes either way (asked_levels is empty there, so the warning fires regardless). Same closure as 3.
+Every added test has at least one CAUGHT mutation (runs 1, 2, 4, 5).
+Static checks: ruff check 0, ruff format --check 0, mypy api/src 0 (no issues, 28 files).
+Full pytest: 1 failed, 1112 passed, 34 skipped. The one failure is test_invariants_print_every_named_pattern,
+proven pre-existing on origin/main 4b24f77 (section 2). No other failure.
+No product code, docs, goldens, budgets or leakage baseline were changed.

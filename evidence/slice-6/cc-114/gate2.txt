@@ -1,0 +1,629 @@
+CC-114 GATE 2 TRANSCRIPT (cold-context review: PASS 1 generic bugs, PASS 2 project invariants)
+==============================================================================================
+Reviewer      : fresh-context gate-2 subagent, isolated worktree
+Worktree      : C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-af864bdbd6ae06b91
+Review base   : origin/main 4b24f77 (4b24f77f647ffa20de3e3c4eeed75ad416affc95)
+Head reviewed : c2589c5ab8f8366ad34dcee8de0166a32e23548e (branch cc-114/level-fidelity, detached checkout)
+Product edits : none. Mutation experiments ran on a COPY of api/src in the session scratchpad
+                (PYTHONPATH override); the worktree sources were never modified. No git add/commit.
+Not run       : make demo / make eval / run_grid (no live E2E, per instruction).
+
+$ git checkout --detach c2589c5
+HEAD is now at c2589c5 CC-114: mark the nationwide guess as an inferred level
+$ git rev-parse HEAD
+c2589c5ab8f8366ad34dcee8de0166a32e23548e
+$ git status --short
+(clean: no output)
+$ git diff --stat 4b24f77 c2589c5
+ api/src/ask.py                           |  12 +-
+ api/src/census_url.py                    |   7 +
+ api/src/finish.py                        |  30 +-
+ api/src/geo.py                           |  49 ++-
+ api/src/geo_level.py                     | 114 ++++++
+ api/src/guards.py                        |   3 +
+ api/src/prompts.py                       |   4 +-
+ api/src/tools.py                         |  10 +-
+ api/tests/test_ask_loop.py               |  89 +++--
+ api/tests/test_ask_one.py                |   2 +-
+ api/tests/test_ask_tools.py              | 119 ++++---
+ api/tests/test_chart.py                  |   2 +-
+ api/tests/test_comparison_work.py        |   2 +-
+ api/tests/test_demo_harness.py           |  18 +
+ api/tests/test_expected_level_scoring.py |  37 ++
+ api/tests/test_finish.py                 |  50 ++-
+ api/tests/test_geography_completeness.py |   4 +-
+ api/tests/test_geography_report.py       |   2 +-
+ api/tests/test_guards.py                 | 122 ++++---
+ api/tests/test_level_fidelity.py         | 333 ++++++++++++++++++
+ api/tests/test_level_inferred_flow.py    |  22 ++
+ api/tests/test_level_per_leg.py          |  21 ++
+ api/tests/test_level_repair.py           |  80 +++++
+ api/tests/test_level_stated_run.py       |  16 +
+ api/tests/test_plan_override.py          |   4 +-
+ docs/ARCHITECTURE.md                     |   1 +
+ docs/ask-path.md                         | 122 +++----
+ docs/requirements.md                     |   2 +
+ evidence/slice-6/cc-114-plan.md          |  84 +++++
+ evidence/slice-6/cc-114/gate1.txt        | 577 +++++++++++++++++++++++++++++++
+ scripts/run_demo.py                      |  20 +-
+ scripts/verify_golden.py                 |   7 +-
+ 32 files changed, 1712 insertions(+), 253 deletions(-)
+
+$ git log --oneline 4b24f77..c2589c5
+c2589c5 CC-114: mark the nationwide guess as an inferred level
+977bf2a CC-114: a refused level stands; finish no longer re-guesses it from the question
+5409a1e CC-114: the model states the geography level; code runs it and checks the URL
+(Gate 1 tested 5409a1e; the two later commits post-date its mutation evidence.)
+
+Read first: CLAUDE.md, docs/playbooks/run-slice.md (whole).
+
+##############################################################################################
+PASS 1 - GENERIC BUGS, CODE ONLY
+(written before reading PLAN.md, cc-114-plan.md, evidence/, docs, or any commit text beyond the
+ three subjects above)
+##############################################################################################
+Method: `git diff 4b24f77 c2589c5 -- api scripts` plus the surrounding code (finish.py, ask.py
+dispatch/_absorb/run_ask, geo.py _arun/_resolve, guards.evaluate, contract.pin_tool_args,
+census_url.py). The code-review skill is not callable from inside this subagent, so the cold
+read was done by hand, with small reproductions run against the real tools via the test
+fixtures (ask_fixtures) and PYTHONPATH=api. Reproduction scripts and their output are below.
+
+--- Reproduction output (scripts in the session scratchpad: exp1.py exp2.py exp3.py) ---
+exp1 (A: two single-place model calls at different levels, then finish's repair):
+  after1 ['county'] ['county:201'] ['Harris County, Texas']
+  after2 ['place'] ['place:35000'] ['Harris County, Texas', 'Houston, Texas']
+  repair args {'places': ['Harris County, Texas', 'Houston, Texas'], 'level': 'place', 'levels': ['place']}
+  repair ['place:35000'] {... 'compare': False, 'compare_count': 0, 'inferred': False, 'refused': False}
+exp1 (C: model states null, code falls back to state / place from the name token):
+  C  [None] ['state:48']     ... 'inferred': False   -> evaluate() warnings: []
+  C2 [None] ['place:35000']  ... 'inferred': False   -> evaluate() warnings: []
+exp2 (bare record: asked_levels=[None], geographies=[], url=county):
+  geography_level_mismatch detail: 'the question asks for ; the URL fetches county. ...'
+exp3 (model stated null -> county:201; finish repair passes level='tract' derived by _listing_level):
+  ['county:201'] [None]
+  ['tract:*'] [None] {... 'inferred': False, 'refused': False}
+  evaluate() warnings: []
+
+--- PASS 1 FINDINGS, ranked ---
+
+P1-M1  MEDIUM  api/src/finish.py:362-364 (+ geo_level.py:48-52 note_intent keeps only the LAST call)
+  finish_tools' replay of tracked single-place calls applies the last call's level to every leg.
+  Scenario (reproduced, exp1): the model resolves "Harris County, Texas" with level="county", then
+  "Houston, Texas" with level="place" (the geo_queries path exists exactly for a model that splits a
+  comparison). asked_levels is overwritten to ['place']. The repair sends places=[both], level='place',
+  levels=['place'] (length 1 != 2 places, so declared_levels falls back to the scalar for both legs).
+  "Harris County, Texas" is resolved as a place, finds none, and the result collapses to ONE geography
+  place:35000 (geo._arun falls to `for hit in hits: if hit.legal and hit.specs: return 1 geography`).
+  The county leg is dropped; compare=False; asked_levels still matches the URL, so NO warning fires.
+  Before the change each leg was resolved with level=None and both legs survived.
+  The committed test test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+  hand-sets record.asked_levels = ['place','state']; the real loop can never produce a 2-element list
+  from two single-place calls, so the test exercises a state the product does not reach.
+
+P1-M2  MEDIUM  api/src/finish.py:366 + geo.py (_resolve `inferred` stays False when level is truthy) +
+               geo_level.py:103
+  The repair path passes `_listing_level(question)` (a regex over the question text) as `level`.
+  _resolve treats any non-empty level as model-stated: inferred=False, no unverified warning.
+  Scenario (reproduced, exp3): the model stated level=null and got county:201; the repair call with
+  level='tract' (regex-derived) yields tract:*, asked_levels stays [None], inferred=False, and
+  evaluate() returns []. A level taken from the question's words is presented as verified, with neither
+  geography_level_unverified nor geography_level_mismatch (the None-in-asked rule makes the mismatch
+  guard accept any lookup level). This is a silent regex-derived level, the thing the change set out to
+  remove, and the committed tests lock it in (test_finish.py asserts {"level": "tract", ...}).
+
+P1-L1  LOW  api/src/geo.py `if for_level is None:` block (state/place fallback after detect_level misses)
+  The state/place guess made from the place-name token does not set inferred. The comment on `inferred`
+  ("the query's words or a fallback") and the unverified warning text ("chosen from the place name")
+  say it does. Reproduced (exp1 C/C2): level=null + "Texas" -> state:48, level=null + "Houston, Texas" ->
+  place:35000, both inferred=False and no warning. The model stated "no level", code chose one, nothing
+  is shown. (Counter-reading: warning on every plain place question would be noisy; but then the comment,
+  docstring and docs/ask-path.md claim more than the code does.)
+
+P1-L2  LOW  api/src/geo_level.py:48-52 note_intent
+  (a) Records asked_levels even when the call was refused or illegal (a refused 'neighbourhood' is
+      recorded as the stated level until a later call overwrites it).
+  (b) Reads levels from the raw call args but only when `places` is present; a call with query="A vs B"
+      and levels=[x, y] (no places) records [level] while geo._arun executes the per-leg levels, so
+      recorded and executed levels diverge and the mismatch guard goes lenient.
+
+P1-L3  LOW  api/src/geo_level.py:77-91
+  With asked_levels=[None] and geographies=[] while a URL exists, `allowed` is empty and the warning
+  reads "the question asks for ; the URL fetches county" (reproduced on a bare record, exp2). In the
+  full dispatch flow clear_series clears the URL first, so a user is unlikely to see it.
+
+P1-L4  LOW  scripts/run_demo.py miss_detail: a MISSING expected leg is reported as
+  "wrong geography level <leg>". Cosmetic.
+
+P1 checked and found nothing:
+  - zip(sides, stated, strict=True) in geo._arun: sides and declared_levels filter blank places the
+    same way; a length mismatch cannot occur from split_comparison output.
+  - required `level` field: omission is a validation error returned to the model; a second consecutive
+    one raises "failed twice", which run_ask routes into finish_tools; the result is a visible
+    "unverified" warning, not silence. Bounded.
+  - refused level: surfaces geography_unsupported with the published names and returns NO URL; not silent.
+  - per-request state: ExecutionRecord is created per request; no module-level mutable state added.
+  - CensusURL.for_level: parses the redacted string; no key exposure; no new URL formatting path.
+  - run_demo.wrong_levels for str expectations is behaviour-identical to the old scorer.
+
+##############################################################################################
+PASS 2 - PROJECT INVARIANTS
+##############################################################################################
+Read: .claude/PLAN.md (Slice 6), evidence/slice-6/cc-114-plan.md, evidence/slice-6/cc-114/gate1.txt,
+docs/playbooks/review-pr.md, and the docs/ARCHITECTURE.md, docs/requirements.md, docs/ask-path.md diffs.
+
+--- MACHINES AT HEAD c2589c5 (raw output follows) ---
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4799 <= 4800
+  ok    api src files               28 <= 40
+  ok    largest file LOC           406 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1814 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         22.058 <= 20
+        run 2026-10-30T12:05:43+00:00; slowest trial 77.513s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.733 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 22.058 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:35
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:354
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo_level.py:27
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 3 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo_level.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:32
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+6 violation(s).
+
+
+$ uv run ruff check .
+All checks passed!
+
+$ uv run ruff format --check .
+242 files already formatted
+
+$ uv run mypy api/src
+Success: no issues found in 28 source files
+
+$ uv run pytest -q -m "not integration" -p no:cacheprovider
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 25%]
+..sssssssssssssssss..sss................................................ [ 31%]
+........................................................................ [ 37%]
+........................................................................ [ 43%]
+........................................................................ [ 50%]
+........................................................................ [ 56%]
+........................................................................ [ 62%]
+........................................................................ [ 68%]
+......................................................................F. [ 75%]
+........................................................................ [ 81%]
+........................................................................ [ 87%]
+........................sssssssssss..s.ss............................... [ 93%]
+.......................................................................  [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x0000024253D85010>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000024253D85CD0>
+
+    def test_invariants_print_every_named_pattern(capsys: Any, monkeypatch: Any) -> None:
+        monkeypatch.setattr(sys, "argv", ["check_invariants.py"])
+>       assert inv.main() == 0
+E       assert 1 == 0
+E        +  where 1 = <function main at 0x000002423D5AB240>()
+E        +    where <function main at 0x000002423D5AB240> = inv.main
+
+api\tests\test_invariants.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:35
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:354
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo_level.py:27
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 3 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo_level.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:32
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+6 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-af864bdbd6ae06b91\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1116 passed, 34 skipped, 1 warning in 51.87s
+
+Exit codes at head: check_budgets=1, check_invariants=1, ruff check=0, ruff format=0, mypy=0, pytest=1 (1 failed, 1116 passed, 34 skipped)
+
+=== BASELINE origin/main 4b24f77 ===
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4678 <= 4800
+  ok    api src files               27 <= 40
+  ok    largest file LOC           409 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1055 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         22.058 <= 20
+        run 2026-10-30T12:05:43+00:00; slowest trial 77.513s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.733 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 22.058 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+
+$ uv run python scripts/check_invariants.py
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+5 violation(s).
+
+
+$ uv run pytest -q -m "not integration" -p no:cacheprovider
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 19%]
+........................................................................ [ 25%]
+..sssssssssssssssss..sss................................................ [ 32%]
+........................................................................ [ 38%]
+........................................................................ [ 45%]
+........................................................................ [ 51%]
+........................................................................ [ 58%]
+........................................................................ [ 64%]
+........................................................................ [ 71%]
+....................................................................F... [ 77%]
+........................................................................ [ 83%]
+............................................................sssssssssss. [ 90%]
+.s.ss................................................................... [ 96%]
+...................................                                      [100%]
+================================== FAILURES ===================================
+__________________ test_invariants_print_every_named_pattern __________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x0000013B4E30CE00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000013B4E30FC20>
+
+    def test_invariants_print_every_named_pattern(capsys: Any, monkeypatch: Any) -> None:
+        monkeypatch.setattr(sys, "argv", ["check_invariants.py"])
+>       assert inv.main() == 0
+E       assert 1 == 0
+E        +  where 1 = <function main at 0x0000013B4D3414E0>()
+E        +    where <function main at 0x0000013B4D3414E0> = inv.main
+
+api\tests\test_invariants.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:41
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 5 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:52
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:31
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+5 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-af864bdbd6ae06b91\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1080 passed, 34 skipped, 1 warning in 48.25s
+
+Exit codes on main: check_budgets=1, check_invariants=1, pytest=1 (1 failed, 1080 passed, 34 skipped)
+
+--- BASELINE: SAME COMMANDS ON DETACHED origin/main 4b24f77 (raw output follows) ---
+$ git checkout --detach 4b24f77   (then back to c2589c5 afterwards)
+
+--- COMPARISON, head vs main ---
+check_budgets.py        : exit 1 on BOTH. The only FAIL is p95 latency 22.058 > 20 from the stale
+                          evidence/latest.json run 2026-10-30T12:05:43+00:00 (identical on main). Every other
+                          line is ok at head. Headroom at head: api src LOC 4799 <= 4800 (main 4678; +121,
+                          ONE line left), largest file 406 <= 410 (main 409), doc lines 1814 <= 1820
+                          (main 1820 <= 1820), web 3349 <= 3350 (unchanged).
+check_invariants --base : exit 1 on head (main run without --base: exit 1). Same category on both:
+                          "eval phrasing in api/src" (leakage). main = 5 violations, head = 6. The sixth is
+                          api/src/geo_level.py:27 gram4 'zip code tabulation area' (3 occurrences). The
+                          phrase total is unchanged (main: geo.py 5 + contract.py 2 = 7; head: geo.py 2 +
+                          geo_level.py 3 + contract.py 2 = 7): the alias table _LEVELS moved from geo.py into
+                          the new file geo_level.py, so the baseline (keyed by file) would need a
+                          geo_level.py entry. Owner-only. All the non-leakage checks are ok, including
+                          budget increases, new regex, new exemptions, forbidden module names, prompt
+                          assertions, ticket-named tests. regex call sites: 55 (base 55, delta +0).
+ruff check / format     : exit 0 / 0 (242 files already formatted).
+mypy api/src            : exit 0 (28 files).
+pytest -m "not integration": head 1 failed, 1116 passed, 34 skipped; main 1 failed, 1080 passed, 34 skipped.
+                          The single failure is test_invariants_print_every_named_pattern on both (it fails
+                          because check_invariants exits non-zero on the leakage violations). Nothing else
+                          is non-zero. The three claims in the brief were verified and hold.
+
+--- PASS 2 MUTATION EXPERIMENTS (on a COPY of api/src in the scratchpad; PYTHONPATH override) ---
+Why: Gate 1 tested 5409a1e; the tests added in 977bf2a and c2589c5 have no mutation record.
+ A. Remove `not refused` from the FIRST repair guard (finish.py `if geo is not None and not redone and not refused ...`)
+    -> test_a_refused_level_stands_and_is_not_re_guessed_from_the_question FAILS. CAUGHT.
+ B. Remove `not refused` from the SECOND guard (nationwide fallback, `if geo and not refused and not record.geographies ...`)
+    -> test_level_fidelity.py + test_level_repair.py: 30 passed. SURVIVED. No test exercises that branch.
+ C. Remove the inferred marking on the nationwide guess (geo.py `result.model_copy(update={"inferred": True})` -> `result`)
+    -> test_a_nationwide_resolution_the_code_chose_is_marked_inferred FAILS. CAUGHT.
+ D. Remove `level is None and` from the nationwide guard in geo._resolve (`if level is None and _nation(query)` -> `if _nation(query)`)
+    -> test_level_fidelity.py: 26 passed. SURVIVED. test_a_stated_level_is_never_replaced_by_the_nationwide_guess
+       passes against the broken code: its query ("Texas population since 2013") names a state, so _nation()
+       returns False (find_state is not None) with or without the `level is None` clause. The test is vacuous.
+
+--- PASS 2 FINDINGS ---
+
+Rule / machine findings
+P2-1  RED (inherited, count +1)  check_invariants: 6 leakage violations vs 5 on main. The new one is the
+      geo_level.py path for vocabulary that already existed in geo.py. Owner-only baseline. Not a new phrase.
+P2-2  RED (inherited)  check_budgets p95 22.058 > 20 (stale evidence/latest.json, identical on main).
+P2-3  AMBER  api src LOC 4799/4800. One line of headroom after a +121 line change.
+P2-4  AMBER  docs/ask-path.md: 122 lines of diff, most of it re-wrapping UNRELATED paragraphs (CC-103 split,
+      CC-100 comparison, Contract, Years, Geography). main sat exactly at the doc-lines cap (1820/1820), the
+      CC-114 paragraph adds ~10 lines, and the file was condensed to 1814 to fit. Word-level diff shows content
+      was removed as well as re-wrapped: "and a result that is not already one wildcard per parent" (CC-103
+      acceptance condition), "so it is unaffected by the point below", and "a fetch that already failed doesn't
+      block finish's own retry". That is scope added "while we were in there" and a quiet doc-meaning change to
+      stay under a budget, in a PR that is otherwise about the level.
+P2-5  AMBER scope  32 files (8 api/src, 2 scripts, 17 test files, 3 docs, plan + gate1 evidence) against the
+      "under ~15 files, or an explanation" rule; the plan file gives no explanation.
+P2-6  AMBER  regex: call-site delta is +0, and no new keyword/substring scan is added. But the change does NOT
+      remove the prose scanners it sits on: finish_tools still feeds `_listing_level(question)` (regex over the
+      question) into resolve_geography as `level`, and geo._nation / detect_level still scan the query. CLAUDE.md
+      forbids interpreting question wording "including legacy fallbacks" and plan D4 says finish re-resolves "with
+      the record's declared level, never an invented one". The code does the opposite on that path (see P1-M2).
+      Gate 1 recorded this as "CC-104 owns removing it"; no owner amendment is on file in the plan.
+P2-7  OK  No module named *_manager/_orchestrator/_factory/_policy/_strategy/_service (geo_level.py is fine).
+      No graph node, no tool added (tools=4, tool schemas 8). No blocking clarification added. No test named
+      after a ticket. No assertion on prompt wording. No budgets.toml change (budget increases/exemptions ok).
+P2-8  OK  No place name or eval phrasing added to prompts.py or tool descriptions (tools.py/prompts.py diffs
+      read; wording is generic). Prompt tokens 1095 <= 1200.
+P2-9  LOW  Single-caller abstractions: geo_level.geo_status (one caller, ask._absorb), geo_level._answer_urls
+      (one caller), CensusURL.for_level (one caller; scripts/run_demo.py keeps its own fetched_level doing the
+      same thing). geo_status looks like an extraction to buy api/src lines under the LOC cap.
+P2-10 LOW  Validators: geography_level_mismatch validates the URL against the model's stated level and
+      geography_level_unverified validates provenance of the resolution; neither validates another
+      validator's output. OK.
+P2-11 LOW  Tests that assert on code-written warning text: test_a_fetch_at_another_level_is_flagged...
+      asserts "tract"/"county" appear in the detail; several assert published names appear in the refusal
+      detail. These are code-authored strings, not LLM prose or prompt text.
+P2-12 LOW  test_guards.py `_stated()` rewrites every record handed to evaluate()/assemble() so the new
+      unverified guard cannot fire across the old guard tests; legitimate adaptation, but those tests no
+      longer cover the unverified path (it is covered in test_level_fidelity.py).
+P2-13 Response contract: assemble()/AskResponse untouched by the diff. Refusal of an unpublished level returns
+      NO URL and NO rows; warning geography_unsupported carries the published level names (verified by test).
+      CLAUDE.md "refusal returns no URL" is about incomplete geography; for an unpublished-level refusal the
+      CLAUDE.md "URL is the product" rule is met only if the model resends a published name: two consecutive
+      refusals raise "failed twice" and finish_tools deliberately does not re-guess (`refused`), so the answer
+      ends with the warning and no URL. Intentional (owner direction), but it is a behaviour change on main's
+      repair-from-words path and is the main risk to answered_rate until the grid says otherwise.
+
+Docs vs code
+P2-14 docs/ask-path.md says the unverified guard fires when "no level stated, or code had to infer one from the
+      query's words or a county fallback". The state/place name fallback does not set inferred (P1-L1), and a
+      repair-supplied word-derived level is reported as stated (P1-M2). Docs claim more than the code does.
+P2-15 docs/ask-path.md says "Code runs the stated level exactly" - true for the model's call; finish's repair
+      call runs a level taken from the question's regex (P1-M2). Docs do not mention this.
+P2-16 docs/ARCHITECTURE.md lists geo_level.py (accurate). docs/requirements.md lists the two new codes (accurate).
+
+Plan-design deviations (cc-114-plan.md D1-D8 vs code)
+ D1  "schema lists the dataset's published level names": the tool description only gives examples; the names are
+     listed only in the refusal detail.
+ D2  "geography_unsupported listing the published levels (candidates)": names are in `detail`; no candidates.
+ D3  "`levels` validated for length": a wrong-length `levels` is silently ignored in favour of the scalar level
+     (declared_levels), not refused. This is the mechanism behind P1-M1.
+ D4  "finish re-resolves with the record's declared level, never an invented one": violated on the listing path by
+     `_listing_level(question)`; sequential-place path uses only the last call's level (P1-M1).
+ D5  "overrides ... covered because the check is on the URL": both guards exempt an override (asked_levels stays
+     [], unverified returns None); an override plan at the wrong level is checked by nothing. "candidates at the
+     asked level / never counted as answered": warning only; no candidates.
+ D8  Goldens untouched (no evals/ path in the diff) - OK.
+
+--- AC / TC / GC ROWS: is there a test that FAILS if the behaviour breaks? ---
+(plan matrix statuses are all still "NOT RUN"; the matrix has not been filled at this head.)
+ AC1  Reuse of merged PR #97 classification evidence: no test; rationale for reuse is marked "to record" and is
+      not recorded anywhere in the diff. cc-114-rule.md / cc-114-classification.md / classify_geo_levels.py exist
+      on this branch. Only CLAIMED.
+ AC2  Named level fetched at that level or a visible warning: covered for the model-states-it path (kills in
+      Gate 1 + my A and C). NOT covered for P1-M1 (sequential places), P1-M2 (repair level) or the nationwide
+      second guard (my B). Partly claimed.
+ AC3  Goldens only by rule, scorer not loosened: no test. Diff check: no evals/ path; run_demo.py change is
+      stricter-or-equal (list expectation only; str expectation identical). No golden uses a list, so the list
+      path is exercised by unit tests only. Only CLAIMED (by diff).
+ AC4  long_tail before/after at same --repeat: NOT RUN (live E2E); no anchor file in evidence/slice-6/cc-114/.
+ AC5  New tests mutation-checked: gate1.txt covers 5409a1e (40 runs, 4 survivors then closed). The tests added
+      by 977bf2a and c2589c5 have no mutation record; my copies show: refused-guard #1 CAUGHT, inferred-nationwide
+      CAUGHT, refused-guard #2 SURVIVES (no test), and test_a_stated_level_is_never_replaced_by_the_nationwide_guess
+      SURVIVES (vacuous). AC5 is not met for those two commits.
+ AC6  No budget raise; machines exit 0: budgets exit 1 (p95, inherited/stale), invariants exit 1 (leakage,
+      inherited, +1 entry). "check_invariants --base" budget checks themselves are ok. Not met as written.
+ GC1  Rule before outcomes: git order, no test; not re-verified here.
+ GC2  Per-leg expected levels in the scorer: test_demo_harness + test_expected_level_scoring, mutation-checked
+      (Gate 1 caught). OK. scripts/verify_golden.py list handling has NO test (Gate 1 noted it too).
+ GC3  Bridge old/new scorer: NOT RUN, no artifact.
+ TC1  Happy, tract question fetched at tract: NO unit test builds a tract URL from a stated level (test_level_*.py
+      use place/state/county; TRACT_URL is only a literal in guard tests). Relies on the grid: NOT RUN.
+ TC2  Multi-leg per-leg levels: geo-level tests (test_level_per_leg, each_comparison_leg...) mutation-checked in
+      Gate 1; BUT the repair replay of sequential places is untested against a real record (P1-M1).
+ TC3  Novel published level by exact metadata match: test_a_published_level_with_no_alias... (urban area fixture),
+      mutation-checked. OK.
+ TC4  No golden change with a re-baseline on main first: no anchor evidence in evidence/slice-6/cc-114/. NOT RUN.
+ TC5  Different-level fetch never answered silently for nationwide fallback, raw for_spec, override:
+      nationwide: guard test builds a hand-made record (not the finish fallback), plus the repair-wiring test with
+      a fake dispatch; the second nationwide `not refused` guard is untested (my B). raw for_spec: NO test.
+      override: NO test, and the guards exempt it by design. Only partly covered.
+ INH  Inherited gates (MOE/GEOID/URL/universe/alternatives, p95 <= 20, sealed gap, no non-regression vs anchor):
+      demo/grid/sealed NOT RUN; p95 red from stale evidence. response-contract code untouched by the diff.
+ Rows with no failing-if-broken test: AC1, AC3, AC4, AC6 (red), GC1, GC3, TC1, TC4, TC5 (raw for_spec, override,
+ finish-produced nationwide), INH, and AC5 for the 977bf2a/c2589c5 tests.
+ Rows marked reuse without a stated rationale: AC1 ("rationale to record" is itself unrecorded).
+
+--- VERDICT (reviewer's reading of review-pr.md) ---
+Not yet. Most important reason: the finish repair path still runs a level taken from the question's words and
+shows it as verified (P1-M2, D4 violated), plus a sequential-places repair that silently drops a leg (P1-M1);
+neither is covered by a test that would fail. Behind that: the AC/TC matrix is unfilled at this head (AC4, GC3,
+TC1, TC4, INH not run), AC6 is red on the two inherited failures plus one more leakage entry, the doc-lines
+budget was met by rewriting unrelated docs, and the tests added after Gate 1 have not been mutation-checked.

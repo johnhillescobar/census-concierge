@@ -108,6 +108,17 @@ def fetched_level(url: str) -> str:
     return parse_qs(urlparse(url).query).get("for", [""])[0].split(":")[0]
 
 
+def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[str], list[str]]:
+    """(fetched levels nobody expected, expected legs never fetched). A list expects one level per
+    leg: every leg's level fetched and no other. A single level expects every URL at that level."""
+    expected = entry.get("expect_geo_level")
+    if not expected:
+        return [], []
+    fetched = {fetched_level(url) for url in census_urls(body)}
+    legs = {expected} if isinstance(expected, str) else set(expected)
+    return sorted(fetched - legs), sorted(legs - fetched if isinstance(expected, list) else [])
+
+
 def census_urls(body: dict[str, Any]) -> list[str]:
     items = body.get("urls")
     if not isinstance(items, list):
@@ -143,8 +154,7 @@ def is_answered(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
         return False
     if expected_table:
         # A coarser or different level (place for "by census tract") is a silent wrong answer.
-        level = entry.get("expect_geo_level")
-        if level and any(fetched_level(url) != level for url in census_urls(body)):
+        if any(level_problems(entry, body)):
             return False
         return table_id == expected_table and has_url and bool(rows)
     return bool(expected_warning)
@@ -171,9 +181,13 @@ def miss_detail(entry: dict[str, Any], *, status_code: int, body: dict[str, Any]
         return "empty url"
     if expected_table and not body.get("rows"):
         return "no rows"
-    levels = {fetched_level(url) for url in census_urls(body)}
-    if levels - {entry.get("expect_geo_level")}:
-        return f"wrong geography level {sorted(levels)[0]}"
+    wrong, missing = level_problems(entry, body)
+    if wrong or missing:
+        return (
+            f"wrong geography level {wrong[0]}"
+            if wrong
+            else f"missing geography level {missing[0]}"
+        )
     return "not answered"
 
 

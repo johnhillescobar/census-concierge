@@ -30,7 +30,9 @@ def _script(table: str, place: str) -> list[dict[str, Any]]:
         },
         {
             "content": "",
-            "tool_calls": [{"id": "2", "name": "resolve_geography", "args": {"query": place}}],
+            "tool_calls": [
+                {"id": "2", "name": "resolve_geography", "args": {"level": None, "query": place}}
+            ],
         },
         {
             "content": "",

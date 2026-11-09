@@ -52,7 +52,9 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | code | condition |
 |---|---|
 | `zcta_not_zip` | ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
-| `geography_not_nested` | Containment is not expressible in Census `for`/`in`. |
+| `geography_not_nested` | Containment is not expressible in Census `for`/`in`. Tracts asked for inside one named place are the exception that still fetches: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
+| `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
+| `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |
 | `moe_aggregation_degraded` | `sqrt(Σ MOEᵢ²)` degrades past a handful of areas. |
 | `shared_sample` | Place-vs-parent (and other nested pairs) share ACS sample. |

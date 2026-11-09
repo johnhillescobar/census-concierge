@@ -31,8 +31,14 @@ T14 = "How has the share of households with a computer changed since 2013?"
 Q24 = "Median household income for ZCTA 90210"
 
 
+def _stated(record: ExecutionRecord) -> ExecutionRecord:
+    """A hand-built record stands for a loop whose model stated each geography's own level."""
+    record.asked_levels = [spec.level for spec in record.geographies[:1]]
+    return record
+
+
 def _codes(record: ExecutionRecord) -> list[str]:
-    return [warning.code for warning in evaluate(record)]
+    return [warning.code for warning in evaluate(_stated(record))]
 
 
 def test_empty_record_emits_no_warnings() -> None:
@@ -42,7 +48,7 @@ def test_empty_record_emits_no_warnings() -> None:
 def test_overlapping_acs5_ranges_warn_without_a_second_fetch() -> None:
     record = ExecutionRecord(question=T01)
     assert _codes(record) == ["overlapping_vintage"]
-    response = assemble("answer still ships", record)
+    response = assemble("answer still ships", _stated(record))
     assert response.answer == "answer still ships"
     assert response.warnings[0].code == "overlapping_vintage"
     assert "2019" in response.warnings[0].detail
@@ -106,7 +112,7 @@ def test_small_place_series_warns_acs1_ineligible() -> None:
         ],
     )
     assert _codes(record) == ["acs1_geography_ineligible"]
-    response = assemble("two ACS5 points", record)
+    response = assemble("two ACS5 points", _stated(record))
     assert response.warnings[0].code == "acs1_geography_ineligible"
     assert "65,000" not in response.warnings[0].detail
     assert "not published" in response.warnings[0].detail.casefold()
@@ -140,7 +146,7 @@ def test_acs1_fallback_year_warns_ineligible_geography() -> None:
     )
     record.rows = list(record.fetch.rows)
     assert _codes(record) == ["acs1_geography_ineligible"]
-    response = assemble("ACS5 still ships", record)
+    response = assemble("ACS5 still ships", _stated(record))
     assert response.warnings[0].code == "acs1_geography_ineligible"
     assert response.urls == list(record.fetch.urls)
     assert response.table_id == "B01003"
@@ -187,7 +193,7 @@ def test_acs1_span_crossing_2020_warns_and_keeps_the_gap() -> None:
         ],
     )
     assert _codes(record) == ["vintage_gap_2020"]
-    response = assemble("four years, 2020 absent", record)
+    response = assemble("four years, 2020 absent", _stated(record))
     assert response.warnings[0].code == "vintage_gap_2020"
     assert response.omitted_years == [2020]
     assert "2020" not in [row.get("year") for row in response.rows]
@@ -326,7 +332,7 @@ def test_versus_series_warns_when_same_year_legs_are_indistinguishable() -> None
         {"GEO_ID": "a", "year": "2022", "B25064_001E": "1000", "B25064_001M": "10"},
         {"GEO_ID": "b", "year": "2022", "B25064_001E": "2000", "B25064_001M": "10"},
     ]
-    response = assemble("versus series", record)
+    response = assemble("versus series", _stated(record))
     assert [item.code for item in response.warnings] == ["moe_not_significant"]
     assert {item.year for item in response.comparisons} == {"2017", "2022"}
 
@@ -337,7 +343,7 @@ def test_equal_threshold_is_not_distinguishable() -> None:
         {"GEO_ID": "a", "B17001_002E": "100", "B17001_002M": "6"},
         {"GEO_ID": "b", "B17001_002E": "110", "B17001_002M": "8"},
     ]
-    response = assemble("not ranked", record)
+    response = assemble("not ranked", _stated(record))
     assert [item.code for item in response.warnings] == ["moe_not_significant"]
     pair = response.comparisons[0]
     assert pair.threshold == "10"
@@ -354,7 +360,7 @@ def test_year_over_year_indistinguishable_change() -> None:
         {"GEO_ID": "a", "year": "2017", "B17001_002E": "100", "B17001_002M": "50"},
         {"GEO_ID": "a", "year": "2022", "B17001_002E": "110", "B17001_002M": "50"},
     ]
-    response = assemble("not change", record)
+    response = assemble("not change", _stated(record))
     assert [item.code for item in response.warnings] == ["moe_not_significant"]
     assert response.comparisons[0].distinguishable is False
     assert response.comparisons[0].geoid_a == "a"
@@ -385,7 +391,7 @@ def test_parent_place_exposes_shared_sample_and_conclusion() -> None:
         {"GEO_ID": "1600000US4805000", "B25064_001E": "1729", "B25064_001M": "14"},
         {"GEO_ID": "0400000US48", "B25064_001E": "1403", "B25064_001M": "4"},
     ]
-    response = assemble("Austin vs Texas", record)
+    response = assemble("Austin vs Texas", _stated(record))
     assert [item.code for item in response.warnings] == ["shared_sample"]
     pair = response.comparisons[0]
     assert pair.distinguishable is True
@@ -431,7 +437,7 @@ def test_several_matching_places_are_the_result() -> None:
         )
         for i in range(15)
     ]
-    warnings = evaluate(record)
+    warnings = evaluate(_stated(record))
     assert [item.code for item in warnings] == ["ambiguous_place"]
     assert "Springfield 0" in warnings[0].detail
     assert "Springfield 14" in warnings[0].detail
@@ -453,7 +459,7 @@ def test_several_matching_places_are_the_result() -> None:
     assert "place:0" in str(built)
     assert "state:17" in str(built)
     assert "key=" not in str(built)
-    response = assemble("candidates listed", record)
+    response = assemble("candidates listed", _stated(record))
     assert response.answer == "candidates listed"
     assert response.urls == []
     assert response.geoid == ""
@@ -464,7 +470,7 @@ def test_one_geography_is_not_ambiguous() -> None:
     record = ExecutionRecord()
     record.geographies = [_harris()]
     assert _codes(record) == []
-    response = assemble("Harris County, Texas", record)
+    response = assemble("Harris County, Texas", _stated(record))
     assert response.warnings == []
 
 
@@ -520,12 +526,16 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
     ]
     record = ExecutionRecord(question="Median household income for every block group in Wyoming")
     tool = _geo_tool(table=entries)
-    await dispatch(tool, {"id": "bg1", "args": {"query": "every block group in Wyoming"}}, record)
+    await dispatch(
+        tool,
+        {"id": "bg1", "args": {"level": None, "query": "every block group in Wyoming"}},
+        record,
+    )
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
     assert [row.for_spec for row in record.geographies] == ["block group:*"]
     assert record.geographies[0].in_spec == "state:56"
-    response = assemble("answer still ships", record)
+    response = assemble("answer still ships", _stated(record))
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert "block group" in response.warnings[0].detail
     assert response.answer == "answer still ships"
@@ -535,7 +545,9 @@ async def test_unknown_place_is_not_unsupported_geography() -> None:
     record = ExecutionRecord(question="Population of Atlantis, Texas")
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"query": "Atlantis, Texas"}}, record
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": None, "query": "Atlantis, Texas"}},
+        record,
     )
     assert record.geo_status is not None
     assert record.geo_status["legal"] is True
@@ -549,14 +561,16 @@ async def test_new_geography_clears_current_fetch_but_keeps_the_url() -> None:
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"query": "Harris County, Texas"}},
+        {"id": "1", "args": {"level": "county", "query": "Harris County, Texas"}},
         record,
     )
     await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "3", "args": {}}, record)
     assert record.rows
     await dispatch(
-        tools["resolve_geography"], {"id": "4", "args": {"query": "Cook County"}}, record
+        tools["resolve_geography"],
+        {"id": "4", "args": {"level": "county", "query": "Cook County"}},
+        record,
     )
     assert record.url is None
     assert record.rows == []
@@ -576,7 +590,7 @@ async def test_same_geography_keeps_the_fetch() -> None:
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"query": "Harris County, Texas"}},
+        {"id": "1", "args": {"level": "county", "query": "Harris County, Texas"}},
         record,
     )
     await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
@@ -584,7 +598,7 @@ async def test_same_geography_keeps_the_fetch() -> None:
     rows = list(record.rows)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "4", "args": {"query": "Harris County, Texas"}},
+        {"id": "4", "args": {"level": "county", "query": "Harris County, Texas"}},
         record,
     )
     assert record.rows == rows
@@ -595,7 +609,9 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     record = ExecutionRecord(question="Population of Cook County")
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"query": "Cook County"}}, record
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": "county", "query": "Cook County"}},
+        record,
     )
     response = assemble("three Cook Counties", record)
     assert len(record.geographies) == 3
@@ -931,7 +947,7 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
         }
     ]
     assert _codes(record) == ["zcta_not_zip"]
-    response = assemble("ZCTA, not ZIP", record)
+    response = assemble("ZCTA, not ZIP", _stated(record))
     assert response.answer.startswith("ZCTA, not ZIP")
     assert [item.code for item in response.warnings] == ["zcta_not_zip"]
     assert "10001" in response.warnings[0].detail
@@ -952,7 +968,7 @@ def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
     ]
     record.geography = record.geographies[0]
     record.rows = [{"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"}]
-    response = assemble("single vintage", record)
+    response = assemble("single vintage", _stated(record))
     assert response.warnings == []
     assert response.geoid == "860Z200US90210"
     assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US90210"]
@@ -961,13 +977,15 @@ def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
 async def test_tract_within_a_place_does_not_invent_a_fetch() -> None:
     record = ExecutionRecord(question=T16)
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": T16}}, record)
+    await dispatch(
+        tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": T16}}, record
+    )
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
     assert record.geo_status["nested"] is False
     assert record.geographies == []
     assert record.geography is None
-    response = assemble("containment is not expressible", record)
+    response = assemble("containment is not expressible", _stated(record))
     assert [item.code for item in response.warnings] == ["geography_not_nested"]
     assert "tract" in response.warnings[0].detail
     assert "place" in response.warnings[0].detail
@@ -981,8 +999,10 @@ async def test_zctas_in_a_state_warn_as_not_nested() -> None:
     for query in ("all ZCTAs in Oregon", "ZCTAs within Oregon"):
         record = ExecutionRecord(question=query)
         tools = _tools(record)
-        await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": query}}, record)
-        response = assemble("ZCTAs nest in nothing", record)
+        await dispatch(
+            tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": query}}, record
+        )
+        response = assemble("ZCTAs nest in nothing", _stated(record))
         assert record.geographies == []
         assert [item.code for item in response.warnings] == ["geography_not_nested"], query
         assert response.urls == []
@@ -992,8 +1012,10 @@ async def test_named_zcta_with_a_state_warns_as_not_nested() -> None:
     query = "Median household income for ZCTA 90210 in Oregon"
     record = ExecutionRecord(question=query)
     tools = _tools(record)
-    await dispatch(tools["resolve_geography"], {"id": "2", "args": {"query": query}}, record)
-    response = assemble("ZCTAs nest in nothing", record)
+    await dispatch(
+        tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": query}}, record
+    )
+    response = assemble("ZCTAs nest in nothing", _stated(record))
     assert record.geographies == []
     assert [item.code for item in response.warnings] == ["geography_not_nested"]
     assert response.urls == []
@@ -1004,10 +1026,13 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"query": "all zctas in Harris County"}},
+        {
+            "id": "2",
+            "args": {"level": "zip code tabulation area", "query": "all zctas in Harris County"},
+        },
         record,
     )
-    response = assemble("ZCTAs nest in nothing", record)
+    response = assemble("ZCTAs nest in nothing", _stated(record))
     assert record.geographies == []
     assert [item.code for item in response.warnings] == ["geography_not_nested"]
 
@@ -1037,7 +1062,7 @@ async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
             {
                 "type": "tool_call",
                 "name": "resolve_geography",
-                "args": {"query": query},
+                "args": {"level": None, "query": query},
                 "id": "c1",
             }
         )
@@ -1061,7 +1086,9 @@ def test_dict_geo_artifact_preserves_nested_false() -> None:
     )
     assert record.geo_status is not None
     assert record.geo_status["nested"] is False
-    assert [item.code for item in assemble("no fetch", record).warnings] == ["geography_not_nested"]
+    assert [item.code for item in assemble("no fetch", _stated(record)).warnings] == [
+        "geography_not_nested"
+    ]
 
 
 def test_published_zcta_name_is_not_zip_language() -> None:
@@ -1074,7 +1101,10 @@ async def test_tract_within_a_county_is_not_a_nesting_warning() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"query": "poverty by census tract within Wayne County"}},
+        {
+            "id": "2",
+            "args": {"level": "tract", "query": "poverty by census tract within Wayne County"},
+        },
         record,
     )
     assert record.geo_status is not None
@@ -1114,7 +1144,7 @@ def test_tract_series_crossing_2020_warns_from_requested_years() -> None:
     )
     record.rows = list(record.fetch.rows)
     assert _codes(record) == ["boundary_change_2020"]
-    response = assemble("still ships", record)
+    response = assemble("still ships", _stated(record))
     warning = response.warnings[0]
     assert warning.code == "boundary_change_2020"
     assert "tract" in warning.detail
@@ -1197,7 +1227,7 @@ def test_boundary_warning_survives_partial_fetch_failure() -> None:
         ],
     )
     record.rows = list(record.fetch.rows)
-    response = assemble("one year failed", record)
+    response = assemble("one year failed", _stated(record))
     assert [item.code for item in response.warnings] == ["boundary_change_2020"]
     assert "2013-2017" in response.warnings[0].detail
     assert "2018-2022" in response.warnings[0].detail
@@ -1218,7 +1248,7 @@ def test_sentinel_moe_is_none_not_zero() -> None:
     record = ExecutionRecord(table_id="B01003")
     record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "10", "B01003_001M": "-555555555"}]
     record.vintages = [("acs5", 2024)]
-    response = assemble("ships", record)
+    response = assemble("ships", _stated(record))
     assert response.moe[0]["B01003_001M"] is None
     assert response.rows[0]["B01003_001M"] == "-555555555"
     assert moe_rows(record.rows)[0]["B01003_001M"] is None
@@ -1228,7 +1258,7 @@ def test_sentinel_moe_is_none_not_zero() -> None:
 def test_published_zero_moe_is_kept() -> None:
     record = ExecutionRecord(table_id="B01003")
     record.rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "10", "B01003_001M": "0"}]
-    response = assemble("ships", record)
+    response = assemble("ships", _stated(record))
     assert response.moe[0]["B01003_001M"] == "0"
 
 
@@ -1261,7 +1291,7 @@ def test_absent_computer_years_are_named_and_the_url_ships() -> None:
     warning = next(item for item in evaluate(record) if item.code == "variable_not_in_vintage")
     assert "2013" in warning.detail
     assert "2016" in warning.detail
-    response = assemble("ships", record)
+    response = assemble("ships", _stated(record))
     assert response.urls
     assert response.warnings[0].code == "variable_not_in_vintage"
 
@@ -1349,7 +1379,7 @@ def test_overlapping_vintage_still_ships_the_url() -> None:
             "&for=us:1"
         ),
     )
-    response = assemble("answer still ships", record)
+    response = assemble("answer still ships", _stated(record))
     assert [item.code for item in response.warnings] == ["overlapping_vintage"]
     assert response.urls
 
@@ -1369,7 +1399,7 @@ def test_all_incompatible_years_still_ship_the_built_url() -> None:
         omission_reasons=["variable_not_in_vintage", "variable_not_in_vintage"],
         dataset="acs5",
     )
-    response = assemble("ships", record)
+    response = assemble("ships", _stated(record))
     assert response.urls == [str(built)]
     assert any(item.code == "variable_not_in_vintage" for item in response.warnings)
 
@@ -1384,7 +1414,7 @@ def test_warning_only_keeps_url_after_series_clear() -> None:
     built = CensusURL(_RETAINED.replace("B17001", "B19013"))
     record = ExecutionRecord(question=T01, url=built, table_id="B19013")
     clear_series(record)
-    response = assemble("warning only", record)
+    response = assemble("warning only", _stated(record))
     assert [item.code for item in response.warnings] == ["overlapping_vintage"]
     assert response.urls == [str(built)]
     assert "key=" not in response.urls[0]
@@ -1395,7 +1425,7 @@ def test_no_row_fetch_survives_series_clear() -> None:
         url=CensusURL(_RETAINED), table_id="B17001", fetch=_fetch(urls=[_RETAINED], rows=[])
     )
     clear_series(record)
-    response = assemble("no rows", record)
+    response = assemble("no rows", _stated(record))
     assert response.urls == [_RETAINED]
     assert response.rows == []
 
@@ -1414,7 +1444,7 @@ def test_failed_fetch_survives_series_clear() -> None:
         ),
     )
     clear_series(record)
-    response = assemble("timed out", record)
+    response = assemble("timed out", _stated(record))
     assert response.urls == [_RETAINED]
     assert response.failed_years == []
     assert response.rows == []
@@ -1425,7 +1455,7 @@ def test_unresolved_empty_fetch_keeps_the_built_url() -> None:
     record = ExecutionRecord(url=CensusURL(keyed), table_id="B17001")
     clear_series(record)
     record.fetch = _fetch(ok=False, urls=[], detail="call build_url before fetch_data")
-    response = assemble("unresolved", record)
+    response = assemble("unresolved", _stated(record))
     assert response.urls == [_RETAINED]
     assert "key=" not in response.urls[0]
     assert "secret" not in "".join(response.urls)
@@ -1448,7 +1478,7 @@ def test_failed_rebuild_keeps_the_previous_url() -> None:
         ),
         {},
     )
-    response = assemble("unresolved", record)
+    response = assemble("unresolved", _stated(record))
     assert record.url is None
     assert response.urls == [_RETAINED]
     assert "key=" not in response.urls[0]
@@ -1457,4 +1487,4 @@ def test_failed_rebuild_keeps_the_previous_url() -> None:
 def test_series_clear_without_a_built_url_stays_empty() -> None:
     record = ExecutionRecord()
     clear_series(record)
-    assert assemble("never built", record).urls == []
+    assert assemble("never built", _stated(record)).urls == []

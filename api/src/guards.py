@@ -11,6 +11,7 @@ from typing import Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
+from src.geo_level import geography_level_mismatch, geography_level_unverified
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
 )
@@ -200,7 +201,7 @@ def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
 
 def geography_not_nested(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
-    if not status or status.get("nested") is not False:
+    if not status or not (status.get("nested") is False or status.get("wider")):
         return None
     detail = str(status.get("detail") or "").strip()
     if not detail:
@@ -434,6 +435,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         moe_aggregation_degraded,
         zcta_not_zip,
         geography_not_nested,
+        geography_level_mismatch,
+        geography_level_unverified,
     ):
         warning = guard(record)
         if warning is not None:

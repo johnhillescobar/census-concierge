@@ -220,7 +220,7 @@ async def test_a_listing_too_large_to_pair_still_returns_its_rows_url_and_margin
     tools["resolve_geography"].list_geographies = only_dane
     steps = [
         ("search_tables", {"question": question}),
-        ("resolve_geography", {"query": "every tract in Dane County, Wisconsin"}),
+        ("resolve_geography", {"level": None, "query": "every tract in Dane County, Wisconsin"}),
         ("build_url", {"table_id": "B17001"}),
         ("fetch_data", {}),
     ]
