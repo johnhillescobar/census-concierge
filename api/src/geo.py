@@ -12,7 +12,7 @@ from pydantic import ConfigDict
 
 from src.compare import unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
-from src.geo_level import LEVELS, declared_levels, level_name, published_levels
+from src.geo_level import LEVELS, declared_levels, level_name
 from src.geo_list import (
     WILDCARD,
     WITHIN,
@@ -53,6 +53,8 @@ class ResolveGeographyResult(ToolResult):
     compare_count: int = 0
     # The level came from the place name or the query's words, not from the model's stated level.
     inferred: bool = False
+    # The level the model stated is not published for the dataset; the refusal must stand.
+    refused: bool = False
 
 
 ListGeographies = Callable[..., list[dict[str, str]]]
@@ -253,8 +255,11 @@ class ResolveGeographyTool(BaseTool):
         if level:
             for_level = level_name(level) if level_name(level) in known else None
             if for_level is None:
-                names = ", ".join(published_levels(entries))
-                return _fail(f"unknown geography level {level!r}; published here: {names}")
+                names = ", ".join(dict.fromkeys(entry.name for entry in entries))
+                detail, refusal = _fail(
+                    f"unknown geography level {level!r}; published here: {names}"
+                )
+                return detail, refusal.model_copy(update={"refused": True})
         else:
             for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
             inferred = for_level is not None

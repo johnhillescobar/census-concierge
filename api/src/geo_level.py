@@ -1,10 +1,6 @@
-"""The geography level a question asks for: stated by the model, checked against what is fetched.
-
-The model states the level in `resolve_geography` (a published name, or null for "the question
-names none"). Code executes that level exactly and compares it with the URLs it fetched. It never
-reads the question's words to decide the level, and a level the model did not state is shown as
-unverified, not guessed quietly.
-"""
+"""The level a question asks for: stated by the model in `resolve_geography` (null = none named),
+run exactly by code, and compared with the URLs fetched. A level the model did not state is shown
+as unverified, never guessed quietly."""
 
 from __future__ import annotations
 
@@ -40,10 +36,6 @@ def level_name(token: str | None) -> str | None:
     return LEVELS.get(folded, folded) or None
 
 
-def published_levels(entries: list[Any]) -> list[str]:
-    return list(dict.fromkeys(entry.name for entry in entries))
-
-
 def declared_levels(args: dict[str, Any]) -> list[str | None]:
     """One level per leg the call resolves: what the model stated, null included."""
     places = [p for p in args.get("places") or [] if isinstance(p, str) and p.strip()]
@@ -69,6 +61,7 @@ def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
         "compare": bool(get("compare", False)),
         "compare_count": int(get("compare_count", 0) or 0),
         "inferred": bool(get("inferred", False)),
+        "refused": bool(get("refused", False)),
     }
 
 

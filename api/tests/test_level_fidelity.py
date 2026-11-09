@@ -262,3 +262,45 @@ async def test_a_loop_whose_model_states_the_level_raises_no_level_warning() -> 
         "geography_level_mismatch",
         "geography_level_unverified",
     }
+
+
+async def test_a_refused_level_stands_and_is_not_re_guessed_from_the_question() -> None:
+    """The model stated a level the dataset does not publish. Finish must not rerun the lookup
+    from the question's words and overwrite that refusal with an empty, silent result."""
+    record = ExecutionRecord()
+    tools = _tools(record)
+    steps = [
+        ("search_tables", {"question": "population of Texas congressional districts"}),
+        ("resolve_geography", {"level": "congressional district", "query": "Texas"}),
+    ]
+    queue: list[dict[str, Any]] = [
+        {"content": "", "tool_calls": [{"id": str(i), "name": name, "args": args}]}
+        for i, (name, args) in enumerate(steps)
+    ]
+    queue.append({"content": "done", "tool_calls": []})
+
+    async def complete(messages: list[dict[str, Any]], tools_: list[dict[str, Any]]) -> Any:
+        del messages
+        if not tools_:
+            return {"content": "{}", "tool_calls": []}
+        return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
+
+    response = await run_ask(
+        "population of Texas congressional districts", complete=complete, tools=tools, record=record
+    )
+    assert record.geo_status is not None and record.geo_status["refused"] is True
+    assert record.geographies == [] and response.urls == []
+    assert [w.code for w in response.warnings] == ["geography_unsupported"]
+    assert all(entry.name in response.warnings[0].detail for entry in ENTRIES)
+
+
+async def test_a_published_level_is_not_marked_refused() -> None:
+    result = await _geo_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"level": "county", "query": "Harris County, Texas"},
+            "id": "c1",
+        }
+    )
+    assert result.artifact.refused is False
