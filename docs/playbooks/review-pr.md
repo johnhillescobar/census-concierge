@@ -91,7 +91,7 @@ also `docs/retrieval.md`. Then:
 
 ## The verdict
 
-Reconcile every AC/TC against run-slice.md's evidence matrix and PLAN's metric gates. Missing/failed/unrun/unverified items mean **Not yet**; follow-up tickets cannot excuse them without an explicit owner scope amendment. Require applicable head evidence and post-merge E2E before Done. CC-133 automation is planned, not already installed.
+Reconcile every AC/TC against run-slice.md's evidence matrix and PLAN's metric gates. Missing/failed/unrun/unverified items mean **Not yet**; follow-up tickets cannot excuse them without an explicit owner scope amendment. Require applicable head evidence and post-merge E2E before Done. `scripts/closure.py check` must exit 0 for the ticket's manifest.
 
 Say one of three things, and mean it:
 

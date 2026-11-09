@@ -10,7 +10,9 @@ ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN are in .env. MCP is optional.
     python scripts/jira_transition.py CC-21 --done --comment-file evidence/latest.json
     python scripts/jira_transition.py CC-21 --transition Done
 
-Exits non-zero on API or auth failure.
+Moving an issue to Done first runs the closure gate (scripts/closure.py): if the description
+carries AC/TC identifiers, evidence/closure/<KEY>.toml must back every one of them. A refused
+closure adds no comment and makes no transition. Exits non-zero on API, auth or gate failure.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import closure
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -105,6 +108,31 @@ def _transition(key: str, target: str) -> None:
     _api("POST", f"/issue/{key}/transitions", {"transition": {"id": matches[0]["id"]}})
 
 
+def _is_done(target: str | None) -> bool:
+    return bool(target) and str(target).strip().lower() == "done"
+
+
+def _closure_gate(key: str) -> None:
+    """Refuse Done unless the AC/TC manifest is whole. Both Done paths come through here."""
+    fields = _issue(key, "description")["fields"]
+    needed = closure.required_ids(closure.adf_text(fields.get("description")))
+    if not needed:
+        print(f"{key}: no AC/TC identifiers in the description; no closure manifest required")
+        return
+    manifest = ROOT / "evidence" / "closure" / f"{key}.toml"
+    found = (
+        closure.check_file(manifest, required=needed, root=ROOT)
+        if manifest.is_file()
+        else [f"no closure manifest at {manifest.relative_to(ROOT).as_posix()}"]
+    )
+    if found:
+        print(f"{key} cannot be closed:", file=sys.stderr)
+        for line in found:
+            print(f"  BLOCKED  {line}", file=sys.stderr)
+        sys.exit(1)
+    print(f"{key}: closure manifest covers {', '.join(needed)}")
+
+
 def _read_comment(args: argparse.Namespace) -> str | None:
     if args.comment:
         return args.comment
@@ -145,12 +173,15 @@ def main() -> int:
             to_name = t.get("to", {}).get("name", "?")
             print(f"  {t.get('id', '?'):>3}  {t.get('name', '?')} -> {to_name}")
 
+    target = "Done" if args.done else args.transition
+    if _is_done(target):
+        _closure_gate(key)
+
     text = _read_comment(args)
     if text:
         _add_comment(key, text)
         print(f"Comment added to {key}")
 
-    target = "Done" if args.done else args.transition
     if target:
         before = _issue(key, "status")["fields"]["status"]["name"]
         _transition(key, target)

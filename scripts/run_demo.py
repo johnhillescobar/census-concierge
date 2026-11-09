@@ -269,6 +269,10 @@ class Trial:
     rows: int = 0
     t_rerank: float = 0.0
     t_embed: float = 0.0
+    has_moe: bool = False  # the response contract, recorded so a comparison can check it
+    has_geoid: bool = False
+    has_universe: bool = False
+    has_alternatives: bool = False
 
 
 def install_clock(clock: Clock) -> None:
@@ -347,6 +351,10 @@ def trial_record(trial: Trial) -> dict[str, Any]:
         "t_rerank": round(trial.t_rerank, 3),
         "t_embed": round(trial.t_embed, 3),
         "rows": trial.rows,
+        "has_moe": trial.has_moe,
+        "has_geoid": trial.has_geoid,
+        "has_universe": trial.has_universe,
+        "has_alternatives": trial.has_alternatives,
     }
 
 
@@ -431,6 +439,10 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
         rows=len(body.get("rows") or []),
         t_rerank=clock.seconds("rerank"),
         t_embed=clock.seconds("embed"),
+        has_moe=bool(body.get("moe")),
+        has_geoid=bool(body.get("geoid")),
+        has_universe=bool(body.get("universe")),
+        has_alternatives=bool(body.get("alternatives")),
     )
 
 

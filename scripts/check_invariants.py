@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import TypeGuard
 
 import budget_log
+import closure
 
 ROOT = Path(__file__).resolve().parent.parent
 API_SRC = ROOT / "api" / "src"
@@ -701,6 +702,71 @@ def check_no_new_exemptions(base: str) -> list[Violation]:
     return found
 
 
+def check_closure_manifests() -> list[Violation]:
+    """A closure manifest in the tree must be well formed. Whether it is complete is decided when
+    the ticket closes (scripts/closure.py), because a ticket in progress has rows not yet run."""
+    found: list[Violation] = []
+    for path in sorted((EVIDENCE / "closure").glob("*.toml")):
+        rel = path.relative_to(ROOT).as_posix()
+        found += [Violation(rel, line) for line in closure.check_file(path, readiness=False)]
+    return found
+
+
+PROTOCOL = "evals/metric_protocol.toml"
+# (section, key): a value may never fall / rise / change, and a list may never lose / gain a name.
+PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))
+PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))
+PROTOCOL_NOT_HIGHER = (("sampling", "max_regression"),)
+PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))
+PROTOCOL_KEEP = (("scorer", "symbols"),)  # the old names must all remain
+PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))
+
+
+def check_protocol_not_weakened(base: str) -> list[Violation]:
+    """The frozen sampling protocol is loosened only by its owner, in its own commit. A looser
+    interval, a smaller sample, a new exclusion, a dropped scorer symbol or cohort, or a new seed
+    would let a failing run pass; a changed hash is also what makes old results incomparable."""
+    old_text = _text_at(base, PROTOCOL)
+    if old_text is None:
+        return []
+    old, new = tomllib.loads(old_text), tomllib.loads((ROOT / PROTOCOL).read_text(encoding="utf-8"))
+    found: list[Violation] = []
+
+    def flag(where: str, why: str) -> None:
+        found.append(
+            Violation(f"{PROTOCOL} {where}", f"{why}. This belongs in its own commit, by a human.")
+        )
+
+    def number(doc: dict, section: str, key: str) -> float | None:
+        value = doc.get(section, {}).get(key)
+        return float(value) if isinstance(value, int | float) else None
+
+    def names(doc: dict, section: str, key: str) -> set[str]:
+        return {str(item) for item in doc.get(section, {}).get(key) or []}
+
+    for section, key in PROTOCOL_NOT_LOWER:
+        before, after = number(old, section, key), number(new, section, key)
+        if before is not None and (after is None or after < before):
+            flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
+    for section, key in PROTOCOL_NOT_HIGHER:
+        before, after = number(old, section, key), number(new, section, key)
+        if before is not None and (after is None or after > before):
+            flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
+    for section, key in PROTOCOL_UNCHANGED:
+        before, after = old.get(section, {}).get(key), new.get(section, {}).get(key)
+        if before != after:
+            flag(f"[{section}] {key}", f"{before!r} -> {after!r}: a frozen setting changed")
+    for section, key in PROTOCOL_KEEP:
+        if lost := names(old, section, key) - names(new, section, key):
+            flag(f"[{section}] {key}", f"dropped {sorted(lost)}")
+    for section, key in PROTOCOL_NO_NEW:
+        if added := names(new, section, key) - names(old, section, key):
+            flag(f"[{section}] {key}", f"new exclusion {sorted(added)} shrinks the denominator")
+    for name in set(old.get("cohorts", {})) - set(new.get("cohorts", {})):
+        flag(f"[cohorts.{name}]", "cohort dropped")
+    return found
+
+
 def check_mandatory_catalogs() -> list[Violation]:
     """Agent catalogs must exist. Does not validate their prose."""
     found: list[Violation] = []
@@ -729,6 +795,7 @@ CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("mandatory catalogs", check_mandatory_catalogs),
     ("budget log matches values", check_budget_log_matches_values),
     ("eval phrasing in api/src", check_no_eval_phrasing_in_api_src),
+    ("closure manifests", check_closure_manifests),
 )
 
 
@@ -738,10 +805,12 @@ def collect(base: str | None) -> list[tuple[str, list[Violation]]]:
         rows.append(("budget increases", check_budgets_not_weakened(base)))
         rows.append(("new regex", check_no_new_regex(base)))
         rows.append(("new exemptions", check_no_new_exemptions(base)))
+        rows.append(("protocol weakened", check_protocol_not_weakened(base)))
     else:
         rows.append(("budget increases", []))
         rows.append(("new regex", []))
         rows.append(("new exemptions", []))
+        rows.append(("protocol weakened", []))
     return rows
 
 
@@ -773,7 +842,8 @@ def main() -> int:
     print("\nINVARIANTS\n")
     failed = 0
     for name, violations in rows:
-        if name in {"budget increases", "new regex", "new exemptions"} and not args.base:
+        diffed = {"budget increases", "new regex", "new exemptions", "protocol weakened"}
+        if name in diffed and not args.base:
             print(f"  skip  {name:<{width}}  pass --base to diff against a ref")
             continue
         if not violations:

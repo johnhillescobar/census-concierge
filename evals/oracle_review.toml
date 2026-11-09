@@ -1,0 +1,14 @@
+# Owner-only (CC-133 AC1, plan D8). An agent never writes an [accepted.*] entry.
+#
+# A case counts toward a frozen cohort only when the owner has reviewed its expected
+# interpretation and signed it here. The digest covers the id, text, tier, expect_* fields and
+# holdout flag, so editing a golden afterwards makes the review stale until it is signed again.
+# Print what is waiting:   uv run python scripts/metric_compare.py freeze --digests
+#
+# [accepted.q14]
+# reviewer = "owner"
+# date = "2026-11-10"
+# oracle = "<digest printed by freeze --digests>"
+# note = "place is an acceptable answer"
+#
+# Until every id in every cohort is accepted, metric_compare.py reports UNFROZEN, never PASS.

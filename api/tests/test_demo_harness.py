@@ -506,3 +506,35 @@ def test_search_split_reaches_the_summary_and_the_record() -> None:
     assert summary["t_rerank"] == 3.0
     assert summary["t_embed"] == 0.3
     assert summary["trials"][0]["t_rerank"] == 2.0
+
+
+class _Reply:
+    status_code = 200
+
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = body
+
+    def json(self) -> dict[str, Any]:
+        return self._body
+
+
+class _Client:
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = body
+
+    def post(self, path: str, json: dict[str, Any]) -> _Reply:
+        _ = path, json
+        return _Reply(self._body)
+
+
+def test_each_trial_records_which_response_contract_fields_the_answer_carried() -> None:
+    body = _body(moe=[{"B01003_001M": "5"}], geoid="", universe="Households", alternatives=[])
+    entry = {"id": "q05", "text": "t", "tier": "long_tail", "expect_table": "B01003"}
+    trial = run_demo._ask(_Client(body), run_demo.Clock(), entry, 1)
+    record = run_demo.trial_record(trial)
+    assert (
+        record["has_moe"],
+        record["has_geoid"],
+        record["has_universe"],
+        record["has_alternatives"],
+    ) == (True, False, True, False)
