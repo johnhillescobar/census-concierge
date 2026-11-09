@@ -1,0 +1,23 @@
+HEAD start 69d73648296d8da47c43d596b41abe952044e2f3 branch main
+s START 2026-11-09T17:02:26Z :: uv sync
+s END 2026-11-09T17:02:27Z rc=0
+n1 START 2026-11-09T17:02:27Z :: npm --prefix web ci
+n1 END 2026-11-09T17:02:41Z rc=0
+n2 START 2026-11-09T17:02:41Z :: npm --prefix web run build
+n2 END 2026-11-09T17:02:50Z rc=0
+a START 2026-11-09T17:02:51Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-09T17:03:14Z rc=0
+b START 2026-11-09T17:03:14Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-09T17:05:45Z rc=0
+c START 2026-11-09T17:05:45Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-09T17:05:51Z rc=0
+d START 2026-11-09T17:05:51Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-09T17:53:51Z rc=1
+e START 2026-11-09T17:53:51Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-09T18:13:39Z rc=0
+f START 2026-11-09T18:13:40Z :: uv run python scripts/check_budgets.py
+f END 2026-11-09T18:13:42Z rc=1
+g START 2026-11-09T18:13:42Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-09T18:13:54Z rc=1
+HEAD end 69d73648296d8da47c43d596b41abe952044e2f3
+DONE
