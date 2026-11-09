@@ -82,3 +82,38 @@ Jira text needs an owner-approved edit; I have not changed it.
 - repo: branch `cc-114/level-fidelity`, commits, evidence under `evidence/slice-6/cc-114/`
 - Jira: comment with the matrix and numbers at close; description correction only if the owner says so
 - PR: opened for the owner to merge; I do not merge
+
+---
+
+## Status at 5c803da (2026-11-08, evening) - supersedes the NOT RUN column above
+
+Evidence: `evidence/slice-6/cc-114/{gate1.txt, gate2.txt, anchor/}`. Gate 2 reviewed c2589c5; its findings
+are fixed in 5c803da and need one re-run (non-trivial fixes). Anchor = unmodified origin/main 4b24f77,
+`--repeat 3`, existing harness (CC-133 protocol not frozen), HEAD 4b24f77 at start and end.
+
+Anchor A: long_tail answered 0.708 (floor 0.70); overall 0.79; **demo.p95 25.565s (ceiling 20; slowest
+trial 77.5s)**; retriever@10 0.9; selector@1 0.825; geography grid 0.948 (11 misses of 210). Baseline
+already breaches the p95 ceiling: not ship-ready on latency without an explicit owner waiver.
+
+| ID | Status | Basis |
+|---|---|---|
+| AC1 | NOT RUN | Reuse of merged PR #97. Rule precedes outcomes by git order. `classify_geo_levels.py` not re-run. |
+| AC2 | NOT RUN | Offline: stated level run exactly, refusal stands, URL level guarded (incl. override vs own plan). Live demo/grid not run. Owner decision pending on "with candidates" (default: executable candidates -> CC-131; the warning lists published level names meanwhile). |
+| AC3 | PASS (Gate 2 to verify) | No change under `evals/`; `budgets.toml`, leakage baseline unchanged. Scalar scorer behaviour identical. |
+| AC4 | NOT RUN | Anchor done; post-fix E2E not run. |
+| AC5 | PASS | Gate 1: 40 mutations, 36 caught, 4 survivors closed by 9 added tests. Every later fix/test mutation-checked (this file's commits 977bf2a..5c803da); one weak test found and strengthened. |
+| AC6 | **FAIL** | `budgets.toml` untouched, but api/src is 4804 > 4800. Owner decision requested. |
+| GC1 | PASS | Git order. |
+| GC2 | PASS (offline) | Per-leg scorer + per-leg execution, mutation-checked. No golden uses a list: q23 needs owner approval. |
+| GC3 | NOT RUN | Old/new scorer on unchanged trials not run. |
+| TC1 | NOT RUN | Tract case needs the live grid. |
+| TC2 | PASS | |
+| TC3 | PASS | |
+| TC4 | NOT RUN | Needs post-fix run against anchor. |
+| TC5 | PASS offline | Other-level URL, nationwide guess, refused level, override vs its own plan. Raw `for_spec` is unreachable by construction (`build_url` only accepts resolved geographies). |
+
+Deviations from the design table, recorded: D1 the schema cannot list dataset-specific names, so the
+refusal detail does; D2 candidates are level names in `detail`, not executable specs (CC-131);
+D3 a wrong-length `levels` is now refused for repair; D5 an override is checked against its own plan.
+Known silent-by-design: a stated null with a bare name resolves to state/place by NAME match, unflagged.
+Leakage invariant: 6 violation entries vs 5 on main, only because the level table moved to geo_level.py.
