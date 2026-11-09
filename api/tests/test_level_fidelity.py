@@ -155,13 +155,19 @@ async def test_a_published_level_with_no_alias_is_run_by_exact_metadata_match() 
 
 
 async def test_each_comparison_leg_is_run_at_its_own_stated_level() -> None:
-    args = {"level": None, "places": ["Austin, Texas", "Texas"], "levels": ["place", "state"]}
+    """Without the stated levels the county leg's level would be read from its words, so the
+    result would be marked inferred; with them it is not."""
+    args = {
+        "level": None,
+        "places": ["Harris County, Texas", "Houston, Texas"],
+        "levels": ["county", "place"],
+    }
     result = await _geo_tool().ainvoke(
         {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
     )
     artifact = result.artifact
-    assert artifact.compare is True
-    assert [spec.level for spec in artifact.specs[:2]] == ["place", "state"]
+    assert artifact.compare is True and artifact.inferred is False
+    assert [spec.level for spec in artifact.specs[:2]] == ["county", "place"]
 
 
 async def test_a_single_level_stated_for_mixed_legs_is_not_quietly_corrected() -> None:
@@ -436,15 +442,17 @@ async def test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level
 
 
 async def test_a_refinement_of_the_same_place_replaces_its_level_not_adds_a_leg() -> None:
+    """ "Springfield" then "Springfield, Illinois" is one place asked twice, not two legs."""
     record, _ = await _scripted_run(
-        "population of Cook County",
+        "population of Springfield, Illinois",
         [
             ("search_tables", {"question": "population"}),
-            ("resolve_geography", {"level": "place", "query": "Cook"}),
-            ("resolve_geography", {"level": "county", "query": "Cook County"}),
+            ("resolve_geography", {"level": "place", "query": "Springfield"}),
+            ("resolve_geography", {"level": "place", "query": "Springfield, Illinois"}),
         ],
     )
-    assert record.asked_levels == ["county"]
+    assert record.geo_queries == ["Springfield, Illinois"]
+    assert record.asked_levels == ["place"]
 
 
 async def test_a_levels_list_that_does_not_match_the_places_is_refused_for_repair() -> None:
@@ -487,3 +495,133 @@ async def test_a_refused_level_is_not_followed_by_the_nationwide_fallback() -> N
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
     assert [c["args"].get("query") for c in calls] == []
+
+
+async def test_a_call_that_finds_nothing_does_not_shift_the_legs_stated_levels() -> None:
+    record, response = await _scripted_run(
+        "population of Harris County, Texas and Houston, Texas",
+        [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"level": "county", "query": "Harris County, Texas"}),
+            ("resolve_geography", {"level": "place", "query": "Nowheresville, Texas"}),
+            ("resolve_geography", {"level": "place", "query": "Houston, Texas"}),
+            ("build_url", {"table_id": "B01003"}),
+            ("fetch_data", {}),
+        ],
+    )
+    assert record.asked_levels == ["county", "place"]
+    assert sorted(spec.level for spec in record.geographies[:2]) == ["county", "place"]
+
+
+async def test_a_refused_call_between_legs_does_not_shift_the_legs_stated_levels() -> None:
+    record, _ = await _scripted_run(
+        "population of Harris County, Texas and Houston, Texas",
+        [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"level": "county", "query": "Harris County, Texas"}),
+            ("resolve_geography", {"level": "city proper", "query": "Houston, Texas"}),
+            ("resolve_geography", {"level": "place", "query": "Houston, Texas"}),
+            ("build_url", {"table_id": "B01003"}),
+            ("fetch_data", {}),
+        ],
+    )
+    assert record.asked_levels == ["county", "place"]
+
+
+async def test_a_level_read_from_the_words_is_marked_inferred_in_every_result_shape() -> None:
+    async def resolved(args: dict[str, Any]) -> Any:
+        message = await _geo_tool().ainvoke(
+            {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+        )
+        return message.artifact
+
+    comparison = await resolved(
+        {"level": None, "places": ["Harris County, Texas", "Cook County, Illinois"]}
+    )
+    assert comparison.compare is True and comparison.inferred is True
+    assert (await resolved({"level": None, "query": "state of Texas"})).inferred is True
+    assert (await resolved({"level": None, "query": "ZIP 90210"})).inferred is True
+    stated = await resolved({"level": "state", "query": "state of Texas"})
+    assert stated.inferred is False
+
+
+async def test_levels_beside_a_single_place_are_refused_for_repair() -> None:
+    args = {"level": None, "places": ["Harris County, Texas"], "levels": ["county"]}
+    result = await _geo_tool().ainvoke(
+        {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+    )
+    assert result.artifact.legal is False and "one entry per place" in result.artifact.detail
+
+
+def test_a_stated_level_with_no_url_of_its_own_is_flagged() -> None:
+    record = _answered(COUNTY_URL, ["county", "place"])
+    codes = _codes(record)
+    assert codes == ["geography_level_mismatch"]
+    assert "no URL fetches place" in evaluate(record)[0].detail
+
+
+def test_the_mismatch_message_names_a_missing_stated_level_plainly() -> None:
+    record = _answered(COUNTY_URL, [None], geographies=[])
+    detail = evaluate(record)[0].detail
+    assert "no stated level" in detail and "county" in detail
+
+
+async def test_a_level_asked_for_and_not_served_cannot_be_swapped_for_place_without_a_flag() -> (
+    None
+):
+    """The model asked for tracts, the lookup could not serve them (a tract needs its county),
+    and the model then answered at place. A place is the right answer only when a place was
+    asked for: the response must say the tract request went unserved."""
+    record, response = await _scripted_run(
+        "tract-level population in Austin, Texas",
+        [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"level": "tract", "query": "census tract in Austin, Texas"}),
+            ("resolve_geography", {"level": "place", "query": "Austin, Texas"}),
+            ("build_url", {"table_id": "B01003"}),
+            ("fetch_data", {}),
+        ],
+    )
+    assert record.unmet_levels == {"tract"}
+    assert response.urls and CensusURL(response.urls[0]).for_level() == "place"
+    flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
+    assert flag and "no URL fetches tract" in flag[0].detail
+
+
+async def test_an_unserved_level_is_cleared_once_a_later_call_serves_it() -> None:
+    record = ExecutionRecord()
+    geo = _tools(record)["resolve_geography"]
+    unserved = {"id": "1", "args": {"level": "tract", "query": "census tract in Cook County"}}
+    await dispatch(geo, unserved, record)
+    assert record.unmet_levels == {"tract"}
+    served = {"id": "2", "args": {"level": "tract", "query": "all tracts in Cook County, Illinois"}}
+    await dispatch(geo, served, record)
+    assert record.unmet_levels == set()
+
+
+async def test_a_level_name_that_is_not_published_is_not_an_unserved_request() -> None:
+    record = ExecutionRecord()
+    geo = _tools(record)["resolve_geography"]
+    await dispatch(geo, {"id": "1", "args": {"level": "city proper", "query": "Austin"}}, record)
+    assert record.unmet_levels == set()
+
+
+def test_an_unserved_level_not_covered_by_the_url_is_flagged_and_a_covered_one_is_not() -> None:
+    assert _codes(_answered(COUNTY_URL, ["county"], unmet_levels={"tract"})) == [
+        "geography_level_mismatch"
+    ]
+    assert _codes(_answered(TRACT_URL, ["tract"], unmet_levels={"tract"})) == []
+
+
+async def test_an_unsupported_candidate_is_not_a_comparison_leg() -> None:
+    """A place lookup followed by a tract request the API cannot serve (it returns a candidate with
+    legal False) is not a comparison of two places. If finish counted it as one it would replay it
+    and replace the model's own URL with the place."""
+    record = ExecutionRecord()
+    geo = _tools(record)["resolve_geography"]
+    await dispatch(geo, {"id": "1", "args": {"level": "place", "query": "Austin, Texas"}}, record)
+    assert record.geo_queries == ["Austin, Texas"]
+    await dispatch(geo, {"id": "2", "args": {"level": "tract", "query": "Texas"}}, record)
+    assert record.geo_status is not None and record.geo_status["legal"] is False
+    assert [g.level for g in record.geographies] == ["tract"]  # the candidate the model may build
+    assert record.geo_queries == ["Austin, Texas"]

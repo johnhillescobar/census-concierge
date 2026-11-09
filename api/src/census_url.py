@@ -85,10 +85,8 @@ class CensusURL:
 
     def for_level(self) -> str:
         """The geography level the request queries (`for=tract:*` -> `tract`), or empty."""
-        for key, value in parse_qsl(urlsplit(self._redacted).query, keep_blank_values=True):
-            if key == "for":
-                return value.split(":")[0]
-        return ""
+        values = dict(parse_qsl(urlsplit(self._redacted).query, keep_blank_values=True))
+        return values.get("for", "").split(":")[0]
 
     def for_is_wildcard(self) -> bool:
         for key, value in parse_qsl(urlsplit(self._redacted).query, keep_blank_values=True):

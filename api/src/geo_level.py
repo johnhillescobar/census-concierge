@@ -8,7 +8,8 @@ from collections.abc import Callable
 from typing import Any
 
 from src.census_url import CensusURL
-from src.contract import AskWarning
+from src.contract import AskWarning, GeoSpec
+from src.tools import ToolResult
 
 # Spellings of a level the model may write for a published name. Not a reading of the question.
 LEVELS = {
@@ -28,6 +29,23 @@ LEVELS = {
     "zctas": "zip code tabulation area",
     "zip": "zip code tabulation area",
 }
+
+
+class ResolveGeographyResult(ToolResult):
+    specs: list[GeoSpec]
+    wildcard: bool
+    legal: bool
+    detail: str
+    nested: bool = True
+    compare: bool = False
+    # Leading `specs` entries that are genuine one-per-place picks; entries
+    # after this count are leftover ambiguous candidates, not places to
+    # fetch. Only meaningful when `compare` is True.
+    compare_count: int = 0
+    # The level came from the place name or the query's words, not from the model's stated level.
+    inferred: bool = False
+    # The level the model stated is not published for the dataset; the refusal must stand.
+    refused: bool = False
 
 
 def level_name(token: str | None) -> str | None:
@@ -52,9 +70,15 @@ def note_intent(record: Any, name: str, call: dict[str, Any]) -> None:
     args = call.get("args") or {}
     if name != "resolve_geography" or "level" not in args or call.get("origin") == "repair":
         return
-    stated, legs = declared_levels(args), len(getattr(record, "geo_queries", None) or [])
+    stated, status = declared_levels(args), record.geo_status or {}
+    unserved = status.get("legal") is False and not status.get("refused")
+    for level in filter(None, stated):  # a level asked for and not served must not just vanish
+        (record.unmet_levels.add if unserved else record.unmet_levels.discard)(level)
+    if not record.geographies:  # a refused or empty call resolved nothing; keep the legs it left
+        return
+    legs = len(getattr(record, "geo_queries", None) or [])
     # Single-place calls resolve the legs of a comparison one at a time: keep each leg's own level.
-    record.asked_levels = [*record.asked_levels[: legs - 1], *stated] if legs > 1 else stated
+    record.asked_levels = [*record.asked_levels[: legs - 1], *stated] if legs else stated
 
 
 def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
@@ -83,13 +107,17 @@ def geography_level_mismatch(record: Any) -> AskWarning | None:
     urls = urls or ([str(record.url)] if getattr(record, "url", None) else [])
     fetched = {CensusURL(url).for_level() for url in urls} - {""}
     wrong = sorted(fetched - allowed)
-    if not wrong:
+    wanted = {level for level in asked if level} | set(getattr(record, "unmet_levels", ()))
+    lacking = sorted(wanted - fetched) if fetched else []
+    if not wrong and not lacking:
         return None
     return AskWarning(
         code="geography_level_mismatch",
         detail=(
-            f"the question asks for {', '.join(sorted(allowed)) or 'no stated level'}; the URL "
-            f"fetches {', '.join(wrong)}. The URL is shown, but its rows answer another geography"
+            f"the question asks for {', '.join(sorted(allowed | wanted)) or 'no stated level'}; "
+            f"the URL fetches {', '.join(wrong) or 'nothing else'}"
+            f"{'; no URL fetches ' + ', '.join(lacking) if lacking else ''}. "
+            "The URL is shown, but its rows do not answer the geography asked"
         ),
     )
 
@@ -104,12 +132,8 @@ def geography_level_unverified(record: Any) -> AskWarning | None:
     stated = bool(getattr(record, "asked_levels", None))
     if stated and not status.get("inferred"):
         return None
-    why = (
-        "the level was chosen from the place name or its words, not stated by the model"
-        if stated
-        else "the model never stated which geography level the question asks for"
-    )
+    how = "inferred from the place name or its words" if stated else "never stated by the model"
     return AskWarning(
         code="geography_level_unverified",
-        detail=f"{why}; check the level in the URL's for= clause before relying on it",
+        detail=f"the level was {how}; check the URL's for= level before relying on it",
     )

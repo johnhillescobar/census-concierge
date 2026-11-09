@@ -774,7 +774,7 @@ async def test_and_phrased_comparison_resolves_both_geographies() -> None:
     question = "Compare the population of Austin city, Texas and Dallas city, Texas since 2017."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"level": None, "places": ["Austin city, Texas", "Dallas city, Texas"]}
+    places = {"level": "place", "places": ["Austin city, Texas", "Dallas city, Texas"]}
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
@@ -793,7 +793,7 @@ async def test_and_phrased_comparison_across_states() -> None:
     question = "Compare the population of Detroit city, Michigan and Phoenix city, Arizona."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"level": None, "places": ["Detroit city, Michigan", "Phoenix city, Arizona"]}
+    places = {"level": "place", "places": ["Detroit city, Michigan", "Phoenix city, Arizona"]}
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True
@@ -814,7 +814,7 @@ async def test_three_way_and_list_comparison() -> None:
     record = ExecutionRecord(question=question)
     tools = _tools(record)
     places = {
-        "level": None,
+        "level": "place",
         "places": ["Austin city, Texas", "Houston city, Texas", "San Antonio city, Texas"],
     }
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
@@ -847,7 +847,7 @@ async def test_bare_unqualified_city_names_resolve_all_places() -> None:
     question = "Compare the population of Chicago, Los Angeles and New York City since 2017."
     record = ExecutionRecord(question=question)
     tools = _tools(record)
-    places = {"level": None, "places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
+    places = {"level": "place", "places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
     await dispatch(tools["resolve_geography"], {"id": "2", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare"] is True

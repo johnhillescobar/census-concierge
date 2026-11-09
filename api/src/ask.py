@@ -61,6 +61,8 @@ class ExecutionRecord:
     geo_status: dict[str, str | bool | int] | None = None
     # Level per leg the model stated in its own resolve_geography call; [] if it never did.
     asked_levels: list[str | None] = field(default_factory=list)
+    # Levels the model stated that came back unsupported and were not later served by a legal call.
+    unmet_levels: set[str] = field(default_factory=set)
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
     override: Any = None
@@ -106,7 +108,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         query = str(args.get("query") or "").strip()
         if record.geo_status["compare"] or get("wildcard", False) or args.get("places"):
             record.geo_queries = []
-        elif query and record.geographies:
+        # An unsupported candidate (legal False) is not a place that was compared.
+        elif query and record.geographies and record.geo_status["legal"]:
             record.geo_queries = track_geo_query(record.geo_queries, query)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
