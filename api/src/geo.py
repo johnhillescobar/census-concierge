@@ -23,6 +23,7 @@ from src.geo_list import (
     rank_matches,
     token_is_dc,
 )
+from src.geo_within import tracts_in_place
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput
 
@@ -178,6 +179,9 @@ class ResolveGeographyTool(BaseTool):
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
         names = [n.strip() if n and n.strip() else "(blank)" for n in parents] if parents else []
+        within = await tracts_in_place(self, names, level, dataset, year, entries)
+        if within:
+            return within
         if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
             picks = await asyncio.gather(
                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
