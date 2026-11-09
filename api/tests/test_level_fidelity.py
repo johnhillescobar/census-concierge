@@ -606,12 +606,24 @@ async def test_an_unserved_level_is_cleared_once_a_later_call_serves_it() -> Non
 async def test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped_silently() -> None:
     """Seen live: the model stated a metro level, the lookup refused it, the model then fetched the
     city. Refusing the level does not end the request: the URL must say it answers another level."""
+    record, response = await _flow(
+        [
+            ("resolve_geography", {"level": "congressional district", "query": "Texas"}),
+            ("resolve_geography", {"level": "place", "query": "Austin, Texas"}),
+        ]
+    )
+    assert record.unmet_levels == {"congressional district"}
+    assert CensusURL(response.urls[0]).for_level() == "place"
+    flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
+    assert flag and "no URL fetches congressional district" in flag[0].detail
+
+
+async def _flow(geo_steps: list[tuple[str, dict[str, Any]]]) -> tuple[ExecutionRecord, Any]:
+    """A scripted ask: search, the given geography calls, then build and fetch."""
     record = ExecutionRecord()
-    tools = _tools(record)
     steps = [
         ("search_tables", {"question": "population"}),
-        ("resolve_geography", {"level": "congressional district", "query": "Texas"}),
-        ("resolve_geography", {"level": "place", "query": "Austin, Texas"}),
+        *geo_steps,
         ("build_url", {"table_id": "B01003"}),
         ("fetch_data", {}),
     ]
@@ -626,11 +638,59 @@ async def test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped
             return {"content": "{}", "tool_calls": []}
         return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
 
-    response = await run_ask("population of Austin", complete=complete, tools=tools, record=record)
-    assert record.unmet_levels == {"congressional district"}
-    assert CensusURL(response.urls[0]).for_level() == "place"
+    response = await run_ask("population", complete=complete, tools=_tools(record), record=record)
+    return record, response
+
+
+async def test_a_lookup_that_matched_nothing_leaves_the_stated_level_unmet() -> None:
+    """A legal lookup with no NAME match resolves nothing. Its level must not vanish, or the next
+    lookup at another level returns with no mismatch warning."""
+    record, response = await _flow(
+        [
+            ("resolve_geography", {"level": "place", "query": "Zzyzx, Texas"}),
+            ("resolve_geography", {"level": "county", "query": "Harris County, Texas"}),
+        ]
+    )
+    assert CensusURL(response.urls[0]).for_level() == "county"
+    assert record.unmet_levels == {"place"}
     flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
-    assert flag and "no URL fetches congressional district" in flag[0].detail
+    assert flag and "no URL fetches place" in flag[0].detail
+
+
+async def test_an_unserved_candidate_does_not_overwrite_an_earlier_legs_level() -> None:
+    record = ExecutionRecord()
+    geo = _tools(record)["resolve_geography"]
+    await dispatch(geo, {"id": "1", "args": {"level": "place", "query": "Austin, Texas"}}, record)
+    await dispatch(geo, {"id": "2", "args": {"level": "tract", "query": "Texas"}}, record)
+    assert record.asked_levels == ["place"] and record.unmet_levels == {"tract"}
+
+
+async def test_a_partial_comparison_keeps_every_stated_level_unmet() -> None:
+    record = ExecutionRecord()
+    geo = _tools(record)["resolve_geography"]
+    args = {
+        "level": None,
+        "places": ["Austin, Texas", "Zzyzx, Texas"],
+        "levels": ["place", "county"],
+    }
+    await dispatch(geo, {"id": "1", "args": args}, record)
+    assert record.unmet_levels == {"place", "county"} and record.asked_levels == []
+
+
+async def test_malformed_level_arguments_do_not_crash_the_failure_handler() -> None:
+    """Schema validation fails, and the handler reads the original arguments. Reading them must not
+    raise (a non-string level, a non-list places, a non-string entry in levels)."""
+    for args in (
+        {"level": 42, "query": "Austin"},
+        {"level": "place", "places": 42, "query": "Austin"},
+        {"level": None, "places": ["a", "b"], "levels": ["place", 3], "query": "a vs b"},
+    ):
+        record = ExecutionRecord()  # two failures in a row stop the tool: one record per call
+        geo = _tools(record)["resolve_geography"]
+        reply = await dispatch(geo, {"id": "1", "args": args}, record)
+        assert reply.startswith("resolve_geography failed")
+    assert declared_levels({"level": 42, "places": 42, "levels": ["place", 3]}) == ["place", None]
+    assert declared_levels({"level": 42}) == [None]
 
 
 def test_an_unserved_level_not_covered_by_the_url_is_flagged_and_a_covered_one_is_not() -> None:
@@ -638,6 +698,8 @@ def test_an_unserved_level_not_covered_by_the_url_is_flagged_and_a_covered_one_i
         "geography_level_mismatch"
     ]
     assert _codes(_answered(TRACT_URL, ["tract"], unmet_levels={"tract"})) == []
+    # fetching a level the model stated but could not be served is not a swap to another level
+    assert _codes(_answered(TRACT_URL, [], unmet_levels={"tract"})) == []
 
 
 async def test_an_unsupported_candidate_is_not_a_comparison_leg() -> None:

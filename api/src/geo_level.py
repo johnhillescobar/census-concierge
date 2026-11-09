@@ -51,15 +51,17 @@ class ResolveGeographyResult(ToolResult):
 
 
 def level_name(token: str | None) -> str | None:
-    """The published spelling of a level the model wrote, or None when it wrote none."""
-    folded = (token or "").strip().casefold()
+    """The published spelling of a level the model wrote; None when none, or not a string."""
+    folded = token.strip().casefold() if isinstance(token, str) else ""
     return LEVELS.get(folded, folded) or None
 
 
 def declared_levels(args: dict[str, Any]) -> list[str | None]:
     """One level per leg the call resolves: what the model stated, null included."""
-    places = [p for p in args.get("places") or [] if isinstance(p, str) and p.strip()]
-    raw = args.get("levels")
+    given, raw = args.get("places"), args.get("levels")
+    places = (
+        [p for p in given if isinstance(p, str) and p.strip()] if isinstance(given, list) else []
+    )
     stated = raw if isinstance(raw, list) else []
     legs = max(len(places), len(stated), 1)  # per-leg levels also count legs split by "versus"
     if legs >= 2 and len(stated) == legs:
@@ -73,10 +75,12 @@ def note_intent(record: Any, name: str, call: dict[str, Any], failed: bool = Fal
     if name != "resolve_geography" or "level" not in args or call.get("origin") == "repair":
         return
     stated, status = declared_levels(args), record.geo_status or {}
-    unserved = failed or status.get("legal") is False  # a refused level is unserved too
+    shown = max(int(status.get("compare_count") or 0), 1)  # legs the lookup actually resolved
+    served = not failed and bool(record.geographies) and status.get("legal") is not False
+    served = served and len(stated) <= shown
     for level in filter(None, stated):  # a level asked for and not served must not just vanish
-        (record.unmet_levels.add if unserved else record.unmet_levels.discard)(level)
-    if failed or not record.geographies:  # a failed, refused or empty call keeps the legs it left
+        (record.unmet_levels.discard if served else record.unmet_levels.add)(level)
+    if not served:  # a failed, refused, empty or partial call keeps the legs it left
         return
     legs = len(getattr(record, "geo_queries", None) or [])
     # Single-place calls resolve the legs of a comparison one at a time: keep each leg's own level.
@@ -104,7 +108,7 @@ def geography_level_mismatch(record: Any) -> AskWarning | None:
     unmet = set(getattr(record, "unmet_levels", ()))
     if not (asked or unmet) or getattr(record, "tables_only", False):
         return None
-    allowed = {level for level in asked if level}
+    allowed = {level for level in asked if level} | unmet  # fetching a stated level is not a swap
     if None in asked:  # a leg with no stated level may be answered at the level the lookup chose
         allowed |= {g.level for g in record.geographies}
     urls = list(getattr(getattr(record, "fetch", None), "urls", None) or [])
