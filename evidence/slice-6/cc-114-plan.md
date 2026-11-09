@@ -144,3 +144,35 @@ has `demo.generated_at` and p95, as its own commit before the evidence PR).
 
 Column the matrix lacked (run-slice.md): tested head. Offline rows are tested at fef4f1e (= 828042c + budget
 file); live rows at 828042c; the anchor at 4b24f77.
+
+---
+
+## Status at 3945694 (2026-11-09) - supersedes the status tables above
+
+Shipping head 3945694 on `cc-114/level-fidelity`, base origin/main 94566f5. Tested head for every row below is 3945694 unless stated.
+
+New since fef4f1e: the tracts-in-place result warns `geography_not_nested` (06886a4); a refused level the model stated stays
+unmet, so a later place answer is flagged (7fadbf8; found live on q11: 4 of 5 trials answered at place with no warning, now
+5 of 5 flagged); `ask-path.md` updated (3945694). 42 of 42 mutations caught (`gate1-fixes.txt`). Full suite 1149 passed;
+the one failure (`test_invariants_print_every_named_pattern`) is inherited and fails on main. ruff and mypy clean.
+
+| ID | Status | Evidence |
+|---|---|---|
+| AC1 | NOT RUN | Rule committed before outcomes (ae3358e, ccca747). Reuse of PR #97 evidence; `classify_geo_levels.py` not re-run; rationale not yet written. Owner call. |
+| AC2 | PASS for AC2a; AC2b moved to CC-131 AC4 (owner, Jira comment 10829) | Offline tests; live: t16 and q04 pass, q11 flagged 5 of 5. Grid 0.976 at 3945694; all 5 misses are `This portal is not running` harness crashes (anchor had 2). |
+| AC3 | PASS | No `evals/` path differs from main; `run_demo.py` change is per-leg only (Gate 2: stricter or equal). |
+| AC4 | **RED, owner decision** | long_tail 0.692 at 3945694 vs 0.708 anchor and 0.708 same-window main control. Median of six runs 0.708 (`long-tail-median.md`). Pooled head 0.706 vs main 0.708. Below the 0.700 floor; recorded, not rerun. |
+| AC5 | PASS | 42 of 42 mutations caught. |
+| AC6 | **RED** | No budget raised by this work. Budgets pass except `answered_rate` 0.692 < 0.700 and p95 25.809 > 20. Invariants fail only on the 6 inherited leakage entries, covered by the post-merge baseline commit (28560dc). |
+| GC1, GC2 | PASS | Git order; per-leg scorer tests. |
+| GC3 | NOT RUN | Old vs new scorer on unchanged trials. |
+| TC1 | PASS | Grid `level=tract` 0.979 at 3945694, the only miss a harness crash; q04 live. |
+| TC2, TC3, TC5 | PASS | Offline. TC3 caveat: an exact published name is accepted; a half of a slash-joined name (metro) is refused and flagged, not served (CC-106). |
+| TC4 | PASS | No golden edited; anchor run first. |
+| INH | **RED on p95** | demo p95 25.809s (cap 20; anchor 25.565s; same-window main 22.065s; earlier head runs 34.218s and 25.470s). Regex delta +0. Sealed gap owner-held. |
+
+Same-window control (`control/`): main 22.065s vs head 25.470s; slowest trials are rerank-dominated in both. The 3945694 window
+was slower overall (`t_ours` 0.311 vs 0.153, `t_census_api` 3.39 vs 2.38), so its latency is weakly informative.
+
+Open owner decisions: the answered_rate floor and p95 for this run (the p95 waiver line is prepared in the PR body, not committed);
+q14, q23, q26 and q17 goldens; AC1 reuse rationale; CC-106 follow-up for metro levels.
