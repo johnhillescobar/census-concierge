@@ -31,6 +31,8 @@ their URL breadth. Its crosswalk children are unscheduled.
 
 CC-103 closed: tract grid 47/48 post-merge, long_tail answered 0.733/0.750, demo p95 21.701s then 18.928s (ceiling missed in run 1, closed by owner; p95 work continues). `evidence/slice-6/cc-103-e2e-post-*`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
 
+CC-114 closed by owner 2026-11-09 with the floors unmet: post-merge E2E on main 69d7364 long_tail answered 0.683 (floor 0.700), demo p95 25.472s (ceiling 20). Remaining misses are owned by CC-131/128/134/104/106/129/133/132 and p95 by CC-125/126/127. `evidence/slice-6/cc-114/e2e-post/`, epic [CC-3](https://johnhillescobar.atlassian.net/browse/CC-3).
+
 ---
 
 ## Slice 6 — Grounded understanding, structured intent and follow-ups (CC-3)
