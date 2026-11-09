@@ -321,13 +321,22 @@ async def test_a_nationwide_resolution_the_code_chose_is_marked_inferred() -> No
 
 
 async def test_a_stated_level_is_never_replaced_by_the_nationwide_guess() -> None:
-    result = await _geo_tool().ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": "state", "query": "Texas population since 2013"},
-            "id": "c1",
-        }
-    )
-    assert [spec.level for spec in result.artifact.specs] == ["state"]
-    assert result.artifact.inferred is False
+    """The same query that is answered nationwide when no level is stated stays at the level the
+    model stated, so the nationwide guess cannot substitute for it."""
+    query = "How has the share of households changed since 2013?"
+
+    async def resolve(level: str | None) -> Any:
+        result = await _geo_tool().ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"level": level, "query": query},
+                "id": "c1",
+            }
+        )
+        return result.artifact
+
+    assert [spec.for_spec for spec in (await resolve(None)).specs] == ["us:1"]
+    stated = await resolve("state")
+    assert "us:1" not in [spec.for_spec for spec in stated.specs]
+    assert stated.inferred is False
