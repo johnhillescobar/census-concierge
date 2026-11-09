@@ -9,7 +9,7 @@
 # "what's the population of New York City?" in under 75 seconds.
 
 [size]
-api_src_loc          = 4800   # non-blank, non-comment lines under api/src
+api_src_loc          = 4820   # non-blank, non-comment lines under api/src
 api_src_files        = 40
 max_file_loc         = 410    # any single file
 web_src_loc          = 3350
@@ -98,3 +98,4 @@ synthetic_alignment_min = 0.50
 # 2026-10-18  [size] api_src_loc 4400 -> 4600  CC-121: fixing answer text states figures that are not in the fetched data to reduce the 49% baseline of prose hallucination. 
 # 2026-10-28  [size] api_src_loc 4600 -> 4800  CC-121: answer figures rendered by code and model prose checked against them (figures.py 175 counted lines, contract.py +23, fetch.py +3 = +201); main grew 115 lines since the 2026-10-18 raise was sized; measured 4712 after rebase; owner approved
 # 2026-10-28  [size] doc_lines 1800 -> 1820  the 4 extra lines in PLAN.md edits, not CC-121.
+# 2026-11-08  [size] api_src_loc 4800 -> 4820  CC-114 (slice 6): a question naming a geography level could be answered at another with no signal, because the level was a word scan of the query whenever the model left it out. The model now states the level in resolve_geography (required; null means none named), code runs it exactly, and two guards compare the fetched for= level with it (geo_level.py plus wiring in ask.py, geo.py, finish.py, tools.py, guards.py, census_url.py); measured 4804 after ruff format against 4800, 4678 on main before the change; the extra 16 lines are headroom for one more review round; owner approved
