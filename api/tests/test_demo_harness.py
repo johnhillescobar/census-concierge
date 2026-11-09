@@ -469,7 +469,9 @@ def test_a_list_of_expected_levels_is_scored_per_leg() -> None:
     assert scored(place) is False  # a leg that was never fetched
     assert scored(place, county) is False  # a leg fetched at a level nobody expected
     body = _body(table_id="B25064", urls=[place])
-    assert run_demo.miss_detail(entry, status_code=200, body=body) == "wrong geography level state"
+    assert (
+        run_demo.miss_detail(entry, status_code=200, body=body) == "missing geography level state"
+    )
 
 
 def test_geography_level_is_decoded_from_the_for_clause() -> None:

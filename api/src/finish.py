@@ -359,11 +359,12 @@ async def finish_tools(
         if geo is not None and not redone and not refused and (redo or not record.geographies):
             status = getattr(record, "geo_status", None) or {}
             queries = list(getattr(record, "geo_queries", None) or [])
-            stated = list(getattr(record, "asked_levels", None) or [])  # the model's own, if any
+            stated = list(getattr(record, "asked_levels", None) or [])
+            stated = stated if len(stated) == len(queries) else []  # the model's own, if any
             args: dict[str, Any] = (
                 {"places": queries, "level": (stated or [None])[0], "levels": stated}
                 if len(queries) >= 2 and not status.get("compare")
-                else {"query": _listing_query(question), "level": _listing_level(question)}
+                else {"query": _listing_query(question), "level": None}  # read from words: inferred
             )
             if wants_acs1(question):
                 args["dataset"] = "acs1"

@@ -207,6 +207,8 @@ class ResolveGeographyTool(BaseTool):
         legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
         sides = legs if len(legs) >= 2 else split_comparison(query)
         if sides:
+            if levels and len(levels) != len(sides):
+                return _fail(f"levels needs one entry per place: {len(sides)} places")
             stated = declared_levels({"places": sides, "levels": levels, "level": level})
             legs_at = zip(sides, stated, strict=True)
             resolved = await asyncio.gather(
@@ -251,7 +253,7 @@ class ResolveGeographyTool(BaseTool):
         parent_text = parent_override or (wildcard_match.group(2) if wildcard_match else query)
         state = find_state(parent_text)
         known = {entry.name for entry in entries}
-        inferred = False  # the level came from the query's words or a fallback, not the model
+        inferred = False  # True: code read the level from the query's words or a fallback
         if level:
             for_level = level_name(level) if level_name(level) in known else None
             if for_level is None:

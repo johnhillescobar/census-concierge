@@ -463,7 +463,9 @@ async def test_redo_after_a_resolved_comparison_resolves_the_question_not_the_pl
         return ""
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
-    assert seen == [{"level": "tract", "query": "every tract in Cook County, Illinois"}]
+    # The level here is read from the question's words, so it is passed as none stated and the
+    # tool marks the result inferred (the response then warns it is unverified).
+    assert seen == [{"level": None, "query": "every tract in Cook County, Illinois"}]
 
 
 def _three_parent_plan() -> dict[str, Any]:

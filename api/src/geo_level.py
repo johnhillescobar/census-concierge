@@ -39,17 +39,22 @@ def level_name(token: str | None) -> str | None:
 def declared_levels(args: dict[str, Any]) -> list[str | None]:
     """One level per leg the call resolves: what the model stated, null included."""
     places = [p for p in args.get("places") or [] if isinstance(p, str) and p.strip()]
-    stated = args.get("levels")
-    if len(places) >= 2 and isinstance(stated, list) and len(stated) == len(places):
+    raw = args.get("levels")
+    stated = raw if isinstance(raw, list) else []
+    legs = max(len(places), len(stated), 1)  # per-leg levels also count legs split by "versus"
+    if legs >= 2 and len(stated) == legs:
         return [level_name(item) for item in stated]
-    return [level_name(args.get("level"))] * (len(places) if len(places) >= 2 else 1)
+    return [level_name(args.get("level"))] * legs
 
 
 def note_intent(record: Any, name: str, call: dict[str, Any]) -> None:
     """Keep the level the model stated in its own geography call; a repair call never changes it."""
     args = call.get("args") or {}
-    if name == "resolve_geography" and "level" in args and call.get("origin") != "repair":
-        record.asked_levels = declared_levels(args)
+    if name != "resolve_geography" or "level" not in args or call.get("origin") == "repair":
+        return
+    stated, legs = declared_levels(args), len(getattr(record, "geo_queries", None) or [])
+    # Single-place calls resolve the legs of a comparison one at a time: keep each leg's own level.
+    record.asked_levels = [*record.asked_levels[: legs - 1], *stated] if legs > 1 else stated
 
 
 def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
@@ -65,30 +70,26 @@ def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
     }
 
 
-def _answer_urls(record: Any) -> list[str]:
-    fetch = getattr(record, "fetch", None)
-    urls = list(getattr(fetch, "urls", None) or [])
-    built = getattr(record, "url", None)
-    return urls or ([str(built)] if built else [])
-
-
 def geography_level_mismatch(record: Any) -> AskWarning | None:
     """A URL whose `for=` level the model never stated: the substitution this ticket forbids."""
-    asked = list(getattr(record, "asked_levels", None) or [])
+    plan = getattr(getattr(record, "override", None), "geographies", None)  # the user's own plan
+    asked = [g.level for g in plan] if plan else list(getattr(record, "asked_levels", None) or [])
     if not asked or getattr(record, "tables_only", False):
         return None
     allowed = {level for level in asked if level}
     if None in asked:  # a leg with no stated level may be answered at the level the lookup chose
         allowed |= {g.level for g in record.geographies}
-    fetched = {CensusURL(url).for_level() for url in _answer_urls(record)} - {""}
+    urls = list(getattr(getattr(record, "fetch", None), "urls", None) or [])
+    urls = urls or ([str(record.url)] if getattr(record, "url", None) else [])
+    fetched = {CensusURL(url).for_level() for url in urls} - {""}
     wrong = sorted(fetched - allowed)
     if not wrong:
         return None
     return AskWarning(
         code="geography_level_mismatch",
         detail=(
-            f"the question asks for {', '.join(sorted(allowed))}; the URL fetches "
-            f"{', '.join(wrong)}. The URL is shown, but its rows answer a different geography"
+            f"the question asks for {', '.join(sorted(allowed)) or 'no stated level'}; the URL "
+            f"fetches {', '.join(wrong)}. The URL is shown, but its rows answer another geography"
         ),
     )
 

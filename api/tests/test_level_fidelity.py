@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import GeoSpec
+from src.finish import finish_tools
 from src.geo_level import declared_levels, note_intent
 from src.guards import evaluate
 from src.retrieval.metadata import GeoLevel
@@ -340,3 +341,149 @@ async def test_a_stated_level_is_never_replaced_by_the_nationwide_guess() -> Non
     stated = await resolve("state")
     assert "us:1" not in [spec.for_spec for spec in stated.specs]
     assert stated.inferred is False
+
+
+def _plan(*geographies: GeoSpec) -> Any:
+    return type("Plan", (), {"geographies": list(geographies)})()
+
+
+def test_an_override_url_at_a_level_its_own_plan_did_not_name_is_flagged() -> None:
+    record = _answered(TRACT_URL, [], override=_plan(_harris()))
+    assert _codes(record) == ["geography_level_mismatch"]
+    assert "county" in evaluate(record)[0].detail and "tract" in evaluate(record)[0].detail
+
+
+def test_an_override_url_at_its_plans_level_is_not_flagged() -> None:
+    assert _codes(_answered(COUNTY_URL, [], override=_plan(_harris()))) == []
+
+
+def test_the_models_stated_level_does_not_judge_a_users_plan_edit() -> None:
+    """The user moved the plan from tracts to a county on purpose: the model's reading of the
+    question's tracts is stale and must not raise a warning against the user's own choice."""
+    record = _answered(COUNTY_URL, ["tract"], override=_plan(_harris()))
+    assert _codes(record) == []
+
+
+async def test_a_real_override_run_builds_its_url_at_the_plans_level() -> None:
+    from src.contract import ResultPlan
+
+    record = ExecutionRecord()
+    plan = ResultPlan.model_validate(
+        {"geographies": [{"geoid": "0500000US17031", "for_spec": "x:1", "in_spec": "state:00"}]}
+    )
+    steps = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"level": "tract", "query": "Cook County"}),
+        ("build_url", {"table_id": "B01003"}),
+        ("fetch_data", {}),
+    ]
+    queue: list[dict[str, Any]] = [
+        {"content": "", "tool_calls": [{"id": str(i), "name": n, "args": a}]}
+        for i, (n, a) in enumerate(steps)
+    ]
+
+    async def complete(messages: list[dict[str, Any]], tools_: list[dict[str, Any]]) -> Any:
+        del messages
+        return (
+            {"content": "{}", "tool_calls": []}
+            if not tools_
+            else (queue.pop(0) if queue else {"content": "done", "tool_calls": []})
+        )
+
+    response = await run_ask(
+        "population of Cook County",
+        complete=complete,
+        tools=_tools(record),
+        record=record,
+        override=plan,
+    )
+    assert response.urls and CensusURL(response.urls[0]).for_level() == "county"
+    assert "geography_level_mismatch" not in {w.code for w in response.warnings}
+
+
+async def _scripted_run(question: str, calls: list[tuple[str, dict[str, Any]]]) -> Any:
+    record = ExecutionRecord()
+    queue: list[dict[str, Any]] = [
+        {"content": "", "tool_calls": [{"id": str(i), "name": n, "args": a}]}
+        for i, (n, a) in enumerate(calls)
+    ]
+
+    async def complete(messages: list[dict[str, Any]], tools_: list[dict[str, Any]]) -> Any:
+        del messages
+        if not tools_:
+            return {"content": "{}", "tool_calls": []}
+        return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
+
+    response = await run_ask(question, complete=complete, tools=_tools(record), record=record)
+    return record, response
+
+
+async def test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level() -> None:
+    record, response = await _scripted_run(
+        "population of Harris County, Texas and Houston, Texas",
+        [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"level": "county", "query": "Harris County, Texas"}),
+            ("resolve_geography", {"level": "place", "query": "Houston, Texas"}),
+            ("build_url", {"table_id": "B01003"}),
+            ("fetch_data", {}),
+        ],
+    )
+    assert record.asked_levels == ["county", "place"]
+    # finish replays the legs as one call; the county leg must not be run as a place
+    assert sorted(spec.level for spec in record.geographies[:2]) == ["county", "place"]
+    assert "geography_level_mismatch" not in {w.code for w in response.warnings}
+
+
+async def test_a_refinement_of_the_same_place_replaces_its_level_not_adds_a_leg() -> None:
+    record, _ = await _scripted_run(
+        "population of Cook County",
+        [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"level": "place", "query": "Cook"}),
+            ("resolve_geography", {"level": "county", "query": "Cook County"}),
+        ],
+    )
+    assert record.asked_levels == ["county"]
+
+
+async def test_a_levels_list_that_does_not_match_the_places_is_refused_for_repair() -> None:
+    for args in (
+        {"level": None, "places": ["Austin, Texas", "Texas"], "levels": ["place"]},
+        {"level": None, "query": "Austin versus the Texas average", "levels": ["place"]},
+    ):
+        result = await _geo_tool().ainvoke(
+            {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+        )
+        assert result.artifact.legal is False and result.artifact.specs == []
+        assert "one entry per place" in result.artifact.detail
+
+
+def test_per_leg_levels_count_the_legs_even_when_the_places_come_from_the_query() -> None:
+    args = {"level": None, "query": "Austin versus the Texas average", "levels": ["place", "state"]}
+    assert declared_levels(args) == ["place", "state"]
+
+
+async def test_a_listing_level_read_from_the_question_is_shown_as_unverified() -> None:
+    """Finish redoes a listing from the question's words. The model stated nothing, so the
+    response must say the level was inferred, not present it as stated."""
+    record = ExecutionRecord(question="Show every tract in Cook County, Illinois")
+    record.asked_levels = [None]
+    geo = _tools(record)["resolve_geography"]
+    await finish_tools(dispatch, {"resolve_geography": geo}, record)
+    assert record.geographies and record.geo_status is not None
+    assert record.geo_status["inferred"] is True
+    assert "geography_level_unverified" in _codes(record)
+
+
+async def test_a_refused_level_is_not_followed_by_the_nationwide_fallback() -> None:
+    record = ExecutionRecord(question="households and families in Texas")
+    record.geo_status = {"legal": False, "refused": True}
+    calls: list[dict[str, Any]] = []
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        calls.append(call)
+        return ""
+
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
+    assert [c["args"].get("query") for c in calls] == []
