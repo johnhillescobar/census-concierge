@@ -304,3 +304,30 @@ async def test_a_published_level_is_not_marked_refused() -> None:
         }
     )
     assert result.artifact.refused is False
+
+
+async def test_a_nationwide_resolution_the_code_chose_is_marked_inferred() -> None:
+    """The model stated no level and named no place; code chose the United States. Say so."""
+    result = await _geo_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"level": None, "query": "How has the share of households changed since 2013?"},
+            "id": "c1",
+        }
+    )
+    assert [spec.for_spec for spec in result.artifact.specs] == ["us:1"]
+    assert result.artifact.inferred is True
+
+
+async def test_a_stated_level_is_never_replaced_by_the_nationwide_guess() -> None:
+    result = await _geo_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {"level": "state", "query": "Texas population since 2013"},
+            "id": "c1",
+        }
+    )
+    assert [spec.level for spec in result.artifact.specs] == ["state"]
+    assert result.artifact.inferred is False

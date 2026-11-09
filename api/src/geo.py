@@ -245,7 +245,7 @@ class ResolveGeographyTool(BaseTool):
                 vintage=year,
             )
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
-            return f"1 geography: {spec.for_spec}", result
+            return f"1 geography: {spec.for_spec}", result.model_copy(update={"inferred": True})
         wildcard_match = WILDCARD.search(query) or WITHIN.search(query)
         wildcard = wildcard_match is not None
         parent_text = parent_override or (wildcard_match.group(2) if wildcard_match else query)
