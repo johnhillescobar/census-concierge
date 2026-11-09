@@ -1,0 +1,388 @@
+CC-114 GATE 2, RE-RUN (the single permitted re-run). PASS 1 generic bugs (code only), PASS 2 project invariants
+==============================================================================================================
+Reviewer      : fresh-context gate-2 subagent, isolated worktree, no caller history
+Worktree      : C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a131c572657095530
+Review base   : origin/main 4b24f77 (4b24f77f647ffa20de3e3c4eeed75ad416affc95)
+Head reviewed : e0be1ee171ae5433aef4e96c3805d40fb037e955 (branch cc-114/level-fidelity; code unchanged since 5c803da,
+                e0be1ee adds evidence only)
+Prior Gate 2  : evidence/slice-6/cc-114/gate2.txt (reviewed c2589c5) - preserved, not overwritten
+Product edits : NONE. No test, doc, golden, budgets.toml or leakage-baseline edit. All repro scripts and all mutation
+                experiments ran from the session scratchpad or on COPIES of api/ and scripts/ in the scratchpad
+                (PYTHONPATH override). No live E2E (no demo / eval / grid). No git add / commit.
+Order kept    : PASS 1 findings were written into the transcript BEFORE .claude/PLAN.md, evidence/ (incl. cc-114-plan.md,
+                gate2.txt, anchor/), commit messages or ticket text were opened. run-slice.md, CLAUDE.md and the diff
+                (api, scripts) were the only reads before that point.
+
+$ git checkout --detach e0be1ee
+HEAD is now at e0be1ee evidence(CC-114): pre-fix anchor outputs, Gate 2 transcript, plan status
+$ git rev-parse HEAD
+e0be1ee171ae5433aef4e96c3805d40fb037e955
+$ git status --short
+(clean: no output)
+$ git diff --stat 4b24f77 e0be1ee -- api scripts docs
+ api/src/ask.py                           |  12 +-
+ api/src/census_url.py                    |   7 +
+ api/src/finish.py                        |  31 +-
+ api/src/geo.py                           |  51 ++--
+ api/src/geo_level.py                     | 115 ++++++
+ api/src/guards.py                        |   3 +
+ api/src/prompts.py                       |   4 +-
+ api/src/tools.py                         |  10 +-
+ api/tests/test_ask_loop.py               |  89 ++++--
+ api/tests/test_ask_one.py                |   2 +-
+ api/tests/test_ask_tools.py              | 119 ++++---
+ api/tests/test_chart.py                  |   2 +-
+ api/tests/test_comparison_work.py        |   2 +-
+ api/tests/test_demo_harness.py           |  20 ++
+ api/tests/test_expected_level_scoring.py |  37 +++
+ api/tests/test_finish.py                 |  52 ++-
+ api/tests/test_geography_completeness.py |   4 +-
+ api/tests/test_geography_report.py       |   2 +-
+ api/tests/test_guards.py                 | 122 ++++---
+ api/tests/test_level_fidelity.py         | 489 +++++++++++++++++++++++++++++++
+ api/tests/test_level_inferred_flow.py    |  22 ++
+ api/tests/test_level_per_leg.py          |  21 ++
+ api/tests/test_level_repair.py           |  80 +++++
+ api/tests/test_level_stated_run.py       |  16 +
+ api/tests/test_plan_override.py          |   4 +-
+ docs/ARCHITECTURE.md                     |   1 +
+ docs/ask-path.md                         | 126 +++++-----
+ docs/requirements.md                     |   2 +
+ scripts/run_demo.py                      |  24 +-
+ scripts/verify_golden.py                 |   7 +-
+ 30 files changed, 1223 insertions(+), 253 deletions(-)
+ (git diff --stat 4b24f77 e0be1ee overall: 42 files, 18246 insertions, 253 deletions; the extra 12 are evidence/ files)
+ (evals/, budgets.toml, .claude/, packages/, web/, Makefile, pyproject.toml: NO diff against 4b24f77)
+
+Baseline on the changed tests before any experiment:
+$ uv run pytest api/tests/test_level_fidelity.py test_level_repair.py test_level_per_leg.py test_level_inferred_flow.py test_level_stated_run.py -q
+44 passed, 1 warning
+
+##############################################################################################
+PASS 1 - GENERIC BUGS (code only)
+##############################################################################################
+Read: `git diff 4b24f77 e0be1ee -- api scripts`, plus the surrounding code (ask.py, geo.py, finish.py, guards.py,
+contract.py pin_tool_args/apply_override, tools.py, tests/ask_fixtures.py and test_level_*.py).
+Repro harness: scratchpad h.py (drives run_ask with a scripted model over the REAL ResolveGeographyTool, SearchTablesTool,
+BuildUrlTool, FetchDataTool from ask_fixtures._tools; only the Census HTTP get and the listing/metadata are the
+fixtures' fakes, which return different rows for different inputs).
+
+--- Reproductions (raw) ---------------------------------------------------------------------------------------------
+
+S1  failed call between two legs (model resolves one place at a time)
+    calls: resolve(level=county, "Harris County, Texas"); resolve(level=place, "Nowheresville, Texas") [no match];
+           resolve(level=place, "Houston, Texas"); build_url; fetch_data
+HEAD e0be1ee:
+  asked_levels: ['place', 'place'] geo_queries: []
+  geos: [('place', 'place:35000', 'state:48')]  status: {legal True, compare False, inferred False, refused False}
+  urls: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: []
+BASELINE (same script, same fixtures, origin/main 4b24f77 copy):
+  geos: [('county','county:201','state:48'), ('place','place:35000','state:48')]  compare True
+  urls: [...for=county:201&in=state:48, ...for=place:35000&in=state:48]
+  warnings: []
+  => at head the Harris County leg is DROPPED with no warning; on main both legs survive. REGRESSION.
+S1b same, with no failing call in between (the case the committed test covers)
+  asked_levels: ['county', 'place'], geos county + place, two URLs, warnings [] - correct.
+
+S1c same shape, but the middle call is a REFUSAL (the new retry path): calls county "Harris County, Texas";
+    level="city proper" "Houston, Texas" (refused); level=place "Houston, Texas"; build; fetch
+  asked_levels: ['city proper', 'place'] geo_queries: []
+  geos: [('place','place:35000','state:48')]
+  urls: [ one URL, for=place:35000 ]   warnings: []
+  => the refusal-and-retry flow the ticket introduces drops the first place silently.
+
+S2  comparison, model states null for both legs, code falls back place -> county inside the comparison
+    resolve(level=None, places=["Cook, IL","Harris, TX"])
+  asked_levels: [None, None]  geos: county:031 (IL), county:201 (TX)  status inferred False
+  urls: two county URLs   warnings: []
+  (the same fallback for ONE place warns: S3b below)
+S3  level=None, query "state of Texas": geos state:48, inferred False, warnings []  (detect_level read "state" from the
+    query; inferred is computed in _resolve and dropped by the early state-branch return)
+S3b level=None, "Harris County, Texas": inferred True -> warning geography_level_unverified   (correct)
+S4  level=county, query "Texas": no county named Texas; finish repair resolves state:48; warning geography_level_mismatch
+    ("the question asks for county; the URL fetches state") - correct, not silent
+S5  places=["Harris County, Texas"], levels=["county"], level=null: levels ignored (single place), level read from the
+    words, inferred True, warning geography_level_unverified ("not stated by the model" - inaccurate wording, not silent)
+S6  level=tract wildcard "every tract in Harris County, Texas": one URL, for=tract:*&in=state:48+county:201, no warning (ok)
+S7  level=zip "ZCTA 90210": level_name -> 'zip code tabulation area', URL for=zip+code+tabulation+area:90210, no warning (ok)
+S8  level=county "Dallas, Texas" (no such county): finish repair -> place URL; warnings ambiguous_place +
+    geography_level_mismatch (county asked, place fetched) - flagged, URL shown (correct)
+S9  level="city" alias -> place, no warning (ok)
+S10 level=null "Houston, Texas": place by NAME default, warnings [] (documented "silent by design")
+S11 level="metro" (unpublished): geos [], urls [], warnings [geography_unsupported: "unknown geography level 'metro';
+    published here: state, county, place, tract, zip code tabulation area"], refused True - correct, no URL, not silent
+S12 places=["Harris County, Texas","Nowheresville, Texas"], levels=[county, place]: ONE URL (county:201), warnings [].
+    SAME on origin/main (pre-existing), but the new mismatch guard cannot see it (subset check, see P1-3).
+S14 swapped levels [place, county] for [Harris County, Houston]: both legs fail in the tool, finish repair resolves
+    county:201 only; warning geography_level_unverified (inferred) - flagged.
+S15 build_url with a raw for_spec (state:*, tract:* in state:48, state:48) after a county resolve: build_url refused
+    (ok False), finish rebuilds the resolved county URL. "Raw for_spec unreachable by construction" CONFIRMED.
+
+--- PASS 1 FINDINGS, ranked -----------------------------------------------------------------------------------------
+
+P1-1  HIGH  api/src/geo_level.py:50-57 (note_intent, line 57) with api/src/finish.py:361-366 (replay) and geo.py:208-214
+  asked_levels is aligned to geo_queries by POSITION (`record.asked_levels[: legs-1] + stated`, legs = len(geo_queries)).
+  geo_queries only grows on a call that RESOLVES (ask.py _absorb: `elif query and record.geographies`), but note_intent
+  rewrites asked_levels on EVERY call, including a call that matched nothing or was refused. After a failed/refused call
+  between two legs the lists are off by one: the later call's level lands on the first place's slot.
+  Failing inputs: S1 and S1c above (model calls one place at a time: ok, then fail-or-refuse, then retry).
+  Effect: finish replays places=[A, B] with levels=['place','place'] (S1) or ['city proper','place'] (S1c); A (a county)
+  is run at the wrong level, finds nothing, geo._arun returns the one leg that resolved ("1 geography") and the user
+  gets ONE URL for TWO places with warnings=[]. This is the silent failure the ticket exists to remove, it is a
+  REGRESSION against main (main resolves both legs), and it lives on the refusal/retry path this change adds.
+  No test covers a mid-comparison failure or refusal. (P1-2/P1-3 make it worse: no other guard notices.)
+
+P1-2  MEDIUM  api/src/geo.py `_compare_result` (no `inferred`) and the early `ResolveGeographyResult(...)` returns in
+              the zcta and state branches (geo.py:302 state branch, :380 zcta branch)
+  `inferred` is set only in the wildcard and single-listing results. A comparison result never carries it; the state branch
+  drops the value computed from detect_level. Inputs: S2 (null levels, county fallback inside a comparison: two county URLs,
+  stated [None, None], no warning, while the same fallback for one place warns) and S3 ("state of Texas", level null).
+  docs/ask-path.md says query-word scans and county fallbacks are flagged; in comparisons they are not.
+
+P1-3  LOW-MEDIUM  api/src/geo_level.py:73-95 (geography_level_mismatch)
+  The check is `fetched - allowed` on SETS of levels. A stated leg with no URL of its own is never reported: S12
+  (levels county + place, only the county URL fetched) and any case where two legs share a level. Pre-existing leg loss,
+  but this guard is the one place that could see it and does not (the demo scorer does check missing legs per leg).
+
+P1-4  LOW  api/tests/test_level_fidelity.py::test_each_comparison_leg_is_run_at_its_own_stated_level
+  Passes against `_resolve(side, None, ...)` (mutation M-A below: PASSES against the broken code) because null and
+  place/state resolve identically for "Austin, Texas"/"Texas". test_level_per_leg.py and
+  test_a_single_level_stated_for_mixed_legs_is_not_quietly_corrected DO fail on that mutation, so the behaviour is
+  covered; this one test is vacuous. (Disclosed in gate1.txt; remains weak.)
+
+P1-5  LOW  api/src/geo.py `_arun` / api/src/geo_level.py:44-47
+  `places` with ONE entry plus `levels=["county"]` and `level=null`: `levels` is ignored (legs < 2), S5. Not silent
+  (unverified fires) but the warning says the model stated none when it did.
+
+P1-6  LOW  api/src/geo_level.py:63 note_intent records the level of a call that failed/was refused (S1c). This is the
+  root of P1-1 and also lets a refused level stand as `asked_levels` for the mismatch guard.
+
+Checked and found nothing: state leaking between requests (ExecutionRecord per request; LEVELS is an immutable
+module constant); CensusURL.for_level (parses the redacted string; no key exposure; zip/block group names decode
+correctly); `level` required (omission is a ValidationError returned to the model, second consecutive raises
+"failed twice", finish then flags it unverified - bounded); refused level (geography_unsupported with the published
+names, no URL, finish does not re-guess - S11); run_demo.level_problems / miss_detail (str expectation identical to
+before; list expectation per leg; missing leg reported separately); verify_golden list handling (works, untested);
+dispatch ordering (note_intent after _absorb, repair calls skipped); pin_tool_args does not touch level; override
+path (dispatch short-circuits, guards use the plan's own levels).
+
+--- Mutation checks of the NEWEST tests (test_level_fidelity.py), scratch copy, one mutation each ---
+(runner: scratchpad mut.py, copies api/ + pyproject.toml to scratchpad/mutwork, mutates ONE string, runs the named tests)
+ 1 geography_level_mismatch returns None ........ test_a_fetch_at_another_level_is_flagged_and_still_shows_its_url  FAILS (caught)
+ 2 finish re-guesses a refused level ............ test_a_refused_level_stands_and_is_not_re_guessed_from_the_question  FAILS (caught)
+ 3 nationwide fallback after refusal ............ test_a_refused_level_is_not_followed_by_the_nationwide_fallback    FAILS (caught)
+ 4 repair call overwrites the stated level ...... test_a_repair_call_never_overwrites_the_level_the_model_stated      FAILS (caught)
+ 5 only record.url checked ...................... test_every_fetched_url_is_held_to_the_stated_level                 FAILS (caught)
+ 6 nationwide guess ignores a stated level ...... test_a_stated_level_is_never_replaced_by_the_nationwide_guess       FAILS (caught)
+ 7 comparison legs ignore their own level ....... test_each_comparison_leg_is_run_at_its_own_stated_level             PASSES (VACUOUS; see P1-4)
+     same mutation vs the level test files: test_a_single_level_stated_for_mixed_legs_..., test_level_per_leg.py FAIL (2 failed)
+ 8 inferred never set (single-place path) ....... test_a_level_the_model_did_not_state_is_marked_inferred            FAILS (caught)
+ 9 per-leg asked_levels replaced, not kept ...... test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level FAILS (caught)
+10 override plan not used for asked ............. test_an_override_url_at_a_level_its_own_plan_did_not_name_is_flagged FAILS (caught)
+11 unverified ignores a user's plan ............. test_a_users_own_plan_is_not_a_model_reading                         FAILS (caught)
+12 `level` default restored ..................... test_the_schema_requires_the_model_to_state_a_level                FAILS (caught)
+=> 11 of 12 caught; the 12th (7) is covered by other tests but that test itself cannot fail.
+
+##############################################################################################
+PASS 2 - PROJECT INVARIANTS
+##############################################################################################
+Read after Pass 1 was written: .claude/PLAN.md, evidence/slice-6/cc-114-plan.md, docs/requirements.md, docs/ask-path.md,
+docs/ARCHITECTURE.md (diff), docs/playbooks/review-pr.md, evidence/slice-6/cc-114/gate2.txt, gate1.txt (tail), and ONLY
+the aggregate keys of evidence/slice-6/cc-114/anchor/latest-after-demo.json (no transcript, no trials).
+
+--- MACHINES AT HEAD e0be1ee (review-pr.md order, raw) ---
+
+$ uv run python scripts/check_budgets.py            -> EXIT 1
+BUDGETS
+  FAIL  api src LOC               4804 <= 4800
+  ok    api src files               28 <= 40
+  ok    largest file LOC           406 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1818 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         22.058 <= 20
+        run 2026-10-30T12:05:43+00:00; slowest trial 77.513s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.733 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+2 budget(s) exceeded: api src LOC 4804 (limit 4800); p95 latency (s) 22.058 (limit 20)
+  (budgets.toml NOT edited. 4804 would fit under the owner's announced 4820 with 16 lines of headroom. doc lines have 2
+   lines of headroom, largest file 4, web 1 - every other cap is nearly full.)
+
+$ uv run python scripts/check_invariants.py --base origin/main   -> EXIT 1
+  ok: banned agent frameworks, sqlite, contextvars, ticket-named tests, prompt assertions, forbidden module names,
+      blocking clarification, census key in artifacts, empty secret defaults, key attached only via CensusURL, mandatory
+      catalogs, budget log matches values, budget increases, new regex, new exemptions
+  FAIL  eval phrasing in api/src - 6 entries (known, not introduced): contract.py:29 'zip code tabulation area';
+        geo.py:35 'united states'; geo.py:356 'zip code tabulation area'; geo_level.py:27 'zip code tabulation area'
+        (3 occurrences); geo_list.py:80 'district columbia'; guards.py:32 'statistical area'
+  info  api/src regex call sites: 55 (base 55, delta +0)
+  Phrase check: 'zip code tabulation area' occurrences main geo.py=5; head geo.py=2 + geo_level.py=3 = 5 (moved, not added).
+
+$ uv run ruff check . && uv run ruff format --check .  -> All checks passed! / 242 files already formatted (EXIT 0 / 0)
+$ uv run mypy api/src                                   -> Success: no issues found in 28 source files (EXIT 0)
+$ uv run pytest -q -m "not integration"
+  1 failed, 1126 passed, 34 skipped, 1 warning
+  FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern   (known: fails on origin/main too, because
+  check_invariants exits non-zero on the leakage entries)
+Verdict on the machines: RED, and every red item is one of the three the owner described (leakage entry count, stale p95,
+api LOC 4804 vs 4800). Nothing else is non-zero.
+
+--- (a) EVERY FINDING OF THE PRIOR GATE 2 (gate2.txt, reviewed c2589c5) ---
+
+P1-M1 (MEDIUM) sequential-place replay applied the LAST call's level to every leg
+  RESOLVED for the reported scenario. Code: geo_level.py:50-57 keeps a level per leg; finish.py:361-366 replays
+  `places` with `levels` only when len(stated)==len(queries); geo._arun runs each leg at its own level.
+  Tests: test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level (real loop, county + place),
+  test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair.
+  Mutation-verified here: "per-leg asked_levels replaced, not kept" -> first test FAILS; "finish replay drops stated levels"
+  -> both FAIL; "declared_levels ignores per-leg levels" -> 4 tests FAIL.
+  BUT the same bug class survives in a variant (a failed or refused call between legs): see NEW finding P1-1 (HIGH).
+  So: resolved as reported; the root cause (positional alignment of two lists) is STILL OPEN.
+P1-M2 (MEDIUM) finish passed a regex-derived `_listing_level(question)` as `level`, shown as verified
+  RESOLVED. finish.py:367 now sends `{"query": _listing_query(question), "level": None}`; _resolve marks the result
+  inferred; guards warn geography_level_unverified. Test: test_a_listing_level_read_from_the_question_is_shown_as_unverified
+  (real finish_tools + real tool + evaluate). Mutation-verified: "level=_listing_level(question)" -> 2 tests FAIL;
+  "geo_status drops inferred" -> 2 FAIL; "inferred never set" -> FAIL.
+  Residual: finish still feeds the question's words (`_listing_query`, `_listing_level` via `_wrong_listing`) into the
+  resolver as a repair. That is the prose parser CLAUDE.md forbids "including legacy fallbacks"; here it is at least
+  labelled unverified. ACCEPTED-WITH-REASON only if the owner confirms the plan's "CC-104 owns removing it" (the plan is
+  an agent file; PLAN.md line 46 lists CC-104 downstream of CC-114; no dated owner amendment is on file).
+P1-L1 (LOW) state/place name fallback not marked inferred
+  ACCEPTED-WITH-REASON: documented as "known silent-by-design" (cc-114-plan.md status, docs/ask-path.md "A bare name with a
+  stated null ... unflagged"); S10 confirms. Related, narrower, NOT documented: S3 and S2 (P1-2).
+P1-L2 (LOW) (a) a refused/failed call is recorded as the stated level; (b) per-leg levels not counted when places come from the query
+  (a) STILL OPEN - it is the root of P1-1. (b) RESOLVED: declared_levels counts legs; test
+  test_per_leg_levels_count_the_legs_even_when_the_places_come_from_the_query; mutation "declared_levels ignores per-leg
+  levels" FAILS it.
+P1-L3 (LOW) "the question asks for ;" with empty allowed set
+  RESOLVED in code (`or 'no stated level'`, geo_level.py:91) but UNTESTED: mutation removing it -> 605 passed (SURVIVES).
+P1-L4 (LOW) missing expected leg reported as "wrong geography level"
+  RESOLVED: run_demo.miss_detail reports "missing geography level"; level_problems returns (wrong, missing); mutations
+  "missing leg not detected" and "wrong level not detected" FAIL test_a_list_of_expected_levels_is_scored_per_leg,
+  test_wrong_geography_level_is_not_answered, test_every_expected_leg_fetched_plus_an_unexpected_level_is_not_answered.
+P2-1 leakage 6 vs 5 entries - STILL RED, inherited, owner-only baseline. Phrase total unchanged (5 = 2 + 3).
+P2-2 p95 22.058 > 20 from stale evidence/latest.json - STILL RED, inherited (anchor on unmodified main measured 25.565).
+P2-3 AMBER LOC headroom - WORSE: api src LOC is now 4804 > 4800, check_budgets FAILS on it (AC6). Owner is raising to 4820
+  in a separate commit; 4804 fits with 16 lines headroom. Not edited here.
+P2-4 AMBER docs/ask-path.md rewrites of unrelated paragraphs to fit the doc-lines cap - STILL OPEN. Word-level diff (main vs head)
+  still shows unrelated deletions: "and a result that is not already one wildcard per parent" (CC-103 condition), "so it is
+  unaffected by the point below", "segmenting how many places are named and where one ends is model's job" (reworded),
+  "a repair is warranted. `fetch_data`'s retry gate is ... a fetch that already failed doesn't block finish's own retry".
+  126 lines changed, ~10 of which are the CC-114 paragraph. doc lines 1818/1820 vs main 1820/1820.
+P2-5 AMBER 32 files vs "under ~15" - STILL OPEN: 30 files under api/ scripts/ docs/ (8 src, 2 scripts, 17 tests, 3 docs),
+  42 with evidence; cc-114-plan.md gives no explanation.
+P2-6 AMBER prose scanners still present - ACCEPTED-WITH-REASON pending owner (see P1-M2). `re.*` call-site delta +0 (55/55).
+P2-7/8/10/11/13/16 OK items: re-verified (forbidden names ok; tools 4, schemas 8, nodes 0; prompts.py/tools.py wording
+  generic, prompt tokens 1095; no validator-of-validator; refusal has no URL; ARCHITECTURE and requirements lists accurate).
+P2-9 LOW single-caller abstractions - STILL OPEN: `geo_level.geo_status` (caller ask.py:102 only) and `note_intent` (caller
+  ask.py:271 only) exist for the LOC cap; `CensusURL.for_level` has one src caller (geo_level.py:84) while scripts/run_demo.py
+  keeps its own `fetched_level` doing the same parse. (`_answer_urls` is gone.)
+P2-12 LOW test_guards `_stated()` - unchanged by design; unverified path is covered in test_level_fidelity/test_level_inferred_flow.
+P2-14 docs claim more than code (state/place fallback, repair-supplied level) - PARTLY RESOLVED: the repair level is now honest
+  and the bare-name case is documented; STILL OPEN for comparison legs and the state branch (P1-2: docs say query-word scans
+  and county fallbacks are flagged).
+P2-15 "Code runs the stated level exactly" - PARTLY RESOLVED: finish's repair no longer injects a regex level; but a wrong-length
+  levels list is now refused (D3 closed) and a single place with `levels` ignores it (P1-5).
+Prior-gate mutation B (second `not refused` guard) - RESOLVED: test_a_refused_level_is_not_followed_by_the_nationwide_fallback FAILS
+  when the guard is removed. Prior-gate mutation D (nationwide guess ignores a stated level) - RESOLVED:
+  test_a_stated_level_is_never_replaced_by_the_nationwide_guess FAILS when `level is None and` is removed.
+Plan deviations: D3 (wrong-length levels) CLOSED, D4 (finish re-resolves with declared level) CLOSED for sequential places and
+  listing, D5 (override checked) CLOSED (override vs its own plan, test), D1/D2 recorded in the plan as deviations.
+
+Independent mutation checks of the fix commits (the plan says every later test was mutation-checked, but gate1.txt was last
+written at 977bf2a and has no record of 5c803da; these runs are the reviewer's, 17 mutations x level/finish/guards/demo tests):
+  CAUGHT (16): listing redo passes a word-derived level; declared_levels ignores levels; wrong-length levels not refused;
+  refusal not flagged; refusal lacks published names; finish replay drops levels; split-parents repair omits level;
+  unverified never fires (x2); None leg does not widen allowed; run_demo missing leg; run_demo wrong level (str); for_level
+  returns ''; geo_status drops inferred; repair origin removed; TC3 alias-only level (test_a_published_level_with_no_alias_...
+  FAILS).
+  SURVIVED (2): the empty-allowed message fallback (P1-L3, no test); verify_golden list handling (no test, noted by Gate 1 too).
+
+--- (b) NEW DELTA, project invariants ---
+ budget quietly widened ........ NO. budgets.toml, evals/ and the leakage baseline have no diff; `budget increases`, `new
+                                exemptions`, `budget log matches values` ok. api LOC is over its CAP (4804/4800): red, owner decision.
+ forbidden module names ........ none (geo_level.py is fine).
+ new regex / keyword scanning .. `re.` call sites 55 -> 55 (delta +0); no new word scan. NOT removed: finish.py still feeds the
+                                question to the resolver on the listing repair (`_listing_query`, `_wrong_listing`/`_listing_level`
+                                regexes), geo._nation/detect_level still read the query when level is null. Labelled unverified.
+ single-caller abstractions .... geo_status, note_intent (P2-9).
+ validator of a validator ...... none; mismatch and unverified each check the URL / provenance, not another guard.
+ graph node / tool added ....... none (nodes 0, tools 4, schemas 8, routes 4).
+ prompt wording asserted ....... `check_invariants` prompt assertions ok. Tests assert on code-authored detail strings (published
+                                names, "one entry per place") - not LLM prose.
+ eval phrasing / places in
+ prompts, tool descriptions,
+ api/src literals .............. prompts.py and tools.py diffs are generic ("county, tract, place or state"); no place names.
+                                Leakage entries are domain vocabulary that moved files (5 phrases before and after).
+ URL / MOE / GEOID / universe /
+ alternatives .................. assemble()/AskResponse untouched. Refusal of an unpublished level returns NO URL and NO rows
+                                (S11) with geography_unsupported; incomplete-geography refusal path untouched. EXCEPTION found:
+                                P1-1 (data returned for fewer places than asked, no warning).
+ refusal returns no URL ........ yes (S11, test_a_refused_level_stands...). A refusal AFTER a URL was already built keeps that URL
+                                (edge, flagged by geography_unsupported).
+
+--- (c) STATUS TABLE at the end of evidence/slice-6/cc-114-plan.md: honest? failing-if-broken test? ---
+ AC1 NOT RUN       honest. (rationale for reuse of PR #97 evidence is stated in the table.) No test; command not re-run.
+ AC2 NOT RUN       honest. Offline tests exist (stated level run exactly, refusal stands, URL level guarded, override vs own plan) and
+                   FAIL when broken (mutations above) EXCEPT the sequential-place failure/refusal path (P1-1): no test, behaviour wrong.
+ AC3 PASS          Honest. git diff shows no change under evals/, budgets.toml or the leakage baseline (verified); scalar scorer
+                   behaviour identical (test_wrong_geography_level_is_not_answered fails when broken). No golden uses a list.
+ AC4 NOT RUN       honest. Anchor aggregates re-checked against the plan: demo.answered_rate 0.708 (repeat 3), p95 25.565,
+                   retrieval_at_10 0.9, selector_at_1 0.825 - match.
+ AC5 PASS          OVERSTATED. gate1.txt was last written at 977bf2a and holds no mutation record for the fix commits up to 5c803da
+                   although the table says "every later fix/test mutation-checked"; the reviewer's own run catches 16 of 17
+                   behaviours, but (i) test_each_comparison_leg_is_run_at_its_own_stated_level still passes on its own reverted
+                   behaviour (P1-4, "one weak test found and strengthened" is not true of this one), (ii) the P1-L3 fallback text and
+                   verify_golden's list handling have no failing test.
+ AC6 FAIL          honest (4804 > 4800); plus the two inherited reds. Owner-only.
+ GC1 PASS          honest, git order verified: ae3358e (rule) is an ancestor of ccca747 (classification). No test (not testable).
+ GC2 PASS (offline) honest; tests fail when broken (run_demo mutations). q23 needs owner approval (stated).
+ GC3 NOT RUN       honest.
+ TC1 NOT RUN       honest. No unit test builds a tract URL from a stated level end to end (a block-group one exists in test_ask_loop).
+ TC2 PASS          OVERSTATED. Scorer per leg and the `levels` tool tests fail when broken, but the execution path for a multi-place
+                   question where one call fails or is refused (P1-1) is untested and silently wrong.
+ TC3 PASS          honest; mutation "alias table only" FAILS test_a_published_level_with_no_alias_is_run_by_exact_metadata_match.
+ TC4 NOT RUN       honest.
+ TC5 PASS offline  mostly honest: other-level URL, nationwide guess, refused level, override vs plan all have tests that fail when
+                   broken. "Raw for_spec unreachable by construction" CONFIRMED by S15 (build_url refused). The nationwide guard is
+                   covered by two tests. A comparison with a dropped leg is not covered (P1-3).
+ INH NOT RUN       honest.
+ Matrix form: run-slice.md requires per item: command/test, expected/observed, evidence, TESTED HEAD, hashes/repeats, mutation result,
+ reviewer verification. The status table has ID/Status/Basis only - no tested head, no per-row evidence link.
+ Rows with no failing-if-broken test: AC1, AC4, GC1, GC3, TC1 (NOT RUN/untestable offline), INH; and for the rows marked PASS,
+ TC2 (sequential-leg failure/refusal), AC5 (see above). AC3's "no golden change" is a diff fact, not a test.
+
+--- (d) DOCS vs CODE ---
+ docs/ask-path.md "The level is the model's statement ..." paragraph:
+   - level required, null allowed; levels per place must match (else refused) .... matches code (tools.py, geo.py).
+   - "Code runs the stated level exactly" ........ true for a single call and compare legs; a single place with `levels` ignores it (P1-5).
+   - unpublished level fails with the published names and the refusal stands, no re-resolve, no nationwide ... matches (S11, tests).
+   - "the answer is geography_unsupported with no URL" ... true unless a URL was built earlier in the same request.
+   - "finish's repair calls never change it (asked_levels)" ... true by origin flag (test) - but a FAILED or REFUSED model call does
+     overwrite a leg's slot (P1-1/P1-6); the doc does not say so.
+   - guards: mismatch ("a fetched `for=` level the model did not state; for an override, the plan's own levels") matches code; the
+     "None leg may be answered at the level the lookup chose" rule is not documented.
+   - unverified: lists "query-word scan, county fallback, nationwide guess, finish's listing redo". Code flags them only for
+     single-place/listing results; comparison results and the state/zcta branches drop `inferred` (P1-2). Overstated.
+   - "A bare name with a stated null still resolves ... unflagged" matches S10.
+   - override: mismatch uses the plan's levels (tested); unverified is skipped for a user's plan (code, tested) - only half documented.
+ docs/ARCHITECTURE.md geo_level.py line ...... accurate (names the two guards and the required/null rule).
+ docs/requirements.md two new warning codes ... accurate wording; no row for what is NOT flagged.
+ Doc budget: doc lines 1818/1820 was reached by condensing unrelated ask-path paragraphs (P2-4).
+
+--- VERDICT (review-pr.md reading) ---
+NOT YET. Most important reason: P1-1. On the refusal-and-retry path this change introduces, a comparison question silently loses a
+place (one URL, no warning), where origin/main answers both; no test covers it; and the mismatch guard cannot see a missing leg
+(P1-3). Behind it: AC6 is red (api LOC 4804 > 4800, owner decision; it fits under 4820 with 16 lines left) on top of the inherited
+leakage and stale-p95 reds; live E2E rows (AC2, AC4, TC1, TC4, GC3, INH) are NOT RUN and the anchor itself breaches the p95 ceiling
+(25.565 > 20); the matrix lacks tested-head and evidence columns; AC5/TC2 are marked PASS with a gap each; ask-path.md still carries
+unrelated rewrites made to fit the doc-lines cap; comparison/state results do not carry `inferred`.
