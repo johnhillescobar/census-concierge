@@ -30,6 +30,7 @@ from src.contract import (
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
+from src.geo_level import geo_status, note_intent
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
 from src.prompts import system_prompt
@@ -58,6 +59,8 @@ class ExecutionRecord:
     question: str = ""
     vintages: list[tuple[str, int]] = field(default_factory=list)
     geo_status: dict[str, str | bool | int] | None = None
+    # Level per leg the model stated in its own resolve_geography call; [] if it never did.
+    asked_levels: list[str | None] = field(default_factory=list)
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
     override: Any = None
@@ -96,13 +99,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         get = pull or (lambda k, d=None: getattr(artifact, k, d))
         specs = get("specs")
         record.geographies = list(specs if specs is not None else get("matches") or [])
-        record.geo_status = {
-            "legal": bool(get("legal", True)),
-            "detail": str(get("detail", "") or ""),
-            "nested": get("nested", True) is not False,
-            "compare": bool(get("compare", False)),
-            "compare_count": int(get("compare_count", 0) or 0),
-        }
+        record.geo_status = geo_status(get)
         record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
             clear_series(record)
@@ -271,6 +268,7 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
             artifact = getattr(message, "artifact", None)
             ok = _artifact_ok(artifact)
             _absorb(record, name, artifact, args)
+            note_intent(record, name, call)
     except Exception as exc:  # noqa: BLE001 - contained tool failure goes back to the model
         content = f"{name} failed: {redact_text(str(exc))}"
         ok = False

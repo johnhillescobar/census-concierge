@@ -91,7 +91,12 @@ def _wildcard(name: str, state: str) -> GeoSpec:
 def _splitter(parents: object, level: object = "county") -> Any:
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
         complete.calls += 1  # type: ignore[attr-defined]
-        reply = {"parents": parents, "unit": level or "county", "listing": level is not None}
+        reply = {
+            "level": None,
+            "parents": parents,
+            "unit": level or "county",
+            "listing": level is not None,
+        }
         return {"content": json.dumps(reply), "tool_calls": []}
 
     complete.calls = 0  # type: ignore[attr-defined]
@@ -124,7 +129,13 @@ async def test_listing_that_kept_one_parent_is_resolved_with_every_parent() -> N
     seen, _ = await _run_split(
         "List every county in Ohio and Michigan.", [_wildcard("m", "26")], complete
     )
-    assert seen == [{"query": "every county in Ohio, Michigan", "parents": ["Ohio", "Michigan"]}]
+    assert seen == [
+        {
+            "level": "county",
+            "query": "every county in Ohio, Michigan",
+            "parents": ["Ohio", "Michigan"],
+        }
+    ]
 
 
 async def test_listing_resolved_at_the_wrong_level_is_resolved_again() -> None:
@@ -135,7 +146,13 @@ async def test_listing_resolved_at_the_wrong_level_is_resolved_again() -> None:
     seen, _ = await _run_split(
         "Show each county in Ohio plus Michigan.", states, _splitter(["Ohio", "Michigan"])
     )
-    assert seen == [{"query": "every county in Ohio, Michigan", "parents": ["Ohio", "Michigan"]}]
+    assert seen == [
+        {
+            "level": "county",
+            "query": "every county in Ohio, Michigan",
+            "parents": ["Ohio", "Michigan"],
+        }
+    ]
 
 
 async def test_listing_already_one_wildcard_per_parent_is_left_alone() -> None:
@@ -241,6 +258,7 @@ async def test_single_named_county_for_a_tract_listing_is_re_resolved_with_every
     )
     assert seen == [
         {
+            "level": "tract",
             "query": "every tract in King County, Washington, Pierce County, Washington",
             "parents": ["King County, Washington", "Pierce County, Washington"],
         }
@@ -307,7 +325,7 @@ async def _split_with(
     return seen, record
 
 
-_GOOD = {"parents": ["Ohio", "Michigan"], "unit": "county", "listing": True}
+_GOOD = {"level": None, "parents": ["Ohio", "Michigan"], "unit": "county", "listing": True}
 
 
 async def test_model_call_that_raises_never_fails_the_answer() -> None:
@@ -392,7 +410,13 @@ async def test_model_decides_for_a_phrasing_with_no_unit_word_or_joiner() -> Non
         [_wildcard("m", "26")],
         _splitter(["Ohio", "Michigan"], "place"),
     )
-    assert seen == [{"query": "every place in Ohio, Michigan", "parents": ["Ohio", "Michigan"]}]
+    assert seen == [
+        {
+            "level": "place",
+            "query": "every place in Ohio, Michigan",
+            "parents": ["Ohio", "Michigan"],
+        }
+    ]
 
 
 async def test_one_parent_written_as_place_and_state_is_not_re_resolved() -> None:
@@ -439,11 +463,15 @@ async def test_redo_after_a_resolved_comparison_resolves_the_question_not_the_pl
         return ""
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
-    assert seen == [{"query": "every tract in Cook County, Illinois"}]
+    assert seen == [{"level": "tract", "query": "every tract in Cook County, Illinois"}]
 
 
 def _three_parent_plan() -> dict[str, Any]:
-    return {"parents": ["A County, S1", "B County, S1", "C County, S1"], "unit": "county"}
+    return {
+        "level": None,
+        "parents": ["A County, S1", "B County, S1", "C County, S1"],
+        "unit": "county",
+    }
 
 
 async def _plan(value: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -498,7 +526,7 @@ async def test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows() ->
         return ""  # build_url fails to produce a new URL
 
     tools = {"resolve_geography": object(), "build_url": object()}
-    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
     await finish_tools(fake_dispatch, tools, record, _plan(plan))
     assert record.url is None and record.rows == []
 
@@ -513,7 +541,7 @@ async def test_a_rejected_repair_restores_the_retained_urls() -> None:
         rec.geographies = [_harris(), _harris()]  # not wildcards: rejected
         return ""
 
-    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
     assert record.retained_urls == ["https://api.census.gov/old"]
 
@@ -568,7 +596,7 @@ async def test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_
         ]
         return ""
 
-    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
     assert len(record.geographies) == 3 and record.geographies[0].name == "a"
 
@@ -582,6 +610,6 @@ async def test_a_non_wildcard_among_the_chosen_parents_still_rejects_the_repair(
         rec.geographies = [_wildcard("a", "01"), _harris(), _wildcard("c", "03")]
         return ""
 
-    plan = {"parents": ["A County, S1", "B County, S2"], "unit": "county"}
+    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
     assert record.geographies == first

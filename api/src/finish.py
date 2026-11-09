@@ -305,11 +305,15 @@ async def _split_parents(
         return False
     before = {name: getattr(record, name) for name in _SNAPSHOT}
     before["geo_queries"] = list(record.geo_queries)
-    args: dict[str, Any] = {"query": f"every {unit} in {', '.join(parents)}", "parents": parents}
+    args: dict[str, Any] = {
+        "query": f"every {unit} in {', '.join(parents)}",
+        "parents": parents,
+        "level": unit,  # the model's own unit from the split call
+    }
     if wants_acs1(question):
         args["dataset"] = "acs1"
     try:
-        await dispatch(geo, {"id": "resolve_geography", "args": args}, record)
+        await dispatch(geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record)
     except Exception:  # noqa: BLE001 - keep the loop's own resolution
         record.geographies = []
     record.consecutive_failures.pop("resolve_geography", None)
@@ -354,17 +358,26 @@ async def finish_tools(
         if geo is not None and not redone and (redo or not record.geographies):
             status = getattr(record, "geo_status", None) or {}
             queries = list(getattr(record, "geo_queries", None) or [])
+            stated = list(getattr(record, "asked_levels", None) or [])  # the model's own, if any
             args: dict[str, Any] = (
-                {"places": queries}
+                {"places": queries, "level": (stated or [None])[0], "levels": stated}
                 if len(queries) >= 2 and not status.get("compare")
-                else {"query": _listing_query(question)}
+                else {"query": _listing_query(question), "level": _listing_level(question)}
             )
             if wants_acs1(question):
                 args["dataset"] = "acs1"
-            await dispatch(geo, {"id": "resolve_geography", "args": args}, record)
+            await dispatch(
+                geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record
+            )
         if geo is not None and not record.geographies and universe_mismatch(record) is not None:
             await dispatch(
-                geo, {"id": "resolve_geography", "args": {"query": "nationwide"}}, record
+                geo,
+                {
+                    "id": "resolve_geography",
+                    "origin": "repair",
+                    "args": {"query": "nationwide", "level": None},
+                },
+                record,
             )
         status = getattr(record, "geo_status", None) or {}
         table = (plan.table_id if plan is not None else "") or (

@@ -30,34 +30,26 @@ retries: search (only if the pool is empty); resolve
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
 
-A listing that names several parents ("all counties in A and B") that the loop resolved to
-one parent, the wrong level, or nothing gets one extra model call
-([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). The call needs only the
-question, so `run_ask` starts it as a task beside the loop (`plan_split` in `finish.py`) and
-`finish_tools` uses its finished result; the end of the request never calls the model. The model
-only returns `{parents, unit, listing}`; `resolve_geography` then re-runs with all parents. The
-result must be a closed unit, 2+ parents, and a legal, nested, all-wildcard resolution, and a
-result that is not already one wildcard per parent. A failed call or repair never fails the
+A listing that names several parents ("all counties in A and B") that the loop resolved to one
+parent, the wrong level, or nothing gets one extra model call
+([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). It needs only the question, so
+`run_ask` starts it as a task beside the loop (`plan_split` in `finish.py`) and `finish_tools` uses its
+finished result; the end of the request never calls the model. The model returns
+`{parents, unit, listing}`; `resolve_geography` re-runs with all parents. The result must be a closed
+unit, 2+ parents, and a legal, nested, all-wildcard resolution. A failed call or repair never fails the
 answer and restores the loop's own resolution; the task is always cancelled when the request ends.
 
 An "incomplete comparison" is detected two ways
 ([CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)).
-`geo.split_comparison()` still recognizes the "versus"/"compared to"/"compare
-X to Y" keyword shape directly in the question text — a literal split, not
-prose-boundary inference, so it is unaffected by the point below. For an
-"and"/comma-list comparison, segmenting how many places are named and where
-one ends is the model's job: `resolve_geography` takes a `places` list of
-already-canonicalized places (see Geography) instead of one `query` string,
-so no regex has to guess a place-name boundary. If the model instead resolves
-each leg with its own single-place `query` call, `ExecutionRecord.geo_queries`
-(`ask.py`) tracks those calls — collapsing a same-place refinement ("Springfield"
-then "Springfield, Illinois") into one entry rather than miscounting it as a
-second leg — and finish replays the tracked queries as one `places` call.
-Either way, `geo_status`'s `compare_count` (genuine per-place picks; entries
-after it are leftover ambiguous candidates) reads below the number of legs
-attempted when a repair is warranted. `fetch_data`'s retry gate is
-`record.fetch is None or not record.fetch.ok`, not bare `is None` — a fetch
-that already failed doesn't block finish's own retry.
+`geo.split_comparison()` recognizes the "versus"/"compared to"/"compare X to Y" keyword shape
+directly in the question text: a literal split, not prose-boundary inference. For an "and"/comma-list
+comparison the model segments the places: `resolve_geography` takes `places`, each already
+canonicalized (see Geography), so no regex guesses a name boundary. If the model instead resolves each
+leg with its own `query` call, `ExecutionRecord.geo_queries` (`ask.py`) tracks those calls (a
+same-place refinement, "Springfield" then "Springfield, Illinois", replaces its entry) and finish
+replays them as one `places` call. Either way, `geo_status`'s `compare_count` (genuine per-place picks;
+later entries are ambiguous candidates) reading below the legs attempted warrants a repair.
+`fetch_data` retries when `record.fetch is None or not record.fetch.ok`, not bare `is None`.
 
 If a tool fails twice in a row, `run_ask` catches that and — if `finish_tools`
 went on to recover real rows anyway — replaces the raw `"<tool> failed
@@ -67,56 +59,46 @@ visible rather than being papered over.
 
 ## Contract
 
-`AskResponse`: `answer` (framing, then the figures code renders), `urls[]` (one key-redacted URL per attempted request),
-`legs[]` (`for_spec` identifies the geography), year buckets (`requested` /
-`attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`,
-`universe`, `table_id`, `plan` (`ResultPlan`: selected table, estimate IDs from
-the built URL, attempted years, requested years, ordered `GeoSpec`s,
-`allow_overlapping_acs5`), `alternatives[]` (table ID, published title, universe,
-why they differ), `comparisons[]`, `warnings[]`, optional `chart` (`ChartSpec`:
-`type`, `x`, `y`, `series_by`, `title`, `show_moe`; no Vega/SVG/code) and
-`chart_unavailable` when a model chart failed validation. Rows are dicts. There
-is no `http_ok`. Empty `urls` means no legal URL was produced by `build_url` or
-an attempted fetch — not that finish cleared the current pointer.
+`AskResponse`: `answer` (framing, then the figures code renders), `urls[]` (one key-redacted URL per
+attempted request), `legs[]` (`for_spec` identifies the geography), year buckets (`requested` /
+`attempted` / `succeeded` / `failed` / `omitted`), `rows`, `moe`, `geoid`, `universe`, `table_id`,
+`plan` (`ResultPlan`: selected table, estimate IDs from the built URL, attempted years, requested years,
+ordered `GeoSpec`s, `allow_overlapping_acs5`), `alternatives[]` (table ID, published title, universe,
+why they differ), `comparisons[]`, `warnings[]`, optional `chart` (`ChartSpec`: `type`, `x`, `y`,
+`series_by`, `title`, `show_moe`; no Vega/SVG/code) and `chart_unavailable` when a model chart failed
+validation. Rows are dicts. There is no `http_ok`. Empty `urls` means no legal URL was produced by
+`build_url` or an attempted fetch — not that finish cleared the current pointer.
 
 `CensusURL` redacts `&key=` in `__str__` / the response; `with_key()` is the
 httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
 
 ## Years
 
-`fetch_data(years=…)` is a parameter, not a fifth tool. A lone `in YYYY` or
-`for YYYY` is that ACS5 end year (not latest). ACS1 when Census
-publishes every listed member with rows; else non-overlapping ACS5 end years.
-Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
-`acs1_geography_ineligible`). A variable absent or redefined mid-range — including
-unpublished years before a table’s first in-matrix vintage when any dataset has a
-published hole in the requested span — is `variable_not_in_vintage`, recorded on
-the fetch artifact, not inferred from question text at assemble. Tract /
-block-group series that
-cross 2020 emit `boundary_change_2020`. An ACS1-ineligible comparison leg
-destaggers **all** comparison legs to non-overlapping ACS5. A 204/404 ACS1
-geography falls back to ACS5 and sets `acs1_geography_ineligible` even when
-the requested years are not a series.
+`fetch_data(years=…)` is a parameter, not a fifth tool. A lone `in YYYY` or `for YYYY` is that ACS5 end
+year (not latest). ACS1 when Census publishes every listed member with rows; else non-overlapping ACS5
+end years. Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
+`acs1_geography_ineligible`). A variable absent or redefined mid-range — including unpublished years
+before a table’s first in-matrix vintage when any dataset has a published hole in the requested span —
+is `variable_not_in_vintage`, recorded on the fetch artifact, not inferred from question text at
+assemble. Tract / block-group series that cross 2020 emit `boundary_change_2020`. An ACS1-ineligible
+comparison leg destaggers **all** comparison legs to non-overlapping ACS5. A 204/404 ACS1 geography
+falls back to ACS5 and sets `acs1_geography_ineligible` even when the requested years are not a series.
 
-`allow_overlapping_acs5` is on `ResultPlan`, fetch / `plan_years`, and an
-optional `AskRequest.plan` override. Consecutive ACS5 still warns
-`overlapping_vintage`. Geography overrides are rebound from GEOID; submitted
-`for`/`in` is not authority. Invalid overrides are HTTP 422 before `run_ask`.
+`allow_overlapping_acs5` is on `ResultPlan`, fetch / `plan_years`, and an optional `AskRequest.plan`
+override. Consecutive ACS5 still warns `overlapping_vintage`. Geography overrides are rebound from
+GEOID; submitted `for`/`in` is not authority. Invalid overrides are HTTP 422 before `run_ask`.
 
 ## Geography
 
-`resolve_geography` returns metadata-backed `for`/`in`, never model prose.
-NAME listing ranks by place class, population, then GEO_ID; `specs[0]` is
-selected. A leading token matches the NAME head or that head plus a Census
-class, not an unrelated compound (`Queens` is not `Queens Gate CDP`). A
-token that misses the NAME head is not retried as its last word (`valley` is
-not a Valley county). A county token is the name before `county`, not the
-sentence (`population of Harris County` and `what is harris county` are Harris). A
-full-sentence query extracts the capitalized name after `in` / `for` / `of`
-(lowercase `of` / `the` / `and` stay inside that name), not the whole question. An unspecified place with no NAME hit falls back to
-the county listing; a query that already named city/place does not.
-`ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
-dataset/vintage, `for`/`in`).
+`resolve_geography` returns metadata-backed `for`/`in`, never model prose. NAME listing ranks by place
+class, population, then GEO_ID; `specs[0]` is selected. A leading token matches the NAME head or that
+head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`). A token that
+misses the NAME head is not retried as its last word (`valley` is not a Valley county). A county token
+is the name before `county`, not the sentence (`population of Harris County` and `what is harris county`
+are Harris). A full-sentence query extracts the capitalized name after `in` / `for` / `of` (lowercase
+`of` / `the` / `and` stay inside that name), not the whole question. An unspecified place with no NAME
+hit falls back to the county listing; a query that already named city/place does not. `ambiguous_place`
+carries ranked `GeoSpec` candidates (level, GEOID, dataset/vintage, `for`/`in`).
 `versus` / `compared to` / `compare … to` emits one executable spec per side.
 A 2+ way comparison instead names every place in `places` — each already
 canonicalized as "Place, ST" by the model itself, regardless of whether the
@@ -141,6 +123,16 @@ the state; one tract, state and county; one block group, state, county and tract
 matched against the question's words ("Calif." and "Penn" were refused); a pointing phrase refuses only if the
 question has it. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
 search, fetch, URL or candidates. Any failure, a missing report or a late one fails open.
+
+The level is the model's statement, not a reading of the question
+([CC-114](https://johnhillescobar.atlassian.net/browse/CC-114)). `resolve_geography.level` is required: a
+published level name, or null when the question names none; `levels` gives one per place when comparison
+legs differ. A call without it is refused for repair (two refusals stop the tool). Code runs the stated
+level exactly; one not published for the dataset fails with the published names. The record keeps what
+the model stated (`asked_levels`); finish's repair calls (`"origin": "repair"`) never change it. Two
+guards compare it with the URLs: `geography_level_mismatch` (a fetched `for=` level the model did not
+state; the URL still renders) and `geography_level_unverified` (no level stated, or code had to infer
+one from the query's words or a county fallback; CC-104 removes those fallbacks).
 
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict

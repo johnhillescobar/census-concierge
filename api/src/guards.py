@@ -11,6 +11,7 @@ from typing import Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
+from src.geo_level import geography_level_mismatch, geography_level_unverified
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
 )
@@ -434,6 +435,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         moe_aggregation_degraded,
         zcta_not_zip,
         geography_not_nested,
+        geography_level_mismatch,
+        geography_level_unverified,
     ):
         warning = guard(record)
         if warning is not None:

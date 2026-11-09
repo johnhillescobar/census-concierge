@@ -66,8 +66,16 @@ class ResolveGeographyInput(ToolInput):
         ),
     )
     level: str | None = Field(
+        description=(
+            "Required. The Census geography level the question asks about, such as county, "
+            "tract, place or state, or null when the question names no level. A name that is "
+            "not published for the dataset is refused with the published list; resend with one "
+            "of those."
+        ),
+    )
+    levels: list[str | None] | None = Field(
         default=None,
-        description="County, tract, block group, place, state or zcta; omit if unknown.",
+        description="With places: one level per place, in order, when the places differ.",
     )
     dataset: Literal["acs5", "acs1"] = Field(default="acs5", description="acs5 or acs1.")
     vintage: int | None = Field(

@@ -22,9 +22,9 @@ First decide what the user wants:
 - Units inside named places: a listing. The places are parents; the requested child unit is the level.
 - The named places themselves: a direct request or comparison.
 
-For a listing, call resolve_geography with query as the full geographic request phrase, parents containing the named parents, and level using a supported name from the tool schema. Omit level only when it cannot be determined. Include all parents together in one call, regardless of verb or connector. Do not split them into separate calls.
+For a listing, call resolve_geography with query as the full geographic request phrase, parents containing the named parents, and level set to the geography level the question asks about. Every resolve_geography call states level; use null only when the question names none, and never choose a different level than the one it asks for. Include all parents together in one call, regardless of verb or connector. Do not split them into separate calls.
 
-For a direct request or comparison naming multiple places, call resolve_geography once with places containing every named place. Recognize lists regardless of connector or punctuation. Do not split them into separate calls.
+For a direct request or comparison naming multiple places, call resolve_geography once with places containing every named place, and levels with one level per place when they differ. Recognize lists regardless of connector or punctuation. Do not split them into separate calls.
 
 Before either multi-parent or multi-place resolution, normalize EVERY entry as "Place, ST". Each entry must include its own state, even in longer lists. Use the user's state when provided; otherwise supply it from your geographic knowledge. Preserve geographic identity and type.
 

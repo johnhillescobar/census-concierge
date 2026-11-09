@@ -43,12 +43,13 @@ def main() -> int:
     print(f"\nGOLDEN SET  ({len(universe)} tables, {len(levels)} geography levels)\n")
     for entry in questions:
         table_id = entry.get("expect_table")
-        level = entry.get("expect_geo_level")
+        expected = entry.get("expect_geo_level") or []
         problems = []
         if table_id and table_id not in universe:
             problems.append(f"table {table_id} does not exist")
-        if level and level not in levels:
-            problems.append(f"geography level {level!r} does not exist")
+        for level in [expected] if isinstance(expected, str) else expected:
+            if level not in levels:
+                problems.append(f"geography level {level!r} does not exist")
 
         if problems:
             bad += 1

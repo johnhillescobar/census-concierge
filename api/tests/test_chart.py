@@ -144,7 +144,7 @@ async def _resolved_bare_name_comparison() -> ExecutionRecord:
     of asserting on hand-picked rows nothing here produced."""
     record = ExecutionRecord(question=_COMPARE_QUESTION, table_id="B01003")
     tools = _tools(record)
-    places = {"places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
+    places = {"level": None, "places": ["Chicago, IL", "Los Angeles, CA", "New York City, NY"]}
     await dispatch(tools["resolve_geography"], {"id": "1", "args": places}, record)
     assert record.geo_status is not None
     assert record.geo_status["compare_count"] == 3

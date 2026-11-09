@@ -454,6 +454,24 @@ def test_wrong_geography_level_is_not_answered() -> None:
     assert run_demo.is_answered(entry, status_code=200, body=mixed) is False
 
 
+def test_a_list_of_expected_levels_is_scored_per_leg() -> None:
+    entry = {"id": "q23", "expect_table": "B25064", "expect_geo_level": ["place", "state"]}
+    base = "https://api.census.gov/data/2024/acs/acs5?get=B25064_001E&for="
+    place, state = f"{base}place:05000&in=state:48", f"{base}state:48"
+    county = f"{base}county:201&in=state:48"
+
+    def scored(*urls: str) -> bool:
+        body = _body(table_id="B25064", urls=list(urls))
+        return run_demo.is_answered(entry, status_code=200, body=body)
+
+    assert scored(place, state) is True
+    assert scored(state, place, place) is True  # repeated years of one leg are still that leg
+    assert scored(place) is False  # a leg that was never fetched
+    assert scored(place, county) is False  # a leg fetched at a level nobody expected
+    body = _body(table_id="B25064", urls=[place])
+    assert run_demo.miss_detail(entry, status_code=200, body=body) == "wrong geography level state"
+
+
 def test_geography_level_is_decoded_from_the_for_clause() -> None:
     url = "https://api.census.gov/data/2024/acs/acs5?get=B19013_001E&for=zip+code+tabulation+area:90210"
     assert run_demo.fetched_level(url) == "zip code tabulation area"
