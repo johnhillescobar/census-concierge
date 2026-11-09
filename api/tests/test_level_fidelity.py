@@ -64,8 +64,10 @@ async def test_a_repair_call_never_overwrites_the_level_the_model_stated() -> No
     geo = _tools(record)["resolve_geography"]
     await dispatch(geo, {"id": "1", "args": {"level": "county", "query": "Harris County"}}, record)
     assert record.asked_levels == ["county"]
-    repair = {"id": "2", "origin": "repair", "args": {"level": "tract", "query": "Harris County"}}
+    # a repair call that DOES resolve something, at another level: it must not become the stated one
+    repair = {"id": "2", "origin": "repair", "args": {"level": "place", "query": "Austin, Texas"}}
     await dispatch(geo, repair, record)
+    assert [g.level for g in record.geographies] == ["place"]
     assert record.asked_levels == ["county"]
 
 
@@ -464,7 +466,7 @@ async def test_a_levels_list_that_does_not_match_the_places_is_refused_for_repai
             {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
         )
         assert result.artifact.legal is False and result.artifact.specs == []
-        assert "one entry per place" in result.artifact.detail
+        assert "pairs with two or more places" in result.artifact.detail
 
 
 def test_per_leg_levels_count_the_legs_even_when_the_places_come_from_the_query() -> None:
@@ -550,7 +552,9 @@ async def test_levels_beside_a_single_place_are_refused_for_repair() -> None:
     result = await _geo_tool().ainvoke(
         {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
     )
-    assert result.artifact.legal is False and "one entry per place" in result.artifact.detail
+    assert (
+        result.artifact.legal is False and "pairs with two or more places" in result.artifact.detail
+    )
 
 
 def test_a_stated_level_with_no_url_of_its_own_is_flagged() -> None:
@@ -625,3 +629,25 @@ async def test_an_unsupported_candidate_is_not_a_comparison_leg() -> None:
     assert record.geo_status is not None and record.geo_status["legal"] is False
     assert [g.level for g in record.geographies] == ["tract"]  # the candidate the model may build
     assert record.geo_queries == ["Austin, Texas"]
+
+
+def test_a_stated_level_not_served_is_flagged_even_when_nothing_else_was_stated() -> None:
+    record = _answered(COUNTY_URL, [], unmet_levels={"tract"})
+    assert _codes(record) == ["geography_level_mismatch"]
+    assert "never stated" not in evaluate(record)[0].detail
+
+
+async def test_a_wildcard_listing_for_several_parents_carries_the_inferred_flag() -> None:
+    message = await _geo_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "resolve_geography",
+            "args": {
+                "level": None,
+                "query": "all counties in Texas and Louisiana",
+                "parents": ["Texas", "Louisiana"],
+            },
+            "id": "c1",
+        }
+    )
+    assert message.artifact.compare is True and message.artifact.inferred is True

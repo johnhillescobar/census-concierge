@@ -1,0 +1,11 @@
+START eval-1.txt 20:54:20 :: uv run python scripts/eval_retrieval.py --verbose
+EXIT eval-1.txt 0 20:54:52
+START eval-2.txt 20:54:52 :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+EXIT eval-2.txt 0 20:57:38
+START eval-3.txt 20:57:38 :: uv run python scripts/score_synthetic.py
+EXIT eval-3.txt 0 20:57:45
+START demo.txt 20:57:45 :: uv run python scripts/run_demo.py --repeat 3
+EXIT demo.txt 1 21:41:51
+START grid.txt 21:41:51 :: uv run python scripts/run_grid.py --repeat 3
+EXIT grid.txt 0 21:57:37
+ALLDONE

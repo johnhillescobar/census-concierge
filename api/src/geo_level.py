@@ -65,16 +65,16 @@ def declared_levels(args: dict[str, Any]) -> list[str | None]:
     return [level_name(args.get("level"))] * legs
 
 
-def note_intent(record: Any, name: str, call: dict[str, Any]) -> None:
+def note_intent(record: Any, name: str, call: dict[str, Any], failed: bool = False) -> None:
     """Keep the level the model stated in its own geography call; a repair call never changes it."""
     args = call.get("args") or {}
     if name != "resolve_geography" or "level" not in args or call.get("origin") == "repair":
         return
     stated, status = declared_levels(args), record.geo_status or {}
-    unserved = status.get("legal") is False and not status.get("refused")
+    unserved = failed or (status.get("legal") is False and not status.get("refused"))
     for level in filter(None, stated):  # a level asked for and not served must not just vanish
         (record.unmet_levels.add if unserved else record.unmet_levels.discard)(level)
-    if not record.geographies:  # a refused or empty call resolved nothing; keep the legs it left
+    if failed or not record.geographies:  # a failed, refused or empty call keeps the legs it left
         return
     legs = len(getattr(record, "geo_queries", None) or [])
     # Single-place calls resolve the legs of a comparison one at a time: keep each leg's own level.
@@ -98,7 +98,8 @@ def geography_level_mismatch(record: Any) -> AskWarning | None:
     """A URL whose `for=` level the model never stated: the substitution this ticket forbids."""
     plan = getattr(getattr(record, "override", None), "geographies", None)  # the user's own plan
     asked = [g.level for g in plan] if plan else list(getattr(record, "asked_levels", None) or [])
-    if not asked or getattr(record, "tables_only", False):
+    unmet = set(getattr(record, "unmet_levels", ()))
+    if not (asked or unmet) or getattr(record, "tables_only", False):
         return None
     allowed = {level for level in asked if level}
     if None in asked:  # a leg with no stated level may be answered at the level the lookup chose
@@ -107,7 +108,7 @@ def geography_level_mismatch(record: Any) -> AskWarning | None:
     urls = urls or ([str(record.url)] if getattr(record, "url", None) else [])
     fetched = {CensusURL(url).for_level() for url in urls} - {""}
     wrong = sorted(fetched - allowed)
-    wanted = {level for level in asked if level} | set(getattr(record, "unmet_levels", ()))
+    wanted = {level for level in asked if level} | unmet
     lacking = sorted(wanted - fetched) if fetched else []
     if not wrong and not lacking:
         return None
@@ -129,7 +130,7 @@ def geography_level_unverified(record: Any) -> AskWarning | None:
     if getattr(getattr(record, "override", None), "geographies", None):
         return None  # the user's own plan names the places; no model reading is involved
     status = getattr(record, "geo_status", None) or {}
-    stated = bool(getattr(record, "asked_levels", None))
+    stated = bool(getattr(record, "asked_levels", None) or getattr(record, "unmet_levels", None))
     if stated and not status.get("inferred"):
         return None
     how = "inferred from the place name or its words" if stated else "never stated by the model"

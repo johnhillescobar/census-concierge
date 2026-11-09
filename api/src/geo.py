@@ -179,9 +179,6 @@ class ResolveGeographyTool(BaseTool):
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
         names = [n.strip() if n and n.strip() else "(blank)" for n in parents] if parents else []
-        within = await tracts_in_place(self, names, level, dataset, year, entries)
-        if within:
-            return within
         if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
             picks = await asyncio.gather(
                 *(self._resolve(query, level, dataset, year, entries, n) for n in names)
@@ -198,7 +195,7 @@ class ResolveGeographyTool(BaseTool):
         legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
         sides = legs if len(legs) >= 2 else split_comparison(query)
         if levels and len(levels) != len(sides or []):
-            return _fail(f"levels needs one entry per place: {len(sides or [])} places")
+            return _fail("levels pairs with two or more places, one entry each")
         if sides:
             stated = declared_levels({"places": sides, "levels": levels, "level": level})
             legs_at = zip(sides, stated, strict=True)
@@ -219,7 +216,8 @@ class ResolveGeographyTool(BaseTool):
             for hit in hits:
                 if hit.legal and hit.specs:
                     return f"1 geography: {hit.specs[0].for_spec}", hit
-        return await self._resolve(legs[0] if legs else query, level, dataset, year, entries)
+        ordinary = await self._resolve(legs[0] if legs else query, level, dataset, year, entries)
+        return await tracts_in_place(self, names, level, dataset, year, entries, ordinary)
 
     async def _resolve(
         self,

@@ -275,6 +275,7 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
     except Exception as exc:  # noqa: BLE001 - contained tool failure goes back to the model
         content = f"{name} failed: {redact_text(str(exc))}"
         ok = False
+        note_intent(record, name, call, failed=True)  # the level it asked for was not served
     record.timings.append(
         {"tool": name, "ms": round((time.perf_counter() - started) * 1000, 1), "ok": ok}
     )

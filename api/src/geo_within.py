@@ -15,20 +15,29 @@ from src.geo_level import ResolveGeographyResult, level_name
 COUNTY_PART = "county (or part)"
 
 
+Reply = tuple[str, ResolveGeographyResult]
+
+
 async def tracts_in_place(
-    tool: Any, names: list[str], level: str | None, dataset: str, year: int, entries: list[Any]
-) -> tuple[str, ResolveGeographyResult] | None:
-    """The tool reply, or None unless tracts were asked for in exactly one place Census knows.
+    tool: Any,
+    names: list[str],
+    level: str | None,
+    dataset: str,
+    year: int,
+    entries: list[Any],
+    ordinary: Reply,
+) -> Reply:
+    """The ordinary reply, unless it failed and tracts were asked for in one place Census knows.
 
     The model reads an ordinary success (told "not published" it abandons the tracts, seen live);
     the limitation is the result's detail, which the user sees as the warning.
     """
     step = any(e.name == COUNTY_PART and set(e.requires) == {"state", "place"} for e in entries)
-    if len(names) != 1 or level_name(level) != "tract" or not step:
-        return None
-    _detail, hit = await tool._resolve(names[0], None, dataset, year, entries)
-    if not (hit.legal and hit.specs and hit.specs[0].level == "place"):
-        return None
+    if ordinary[1].legal or len(names) != 1 or level_name(level) != "tract" or not step:
+        return ordinary
+    _detail, hit = await tool._resolve(names[0], "place", dataset, year, entries)
+    if not (hit.legal and hit.specs):
+        return ordinary
     place, state = hit.specs[0], clause_codes(hit.specs[0].in_spec).get("state", "")
     parts = {"state": state, "place": place.for_spec.split(":")[-1]}
     rows = await asyncio.to_thread(
@@ -46,7 +55,7 @@ async def tracts_in_place(
         for row in rows
     ]
     if not specs:
-        return None
+        return ordinary
     named = "; ".join(row["name"] for row in rows)
     result = ResolveGeographyResult(
         specs=[*specs, *hit.specs[1:]],  # other same-name places stay visible as candidates

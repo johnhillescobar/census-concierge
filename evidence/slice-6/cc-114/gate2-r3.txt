@@ -1,0 +1,1013 @@
+CC-114 Gate 2, THIRD cold review (owner-requested, beyond the playbook's single re-run)
+Written by: cold-context reviewer subagent. Offline only: NO live API call of any kind was made
+(no ask_one, run_demo, run_grid, eval scripts, curl). Everything ran against api/tests/ask_fixtures.py
+and scratch scripts in the agent scratchpad.
+Does not replace gate2.txt or gate2-r2.txt (both untouched).
+
+=== SETUP (commands run) ===
+$ git checkout --detach 3a936d1
+$ git rev-parse HEAD
+3a936d12aea12e277b19de3d19c2faa65c17b8f5
+$ git status --short
+(clean; the .venv created by `uv run` is git-ignored)
+$ git diff --stat 94566f5 3a936d1 -- api scripts docs
+ 31 files changed, 1608 insertions(+), 271 deletions(-)
+ (api/src: ask.py +17/-?, census_url.py +5, finish.py +31, geo.py +84, geo_level.py +139 NEW,
+  geo_within.py +62 NEW, guards.py +3, prompts.py +4, tools.py +10; tests: test_level_fidelity.py +627 NEW,
+  test_tracts_in_place.py +146 NEW, test_level_repair.py +80 NEW, ... ; docs: ask-path.md, requirements.md,
+  ARCHITECTURE.md; scripts/run_demo.py +24)
+Review base: origin/main = 94566f5.  Head reviewed: 3a936d1 on branch cc-114/level-fidelity.
+
+Method note: reproduction scripts live in the agent scratchpad
+(C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\fe576785-71b5-45bc-b05c-dc3ea2bb43ee\scratchpad\):
+drive.py, s_derive.py, s_flows.py, s_calls.py, s_dallas.py, s_refuse.py, s_align.py, s_err.py, s_base.py, s_x3.py
+(run on HEAD and, via `git archive 94566f5 api`, on the base), mutate.py / mutate_full.py (mutations are
+applied only to scratch copies of the tree made with `git archive 3a936d1`; the worktree is never edited).
+Their raw output is appended at the end of this file under "RAW OUTPUT".
+
+###########################################################################################
+PASS 1 - GENERIC BUGS (code only; .claude/PLAN.md, evidence/, commit messages and ticket text NOT read)
+###########################################################################################
+
+Code read: git diff 94566f5 3a936d1 -- api scripts, plus geo.py, geo_level.py, geo_within.py, ask.py (dispatch,
+_absorb), finish.py (finish_tools, _split_parents), guards.py (ambiguous_place, geography_unsupported),
+tools.py (BuildUrlTool), fetch wiring in ask.default_tools, and the two new test files.
+Baseline of the existing suite on the worktree: api/tests/test_tracts_in_place.py + test_level_fidelity.py:
+54 passed.
+
+------------------------------- FINDINGS, ranked --------------------------------------------
+
+P1-1  MEDIUM  Silent level substitution AFTER a refusal. Not a regression vs origin/main behaviour (main was
+      equally silent), but it is the exact hole the ticket exists to close.
+  Where: api/src/geo_level.py:74-76 (note_intent: `unserved = legal is False and not refused`; a refused level
+  is neither added to unmet_levels nor to asked_levels because the refused call resolved nothing),
+  api/src/geo.py:250-257 (refusal), api/src/tools.py:69-72 (tool description tells the model "resend with one
+  of those").
+  Repro (s_refuse.py X1/X2, real tools, fixtures):
+    resolve_geography(level="congressional district")  -> refused (no URL)
+    resolve_geography(level="county", "every county in Texas") -> build_url -> fetch
+    => URL ...&for=county:*&in=state:48, warnings == []   (asked_levels=['county'], unmet_levels=set())
+    resolve_geography(level="neighborhood") refused, then level=None "Chicago, Illinois"
+    => URL for=place:1714000, warnings == []
+  Effect: the model is invited to substitute any published level after a refusal and nothing records that the
+  level it first stated went unserved. Only the "gives up" branch warns (test_a_refused_level_stands...).
+
+P1-2  MEDIUM  A tool EXCEPTION loses the level the model stated, so a later substitution is silent.
+  Where: api/src/ask.py:263-277 (dispatch): `_absorb` and `note_intent` run only after a successful
+  `tool.ainvoke`; an exception goes to the `except` branch and the stated level is never noted.
+  This matters more now because the new derivation (api/src/geo_within.py:34-36) adds a live listing that can raise.
+  Repro (s_err.py E2): listing for "county (or part)" raises RuntimeError("geography listing failed ...") (what
+  list_census_names raises on HTTP 400/timeout). Model: resolve_geography(level="tract", parents=["Detroit, MI"])
+  -> tool failed; model then resolve_geography(level="place","Detroit, MI") -> build_url -> fetch.
+  => URL ...for=place:22000&in=state:26, warnings == [], asked_levels=['place'], unmet_levels=set().
+  A tract question answered at place with no flag.  (E1: same failure twice -> RuntimeError "failed twice" ->
+  finish repair resolves tract by words: flagged, see P1-8.)
+
+P1-3  MEDIUM (performance; REGRESSION vs main)  Every tract request with ONE parent pays an extra live
+  geography listing when the vintage publishes the "county (or part)" step (it does for ACS 5-year).
+  Where: api/src/geo.py:182 -> api/src/geo_within.py:29 `await tool._resolve(names[0], None, ...)` is executed
+  before the normal path and is thrown away (returns None) for the most common tract question, a COUNTY parent.
+  Repro (s_calls.py, counting list_geographies calls): level=tract, parents=["Harris County, Texas"]
+    metadata WITH the county(or part) step : listing calls = [county{state:48}, county{state:48}]  (2)
+    metadata without the step (main-like)  : [county{state:48}]                                    (1)
+  list_census_names is one live HTTP request (timeout 60 s), so this is +1 Census round trip on the commonest
+  tract-listing shape; budgets.toml caps p95. Secondary design smell in the same line: the parent is resolved with
+  level=None, so detect_level()/_nation() (regex over the entity name) decide what it is. A parent whose name
+  reads as another level ("State College, PA", "New York, NY" -> state) is not derived and silently falls back
+  to the old unsupported path (no error, no warning beyond geography_unsupported). Passing "place" would avoid both.
+
+P1-4  MEDIUM-LOW  The place-level guard in the derivation has NO test that fails without it.
+  Where: api/src/geo_within.py:30 `hit.specs[0].level == "place"`.
+  Mutation T6 (delete that conjunct), run against the WHOLE suite on a scratch copy: no test fails (only the
+  4 environment failures that also fail unmutated in a git-less copy). Without the guard a county or state parent
+  ("Harris County, Texas") is treated as a place: its county code 201 is sent as `place:201` to the
+  `county (or part)` listing, i.e. tracts of whatever place 201 is, with no error (the fixture listing returns [] for
+  unknown places, which hides it).  Existing tests only use Nowheresville (no specs) and level=county.
+
+P1-5  LOW-MEDIUM  FALSE POSITIVE: a helper lookup is reported as a level the question asked for.
+  Where: api/src/geo_level.py:81 (asked_levels is "last call per leg", so a helper lookup stays in it) + :110.
+  Repro (s_flows.py F1b): "Population by tract in Harris County, Texas"; model: resolve(level=tract, "every tract in
+  Texas") [unsupported], resolve(level=county, "Harris County, Texas") [helper], build_url, fetch. finish's own
+  repair fixes the URL to tract (correct), yet the response carries
+    geography_level_mismatch: "the question asks for county, tract; the URL fetches tract; no URL fetches county"
+    + geography_level_unverified
+  The question did not ask for county. Flag exists, text is wrong/noisy. (The clean recovery F1, where the model
+  re-asks tract after the county lookup, correctly raises nothing.)
+
+P1-6  LOW  asked_levels and geo_queries can fall out of alignment; a comparison leg is then replayed at the wrong level.
+  Where: api/src/geo_level.py:79-81 uses legs=len(geo_queries) but a legal-False single-place call is not appended
+  to geo_queries (api/src/ask.py:112), so it overwrites the PREVIOUS leg's level.
+  Repro (s_align.py A1): place "Austin, Texas" (legal) ; resolve(level=tract,"Texas") (unsupported, non-wildcard) ;
+  place "Houston, Texas" (legal). asked_levels == ['tract','place'] but geo_queries == ['Austin, Texas','Houston, Texas'];
+  finish replays {"places":[Austin,Houston],"levels":["tract","place"]}; Austin at tract is unsupported, so the replay
+  returns Houston alone: the Austin leg disappears from the URLs. A mismatch warning does fire, but its text
+  ("asks for place, tract; the URL fetches nothing else") describes the wrong cause. Contrived (a speculative tract
+  call in the middle of a comparison). Before the change the unsupported candidate WAS counted as a leg (the
+  ask.py:111 comment); the fix trades one misalignment for this one.
+
+P1-7  LOW  `levels` beside a single-entry `places` is refused with a wrong count ("0 places").
+  Where: api/src/geo.py:200-201.  Repro (s_derive.py D7): places=["Detroit, MI"], levels=["tract"] -> legal False,
+  "levels needs one entry per place: 0 places". A model that fills `levels` for one place (the schema text invites
+  it: "With places: one level per place") spends a failed call; two consecutive failures abort the loop
+  (ask.py:282). Tested as intended (test_levels_beside_a_single_place_are_refused_for_repair) so it is a design
+  choice, but the message is wrong (1 place, not 0).
+
+P1-8  LOW  Wording of geography_level_unverified is false in the failure-repair cases.
+  Where: api/src/geo_level.py:135 ("never stated by the model") when asked_levels is [] because the model's stated-level
+  call returned no geography (F7: stated tract, empty/failed; E1: raised). The flag fires (good) but says the model
+  never stated a level. Also geography_level_mismatch returns None when asked_levels is empty (geo_level.py:101) so
+  unmet_levels={'tract'} is ignored there (F7 shows unmet={'tract'} and only the 'unverified' flag).
+
+P1-9  LOW  Derived result lists derived tract specs as "matching geographies" in ambiguous_place.
+  Where: api/src/guards.py:217-232 + geo_within.py:52 (`specs=[*specs, *hit.specs[1:]]`).
+  Repro (s_dallas.py): "Dallas, TX" tracts -> warning ambiguous_place: "3 matching geographies: census tracts in Dallas
+  County (part), Dallas city, Texas; census tracts in Collin County (part)...; Lake Dallas city, Texas" with
+  candidates=[the two derived tract specs + Lake Dallas]. For a single-county place with a same-name place in
+  another state (Detroit MI/OR, D2) the candidate list is [derived tract spec, Detroit OR place]. A candidate picker
+  would offer a derived tract spec as if it were an alternative place. "Lake Dallas" appears as an "ambiguity" of
+  "Dallas, TX" because of the existing substring ranking (pre-existing). Flagged, not silent.
+
+P1-10 LOW  Test quality (see mutation table): test_a_repair_call_never_overwrites_the_level_the_model_stated
+  (test_level_fidelity.py ~L74-82) is VACUOUS: its repair call (level tract, "Harris County") resolves nothing, so
+  note_intent's `if not record.geographies: return` hides the behaviour; mutation L13 (drop the
+  `origin == "repair"` skip) PASSES that test. The behaviour is covered by other tests (test_level_repair.py,
+  test_ask_loop.py::test_block_group_state_listing_finishes_with_a_url), so the line is protected, but this test
+  does not check what its name says.  Mutation L14 (api/src/geo.py:194, multi-parent wildcard
+  `inferred=any(...)` forced False) survives the ENTIRE suite: multi-parent inferred propagation is untested.
+
+NOTHING found for:
+  (d) state leaking between requests: ExecutionRecord.asked_levels / unmet_levels use default_factory; LEVELS is a
+      module constant never mutated; geo_within/geo_level hold no module state; finish._SNAPSHOT does not need the
+      two new fields because repair calls (origin="repair") return before touching them (note_intent:71).
+  (c) derivation plumbing: build_url/fetch DO accept what it returns. Dallas (2 counties + Lake Dallas extra) through
+      run_ask: two per-county tract URLs, 2 legs ok, plan.geographies = the two derived specs only
+      (compare_count slices the extra off in plan_from_record, fetch.last_geographies), warnings =
+      geography_unsupported (names the counties and says the place boundary is not applied) + ambiguous_place.
+      Alias 'Tracts' works (D3). Place unknown to the listing / blank parent ('(blank)') / county or state parent
+      all fall through to the old path without error (D4-D6, D9; subject to P1-4).  acs1/vintage without the step:
+      listing never attempted (test + s_calls).  Listing raises: exception propagates (D12) -> see P1-2.
+      Listing row with a malformed `for` ("county" with no colon) builds `county:county` (D13) - only reachable
+      with a malformed listing; real list_census_names always writes `{level}:{code}`. Whether the live header
+      for `county (or part)` makes `code` come out as a county code is a Pass-2 evidence question.
+  (a) no URL and no warning: every refusal / unsupported / failed-listing path I could construct that ends without a URL
+      carries geography_unsupported or geography_not_nested. Verified NOT a regression and an improvement on main:
+      acs1+tract and unpublished level now warn (main: silent / a misleading not_nested). Pre-existing, unrelated to
+      level, not introduced here: a comparison whose second leg cannot be resolved returns only the first leg with no
+      warning (s_x3.py X3, identical on the base).
+  (b) false positives in LEGITIMATE flows (s_flows.py, all on real tools): tract-unsupported -> county -> tract (F1)
+      clean; comparison of two places by single calls (F2) and by one places call (F2b) clean; refinement of one
+      place (F3) clean; wrong level first then right (F4) clean; state lookup then county wildcard (F5) clean;
+      places call carrying one place (F8) clean; ambiguous names clean; acs1 handled by the refusal path. The only
+      false positives found are P1-5 and the contrived P1-6.
+
+------------------------------- MUTATION CHECK (e) ------------------------------------------
+Applied one at a time to a scratch copy (git archive 3a936d1), PYTHONPATH pointing at the copy so the mutated src is
+what runs; targeted tests first, then full suite for survivors. 25 mutations over the newest tests (plus A1/A2 in Pass 2).
+  KILLED (named test fails): T1 derived result legal=True ; T2 multi-county compare off ; T3 county-step check removed ;
+   T4 any number of parents ; T5 any level ; T7 reply text changed ; T8 county dropped from in_spec ;
+   L1 unsupported candidate counted as comparison leg ; L2 unserved level never recorded ; L3 served level never cleared ;
+   L4 refused counted as unserved ; L5 unmet ignored by mismatch ; L6 empty call shifts levels ; L7 levels-length check
+   removed ; L8 nationwide fallback after refusal ; L9 per-leg replace removed ; L10 comparison never inferred ;
+   L11 refusal text without published names ; L12 finish re-guesses a refusal ; L15 `level: unit` removed from split repair
+   (9 tests fail) ; L16 replay drops stated levels (test_level_repair) ; L17 state result never inferred.
+  SURVIVED: T6 (place-level guard, P1-4: survives the whole suite) ; L13 (repair-origin skip: survives its NAMED test,
+   killed only by two other tests, P1-10) ; L14 (multi-parent inferred, survives the whole suite).
+  => 22 of the 25 are killed by a test; T6 and L14 are uncovered by the whole suite; L13's dedicated test is vacuous
+  (two other tests kill it).
+(Full-suite runs on a git-less scratch copy show 4 environment failures that exist without any mutation:
+test_process x3 and test_generated_client; ignored.)
+
+PASS 1 VERDICT: no High finding. 4 Medium/Medium-Low findings (P1-1 .. P1-4), of which P1-3 is the only one that is a
+regression against origin/main (latency); P1-1 and P1-2 are holes in the new guard that let a different level through
+unflagged.
+
+###########################################################################################
+PASS 2 - PROJECT INVARIANTS
+###########################################################################################
+Order kept: the PASS 1 section above was written to this file BEFORE .claude/PLAN.md, evidence/slice-6/cc-114-plan.md,
+gate2.txt, gate2-r2.txt, evidence/ listings, commit messages or ticket text were opened. (The `git log --oneline 94566f5..3a936d1`
+subject list was read only after PASS 1 was written.)  Read for PASS 2: .claude/PLAN.md Slice 6, cc-114-plan.md (design, matrix,
+both status sections), docs/requirements.md, docs/ask-path.md, docs/ARCHITECTURE.md (diffs), docs/playbooks/review-pr.md,
+gate2.txt (headings + verdict), gate2-r2.txt, gate1-fixes.txt. No transcript of any E2E/sealed run was read.
+
+--- MACHINES (review-pr.md, in order, raw output in RAW OUTPUT below) -------------------------------------------------------
+1 uv run python scripts/check_budgets.py                      EXIT 1  only: p95 latency 22.058 > 20 (stale evidence/latest.json, run
+                                                              2026-10-30; owner's per-run waiver is approved and written later). All
+                                                              else ok: api src LOC 4876 <= 4890, files 29 <= 40, largest file 408 <= 410,
+                                                              web 3349 <= 3350, prompt tokens 1095 <= 1200, doc lines 1819 <= 1820,
+                                                              nodes 0, tools 4, routes 4, schemas 8, models 11, deps 8.
+2 uv run python scripts/check_invariants.py --base origin/main EXIT 1  only: "eval phrasing in api/src" (6 entries; known, owner-only
+                                                              baseline). budget increases ok, new regex ok, new exemptions ok, budget log ok.
+                                                              regex call sites 55 (base 55, delta +0). I also ran check_invariants on a
+                                                              git-archive copy of the base (94566f5): 5 entries there; phrase totals equal:
+                                                              'zip code tabulation area' base contract.py 2 + geo.py 5 = 7; head contract.py 2
+                                                              + geo.py 2 + geo_level.py 3 = 7 (moved, not added).
+3 uv run ruff check . / ruff format --check .                 EXIT 0 / 0  (All checks passed; 244 files already formatted)
+4 uv run mypy api/src                                         EXIT 0  (Success: no issues found in 29 source files)
+5 uv run pytest -q -m "not integration"                       1 failed, 1144 passed, 34 skipped  - the one failure is
+                                                              test_invariants.py::test_invariants_print_every_named_pattern (known; it fails
+                                                              because check_invariants exits non-zero on the leakage entries).
+Not run: scripts/generate_client.py --check (needs `npm --prefix web ci`; "openapi-typescript is not installed"); it is part of
+`make check`, not of review-pr.md's list. No web tests run.
+Reading of the machines: RED, and every red item is one of the three the owner described (leakage entries, stale p95,
+test_invariants). Nothing else is non-zero.
+
+--- (a) EVERY FINDING OF gate2-r2.txt (reviewed e0be1ee) AT 3a936d1 -----------------------------------------------------------
+P1-1 HIGH   failed/refused call between two legs misaligns asked_levels vs geo_queries; leg silently dropped
+    => RESOLVED for the reported shapes. Code: geo_level.py:77 (`if not record.geographies: return` before the positional update).
+    Repro on HEAD (s_r2.py S1, S1c): both URLs (county:201 and place:35000), asked_levels ['county','place'], warnings []. Tests that fail on
+    regression: test_a_call_that_finds_nothing_does_not_shift_the_legs_stated_levels and
+    test_a_refused_call_between_legs_does_not_shift_the_legs_stated_levels (mutation L6 removes the early return -> FAILS).
+    Residual of the same class (this review, PASS 1 P1-6): a legal-False non-wildcard candidate overwrites the previous leg's slot.
+P1-2 MEDIUM comparison/state/zcta results dropped `inferred`
+    => RESOLVED for comparison, state and single-listing shapes; zcta recorded as caught in gate1-fixes.txt. On HEAD S2 and S3 now warn
+    geography_level_unverified. Tests: test_a_level_read_from_the_words_is_marked_inferred_in_every_result_shape (my mutations L10 comparison
+    and L17 state both FAIL it). NOT covered: the multi-parent wildcard `_compare_result(..., inferred=flag)` (geo.py:194): mutation L14 survives
+    the whole suite.
+P1-3 LOW-MED mismatch guard compares SETS of levels; a leg with no URL of its own is never reported
+    => PARTLY RESOLVED. Legs with DIFFERENT levels are now reported (geo_level.py:110-111; S12 on HEAD: mismatch "no URL fetches place";
+    test_a_stated_level_with_no_url_of_its_own_is_flagged). Legs sharing a level are still invisible: s_s12.py S12b/S12c
+    (places Houston + Nowhereville, both place): ONE URL, warnings []. Pre-existing leg loss (identical on the base, X3), but the guard
+    is the only place that could see it. STILL OPEN for that case.
+P1-4 LOW    test_each_comparison_leg_is_run_at_its_own_stated_level passed on its own reverted behaviour (vacuous)
+    => RESOLVED. The test now uses county + place legs and asserts inferred is False; mutation A1 (`_resolve(side, None, ...)`) FAILS it.
+P1-5 LOW    single `places` entry + `levels` silently ignored
+    => RESOLVED as refusal-for-repair (geo.py:200; test_levels_beside_a_single_place_are_refused_for_repair; mutation L7 FAILS it).
+    Defect left: the message reports "0 places" for 1 place (PASS 1 P1-7).
+P1-6 LOW    a refused/failed call recorded as the stated level
+    => RESOLVED for asked_levels (L6, L4 killed). But the flip side is open: a refused level is recorded NOWHERE (PASS 1 P1-1), and an
+    exception records nothing (P1-2), so the substitution that follows is silent.
+P2-1 RED    leakage 6 entries vs 5 (inherited)             => ACCEPTED-WITH-REASON (owner-only baseline; standalone owner commit of 11 lines
+    follows the merge; phrase totals unchanged 7 = 7). Remains red on the machine until then.
+P2-2 RED    p95 22.058 > 20, stale latest.json (inherited)  => ACCEPTED-WITH-REASON (owner waiver per run, written later). Remains red.
+P2-3 AMBER  api LOC 4804 > 4800 (AC6)
+    => RESOLVED by the owner: base 94566f5 already carries api_src_loc 4890 (4800 -> 4820 -> 4890, PRs #123/#124). HEAD 4876 <= 4890
+    (14 lines headroom); budgets.toml at 3a936d1 is byte-identical to the base (git diff empty). Every other cap is within 1-2 units:
+    doc lines 1819/1820, largest file 408/410, web 3349/3350.
+P2-4 AMBER  docs/ask-path.md: unrelated paragraphs rewritten to fit the doc-lines cap
+    => STILL OPEN. Word diff vs base still shows rewrites and DELETED sentences in the CC-103 and geo_queries paragraphs, e.g. "so it is
+    unaffected by the point below", "a fetch that already failed doesn't block finish's own retry", "segmenting how many places are named and
+    where one ends is the model's job" reworded; 131 changed diff lines, about 11 of them the new CC-114 paragraph. Doc lines are 1819/1820 only because of it.
+P2-5 AMBER  32 files vs "under ~15"
+    => STILL OPEN: 31 files under api/ scripts/ docs/ (+ plan/gate evidence). The derivation added geo_within.py, test_tracts_in_place.py and doc
+    lines since r2. cc-114-plan.md gives no explanation (the review-pr rule is "or an explanation why not").
+P2-6 AMBER  prose scanners remain (finish._listing_query/_wrong_listing, detect_level/_nation when level is null)
+    => ACCEPTED-WITH-REASON only on the owner's say-so that CC-104 removes them (plan: "CC-104 owns removing it"; PLAN.md lists CC-104 downstream
+    of CC-114; no dated owner amendment found). `re.` call-site delta +0 (55/55). NEW this round: geo_within.py:29 calls
+    tool._resolve(names[0], None, ...), which re-enters detect_level/_nation/county-fallback on the parent's name although the model has already
+    supplied its intent (tract + parents). Not a new regex, but a new activation of the legacy scan (see PASS 1 P1-3).
+P2-9 LOW    single-caller abstractions
+    => STILL OPEN and larger: geo_level.geo_status (one caller, ask.py:104), geo_level.note_intent (one caller, ask.py:274), the whole
+    geo_within module / tracts_in_place (one caller, geo.py:182), CensusURL.for_level (one src caller, geo_level.py:108, while
+    scripts/run_demo.fetched_level and scripts/classify_geo_levels.fetched_level keep their own copy of the parse). The split is for the 410-line
+    largest-file cap; nothing in the code says so. CLAUDE.md: "Introduce an abstraction before a second caller exists. Inline it."
+P2-12 LOW   test_guards._stated()  => unchanged, by design (unverified path covered in test_level_fidelity / test_level_inferred_flow).
+P2-14 docs claim more than code
+    => PARTLY RESOLVED: `inferred` now reaches comparison/state/zcta/listing results. Still: "a stated level (also one the lookup could not serve ...)
+    has no URL" is true only when asked_levels is non-empty (geo_level.py:101 returns None on an empty list even if unmet_levels is set);
+    the doc says nothing about a refused level followed by a resend (silent) or a tool exception (silent).
+P2-15 "code runs the stated level exactly" => PARTLY RESOLVED: the tracts-in-place exception is now named in the same paragraph (ask-path.md:114);
+    a wrong-length levels is refused.
+r2 matrix verdicts AC5 and TC2 "overstated": see (c).
+
+--- (b) DELTA SINCE e0be1ee (bd8b755 round-2 fixes, 3b81799 derivation, evidence) vs THE PROJECT INVARIANTS ------------------------
+budget widened ............... NO. budgets.toml, evals/, .claude/, packages/, web/, Makefile, pyproject.toml: `git diff 94566f5 3a936d1` empty for all of them.
+                               (The owner's api_src_loc 4800 -> 4820 -> 4890 is in the base through two merged standalone PRs.) This change spends 198 of
+                               api src LOC (4678 -> 4876), 40 prompt tokens (1055 -> 1095), and gives back 1 doc line (1820 -> 1819).
+forbidden module names ....... none (geo_level.py, geo_within.py; machine ok).
+new regex / word scanning .... `re.` call sites 55 -> 55; zero `re` in geo_within.py (only exact `.split(":")` identifier parsing on codes the listing returned).
+                               No new keyword/substring reading of question wording in the diff. See P2-6 for the _resolve(None) re-entry.
+single-caller abstractions ... P2-9 above (geo_status, note_intent, tracts_in_place module, for_level).
+validator of a validator ..... none: mismatch checks URL vs stated level; unverified checks provenance of the level; neither reads the other.
+graph node / tool added ...... none (nodes 0, tools 4, schemas 8, routes 4; level/levels are parameters of the existing resolve_geography).
+prompt wording asserted ...... check_invariants "prompt assertions" ok. Tests assert code-authored `detail` substrings ("place boundary is not applied",
+                               "one entry per place", "no URL fetches tract") - code text, not LLM prose.
+eval phrasing / places in
+prompts, tool descriptions,
+api/src literals ............. none new. prompts.py/tools.py additions are generic ("county, tract, place or state"). grep of api/src for the place names used in
+                               the derivation tests (Detroit, Dallas, Wayne, Houston, Cook County, Chicago) finds only the pre-existing "Chicago -> Chicago, IL"
+                               example in tools.py:58 (not in this diff). geo_within.py contains no place name.
+URL/MOE/GEOID/universe/
+alternatives in the derived ... run through run_ask on the fixtures (s_contract.py): Detroit (1 county) and Dallas (2 counties): urls present (tract:* with
+                               county codes, `get=` carries B17001_001E and _001M), moe rows present, geoid present, universe "Population for whom poverty status is
+                               determined", table_id B17001, plan.geographies = the derived specs only, alternatives come from the search pool (0 here only because the
+                               fixture search returns one table). Refusal (unpublished level, model gives up) returns no URL, no rows, geography_unsupported.
+docs vs caps ................. doc lines 1819 <= 1820 (see P2-4 for how).
+
+--- (c) STATUS TABLES at the end of evidence/slice-6/cc-114-plan.md, row by row -----------------------------------------------------
+Tested heads: code at 3a936d1 is identical to fef4f1e (3a936d1 only adds the plan note) and to 828042c apart from budgets.toml
+(`git diff 828042c 3a936d1 -- api scripts docs` empty; budgets.toml +2/-1, the owner's raise). So "offline rows tested at fef4f1e (= 828042c +
+budget file)" is TRUE, and the live head 828042c has the same code as the head reviewed here. The table has no per-row tested-head or evidence-link
+column (run-slice.md requires them); the closing paragraph substitutes one blanket sentence.
+ AC1 NOT RUN ....... honest.
+ AC2 NOT RUN / AC2a "delivered" ... OVERSTATED as written. "Verified live: Detroit -> for=tract:*&in=state:26+county:163, 627 tracts, 3 of 3 runs" has NO
+                     committed artifact at this head (evidence/slice-6/cc-114/ holds anchor/, gate1*, gate2*, nothing under e2e-pre/; the E2E is still running).
+                     "delivered" is not one of PASS/FAIL/NOT RUN/UNKNOWN. Offline, the derivation is exercised only with a HAND-BUILT `county (or part)` row
+                     (test_tracts_in_place.listing); the real list_census_names path (which reads the county code from the response column named
+                     `county (or part)`) is not exercised by any test. Mutations T1-T5, T7, T8 are caught; T6 (the place-level guard) is not.
+ AC3 PASS ........... honest and now verified: no diff under evals/, budgets.toml equals base, leakage baseline untouched; run_demo.level_problems keeps the scalar
+                     rule and adds the per-leg list rule (test_demo_harness / test_expected_level_scoring fail when broken per r2's mutations).
+ AC4 NOT RUN ........ honest.
+ AC5 PASS ........... OVERSTATED. "40 mutations, 36 caught, 4 survivors closed" and "34 of 34 caught" describe the mutations the author chose. Independent
+                     mutations the record does not contain: T6 (geo_within.py:30 `specs[0].level == "place"`) SURVIVES THE WHOLE SUITE; L14 (geo.py:194
+                     multi-parent `inferred`) SURVIVES THE WHOLE SUITE; L13 (drop the `origin == "repair"` skip) SURVIVES its own named test
+                     (test_a_repair_call_never_overwrites_the_level_the_model_stated is vacuous: the repair call it makes resolves nothing).
+ AC6 FAIL (5c803da table) -> superseded by the fef4f1e bullet "api src 4876/4890": the LOC part is now green by the owner's raise; the row text at 5c803da still
+                     says FAIL. Remaining reds: stale p95 and leakage entries (owner-sequenced). Honest in the newest section.
+ GC1 PASS ........... honest (git order; not testable).
+ GC2 PASS (offline) . honest; run_demo per-leg mutations fail the tests (r2 evidence).
+ GC3 NOT RUN ........ honest.
+ TC1 NOT RUN ........ honest (live). Offline end-to-end tract URL tests exist (test_the_derived_url_reaches_the_user_at_tract_level_with_a_warning,
+                     test_ask_loop block group) and fail when the derived specs change (T8).
+ TC2 PASS ........... now honest for the r2 gap (failed/refused call between legs: tests exist, L6 fails them). Residual not covered: legs sharing a level with one dropped.
+ TC3 PASS ........... honest (published level with no alias; r2 mutation).
+ TC4 NOT RUN ........ honest.
+ TC5 PASS offline ... OVERSTATED. Its expected outcome is "A different-level fetch is never answered: warning with candidates or a recorded miss". Two paths
+                     answer at another level with no warning: a refused level followed by a resend at another level (PASS 1 P1-1: congressional district -> county,
+                     warnings []) and a tool exception on the stated-level call followed by a different level (P1-2: tract -> place, warnings []).
+ INH NOT RUN ........ honest.
+ Tests asserting only on code-authored text: no row relies on prompt wording.
+
+--- (d) DOCS vs CODE -------------------------------------------------------------------------------------------------------------------
+ docs/ask-path.md "The level is the model's statement" paragraph, sentence by sentence:
+   required / null / levels per place / refused for repair, two refusals stop the tool ..... matches tools.py, geo.py:200, ask.py:282.
+   "Code runs the stated level exactly" ..... true for all stated levels EXCEPT the one documented exception in line 114 (tracts in one named place).
+   unpublished level: published names, refusal stands, no re-resolve, no nationwide fallback, no URL ..... matches (test + X4); NOT stated: the model is told to
+       resend and any resend at another level is unflagged (P1-1).
+   asked_levels one per leg; empty/refused calls never change it; repair calls never change it ..... matches geo_level.py:71-81 (repair skip proven by two other tests).
+   mismatch: "a fetched for= level was not stated, or a stated level (also one the lookup could not serve ...) has no URL" ..... true when asked_levels is non-empty;
+       an unserved level with an EMPTY asked_levels is only reported through unverified, with the text "never stated by the model" (F7/E1); a tool exception records nothing.
+   unverified: "no level stated, or code inferred one in any result shape (query-word scan, county fallback, nationwide guess, finish's listing redo)" ..... matches code
+       for every result shape now; "A bare name with a stated null still resolves to a state or place by NAME match, unflagged" ..... matches (X5, X8, S10).
+   tracts in one named place (ask-path.md:114): ACS5 `county (or part)` row -> county-wide tract candidate with `geography_unsupported`, place boundary not applied ..... matches
+       geo_within.py; only fires for exactly one `parents` entry, level 'tract', the county step published for that dataset/vintage, first hit at level place. Not mentioned:
+       the extra live listing it costs on every single-parent tract request (PASS 1 P1-3); ambiguous same-name places are listed as candidates (ambiguous_place).
+ docs/requirements.md: two new rows. `geography_level_mismatch` says only "URL's for= level is not the level the model stated" (omits "a stated level has no URL"); the existing
+   `geography_unsupported` row still says "Do not substitute" and has no mention of the county-wide tracts-in-place candidate.
+ docs/ARCHITECTURE.md: geo_level.py and geo_within.py rows accurate. The shape did change (new modules) and the file was updated in the same commit set.
+
+--- (e) THE PRODUCT QUESTION: can the system still "default to place" (or any level) silently for a question that names another level? ---
+Every path that can put a URL at a level other than the one the question names, and whether it is flagged. "stated" = what the model wrote in resolve_geography.
+FLAGGED (geography_level_mismatch unless noted):
+  1. Model stated level L, a URL at another level is built or fetched, by ANY route (model's own build_url, finish listing redo, finish nationwide fallback,
+     build_url with a leftover candidate's for_spec, override plan): guard compares fetched `for=` levels to asked_levels (geo_level.py:108-111). Repro: s_dallas.py (for_spec of the
+     extra candidate -> mismatch), test_the_nationwide_fallback_cannot_hide_a_substituted_level.
+  2. Model stated L, the call came back legal False but not refused (unsupported combination, not nested, wrong-length levels) and no later URL serves L: unmet_levels ->
+     mismatch "no URL fetches L" (F1b, test_a_level_asked_for_and_not_served...). Cleared only by a later LEGAL call at L.
+  3. Model stated null, code read a level from the words (detect_level), took the county fallback for an unmatched place, took the nationwide guess, or finish redid the
+     listing from the question: geography_level_unverified (S2, S3, F1b, test_a_listing_level_read_from_the_question_is_shown_as_unverified).
+  4. Model made no resolve call that resolved anything (asked_levels []) and finish resolved: unverified "never stated by the model" (also fires, with that wording, when the
+     model DID state a level but the call failed or raised - E1/F7).
+  5. User's override plan: mismatch against the plan's own levels; unverified suppressed.
+  6. Stated level refused and the model gives up: no URL, geography_unsupported with the published names (X4).
+  7. Tracts in a place: URL is at the stated level (tract) but county-wide; geography_unsupported names the counties and says the boundary is not applied.
+  8. Table-only questions: nothing flagged by design.
+NOT FLAGGED (silent), in order of how likely a real run takes them:
+  A. Model states NULL (or leaves the level to the name) for a question that names a level, and its `query` has no level word: the code picks state (a state name) or place
+     (anything else) by NAME and sets inferred False (geo.py:262-268). Documented as "unflagged" (ask-path.md, plan). Repro X5: "Population by census tract in Chicago" with level
+     null and query "Chicago, IL" -> for=place, warnings []. This is the literal "defaults to place" path; it relies on the model writing a level.
+  B. Model states an UNPUBLISHED level, is refused, and resends with a different published level (tool description invites it): asked_levels holds only the resend, the refused
+     level is recorded nowhere (geo_level.py:74-76). Repro X1 (congressional district -> county) and X2 (neighborhood -> null -> place): URL, warnings [].
+  C. The stated-level call raises (tool exception: the new `county (or part)` listing, any listing failure) and the model resolves again at another level: dispatch records nothing
+     for an exception (ask.py:263-277). Repro E2: tract -> (listing raises) -> place URL, warnings [].
+  D. The model states the WRONG level for what the user asked (e.g. "place" for "tracts in Chicago"): every guard compares against the model's statement, never the question. The
+     second model call (plan_split frame.level, used for completeness only in finish.incomplete) is not compared with asked_levels. This is the irreducible model-owned-intent path.
+  E. A dropped comparison leg when legs share a level (S12b/S12c, X3; pre-existing): not a level substitution but a missing geography without a warning.
+  F. build_url given a leftover candidate of the SAME level but another place: ambiguous_place warns (not a level issue).
+So: there is no remaining code path in which the CODE chooses a level different from a stated one without a flag, except B and C (the model is allowed to change its statement and the
+record of the earlier one is lost) and the explicitly documented null-with-bare-name default (A).
+
+--- NEW FINDINGS OF THIS PASS (beyond gate2-r2) -------------------------------------------------------------------------------------------
+P2-N1 MEDIUM  TC5/AC2 rows overstated and two silent-other-level paths (PASS 1 P1-1, P1-2) contradict the ticket's own "nothing that fails silently".
+P2-N2 MEDIUM  Live claim for the derivation ("Verified live ... 3 of 3 runs") has no committed artifact at this head; the real-listing parse of `county (or part)` is untested offline.
+P2-N3 LOW     AC5 "34 of 34" omits three behaviours that survive (T6, L13-named test, L14); the evidence file gate1-fixes.txt is not a per-test record.
+P2-N4 LOW     Status table lacks the per-row columns run-slice.md requires (tested head, evidence link, reviewer verification).
+P2-N5 LOW     requirements.md `geography_unsupported` still says "Do not substitute" while the derivation ships a county-wide candidate (warned); `geography_level_mismatch` row omits the "no URL" half.
+
+--- VERDICT (review-pr.md reading) ------------------------------------------------------------------------------------------------
+NOT YET.
+Most important reason: two paths still let a URL at a different level than the model first asked for reach the user with no warning (a refused level followed by a resend, and a
+tool exception on the stated-level call), which is exactly TC5's "never answered" and the ticket's "nothing that fails silently"; both are fixable inside note_intent/dispatch.
+Behind it: the derivation costs one extra live listing on every single-parent tract request (latency, with p95 already over its ceiling); its place-level guard has no failing test;
+the status table calls AC2a "delivered/verified live" without a committed artifact and marks AC5/TC5 PASS with the gaps above; ask-path.md still carries unrelated rewrites made
+to fit the doc cap; the live E2E rows (AC2, AC4, TC1, TC4, GC3, INH) are NOT RUN and the three machine reds are the owner's. No High finding in either pass; nothing here is a
+budget widening, a forbidden module, new regex or a prompt/eval-phrase leak.
+
+
+###########################################################################################
+RAW OUTPUT (commands as run; scripts are in the agent scratchpad named in the header)
+###########################################################################################
+
+===== review-pr.md machines: check_budgets, check_invariants --base origin/main, ruff check, ruff format --check, mypy =====
+
+git : From https://github.com/johnhillescobar/census-concierge
+At line:4 char:1
++ git fetch --no-tags origin main 2>&1 | Out-String | Add-Content $out
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (From https://gi...ensus-concierge:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ * branch            main       -> FETCH_HEAD
+
+origin/main -> 94566f5b7a4ae7e671be67f7655382619e31f7a0
+
+##### uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4876 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1819 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         22.058 <= 20
+        run 2026-10-30T12:05:43+00:00; slowest trial 77.513s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1             0.85 >= 0.7
+  ok    answered_rate            0.733 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 22.058 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+
+EXIT: 1
+
+##### uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  FAIL  eval phrasing in api/src       
+        api/src/contract.py:29
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/contract.py  # reason`, by a human.
+        api/src/geo.py:36
+        eval phrasing in api/src (regex2: 'united states'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|united states|api/src/geo.py  # reason`, by a human.
+        api/src/geo.py:351
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 2 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo.py  # reason`, by a human.
+        api/src/geo_level.py:28
+        eval phrasing in api/src (gram4: 'zip code tabulation area'), 3 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `gram4|zip code tabulation area|api/src/geo_level.py  # reason`, by a human.
+        api/src/geo_list.py:80
+        eval phrasing in api/src (regex2: 'district columbia'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|district columbia|api/src/geo_list.py  # reason`, by a human.
+        api/src/guards.py:32
+        eval phrasing in api/src (regex2: 'statistical area'), 1 occurrence(s) where 0 are baselined. Remove it. Plain domain vocabulary may be added to evals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+6 violation(s).
+
+
+EXIT: 1
+
+##### uv run ruff check .
+All checks passed!
+
+EXIT: 0
+
+##### uv run ruff format --check .
+244 files already formatted
+
+EXIT: 0
+
+##### uv run mypy api/src
+Success: no issues found in 29 source files
+
+EXIT: 0
+
+===== uv run pytest -q -m "not integration"  (tail) =====
+vals/leakage_baseline.txt as `regex2|statistical area|api/src/guards.py  # reason`, by a human.
+  skip  budget increases                 pass --base to diff against a ref
+  skip  new regex                        pass --base to diff against a ref
+  skip  new exemptions                   pass --base to diff against a ref
+
+6 violation(s).
+
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.claude\worktrees\agent-a1beed98b5d1a6b43\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_invariants_print_every_named_pattern
+1 failed, 1144 passed, 34 skipped, 1 warning in 71.45s (0:01:11)
+
+
+===== NOTE on s_flows.py F9: ACS1 tract flow printed URLS [] because the scripted model called build_url without dataset=acs1 (fixture/script artifact; s_f9.py with dataset acs1 gives the acs1 tract URL). With tract removed from the metadata (real ACS1) the head refuses with the published list; the base answered with a misleading geography_not_nested (see s_base.py output below). =====
+
+===== PASS 1 reproductions (s_derive, s_flows, s_calls, s_dallas, s_refuse, s_align, s_err, s_base on HEAD and BASE, s_x3 on BASE) =====
+
+##### uv run python s_derive.py   (HEAD 3a936d1)
+== D1 Dallas multi-county {'level': 'tract', 'query': 'tracts in Dallas', 'parents': ['Dallas, TX']}
+  content: wildcard tract:* state:48 county:113; tract:* state:48 county:085
+  legal=False compare=True count=2 inferred=False refused=False wildcard=True
+   spec: tract tract:* | state:48 county:113 | census tracts in Dallas County (part), Dallas city, Texas
+   spec: tract tract:* | state:48 county:085 | census tracts in Collin County (part), Dallas city, Texas
+   spec: place place:40516 | state:48 | Lake Dallas city, Texas
+  detail: tracts inside a place are not published; showing every tract in the 2 county(ies) Dallas city, Texas lies in (Dallas County (part), Dallas city, Texas; Collin County (part), Dallas city, Texas). The place boundary is not applied
+== D2 Detroit no state {'level': 'tract', 'query': 'tracts in Detroit', 'parents': ['Detroit']}
+  content: wildcard tract:* state:26 county:163
+  legal=False compare=False count=0 inferred=False refused=False wildcard=True
+   spec: tract tract:* | state:26 county:163 | census tracts in Wayne County (part), Detroit city, Michigan
+   spec: place place:19100 | state:41 | Detroit city, Oregon
+  detail: tracts inside a place are not published; showing every tract in the 1 county(ies) Detroit city, Michigan lies in (Wayne County (part), Detroit city, Michigan). The place boundary is not applied
+== D3 alias 'Tracts' {'level': 'Tracts', 'query': 'every tract in PARENT', 'parents': ['Detroit, MI']}
+  content: wildcard tract:* state:26 county:163
+  legal=False compare=False count=0 inferred=False refused=False wildcard=True
+   spec: tract tract:* | state:26 county:163 | census tracts in Wayne County (part), Detroit city, Michigan
+  detail: tracts inside a place are not published; showing every tract in the 1 county(ies) Detroit city, Michigan lies in (Wayne County (part), Detroit city, Michigan). The place boundary is not applied
+== D4 blank parent {'level': 'tract', 'query': 'every tract in PARENT', 'parents': ['']}
+  content: tract does not nest in (PARENT)
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract does not nest in (PARENT)
+== D5 level tract, county name {'level': 'tract', 'query': 'every tract in PARENT', 'parents': ['Wayne County, MI']}
+  content: tract does not nest in (PARENT)
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract does not nest in (PARENT)
+== D6 State College-like name {'level': 'tract', 'query': 'every tract in PARENT', 'parents': ['Lake Dallas, TX']}
+  content: tract does not nest in (PARENT)
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract does not nest in (PARENT)
+== D7 places=[one] with levels {'level': 'tract', 'query': 'every tract in PARENT', 'places': ['Detroit, MI'], 'levels': ['tract']}
+  content: levels needs one entry per place: 0 places
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: levels needs one entry per place: 0 places
+== D8 parents=[Detroit,MI] level None {'level': None, 'query': 'tracts in Detroit', 'parents': ['Detroit, MI']}
+  content: tract with in={} is not a legal combination
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract with in={} is not a legal combination
+== D9 place not in COUNTIES (Chicago) {'level': 'tract', 'query': 'tracts in Chicago', 'parents': ['Chicago, IL']}
+  content: tract with in={} is not a legal combination
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract with in={} is not a legal combination
+== D10 whole 'Springfield' ambiguity no state {'level': 'tract', 'query': 'tracts in Springfield', 'parents': ['Springfield']}
+  content: tract with in={} is not a legal combination
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract with in={} is not a legal combination
+== D11 block group in place {'level': 'block group', 'query': 'every tract in PARENT', 'parents': ['Detroit, MI']}
+  content: unknown geography level 'block group'; published here: state, county, place, tract, zip code tabulation area, county (or part)
+  legal=False compare=False count=0 inferred=False refused=True wildcard=False
+  detail: unknown geography level 'block group'; published here: state, county, place, tract, zip code tabulation area, county (or part)
+== D12 listing raises
+  EXC OSError census 400
+== D13 listing returns names with blank 'for'
+  content: wildcard tract:* state:26 county:county
+  legal=False compare=False count=0 inferred=False refused=False wildcard=True
+   spec: tract tract:* | state:26 county:county | census tracts in Weird
+  detail: tracts inside a place are not published; showing every tract in the 1 county(ies) Detroit city, Michigan lies in (Weird). The place boundary is not applied
+
+##### uv run python s_flows.py   (HEAD 3a936d1)
+===== F1 tract unsupported -> county -> tracts (legit recovery) | Population by tract in Harris County, Texas
+   step: search_tables {}
+   step: resolve_geography {'level': 'tract', 'query': 'every tract in Texas'}
+   step: resolve_geography {'level': 'county', 'query': 'Harris County, Texas'}
+   step: resolve_geography {'level': 'tract', 'query': 'every tract in Harris County, Texas', 'parents': ['Harris County, Texas']}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=tract:*&in=state:48+county:201']
+  warnings: []
+  record.asked_levels=['tract'] unmet=set()
+===== F1b tract unsupported then county only (silently falls back?) | Population by tract in Harris County, Texas
+   step: search_tables {}
+   step: resolve_geography {'level': 'tract', 'query': 'every tract in Texas'}
+   step: resolve_geography {'level': 'county', 'query': 'Harris County, Texas'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=tract:*&in=state:48+county:201']
+  warnings: [('geography_level_mismatch', 'the question asks for county, tract; the URL fetches tract; no URL fetches county. The URL is shown, but its rows do not answer the geography asked'), ('geography_level_unverified', "the level was inferred from the place name or its words; check the URL's for= level before relying on it")]
+  record.asked_levels=['county'] unmet={'tract'}
+===== F2 compare place vs county, single calls | Compare population of Chicago and Cook County
+   step: search_tables {}
+   step: resolve_geography {'level': 'place', 'query': 'Chicago, Illinois'}
+   step: resolve_geography {'level': 'county', 'query': 'Cook County, Illinois'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17']
+  warnings: []
+  record.asked_levels=['place', 'county'] unmet=set()
+===== F2b compare place vs county, places call | Compare population of Chicago and Cook County
+   step: search_tables {}
+   step: resolve_geography {'level': None, 'levels': ['place', 'county'], 'query': 'x', 'places': ['Chicago, Illinois', 'Cook County, Illinois']}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17']
+  warnings: []
+  record.asked_levels=['place', 'county'] unmet=set()
+===== F3 refine one place | Population of Springfield, Illinois
+   step: search_tables {}
+   step: resolve_geography {'level': 'place', 'query': 'Springfield'}
+   step: resolve_geography {'level': 'place', 'query': 'Springfield, Illinois'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:72000&in=state:17']
+  warnings: []
+  record.asked_levels=['place'] unmet=set()
+===== F4 wrong level first then right | Population of Cook County, Illinois
+   step: search_tables {}
+   step: resolve_geography {'level': 'place', 'query': 'Cook County, Illinois'}
+   step: resolve_geography {'level': 'county', 'query': 'Cook County, Illinois'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17']
+  warnings: []
+  record.asked_levels=['county'] unmet=set()
+===== F5 state lookup then county wildcard | Population of every county in Illinois
+   step: search_tables {}
+   step: resolve_geography {'level': 'state', 'query': 'Illinois'}
+   step: resolve_geography {'level': 'county', 'query': 'every county in Illinois'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:*&in=state:17']
+  warnings: []
+  record.asked_levels=['county'] unmet=set()
+===== F6 level stated place but model builds county (no resolve of county) | Population of Chicago
+   step: search_tables {}
+   step: resolve_geography {'level': 'place', 'query': 'Chicago, Illinois'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17']
+  warnings: []
+  record.asked_levels=['place'] unmet=set()
+===== F7 fail resolve (no specs) then nothing | Population by tract in Harris County, Texas
+   step: search_tables {}
+   step: resolve_geography {'level': 'tract', 'query': 'Harris County tracts'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=tract:*&in=state:48+county:201']
+  warnings: [('geography_level_unverified', "the level was never stated by the model; check the URL's for= level before relying on it")]
+  record.asked_levels=[] unmet={'tract'}
+===== F8 single places call level present | Population of Chicago
+   step: search_tables {}
+   step: resolve_geography {'level': 'place', 'query': 'Chicago', 'places': ['Chicago, Illinois']}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17']
+  warnings: []
+  record.asked_levels=['place'] unmet=set()
+===== F9 acs1 tract wildcard | Population by tract in Harris County, Texas
+   step: search_tables {}
+   step: resolve_geography {'level': 'tract', 'query': 'every tract in Harris County, Texas', 'parents': ['Harris County, Texas'], 'dataset': 'acs1'}
+   step: build_url {'table_id': 'B01003'}
+   step: fetch_data {}
+  URLS: []
+  warnings: []
+  record.asked_levels=['tract'] unmet=set()
+
+##### uv run python s_calls.py   (HEAD 3a936d1)
+== with county-or-part step
+   ['Harris County, Texas'] -> [('tract', 'tract:*', 'state:48 county:201')] legal True
+   listing calls: [('county', {'state': '48'}), ('county', {'state': '48'})]
+   ['Texas'] -> [('tract', 'tract:*', 'state:48')] legal False
+   listing calls: []
+== without step (base-like metadata)
+   ['Harris County, Texas'] -> [('tract', 'tract:*', 'state:48 county:201')] legal True
+   listing calls: [('county', {'state': '48'})]
+   ['Texas'] -> [('tract', 'tract:*', 'state:48')] legal False
+   listing calls: []
+
+##### uv run python s_dallas.py   (HEAD 3a936d1)
+== Dallas tracts (2 counties + Lake Dallas extra)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:48+county:113', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:48+county:085']
+  warnings: [('geography_unsupported', 'tracts inside a place are not published; showing every tract in the 2 county(ies) Dallas city, Texas lies in (Dallas County (part), Dallas city, Texas; Collin County (par'), ('ambiguous_place', '3 matching geographies: census tracts in Dallas County (part), Dallas city, Texas; census tracts in Collin County (part), Dallas city, Texas; Lake Dallas city, Texas')]
+  record.asked_levels=['tract'] unmet={'tract'}
+  geo_status: {'legal': False, 'detail': 'tracts inside a place are not published; showing every tract in the 2 county(ies) Dallas city, Texas lies in (Dallas County (part), Dallas city, Texas; Collin County (part), Dallas city, Texas). The place boundary is not applied', 'nested': True, 'compare': True, 'compare_count': 2, 'inferred': False, 'refused': False}
+  plan geos: [('tract', 'state:48 county:113'), ('tract', 'state:48 county:085')]
+  rows: 2 legs: [('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:48+county:113', True), ('https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:48+county:085', True)]
+  ambiguous candidates: [['census tracts in Dallas County (part), Dallas city, Texas', 'census tracts in Collin County (part), Dallas city, Texas', 'Lake Dallas city, Texas']]
+== Detroit tracts, model then builds with for_spec of the extra Detroit OR candidate
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:19100&in=state:41']
+  warnings: [('geography_unsupported', 'tracts inside a place are not published; showing every tract in the 1 county(ies) Detroit city, Michigan lies in (Wayne County (part), Detroit city, Michigan). The place '), ('ambiguous_place', '2 matching geographies: census tracts in Wayne County (part), Detroit city, Michigan; Detroit city, Oregon'), ('geography_level_mismatch', 'the question asks for tract; the URL fetches place; no URL fetches tract. The URL is shown, but its rows do not answer the geography asked')]
+  record.asked_levels=['tract'] unmet={'tract'}
+== Detroit tracts, model asks level=place then (wrongly) tract-derived
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:22000&in=state:26']
+  warnings: []
+  record.asked_levels=['place'] unmet=set()
+== places call: two places both tract level via parents? (places with level tract)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:19000&in=state:48']
+  warnings: [('ambiguous_place', '2 matching geographies: Dallas city, Texas; Lake Dallas city, Texas'), ('geography_level_mismatch', 'the question asks for tract; the URL fetches place; no URL fetches tract. The URL is shown, but its rows do not answer the geography asked')]
+  record.asked_levels=['tract', 'tract'] unmet={'tract'}
+
+##### uv run python s_refuse.py   (HEAD 3a936d1)
+== X1 refused level then model resends a different published level (substitution)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:*&in=state:48']
+  warnings: []
+  record.asked_levels=['county'] unmet=set()
+== X2 refused level then model resends level null
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17']
+  warnings: []
+  record.asked_levels=[None] unmet=set()
+== X3 two places, one unresolvable, same level (silent drop of a leg?)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17']
+  warnings: []
+  record.asked_levels=['place', 'place'] unmet=set()
+== X4 refuse then nothing (model gives up)
+  URLS: []
+  warnings: [('geography_unsupported', "unknown geography level 'neighborhood'; published here: state, county, place, tract, zip code tabulation area, county (or part)")]
+  record.asked_levels=[] unmet=set()
+== X5 level null, name-only query for a tract question (silent default to place?)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17']
+  warnings: []
+  record.asked_levels=[None] unmet=set()
+== X6 level null, US question
+  URLS: []
+  warnings: []
+  record.asked_levels=[] unmet=set()
+== X7 level state for 'Texas'
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=state:48']
+  warnings: []
+  record.asked_levels=['state'] unmet=set()
+== X8 level null for 'Texas'
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=state:48']
+  warnings: []
+  record.asked_levels=[None] unmet=set()
+
+##### uv run python s_align.py   (HEAD 3a936d1)
+== A1 place Austin, unsupported tract (non-wildcard), place Houston
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: [('geography_level_mismatch', 'the question asks for place, tract; the URL fetches nothing else; no URL fetches tract. The URL is shown, but its rows do not answer the geography asked')]
+  record.asked_levels=['tract', 'place'] unmet={'tract'}
+  geo_queries []
+== A2 county Harris, place Houston, then a helper 'state' lookup for Texas (3 legs)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=state:48']
+  warnings: []
+  record.asked_levels=['county', 'place', 'state'] unmet=set()
+  geo_queries []
+
+##### uv run python s_err.py   (HEAD 3a936d1)
+== E1 county-or-part listing raises (HTTP 400 live), model retries twice
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:26']
+  warnings: [('geography_unsupported', "tract with in={'state': '26'} is not a legal combination"), ('geography_level_unverified', "the level was never stated by the model; check the URL's for= level before relying on it")]
+  record.asked_levels=[] unmet=set()
+  geo_status: {'legal': False, 'detail': "tract with in={'state': '26'} is not a legal combination", 'nested': True, 'compare': False, 'compare_count': 0, 'inferred': False, 'refused': False}
+  geographies: [('tract', 'tract:*', 'state:26')]
+== E2 same, model retries once then gives up with a different level
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=place:22000&in=state:26']
+  warnings: []
+  record.asked_levels=['place'] unmet=set()
+
+##### s_base.py on HEAD
+-- acs1 tract wildcard (tract unpublished)
+  URLS: []
+  warnings: [('geography_unsupported', "unknown geography level 'tract'; published here: state, county, place, zip code tabulation area")]
+  geos: [] {'legal': False, 'detail': "unknown geography level 'tract'; published here: state, county, place, zip code tabulation area", 'nested': True, 'compare': False, 'compare_count': 0, 'inferred': False, 'refused': True}
+-- unpublished level congressional district
+  URLS: []
+  warnings: [('geography_unsupported', "unknown geography level 'congressional district'; published here: state, county, place, tract, zip code tabulation area")]
+  geos: [] {'legal': False, 'detail': "unknown geography level 'congressional district'; published here: state, county, place, tract, zip code tabulation area", 'nested': True, 'compare': False, 'compare_count': 0, 'inferred': False, 'refused': True}
+
+##### s_base.py on BASE 94566f5 (git archive copy)
+-- acs1 tract wildcard (tract unpublished)
+  URLS: []
+  warnings: [('geography_not_nested', 'tract does not nest in county (Harris County, Texas); splitting it needs block-level areal allocation, which is out of scope')]
+  geos: [] {'legal': False, 'detail': 'tract does not nest in county (Harris County, Texas)', 'nested': False, 'compare': False, 'compare_count': 0}
+-- unpublished level congressional district
+  URLS: []
+  warnings: []
+  geos: [] {'legal': True, 'detail': "no place matched 'Population by congressional district in Texas'", 'nested': True, 'compare': False, 'compare_count': 0}
+
+##### s_x3.py on BASE
+-- X3: two places, one unresolvable
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:1714000&in=state:17']
+  warnings: []
+
+
+===== PASS 2 reproductions (gate2-r2 scenarios S1, S1c, S2, S3, S10, S12/S12b/S12c; derived-answer contract fields) =====
+
+##### uv run python s_r2.py   (HEAD 3a936d1)
+== r2 S1 failed call between two legs
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: []
+  record.asked_levels=['county', 'place'] unmet=set()
+== r2 S1c refusal between two legs
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: []
+  record.asked_levels=['county', 'place'] unmet=set()
+== r2 S2 null levels, county fallback inside a comparison
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:031&in=state:17', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48']
+  warnings: [('geography_level_unverified', "the level was inferred from the place name or its words; check the URL's for= level before relying on it")]
+  record.asked_levels=[None, None] unmet=set()
+== r2 S3 level null 'state of Texas'
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=state:48']
+  warnings: [('geography_level_unverified', "the level was inferred from the place name or its words; check the URL's for= level before relying on it")]
+  record.asked_levels=[None] unmet=set()
+== r2 S12 places county + unresolvable place, levels county/place
+  URLS: []
+  warnings: []
+  record.asked_levels=['county', 'place'] unmet=set()
+== r2 S12b same, SAME level on both legs (place/place)
+  URLS: []
+  warnings: []
+  record.asked_levels=['place', 'place'] unmet=set()
+== r2 S10 level null Houston
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: []
+  record.asked_levels=[None] unmet=set()
+
+##### uv run python s_s12.py   (HEAD 3a936d1)
+== S12 distinct levels, one unresolvable
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48']
+  warnings: [('geography_level_mismatch', 'the question asks for county, place; the URL fetches nothing else; no URL fetches place. The URL is shown, but its rows do not answer the geography asked')]
+  record.asked_levels=['county', 'place'] unmet=set()
+== S12b same level both legs, one unresolvable
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: []
+  record.asked_levels=['place', 'place'] unmet=set()
+== S12c same level, levels omitted, level=place
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=place:35000&in=state:48']
+  warnings: []
+  record.asked_levels=['place', 'place'] unmet=set()
+
+##### uv run python s_contract.py   (HEAD 3a936d1)
+== Detroit (1 county)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:26+county:163']
+  warnings: [('geography_unsupported', 'tracts inside a place are not published; showing every tract in the 1 county(ies) Detroit city, Michigan lies in (Wayne County (part), Detroit city, Michigan). The place ')]
+  record.asked_levels=['tract'] unmet={'tract'}
+  urls: 1 geoid: 0500000US48201 universe: Population for whom poverty status is determined table: B17001
+  moe rows: [{'GEO_ID': '0500000US48201', 'NAME': 'Harris County, Texas', 'B01003_001M': '123'}]
+  alternatives: 0 rows: 1 plan geos: 1
+  chart: None
+== Dallas (2 counties)
+  URLS: ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:48+county:113', 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B17001_001E,B17001_001M&for=tract:*&in=state:48+county:085']
+  warnings: [('geography_unsupported', 'tracts inside a place are not published; showing every tract in the 2 county(ies) Dallas city, Texas lies in (Dallas County (part), Dallas city, Texas; Collin County (par'), ('ambiguous_place', '3 matching geographies: census tracts in Dallas County (part), Dallas city, Texas; census tracts in Collin County (part), Dallas city, Texas; Lake Dallas city, Texas')]
+  record.asked_levels=['tract'] unmet={'tract'}
+  urls: 2 geoid: 0500000US48201 universe: Population for whom poverty status is determined table: B17001
+  moe rows: [{'GEO_ID': '0500000US48201', 'NAME': 'Harris County, Texas', 'B01003_001M': '123'}, {'GEO_ID': '0500000US48201', 'NAME': 'Harris County, Texas', 'B01003_001M': '123'}]
+  alternatives: 0 rows: 2 plan geos: 2
+  chart: None
+
+##### mutate.py A1 A2 (gate2-r2 findings P1-4 and P1-L3 re-verified)
+A1: KILLED test_each_comparison_leg_is_run_at_its_own_stated_level when _resolve(side, None, ...) replaces _resolve(side, lv, ...)
+A2: KILLED test_the_mismatch_message_names_a_missing_stated_level_plainly when the 'no stated level' fallback is removed
+
+===== s_derive.py second run (queries made realistic; D4+ cases; D12 listing raises, D13 malformed row) =====
+== D4 blank parent {'level': 'tract', 'query': 'every tract in PARENT', 'parents': ['']}
+  content: tract does not nest in (PARENT)
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract does not nest in (PARENT)
+== D5 level tract, county name {'level': 'tract', 'query': 'every tract in PARENT', 'parents': ['Wayne County, MI']}
+  content: tract does not nest in (PARENT)
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract does not nest in (PARENT)
+== D6 State College-like name {'level': 'tract', 'query': 'every tract in PARENT', 'parents': ['Lake Dallas, TX']}
+  content: tract does not nest in (PARENT)
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract does not nest in (PARENT)
+== D7 places=[one] with levels {'level': 'tract', 'query': 'every tract in PARENT', 'places': ['Detroit, MI'], 'levels': ['tract']}
+  content: levels needs one entry per place: 0 places
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: levels needs one entry per place: 0 places
+== D8 parents=[Detroit,MI] level None {'level': None, 'query': 'tracts in Detroit', 'parents': ['Detroit, MI']}
+  content: tract with in={} is not a legal combination
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract with in={} is not a legal combination
+== D9 place not in COUNTIES (Chicago) {'level': 'tract', 'query': 'tracts in Chicago', 'parents': ['Chicago, IL']}
+  content: tract with in={} is not a legal combination
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract with in={} is not a legal combination
+== D10 whole 'Springfield' ambiguity no state {'level': 'tract', 'query': 'tracts in Springfield', 'parents': ['Springfield']}
+  content: tract with in={} is not a legal combination
+  legal=False compare=False count=0 inferred=False refused=False wildcard=False
+  detail: tract with in={} is not a legal combination
+== D11 block group in place {'level': 'block group', 'query': 'every tract in PARENT', 'parents': ['Detroit, MI']}
+  content: unknown geography level 'block group'; published here: state, county, place, tract, zip code tabulation area, county (or part)
+  legal=False compare=False count=0 inferred=False refused=True wildcard=False
+  detail: unknown geography level 'block group'; published here: state, county, place, tract, zip code tabulation area, county (or part)
+== D12 listing raises
+  EXC OSError census 400
+== D13 listing returns names with blank 'for'
+  content: wildcard tract:* state:26 county:county
+  legal=False compare=False count=0 inferred=False refused=False wildcard=True
+   spec: tract tract:* | state:26 county:county | census tracts in Weird
+  detail: tracts inside a place are not published; showing every tract in the 1 county(ies) Detroit city, Michigan lies in (Weird). The place boundary is not applied
+
+===== Mutation run, targeted tests (mutate.py; scratch copy of git archive 3a936d1; PYTHONPATH=copy) =====
+T1: KILLED (tests fail) | T1 derived result marked legal (legal=False -> True)
+     ['FAILED api/tests/test_tracts_in_place.py::test_tracts_in_a_place_are_the_tracts_of_the_county_it_lies_in', '1 failed, 1 warning in 0.45s']
+T2: KILLED (tests fail) | T2 multi-county not a comparison (compare=len>1 -> False)
+     ['FAILED api/tests/test_tracts_in_place.py::test_a_place_in_several_counties_gets_the_tracts_of_each', '1 failed, 1 warning in 0.27s']
+T3: KILLED (tests fail) | T3 county-step check removed (not step ignored)
+     ['FAILED api/tests/test_tracts_in_place.py::test_without_the_county_step_nothing_is_derived_and_nothing_is_asked', '1 failed, 1 warning in 0.36s']
+T4: KILLED (tests fail) | T4 any number of parents derived (len(names) != 1 -> < 1)
+     ['FAILED api/tests/test_tracts_in_place.py::test_only_a_tract_request_beside_one_named_place_is_derived', '1 failed, 1 warning in 0.32s']
+T5: KILLED (tests fail) | T5 any level derived (tract check removed)
+     ['FAILED api/tests/test_tracts_in_place.py::test_only_a_tract_request_beside_one_named_place_is_derived', '1 failed, 1 warning in 0.34s']
+T6: SURVIVED (tests still pass) | T6 non-place first hit derived (place check removed)
+     ['2 passed, 1 warning in 0.17s']
+T7: KILLED (tests fail) | T7 model told 'not published' (content changed)
+     ['FAILED api/tests/test_tracts_in_place.py::test_the_model_is_told_the_derived_tracts_as_an_ordinary_success', '1 failed, 1 warning in 0.43s']
+T8: KILLED (tests fail) | T8 derived specs drop the county (in_spec state only)
+     ['FAILED api/tests/test_tracts_in_place.py::test_tracts_in_a_place_are_the_tracts_of_the_county_it_lies_in', '1 failed, 1 warning in 0.33s']
+L1: KILLED (tests fail) | L1 unsupported candidate counted as comparison leg
+     ['FAILED api/tests/test_level_fidelity.py::test_an_unsupported_candidate_is_not_a_comparison_leg', '1 failed, 1 warning in 0.49s']
+L2: KILLED (tests fail) | L2 unserved level never recorded
+     ['FAILED api/tests/test_level_fidelity.py::test_a_level_asked_for_and_not_served_cannot_be_swapped_for_place_without_a_flag', '1 failed, 1 warning in 0.40s']
+L3: KILLED (tests fail) | L3 served level never cleared
+     ['FAILED api/tests/test_level_fidelity.py::test_an_unserved_level_is_cleared_once_a_later_call_serves_it', '1 failed, 1 warning in 0.44s']
+L4: KILLED (tests fail) | L4 refused level counted as unserved
+     ['FAILED api/tests/test_level_fidelity.py::test_a_level_name_that_is_not_published_is_not_an_unserved_request', '1 failed, 1 warning in 0.40s']
+L5: KILLED (tests fail) | L5 unmet levels ignored by mismatch guard
+     ['FAILED api/tests/test_level_fidelity.py::test_an_unserved_level_not_covered_by_the_url_is_flagged_and_a_covered_one_is_not', '1 failed, 1 warning in 0.41s']
+L6: KILLED (tests fail) | L6 empty call shifts stated levels (early return removed)
+     ['FAILED api/tests/test_level_fidelity.py::test_a_call_that_finds_nothing_does_not_shift_the_legs_stated_levels', '1 failed, 1 warning in 0.48s']
+L7: KILLED (tests fail) | L7 levels length check removed
+     ['FAILED api/tests/test_level_fidelity.py::test_levels_beside_a_single_place_are_refused_for_repair', '1 failed, 1 warning in 0.57s']
+L8: KILLED (tests fail) | L8 nationwide fallback after refusal (not refused removed)
+     ['FAILED api/tests/test_level_fidelity.py::test_a_refused_level_is_not_followed_by_the_nationwide_fallback', '1 failed, 1 warning in 0.40s']
+L9: KILLED (tests fail) | L9 legs not tracked per leg (asked_levels replaced)
+     ['FAILED api/tests/test_level_fidelity.py::test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level', '1 failed, 1 warning in 0.44s']
+L10: KILLED (tests fail) | L10 comparison result never inferred
+     ['FAILED api/tests/test_level_fidelity.py::test_a_level_read_from_the_words_is_marked_inferred_in_every_result_shape', '1 failed, 1 warning in 0.40s']
+L11: KILLED (tests fail) | L11 refusal text drops published names
+     ['FAILED api/tests/test_level_fidelity.py::test_an_unpublished_level_is_refused_with_the_published_names', '1 failed, 1 warning in 0.37s']
+L12: KILLED (tests fail) | L12 finish re-guesses a refusal (refused ignored in listing redo)
+     ['FAILED api/tests/test_level_fidelity.py::test_a_refused_level_stands_and_is_not_re_guessed_from_the_question', '1 failed, 1 warning in 0.39s']
+L13: SURVIVED (tests still pass) | L13 repair call overwrites stated level (origin repair ignored)
+     ['1 passed, 1 warning in 0.24s']
+
+===== Mutation run, FULL suite on a scratch copy for survivors (mutate_full.py; 4 failures per run are environment: test_process x3 + test_generated_client, present without any mutation) =====
+L13 rc 1
+        # that is shown as unverified, not passed off as a level the model stated.
+FAILED api/tests/test_ask_loop.py::test_block_group_state_listing_finishes_with_a_url
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+FAILED api/tests/test_level_repair.py::test_a_repair_resolution_never_replaces_the_level_the_model_stated
+FAILED api/tests/test_process.py::test_every_pinned_commit_is_reachable - Ass...
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[0]
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[1]
+6 failed, 1076 passed, 34 skipped, 63 deselected, 1 warning in 62.61s (0:01:02)
+T6 rc 1
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+FAILED api/tests/test_process.py::test_every_pinned_commit_is_reachable - Ass...
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[0]
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[1]
+4 failed, 1078 passed, 34 skipped, 63 deselected, 1 warning in 60.10s (0:01:00)
+L14 rc 1
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+FAILED api/tests/test_process.py::test_every_pinned_commit_is_reachable - Ass...
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[0]
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[1]
+4 failed, 1078 passed, 34 skipped, 63 deselected, 1 warning in 59.45s
+L15 rc 1
+FAILED api/tests/test_finish.py::test_listing_that_kept_one_parent_is_resolved_with_every_parent
+FAILED api/tests/test_finish.py::test_listing_resolved_at_the_wrong_level_is_resolved_again
+FAILED api/tests/test_finish.py::test_single_named_county_for_a_tract_listing_is_re_resolved_with_every_parent
+FAILED api/tests/test_finish.py::test_model_decides_for_a_phrasing_with_no_unit_word_or_joiner
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+FAILED api/tests/test_level_repair.py::test_a_repair_of_a_multi_parent_listing_is_marked_as_repair
+FAILED api/tests/test_process.py::test_every_pinned_commit_is_reachable - Ass...
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[0]
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[1]
+9 failed, 1073 passed, 34 skipped, 63 deselected, 1 warning in 60.38s (0:01:00)
+L16 rc 1
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+FAILED api/tests/test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+FAILED api/tests/test_process.py::test_every_pinned_commit_is_reachable - Ass...
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[0]
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[1]
+5 failed, 1077 passed, 34 skipped, 63 deselected, 1 warning in 63.28s (0:01:03)
+L17 rc 1
+FAILED api/tests/test_generated_client.py::test_ask_ts_consumes_generated_types
+FAILED api/tests/test_level_fidelity.py::test_a_level_read_from_the_words_is_marked_inferred_in_every_result_shape
+FAILED api/tests/test_process.py::test_every_pinned_commit_is_reachable - Ass...
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[0]
+FAILED api/tests/test_process.py::test_each_pinned_transcript_still_reproduces[1]
+5 failed, 1077 passed, 34 skipped, 63 deselected, 1 warning in 61.66s (0:01:01)
+
+
+===== end of gate2-r3.txt =====

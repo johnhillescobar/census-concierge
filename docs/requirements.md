@@ -31,7 +31,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 |---|---|
 | `overlapping_vintage` | ACS5 periods sharing sample years are not comparable. |
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
-| `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
+| `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. Tracts asked for inside one named place are the one derived candidate: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
 | `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
@@ -53,7 +53,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 |---|---|
 | `zcta_not_zip` | ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
 | `geography_not_nested` | Containment is not expressible in Census `for`/`in`. |
-| `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated. The URL is shown; its rows answer another geography. |
+| `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
 | `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |
 | `moe_aggregation_degraded` | `sqrt(Σ MOEᵢ²)` degrades past a handful of areas. |

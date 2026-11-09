@@ -126,18 +126,19 @@ search, fetch, URL or candidates. Any failure, a missing report or a late one fa
 
 The level is the model's statement, not a reading of the question
 ([CC-114](https://johnhillescobar.atlassian.net/browse/CC-114)). `resolve_geography.level` is required:
-a published level name, or null when the question names none; `levels` gives one per place when
-comparison legs differ and must match the places (else refused for repair). A call without `level` is
-refused for repair (two refusals stop the tool). Code runs the stated level exactly. One not published
-for the dataset fails with the published names and that refusal stands: finish neither re-resolves nor
-falls back to nationwide, so no URL is built for that level. `asked_levels` keeps one stated level per
-leg; a call that resolved nothing never changes it, and finish's repair calls (`"origin": "repair"`)
-never do. `geography_level_mismatch` fires when a fetched `for=` level was not stated, or a stated level
-(also one the lookup could not serve, such as a tract request then answered at place) has no URL (for an override, the plan's own levels are the stated ones; the model's reading is not
-used). `geography_level_unverified` fires when no level was stated, or code inferred one in any result
-shape (query-word scan, county fallback, nationwide guess, finish's listing redo). A bare name with a
-stated null still resolves to a state or place by NAME match, unflagged. CC-104 removes the word-reading
-paths.
+a published level name, or null when the question names none; `levels` pairs one per place with
+comparison legs (else refused for repair). A call without `level` is refused for repair (two refusals
+stop the tool). Code runs the stated level exactly. A name not published for the dataset fails with the
+published names and that refusal stands: finish neither re-resolves nor falls back to nationwide, so no
+URL is built; a resend at another level is the model's own restatement and is not flagged.
+`asked_levels` keeps one stated level per leg; a call that resolved nothing, and finish's repair calls
+(`"origin": "repair"`), never change it. A level the model stated that could not be served (an
+unsupported result, or the call raised) stays unmet until a legal call serves it.
+`geography_level_mismatch` fires when a fetched `for=` level was not stated, or a stated or unmet level
+has no URL (an override is held to its own plan's levels). `geography_level_unverified` fires when no
+level was stated, or code inferred one (query-word scan, county fallback, nationwide guess, finish's
+listing redo). A bare name with a stated null resolves to a state or place by NAME match, unflagged.
+CC-104 removes the word-reading paths.
 
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict

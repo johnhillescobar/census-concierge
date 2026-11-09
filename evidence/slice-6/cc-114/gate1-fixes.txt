@@ -1,108 +1,129 @@
 CC-114 mutation record for the fixes after Gate 1 (977bf2a onward)
-base HEAD 70bcc61 plus the uncommitted round-2 fixes; 2026-11-08.
+base HEAD 3a936d1 plus the uncommitted round-2 fixes; 2026-11-08.
 One behaviour reverted at a time. GOOD = code as written, BAD = mutated; file restored after each.
 
 CAUGHT   | refusal re-guessed from the question by finish
-    GOOD: 1 passed, 1 warning in 0.38s
-    BAD : 1 failed, 1 warning in 0.67s
+    GOOD: 1 passed, 1 warning in 0.39s
+    BAD : 1 failed, 1 warning in 0.57s
 CAUGHT   | tool stops marking a refused level
-    GOOD: 1 passed, 1 warning in 0.43s
-    BAD : 1 failed, 1 warning in 0.71s
+    GOOD: 1 passed, 1 warning in 0.53s
+    BAD : 1 failed, 1 warning in 0.58s
 CAUGHT   | nationwide fallback runs after a refusal
-    GOOD: 1 passed, 1 warning in 0.30s
-    BAD : 1 failed, 1 warning in 0.53s
+    GOOD: 1 passed, 1 warning in 0.26s
+    BAD : 1 failed, 1 warning in 0.56s
 CAUGHT   | nationwide guess not marked inferred
-    GOOD: 1 passed, 1 warning in 0.22s
-    BAD : 1 failed, 1 warning in 0.47s
+    GOOD: 1 passed, 1 warning in 0.21s
+    BAD : 1 failed, 1 warning in 0.37s
 CAUGHT   | nationwide guess allowed when a level is stated
-    GOOD: 1 passed, 1 warning in 0.33s
-    BAD : 1 failed, 1 warning in 0.52s
-CAUGHT   | a later call replaces an earlier leg's stated level
-    GOOD: 1 passed, 1 warning in 0.37s
-    BAD : 1 failed, 1 warning in 0.61s
-CAUGHT   | a refinement appends a leg instead of replacing
-    GOOD: 1 passed, 1 warning in 0.36s
-    BAD : 1 failed, 1 warning in 0.61s
-CAUGHT   | wrong-length levels silently ignored
-    GOOD: 1 passed, 1 warning in 0.20s
-    BAD : 1 failed, 1 warning in 0.35s
-CAUGHT   | per-leg levels no longer count the legs
     GOOD: 1 passed, 1 warning in 0.23s
+    BAD : 1 failed, 1 warning in 0.38s
+CAUGHT   | a later call replaces an earlier leg's stated level
+    GOOD: 1 passed, 1 warning in 0.43s
+    BAD : 1 failed, 1 warning in 0.54s
+CAUGHT   | a refinement appends a leg instead of replacing
+    GOOD: 1 passed, 1 warning in 0.48s
+    BAD : 1 failed, 1 warning in 0.57s
+CAUGHT   | wrong-length levels silently ignored
+    GOOD: 1 passed, 1 warning in 0.25s
+    BAD : 1 failed, 1 warning in 0.41s
+CAUGHT   | per-leg levels no longer count the legs
+    GOOD: 1 passed, 1 warning in 0.16s
     BAD : 1 failed, 1 warning in 0.37s
 CAUGHT   | listing level from the question passed as stated
-    GOOD: 1 passed, 1 warning in 0.48s
-    BAD : 1 failed, 1 warning in 0.63s
+    GOOD: 1 passed, 1 warning in 0.32s
+    BAD : 1 failed, 1 warning in 0.49s
 CAUGHT   | override not checked against its own plan
     GOOD: 1 passed, 1 warning in 0.26s
-    BAD : 1 failed, 1 warning in 0.46s
+    BAD : 1 failed, 1 warning in 0.52s
 CAUGHT   | override judged by the model's stated level
-    GOOD: 1 passed, 1 warning in 0.17s
-    BAD : 1 failed, 1 warning in 0.35s
+    GOOD: 1 passed, 1 warning in 0.16s
+    BAD : 1 failed, 1 warning in 0.32s
 CAUGHT   | a refused or empty call overwrites the legs' stated levels
-    GOOD: 2 passed, 1 warning in 0.67s
-    BAD : 2 failed, 1 warning in 0.72s
+    GOOD: 2 passed, 1 warning in 0.68s
+    BAD : 2 failed, 1 warning in 0.65s
 CAUGHT   | comparison result drops the inferred flag
-    GOOD: 1 passed, 1 warning in 0.37s
-    BAD : 1 failed, 1 warning in 0.41s
-CAUGHT   | state result drops the inferred flag
-    GOOD: 1 passed, 1 warning in 0.31s
-    BAD : 1 failed, 1 warning in 0.47s
-CAUGHT   | zcta result drops the inferred flag
-    GOOD: 1 passed, 1 warning in 0.23s
-    BAD : 1 failed, 1 warning in 0.46s
-CAUGHT   | levels beside a single place accepted
     GOOD: 1 passed, 1 warning in 0.32s
+    BAD : 1 failed, 1 warning in 0.39s
+CAUGHT   | state result drops the inferred flag
+    GOOD: 1 passed, 1 warning in 0.29s
+    BAD : 1 failed, 1 warning in 0.35s
+CAUGHT   | zcta result drops the inferred flag
+    GOOD: 1 passed, 1 warning in 0.30s
+    BAD : 1 failed, 1 warning in 0.34s
+CAUGHT   | levels beside a single place accepted
+    GOOD: 1 passed, 1 warning in 0.23s
     BAD : 1 failed, 1 warning in 0.56s
 CAUGHT   | a stated level with no URL of its own not reported
-    GOOD: 1 passed, 1 warning in 0.18s
-    BAD : 1 failed, 1 warning in 0.47s
-CAUGHT   | empty asked-level message
-    GOOD: 1 passed, 1 warning in 0.20s
-    BAD : 1 failed, 1 warning in 0.37s
-CAUGHT   | per-leg stated levels discarded when resolving comparison legs
-    GOOD: 1 passed, 1 warning in 0.35s
-    BAD : 1 failed, 1 warning in 0.41s
-CAUGHT   | missing leg reported as wrong level
-    GOOD: 1 passed, 1 warning in 0.04s
-    BAD : 1 failed, 1 warning in 0.19s
-CAUGHT   | unserved stated levels are never recorded
-    GOOD: 1 passed, 1 warning in 0.41s
-    BAD : 1 failed, 1 warning in 0.65s
-CAUGHT   | an unserved level is never cleared by a later legal call
     GOOD: 1 passed, 1 warning in 0.22s
-    BAD : 1 failed, 1 warning in 0.63s
-CAUGHT   | a refused level name counts as an unserved request
-    GOOD: 1 passed, 1 warning in 0.19s
-    BAD : 1 failed, 1 warning in 0.53s
-CAUGHT   | the guard ignores unserved levels
-    GOOD: 1 passed, 1 warning in 0.29s
-    BAD : 1 failed, 1 warning in 0.47s
-CAUGHT   | an illegal candidate is tracked as a comparison leg again
-    GOOD: 1 passed, 1 warning in 0.29s
-    BAD : 1 failed, 1 warning in 0.53s
-CAUGHT   | derivation switched off
-    GOOD: 1 passed, 1 warning in 0.19s
+    BAD : 1 failed, 1 warning in 0.37s
+CAUGHT   | empty asked-level message
+    GOOD: 1 passed, 1 warning in 0.16s
+    BAD : 1 failed, 1 warning in 0.34s
+CAUGHT   | per-leg stated levels discarded when resolving comparison legs
+    GOOD: 1 passed, 1 warning in 0.33s
+    BAD : 1 failed, 1 warning in 0.35s
+CAUGHT   | missing leg reported as wrong level
+    GOOD: 1 passed, 1 warning in 0.05s
+    BAD : 1 failed, 1 warning in 0.23s
+CAUGHT   | unserved stated levels are never recorded
+    GOOD: 1 passed, 1 warning in 0.42s
     BAD : 1 failed, 1 warning in 0.56s
-CAUGHT   | the county step is requested where it is not published
-    GOOD: 1 passed, 1 warning in 0.17s
-    BAD : 1 failed, 1 warning in 0.43s
-CAUGHT   | a county-level request is derived as tracts
-    GOOD: 1 passed, 1 warning in 0.27s
+CAUGHT   | an unserved level is never cleared by a later legal call
+    GOOD: 1 passed, 1 warning in 0.29s
+    BAD : 1 failed, 1 warning in 0.49s
+CAUGHT   | a refused level name counts as an unserved request
+    GOOD: 1 passed, 1 warning in 0.29s
     BAD : 1 failed, 1 warning in 0.41s
+CAUGHT   | the guard ignores unserved levels
+    GOOD: 1 passed, 1 warning in 0.17s
+    BAD : 1 failed, 1 warning in 0.39s
+CAUGHT   | an illegal candidate is tracked as a comparison leg again
+    GOOD: 1 passed, 1 warning in 0.45s
+    BAD : 1 failed, 1 warning in 0.44s
+CAUGHT   | derivation switched off
+    GOOD: 1 passed, 1 warning in 0.18s
+    BAD : 1 failed, 1 warning in 0.40s
+CAUGHT   | the county step is requested where it is not published
+    GOOD: 1 passed, 1 warning in 0.22s
+    BAD : 1 failed, 1 warning in 0.40s
+CAUGHT   | a county-level request is derived as tracts
+    GOOD: 1 passed, 1 warning in 0.31s
+    BAD : 1 failed, 1 warning in 0.51s
 CAUGHT   | two named parents are derived as one place
+    GOOD: 1 passed, 1 warning in 0.19s
+    BAD : 1 failed, 1 warning in 0.53s
+CAUGHT   | only the first county of a multi-county place
+    GOOD: 1 passed, 1 warning in 0.34s
+    BAD : 1 failed, 1 warning in 0.37s
+CAUGHT   | the model is told the limitation instead of the geography
+    GOOD: 1 passed, 1 warning in 0.28s
+    BAD : 1 failed, 1 warning in 0.43s
+CAUGHT   | the county code is read from the wrong side
     GOOD: 1 passed, 1 warning in 0.18s
     BAD : 1 failed, 1 warning in 0.37s
-CAUGHT   | only the first county of a multi-county place
-    GOOD: 1 passed, 1 warning in 0.17s
-    BAD : 1 failed, 1 warning in 0.46s
-CAUGHT   | the model is told the limitation instead of the geography
-    GOOD: 1 passed, 1 warning in 0.18s
-    BAD : 1 failed, 1 warning in 0.35s
-CAUGHT   | the county code is read from the wrong side
-    GOOD: 1 passed, 1 warning in 0.32s
-    BAD : 1 failed, 1 warning in 0.32s
 CAUGHT   | the derived result is hidden from the user
-    GOOD: 1 passed, 1 warning in 0.43s
+    GOOD: 1 passed, 1 warning in 0.35s
+    BAD : 1 failed, 1 warning in 0.57s
+CAUGHT   | derivation attempted even when the ordinary lookup served the request
+    GOOD: 1 passed, 1 warning in 0.18s
+    BAD : 1 failed, 1 warning in 0.45s
+CAUGHT   | the parent place is looked up by reading its name for a level word
+    GOOD: 1 passed, 1 warning in 0.19s
+    BAD : 1 failed, 1 warning in 0.34s
+CAUGHT   | a tool exception forgets the level the model asked for
+    GOOD: 1 passed, 1 warning in 0.39s
     BAD : 1 failed, 1 warning in 0.65s
+CAUGHT   | the mismatch guard ignores unserved levels when nothing else was stated
+    GOOD: 1 passed, 1 warning in 0.20s
+    BAD : 1 failed, 1 warning in 0.28s
+CAUGHT   | a repair call is allowed to overwrite the stated level
+    GOOD: 1 passed, 1 warning in 0.31s
+    BAD : 1 failed, 1 warning in 0.33s
+CAUGHT   | multi-parent wildcard drops the inferred flag
+    GOOD: 1 passed, 1 warning in 0.29s
+    BAD : 1 failed, 1 warning in 0.51s
+CAUGHT   | the levels-length refusal message is the old one
+    GOOD: 1 passed, 1 warning in 0.25s
+    BAD : 1 failed, 1 warning in 0.52s
 
-34 of 34 mutations caught; 0 survived or skipped
+41 of 41 mutations caught; 0 survived or skipped
