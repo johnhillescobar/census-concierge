@@ -130,10 +130,10 @@ a published level name, or null when the question names none; `levels` pairs one
 comparison legs (else refused for repair). A call without `level` is refused for repair (two refusals
 stop the tool). Code runs the stated level exactly. A name not published for the dataset fails with the
 published names and that refusal stands: finish neither re-resolves nor falls back to nationwide, so no
-URL is built; a resend at another level is the model's own restatement and is not flagged.
+URL is built; a resend at another level leaves the refused level unmet, so the mismatch names it.
 `asked_levels` keeps one stated level per leg; a call that resolved nothing, and finish's repair calls
 (`"origin": "repair"`), never change it. A level the model stated that could not be served (an
-unsupported result, or the call raised) stays unmet until a legal call serves it.
+unsupported or refused result, or the call raised) stays unmet until a legal call serves it.
 `geography_level_mismatch` fires when a fetched `for=` level was not stated, or a stated or unmet level
 has no URL (an override is held to its own plan's levels). `geography_level_unverified` fires when no
 level was stated, or code inferred one (query-word scan, county fallback, nationwide guess, finish's
