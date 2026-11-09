@@ -45,15 +45,15 @@ so they are the baseline, not noise, and they are about 27 to 33 of the 120 tria
 All table facts above were read from `data/raw/acs5/2024/groups.json.gz` and the other vintages' group files.
 They show which tables exist; they do not show which one a researcher would prefer.
 
-## Which open stories can move these (CC-3, not Done)
+## Which stories can move these (Jira comments posted 2026-11-09)
 
-| Misses | Open story | What it owns |
+| Misses | Story | What it owns here |
 |---|---|---|
-| q11 (metro level) | **CC-106** | Metadata-published levels; "no city/metro silent substitution"; complete metro hierarchy. Feeds CC-119. |
-| q14, q26, q23 (goldens), and the sampling floor | **CC-133** | Independently reviewed expected interpretations frozen before results (AC1); scorer-change bridge (AC3); the sampling and stopping protocol that makes a 0.700 floor measurable. |
-| q17 and q21 ("Silicon Valley counties", "Rio Grande Valley"), q10 (Queens) | **CC-119** | Complete structured parent chains and multi-parent execution. The geography already resolves; their misses are table choices. |
-| q34, q17, q21, q15, q18, q20, q10 (table or universe choice) | **CC-131** (AC2, TC2) and **CC-130** (AC1) | Reconcile universe and cell with the request against metadata; expose universes before selecting. CC-130 says it preserves table selection, so no open story owns table-selector accuracy as such. |
+| q11 (metro level) | **CC-106** (comment 10830) | Metadata-published levels; accept a half of the slash-joined CBSA name by metadata match, resolve "Atlanta metro" against CBSA NAME evidence; "no city/metro silent substitution". |
+| q14, q26, q23, q17 (goldens) and the floor's measurability | **CC-133** (comment 10831) | Independently reviewed expected interpretations (AC1), scorer-change bridge (AC3), sampling protocol. q17 expects B24010, published only in ACS 1-year. |
+| q10, q15, q18, q20, q21 (table choice) | **CC-131** (comment 10832) | AC2/TC2 reconcile universe and cell against metadata, after CC-133 AC1 decides whether each golden stands. |
+| q34 (household table for a worker question) | **CC-134**, Phase 2 under CC-124 | Not in CC-3 (owner decision, 2026-11-09). |
 | unsupported-level candidates (t15) | **CC-131 AC4** | Already moved there from CC-114 (AC2b). |
 
-Not covered by any open story: the golden-versus-5-year-vintage mismatch for q17 (B24010) and the near-equivalent table pairs
-(q10, q15, q18, q20, q21). Those need an owner decision on the goldens or on the table-equivalence rule, under CC-133 AC1/AC3.
+CC-119 and CC-130 get no comment: no persistent miss is a parent-chain or cell-selection failure. The multi-county regions in
+q17 and q21 resolve to county; their misses are table choices.
