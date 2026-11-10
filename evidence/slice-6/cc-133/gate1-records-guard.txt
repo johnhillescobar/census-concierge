@@ -1,0 +1,44 @@
+HEAD b37241aaeca429cf8bd2bc424038ac888cab01d3; tests are the uncommitted working-tree versions
+
+== L proof not required
+   test: api/tests/test_closure_gate.py::test_l_moves_only_with_a_pass_record_for_its_run_in_the_ledger
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.19s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.20s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== verdict not checked
+   test: api/tests/test_closure_gate.py::test_l_moves_only_with_a_pass_record_for_its_run_in_the_ledger
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.11s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.25s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== run identity not checked
+   test: api/tests/test_closure_gate.py::test_l_moves_only_with_a_pass_record_for_its_run_in_the_ledger
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.11s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.23s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== L removal allowed
+   test: api/tests/test_closure_gate.py::test_l_moves_only_with_a_pass_record_for_its_run_in_the_ledger
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.08s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.23s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== bridge addition allowed
+   test: api/tests/test_closure_gate.py::test_a_bridge_is_owner_only_whether_added_changed_or_removed
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.08s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.20s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== bridge removal allowed
+   test: api/tests/test_closure_gate.py::test_a_bridge_is_owner_only_whether_added_changed_or_removed
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.12s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.22s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== unreadable bridges file ignored
+   test: api/tests/test_closure_gate.py::test_a_bridge_is_owner_only_whether_added_changed_or_removed
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.06s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.16s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== L ignored entirely (guard exempts L as before)
+   test: api/tests/test_metric_compare.py::test_what_promote_writes_satisfies_the_records_guard_and_a_hand_edit_does_not
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.11s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.26s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+
+8 mutations, 8 caught, 0 survived
