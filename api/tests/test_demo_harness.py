@@ -557,3 +557,7 @@ def test_geoid_is_judged_per_row_not_from_the_empty_top_level_field() -> None:
     rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}, {"GEO_ID": "0500000US48203"}]
     assert _contract(rows=rows, geoid="")[1] is True
     assert _contract(rows=[*rows, {"B01003_001E": "3"}], geoid="x")[1] is False
+
+
+def test_no_rows_is_not_a_geoid() -> None:
+    assert _contract(rows=[], geoid="x")[1] is False

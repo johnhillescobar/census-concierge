@@ -471,6 +471,7 @@ def test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only
     assert set(refs) == {"A", "L"} and refs["L"]["head"] == "f" * 40
     raw = (lab["dir"] / "references.json").read_bytes()
     assert b"\r\n" not in raw
+    assert b"\r\n" not in (lab["dir"] / "ledger.jsonl").read_bytes()
     first = (lab["dir"] / "ledger.jsonl").read_bytes()
     assert mc.cmd_promote(path) == 0
     assert (lab["dir"] / "ledger.jsonl").read_bytes().startswith(first)
@@ -532,7 +533,57 @@ def test_a_case_passes_only_if_every_repeat_answered(protocol: dict[str, Any]) -
 
 def test_a_family_outside_the_frozen_cohort_is_a_plan_error(protocol: dict[str, Any]) -> None:
     made = run(protocol)
-    extra = {**next(t for t in made.trials if t["tier"] == "long_tail"), "id": "zz99"}
+    template = next(t for t in made.trials if t["tier"] == "long_tail")
+    extra = [{**template, "id": "zz99", "repeat": n} for n in (1, 2, 3)]  # a complete family
     ids = [e["id"] for e in mc.cohort(protocol, "long_tail")]
     with pytest.raises(mc.PlanError):
-        mc.families(run(protocol, trials=[*made.trials, extra]), ids, "long_tail", 3)
+        mc.families(run(protocol, trials=[*made.trials, *extra]), ids, "long_tail", 3)
+
+
+def test_promotion_is_a_single_write_of_the_references(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    complete = contract_run(protocol, [])
+    register(lab, "A", complete)
+    writes: list[set[str]] = []
+    original = mc.write_refs
+    monkeypatch.setattr(mc, "write_refs", lambda refs: (writes.append(set(refs)), original(refs)))
+    assert mc.cmd_promote(write_run(lab["dir"] / "next.json", complete)) == 0
+    assert writes == [{"A", "L"}]  # never a state with no L
+
+
+def test_only_an_explicit_legacy_flag_skips_the_protocol_hash_check(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    complete = contract_run(protocol, [])
+    path = write_run(lab["dir"] / "ref.json", complete)
+    assert mc.cmd_register("S", path, "a" * 40, "strict", legacy=False) == 0
+    assert mc.cmd_register("O", path, "a" * 40, "legacy-unfrozen-protocol", legacy=True) == 0
+    # the flag decides, never the wording of the label
+    assert mc.cmd_register("S2", path, "a" * 40, "legacy-looking label", legacy=False) == 0
+    assert mc.cmd_register("O2", path, "a" * 40, "plain label", legacy=True) == 0
+    refs = mc.load_refs()
+    assert refs["S"]["hashes"]["protocol"] == "p1"
+    assert refs["S2"]["hashes"]["protocol"] == "p1"
+    assert refs["O"]["hashes"]["protocol"] == "legacy"
+    assert refs["O2"]["hashes"]["protocol"] == "legacy"
+    lab["now"]["protocol"] = "p2"  # the frozen protocol changed after both were registered
+    cand = write_run(lab["dir"] / "cand.json", complete)
+    assert status(mc.compare(cand, ["S"], {}), "protocol hash") == "FAIL"
+    assert not any(c.name == "protocol hash" for c in mc.compare(cand, ["O"], {}))
+
+
+def test_the_register_command_passes_legacy_through_and_requires_a_label(
+    lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[bool] = []
+    monkeypatch.setattr(mc, "cmd_register", lambda *a, legacy=False: seen.append(legacy) or 0)
+    argv = ["metric_compare.py", "register", "A", "r.json", "--head", "a" * 40, "--label", "x"]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert mc.main() == 0
+    monkeypatch.setattr(sys, "argv", [*argv, "--legacy"])
+    assert mc.main() == 0
+    assert seen == [False, True]
+    monkeypatch.setattr(sys, "argv", argv[:-2])
+    with pytest.raises(SystemExit):
+        mc.main()

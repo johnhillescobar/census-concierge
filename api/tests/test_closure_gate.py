@@ -453,6 +453,7 @@ def test_an_oracle_signature_is_never_added_in_the_change_it_would_let_pass(
         ('source = "scripts/run_demo.py"', 'source = "scripts/other.py"'),
         ("version = 1", "version = 2"),
         ('tier = "long_tail"', 'tier = "core"'),
+        ('source = "evals/golden_questions.toml"', 'source = "evals/other.toml"'),
     ],
 )
 def test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard(
