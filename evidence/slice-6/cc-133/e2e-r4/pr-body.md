@@ -12,6 +12,12 @@
 - Oracle review and sign-off: removed (owner decision 2026-11-10).
 - Machines at 0853a63: ruff, format and mypy clean; budgets.toml untouched, doc lines 1820; 1382 passed, 1 failed (inherited from main).
 
+## Copilot review (fixed, threads resolved)
+- The response contract is checked on every trial that returned rows, in any tier, answered or not.
+- A run must hold exactly the frozen (tier, id, repeat) trials: extra, missing and duplicated ones fail.
+- A run records the head and the scorer, cohort and protocol hashes it was scored under; the comparison judges it by those, checks them against the head and the measured code, and treats a run with none as UNKNOWN. Promotion labels L with the producing head, which must be reachable from origin/main.
+- `has_moe` means every returned estimate had its M variable fetched, per row; a fetched but suppressed M counts. This reading is the owner's to confirm.
+
 ## E2E at the final head (0853a63 at start and end, repeat 3; `e2e-r4/`)
 long_tail answered 0.700 (floor 0.700) | overall 0.801 | demo.p95 31.236s (ceiling 20; main 25.472; api/src unchanged here, one Census call took 88.5s) | retriever@10 0.900 | selector@1 0.825 | synthetic_alignment 0.544 | geography grid 0.995 | 37 demo misses.
 `metric_compare compare --refs A,A0`: **VERDICT FAIL**. long_tail trial rate vs A PASS (diff +0.017, lower -0.017); long_tail case rate, trap (18 families) and core (4) INCONCLUSIVE. FAIL: p95 ceiling and p95 vs A; rows per family (3 families returned fewer rows); response contract (3 of 179 trials that returned rows lack a contract field; trials not read, so the field and question are unknown here); A0 (scorer changed, no bridge). The same capability as main, measured by a stricter instrument; nothing here claims a product gain. The p95 and rows verdicts are on unchanged product code, i.e. run noise.
