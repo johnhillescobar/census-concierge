@@ -35,8 +35,9 @@ real-chain tests added; context hooks (.claude/hooks/ctx.py, .claude/settings.js
 
 ## Open
 
-- E2E at the final head: `bash evidence/slice-6/cc-133/e2e-r4/driver.sh` (an earlier partial run was
-  discarded). After it: compare, restore latest.json, manifest, PR body, Jira comment, push.
+- E2E done at 0853a63 (e2e-r4/): comparator VERDICT FAIL (p95 31.2 > 20 and > A 25.5; rows per family;
+  contract 3 of 179; A0 no bridge); PR body, manifest and Jira comment 10856 updated. Next: owner reviews
+  the PR; post-merge E2E on main after merge. No code changes pending.
 - Retrieval scalars (`retrieval_at_10`, `selector_at_1`) are not stamped with a head.
 - `has_moe` etc. are outside the scorer hash (`evals/metric_protocol.toml` symbols: owner commit).
 - Trap (18) and core (4) cohorts are under the 30-family minimum, so the real protocol cannot
