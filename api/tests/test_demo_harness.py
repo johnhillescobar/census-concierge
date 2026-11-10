@@ -650,3 +650,49 @@ def test_a_decennial_count_with_no_estimate_column_owes_no_margin_of_error() -> 
     count = [{"GEO_ID": "0500000US48201", "P1_001N": "4731145"}]
     assert _contract(rows=count)[0] is True
     assert _contract(rows=[*count, {"GEO_ID": "2", "B01001_001E": "1"}])[0] is False
+
+
+def _measured_repo(path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    import subprocess
+
+    import metric_compare
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=path, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    (path / "api" / "src").mkdir(parents=True)
+    (path / "api" / "src" / "app.py").write_text("one\n")
+    (path / "docs").mkdir()
+    (path / "docs" / "note.md").write_text("a\n")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    monkeypatch.setattr(run_demo, "ROOT", path)
+    monkeypatch.setattr(metric_compare, "hashes", lambda head=None: {"scorer": "s"})
+    return path
+
+
+def test_a_run_notes_whether_the_measured_code_was_committed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _measured_repo(tmp_path, monkeypatch)
+    assert run_demo.provenance()["dirty"] is False
+    (repo / "docs" / "note.md").write_text("b\n")  # not measured code
+    assert run_demo.provenance()["dirty"] is False
+    (repo / "api" / "src" / "app.py").write_text("two\n")  # an uncommitted edit
+    assert run_demo.provenance()["dirty"] is True
+    (repo / "api" / "src" / "app.py").write_text("one\n")
+    (repo / "api" / "src" / "new.py").write_text("x\n")  # an untracked file is code too
+    assert run_demo.provenance()["dirty"] is True
+
+
+def test_a_checkout_that_turned_dirty_part_way_carries_no_stamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = {"head": "a" * 40, "dirty": False}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "a" * 40, "dirty": True})
+    assert run_demo.unmoved(started) == {}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "a" * 40, "dirty": False})
+    assert run_demo.unmoved(started) == started
