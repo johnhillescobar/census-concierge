@@ -43,6 +43,7 @@ METRICS = ROOT / "evidence" / "metrics"
 ORACLE_FIELDS = ("text", "tier", "expect_table", "expect_geo_level", "expect_warning")
 ORACLE_FLAGS = ("expect_no_url", "holdout")
 CONTRACT_KEYS = ("has_moe", "has_geoid", "has_universe", "has_alternatives")
+MAIN = "origin/main"  # L may only be a head that reached main
 PROVENANCE_KEYS = ("head", "scorer", "cohorts", "protocol")  # what a run records about its scoring
 RANK = {"PASS": 0, "INCONCLUSIVE": 1, "UNKNOWN": 2, "UNFROZEN": 3, "FAIL": 4}
 
@@ -182,6 +183,24 @@ def percentile(values: list[float], p: float) -> float:
     return ordered[max(0, min(math.ceil(p / 100 * len(ordered)) - 1, len(ordered) - 1))]
 
 
+def _is_hash(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 40 and set(value) <= set("0123456789abcdef")
+
+
+def _git_status(*args: str) -> int:
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True).returncode
+
+
+def _same_code(head: str) -> bool:
+    """The code a run measured is the code under judgment: api/src and the harness are identical
+    at the run's head and at HEAD (evidence and docs may differ)."""
+    return _git_status("diff", "--quiet", head, "HEAD", "--", "api/src", "scripts/run_demo.py") == 0
+
+
+def _reachable(commit: str, tip: str) -> bool:
+    return _git_status("merge-base", "--is-ancestor", commit, tip) == 0
+
+
 def load_run(path: str | Path) -> Run:
     """A run file as a Run. A file that is missing keys or malformed is a PlanError (a FAIL row),
     never a bare KeyError that leaves no record."""
@@ -192,14 +211,22 @@ def load_run(path: str | Path) -> Run:
         scalars = {k: float(data[k]) for k in ("retrieval_at_10", "selector_at_1") if k in data}
         scalars["answered_rate"] = float(demo["answered_rate"])
         stamp = demo.get("provenance")
-        whole = isinstance(stamp, dict) and all(k in stamp for k in PROVENANCE_KEYS)
+        whole = (
+            isinstance(stamp, dict)
+            and all(k in stamp for k in PROVENANCE_KEYS)
+            and _is_hash(stamp["head"])  # a SHA, never a ref or an option git would act on
+        )
+        trials = list(demo["trials"])
+        for trial in trials:  # a trial the metrics cannot read is a bad file, not a traceback
+            if "answered" not in trial or not math.isfinite(float(trial["latency_s"])):
+                raise ValueError("a trial lacks `answered` or a finite latency_s")
         return Run(
             path=str(path),
             repeat=int(demo["repeat"]),
             index_hash=str(demo.get("index_hash") or ""),
             p95_reported=float(demo["p95_latency_seconds"]),
             scalars=scalars,
-            trials=list(demo["trials"]),
+            trials=trials,
             hashes={k: stamp[k] for k in PROVENANCE_KEYS} if whole else {},
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
@@ -525,12 +552,16 @@ def provenance_checks(cand: Run, now: dict[str, Any]) -> tuple[dict[str, Any], l
         problems.append(Check("run", "provenance", "FAIL", "collected under another protocol"))
     try:
         actual = hashes(str(cand.hashes["head"]))
-    except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError) as exc:
+    except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError, KeyError) as exc:
         problems.append(Check("run", "provenance", "FAIL", f"head cannot be checked ({exc})"))
     else:
         if any(cand.hashes[k] != actual[k] for k in ("scorer", "cohorts")):
             problems.append(
                 Check("run", "provenance", "FAIL", "recorded hashes are not those of its head")
+            )
+        elif not _same_code(str(cand.hashes["head"])):
+            problems.append(
+                Check("run", "provenance", "FAIL", "api/src or the harness changed since its head")
             )
     return {k: cand.hashes[k] for k in ("scorer", "cohorts", "protocol")}, problems
 
@@ -547,6 +578,11 @@ def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> 
     out = absolute(cand, protocol)
     judged, found = provenance_checks(cand, now)
     out += found
+    if any(judged[k] != now[k] for k in ("scorer", "cohorts")):
+        note = "the run was scored under other cohorts or scorer than the checkout's"
+        out.append(
+            Check("oracle", "applies", "UNKNOWN", f"{note}; the rows below do not describe it")
+        )
     state = oracle_state(protocol)
     for cohort_name, rows in state.items():
         todo = len(rows["pending"]) + len(rows["stale"])
@@ -697,6 +733,13 @@ def cmd_register(name: str, run_path: str, head: str, label: str, *, legacy: boo
     return 0
 
 
+def _run_head(path: str) -> str:
+    try:
+        return str(load_run(path).hashes.get("head", ""))
+    except PlanError:
+        return ""
+
+
 def cmd_compare(run_path: str, names: list[str], targets: dict[str, float], record: bool) -> int:
     if not names:  # floors alone are not a comparison, and must never write a PASS record
         print("compare needs at least one reference (--refs)", file=sys.stderr)
@@ -712,6 +755,7 @@ def cmd_compare(run_path: str, names: list[str], targets: dict[str, float], reco
         row = {
             "at": datetime.now(UTC).isoformat(timespec="seconds"),
             "head": _head(),
+            "run_head": _run_head(run_path),
             "run": run_path,
             "run_sha256": hashlib.sha256((ROOT / run_path).read_bytes()).hexdigest()
             if (ROOT / run_path).is_file()
@@ -735,12 +779,15 @@ def cmd_promote(run_path: str) -> int:
     if "A" not in refs:
         print("A is not registered", file=sys.stderr)
         return 1
+    produced = _run_head(run_path)
+    if not produced or not _reachable(produced, MAIN):
+        print(f"not promoted: the run's head is not recorded or not on {MAIN}", file=sys.stderr)
+        return 1
     if cmd_compare(run_path, names, {}, record=True):
         print("not promoted", file=sys.stderr)
         return 1
     # the head that produced the run, not the one checked out
-    head = str(load_run(run_path).hashes["head"])
-    entry = build_entry(run_path, head, "accepted post-merge reference", legacy=False)
+    entry = build_entry(run_path, produced, "accepted post-merge reference", legacy=False)
     write_refs({**refs, "L": entry})  # one write: no state in which L is missing
     print(f"L is now {entry['head'][:7]}")
     return 0

@@ -384,7 +384,14 @@ def trial_record(trial: Trial) -> dict[str, Any]:
     }
 
 
-def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> dict[str, Any]:
+def summarize(
+    trials: list[Trial],
+    *,
+    repeat: int,
+    prompt: str,
+    index: str,
+    stamp: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     latencies = [trial.latency_s for trial in trials]
     long_tail = [trial for trial in trials if trial.tier == "long_tail"]
     records = [trial_record(trial) for trial in trials]
@@ -417,21 +424,25 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "by_tier": by_tier,
         "trials": records,
         "misses": [record for record in records if not record["answered"]],
-        "provenance": provenance(),
+        "provenance": provenance() if stamp is None else stamp,
     }
 
 
 def provenance() -> dict[str, Any]:
     """The head and the scorer, cohort and protocol hashes this run was scored under, so a later
-    comparison judges the run by what produced it and not by whatever is checked out then."""
+    comparison judges the run by what produced it and not by whatever is checked out then. Any
+    failure gives {}: the run is kept and reads as having no provenance, never lost."""
     import subprocess
 
     import metric_compare
 
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, check=True, text=True
-    ).stdout.strip()
-    return {"head": head, **metric_compare.hashes()}
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, check=True, text=True
+        ).stdout.strip()
+        return {"head": head, **metric_compare.hashes()}
+    except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError, KeyError):
+        return {}
 
 
 def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial:
@@ -575,6 +586,7 @@ def main() -> int:
     install_clock(clock)
     prompt = short_hash(ROLE)
     index = index_hash()
+    started = provenance()  # taken before the first question: the code that is being measured
     trials: list[Trial] = []
     # Entered as a context manager: a bare TestClient leaves one event loop alive per request.
     with TestClient(app) as client:
@@ -607,7 +619,8 @@ def main() -> int:
                         f"  {trial.table_id or '—'}  {trial.detail}"
                     )
 
-    summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index)
+    stamp = started if provenance().get("head") == started.get("head") else {}  # moved mid-run
+    summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index, stamp=stamp)
     blob = json.dumps(summary)
     if leaks_key(blob):
         print("Refusing to write evidence: a Census key leaked into the record.", file=sys.stderr)

@@ -491,9 +491,16 @@ def test_a_registered_reference_cannot_be_edited_and_a_new_one_may_be_added(
     assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(L=reference_l("r2.json")))})
 
 
-def promoted(run: str, verdict: str = "PASS", head: str = "h3", sha: str = "s3") -> str:
-    row = {"run": run, "verdict": verdict, "head": head, "run_sha256": sha}
-    return json.dumps(row) + chr(10)
+def promoted(
+    run: str,
+    verdict: str = "PASS",
+    head: str = "h3",
+    sha: str = "s3",
+    refs: tuple[str, ...] = ("A", "L"),
+) -> str:
+    # `head` is the head that produced the run; the checkout's own head is deliberately another
+    row = {"run": run, "verdict": verdict, "run_head": head, "head": "c" * 40, "run_sha256": sha}
+    return json.dumps({**row, "refs": list(refs)}) + chr(10)
 
 
 def test_l_moves_only_with_a_pass_record_that_names_the_same_run_file_and_head(
@@ -513,6 +520,9 @@ def test_l_moves_only_with_a_pass_record_that_names_the_same_run_file_and_head(
     assert moves(promoted("other.json"))  # a PASS, but for a different run
     assert moves(promoted("r3.json", head="other"))  # a different head
     assert moves(promoted("r3.json", sha="other"))  # a different file
+    assert moves(promoted("r3.json", refs=("A",)))  # not judged against the L it replaces
+    assert moves(promoted("r3.json", refs=("B",)))  # a compare against some other reference
+    assert moves(promoted("r3.json", refs=("L",)))  # not judged against A
     assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(A={"head": "1"}))})  # removed
 
 

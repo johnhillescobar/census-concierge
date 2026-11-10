@@ -251,6 +251,8 @@ def lab(
         },
     )
     monkeypatch.setattr(mc, "_head", lambda: "f" * 40)
+    monkeypatch.setattr(mc, "_same_code", lambda head: True)  # a real git diff is tested apart
+    monkeypatch.setattr(mc, "_reachable", lambda commit, tip: True)
     protocol["sampling"]["min_families"] = 4  # every cohort is judged, so a pass is reachable
     return {"dir": tmp_path, "now": now}
 
@@ -603,7 +605,10 @@ def test_what_promote_writes_satisfies_the_records_guard_and_a_hand_edit_does_no
     register(lab, "L", complete)
     refs_file, ledger_file = lab["dir"] / "references.json", lab["dir"] / "ledger.jsonl"
     before = refs_file.read_text()
-    assert mc.cmd_promote(write_run(lab["dir"] / "next.json", complete)) == 0
+    # promoted on one commit (f...) from a run produced on another (e...): the usual case
+    produced = with_contract(run(protocol, stamp=stamped("e" * 40, "s1")))
+    assert mc.cmd_promote(write_run(lab["dir"] / "next.json", produced)) == 0
+    assert mc.load_refs()["L"]["head"] == "e" * 40
     after, ledger = refs_file.read_text(), ledger_file.read_text()
 
     repo = lab["dir"] / "repo"
@@ -847,3 +852,131 @@ def test_promotion_labels_the_run_with_the_head_that_produced_it(
     mine = with_contract(run(protocol, stamp=stamped(producing, "s1")))
     assert mc.cmd_promote(write_run(lab["dir"] / "next.json", mine)) == 0
     assert mc.load_refs()["L"]["head"] == producing  # not the "f" * 40 that is checked out
+
+
+# --- findings of the fourth cold review ---------------------------------------------------------
+
+
+def test_a_run_whose_head_is_not_a_full_sha_has_no_usable_provenance(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    for bad in ("HEAD", "main", "--output=x", "abc1234", "E" * 40, 7):
+        made = with_contract(run(protocol, stamp=stamped(bad, "s1")))  # type: ignore[arg-type]
+        assert mc.load_run(write_run(lab["dir"] / "r.json", made)).hashes == {}, bad
+
+
+def test_a_run_of_code_that_changed_since_its_head_is_refused(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    cand = write_run(lab["dir"] / "cand.json", with_contract(run(protocol)))
+    assert not any(c.name == "provenance" for c in mc.compare(cand, ["A"], {}))
+    monkeypatch.setattr(mc, "_same_code", lambda head: False)
+    assert status(mc.compare(cand, ["A"], {}), "provenance") == "FAIL"
+
+
+def test_same_code_and_reachability_are_asked_of_real_git() -> None:
+    head = mc._head()
+    assert mc._same_code(head) and mc._reachable(head, "HEAD")
+    assert not mc._reachable("0" * 40, "HEAD")
+    assert not mc._same_code("0" * 40)
+
+
+def test_the_code_comparison_covers_the_measured_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[tuple[str, ...]] = []
+    monkeypatch.setattr(mc, "_git_status", lambda *args: seen.append(args) or 1)
+    assert mc._same_code("a" * 40) is False
+    assert "api/src" in seen[0] and "scripts/run_demo.py" in seen[0] and "a" * 40 in seen[0]
+
+
+def test_promotion_needs_a_head_that_reached_main(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    before = (lab["dir"] / "references.json").read_bytes()
+    path = write_run(lab["dir"] / "next.json", with_contract(run(protocol)))
+    asked: list[tuple[str, str]] = []
+    monkeypatch.setattr(mc, "_reachable", lambda c, t: asked.append((c, t)) or False)
+    assert mc.cmd_promote(path) == 1
+    assert asked == [("f" * 40, mc.MAIN)]
+    assert (lab["dir"] / "references.json").read_bytes() == before
+    assert not (lab["dir"] / "ledger.jsonl").exists()  # refused before any record is written
+
+
+def test_the_cohorts_a_run_records_must_be_those_of_its_head_too(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    wrong = with_contract(run(protocol, stamp={**STAMP, "cohorts": {"c": "other"}}))
+    checks = mc.compare(write_run(lab["dir"] / "wrong.json", wrong), ["A"], {})
+    assert status(checks, "provenance") == "FAIL"
+
+
+def test_a_head_whose_goldens_are_unreadable_is_a_failure_not_a_traceback(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(head: str | None = None) -> dict[str, Any]:
+        if head:
+            raise KeyError("question")
+        return dict(lab["now"])
+
+    monkeypatch.setattr(mc, "hashes", broken)
+    register(lab, "A", with_contract(run(protocol)))
+    cand = write_run(lab["dir"] / "cand.json", with_contract(run(protocol)))
+    assert status(mc.compare(cand, ["A"], {}), "provenance") == "FAIL"
+
+
+def test_oracle_rows_do_not_describe_a_run_scored_under_other_cohorts(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old = "e" * 40
+    heads = {old: {"scorer": "s0", "cohorts": {"c": "h"}, "protocol": "p1"}}
+    monkeypatch.setattr(mc, "hashes", lambda head=None: dict(heads.get(head, lab["now"])))
+    register(lab, "A", with_contract(run(protocol)), scorer="s0")
+    stale = with_contract(run(protocol, stamp=stamped(old, "s0")))
+    checks = mc.compare(write_run(lab["dir"] / "stale.json", stale), ["A"], {})
+    assert status(checks, "applies") == "UNKNOWN"
+    fresh = write_run(lab["dir"] / "fresh.json", with_contract(run(protocol)))
+    assert "applies" not in [c.name for c in mc.compare(fresh, ["A"], {})]
+
+
+def test_a_bridge_is_looked_up_by_the_scorer_that_scored_the_candidate(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scored_by = "e" * 40
+    heads = {scored_by: {"scorer": "s2", "cohorts": {"c": "h"}, "protocol": "p1"}}
+    monkeypatch.setattr(mc, "hashes", lambda head=None: dict(heads.get(head, lab["now"])))
+    ids = families_of(protocol, "long_tail", 6)
+    register(lab, "A", with_contract(run(protocol, losing("long_tail", ids))), scorer="s0")
+    rescored = write_run(lab["dir"] / "rescored.json", with_contract(run(protocol)))
+    bridge = {
+        "ref": "A",
+        "from_scorer": "s0",
+        "to_scorer": "s2",  # the candidate's scorer; the checkout has s1
+        "from_cohorts": {"c": "h"},
+        "to_cohorts": {"c": "h"},
+        "rescored_run": rescored,
+        "rescored_sha256": hashlib.sha256(Path(rescored).read_bytes()).hexdigest(),
+        "note": "same trials, s2",
+    }
+    (lab["dir"] / "bridges.json").write_text(json.dumps([bridge]))
+    cand = with_contract(run(protocol, stamp=stamped(scored_by, "s2")))
+    checks = mc.compare(write_run(lab["dir"] / "cand.json", cand), ["A"], {})
+    assert "bridged" in next(c.detail for c in checks if c.name == "reference label")
+
+
+@pytest.mark.parametrize(
+    "damage", [{"answered": None}, {"latency_s": None}, {"latency_s": float("nan")}]
+)
+def test_a_trial_the_metrics_cannot_read_is_a_bad_file_not_a_traceback(
+    protocol: dict[str, Any], lab: dict[str, Any], damage: dict[str, Any]
+) -> None:
+    made = with_contract(run(protocol))
+    victim = made.trials[0]
+    for key, value in damage.items():
+        if value is None:
+            del victim[key]
+        else:
+            victim[key] = value
+    cand = write_run(lab["dir"] / "cand.json", made)
+    assert status(mc.compare(cand, ["A"], {}), "candidate run file") == "FAIL"

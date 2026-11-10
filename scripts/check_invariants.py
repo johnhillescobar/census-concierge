@@ -841,11 +841,17 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
                 flag(refs, "reference L is not a complete entry (run, head, run_sha256)")
             elif entry != before.get("L"):
                 # L moves only through `promote`, which appends a PASS record that names the
-                # same run, the same file hash and the same head the new L carries
+                # same run, file hash and producing head the new L carries, judged against A
+                # and the L it replaces
                 grown = now(ledger)[len((_text_at(base, ledger) or "").replace("\r\n", "\n")) :]
                 records = [_json_object(line) for line in grown.splitlines()]
+                held = {"A", *(["L"] if "L" in before else [])}  # what a promotion is judged by
                 if not any(
-                    r.get("verdict") == "PASS" and all(r.get(k) == entry[k] for k in keys)
+                    r.get("verdict") == "PASS"
+                    and all(r.get(k) == entry[k] for k in ("run", "run_sha256"))
+                    and r.get("run_head") == entry["head"]
+                    and isinstance(r.get("refs"), list)
+                    and held <= set(r["refs"])
                     for r in records
                 ):
                     flag(refs, "reference L changed with no matching PASS record in the ledger")

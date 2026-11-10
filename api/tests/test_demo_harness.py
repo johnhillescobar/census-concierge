@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -599,3 +601,34 @@ def test_a_run_records_the_head_and_hashes_it_was_scored_under(tmp_path: Path) -
     saved = tmp_path / "latest.json"
     saved.write_text(json.dumps({"retrieval_at_10": 0.9, "demo": summary}), encoding="utf-8")
     assert metric_compare.load_run(saved).hashes == stamp  # what the comparator reads back
+
+
+def test_the_recorded_head_is_the_checked_out_head() -> None:
+    import subprocess
+
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=run_demo.ROOT, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert run_demo.provenance()["head"] == head
+
+
+def test_a_provenance_failure_keeps_the_run_with_no_stamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    import metric_compare
+
+    def broken() -> dict[str, Any]:
+        raise KeyError("question")
+
+    monkeypatch.setattr(metric_compare, "hashes", broken)
+    assert run_demo.provenance() == {}
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+    assert summary["provenance"] == {} and summary["trials"]
+
+
+def test_a_stamp_taken_at_the_start_is_the_one_summarize_records() -> None:
+    stamp = {"head": "a" * 40}
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i", stamp=stamp)
+    assert summary["provenance"] == stamp
+
+
+def test_a_response_with_no_rows_has_no_margin_of_error() -> None:
+    assert _contract(rows=[], moe=[{"B01003_001M": "5"}])[0] is False
