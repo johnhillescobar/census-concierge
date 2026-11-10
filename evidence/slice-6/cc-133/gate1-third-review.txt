@@ -1,0 +1,158 @@
+HEAD 0648a856556a0c056d9762431442e66ca2274d38; tests are the uncommitted working-tree versions
+
+== affects-type-unchecked
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.09s
+BAD   mutated:    rc=0 18 passed, 1 warning in 1.10s  -> SURVIVED
+   restored; diff of scripts/closure.py: clean
+== affects-empty-allowed
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.37s
+BAD   mutated:    rc=1 1 failed, 4 passed, 1 warning in 1.25s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== affects-pathspec-magic-allowed
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 0.98s
+BAD   mutated:    rc=0 18 passed, 1 warning in 1.05s  -> SURVIVED
+   restored; diff of scripts/closure.py: clean
+== affects-existence-unchecked
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.03s
+BAD   mutated:    rc=1 1 failed, 1 passed, 1 warning in 1.23s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== tested-head-any-string
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.00s
+BAD   mutated:    rc=1 1 failed, 6 passed, 1 warning in 1.28s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== hash-charset-unchecked
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.13s
+BAD   mutated:    rc=1 1 failed, 9 passed, 1 warning in 1.20s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== hash-length-unchecked
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.11s
+BAD   mutated:    rc=0 18 passed, 1 warning in 1.05s  -> SURVIVED
+   restored; diff of scripts/closure.py: clean
+== blank-fields-allowed
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.10s
+BAD   mutated:    rc=1 1 failed, 10 passed, 1 warning in 1.23s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== evidence-string-allowed
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.16s
+BAD   mutated:    rc=1 1 failed, 15 passed, 1 warning in 1.13s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== evidence-empty-allowed
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 18 passed, 1 warning in 1.06s
+BAD   mutated:    rc=1 1 failed, 16 passed, 1 warning in 1.21s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== post-merge-unpinned-allowed
+   test: api/tests/test_closure_gate.py::test_the_post_merge_run_must_be_pinned_a_hash_and_contain_the_tested_work
+GOOD  unmodified: rc=0 1 passed, 1 warning in 4.05s
+BAD   mutated:    rc=1 1 failed, 1 warning in 2.95s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== post-merge-head-not-hash-allowed
+   test: api/tests/test_closure_gate.py::test_the_post_merge_run_must_be_pinned_a_hash_and_contain_the_tested_work
+GOOD  unmodified: rc=0 1 passed, 1 warning in 4.11s
+BAD   mutated:    rc=1 1 failed, 1 warning in 3.29s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== post-merge-containment-unchecked
+   test: api/tests/test_closure_gate.py::test_the_post_merge_run_must_be_pinned_a_hash_and_contain_the_tested_work
+GOOD  unmodified: rc=0 1 passed, 1 warning in 4.28s
+BAD   mutated:    rc=1 1 failed, 1 warning in 4.08s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== adf-line-nodes-reduced
+   test: api/tests/test_closure_gate.py::test_adf_lists_and_code_blocks_keep_their_ids_on_separate_lines
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.07s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.15s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== open-paren-not-stripped
+   test: api/tests/test_closure_gate.py::test_adf_lists_and_code_blocks_keep_their_ids_on_separate_lines
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.05s
+   MUTATION NOT APPLIED (pattern absent)
+== chore-list-widened
+   test: api/tests/test_closure_gate.py::test_only_known_chore_types_skip_the_ac_requirement
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.06s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.24s  -> CAUGHT
+   restored; diff of scripts/jira_transition.py: clean
+== only-story-and-bug-refused
+   test: api/tests/test_closure_gate.py::test_only_known_chore_types_skip_the_ac_requirement
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.09s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.24s  -> CAUGHT
+   restored; diff of scripts/jira_transition.py: clean
+== L-keys-reduced
+   test: api/tests/test_closure_gate.py::test_l_moves_only_with_a_pass_record_that_names_the_same_run_file_and_head
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.10s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.28s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== L-entry-shape-unchecked
+   test: api/tests/test_closure_gate.py::test_an_l_that_is_not_a_complete_entry_cannot_slip_past_a_bare_ledger_line
+GOOD  unmodified: rc=0 5 passed, 1 warning in 0.09s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.29s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== non-utf8-crashes
+   test: api/tests/test_closure_gate.py::test_a_ledger_with_bytes_that_are_not_utf8_is_a_violation_not_a_crash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.11s
+BAD   mutated:    rc=0 1 passed, 1 warning in 0.07s  -> SURVIVED
+   restored; diff of scripts/check_invariants.py: clean
+== accepted-table-unchecked
+   test: api/tests/test_closure_gate.py::test_an_oracle_review_whose_accepted_is_not_a_table_is_a_violation_not_a_crash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.13s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.28s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== bad-bridges-marker-constant
+   test: api/tests/test_closure_gate.py::test_a_bridge_is_owner_only_whether_added_changed_or_removed
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.10s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.29s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== not-a-list-marker-constant
+   test: api/tests/test_closure_gate.py::test_a_bridge_is_owner_only_whether_added_changed_or_removed
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.12s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.33s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== judge-empty-unguarded
+   test: api/tests/test_metric_compare.py::test_judging_no_families_is_inconclusive_not_a_crash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.06s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.25s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== run-load-errors-narrowed
+   test: api/tests/test_metric_compare.py::test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception
+GOOD  unmodified: rc=0 6 passed, 1 warning in 0.24s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.22s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== candidate-load-unguarded
+   test: api/tests/test_metric_compare.py::test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception
+GOOD  unmodified: rc=0 6 passed, 1 warning in 0.21s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.36s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== reference-load-unguarded
+   test: api/tests/test_metric_compare.py::test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception
+GOOD  unmodified: rc=0 6 passed, 1 warning in 0.29s
+BAD   mutated:    rc=0 6 passed, 1 warning in 0.22s  -> SURVIVED
+   restored; diff of scripts/metric_compare.py: clean
+== missing-ref-metric-skipped
+   test: api/tests/test_metric_compare.py::test_a_regression_metric_the_reference_does_not_report_is_unknown_not_skipped
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.09s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.21s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== compare-without-refs-allowed
+   test: api/tests/test_metric_compare.py::test_compare_without_a_reference_is_refused_and_writes_no_record
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.07s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.27s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== ledger-row-without-run-hash
+   test: api/tests/test_metric_compare.py::test_the_ledger_row_names_the_run_file_by_hash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.33s
+BAD   mutated:    rc=0 1 passed, 1 warning in 0.16s  -> SURVIVED
+   restored; diff of scripts/metric_compare.py: clean
+== non-atomic-references-write
+   test: api/tests/test_metric_compare.py::test_an_interrupted_write_of_the_references_leaves_the_old_file_whole
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.12s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.23s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+
+31 mutations, 24 caught, 7 survived

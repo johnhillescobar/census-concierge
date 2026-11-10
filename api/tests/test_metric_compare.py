@@ -632,9 +632,12 @@ def test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception(
     assert status(mc.compare(str(bad), ["A"], {}), "candidate run file") == "FAIL"
     register(lab, "A", run(protocol))
     good = write_run(lab["dir"] / "good.json", run(protocol))
-    Path(mc.load_refs()["A"]["run"]).write_text(text)  # a reference whose file went bad
+    refs = mc.load_refs()
+    Path(refs["A"]["run"]).write_text(text)  # a reference whose file went bad...
+    refs["A"]["run_sha256"] = hashlib.sha256(Path(refs["A"]["run"]).read_bytes()).hexdigest()
+    (lab["dir"] / "references.json").write_text(json.dumps(refs))  # ...with its hash re-pinned
     checks = mc.compare(good, ["A"], {})
-    assert any(c.status == "FAIL" for c in checks if c.ref == "A")
+    assert status(checks, "reference run file") == "FAIL"
 
 
 def test_a_regression_metric_the_reference_does_not_report_is_unknown_not_skipped(

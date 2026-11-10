@@ -33,6 +33,8 @@ def make_repo(path: Path) -> Path:
     (path / "src" / "code.py").write_text("one\n")
     (path / "gate1.txt").write_text("42 of 42 mutations caught\n")
     (path / "e2e-post.txt").write_text("demo\n")
+    for name in ("s", "r", "c", "-p"):  # real paths, so only the type and option checks stop them
+        (path / name).write_text("x")
     git(path, "add", "-A")
     git(path, "commit", "-q", "-m", "first")
     return path
@@ -647,6 +649,8 @@ def test_an_issue_key_that_is_not_a_key_is_refused_before_any_request(
         {"tested_head": "main"},
         {"tested_head": "--stat"},
         {"tested_head": "zzzzzzz"},
+        {"tested_head": "abc"},  # hex, but too short to name a commit
+        {"tested_head": "a" * 41},
         {"command": "   "},
         {"expected": "   "},
         {"observed": "   "},

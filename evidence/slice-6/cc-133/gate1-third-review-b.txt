@@ -1,0 +1,39 @@
+HEAD 0648a856556a0c056d9762431442e66ca2274d38; tests are the uncommitted working-tree versions
+
+== affects-type-unchecked
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 20 passed, 1 warning in 1.35s
+BAD   mutated:    rc=1 1 failed, 1 warning in 1.41s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== affects-pathspec-magic-allowed
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 20 passed, 1 warning in 1.19s
+BAD   mutated:    rc=1 1 failed, 3 passed, 1 warning in 1.18s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== hash-length-unchecked
+   test: api/tests/test_closure_gate.py::test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check
+GOOD  unmodified: rc=0 20 passed, 1 warning in 1.10s
+BAD   mutated:    rc=1 1 failed, 10 passed, 1 warning in 1.30s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== open-paren-not-stripped
+   test: api/tests/test_closure_gate.py::test_adf_lists_and_code_blocks_keep_their_ids_on_separate_lines
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.19s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== non-utf8-crashes
+   test: api/tests/test_closure_gate.py::test_a_ledger_with_bytes_that_are_not_utf8_is_a_violation_not_a_crash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.14s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.24s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== reference-load-unguarded
+   test: api/tests/test_metric_compare.py::test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception
+GOOD  unmodified: rc=0 6 passed, 1 warning in 0.33s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.24s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== ledger-row-without-run-hash
+   test: api/tests/test_metric_compare.py::test_the_ledger_row_names_the_run_file_by_hash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.10s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.22s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+
+7 mutations, 7 caught, 0 survived
