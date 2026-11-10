@@ -509,6 +509,7 @@ def test_a_bridge_is_owner_only_whether_added_changed_or_removed(
     assert records(monkeypatch, tmp_path, {bridges: (one, '[{"ref": "A", "note": "y"}]')})
     assert records(monkeypatch, tmp_path, {bridges: (one, "[]")})
     assert records(monkeypatch, tmp_path, {bridges: (one, "not json")})
+    assert records(monkeypatch, tmp_path, {bridges: (None, "not json")})  # nothing to remove
 
 
 def test_the_ledger_only_grows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
