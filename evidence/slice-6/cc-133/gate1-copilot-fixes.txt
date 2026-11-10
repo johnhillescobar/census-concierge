@@ -1,0 +1,23 @@
+Mutation check of the fixes in 3863438 and 19264bd (Copilot review of PR 127), run after the commit.
+Each line is one mutant of the production code; the tests in test_metric_compare.py and
+test_demo_harness.py must fail on it. Result: 17 of 17 caught.
+
+CAUGHT   contract: long_tail answered only
+CAUGHT   planned: not called on candidate
+CAUGHT   planned: not called on reference
+CAUGHT   planned: extra ignored
+CAUGHT   planned: duplicates ignored
+CAUGHT   planned: missing ignored
+CAUGHT   planned: malformed trial crashes
+CAUGHT   provenance ignored: judged by checkout
+CAUGHT   provenance: no head check
+CAUGHT   provenance: protocol not checked
+CAUGHT   provenance: missing is PASS
+CAUGHT   provenance: partial accepted
+CAUGHT   promote: checkout head
+CAUGHT   has_moe: any estimate covered
+CAUGHT   has_moe: needs a value
+CAUGHT   has_moe: no estimate passes
+CAUGHT   provenance not in summary
+(Earlier in that pass one 'uncheckable head passes' mutant was also caught; the first run's survivors,
+the untested main() wiring, led to moving the stamp into summarize.)

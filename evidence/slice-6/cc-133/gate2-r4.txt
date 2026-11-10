@@ -1,0 +1,32 @@
+Gate 2, fourth cold review of fdfce78..6f1c55b (fresh agent, isolated worktree). Verdict: NOT YET.
+Findings as reported, with what was done about each. The reviewer's own scratch work edited nothing.
+
+1 blocker  promote labels L with the run's producing head; the PASS ledger row carried the checkout's head,
+           and the records guard requires them equal.            FIXED e539f04: row carries run_head, guard
+           compares it; test promotes from head e... on checkout f... and runs the real guard.
+2 blocker  a run is not tied to the code under judgment (head could be any commit; no check that api/src is
+           the code measured; head captured after the run).     FIXED e539f04: api/src and scripts/run_demo.py
+           must be identical at the run's head and HEAD (_same_code); the stamp is taken before the first
+           question and dropped if the checkout moved (unmoved); promote needs a head reachable from
+           origin/main. NOT covered: uncommitted edits to api/src in the working tree are not detected.
+3 should   recorded head passed to git unvalidated.              FIXED: full lowercase 40-hex SHA or the
+           provenance is treated as absent.
+4 should   retrieval_at_10 / selector_at_1 are top-level keys merged by other scripts and are not covered by
+           provenance.                                           NOT FIXED: needs eval_retrieval.py and
+           score_synthetic.py to stamp their own head. Open; recorded in the PR body and the manifest.
+5 should   the guard did not require the PASS record to be a comparison against A and the replaced L.
+                                                                 FIXED: refs must be a list containing A
+           (and L when L existed before); a string of letters does not count.
+6 should   the oracle row was judged on the checkout, not the run. FIXED: an `oracle applies` UNKNOWN row
+           when the run's scorer or cohorts differ from the checkout's.
+7 should   provenance() could lose a finished run.                FIXED: any failure gives {} (UNKNOWN).
+8 should   has_moe / has_geoid / _is_estimate are outside the scorer hash. NOT DONE: editing
+           evals/metric_protocol.toml [scorer].symbols is an owner commit. Open.
+9 nit      four surviving mutants / non-discriminating tests.     FIXED: tests added, all caught.
+10 nit     no mutation transcript for the Copilot-fix delta.      DONE: gate1-fourth-review.txt (26 mutants
+           of the fourth-review fixes) and gate1-copilot-fixes.txt (17 mutants of 3863438/19264bd).
+11 nit     crash paths (missing answered / latency_s, NaN latency, KeyError from a head's goldens).
+                                                                 FIXED: bad file or FAIL row, never a trace.
+12 nit     NO_AC_TYPES contains "epic"; an epic whose description yields no AC ids closes unchecked.
+                                                                 NOT CHANGED: by design (CC-3 carries ACs
+           and is parsed); noted for the owner.
