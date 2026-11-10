@@ -1,11 +1,11 @@
 CAUGHT   dirty flag ignored
 CAUGHT   dirty needs only truthy
-PATTERN MISSING dirty not part of the stamp
+CAUGHT   dirty not part of the stamp
 CAUGHT   same_code drops uv.lock
 CAUGHT   same_code drops pyproject
-SURVIVED run_demo: dirty never recorded
-SURVIVED run_demo: moved dirty ignored
-SURVIVED run_demo: dirty status over wrong paths
+CAUGHT   run_demo: dirty never recorded
+CAUGHT   run_demo: moved dirty ignored
+CAUGHT   run_demo: dirty status over wrong paths
 CAUGHT   closure: evidence not pinned for PASS
 CAUGHT   closure: mutation not pinned
 CAUGHT   closure: pin check off
@@ -21,4 +21,7 @@ CAUGHT   jira: cancellation without reason
 SURVIVED jira: done exempt
 CAUGHT   guard: new store unchecked
 CAUGHT   run_demo: row with no estimate fails
-survivors/missing: 5
+survivors/missing: 1
+
+Note: "jira: done exempt" is an equivalent mutant. --done sets the target to "Done", which is never in
+CANCELLED, so dropping the `not args.done` guard cannot change behaviour. 23 of 24 caught, 0 real survivors.
