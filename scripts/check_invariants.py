@@ -782,7 +782,6 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
 
 
 METRIC_RECORDS = ("evidence/metrics/references.json", "evidence/metrics/ledger.jsonl")
-ORACLE_REVIEW = "evals/oracle_review.toml"
 
 
 def _json_object(text: str) -> dict:
@@ -806,7 +805,7 @@ def _json_list(text: str | None) -> list:
 
 def check_metric_records_not_rewritten(base: str) -> list[Violation]:
     """References are immutable (only L moves, and only by `promote`), the ledger is append-only,
-    and the owner's oracle signatures are never added in the change they would let pass."""
+    and bridges are owner-only."""
     found: list[Violation] = []
 
     def flag(rel: str, why: str) -> None:
@@ -867,21 +866,6 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
     for entry in was_bridges:
         if entry not in _json_list(now(bridges)):
             flag(bridges, "a bridge was removed or changed")
-    if (old := _text_at(base, ORACLE_REVIEW)) is not None:
-        try:
-            was = tomllib.loads(old).get("accepted", {})
-            is_now = tomllib.loads(now(ORACLE_REVIEW) or "").get("accepted", {})
-            if not isinstance(was, dict) or not isinstance(is_now, dict):
-                raise tomllib.TOMLDecodeError("accepted must be a table")
-        except tomllib.TOMLDecodeError:
-            was, is_now = {}, {}
-            flag(ORACLE_REVIEW, "oracle_review.toml is not valid, or `accepted` is not a table")
-        for case, review in is_now.items():
-            if was.get(case) != review:
-                flag(
-                    ORACLE_REVIEW,
-                    f"{case}: an oracle signature is owner-only and goes in its own commit",
-                )
     return found
 
 

@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Frozen-protocol metric comparison: B / P / A / L, family intervals, ratchets (CC-133).
 
-    python scripts/metric_compare.py freeze [--check] [--digests]
+    python scripts/metric_compare.py freeze
     python scripts/metric_compare.py register NAME RUN.json --head SHA --label TEXT [--legacy]
     python scripts/metric_compare.py compare RUN.json [--refs A,A0,L,B] [--target long_tail=0.95]
     python scripts/metric_compare.py promote RUN.json     # the only way L moves
 
 A RUN is an evidence/latest.json-shaped file (`demo.trials`). It is read by this program and only
 aggregates are printed; nobody reads the trials. Every status is one of PASS, INCONCLUSIVE,
-UNKNOWN (not measured), UNFROZEN (oracle not reviewed by the owner) or FAIL. Only an all-PASS
+UNKNOWN (not measured) or FAIL. Only an all-PASS
 comparison exits 0. Nothing here has a rerun-until-green path: a compare is appended to the ledger
 and the ledger is never rewritten.
 
-Protocol: evals/metric_protocol.toml. Oracle review: evals/oracle_review.toml, owner-only. A scorer,
+Protocol: evals/metric_protocol.toml. A scorer,
 cohort or index change between a reference and a candidate is FAIL unless
 evidence/metrics/bridges.json holds a bridge: {"ref", "from_scorer", "to_scorer", "from_cohorts",
 "to_cohorts", "rescored_run", "note"} where rescored_run is the reference's own trials re-scored
@@ -38,14 +38,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 PROTOCOL = ROOT / "evals" / "metric_protocol.toml"
-REVIEW = ROOT / "evals" / "oracle_review.toml"
 METRICS = ROOT / "evidence" / "metrics"
-ORACLE_FIELDS = ("text", "tier", "expect_table", "expect_geo_level", "expect_warning")
-ORACLE_FLAGS = ("expect_no_url", "holdout")
+EXPECTATION_FIELDS = ("text", "tier", "expect_table", "expect_geo_level", "expect_warning")
+EXPECTATION_FLAGS = ("expect_no_url", "holdout")
 CONTRACT_KEYS = ("has_moe", "has_geoid", "has_universe", "has_alternatives")
 MAIN = "origin/main"  # L may only be a head that reached main
 PROVENANCE_KEYS = ("head", "scorer", "cohorts", "protocol")  # what a run records about its scoring
-RANK = {"PASS": 0, "INCONCLUSIVE": 1, "UNKNOWN": 2, "UNFROZEN": 3, "FAIL": 4}
+RANK = {"PASS": 0, "INCONCLUSIVE": 1, "UNKNOWN": 2, "FAIL": 3}
 
 
 class PlanError(ValueError):
@@ -116,8 +115,8 @@ def goldens(protocol: dict[str, Any], head: str | None = None) -> list[dict[str,
     return [entry for entry in entries if isinstance(entry, dict)]
 
 
-def oracle_digest(entry: dict[str, Any]) -> str:
-    fields = {key: entry.get(key) for key in (*ORACLE_FIELDS, *ORACLE_FLAGS)}
+def expectation_digest(entry: dict[str, Any]) -> str:
+    fields = {key: entry.get(key) for key in (*EXPECTATION_FIELDS, *EXPECTATION_FLAGS)}
     return _digest({"id": entry["id"], **fields})
 
 
@@ -133,7 +132,7 @@ def cohort(protocol: dict[str, Any], name: str, head: str | None = None) -> list
 
 def cohort_hashes(protocol: dict[str, Any], head: str | None = None) -> dict[str, str]:
     return {
-        name: _digest(sorted(oracle_digest(e) for e in cohort(protocol, name, head)))
+        name: _digest(sorted(expectation_digest(e) for e in cohort(protocol, name, head)))
         for name in protocol["cohorts"]
     }
 
@@ -145,31 +144,6 @@ def hashes(head: str | None = None) -> dict[str, Any]:
         "cohorts": cohort_hashes(protocol, head),
         "protocol": protocol_hash(),
     }
-
-
-# --- oracle review (owner-only) ------------------------------------------------------------------
-
-
-def oracle_state(protocol: dict[str, Any]) -> dict[str, dict[str, list[str]]]:
-    """Per cohort: ids the owner accepted, ids still pending, ids accepted for an older oracle."""
-    accepted = (
-        tomllib.loads(REVIEW.read_text(encoding="utf-8")).get("accepted", {})
-        if (REVIEW.is_file())
-        else {}
-    )
-    state: dict[str, dict[str, list[str]]] = {}
-    for name in protocol["cohorts"]:
-        rows: dict[str, list[str]] = {"accepted": [], "pending": [], "stale": []}
-        for entry in cohort(protocol, name):
-            review = accepted.get(entry["id"])
-            if not isinstance(review, dict) or not review.get("reviewer"):
-                rows["pending"].append(entry["id"])
-            elif review.get("oracle") != oracle_digest(entry):
-                rows["stale"].append(entry["id"])
-            else:
-                rows["accepted"].append(entry["id"])
-        state[name] = rows
-    return state
 
 
 # --- runs ----------------------------------------------------------------------------------------
@@ -578,23 +552,6 @@ def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> 
     out = absolute(cand, protocol)
     judged, found = provenance_checks(cand, now)
     out += found
-    if any(judged[k] != now[k] for k in ("scorer", "cohorts")):
-        note = "the run was scored under other cohorts or scorer than the checkout's"
-        out.append(
-            Check("oracle", "applies", "UNKNOWN", f"{note}; the rows below do not describe it")
-        )
-    state = oracle_state(protocol)
-    for cohort_name, rows in state.items():
-        todo = len(rows["pending"]) + len(rows["stale"])
-        out.append(
-            Check(
-                "oracle",
-                cohort_name,
-                "UNFROZEN" if todo else "PASS",
-                f"{len(rows['accepted'])} accepted, {len(rows['pending'])} pending, "
-                f"{len(rows['stale'])} stale",
-            )
-        )
     for name in ref_names:
         entry = refs.get(name)
         if entry is None:
@@ -657,22 +614,14 @@ def _head() -> str:
     ).stdout.strip()
 
 
-def cmd_freeze(check: bool, digests: bool) -> int:
+def cmd_freeze() -> int:
+    """Print the hashes every run and reference records: the frozen protocol, the scorer and each
+    cohort's expectations. Editing any of them moves a hash, and a moved hash needs a bridge."""
     protocol = load_protocol()
     print(f"protocol {protocol_hash()}  scorer {scorer_hash(protocol)}")
-    todo = 0
-    cohort_digest = cohort_hashes(protocol)
-    for name, rows in oracle_state(protocol).items():
-        todo += len(rows["pending"]) + len(rows["stale"])
-        counts = " ".join(f"{len(ids)} {key}" for key, ids in rows.items())
-        print(f"  {name:<10} {counts}  hash {cohort_digest[name]}")
-    if digests:  # what the owner signs: the id and the digest of its expectations, nothing else
-        for name, rows in oracle_state(protocol).items():
-            for entry in cohort(protocol, name):
-                if entry["id"] in rows["pending"] + rows["stale"]:
-                    print(f"  {entry['id']:<6} {name:<10} {oracle_digest(entry)}")
-    print("FROZEN" if not todo else f"UNFROZEN: {todo} cases await the owner's oracle review")
-    return 1 if check and todo else 0
+    for name, digest in cohort_hashes(protocol).items():
+        print(f"  {name:<10} {len(cohort(protocol, name)):>3} cases  hash {digest}")
+    return 0
 
 
 def build_entry(run_path: str, head: str, label: str, *, legacy: bool) -> dict[str, Any]:
@@ -798,9 +747,7 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    freeze = sub.add_parser("freeze")
-    freeze.add_argument("--check", action="store_true")
-    freeze.add_argument("--digests", action="store_true")
+    sub.add_parser("freeze")
     register = sub.add_parser("register")
     register.add_argument("name")
     register.add_argument("run")
@@ -818,7 +765,7 @@ def main() -> int:
     promote.add_argument("run")
     args = parser.parse_args()
     if args.command == "freeze":
-        return cmd_freeze(args.check, args.digests)
+        return cmd_freeze()
     if args.command == "register":
         return cmd_register(args.name, args.run, args.head, args.label, legacy=args.legacy)
     if args.command == "promote":

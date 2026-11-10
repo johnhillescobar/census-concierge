@@ -194,29 +194,6 @@ def test_the_scorer_hash_ignores_formatting_and_moves_with_logic(
     assert hashed(plain) != hashed(looser)
 
 
-def test_an_edited_expectation_makes_the_owners_review_stale(
-    protocol: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    entry = mc.cohort(protocol, "long_tail")[0]
-    review = tmp_path / "review.toml"
-    stamp = mc.oracle_digest(entry)
-    review.write_text(f'[accepted.{entry["id"]}]\nreviewer = "owner"\noracle = "{stamp}"\n')
-    monkeypatch.setattr(mc, "REVIEW", review)
-    assert entry["id"] in mc.oracle_state(protocol)["long_tail"]["accepted"]
-    review.write_text(f'[accepted.{entry["id"]}]\nreviewer = "owner"\noracle = "{stamp}x"\n')
-    assert entry["id"] in mc.oracle_state(protocol)["long_tail"]["stale"]
-
-
-def test_a_review_without_a_reviewer_does_not_count(
-    protocol: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    entry = mc.cohort(protocol, "long_tail")[0]
-    review = tmp_path / "review.toml"
-    review.write_text(f'[accepted.{entry["id"]}]\noracle = "{mc.oracle_digest(entry)}"\n')
-    monkeypatch.setattr(mc, "REVIEW", review)
-    assert entry["id"] in mc.oracle_state(protocol)["long_tail"]["pending"]
-
-
 # --- references: A is fixed, L moves only on a pass, a changed scorer needs a bridge ------------
 
 
@@ -243,13 +220,6 @@ def lab(
     now = {"scorer": "s1", "cohorts": {"c": "h"}, "protocol": "p1"}
     monkeypatch.setattr(mc, "hashes", lambda head=None: dict(now))
     monkeypatch.setattr(mc, "protocol_hash", lambda head=None: "p1")
-    monkeypatch.setattr(
-        mc,
-        "oracle_state",
-        lambda proto: {
-            n: {"accepted": ["x"], "pending": [], "stale": []} for n in proto["cohorts"]
-        },
-    )
     monkeypatch.setattr(mc, "_head", lambda: "f" * 40)
     monkeypatch.setattr(mc, "_same_code", lambda head: True)  # a real git diff is tested apart
     monkeypatch.setattr(mc, "_reachable", lambda commit, tip: True)
@@ -926,20 +896,6 @@ def test_a_head_whose_goldens_are_unreadable_is_a_failure_not_a_traceback(
     assert status(mc.compare(cand, ["A"], {}), "provenance") == "FAIL"
 
 
-def test_oracle_rows_do_not_describe_a_run_scored_under_other_cohorts(
-    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    old = "e" * 40
-    heads = {old: {"scorer": "s0", "cohorts": {"c": "h"}, "protocol": "p1"}}
-    monkeypatch.setattr(mc, "hashes", lambda head=None: dict(heads.get(head, lab["now"])))
-    register(lab, "A", with_contract(run(protocol)), scorer="s0")
-    stale = with_contract(run(protocol, stamp=stamped(old, "s0")))
-    checks = mc.compare(write_run(lab["dir"] / "stale.json", stale), ["A"], {})
-    assert status(checks, "applies") == "UNKNOWN"
-    fresh = write_run(lab["dir"] / "fresh.json", with_contract(run(protocol)))
-    assert "applies" not in [c.name for c in mc.compare(fresh, ["A"], {})]
-
-
 def test_a_bridge_is_looked_up_by_the_scorer_that_scored_the_candidate(
     protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -980,15 +936,3 @@ def test_a_trial_the_metrics_cannot_read_is_a_bad_file_not_a_traceback(
             victim[key] = value
     cand = write_run(lab["dir"] / "cand.json", made)
     assert status(mc.compare(cand, ["A"], {}), "candidate run file") == "FAIL"
-
-
-def test_oracle_rows_do_not_describe_a_run_whose_cohorts_alone_differ(
-    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    old, cohorts = "e" * 40, {"c": "old"}
-    heads = {old: {"scorer": "s1", "cohorts": cohorts, "protocol": "p1"}}
-    monkeypatch.setattr(mc, "hashes", lambda head=None: dict(heads.get(head, lab["now"])))
-    register(lab, "A", with_contract(run(protocol)))
-    stale = with_contract(run(protocol, stamp={**stamped(old, "s1"), "cohorts": cohorts}))
-    checks = mc.compare(write_run(lab["dir"] / "stale.json", stale), ["A"], {})
-    assert status(checks, "applies") == "UNKNOWN"

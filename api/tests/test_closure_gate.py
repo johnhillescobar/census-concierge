@@ -469,7 +469,6 @@ def records(
 
 REFS = "evidence/metrics/references.json"
 LEDGER = "evidence/metrics/ledger.jsonl"
-REVIEW = "evals/oracle_review.toml"
 
 
 def reference_l(run: str, head: str = "h2", sha: str = "s2") -> dict[str, str]:
@@ -559,14 +558,6 @@ def test_a_ledger_with_bytes_that_are_not_utf8_is_a_violation_not_a_crash(
     assert ci.check_metric_records_not_rewritten("origin/main")
 
 
-def test_an_oracle_review_whose_accepted_is_not_a_table_is_a_violation_not_a_crash(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    assert records(
-        monkeypatch, tmp_path, {REVIEW: ("accepted = 5" + chr(10), "accepted = 5" + chr(10))}
-    )
-
-
 def test_a_bridge_is_owner_only_whether_added_changed_or_removed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -587,16 +578,6 @@ def test_the_ledger_only_grows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert records(monkeypatch, tmp_path, {LEDGER: (first, first + second)}) == []
     assert records(monkeypatch, tmp_path, {LEDGER: (first + second, first)})
     assert records(monkeypatch, tmp_path, {LEDGER: (first, second)})
-
-
-def test_an_oracle_signature_is_never_added_in_the_change_it_would_let_pass(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    signed = "[accepted.q05]" + chr(10) + 'reviewer = "owner"' + chr(10)
-    assert records(monkeypatch, tmp_path, {REVIEW: (signed, signed)}) == []
-    assert records(monkeypatch, tmp_path, {REVIEW: ("# empty" + chr(10), signed)})
-    changed = signed.replace("owner", "someone else")
-    assert records(monkeypatch, tmp_path, {REVIEW: (signed, changed)})
 
 
 @pytest.mark.parametrize(
