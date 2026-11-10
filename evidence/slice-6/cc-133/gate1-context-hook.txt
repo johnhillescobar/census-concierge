@@ -1,0 +1,20 @@
+CAUGHT   sums only input_tokens
+CAUGHT   drops cache reads
+CAUGHT   counts sidechain
+CAUGHT   oldest row not newest
+CAUGHT   threshold ignored
+CAUGHT   always warns again
+CAUGHT   never warns again
+CAUGHT   marker kept after clear
+CAUGHT   sessions share a marker
+CAUGHT   event name fixed
+CAUGHT   warning omits clear
+CAUGHT   oldest state printed
+CAUGHT   reminder dropped
+CAUGHT   missing transcript crashes
+survivors/missing: 0
+
+Real-command check (the exact settings.json commands, real payloads, this session's transcript at a 400k window):
+UserPromptSubmit, PostToolUse and SessionStart all exit 0 with the right output through both Git Bash and PowerShell.
+A mutant that drops "update the slice's STATE.md" is equivalent: STATE.md is named elsewhere in the same message.
+The transcript token fields are undocumented; this was checked against the live transcript (matches /context).

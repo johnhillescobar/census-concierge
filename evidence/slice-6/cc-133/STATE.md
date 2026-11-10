@@ -28,14 +28,15 @@ Rules live in `CLAUDE.md` and `docs/playbooks/run-slice.md`; re-read both, they 
 
 ## Done
 
-Instrument built (metric_compare, closure, jira gate, invariants, isolation harness); Gate 1 x5;
-Gate 2 x4 (last one NOT YET, fixes e539f04..); Copilot comments fixed and resolved;
-oracle removed; real-chain tests added.
+Instrument built (metric_compare, closure, jira gate, invariants, isolation harness); Gate 1 x7;
+Gate 2 x5, the last the prescribed way (/code-review then review-pr, gate2-r5.txt, verdict NOT YET,
+findings fixed except the two documented); Copilot comments fixed and resolved; oracle removed;
+real-chain tests added; context hooks (.claude/hooks/ctx.py, .claude/settings.json) added.
 
 ## Open
 
-- Gate 2 must be re-run the prescribed way (`/code-review` then `review-pr`) on the final diff.
-- E2E at the final head (a stopped partial run was discarded).
+- E2E at the final head: `bash evidence/slice-6/cc-133/e2e-r4/driver.sh` (an earlier partial run was
+  discarded). After it: compare, restore latest.json, manifest, PR body, Jira comment, push.
 - Retrieval scalars (`retrieval_at_10`, `selector_at_1`) are not stamped with a head.
 - `has_moe` etc. are outside the scorer hash (`evals/metric_protocol.toml` symbols: owner commit).
 - Trap (18) and core (4) cohorts are under the 30-family minimum, so the real protocol cannot

@@ -1,0 +1,40 @@
+Gate 2, fifth review, run the prescribed way (docs/playbooks/run-slice.md section 4):
+pass 1 `/code-review high 127` (cold, fresh context), pass 2 `review-pr` (machines first).
+
+PASS 1 /code-review: 10 findings. Dispositions:
+ 1  min_families 30 exceeds the trap (18) and core (4) cohorts, so no comparison can PASS.
+    NOT CHANGED. The ticket says insufficient precision is INCONCLUSIVE, and >=30 families applies to
+    story-owned cohorts. Needs an owner ruling or 12 more trap and 26 more core families. Open; recorded
+    in AC2/TC6 and STATE.md.
+ 2  provenance never checks for a dirty tree.                       FIXED: `dirty` flag (git status over
+    api/src, run_demo.py, pyproject.toml, uv.lock), stamp refused when true, dropped if it changes mid-run.
+ 3  p95 and rows-per-family fail on any strictly larger noisy value. NOT CHANGED: the ticket requires "no
+    observed p95 worsening" and no dropped rows; the tolerance is an open owner item.
+ 4  `closure.py check` without --require does not check ids.        FIXED: a manifest declares `required`
+    and each id needs a row; Jira-derived ids are still unioned in.
+ 5  evidence pinned only when it is a table.                         FIXED: a PASS row's evidence and
+    mutation entries must carry a sha256.
+ 6  _same_code ignores dependency pins.                              FIXED: pyproject.toml and uv.lock.
+ 7  cancellations (Won't Do, Duplicate) hit the closure gate.        FIXED: they need --comment, no manifest;
+    only Done is a delivery claim.
+ 8  `AC 6.2` and `AC6-12` collapse to AC6.                           FIXED: dotted ids are their own id,
+    ranges expand (bounded).
+ 9  records guard skipped when the store is new at the base.         FIXED.
+10  has_moe / has_alternatives strict.                               has_moe: a row with no estimate column
+    owes none (decennial) FIXED; alternatives stay required (CLAUDE.md: show related tables).
+
+PASS 2 review-pr, machines (gate2-r5-machines.txt): ruff and format clean; mypy clean; budgets.toml
+untouched, doc lines 1820, api/src untouched; check_invariants: closure manifests, budget increases,
+new regex, new exemptions, protocol weakened, metric records rewritten all ok; pytest 1382 passed,
+1 failed. The non-zero exits are all inherited from main: p95 25.472 over 20 and answered_rate 0.683 in
+evidence/latest.json, the 6 leakage-baseline entries, and test_invariants_print_every_named_pattern
+(fails identically on the base). Nothing this branch adds is red.
+
+Claim: an engineer can now compare a candidate run with the frozen references under one protocol, and
+a Jira story cannot be moved to Done without a manifest that proves every AC and TC. It does not make any
+product capability better, and the PR says so.
+
+Verdict: NOT YET. Most important reason: no AC or TC is verified PASS at a tested head, and under the
+protocol as written the comparator cannot PASS on the trap and core cohorts (finding 1). Also open: the
+post-merge E2E (needs the merge), p95 and answered_rate inherited red, the A0-to-A bridge, retrieval scalars
+not stamped, has_moe outside the scorer hash (owner commit). None of these are silent-wrong-answer findings.
