@@ -980,3 +980,15 @@ def test_a_trial_the_metrics_cannot_read_is_a_bad_file_not_a_traceback(
             victim[key] = value
     cand = write_run(lab["dir"] / "cand.json", made)
     assert status(mc.compare(cand, ["A"], {}), "candidate run file") == "FAIL"
+
+
+def test_oracle_rows_do_not_describe_a_run_whose_cohorts_alone_differ(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old, cohorts = "e" * 40, {"c": "old"}
+    heads = {old: {"scorer": "s1", "cohorts": cohorts, "protocol": "p1"}}
+    monkeypatch.setattr(mc, "hashes", lambda head=None: dict(heads.get(head, lab["now"])))
+    register(lab, "A", with_contract(run(protocol)))
+    stale = with_contract(run(protocol, stamp={**stamped(old, "s1"), "cohorts": cohorts}))
+    checks = mc.compare(write_run(lab["dir"] / "stale.json", stale), ["A"], {})
+    assert status(checks, "applies") == "UNKNOWN"

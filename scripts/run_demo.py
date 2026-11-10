@@ -445,6 +445,12 @@ def provenance() -> dict[str, Any]:
         return {}
 
 
+def unmoved(started: dict[str, Any]) -> dict[str, Any]:
+    """The stamp taken before the first question, or none if the checkout moved during the run:
+    the trials then measured more than one head."""
+    return started if provenance().get("head") == started.get("head") else {}
+
+
 def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial:
     from src.census_url import redact_text
 
@@ -619,8 +625,9 @@ def main() -> int:
                         f"  {trial.table_id or '—'}  {trial.detail}"
                     )
 
-    stamp = started if provenance().get("head") == started.get("head") else {}  # moved mid-run
-    summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index, stamp=stamp)
+    summary = summarize(
+        trials, repeat=args.repeat, prompt=prompt, index=index, stamp=unmoved(started)
+    )
     blob = json.dumps(summary)
     if leaks_key(blob):
         print("Refusing to write evidence: a Census key leaked into the record.", file=sys.stderr)

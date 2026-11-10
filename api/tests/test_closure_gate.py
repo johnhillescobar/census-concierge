@@ -523,6 +523,8 @@ def test_l_moves_only_with_a_pass_record_that_names_the_same_run_file_and_head(
     assert moves(promoted("r3.json", refs=("A",)))  # not judged against the L it replaces
     assert moves(promoted("r3.json", refs=("B",)))  # a compare against some other reference
     assert moves(promoted("r3.json", refs=("L",)))  # not judged against A
+    spelled = promoted("r3.json").replace('"refs": ["A", "L"]', '"refs": "AL"')
+    assert spelled != promoted("r3.json") and moves(spelled)  # a string is not a list of refs
     assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(A={"head": "1"}))})  # removed
 
 

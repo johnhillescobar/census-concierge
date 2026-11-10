@@ -632,3 +632,15 @@ def test_a_stamp_taken_at_the_start_is_the_one_summarize_records() -> None:
 
 def test_a_response_with_no_rows_has_no_margin_of_error() -> None:
     assert _contract(rows=[], moe=[{"B01003_001M": "5"}])[0] is False
+
+
+def test_a_run_whose_checkout_moved_part_way_carries_no_stamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = {"head": "a" * 40, "scorer": "s"}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "a" * 40})
+    assert run_demo.unmoved(started) == started
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "b" * 40})
+    assert run_demo.unmoved(started) == {}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {})  # git failed at the end
+    assert run_demo.unmoved(started) == {}
