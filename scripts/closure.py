@@ -51,14 +51,19 @@ def adf_text(node: object) -> str:
 
 
 def required_ids(text: str) -> list[str]:
-    """AC1., TC3. ... at the start of a line, in order, once each. Exact identifiers only."""
+    """AC1, TC3 ... at the start of a line, in order, once each. Bullets, bold and a space before
+    the number are tolerated ("- **AC 1.**"); the identifier must end in `.`, `:` or `)`."""
     found: list[str] = []
     for line in text.splitlines():
-        stripped = line.strip()
-        head = stripped.split(".", 1)[0].split(" ", 1)[0]
-        listed = head[:2] in {"AC", "TC"} and head[2:].isdigit() and stripped.startswith(head + ".")
-        if listed and head not in found:
-            found.append(head)
+        rest = line.strip().lstrip(" \t-*+#>_`|\u2022").upper()
+        if rest[:2] not in {"AC", "TC"}:
+            continue
+        digits = rest[2:].lstrip(" ")
+        number = digits[: len(digits) - len(digits.lstrip("0123456789"))]
+        if number and digits[len(number) : len(number) + 1] in {".", ":", ")"}:
+            name = rest[:2] + str(int(number))
+            if name not in found:
+                found.append(name)
     return found
 
 
@@ -178,8 +183,8 @@ def load(path: Path) -> dict[str, Any]:
 def check_file(path: Path, **kwargs: Any) -> list[str]:
     try:
         return problems(load(path), **kwargs)
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        return [f"{path.name}: unreadable ({exc})"]
+    except (OSError, ValueError, TypeError, AttributeError, KeyError) as exc:
+        return [f"{path.name}: malformed manifest ({type(exc).__name__}: {exc})"]  # fails closed
 
 
 def main() -> int:

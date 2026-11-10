@@ -1,0 +1,985 @@
+CC-133 Gate 1: mutation check of the new tests
+review base main 57f7533; commit under test 8f8ac92adc3c28adbc387958c1bd865feaa90343 (branch cc-133/instrument)
+start: HEAD=8f8ac92adc3c28adbc387958c1bd865feaa90343 branch=(detached) status --short=[]
+(this worktree's own branch pointed at 57f7533 and cc-133/instrument is checked out in the main checkout,
+ so the worktree was detached at 8f8ac92 with git checkout --detach)
+method: one behaviour reverted at a time in the source; each test run alone with
+  pytest <nodeid> -q -p no:cacheprovider; file restored with git checkout -- <file>; tree verified clean.
+
+GOOD   unmodified code, the 82 new tests (strict xfail cases are expected to stay xfail)
+..................................................................xxxxxx [ 87%]
+x...x.....                                                               [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_a_run_compared_with_itself_has_no_failure
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word] - geography execution still re-reads the question (finish.py, compare.py); CC-104
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison] - geography execution still re-reads the question (finish.py, compare.py); CC-104
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip] - guards.py reads a ZIP from the question; no PLAN story owns it (geography: CC-104/106)
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset] - time and product are still read from the question's words (vintages.py); CC-129
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year] - time and product are still read from the question's words (vintages.py); CC-129
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range] - time and product are still read from the question's words (vintages.py); CC-129
+XFAIL api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span] - time and product are still read from the question's words (vintages.py); CC-129
+XFAIL api/tests/test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[a level word] - geography execution still re-reads the question (finish.py, compare.py); CC-104
+74 passed, 8 xfailed, 1 warning in 10.28s
+
+BAD   mutation: mc01 judge ignores an observed decrease   [scripts/metric_compare.py]
+      change: 'if point < 0:' -> 'if False:'
+      CAUGHT   test_a_candidate_better_in_one_cohort_and_worse_in_another_is_rejected  =>  1 failed, 1 warning in 0.28s
+               E       AssertionError: assert 'INCONCLUSIVE' == 'FAIL'
+      CAUGHT   test_faster_failures_are_not_a_speed_gain  =>  1 failed, 1 warning in 0.33s
+               E       AssertionError: assert 'INCONCLUSIVE' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc02 judge fails a zero difference (a run compared with itself)   [scripts/metric_compare.py]
+      change: 'if point < 0:' -> 'if point <= 0:'
+      CAUGHT   test_a_run_compared_with_itself_has_no_failure  =>  1 failed, 1 warning in 0.16s
+               E       AssertionError: assert 'FAIL' != 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc03 judge ignores the minimum number of families   [scripts/metric_compare.py]
+      change: 'if len(diffs) < sampling["min_families"]:' -> 'if False:'
+      CAUGHT   test_fewer_families_than_the_minimum_is_inconclusive  =>  1 failed, 1 warning in 0.22s
+               E       AssertionError: assert 'PASS' == 'INCONCLUSIVE'
+      tree after restore: clean
+
+BAD   mutation: mc04 judge does not apply the 2-point lower bound   [scripts/metric_compare.py]
+      change: 'if lower < -sampling["max_regression"]:' -> 'if False:'
+      CAUGHT   test_a_gain_inside_the_noise_is_inconclusive_not_a_pass  =>  1 failed, 1 warning in 0.19s
+               E       AssertionError: assert 'PASS' == 'INCONCLUSIVE'
+      tree after restore: clean
+
+BAD   mutation: mc05 interval lower bound is the point estimate (no resampling)   [scripts/metric_compare.py]
+      change: 'return point, means[int(tail * len(means))]' -> 'return point, point'
+      CAUGHT   test_a_gain_inside_the_noise_is_inconclusive_not_a_pass  =>  1 failed, 1 warning in 0.19s
+               E       AssertionError: assert 'PASS' == 'INCONCLUSIVE'
+      CAUGHT   test_meeting_a_target_from_below_needs_a_proven_paired_gain  =>  1 failed, 1 warning in 0.25s
+               E       AssertionError: assert 'PASS' == 'INCONCLUSIVE'
+      tree after restore: clean
+
+BAD   mutation: mc06 families() accepts extra repeats   [scripts/metric_compare.py]
+      change: 'if sorted(int(t["repeat"]) for t in items) != list(range(1, repeat + 1)):' -> 'if len(items) < repeat:'
+      CAUGHT   test_extra_repeats_of_one_family_are_not_extra_observations  =>  1 failed, 1 warning in 0.17s
+               E       StopIteration
+      tree after restore: clean
+
+BAD   mutation: mc07 families() accepts a dropped trial   [scripts/metric_compare.py]
+      change: 'if sorted(int(t["repeat"]) for t in items) != list(range(1, repeat + 1)):' -> 'if max(int(t["repeat"]) for t in items) != repeat:'
+      CAUGHT   test_a_dropped_trial_fails_instead_of_scoring_the_rest  =>  1 failed, 1 warning in 0.18s
+               E       StopIteration
+      tree after restore: clean
+
+BAD   mutation: mc08 families() accepts a missing family   [scripts/metric_compare.py]
+      change: 'if set(grouped) != set(ids):' -> 'if set(grouped) - set(ids):'
+      CAUGHT   test_dropping_the_failed_questions_cannot_lift_the_rate  =>  1 failed, 1 warning in 0.17s
+               E       AssertionError: assert 'INCONCLUSIVE' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc09 rows per family never compared   [scripts/metric_compare.py]
+      change: 'lost = sorted(f for f in mine_lt if mine_lt[f]["rows"] < theirs_lt[f]["rows"])' -> 'lost = []'
+      CAUGHT   test_returning_fewer_rows_for_the_same_questions_fails  =>  1 failed, 1 warning in 0.23s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc10 more empty answers than the reference is not a failure   [scripts/metric_compare.py]
+      change: '"FAIL" if refusal > 0 else "PASS",' -> '"PASS",'
+      CAUGHT   test_more_empty_answers_than_the_reference_fails  =>  1 failed, 1 warning in 0.18s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc11 a different index is compared anyway   [scripts/metric_compare.py]
+      change: 'if cand.index_hash != ref.index_hash:' -> 'if False:'
+      CAUGHT   test_a_different_index_is_not_comparable  =>  1 failed, 1 warning in 0.36s
+               E       StopIteration
+      tree after restore: clean
+
+BAD   mutation: mc12 scorer hash moves with formatting and comments   [scripts/metric_compare.py]
+      change: 'found[name] = ast.dump(node, annotate_fields=False)' -> 'found[name] = ast.get_source_segment(source, node) or ""'
+      CAUGHT   test_the_scorer_hash_ignores_formatting_and_moves_with_logic  =>  1 failed, 1 warning in 0.18s
+               E       AssertionError: assert '2a1b53af433af230' == '66ae97ae6f4df4c9'
+      tree after restore: clean
+
+BAD   mutation: mc13 scorer hash ignores the scorer's logic   [scripts/metric_compare.py]
+      change: 'found[name] = ast.dump(node, annotate_fields=False)' -> 'found[name] = name'
+      CAUGHT   test_the_scorer_hash_ignores_formatting_and_moves_with_logic  =>  1 failed, 1 warning in 0.28s
+               E       assert '745e0ef1191354a5' != '745e0ef1191354a5'
+      tree after restore: clean
+
+BAD   mutation: mc14 an edited expectation never makes the owner's review stale   [scripts/metric_compare.py]
+      change: 'elif review.get("oracle") != oracle_digest(entry):' -> 'elif False:'
+      CAUGHT   test_an_edited_expectation_makes_the_owners_review_stale  =>  1 failed, 1 warning in 0.30s
+               E       AssertionError: assert 'q05' in []
+      tree after restore: clean
+
+BAD   mutation: mc15 a review with no reviewer counts as accepted   [scripts/metric_compare.py]
+      change: 'if not isinstance(review, dict) or not review.get("reviewer"):' -> 'if not isinstance(review, dict):'
+      CAUGHT   test_a_review_without_a_reviewer_does_not_count  =>  1 failed, 1 warning in 0.44s
+               E       AssertionError: assert 'q05' in ['q06', 'q07', 'q08', 'q09', 'q10', 'q11', ...]
+      tree after restore: clean
+
+BAD   mutation: mc16 a changed scorer or cohort is not noticed   [scripts/metric_compare.py]
+      change: 'if old["scorer"] != now["scorer"] or old["cohorts"] != now["cohorts"]:' -> 'if False:'
+      CAUGHT   test_a_scorer_change_is_not_a_code_gain_without_a_bridge  =>  1 failed, 1 warning in 0.31s
+               E       StopIteration
+      CAUGHT   test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer  =>  1 failed, 1 warning in 0.23s
+               E       AssertionError: assert 'bridged' in 'test'
+      tree after restore: clean
+
+BAD   mutation: mc17 a registered bridge is never honoured   [scripts/metric_compare.py]
+      change: 'bridge = _bridge(name, old, now)' -> 'bridge = None'
+      CAUGHT   test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer  =>  1 failed, 1 warning in 0.28s
+               E       StopIteration
+      tree after restore: clean
+
+BAD   mutation: mc18 a bridge compares with the original run, not the rescored one   [scripts/metric_compare.py]
+      change: 'run_path, label = bridge["rescored_run"], f"{label}; bridged: {bridge[\'note\']}"' -> 'label = f"{label}; bridged: {bridge[\'note\']}"'
+      SURVIVED test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer  =>  1 passed, 1 warning in 0.11s
+      tree after restore: clean
+
+BAD   mutation: mc19 a registered reference can be replaced   [scripts/metric_compare.py]
+      change: 'if name in refs:' -> 'if False:'
+      CAUGHT   test_a_registered_reference_cannot_be_replaced  =>  1 failed, 1 warning in 0.22s
+               E       AssertionError: assert 0 == 1
+      tree after restore: clean
+
+BAD   mutation: mc20 a reference run edited after registration is not noticed   [scripts/metric_compare.py]
+      change: 'if hashlib.sha256(ref_file.read_bytes()).hexdigest() != entry["run_sha256"]:' -> 'if False:'
+      CAUGHT   test_a_reference_file_edited_after_registration_fails  =>  1 failed, 1 warning in 0.29s
+               E       KeyError: 'demo'
+      tree after restore: clean
+
+BAD   mutation: mc21 promote moves L without comparing   [scripts/metric_compare.py]
+      change: 'if cmd_compare(run_path, names, {}, record=True):' -> 'if False:'
+      CAUGHT   test_a_run_of_small_losses_never_moves_l_or_resets_a  =>  1 failed, 1 warning in 0.24s
+               E           AssertionError: assert 0 == 1
+      tree after restore: clean
+
+BAD   mutation: mc22 promote compares with A only, not with L   [scripts/metric_compare.py]
+      change: 'names = [n for n in ("A", "L") if n in refs]' -> 'names = ["A"]'
+      SURVIVED test_a_run_of_small_losses_never_moves_l_or_resets_a  =>  1 passed, 1 warning in 0.15s
+      tree after restore: clean
+
+BAD   mutation: mc23 promote resets A instead of L   [scripts/metric_compare.py]
+      change: 'refs.pop("L", None)' -> 'refs.pop("A", None)'
+      CAUGHT   test_a_candidate_that_passes_against_a_and_l_becomes_the_new_l  =>  1 failed, 1 warning in 0.40s
+               E       KeyError: 'A'
+      tree after restore: clean
+
+BAD   mutation: mc24 promote registers L at the wrong head   [scripts/metric_compare.py]
+      change: 'return cmd_register("L", run_path, _head(), "accepted post-merge reference")' -> 'return cmd_register("L", run_path, "0" * 40, "accepted post-merge reference")'
+      CAUGHT   test_a_candidate_that_passes_against_a_and_l_becomes_the_new_l  =>  1 failed, 1 warning in 0.27s
+               E       AssertionError: assert '000000000000...0000000000000' == 'ffffffffffff...fffffffffffff'
+      tree after restore: clean
+
+BAD   mutation: mc25 a p95 that disagrees with the trials is accepted   [scripts/metric_compare.py]
+      change: 'agrees = abs(p95 - run.p95_reported) <= 0.01' -> 'agrees = True'
+      CAUGHT   test_a_p95_that_disagrees_with_its_trials_fails  =>  1 failed, 1 warning in 0.21s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc26 trial records without contract fields are PASS not UNKNOWN   [scripts/metric_compare.py]
+      change: '"response contract", "UNKNOWN", "trial records' -> '"response contract", "PASS", "trial records'
+      CAUGHT   test_records_without_contract_fields_are_unknown_not_compliant  =>  1 failed, 1 warning in 0.27s
+               E       AssertionError: assert 'PASS' == 'UNKNOWN'
+      tree after restore: clean
+
+BAD   mutation: mc27 a contract is met when any one field is present   [scripts/metric_compare.py]
+      change: 'bad = sum(not all(t[k] for k in CONTRACT_KEYS) for t in answered)' -> 'bad = sum(not any(t[k] for k in CONTRACT_KEYS) for t in answered)'
+      CAUGHT   test_an_answer_missing_a_contract_field_fails  =>  1 failed, 1 warning in 0.28s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc28 a target already met is not recognised as preserved   [scripts/metric_compare.py]
+      change: 'elif was >= target:' -> 'elif False:'
+      CAUGHT   test_a_target_already_met_is_preserved_with_no_gain_claimed  =>  1 failed, 1 warning in 0.29s
+               E       AssertionError: assert {'INCONCLUSIVE'} == {'PASS'}
+      tree after restore: clean
+
+BAD   mutation: mc29 a target met from below passes without a proven gain   [scripts/metric_compare.py]
+      change: 'ok = lower > 0' -> 'ok = True'
+      CAUGHT   test_meeting_a_target_from_below_needs_a_proven_paired_gain  =>  1 failed, 1 warning in 0.24s
+               E       AssertionError: assert 'PASS' == 'INCONCLUSIVE'
+      tree after restore: clean
+
+BAD   mutation: mc30 a missed target is not a failure   [scripts/metric_compare.py]
+      change: 'elif rate < target:' -> 'elif False:'
+      CAUGHT   test_missing_the_target_fails_whatever_the_gain  =>  1 failed, 1 warning in 0.20s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      tree after restore: clean
+
+BAD   mutation: mc31 verdict takes the best status instead of the worst   [scripts/metric_compare.py]
+      change: 'return max((c.status for c in checks), key=RANK.__getitem__, default="UNKNOWN")' -> 'return min((c.status for c in checks), key=RANK.__getitem__, default="UNKNOWN")'
+      CAUGHT   test_a_candidate_better_in_one_cohort_and_worse_in_another_is_rejected  =>  1 failed, 1 warning in 0.25s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      CAUGHT   test_faster_failures_are_not_a_speed_gain  =>  1 failed, 1 warning in 0.36s
+               E       AssertionError: assert 'PASS' == 'FAIL'
+      SURVIVED test_dropping_the_failed_questions_cannot_lift_the_rate  =>  1 passed, 1 warning in 0.06s
+      tree after restore: clean
+
+BAD   mutation: mc32 only the trial rate is compared (case rate dropped)   [scripts/metric_compare.py]
+      change: 'for metric in ("trial", "case"):\n            diffs' -> 'for metric in ("trial",):\n            diffs'
+      CAUGHT   test_a_run_compared_with_itself_has_no_failure  =>  1 failed, 1 warning in 0.21s
+               E       StopIteration
+      CAUGHT   test_a_gain_inside_the_noise_is_inconclusive_not_a_pass  =>  1 failed, 1 warning in 0.30s
+               E       StopIteration
+      tree after restore: clean
+
+BAD   mutation: mc90 [info] case rule is any-repeat instead of all-repeats   [scripts/metric_compare.py]
+      change: '"case": 1.0 if all(t["answered"] for t in items) else 0.0,' -> '"case": 1.0 if any(t["answered"] for t in items) else 0.0,'
+      SURVIVED test_a_run_compared_with_itself_has_no_failure  =>  1 passed, 1 warning in 0.12s
+      SURVIVED test_a_gain_inside_the_noise_is_inconclusive_not_a_pass  =>  1 passed, 1 warning in 0.07s
+      SURVIVED test_meeting_a_target_from_below_needs_a_proven_paired_gain  =>  1 passed, 1 warning in 0.08s
+      SURVIVED test_missing_the_target_fails_whatever_the_gain  =>  1 passed, 1 warning in 0.07s
+      tree after restore: clean
+
+BAD   mutation: mc91 [info] families() accepts an extra family   [scripts/metric_compare.py]
+      change: 'if set(grouped) != set(ids):' -> 'if set(ids) - set(grouped):'
+      SURVIVED test_extra_repeats_of_one_family_are_not_extra_observations  =>  1 passed, 1 warning in 0.05s
+      SURVIVED test_dropping_the_failed_questions_cannot_lift_the_rate  =>  1 passed, 1 warning in 0.05s
+      tree after restore: clean
+
+SURVIVORS this batch: [('mc18 a bridge compares with the original run, not the rescored one', 'api/tests/test_metric_compare.py::test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer'), ('mc22 promote compares with A only, not with L', 'api/tests/test_metric_compare.py::test_a_run_of_small_losses_never_moves_l_or_resets_a'), ('mc31 verdict takes the best status instead of the worst', 'api/tests/test_metric_compare.py::test_dropping_the_failed_questions_cannot_lift_the_rate'), ('mc90 [info] case rule is any-repeat instead of all-repeats', 'api/tests/test_metric_compare.py::test_a_run_compared_with_itself_has_no_failure'), ('mc90 [info] case rule is any-repeat instead of all-repeats', 'api/tests/test_metric_compare.py::test_a_gain_inside_the_noise_is_inconclusive_not_a_pass'), ('mc90 [info] case rule is any-repeat instead of all-repeats', 'api/tests/test_metric_compare.py::test_meeting_a_target_from_below_needs_a_proven_paired_gain'), ('mc90 [info] case rule is any-repeat instead of all-repeats', 'api/tests/test_metric_compare.py::test_missing_the_target_fails_whatever_the_gain'), ('mc91 [info] families() accepts an extra family', 'api/tests/test_metric_compare.py::test_extra_repeats_of_one_family_are_not_extra_observations'), ('mc91 [info] families() accepts an extra family', 'api/tests/test_metric_compare.py::test_dropping_the_failed_questions_cannot_lift_the_rate')]
+
+BAD   mutation: cl01 a non-PASS status (NOT RUN/FAIL/UNKNOWN) no longer blocks   [scripts/closure.py]
+      change: 'if status != "PASS":\n        return [f"{name}: {status} blocks closure"] if readiness else []' -> ''
+      CAUGHT   test_any_status_but_pass_blocks[NOT RUN]  =>  1 failed, 1 warning in 1.42s
+               E       AssertionError: assert []
+      CAUGHT   test_any_status_but_pass_blocks[FAIL]  =>  1 failed, 1 warning in 1.34s
+               E       AssertionError: assert []
+      CAUGHT   test_any_status_but_pass_blocks[UNKNOWN]  =>  1 failed, 1 warning in 1.12s
+               E       AssertionError: assert []
+      SURVIVED test_any_status_but_pass_blocks[pass]  =>  1 passed, 1 warning in 0.98s
+      SURVIVED test_any_status_but_pass_blocks[]  =>  1 passed, 1 warning in 1.12s
+      tree after restore: clean
+
+BAD   mutation: cl02 [info] unknown status values are not rejected as such   [scripts/closure.py]
+      change: 'if status not in STATUSES:\n        return [f"{name}: status {status!r} is not one of {sorted(STATUSES)}"]' -> ''
+      SURVIVED test_any_status_but_pass_blocks[NOT RUN]  =>  1 passed, 1 warning in 1.02s
+      SURVIVED test_any_status_but_pass_blocks[FAIL]  =>  1 passed, 1 warning in 1.00s
+      SURVIVED test_any_status_but_pass_blocks[UNKNOWN]  =>  1 passed, 1 warning in 1.12s
+      SURVIVED test_any_status_but_pass_blocks[pass]  =>  1 passed, 1 warning in 1.22s
+      SURVIVED test_any_status_but_pass_blocks[]  =>  1 passed, 1 warning in 1.18s
+      tree after restore: clean
+
+BAD   mutation: cl03 any status but PASS passes (both status checks removed)   [scripts/closure.py]
+      change: 'if status != "PASS":\n        return [f"{name}: {status} blocks closure"] if readiness else []' -> ''
+      change: 'if status not in STATUSES:\n        return [f"{name}: status {status!r} is not one of {sorted(STATUSES)}"]' -> ''
+      CAUGHT   test_any_status_but_pass_blocks[NOT RUN]  =>  1 failed, 1 warning in 1.14s
+               E       AssertionError: assert []
+      CAUGHT   test_any_status_but_pass_blocks[FAIL]  =>  1 failed, 1 warning in 1.18s
+               E       AssertionError: assert []
+      CAUGHT   test_any_status_but_pass_blocks[UNKNOWN]  =>  1 failed, 1 warning in 1.08s
+               E       AssertionError: assert []
+      CAUGHT   test_any_status_but_pass_blocks[pass]  =>  1 failed, 1 warning in 1.22s
+               E       AssertionError: assert []
+      CAUGHT   test_any_status_but_pass_blocks[]  =>  1 failed, 1 warning in 1.28s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl04 status compared case-insensitively   [scripts/closure.py]
+      change: 'status = str(row.get("status") or "")' -> 'status = str(row.get("status") or "").upper()'
+      SURVIVED test_any_status_but_pass_blocks[NOT RUN]  =>  1 passed, 1 warning in 1.09s
+      SURVIVED test_any_status_but_pass_blocks[FAIL]  =>  1 passed, 1 warning in 0.96s
+      SURVIVED test_any_status_but_pass_blocks[UNKNOWN]  =>  1 passed, 1 warning in 1.10s
+      CAUGHT   test_any_status_but_pass_blocks[pass]  =>  1 failed, 1 warning in 1.42s
+               E       AssertionError: assert []
+      SURVIVED test_any_status_but_pass_blocks[]  =>  1 passed, 1 warning in 1.08s
+      tree after restore: clean
+
+BAD   mutation: cl05 a missing/empty status defaults to PASS   [scripts/closure.py]
+      change: 'status = str(row.get("status") or "")' -> 'status = str(row.get("status") or "PASS")'
+      SURVIVED test_any_status_but_pass_blocks[NOT RUN]  =>  1 passed, 1 warning in 1.10s
+      SURVIVED test_any_status_but_pass_blocks[FAIL]  =>  1 passed, 1 warning in 1.04s
+      SURVIVED test_any_status_but_pass_blocks[UNKNOWN]  =>  1 passed, 1 warning in 1.05s
+      SURVIVED test_any_status_but_pass_blocks[pass]  =>  1 passed, 1 warning in 1.04s
+      CAUGHT   test_any_status_but_pass_blocks[]  =>  1 failed, 1 warning in 1.07s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl06 closure ignores a required id with no row   [scripts/closure.py]
+      change: 'out += [f"{i}: absent from the manifest" for i in (required or []) if i not in ids]' -> ''
+      CAUGHT   test_a_required_id_with_no_row_blocks  =>  1 failed, 1 warning in 1.19s
+               E       assert False
+      tree after restore: clean
+
+BAD   mutation: cl07 closure accepts evidence that does not exist   [scripts/closure.py]
+      change: 'if not path.is_file():\n        return [f"{where}: evidence {spec[\'path\']} does not exist"]' -> ''
+      CAUGHT   test_a_listed_row_is_not_enough_without_its_evidence  =>  1 failed, 1 warning in 1.16s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl08 closure accepts a PASS row with no evidence at all   [scripts/closure.py]
+      change: 'out += [] if evidence else [f"{name}: no evidence"]' -> 'out += []'
+      CAUGHT   test_a_listed_row_is_not_enough_without_its_evidence  =>  1 failed, 1 warning in 1.21s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl09 evidence hash is not compared   [scripts/closure.py]
+      change: 'if want and hashlib.sha256(path.read_bytes()).hexdigest() != want:' -> 'if False:'
+      CAUGHT   test_evidence_that_changed_since_it_was_recorded_blocks  =>  1 failed, 1 warning in 1.24s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl10 evidence outside the repository is accepted   [scripts/closure.py]
+      change: 'if not path.is_relative_to(root.resolve()):\n        return [f"{where}: evidence {spec[\'path\']} is outside the repository"]' -> ''
+      SURVIVED test_evidence_outside_the_repository_is_refused  =>  1 passed, 1 warning in 0.97s
+      tree after restore: clean
+
+BAD   mutation: cl11 tested_head is not a required row field   [scripts/closure.py]
+      change: 'ROW_FIELDS = ("command", "expected", "observed", "tested_head", "reviewer")' -> 'ROW_FIELDS = ("command", "expected", "observed", "reviewer")'
+      CAUGHT   test_a_row_without_a_tested_head_or_reviewer_blocks  =>  1 failed, 1 warning in 1.23s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl12 reviewer is not a required row field   [scripts/closure.py]
+      change: 'ROW_FIELDS = ("command", "expected", "observed", "tested_head", "reviewer")' -> 'ROW_FIELDS = ("command", "expected", "observed", "tested_head")'
+      CAUGHT   test_a_row_without_a_tested_head_or_reviewer_blocks  =>  1 failed, 1 warning in 1.12s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl13 new tests need no mutation check   [scripts/closure.py]
+      change: 'if row.get("new_tests"):' -> 'if False:'
+      CAUGHT   test_new_tests_need_a_mutation_check_on_record  =>  1 failed, 1 warning in 1.18s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl14 the mutation evidence file is not verified   [scripts/closure.py]
+      change: '_evidence_problems(mutation, name, root)' -> '[]'
+      SURVIVED test_new_tests_need_a_mutation_check_on_record  =>  1 passed, 1 warning in 1.24s
+      tree after restore: clean
+
+BAD   mutation: cl15 a changed covered file does not make evidence stale   [scripts/closure.py]
+      change: 'if changed:' -> 'if False:'
+      CAUGHT   test_evidence_goes_stale_when_a_covered_file_changes  =>  1 failed, 1 warning in 2.78s
+               E       assert False
+      tree after restore: clean
+
+BAD   mutation: cl16 staleness looks at every file, not the covered ones   [scripts/closure.py]
+      change: 'diff = git(root, "diff", "--name-only", tested, head, "--", *affects)' -> 'diff = git(root, "diff", "--name-only", tested, head)'
+      CAUGHT   test_a_change_outside_the_covered_files_leaves_evidence_current  =>  1 failed, 1 warning in 2.76s
+               E       AssertionError: assert ['AC1: stale,...ince 59fbf2b'] == []
+      tree after restore: clean
+
+BAD   mutation: cl17 a row that covers nothing is accepted   [scripts/closure.py]
+      change: 'if not affects:\n        return [*out, f"{name}: no `affects` paths, so staleness cannot be checked"]' -> ''
+      CAUGHT   test_a_row_that_covers_nothing_cannot_show_it_is_current  =>  1 failed, 1 warning in 1.28s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl18 closing needs no post-merge run   [scripts/closure.py]
+      change: 'if done:' -> 'if False:'
+      CAUGHT   test_closing_needs_the_post_merge_run_on_a_commit_on_the_base  =>  1 failed, 1 warning in 1.77s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl19 the post-merge commit need not be on the base   [scripts/closure.py]
+      change: 'if git(root, "merge-base", "--is-ancestor", main_head, base).returncode:' -> 'if False:'
+      CAUGHT   test_closing_needs_the_post_merge_run_on_a_commit_on_the_base  =>  1 failed, 1 warning in 3.85s
+               E       assert False
+      tree after restore: clean
+
+BAD   mutation: cl20 post-merge run required even before merge (done=False ignored)   [scripts/closure.py]
+      change: 'if done:' -> 'if True:'
+      CAUGHT   test_closing_needs_the_post_merge_run_on_a_commit_on_the_base  =>  1 failed, 1 warning in 2.05s
+               E       AssertionError: assert ['post_merge:...not recorded'] == []
+      CAUGHT   test_a_change_outside_the_covered_files_leaves_evidence_current  =>  1 failed, 1 warning in 3.11s
+               E       AssertionError: assert ['post_merge:... not on main'] == []
+      tree after restore: clean
+
+BAD   mutation: cl21 [info] the post-merge E2E evidence file is not verified   [scripts/closure.py]
+      change: 'out += _evidence_problems(e2e, "post_merge", root)' -> 'pass'
+      SURVIVED test_closing_needs_the_post_merge_run_on_a_commit_on_the_base  =>  1 passed, 1 warning in 3.35s
+      tree after restore: clean
+
+BAD   mutation: cl22 AMENDED passes without an amendment   [scripts/closure.py]
+      change: 'return [] if name in amended else [f"{name}: AMENDED without an [[amendment]] for it"]' -> 'return []'
+      CAUGHT   test_an_amended_row_needs_a_dated_owner_amendment  =>  1 failed, 1 warning in 1.26s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl23 amendment date is not validated   [scripts/closure.py]
+      change: 'date.fromisoformat(str(amendment.get("date")))' -> 'date.fromisoformat("2026-01-01")'
+      CAUGHT   test_an_amended_row_needs_a_dated_owner_amendment  =>  1 failed, 1 warning in 1.25s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl24 [info] amendment owner/reason/destination not required   [scripts/closure.py]
+      change: 'k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)' -> 'k for k in ("id", "date") if not amendment.get(k)'
+      SURVIVED test_an_amended_row_needs_a_dated_owner_amendment  =>  1 passed, 1 warning in 1.04s
+      tree after restore: clean
+
+BAD   mutation: cl25 the same id may be listed twice   [scripts/closure.py]
+      change: 'out += [f"{i}: listed more than once" for i in sorted({i for i in ids if ids.count(i) > 1})]' -> 'out += []'
+      CAUGHT   test_the_same_id_twice_is_refused  =>  1 failed, 1 warning in 1.27s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl26 draft mode (readiness=False) blocks rows not yet run   [scripts/closure.py]
+      change: 'return [f"{name}: {status} blocks closure"] if readiness else []' -> 'return [f"{name}: {status} blocks closure"] if True else []'
+      CAUGHT   test_a_ticket_in_progress_may_have_rows_not_yet_run  =>  1 failed, 1 warning in 1.25s
+               E       AssertionError: assert ['AC1: NOT RU...ocks closure'] == []
+      tree after restore: clean
+
+BAD   mutation: cl27 draft mode accepts an invalid status value   [scripts/closure.py]
+      change: 'if status not in STATUSES:' -> 'if readiness and status not in STATUSES:'
+      CAUGHT   test_a_ticket_in_progress_may_have_rows_not_yet_run  =>  1 failed, 1 warning in 1.23s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl28 draft mode does not check that evidence exists   [scripts/closure.py]
+      change: 'out += _evidence_problems(item, name, root)' -> 'out += _evidence_problems(item, name, root) if readiness else []'
+      CAUGHT   test_a_ticket_in_progress_may_have_rows_not_yet_run  =>  1 failed, 1 warning in 1.36s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl29 ids are taken from anywhere on the line (no 'ID.' at start required)   [scripts/closure.py]
+      change: 'and stripped.startswith(head + ".")' -> ''
+      SURVIVED test_identifiers_are_read_from_the_start_of_each_line_only  =>  1 passed, 1 warning in 0.04s
+      tree after restore: clean
+
+BAD   mutation: cl30 a repeated id is listed twice   [scripts/closure.py]
+      change: 'if listed and head not in found:' -> 'if listed:'
+      CAUGHT   test_identifiers_are_read_from_the_start_of_each_line_only  =>  1 failed, 1 warning in 0.17s
+               E       AssertionError: assert ['AC1', 'AC2', 'TC1', 'AC1'] == ['AC1', 'AC2', 'TC1']
+      tree after restore: clean
+
+BAD   mutation: cl31 ids need not end in digits   [scripts/closure.py]
+      change: 'head[2:].isdigit() and' -> ''
+      CAUGHT   test_identifiers_are_read_from_the_start_of_each_line_only  =>  1 failed, 1 warning in 0.21s
+               E       AssertionError: assert ['AC1', 'AC2', 'TC1', 'AC'] == ['AC1', 'AC2', 'TC1']
+      tree after restore: clean
+
+BAD   mutation: cl32 hard line breaks in the description are dropped   [scripts/closure.py]
+      change: 'if node.get("type") == "hardBreak":\n        return "\\n"' -> 'if node.get("type") == "hardBreak":\n        return ""'
+      CAUGHT   test_identifiers_are_read_from_the_start_of_each_line_only  =>  1 failed, 1 warning in 0.18s
+               E       AssertionError: assert ['AC1'] == ['AC1', 'AC2', 'TC1']
+      tree after restore: clean
+
+BAD   mutation: cl33 _closure_gate not called on the --transition Done path   [scripts/jira_transition.py]
+      change: 'if _is_done(target):\n        _closure_gate(key)' -> 'if args.done:\n        _closure_gate(key)'
+      SURVIVED test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv0]  =>  1 passed, 1 warning in 0.04s
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv1]  =>  1 failed, 1 warning in 0.18s
+               E       Failed: DID NOT RAISE SystemExit
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv2]  =>  1 failed, 1 warning in 0.20s
+               E       Failed: DID NOT RAISE SystemExit
+      tree after restore: clean
+
+BAD   mutation: cl34 _closure_gate not called on the --done path   [scripts/jira_transition.py]
+      change: 'if _is_done(target):\n        _closure_gate(key)' -> 'if args.transition and _is_done(target):\n        _closure_gate(key)'
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv0]  =>  1 failed, 1 warning in 0.16s
+               E       Failed: DID NOT RAISE SystemExit
+      SURVIVED test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv1]  =>  1 passed, 1 warning in 0.03s
+      SURVIVED test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv2]  =>  1 passed, 1 warning in 0.04s
+      tree after restore: clean
+
+BAD   mutation: cl35 _is_done is case-sensitive ('done' not recognised)   [scripts/jira_transition.py]
+      change: 'return bool(target) and str(target).strip().lower() == "done"' -> 'return bool(target) and str(target).strip() == "Done"'
+      SURVIVED test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv0]  =>  1 passed, 1 warning in 0.05s
+      SURVIVED test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv1]  =>  1 passed, 1 warning in 0.04s
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv2]  =>  1 failed, 1 warning in 0.14s
+               E       Failed: DID NOT RAISE SystemExit
+      tree after restore: clean
+
+BAD   mutation: cl36 the gate runs after the comment is written   [scripts/jira_transition.py]
+      change: 'target = "Done" if args.done else args.transition\n    if _is_done(target):\n        _closure_gate(key)\n\n    text = _read_comment(args)\n    if' -> 'target = "Done" if args.done else args.transition\n    text = _read_comment(args)\n    if text:\n        _add_comment(key, text)\n        print('
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv0]  =>  1 failed, 1 warning in 0.15s
+               E       AssertionError: assert ['comment'] == []
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv1]  =>  1 failed, 1 warning in 0.16s
+               E       AssertionError: assert ['comment'] == []
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv2]  =>  1 failed, 1 warning in 0.14s
+               E       AssertionError: assert ['comment'] == []
+      tree after restore: clean
+
+BAD   mutation: cl37 the gate runs on every transition, not only Done   [scripts/jira_transition.py]
+      change: 'if _is_done(target):\n        _closure_gate(key)' -> 'if target:\n        _closure_gate(key)'
+      CAUGHT   test_a_move_that_is_not_done_does_not_meet_the_gate  =>  1 failed, 1 warning in 0.18s
+               E       SystemExit: 1
+      tree after restore: clean
+
+BAD   mutation: cl38 a missing manifest does not block the gate   [scripts/jira_transition.py]
+      change: 'else [f"no closure manifest at {manifest.relative_to(ROOT).as_posix()}"]' -> 'else []'
+      CAUGHT   test_a_description_with_ac_ids_needs_a_manifest_to_close  =>  1 failed, 1 warning in 0.20s
+               E       Failed: DID NOT RAISE SystemExit
+      tree after restore: clean
+
+BAD   mutation: cl39 the gate reports problems but does not exit   [scripts/jira_transition.py]
+      change: 'print(f"  BLOCKED  {line}", file=sys.stderr)\n        sys.exit(1)' -> 'print(f"  BLOCKED  {line}", file=sys.stderr)'
+      CAUGHT   test_a_description_with_ac_ids_needs_a_manifest_to_close  =>  1 failed, 1 warning in 0.21s
+               E       Failed: DID NOT RAISE SystemExit
+      tree after restore: clean
+
+BAD   mutation: cl40 the gate demands a manifest even when the description has no AC/TC ids   [scripts/jira_transition.py]
+      change: 'if not needed:\n        print(f"{key}: no AC/TC identifiers in the description; no closure manifest required")\n        return' -> ''
+      CAUGHT   test_a_description_with_ac_ids_needs_a_manifest_to_close  =>  1 failed, 1 warning in 0.17s
+               E           SystemExit: 1
+      tree after restore: clean
+
+BAD   mutation: cl41 the gate reads no ids from the description   [scripts/jira_transition.py]
+      change: 'needed = closure.required_ids(closure.adf_text(fields.get("description")))' -> 'needed = []'
+      CAUGHT   test_a_description_with_ac_ids_needs_a_manifest_to_close  =>  1 failed, 1 warning in 0.15s
+               E       Failed: DID NOT RAISE SystemExit
+      tree after restore: clean
+
+BAD   mutation: cl42 invariants check manifests in readiness mode (in-progress rows fail)   [scripts/check_invariants.py]
+      change: 'closure.check_file(path, readiness=False)' -> 'closure.check_file(path, readiness=True)'
+      CAUGHT   test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  =>  1 failed, 1 warning in 0.15s
+               E       AssertionError: assert [Violation(wh...ot recorded')] == []
+      tree after restore: clean
+
+BAD   mutation: cl43 invariants find no manifests in the tree   [scripts/check_invariants.py]
+      change: '(EVIDENCE / "closure").glob("*.toml")' -> '(EVIDENCE / "closure").glob("*.nothing")'
+      CAUGHT   test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  =>  1 failed, 1 warning in 0.16s
+               E       assert []
+      tree after restore: clean
+
+BAD   mutation: cl44 min_families may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))' -> 'PROTOCOL_NOT_LOWER = (("sampling", "confidence"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit0]  =>  1 failed, 1 warning in 0.22s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl45 confidence may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))' -> 'PROTOCOL_NOT_LOWER = (("sampling", "min_families"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit1]  =>  1 failed, 1 warning in 0.20s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl46 max_regression may rise   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_HIGHER = (("sampling", "max_regression"),)' -> 'PROTOCOL_NOT_HIGHER = ()'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit2]  =>  1 failed, 1 warning in 0.24s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl47 repeat may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))' -> 'PROTOCOL_NOT_LOWER += (("sampling", "resamples"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit3]  =>  1 failed, 1 warning in 0.22s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl48 the seed may change   [scripts/check_invariants.py]
+      change: '("case_rule", "stopping", "seed", "blocks")' -> '("case_rule", "stopping", "blocks")'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit4]  =>  1 failed, 1 warning in 0.16s
+               E       AssertionError: assert []
+      tree after restore: clean
+
+BAD   mutation: cl49 the case rule may change   [scripts/check_invariants.py]
+      change: '("case_rule", "stopping", "seed", "blocks")' -> '("stopping", "seed", "blocks")'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit5]  =>  1 failed, 1 warning in 0.16s
+               E       assert []
+      tree after restore: clean
+
+BAD   mutation: cl50 availability exclusions may be added   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))' -> 'PROTOCOL_NO_NEW = (("selection", "exclude_flags"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit6]  =>  1 failed, 1 warning in 0.22s
+               E       assert []
+      tree after restore: clean
+
+BAD   mutation: cl51 selection exclude_flags may grow   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))' -> 'PROTOCOL_NO_NEW = (("sampling", "exclusions"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit7]  =>  1 failed, 1 warning in 0.19s
+               E       assert []
+      tree after restore: clean
+
+BAD   mutation: cl52 a scorer symbol may be dropped   [scripts/check_invariants.py]
+      change: 'PROTOCOL_KEEP = (("scorer", "symbols"),)' -> 'PROTOCOL_KEEP = ()'
+      CAUGHT   test_loosening_the_frozen_protocol_fails[edit8]  =>  1 failed, 1 warning in 0.24s
+               E       assert []
+      tree after restore: clean
+
+BAD   mutation: cl53 tightening a not-lower value is flagged (any change of min_families fails)   [scripts/check_invariants.py]
+      change: 'if before is not None and (after is None or after < before):' -> 'if before is not None and (after is None or after != before):'
+      CAUGHT   test_tightening_the_frozen_protocol_is_allowed  =>  1 failed, 1 warning in 0.18s
+               E       AssertionError: assert [Violation(wh...by a human.')] == []
+      tree after restore: clean
+
+BAD   mutation: cl54 tightening a not-higher value is flagged (any change of max_regression fails)   [scripts/check_invariants.py]
+      change: 'if before is not None and (after is None or after > before):' -> 'if before is not None and (after is None or after != before):'
+      CAUGHT   test_tightening_the_frozen_protocol_is_allowed  =>  1 failed, 1 warning in 0.20s
+               E       AssertionError: assert [Violation(wh...by a human.')] == []
+      tree after restore: clean
+
+BAD   mutation: cl55 a tested_head that git cannot diff is not reported   [scripts/closure.py]
+      change: 'if diff.returncode:  # git cannot diff against something that is not a commit' -> 'if False:'
+      CAUGHT   test_a_tested_head_that_is_not_a_commit_blocks  =>  1 failed, 1 warning in 1.28s
+               E       assert False
+      tree after restore: clean
+
+BAD   mutation: cl56 a whole record is blocked (every PASS row refused)   [scripts/closure.py]
+      change: 'if status != "PASS":' -> 'if True:'
+      CAUGHT   test_a_whole_record_backs_the_closure  =>  1 failed, 1 warning in 1.32s
+               E       AssertionError: assert ['AC1: PASS b...ocks closure'] == []
+      tree after restore: clean
+
+SURVIVORS this batch: none
+
+BAD   mutation: iso01 harness: differing() always reports no difference   [api/tests/test_execution_isolation.py]
+      change: 'return [w for w in wordings[1:] if await execute(w, calls) != first]' -> 'return []'
+      SURVIVED test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 passed, 1 warning in 0.19s
+      SURVIVED test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic]  =>  1 passed, 1 warning in 0.25s
+      SURVIVED test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler]  =>  1 passed, 1 warning in 0.21s
+      SURVIVED test_a_different_stated_intent_changes_execution_under_the_same_wording  =>  1 passed, 1 warning in 0.23s
+      SURVIVED test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording  =>  1 passed, 1 warning in 0.21s
+      SURVIVED test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?]  =>  1 passed, 1 warning in 0.26s
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 failed, 1 warning in 0.30s
+               E       AssertionError: assert [] == ['population ...Texas, plugh']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 failed, 1 warning in 0.31s
+               E       AssertionError: assert [] == ['population ...Texas, xyzzy']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 failed, 1 warning in 0.29s
+               E       AssertionError: assert [] == ['population ... Texas, quux']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 failed, 1 warning in 0.75s
+               E       AssertionError: assert [] == ['population ... Texas, frob']
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word]  =>  1 failed, 1 warning in 0.24s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison]  =>  1 failed, 1 warning in 0.23s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip]  =>  1 failed, 1 warning in 0.39s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]  =>  1 failed, 1 warning in 0.27s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year]  =>  1 failed, 1 warning in 0.22s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range]  =>  1 failed, 1 warning in 0.19s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span]  =>  1 failed, 1 warning in 0.22s
+      CAUGHT   test_a_repaired_intent_executes_identically_under_any_wording[a level word]  =>  1 failed, 1 warning in 0.25s
+      tree after restore: clean
+
+BAD   mutation: iso02 harness: execute() ignores the typed question (always runs the first wording)   [api/tests/test_execution_isolation.py]
+      change: 'response = await run_ask(question, complete=model(calls), tools=tools, record=record)' -> 'response = await run_ask(NEUTRAL[0], complete=model(calls), tools=tools, record=record)'
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 failed, 1 warning in 0.43s
+               E       AssertionError: assert [] == ['population ...Texas, plugh']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 failed, 1 warning in 0.40s
+               E       AssertionError: assert [] == ['population ...Texas, xyzzy']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 failed, 1 warning in 0.36s
+               E       AssertionError: assert [] == ['population ... Texas, quux']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 failed, 1 warning in 0.47s
+               E       AssertionError: assert [] == ['population ... Texas, frob']
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word]  =>  1 failed, 1 warning in 0.20s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison]  =>  1 failed, 1 warning in 0.25s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip]  =>  1 failed, 1 warning in 0.30s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]  =>  1 failed, 1 warning in 0.19s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year]  =>  1 failed, 1 warning in 0.22s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range]  =>  1 failed, 1 warning in 0.22s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span]  =>  1 failed, 1 warning in 0.30s
+      CAUGHT   test_a_repaired_intent_executes_identically_under_any_wording[a level word]  =>  1 failed, 1 warning in 0.51s
+      tree after restore: clean
+
+BAD   mutation: iso03 harness: the scripted model ignores the frame (frame call returns an empty report)   [api/tests/test_execution_isolation.py]
+      change: 'return {"content": json.dumps(FRAME), "tool_calls": []}' -> 'return {"content": "{}", "tool_calls": []}'
+      SURVIVED test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 passed, 1 warning in 0.31s
+      SURVIVED test_a_different_stated_intent_changes_execution_under_the_same_wording  =>  1 passed, 1 warning in 0.24s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 passed, 1 warning in 0.25s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 passed, 1 warning in 0.32s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 passed, 1 warning in 0.26s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 passed, 1 warning in 0.27s
+      tree after restore: clean
+
+BAD   mutation: iso04 harness: the fixed intent never fetches (FETCH dropped from COUNTY)   [api/tests/test_execution_isolation.py]
+      change: 'COUNTY = [SEARCH, resolve(query="Harris County, Texas", level="county"), BUILD, FETCH]' -> 'COUNTY = [SEARCH, resolve(query="Harris County, Texas", level="county"), BUILD]'
+      SURVIVED test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 passed, 1 warning in 0.26s
+      tree after restore: clean
+
+BAD   mutation: iso05 harness: STATE intent is really the county intent   [api/tests/test_execution_isolation.py]
+      change: 'STATE = [SEARCH, resolve(query="Harris County, Texas", level="state"), BUILD, FETCH]' -> 'STATE = [SEARCH, resolve(query="Harris County, Texas", level="county"), BUILD, FETCH]'
+      CAUGHT   test_a_different_stated_intent_changes_execution_under_the_same_wording  =>  1 failed, 1 warning in 0.38s
+               E       AssertionError: assert ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48'] != ['https://api
+      tree after restore: clean
+
+BAD   mutation: iso06 harness: retrieval is not pinned to the fixed table (fixture search reads the wording)   [api/tests/test_execution_isolation.py]
+      change: 'tools["search_tables"] = SearchTablesTool(\n        search=lambda q, k=10: ["B01003"][:k], describe=_describe\n    )' -> ''
+      CAUGHT   test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 failed, 1 warning in 0.38s
+               E       AssertionError: assert ['How many pe...as headcount'] == []
+      tree after restore: clean
+
+BAD   mutation: iso07 harness: differing compares only the urls field, not every field   [api/tests/test_execution_isolation.py]
+      change: 'return response.model_dump(mode="json")' -> 'return {"urls": response.model_dump(mode="json")["urls"]}'
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 passed, 1 warning in 0.35s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 passed, 1 warning in 0.27s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 passed, 1 warning in 0.27s
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 failed, 1 warning in 0.44s
+               E       AssertionError: assert [] == ['population ... Texas, frob']
+      tree after restore: clean
+
+BAD   mutation: iso08 mutant inject (pin) is a no-op, so substring/regex/keyword mutants change nothing   [api/tests/test_execution_isolation.py]
+      change: 'out = {**out, "level": "state"}' -> 'out = out'
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 failed, 1 warning in 0.56s
+               E       AssertionError: assert [] == ['population ...Texas, plugh']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 failed, 1 warning in 0.39s
+               E       AssertionError: assert [] == ['population ...Texas, xyzzy']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 failed, 1 warning in 0.39s
+               E       AssertionError: assert [] == ['population ... Texas, quux']
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 passed, 1 warning in 0.27s
+      tree after restore: clean
+
+BAD   mutation: iso09 mutant inject (answer) is a no-op, so the late-in-the-answer mutant changes nothing   [api/tests/test_execution_isolation.py]
+      change: 'return original(answer + (" (changed)" if test(record.question) else ""), record)' -> 'return original(answer, record)'
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 passed, 1 warning in 0.27s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 passed, 1 warning in 0.26s
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 passed, 1 warning in 0.24s
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 failed, 1 warning in 0.48s
+               E       AssertionError: assert [] == ['population ... Texas, frob']
+      tree after restore: clean
+
+BAD   mutation: iso10 prod: resolve_geography level read from a neutral rewording ('headcount')   [api/src/contract.py]
+      change: 'out = dict(args)' -> 'out = dict(args)\n    if name == "resolve_geography" and "headcount" in question.casefold():\n        out["level"] = "state"'
+      CAUGHT   test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 failed, 1 warning in 0.42s
+               E       AssertionError: assert ['Harris Coun...as headcount'] == []
+      tree after restore: clean
+
+BAD   mutation: iso11 prod: resolve_geography level read from a statistic word ('average')   [api/src/contract.py]
+      change: 'out = dict(args)' -> 'out = dict(args)\n    if name == "resolve_geography" and "average" in question.casefold():\n        out["level"] = "state"'
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic]  =>  1 failed, 1 warning in 0.33s
+               E       AssertionError: assert ['average pop...ounty, Texas'] == []
+      SURVIVED test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler]  =>  1 passed, 1 warning in 0.23s
+      tree after restore: clean
+
+BAD   mutation: iso12 prod: resolve_geography level read from filler ('thanks')   [api/src/contract.py]
+      change: 'out = dict(args)' -> 'out = dict(args)\n    if name == "resolve_geography" and "thanks" in question.casefold():\n        out["level"] = "state"'
+      SURVIVED test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic]  =>  1 passed, 1 warning in 0.27s
+      CAUGHT   test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler]  =>  1 failed, 1 warning in 0.50s
+               E       AssertionError: assert ['population ... can, thanks'] == []
+      tree after restore: clean
+
+BAD   mutation: iso13 prod: a missing level is filled in from the wording (no repair round)   [api/src/contract.py]
+      change: 'out = dict(args)' -> 'out = dict(args)\n    if name == "resolve_geography" and "level" not in out:\n        out["level"] = "state" if "how many" in question.casefol'
+      CAUGHT   test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording  =>  1 failed, 1 warning in 0.34s
+               E           AssertionError: assert 'failed' in '1 geography: county:201 state:48'
+      SURVIVED test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?]  =>  1 passed, 1 warning in 0.31s
+      SURVIVED test_a_repaired_intent_executes_identically_under_any_wording[a level word]  =>  1 xfailed, 1 warning in 0.59s
+      tree after restore: clean
+
+BAD   mutation: iso14 prod: resolve_geography ignores the stated level (always county)   [api/src/contract.py]
+      change: 'out = dict(args)' -> 'out = dict(args)\n    if name == "resolve_geography":\n        out["level"] = "county"'
+      CAUGHT   test_a_different_stated_intent_changes_execution_under_the_same_wording  =>  1 failed, 1 warning in 0.57s
+               E       AssertionError: assert ['https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48'] != ['https://api
+      tree after restore: clean
+
+BAD   mutation: dh01 _ask: has_moe always False   [scripts/run_demo.py]
+      change: 'has_moe=bool(body.get("moe")),' -> 'has_moe=False,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.20s
+               E       assert (False, False, True, False) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh02 _ask: has_geoid always True   [scripts/run_demo.py]
+      change: 'has_geoid=bool(body.get("geoid")),' -> 'has_geoid=True,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.15s
+               E       assert (True, True, True, False) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh03 _ask: has_universe always False   [scripts/run_demo.py]
+      change: 'has_universe=bool(body.get("universe")),' -> 'has_universe=False,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.17s
+               E       assert (True, False, False, False) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh04 _ask: has_alternatives always True   [scripts/run_demo.py]
+      change: 'has_alternatives=bool(body.get("alternatives")),' -> 'has_alternatives=True,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.25s
+               E       assert (True, False, True, True) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh05 trial_record: has_moe taken from has_geoid   [scripts/run_demo.py]
+      change: '"has_moe": trial.has_moe,' -> '"has_moe": trial.has_geoid,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.21s
+               E       assert (False, False, True, False) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh06 trial_record: has_geoid taken from has_moe   [scripts/run_demo.py]
+      change: '"has_geoid": trial.has_geoid,' -> '"has_geoid": trial.has_moe,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.15s
+               E       assert (True, True, True, False) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh07 trial_record: has_universe taken from has_alternatives   [scripts/run_demo.py]
+      change: '"has_universe": trial.has_universe,' -> '"has_universe": trial.has_alternatives,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.15s
+               E       assert (True, False, False, False) == (True, False, True, False)
+      tree after restore: clean
+
+BAD   mutation: dh08 trial_record: has_alternatives taken from has_universe   [scripts/run_demo.py]
+      change: '"has_alternatives": trial.has_alternatives,' -> '"has_alternatives": trial.has_universe,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.14s
+               E       assert (True, False, True, True) == (True, False, True, False)
+      tree after restore: clean
+
+SURVIVORS this batch: [('iso01 harness: differing() always reports no difference', 'api/tests/test_execution_isolation.py::test_a_fixed_intent_executes_identically_under_neutral_rewordings'), ('iso01 harness: differing() always reports no difference', 'api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic]'), ('iso01 harness: differing() always reports no difference', 'api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler]'), ('iso01 harness: differing() always reports no difference', 'api/tests/test_execution_isolation.py::test_a_different_stated_intent_changes_execution_under_the_same_wording'), ('iso01 harness: differing() always reports no difference', 'api/tests/test_execution_isolation.py::test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording'), ('iso01 harness: differing() always reports no difference', 'api/tests/test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?]'), ('iso03 harness: the scripted model ignores the frame (frame call returns an empty report)', 'api/tests/test_execution_isolation.py::test_a_fixed_intent_executes_identically_under_neutral_rewordings'), ('iso03 harness: the scripted model ignores the frame (frame call returns an empty report)', 'api/tests/test_execution_isolation.py::test_a_different_stated_intent_changes_execution_under_the_same_wording'), ('iso03 harness: the scripted model ignores the frame (frame call returns an empty report)', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[substring]'), ('iso03 harness: the scripted model ignores the frame (frame call returns an empty report)', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[regex]'), ('iso03 harness: the scripted model ignores the frame (frame call returns an empty report)', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[keyword]'), ('iso03 harness: the scripted model ignores the frame (frame call returns an empty report)', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]'), ('iso04 harness: the fixed intent never fetches (FETCH dropped from COUNTY)', 'api/tests/test_execution_isolation.py::test_a_fixed_intent_executes_identically_under_neutral_rewordings'), ('iso07 harness: differing compares only the urls field, not every field', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[substring]'), ('iso07 harness: differing compares only the urls field, not every field', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[regex]'), ('iso07 harness: differing compares only the urls field, not every field', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[keyword]'), ('iso08 mutant inject (pin) is a no-op, so substring/regex/keyword mutants change nothing', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]'), ('iso09 mutant inject (answer) is a no-op, so the late-in-the-answer mutant changes nothing', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[substring]'), ('iso09 mutant inject (answer) is a no-op, so the late-in-the-answer mutant changes nothing', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[regex]'), ('iso09 mutant inject (answer) is a no-op, so the late-in-the-answer mutant changes nothing', 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[keyword]'), ("iso11 prod: resolve_geography level read from a statistic word ('average')", 'api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler]'), ("iso12 prod: resolve_geography level read from filler ('thanks')", 'api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic]'), ('iso13 prod: a missing level is filled in from the wording (no repair round)', 'api/tests/test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?]'), ('iso13 prod: a missing level is filled in from the wording (no repair round)', 'api/tests/test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[a level word]')]
+
+BAD   mutation: iso03b harness: the scripted model's frame says level=tract with no parents named   [api/tests/test_execution_isolation.py]
+      change: '"level": "county",\n    "named": [],' -> '"level": "tract",\n    "named": [],'
+      CAUGHT   test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 failed, 1 warning in 0.30s
+               E       assert []
+      CAUGHT   test_a_different_stated_intent_changes_execution_under_the_same_wording  =>  1 failed, 1 warning in 0.35s
+               E       assert [] != []
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[substring]  =>  1 failed, 1 warning in 0.34s
+               E       AssertionError: assert [] == ['population ...Texas, plugh']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[regex]  =>  1 failed, 1 warning in 0.31s
+               E       AssertionError: assert [] == ['population ...Texas, xyzzy']
+      CAUGHT   test_the_harness_catches_code_that_reads_the_question[keyword]  =>  1 failed, 1 warning in 0.29s
+               E       AssertionError: assert [] == ['population ... Texas, quux']
+      SURVIVED test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  =>  1 passed, 1 warning in 0.18s
+      tree after restore: clean
+
+BAD   mutation: iso04b harness: the fixed intent builds an unknown table (nothing can be fetched)   [api/tests/test_execution_isolation.py]
+      change: 'BUILD = {"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}' -> 'BUILD = {"id": "3", "name": "build_url", "args": {"table_id": "B99999"}}'
+      SURVIVED test_a_fixed_intent_executes_identically_under_neutral_rewordings  =>  1 passed, 1 warning in 0.27s
+      tree after restore: clean
+
+BAD   mutation: iso13b prod: the failed-call path records an unmet level when the wording says 'how many'   [api/src/ask.py]
+      change: 'note_intent(record, name, call, failed=True)  # the level it asked for was not served' -> 'note_intent(record, name, call, failed=True)  # the level it asked for was not served\n        if "how many" in record.question.casefold():\n '
+      SURVIVED test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording  =>  1 passed, 1 warning in 0.21s
+      CAUGHT   test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?]  =>  1 failed, 1 warning in 0.43s
+               E       AssertionError: assert ['How many pe... County, TX?'] == []
+      XFAIL-OK test_a_repaired_intent_executes_identically_under_any_wording[a level word]  =>  1 xfailed, 1 warning in 0.32s
+      tree after restore: clean
+
+SURVIVORS this batch: [("iso03b harness: the scripted model's frame says level=tract with no parents named", 'api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]'), ('iso04b harness: the fixed intent builds an unknown table (nothing can be fetched)', 'api/tests/test_execution_isolation.py::test_a_fixed_intent_executes_identically_under_neutral_rewordings'), ("iso13b prod: the failed-call path records an unmet level when the wording says 'how many'", 'api/tests/test_execution_isolation.py::test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording')]
+
+====================================================================================================
+SUMMARY
+====================================================================================================
+mutations run: 115; with at least one test failing: 102; no test failed: 13
+mutations where no test failed: mc18, mc22, mc90, mc91, cl02, cl10, cl14, cl21, cl24, cl29, iso03, iso04, iso04b
+
+PER TEST: the mutations that made it fail (a test with no entry is a SURVIVOR)
+  OK   test_a_run_compared_with_itself_has_no_failure  <=  mc02, mc32
+  OK   test_a_candidate_better_in_one_cohort_and_worse_in_another_is_rejected  <=  mc01, mc31
+  OK   test_a_gain_inside_the_noise_is_inconclusive_not_a_pass  <=  mc04, mc05, mc32
+  OK   test_fewer_families_than_the_minimum_is_inconclusive  <=  mc03
+  OK   test_extra_repeats_of_one_family_are_not_extra_observations  <=  mc06
+  OK   test_a_dropped_trial_fails_instead_of_scoring_the_rest  <=  mc07
+  OK   test_dropping_the_failed_questions_cannot_lift_the_rate  <=  mc08
+  OK   test_faster_failures_are_not_a_speed_gain  <=  mc01, mc31
+  OK   test_returning_fewer_rows_for_the_same_questions_fails  <=  mc09
+  OK   test_more_empty_answers_than_the_reference_fails  <=  mc10
+  OK   test_a_different_index_is_not_comparable  <=  mc11
+  OK   test_the_scorer_hash_ignores_formatting_and_moves_with_logic  <=  mc12, mc13
+  OK   test_an_edited_expectation_makes_the_owners_review_stale  <=  mc14
+  OK   test_a_review_without_a_reviewer_does_not_count  <=  mc15
+  OK   test_a_scorer_change_is_not_a_code_gain_without_a_bridge  <=  mc16
+  OK   test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer  <=  mc16, mc17
+  OK   test_a_registered_reference_cannot_be_replaced  <=  mc19
+  OK   test_a_reference_file_edited_after_registration_fails  <=  mc20
+  OK   test_a_run_of_small_losses_never_moves_l_or_resets_a  <=  mc21
+  OK   test_a_candidate_that_passes_against_a_and_l_becomes_the_new_l  <=  mc23, mc24
+  OK   test_a_p95_that_disagrees_with_its_trials_fails  <=  mc25
+  OK   test_records_without_contract_fields_are_unknown_not_compliant  <=  mc26
+  OK   test_an_answer_missing_a_contract_field_fails  <=  mc27
+  OK   test_a_target_already_met_is_preserved_with_no_gain_claimed  <=  mc28
+  OK   test_meeting_a_target_from_below_needs_a_proven_paired_gain  <=  mc05, mc29
+  OK   test_missing_the_target_fails_whatever_the_gain  <=  mc30
+  OK   test_a_whole_record_backs_the_closure  <=  cl56
+  OK   test_a_required_id_with_no_row_blocks  <=  cl06
+  OK   test_any_status_but_pass_blocks[NOT RUN]  <=  cl01, cl03
+  OK   test_any_status_but_pass_blocks[FAIL]  <=  cl01, cl03
+  OK   test_any_status_but_pass_blocks[UNKNOWN]  <=  cl01, cl03
+  OK   test_any_status_but_pass_blocks[pass]  <=  cl03, cl04
+  OK   test_any_status_but_pass_blocks[]  <=  cl03, cl05
+  OK   test_a_listed_row_is_not_enough_without_its_evidence  <=  cl07, cl08
+  OK   test_evidence_that_changed_since_it_was_recorded_blocks  <=  cl09
+  NONE test_evidence_outside_the_repository_is_refused  <=  
+  OK   test_a_row_without_a_tested_head_or_reviewer_blocks  <=  cl11, cl12
+  OK   test_new_tests_need_a_mutation_check_on_record  <=  cl13
+  OK   test_evidence_goes_stale_when_a_covered_file_changes  <=  cl15
+  OK   test_a_change_outside_the_covered_files_leaves_evidence_current  <=  cl16, cl20
+  OK   test_a_row_that_covers_nothing_cannot_show_it_is_current  <=  cl17
+  OK   test_closing_needs_the_post_merge_run_on_a_commit_on_the_base  <=  cl18, cl19, cl20
+  OK   test_an_amended_row_needs_a_dated_owner_amendment  <=  cl22, cl23
+  OK   test_the_same_id_twice_is_refused  <=  cl25
+  OK   test_a_ticket_in_progress_may_have_rows_not_yet_run  <=  cl26, cl27, cl28
+  OK   test_identifiers_are_read_from_the_start_of_each_line_only  <=  cl30, cl31, cl32
+  OK   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv0]  <=  cl34, cl36
+  OK   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv1]  <=  cl33, cl36
+  OK   test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv2]  <=  cl33, cl35, cl36
+  OK   test_a_move_that_is_not_done_does_not_meet_the_gate  <=  cl37
+  OK   test_a_description_with_ac_ids_needs_a_manifest_to_close  <=  cl38, cl39, cl40, cl41
+  OK   test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants  <=  cl42, cl43
+  OK   test_loosening_the_frozen_protocol_fails[edit0]  <=  cl44
+  OK   test_loosening_the_frozen_protocol_fails[edit1]  <=  cl45
+  OK   test_loosening_the_frozen_protocol_fails[edit2]  <=  cl46
+  OK   test_loosening_the_frozen_protocol_fails[edit3]  <=  cl47
+  OK   test_loosening_the_frozen_protocol_fails[edit4]  <=  cl48
+  OK   test_loosening_the_frozen_protocol_fails[edit5]  <=  cl49
+  OK   test_loosening_the_frozen_protocol_fails[edit6]  <=  cl50
+  OK   test_loosening_the_frozen_protocol_fails[edit7]  <=  cl51
+  OK   test_loosening_the_frozen_protocol_fails[edit8]  <=  cl52
+  OK   test_tightening_the_frozen_protocol_is_allowed  <=  cl53, cl54
+  OK   test_a_tested_head_that_is_not_a_commit_blocks  <=  cl55
+  OK   test_a_fixed_intent_executes_identically_under_neutral_rewordings  <=  iso06, iso10, iso03b
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic]  <=  iso11
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler]  <=  iso12
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word]  <=  iso01, iso02
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison]  <=  iso01, iso02
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip]  <=  iso01, iso02
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]  <=  iso01, iso02
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year]  <=  iso01, iso02
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range]  <=  iso01, iso02
+  OK   test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span]  <=  iso01, iso02
+  OK   test_a_different_stated_intent_changes_execution_under_the_same_wording  <=  iso05, iso14, iso03b
+  OK   test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording  <=  iso13
+  OK   test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?]  <=  iso13b
+  OK   test_a_repaired_intent_executes_identically_under_any_wording[a level word]  <=  iso01, iso02
+  OK   test_the_harness_catches_code_that_reads_the_question[substring]  <=  iso01, iso02, iso08, iso03b
+  OK   test_the_harness_catches_code_that_reads_the_question[regex]  <=  iso01, iso02, iso08, iso03b
+  OK   test_the_harness_catches_code_that_reads_the_question[keyword]  <=  iso01, iso02, iso08, iso03b
+  OK   test_the_harness_catches_code_that_reads_the_question[late-in-the-answer]  <=  iso01, iso02, iso07, iso09
+  OK   test_each_trial_records_which_response_contract_fields_the_answer_carried  <=  dh01, dh02, dh03, dh04, dh05, dh06 (+2 more)
+
+tests never failed by any mutation: ['test_evidence_outside_the_repository_is_refused']
+
+NOTES AND VERDICT
+-----------------
+Mutations: 115 run (mc01-mc32, cl01-cl56, iso01-iso14 plus iso03b/iso04b/iso13b, dh01-dh08, and informational mc90/mc91).
+Every mutation was applied to a single behaviour, the named test(s) were run alone, the file restored with
+git checkout -- <file>, and the tree verified clean before the next one ("tree after restore: clean" lines).
+Mutations cl01-cl38 were run first; the first batch stopped at cl39 because my mutation text matched four places
+(nothing had been written); cl39 onward was rerun with a unique match, so the log is complete and each ran once.
+(In the first batch's printed output the "[argv...]" style labels are the parametrize ids; argv0=--done,
+ argv1=--transition Done, argv2=--transition done.)
+
+CAUGHT: 102 of the 115 mutations made at least one named test fail. 81 of the 82 new tests (all 74 live tests but
+one, plus the 8 strict-xfail cases) failed under some mutation; the 8 strict-xfail cases are the ones that failed
+only as "XPASS(strict)" under iso01/iso02 (a harness that cannot see a difference) and otherwise stayed xfail,
+which is the expected behaviour: they are live findings, not vacuous.
+
+SURVIVORS (a test that passed against a broken implementation):
+ S1  test_evidence_outside_the_repository_is_refused
+     mutation cl10: delete the is_relative_to(root) check in closure._evidence_problems. Survives because
+     "../outside.txt" does not exist, so the "does not exist" branch blocks it anyway. Fix: create the file
+     outside the repository and assert a blocking line that says "outside".
+ S2  test_new_tests_need_a_mutation_check_on_record
+     mutation cl14: the mutation evidence file is not verified (_evidence_problems(mutation...) -> []).
+     Only a missing `mutation` key is tested. Fix: assert blocked(row(new_tests=True, mutation="no-such.txt")).
+ S3  test_identifiers_are_read_from_the_start_of_each_line_only
+     mutation cl29: drop `and stripped.startswith(head + ".")` in closure.required_ids. The fixture line
+     "AC. nope and ACx. nope and TC10 no dot" has head "AC", so the "TC10 no dot" case never reaches the
+     dot check. Fix: add a line that starts "TC10 no dot" (or "AC3 not dotted") and assert it is absent.
+ S4  test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer
+     mutation mc18: with a bridge, compare against the ORIGINAL reference run instead of bridge["rescored_run"].
+     The candidate equals the rescored run, which also beats the original, so "long_tail trial rate" is PASS
+     either way. Fix: use a candidate worse than the rescored run but better than the original and assert FAIL
+     (or assert the detail reads "diff +0.000").
+ S5  test_a_run_of_small_losses_never_moves_l_or_resets_a
+     mutation mc22: promote compares with A only (names = ["A"]), never with L. In the fixture L == A, so L adds
+     nothing. Fix: register L better than A, promote a candidate that passes A but loses to L, assert exit 1 and
+     references.json unchanged.
+
+Not survivors of a test's own claim (informational or equivalent mutants, no test failed, reasons):
+ mc90  case rule any-repeat instead of all-repeats: no new test has a family with a partial repeat set, so
+       protocol case_rule = "all_repeats" has no behavioural test (coverage gap, not a named test's claim).
+ mc91  families() accepts an extra family: no new test supplies an extra family (the extras branch is untested).
+ cl02  unknown status values not rejected as such: equivalent for the tests, the `!= "PASS"` check still blocks;
+       the params "pass" and "" are killed by cl03/cl04/cl05.
+ cl21  post-merge E2E evidence file not verified: not asserted by the closing test.
+ cl24  amendment owner/reason/destination not required: the amendment test supplies only id/date.
+ iso03 frame call returns "{}": inert (the defaults equal the scripted values); iso03b (frame level=tract) is
+       caught by 5 tests, so the scripted frame is wired in and the harness is sensitive to it.
+ iso04/iso04b  scripted FETCH dropped / unknown table: equivalent, finish_tools fetches on its own and the
+       fixture http_get is canned; the rows assertion is shown live by iso03b (assert [] on empty rows).
+Also untested by any new test: the protocol keys resamples, stopping, blocks and "cohort dropped" in
+check_protocol_not_weakened (no parametrized edit exercises them).
+
+Strict-xfail cases (8): under unmodified code all 8 report XFAIL (see GOOD above), and under iso01/iso02 all 8
+fail as XPASS(strict) (CAUGHT lines), proving each is driven by the comparison. They were not mutated further:
+the production fixes they wait for (CC-104/CC-129 and the unplaced ZIP finding) cannot be simulated honestly.
+
+The production seams were also mutated (api/src/contract.py pin_tool_args reading the wording, api/src/ask.py
+failure path): iso10-iso14 and iso13b; each is caught by the test that targets it, restored, tree clean.
+
+VERDICT: FAIL for the Gate 1 mutation check as written. 5 survivors (S1-S5), all in test_closure_gate.py (S1-S3)
+and test_metric_compare.py (S4, S5); test_execution_isolation.py and the run_demo contract test have none.
+end: HEAD=8f8ac92adc3c28adbc387958c1bd865feaa90343 status --short=[] (detached at 8f8ac92; no source file modified)

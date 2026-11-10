@@ -527,14 +527,33 @@ class _Client:
         return _Reply(self._body)
 
 
-def test_each_trial_records_which_response_contract_fields_the_answer_carried() -> None:
-    body = _body(moe=[{"B01003_001M": "5"}], geoid="", universe="Households", alternatives=[])
+def _contract(**fields: Any) -> tuple[bool, bool, bool, bool]:
     entry = {"id": "q05", "text": "t", "tier": "long_tail", "expect_table": "B01003"}
-    trial = run_demo._ask(_Client(body), run_demo.Clock(), entry, 1)
+    trial = run_demo._ask(_Client(_body(**fields)), run_demo.Clock(), entry, 1)
     record = run_demo.trial_record(trial)
-    assert (
+    return (
         record["has_moe"],
         record["has_geoid"],
         record["has_universe"],
         record["has_alternatives"],
-    ) == (True, False, True, False)
+    )
+
+
+def test_each_trial_records_which_response_contract_fields_the_answer_carried() -> None:
+    moe = [{"B01003_001M": "5"}]
+    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}]
+    full = _contract(rows=rows, moe=moe, universe="Households", alternatives=[])
+    assert full == (True, True, True, False)
+    bare = _contract(rows=rows, moe=moe, universe="", alternatives=[{"table_id": "B19013"}])
+    assert bare[2:] == (False, True)
+
+
+def test_a_moe_row_with_only_names_is_not_a_margin_of_error() -> None:
+    names_only = [{"GEO_ID": "0500000US48201", "NAME": "Harris County, Texas"}]
+    assert _contract(moe=names_only)[0] is False
+
+
+def test_geoid_is_judged_per_row_not_from_the_empty_top_level_field() -> None:
+    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}, {"GEO_ID": "0500000US48203"}]
+    assert _contract(rows=rows, geoid="")[1] is True
+    assert _contract(rows=[*rows, {"B01003_001E": "3"}], geoid="x")[1] is False

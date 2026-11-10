@@ -3,6 +3,7 @@ cannot buy: a lost trial, a changed scorer, a smaller denominator or a faster fa
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from collections.abc import Callable
@@ -61,12 +62,14 @@ def run(
     trials: list[dict[str, Any]] | None = None,
 ) -> mc.Run:
     made = trials if trials is not None else _trials(protocol, failing or set(), rows, seconds)
+    tail = [t for t in made if t["tier"] == "long_tail"]
+    rate = sum(t["answered"] for t in tail) / len(tail)
     return mc.Run(
         path="synthetic",
         repeat=3,
         index_hash="index",
         p95_reported=mc.percentile([t["latency_s"] for t in made], 95),
-        scalars=scalars or {"retrieval_at_10": 0.9, "selector_at_1": 0.8, "answered_rate": 0.8},
+        scalars=scalars or {"retrieval_at_10": 0.9, "selector_at_1": 0.8, "answered_rate": rate},
         trials=made,
     )
 
@@ -234,6 +237,7 @@ def lab(
     monkeypatch.setattr(mc, "load_protocol", lambda head=None: protocol)
     now = {"scorer": "s1", "cohorts": {"c": "h"}, "protocol": "p1"}
     monkeypatch.setattr(mc, "hashes", lambda head=None: dict(now))
+    monkeypatch.setattr(mc, "protocol_hash", lambda head=None: "p1")
     monkeypatch.setattr(
         mc,
         "oracle_state",
@@ -284,6 +288,7 @@ def test_a_bridge_compares_against_the_reference_rescored_by_the_new_scorer(
         "from_cohorts": {"c": "h"},
         "to_cohorts": {"c": "h"},
         "rescored_run": rescored,
+        "rescored_sha256": hashlib.sha256(Path(rescored).read_bytes()).hexdigest(),
         "note": "same trials, new scorer",
     }
     (lab["dir"] / "bridges.json").write_text(json.dumps([bridge]))
@@ -391,3 +396,143 @@ def test_missing_the_target_fails_whatever_the_gain(protocol: dict[str, Any]) ->
         status(mc.target_check(candidate, base, protocol, "long_tail", 0.95), "long_tail case")
         == "FAIL"
     )
+
+
+# --- findings of the cold review ---------------------------------------------------------------
+
+
+def test_a_bridge_whose_rescored_run_is_not_pinned_is_refused(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    ids = families_of(protocol, "long_tail", 12)
+    register(lab, "A", run(protocol, losing("long_tail", ids)), scorer="s0")
+    rescored = write_run(lab["dir"] / "rescored.json", run(protocol))
+    bridge = {
+        "ref": "A", "from_scorer": "s0", "to_scorer": "s1", "from_cohorts": {"c": "h"},
+        "to_cohorts": {"c": "h"}, "rescored_run": rescored, "rescored_sha256": "0" * 64,
+        "note": "tampered",
+    }  # fmt: skip
+    (lab["dir"] / "bridges.json").write_text(json.dumps([bridge]))
+    cand = write_run(lab["dir"] / "cand.json", run(protocol))
+    assert status(mc.compare(cand, ["A"], {}), "bridge") == "FAIL"
+
+
+def test_runs_with_no_index_hash_are_not_comparable(protocol: dict[str, Any]) -> None:
+    base = run(protocol)
+    base.index_hash = ""
+    other = run(protocol)
+    other.index_hash = ""
+    assert status(mc.evaluate(other, base, "A", protocol), "index") == "FAIL"
+
+
+def test_a_reported_answered_rate_that_the_trials_do_not_support_fails(
+    protocol: dict[str, Any],
+) -> None:
+    made = run(protocol, losing("long_tail", families_of(protocol, "long_tail", 10)))
+    made.scalars["answered_rate"] = 0.99
+    assert status(mc.absolute(made, protocol), "answered_rate matches trials") == "FAIL"
+
+
+def test_one_trial_without_contract_fields_is_unknown_not_a_crash(protocol: dict[str, Any]) -> None:
+    trials = run(protocol).trials
+    for trial in trials:
+        trial.update(dict.fromkeys(mc.CONTRACT_KEYS, True))
+    del trials[-1]["has_moe"]
+    trials[-1]["tier"] = "long_tail"
+    assert status(mc.absolute(run(protocol, trials=trials), protocol), "response contract") in {
+        "UNKNOWN",
+        "FAIL",
+    }
+
+
+def test_the_scorer_hash_sees_an_annotated_constant(
+    protocol: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protocol["scorer"]["symbols"] = ["LIMIT"]
+
+    def hashed(source: str) -> str:
+        monkeypatch.setattr(mc, "_source", lambda rel, head: source)
+        return mc.scorer_hash(protocol)
+
+    assert hashed("LIMIT: int = 1\n") != hashed("LIMIT: int = 2\n")
+
+
+def test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    complete = run(protocol)
+    for trial in complete.trials:
+        trial.update(dict.fromkeys(mc.CONTRACT_KEYS, True))
+    register(lab, "A", complete)
+    register(lab, "L", complete)
+    path = write_run(lab["dir"] / "next.json", complete)
+    assert mc.cmd_promote(path) == 0
+    refs = mc.load_refs()
+    assert set(refs) == {"A", "L"} and refs["L"]["head"] == "f" * 40
+    raw = (lab["dir"] / "references.json").read_bytes()
+    assert b"\r\n" not in raw
+    first = (lab["dir"] / "ledger.jsonl").read_bytes()
+    assert mc.cmd_promote(path) == 0
+    assert (lab["dir"] / "ledger.jsonl").read_bytes().startswith(first)
+
+
+# --- gaps found by the mutation check ------------------------------------------------------------
+
+
+def contract_run(protocol: dict[str, Any], lost: list[str]) -> mc.Run:
+    made = run(protocol, losing("long_tail", lost))
+    for trial in made.trials:
+        trial.update(dict.fromkeys(mc.CONTRACT_KEYS, True))
+    return made
+
+
+def test_a_bridge_judges_against_the_rescored_run_not_the_original(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    ids = families_of(protocol, "long_tail", 12)
+    register(lab, "A", run(protocol, losing("long_tail", ids)), scorer="s0")  # 12 failing
+    rescored = write_run(lab["dir"] / "rescored.json", run(protocol, losing("long_tail", ids[:6])))
+    bridge = {
+        "ref": "A",
+        "from_scorer": "s0",
+        "to_scorer": "s1",
+        "from_cohorts": {"c": "h"},
+        "to_cohorts": {"c": "h"},
+        "rescored_run": rescored,
+        "rescored_sha256": hashlib.sha256(Path(rescored).read_bytes()).hexdigest(),
+        "note": "same trials, new scorer",
+    }
+    (lab["dir"] / "bridges.json").write_text(json.dumps([bridge]))
+    # better than the original (9 failing against 12) but worse than the rescored run (6)
+    cand = write_run(lab["dir"] / "cand.json", run(protocol, losing("long_tail", ids[:9])))
+    assert status(mc.compare(cand, ["A"], {}), "long_tail trial rate") == "FAIL"
+
+
+def test_a_candidate_that_passes_a_but_loses_to_l_does_not_become_l(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    ids = families_of(protocol, "long_tail", 6)
+    register(lab, "A", contract_run(protocol, ids))
+    register(lab, "L", contract_run(protocol, []))
+    before = (lab["dir"] / "references.json").read_bytes()
+    cand = write_run(lab["dir"] / "cand.json", contract_run(protocol, ids[:3]))
+    assert mc.cmd_promote(cand) == 1
+    assert (lab["dir"] / "references.json").read_bytes() == before
+
+
+def test_a_case_passes_only_if_every_repeat_answered(protocol: dict[str, Any]) -> None:
+    ids = families_of(protocol, "long_tail", 40)
+    partial = {("long_tail", ids[0], 3)}  # one repeat of three
+    tier = protocol["cohorts"]["long_tail"]["tier"]
+    grouped = mc.families(run(protocol, partial), ids, tier, 3)
+    rates = mc.family_rates(grouped)[ids[0]]
+    assert rates["case"] == 0.0
+    assert round(rates["trial"], 3) == 0.667
+
+
+def test_a_family_outside_the_frozen_cohort_is_a_plan_error(protocol: dict[str, Any]) -> None:
+    made = run(protocol)
+    extra = {**next(t for t in made.trials if t["tier"] == "long_tail"), "id": "zz99"}
+    ids = [e["id"] for e in mc.cohort(protocol, "long_tail")]
+    with pytest.raises(mc.PlanError):
+        mc.families(run(protocol, trials=[*made.trials, extra]), ids, "long_tail", 3)

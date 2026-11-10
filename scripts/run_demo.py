@@ -119,6 +119,22 @@ def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[st
     return sorted(fetched - legs), sorted(legs - fetched if isinstance(expected, list) else [])
 
 
+def has_moe(body: dict[str, Any]) -> bool:
+    """An M column was fetched. `moe` rows always carry GEO_ID and NAME, so those do not count."""
+    moe = body.get("moe")
+    rows = moe if isinstance(moe, list) else []
+    return any(
+        isinstance(row, dict) and any(key not in {"GEO_ID", "NAME"} for key in row) for row in rows
+    )
+
+
+def has_geoid(body: dict[str, Any]) -> bool:
+    """Every returned row names its GEOID. The top-level `geoid` is empty when many rows return."""
+    rows = body.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    return bool(rows) and all(isinstance(r, dict) and r.get("GEO_ID") for r in rows)
+
+
 def census_urls(body: dict[str, Any]) -> list[str]:
     items = body.get("urls")
     if not isinstance(items, list):
@@ -439,8 +455,8 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
         rows=len(body.get("rows") or []),
         t_rerank=clock.seconds("rerank"),
         t_embed=clock.seconds("embed"),
-        has_moe=bool(body.get("moe")),
-        has_geoid=bool(body.get("geoid")),
+        has_moe=has_moe(body),
+        has_geoid=has_geoid(body),
         has_universe=bool(body.get("universe")),
         has_alternatives=bool(body.get("alternatives")),
     )

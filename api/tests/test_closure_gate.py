@@ -129,7 +129,9 @@ def test_evidence_that_changed_since_it_was_recorded_blocks(repo: Path) -> None:
 
 
 def test_evidence_outside_the_repository_is_refused(repo: Path) -> None:
-    assert blocked(repo, manifest(repo, row(repo, evidence=["../outside.txt"])))
+    (repo.parent / "outside.txt").write_text("a real file, but not in the repository\n")
+    found = blocked(repo, manifest(repo, row(repo, evidence=["../outside.txt"])))
+    assert any("outside the repository" in line for line in found)
 
 
 def test_a_row_without_a_tested_head_or_reviewer_blocks(repo: Path) -> None:
@@ -139,6 +141,7 @@ def test_a_row_without_a_tested_head_or_reviewer_blocks(repo: Path) -> None:
 
 def test_new_tests_need_a_mutation_check_on_record(repo: Path) -> None:
     assert blocked(repo, manifest(repo, row(repo, new_tests=True)))
+    assert blocked(repo, manifest(repo, row(repo, new_tests=True, mutation="no-such.txt")))
     assert blocked(repo, manifest(repo, row(repo, new_tests=True, mutation="gate1.txt"))) == []
 
 
@@ -188,6 +191,14 @@ def test_an_amended_row_needs_a_dated_owner_amendment(repo: Path) -> None:
     assert blocked(repo, manifest(repo, amended, amendment=[bad_date]))
     good = {**bad_date, "date": "2026-11-09"}
     assert blocked(repo, manifest(repo, amended, amendment=[good])) == []
+    for missing in ("owner", "reason", "destination"):
+        partial = {k: v for k, v in good.items() if k != missing}
+        assert blocked(repo, manifest(repo, amended, amendment=[partial])), missing
+
+
+def test_the_post_merge_evidence_file_must_exist(repo: Path) -> None:
+    body = manifest(repo, row(repo), post_merge={"e2e": "no-e2e.txt", "main_head": FAKE})
+    assert any("post_merge" in line for line in blocked(repo, body))
 
 
 def test_the_same_id_twice_is_refused(repo: Path) -> None:
@@ -216,7 +227,11 @@ def test_identifiers_are_read_from_the_start_of_each_line_only() -> None:
                     {"type": "hardBreak"},
                     {"type": "text", "text": "AC1. repeated"},
                     {"type": "hardBreak"},
-                    {"type": "text", "text": "AC. nope and ACx. nope and TC10 no dot"},
+                    {"type": "text", "text": "AC. nope and ACx. nope"},
+                    {"type": "hardBreak"},
+                    {"type": "text", "text": "TC10 no terminator"},
+                    {"type": "hardBreak"},
+                    {"type": "text", "text": "AC3 not dotted"},
                 ],
             }
         ],
@@ -227,6 +242,13 @@ def test_identifiers_are_read_from_the_start_of_each_line_only() -> None:
 # --- the Jira Done paths ---------------------------------------------------------------------
 
 
+def move(name: str, category: str) -> dict[str, Any]:
+    return {"id": name, "to": {"name": name, "statusCategory": {"key": category}}}
+
+
+MOVES = [move("Done", "done"), move("Closed", "done"), move("In Progress", "indeterminate")]
+
+
 def done_calls(monkeypatch: pytest.MonkeyPatch, argv: list[str], gate: Any) -> list[str]:
     calls: list[str] = []
     monkeypatch.setattr(sys, "argv", ["jira_transition.py", "CC-7", *argv])
@@ -235,6 +257,7 @@ def done_calls(monkeypatch: pytest.MonkeyPatch, argv: list[str], gate: Any) -> l
     monkeypatch.setattr(jt, "_add_comment", lambda key, text: calls.append("comment"))
     monkeypatch.setattr(jt, "_transition", lambda key, target: calls.append(f"to {target}"))
     monkeypatch.setattr(jt, "_issue", lambda key, fields="": {"fields": {"status": {"name": "x"}}})
+    monkeypatch.setattr(jt, "_transitions", lambda key: MOVES)
     return calls
 
 
@@ -242,7 +265,10 @@ def refuse(key: str) -> None:
     raise SystemExit(1)
 
 
-@pytest.mark.parametrize("argv", [["--done"], ["--transition", "Done"], ["--transition", "done"]])
+@pytest.mark.parametrize(
+    "argv",
+    [["--done"], ["--transition", "Done"], ["--transition", "done"], ["--transition", "Closed"]],
+)
 def test_both_done_paths_stop_at_a_refused_closure_before_any_write(
     monkeypatch: pytest.MonkeyPatch, argv: list[str]
 ) -> None:
@@ -258,23 +284,57 @@ def test_a_move_that_is_not_done_does_not_meet_the_gate(monkeypatch: pytest.Monk
     assert calls == ["to In Progress"]
 
 
+def doc(text: str) -> dict[str, Any]:
+    return {
+        "type": "doc",
+        "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}],
+    }
+
+
+def issue(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, text: str, kind: str) -> None:
+    fields = {"description": doc(text), "issuetype": {"name": kind}}
+    monkeypatch.setattr(jt, "ROOT", tmp_path)
+    monkeypatch.setattr(jt, "_issue", lambda key, f="": {"fields": fields})
+
+
 def test_a_description_with_ac_ids_needs_a_manifest_to_close(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    text = {
-        "type": "doc",
-        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "AC1. x"}]}],
-    }
-    monkeypatch.setattr(jt, "ROOT", tmp_path)
-    monkeypatch.setattr(jt, "_issue", lambda key, fields="": {"fields": {"description": text}})
+    issue(monkeypatch, tmp_path, "AC1. x", "Story")
     with pytest.raises(SystemExit):
         jt._closure_gate("CC-7")
-    plain = {
-        "type": "doc",
-        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "chore"}]}],
-    }
-    monkeypatch.setattr(jt, "_issue", lambda key, fields="": {"fields": {"description": plain}})
-    jt._closure_gate("CC-7")  # nothing to cover: no manifest required
+
+
+def test_a_story_with_no_recognised_ids_is_refused_not_waved_through(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    issue(monkeypatch, tmp_path, "Acceptance: first thing, second thing", "Story")
+    with pytest.raises(SystemExit):
+        jt._closure_gate("CC-7")
+    issue(monkeypatch, tmp_path, "", "Bug")
+    with pytest.raises(SystemExit):
+        jt._closure_gate("CC-7")
+
+
+def test_an_epic_with_no_ids_needs_no_manifest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    issue(monkeypatch, tmp_path, "scope of the slice", "Epic")
+    jt._closure_gate("CC-7")
+
+
+@pytest.mark.parametrize(
+    "text", ["AC1: x", "- AC1. x", "**AC1.** x", "AC 1. x", "ac1) x", "TC1. x"]
+)
+def test_ids_in_ordinary_jira_formatting_are_still_required(text: str) -> None:
+    assert closure.required_ids(text)
+
+
+def test_a_malformed_manifest_blocks_instead_of_crashing(tmp_path: Path) -> None:
+    broken = tmp_path / "CC-7.toml"
+    broken.write_text('[[row]]\nid = "AC1"\nstatus = "PASS"\nevidence = 5\n')
+    found = closure.check_file(broken, root=tmp_path)
+    assert found and "malformed" in found[0]
 
 
 # --- the invariants -------------------------------------------------------------------------------
@@ -315,6 +375,9 @@ def loosened(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, edit: tuple[str, s
         ("exclusions = []", 'exclusions = ["q05"]'),
         ('exclude_flags = ["holdout"]', 'exclude_flags = ["holdout", "trap"]'),
         ('"fetched_level", ', ""),
+        ("resamples = 10000", "resamples = 100"),
+        ('stopping = "fixed"', 'stopping = "optional"'),
+        ('blocks = "B,P,P,B"', 'blocks = "B,P"'),
     ],
 )
 def test_loosening_the_frozen_protocol_fails(
@@ -333,3 +396,97 @@ def test_tightening_the_frozen_protocol_is_allowed(
 def test_a_tested_head_that_is_not_a_commit_blocks(repo: Path) -> None:
     found = blocked_by_git(repo, manifest(repo, row(repo, tested_head="0" * 40)), done=False)
     assert any("not a commit" in line for line in found)
+
+
+# --- protocol and records the owner holds ---------------------------------------------------
+
+
+def records(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, files: dict[str, tuple[str | None, str]]
+) -> list[Any]:
+    """Each file is (text at the base, text now)."""
+    for rel, (_old, new) in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_bytes(new.encode())
+    monkeypatch.setattr(ci, "ROOT", tmp_path)
+    monkeypatch.setattr(ci, "_text_at", lambda ref, rel: files.get(rel, (None, ""))[0])
+    return ci.check_metric_records_not_rewritten("origin/main")
+
+
+REFS = "evidence/metrics/references.json"
+LEDGER = "evidence/metrics/ledger.jsonl"
+REVIEW = "evals/oracle_review.toml"
+
+
+def test_a_registered_reference_cannot_be_edited_but_l_may_move_and_a_new_one_may_be_added(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    before = '{"A": {"head": "1"}, "L": {"head": "2"}}'
+    moved = '{"A": {"head": "1"}, "L": {"head": "3"}, "B": {"head": "4"}}'
+    assert records(monkeypatch, tmp_path, {REFS: (before, moved)}) == []
+    edited = '{"A": {"head": "9"}, "L": {"head": "2"}}'
+    assert records(monkeypatch, tmp_path, {REFS: (before, edited)})
+    dropped = '{"L": {"head": "2"}}'
+    assert records(monkeypatch, tmp_path, {REFS: (before, dropped)})
+
+
+def test_the_ledger_only_grows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    first, second = '{"n": 1}' + chr(10), '{"n": 2}' + chr(10)
+    assert records(monkeypatch, tmp_path, {LEDGER: (first, first + second)}) == []
+    assert records(monkeypatch, tmp_path, {LEDGER: (first + second, first)})
+    assert records(monkeypatch, tmp_path, {LEDGER: (first, second)})
+
+
+def test_an_oracle_signature_is_never_added_in_the_change_it_would_let_pass(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    signed = "[accepted.q05]" + chr(10) + 'reviewer = "owner"' + chr(10)
+    assert records(monkeypatch, tmp_path, {REVIEW: (signed, signed)}) == []
+    assert records(monkeypatch, tmp_path, {REVIEW: ("# empty" + chr(10), signed)})
+    changed = signed.replace("owner", "someone else")
+    assert records(monkeypatch, tmp_path, {REVIEW: (signed, changed)})
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        ('source = "scripts/run_demo.py"', 'source = "scripts/other.py"'),
+        ("version = 1", "version = 2"),
+        ('tier = "long_tail"', 'tier = "core"'),
+    ],
+)
+def test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, edit: tuple[str, str]
+) -> None:
+    assert loosened(monkeypatch, tmp_path, edit)
+
+
+def test_a_deleted_protocol_file_is_a_violation_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(ci, "ROOT", tmp_path)
+    monkeypatch.setattr(ci, "_text_at", lambda ref, rel: "version = 1")
+    assert ci.check_protocol_not_weakened("origin/main")
+
+
+def test_dropping_a_cohort_fails_the_protocol_guard(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    text = (ROOT / ci.PROTOCOL).read_text(encoding="utf-8")
+    kept = text[: text.index("[cohorts.core]")]
+    (tmp_path / "evals").mkdir()
+    (tmp_path / ci.PROTOCOL).write_text(kept, encoding="utf-8")
+    monkeypatch.setattr(ci, "ROOT", tmp_path)
+    monkeypatch.setattr(ci, "_text_at", lambda ref, rel: text)
+    assert any("cohort dropped" in v.message for v in ci.check_protocol_not_weakened("origin/main"))
+
+
+@pytest.mark.parametrize("key", ["not a key", "CC-", "-7", "CC-7; rm -rf", "../CC-7"])
+def test_an_issue_key_that_is_not_a_key_is_refused_before_any_request(
+    monkeypatch: pytest.MonkeyPatch, key: str
+) -> None:
+    calls = done_calls(monkeypatch, ["--done"], refuse)
+    monkeypatch.setattr(sys, "argv", ["jira_transition.py", key, "--done"])
+    with pytest.raises(SystemExit) as stop:
+        jt.main()
+    assert stop.value.code == 2 and calls == []

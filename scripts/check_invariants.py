@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import ast
 import io
+import json
 import re
 import subprocess
 import sys
@@ -718,6 +719,7 @@ PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))
 PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))
 PROTOCOL_NOT_HIGHER = (("sampling", "max_regression"),)
 PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))
+PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))
 PROTOCOL_KEEP = (("scorer", "symbols"),)  # the old names must all remain
 PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))
 
@@ -729,7 +731,11 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
     old_text = _text_at(base, PROTOCOL)
     if old_text is None:
         return []
-    old, new = tomllib.loads(old_text), tomllib.loads((ROOT / PROTOCOL).read_text(encoding="utf-8"))
+    try:
+        old = tomllib.loads(old_text)
+        new = tomllib.loads((ROOT / PROTOCOL).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        return [Violation(PROTOCOL, f"the protocol is missing or unreadable ({exc})")]
     found: list[Violation] = []
 
     def flag(where: str, why: str) -> None:
@@ -753,7 +759,8 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
         if before is not None and (after is None or after > before):
             flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
     for section, key in PROTOCOL_UNCHANGED:
-        before, after = old.get(section, {}).get(key), new.get(section, {}).get(key)
+        before = (old.get(section, {}) if section else old).get(key)
+        after = (new.get(section, {}) if section else new).get(key)
         if before != after:
             flag(f"[{section}] {key}", f"{before!r} -> {after!r}: a frozen setting changed")
     for section, key in PROTOCOL_KEEP:
@@ -762,8 +769,60 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
     for section, key in PROTOCOL_NO_NEW:
         if added := names(new, section, key) - names(old, section, key):
             flag(f"[{section}] {key}", f"new exclusion {sorted(added)} shrinks the denominator")
-    for name in set(old.get("cohorts", {})) - set(new.get("cohorts", {})):
-        flag(f"[cohorts.{name}]", "cohort dropped")
+    for name, spec in old.get("cohorts", {}).items():
+        now = new.get("cohorts", {}).get(name)
+        if now is None:
+            flag(f"[cohorts.{name}]", "cohort dropped")
+        elif {k: now.get(k) for k in ("tier", "source")} != {
+            k: spec.get(k) for k in ("tier", "source")
+        }:
+            flag(f"[cohorts.{name}]", "the cohort now draws from a different tier or source")
+    return found
+
+
+METRIC_RECORDS = ("evidence/metrics/references.json", "evidence/metrics/ledger.jsonl")
+ORACLE_REVIEW = "evals/oracle_review.toml"
+
+
+def check_metric_records_not_rewritten(base: str) -> list[Violation]:
+    """References are immutable (only L moves, and only by `promote`), the ledger is append-only,
+    and the owner's oracle signatures are never added in the change they would let pass."""
+    found: list[Violation] = []
+
+    def flag(rel: str, why: str) -> None:
+        found.append(Violation(rel, why))
+
+    def now(rel: str) -> str:
+        path = ROOT / rel
+        return path.read_bytes().decode("utf-8").replace("\r\n", "\n") if path.is_file() else ""
+
+    refs, ledger = METRIC_RECORDS
+    if (old := _text_at(base, refs)) is not None:
+        try:
+            before, after = json.loads(old), json.loads(now(refs) or "{}")
+        except json.JSONDecodeError:
+            before, after = {}, {}
+            flag(refs, "references.json is not valid JSON")
+        for name, entry in before.items():
+            if name != "L" and after.get(name) != entry:
+                flag(refs, f"reference {name} was changed or removed; references are immutable")
+    if (old := _text_at(base, ledger)) is not None and not now(ledger).startswith(
+        old.replace("\r\n", "\n")
+    ):
+        flag(ledger, "the ledger is append-only; an earlier record was changed or removed")
+    if (old := _text_at(base, ORACLE_REVIEW)) is not None:
+        try:
+            was = tomllib.loads(old).get("accepted", {})
+            is_now = tomllib.loads(now(ORACLE_REVIEW) or "").get("accepted", {})
+        except tomllib.TOMLDecodeError:
+            was, is_now = {}, {}
+            flag(ORACLE_REVIEW, "oracle_review.toml is not valid TOML")
+        for case, review in is_now.items():
+            if was.get(case) != review:
+                flag(
+                    ORACLE_REVIEW,
+                    f"{case}: an oracle signature is owner-only and goes in its own commit",
+                )
     return found
 
 
@@ -806,11 +865,13 @@ def collect(base: str | None) -> list[tuple[str, list[Violation]]]:
         rows.append(("new regex", check_no_new_regex(base)))
         rows.append(("new exemptions", check_no_new_exemptions(base)))
         rows.append(("protocol weakened", check_protocol_not_weakened(base)))
+        rows.append(("metric records rewritten", check_metric_records_not_rewritten(base)))
     else:
         rows.append(("budget increases", []))
         rows.append(("new regex", []))
         rows.append(("new exemptions", []))
         rows.append(("protocol weakened", []))
+        rows.append(("metric records rewritten", []))
     return rows
 
 
@@ -843,6 +904,7 @@ def main() -> int:
     failed = 0
     for name, violations in rows:
         diffed = {"budget increases", "new regex", "new exemptions", "protocol weakened"}
+        diffed |= {"metric records rewritten"}
         if name in diffed and not args.base:
             print(f"  skip  {name:<{width}}  pass --base to diff against a ref")
             continue

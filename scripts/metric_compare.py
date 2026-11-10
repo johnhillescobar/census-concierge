@@ -2,7 +2,7 @@
 """Frozen-protocol metric comparison: B / P / A / L, family intervals, ratchets (CC-133).
 
     python scripts/metric_compare.py freeze [--check] [--digests]
-    python scripts/metric_compare.py register NAME RUN.json --head SHA [--label TEXT]
+    python scripts/metric_compare.py register NAME RUN.json --head SHA --label TEXT [--legacy]
     python scripts/metric_compare.py compare RUN.json [--refs A,A0,L,B] [--target long_tail=0.95]
     python scripts/metric_compare.py promote RUN.json     # the only way L moves
 
@@ -100,9 +100,8 @@ def scorer_hash(protocol: dict[str, Any], head: str | None = None) -> str:
     found: dict[str, str] = {}
     for node in ast.parse(source).body:
         names = [node.name] if isinstance(node, ast.FunctionDef | ast.ClassDef) else []
-        for target in getattr(node, "targets", []):
-            if isinstance(target, ast.Name):
-                names.append(target.id)
+        targets = getattr(node, "targets", None) or [getattr(node, "target", None)]
+        names += [t.id for t in targets if isinstance(t, ast.Name)]  # Assign and AnnAssign
         for name in names:
             if name in wanted:
                 found[name] = ast.dump(node, annotate_fields=False)
@@ -294,6 +293,14 @@ def absolute(run: Run, protocol: dict[str, Any]) -> list[Check]:
         value = run.scalars.get(key)
         ok = value is not None and value >= floor
         out.append(Check("floor", key, "PASS" if ok else "FAIL", f"{value} vs floor {floor}"))
+    long_tail = [t for t in run.trials if t.get("tier") == "long_tail"]
+    if long_tail and "answered_rate" in run.scalars:  # the reported rate must be the trials' own
+        rate = sum(bool(t["answered"]) for t in long_tail) / len(long_tail)
+        agrees = abs(rate - run.scalars["answered_rate"]) <= 0.001
+        detail = f"{rate:.3f} from trials vs reported {run.scalars['answered_rate']:.3f}"
+        out.append(
+            Check("floor", "answered_rate matches trials", "PASS" if agrees else "FAIL", detail)
+        )
     times = [float(t["latency_s"]) for t in run.trials]
     p95 = percentile(times, 95)
     agrees = abs(p95 - run.p95_reported) <= 0.01
@@ -316,7 +323,7 @@ def absolute(run: Run, protocol: dict[str, Any]) -> list[Check]:
     answered = [
         t for t in run.trials if t.get("tier") == "long_tail" and t["answered"] and t.get("rows")
     ]
-    if answered and not all(k in answered[0] for k in CONTRACT_KEYS):
+    if answered and not all(k in t for t in answered for k in CONTRACT_KEYS):
         out.append(
             Check("floor", "response contract", "UNKNOWN", "trial records carry no contract fields")
         )
@@ -342,10 +349,8 @@ def evaluate(
         return [
             Check(name, "repeat", "FAIL", f"cand {cand.repeat}, ref {ref.repeat}, frozen {repeat}")
         ]
-    if cand.index_hash != ref.index_hash:
-        return [
-            Check(name, "index", "FAIL", "different index; the comparison is not like for like")
-        ]
+    if not cand.index_hash or cand.index_hash != ref.index_hash:
+        return [Check(name, "index", "FAIL", "missing or different index; not like for like")]
     rates: dict[str, tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]] = {}
     try:
         for cohort_name in protocol["cohorts"]:
@@ -515,6 +520,13 @@ def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> 
                     )
                 )
                 continue
+            rescored = ROOT / bridge["rescored_run"]
+            pinned = rescored.is_file() and (
+                hashlib.sha256(rescored.read_bytes()).hexdigest() == bridge.get("rescored_sha256")
+            )
+            if not pinned:
+                out.append(Check(name, "bridge", "FAIL", "rescored run missing or not pinned"))
+                continue
             run_path, label = bridge["rescored_run"], f"{label}; bridged: {bridge['note']}"
         out += evaluate(cand, load_run(run_path), name, protocol, label=label)
         for cohort_name, goal in targets.items():
@@ -539,11 +551,11 @@ def cmd_freeze(check: bool, digests: bool) -> int:
     protocol = load_protocol()
     print(f"protocol {protocol_hash()}  scorer {scorer_hash(protocol)}")
     todo = 0
-    digests = cohort_hashes(protocol)
+    cohort_digest = cohort_hashes(protocol)
     for name, rows in oracle_state(protocol).items():
         todo += len(rows["pending"]) + len(rows["stale"])
         counts = " ".join(f"{len(ids)} {key}" for key, ids in rows.items())
-        print(f"  {name:<10} {counts}  hash {digests[name]}")
+        print(f"  {name:<10} {counts}  hash {cohort_digest[name]}")
     if digests:  # what the owner signs: the id and the digest of its expectations, nothing else
         for name, rows in oracle_state(protocol).items():
             for entry in cohort(protocol, name):
@@ -553,11 +565,9 @@ def cmd_freeze(check: bool, digests: bool) -> int:
     return 1 if check and todo else 0
 
 
-def cmd_register(name: str, run_path: str, head: str, label: str) -> int:
-    refs = load_refs()
-    if name in refs:
-        print(f"{name} is already registered; references are immutable", file=sys.stderr)
-        return 1
+def build_entry(run_path: str, head: str, label: str, *, legacy: bool) -> dict[str, Any]:
+    """A reference as it will be stored. `legacy` is the only way to skip the protocol-hash check:
+    it says the run predates the frozen protocol, and it is stated, not inferred from a label."""
     run = load_run(run_path)
     long_tail = [t for t in run.trials if t.get("tier") == "long_tail"]
     metrics = {
@@ -579,25 +589,34 @@ def cmd_register(name: str, run_path: str, head: str, label: str) -> int:
     ]
     if metrics["p95"] > budgets["performance"]["p95_latency_seconds"]:
         blockers.append(f"p95 {metrics['p95']} > {budgets['performance']['p95_latency_seconds']}")
-    full = ROOT / run_path
-    refs[name] = {
+    return {
         "label": label,
         "head": head,
         "run": run_path,
-        "run_sha256": hashlib.sha256(full.read_bytes()).hexdigest(),
-        "hashes": {
-            **hashes(head),
-            "protocol": "legacy" if label.startswith("legacy") else protocol_hash(),
-        },
+        "run_sha256": hashlib.sha256((ROOT / run_path).read_bytes()).hexdigest(),
+        "hashes": {**hashes(head), "protocol": "legacy" if legacy else protocol_hash()},
         "metrics": metrics,
         "blockers": blockers,
         "registered": datetime.now(UTC).isoformat(timespec="seconds"),
     }
+
+
+def write_refs(refs: dict[str, Any]) -> None:
     METRICS.mkdir(parents=True, exist_ok=True)
-    (METRICS / "references.json").write_text(
-        json.dumps(refs, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    print(f"registered {name} at {head[:7]}: {metrics}; blockers: {blockers or 'none'}")
+    text = json.dumps(refs, indent=2, sort_keys=True) + "\n"
+    (METRICS / "references.json").write_bytes(text.encode("utf-8"))  # LF on every platform
+
+
+def cmd_register(name: str, run_path: str, head: str, label: str, *, legacy: bool = False) -> int:
+    refs = load_refs()
+    if name in refs:
+        print(f"{name} is already registered; references are immutable", file=sys.stderr)
+        return 1
+    refs[name] = build_entry(run_path, head, label, legacy=legacy)
+    write_refs(refs)
+    entry = refs[name]
+    blockers = entry["blockers"] or "none"
+    print(f"registered {name} at {head[:7]}: {entry['metrics']}; blockers: {blockers}")
     return 0
 
 
@@ -619,8 +638,9 @@ def cmd_compare(run_path: str, names: list[str], targets: dict[str, float], reco
             "hashes": hashes(),
             "checks": [c.__dict__ for c in checks],
         }
-        with (METRICS / "ledger.jsonl").open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(row, sort_keys=True) + "\n")
+        line = json.dumps(row, sort_keys=True) + "\n"
+        with (METRICS / "ledger.jsonl").open("ab") as handle:  # append-only, LF everywhere
+            handle.write(line.encode("utf-8"))
     return 0 if final == "PASS" else 1
 
 
@@ -635,11 +655,10 @@ def cmd_promote(run_path: str) -> int:
     if cmd_compare(run_path, names, {}, record=True):
         print("not promoted", file=sys.stderr)
         return 1
-    refs.pop("L", None)
-    (METRICS / "references.json").write_text(
-        json.dumps(refs, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    return cmd_register("L", run_path, _head(), "accepted post-merge reference")
+    entry = build_entry(run_path, _head(), "accepted post-merge reference", legacy=False)
+    write_refs({**refs, "L": entry})  # one write: no state in which L is missing
+    print(f"L is now {entry['head'][:7]}")
+    return 0
 
 
 def main() -> int:
@@ -654,7 +673,10 @@ def main() -> int:
     register.add_argument("name")
     register.add_argument("run")
     register.add_argument("--head", required=True)
-    register.add_argument("--label", default="legacy-unfrozen-protocol")
+    register.add_argument("--label", required=True)
+    register.add_argument(
+        "--legacy", action="store_true", help="the run predates the frozen protocol (no hash check)"
+    )
     cmp_ = sub.add_parser("compare")
     cmp_.add_argument("run")
     cmp_.add_argument("--refs", default="A,A0,L,B")
@@ -666,7 +688,7 @@ def main() -> int:
     if args.command == "freeze":
         return cmd_freeze(args.check, args.digests)
     if args.command == "register":
-        return cmd_register(args.name, args.run, args.head, args.label)
+        return cmd_register(args.name, args.run, args.head, args.label, legacy=args.legacy)
     if args.command == "promote":
         return cmd_promote(args.run)
     targets = {k: float(v) for k, v in (item.split("=", 1) for item in args.target)}

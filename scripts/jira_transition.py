@@ -108,18 +108,32 @@ def _transition(key: str, target: str) -> None:
     _api("POST", f"/issue/{key}/transitions", {"transition": {"id": matches[0]["id"]}})
 
 
-def _is_done(target: str | None) -> bool:
-    return bool(target) and str(target).strip().lower() == "done"
+def _is_done(key: str, target: str | None) -> bool:
+    """Moving to any status Jira files under Done (Closed, Resolved...) is a closure, not just
+    the one named Done."""
+    wanted = str(target or "").strip().lower()
+    for move in _transitions(key):
+        to = move.get("to", {})
+        if to.get("name", "").lower() == wanted:
+            return to.get("statusCategory", {}).get("key") == "done"
+    return wanted == "done"
 
 
 def _closure_gate(key: str) -> None:
     """Refuse Done unless the AC/TC manifest is whole. Both Done paths come through here."""
-    fields = _issue(key, "description")["fields"]
+    fields = _issue(key, "description,issuetype")["fields"]
     needed = closure.required_ids(closure.adf_text(fields.get("description")))
-    if not needed:
-        print(f"{key}: no AC/TC identifiers in the description; no closure manifest required")
-        return
     manifest = ROOT / "evidence" / "closure" / f"{key}.toml"
+    kind = str((fields.get("issuetype") or {}).get("name") or "").lower()
+    if not needed and not manifest.is_file():
+        if kind in {"story", "bug"}:  # these carry AC/TC; none found is a refusal, not a pass
+            print(
+                f"{key} cannot be closed: a {kind} with no AC/TC ids and no closure manifest",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"{key}: {kind or 'issue'} with no AC/TC identifiers; no closure manifest required")
+        return
     found = (
         closure.check_file(manifest, required=needed, root=ROOT)
         if manifest.is_file()
@@ -130,7 +144,7 @@ def _closure_gate(key: str) -> None:
         for line in found:
             print(f"  BLOCKED  {line}", file=sys.stderr)
         sys.exit(1)
-    print(f"{key}: closure manifest covers {', '.join(needed)}")
+    print(f"{key}: closure manifest covers {', '.join(needed) or 'its own rows'}")
 
 
 def _read_comment(args: argparse.Namespace) -> str | None:
@@ -158,6 +172,9 @@ def main() -> int:
     )
     args = parser.parse_args()
     key = args.issue.upper()
+    project, _, number = key.partition("-")
+    if not (project.isalpha() and number.isdigit()):
+        parser.error(f"{args.issue!r} is not an issue key like CC-21")
 
     if args.status or not any(
         [args.transitions, args.comment, args.comment_file, args.transition, args.done]
@@ -174,7 +191,7 @@ def main() -> int:
             print(f"  {t.get('id', '?'):>3}  {t.get('name', '?')} -> {to_name}")
 
     target = "Done" if args.done else args.transition
-    if _is_done(target):
+    if _is_done(key, target):
         _closure_gate(key)
 
     text = _read_comment(args)
