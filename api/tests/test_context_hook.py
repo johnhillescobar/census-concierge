@@ -149,3 +149,13 @@ def test_the_committed_settings_wire_all_three_events_to_this_script() -> None:
     for event, mode in wanted.items():
         commands = [h["command"] for group in hooks[event] for h in group["hooks"]]
         assert any(".claude/hooks/ctx.py" in c and c.endswith(mode) for c in commands), event
+
+
+def test_the_warning_is_addressed_to_the_event_that_fired(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = transcript(tmp_path / "t.jsonl", FULL)
+    note = watch(capsys, path, session="post", event="PostToolUse")
+    assert note is not None and note["hookEventName"] == "PostToolUse"
+    ctx.context_watch({"transcript_path": path, "session_id": "bare"})  # no event named
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["hookEventName"]
