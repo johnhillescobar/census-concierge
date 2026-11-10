@@ -56,3 +56,13 @@ refinement) and PLAN "Instrument first".
 - repo: branch `cc-133/instrument`, commits, `evidence/slice-6/cc-133/`.
 - Jira CC-133: one pre-flight comment (this table's findings and D1-D8), requested by the owner. Later: the close card.
 - PR: opened for the owner to merge. I do not merge, waive, or flip any golden.
+
+---
+
+## Status at 93d8692 (2026-11-10) - supersedes the NOT RUN column above
+
+The matrix now lives in `evidence/closure/CC-133.toml`; `uv run python scripts/closure.py check evidence/closure/CC-133.toml --pre-merge` exits 1 by design (every row UNKNOWN or NOT RUN).
+Evidence: `evidence/slice-6/cc-133/` (gate1.txt, gate1-fixes.txt, gate1-newtests.txt, gate1-rerun-fixes.txt, gate2.txt, gate2-r2.txt, e2e-pre/).
+Corrections to the pre-flight: AC1 named a test_metric_protocol.py that was never written (coverage is in test_metric_compare.py).
+D5 is stricter than planned: a Story or Bug with no recognised AC/TC ids is refused, not waved through. E2E ran at 71fa8d5 and predates the has_moe fix (93d8692).
+Open for the owner: oracle review (AC1/AC6), strict no-decrease tolerance, trap/core cohort size, A0-to-A bridge, a third review of the fix delta.

@@ -1,0 +1,69 @@
+HEAD 93d869221e7cf7524e7bb5cbbd5e3b8116816fee; tests are the uncommitted working-tree versions
+
+== done-by-category-only: the literal Done is not gated without a done category
+   test: api/tests/test_closure_gate.py::test_done_is_gated_whatever_category_the_workflow_files_it_under
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.04s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.19s  -> CAUGHT
+   restored; diff of scripts/jira_transition.py: clean
+== null-to-crashes: a transition with to=None raises
+   test: api/tests/test_closure_gate.py::test_done_is_gated_whatever_category_the_workflow_files_it_under
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.04s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.18s  -> CAUGHT
+   restored; diff of scripts/jira_transition.py: clean
+== moe-by-key: a null M still counts as a margin
+   test: api/tests/test_demo_harness.py::test_a_margin_of_error_is_present_only_when_the_api_returned_a_value
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.04s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.16s  -> CAUGHT
+   restored; diff of scripts/run_demo.py: clean
+== zero-row manifest allowed
+   test: api/tests/test_closure_gate.py::test_a_manifest_with_no_rows_cannot_back_a_closure
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.98s
+BAD   mutated:    rc=1 1 failed, 1 warning in 1.16s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== no digit cap: a huge number crashes int()
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.08s
+BAD   mutated:    rc=1 1 failed, 14 passed, 1 warning in 0.16s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== dash not a terminator
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 7 passed, 1 warning in 0.16s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== bare id at end of line not accepted
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.06s
+BAD   mutated:    rc=1 1 failed, 8 passed, 1 warning in 0.27s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== nbsp not normalised
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 11 passed, 1 warning in 0.16s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== emphasis after the number not skipped
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 3 passed, 1 warning in 0.25s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== en dash prefix not stripped
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.06s
+BAD   mutated:    rc=1 1 failed, 10 passed, 1 warning in 0.21s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== terminator not required: any text after the number
+   test: api/tests/test_closure_gate.py::test_ids_in_ordinary_jira_formatting_are_still_required
+GOOD  unmodified: rc=0 15 passed, 1 warning in 0.06s
+BAD   mutated:    rc=1 1 failed, 12 passed, 1 warning in 0.24s  -> CAUGHT
+   restored; diff of scripts/closure.py: clean
+== references root type unchecked
+   test: api/tests/test_closure_gate.py::test_a_references_file_that_is_not_an_object_is_a_violation_not_a_crash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.20s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.22s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+== contract probe accepts any outcome
+   test: api/tests/test_metric_compare.py::test_one_trial_without_contract_fields_is_unknown_not_a_crash
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.04s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.25s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+
+13 mutations, 13 caught, 0 survived
