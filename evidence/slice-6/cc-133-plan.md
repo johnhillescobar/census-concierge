@@ -30,13 +30,13 @@ refinement) and PLAN "Instrument first".
 | D5 | Closure manifest `evidence/closure/<KEY>.toml`. Required IDs come from the ticket's exact `AC<n>.` / `TC<n>.` identifiers at Done time. A ticket with none has none required. | default |
 | D6 | The isolation harness is pytest in `api/tests`. Failures that exist today are `xfail(strict=True)` naming the owning ticket, so a fix forces the marker out. | default |
 | D7 | Docs edits are net-negative (main is 2 lines over). `budgets.toml` untouched. | default |
-| D8 | **Oracle review is the owner's.** `evals/oracle_review.toml` lists every cohort ID as `pending`. A comparison against an unreviewed oracle reports `UNFROZEN`, never PASS. I do not decide q14, q17, q23, q26 or the near-equivalent table pairs. | owner |
+| D8 | **No oracle review.** The owner will not sign one (2026-11-10). Cohort hashes cover the expectations; a changed expectation moves its hash and needs a bridge. Removed in aa1feb1. | owner |
 
 ## AC / TC matrix (IDs fixed before implementation)
 
 | ID | Expected | Command / test | Status |
 | --- | --- | --- | --- |
-| AC1 | Protocol, cohorts, denominators, scorer and config hashes frozen before results; oracle review recorded | `metric_compare.py freeze --check`; `test_metric_protocol.py` | NOT RUN |
+| AC1 | Protocol, cohorts, denominators, scorer and config hashes frozen before results | `metric_compare.py freeze --check`; `test_metric_protocol.py` | NOT RUN |
 | AC2 | B/P/A/L, ratchets, repeat-3 case and trial metrics, family intervals, contract and p95, every block retained | `metric_compare.py compare`; `test_metric_compare.py` | NOT RUN |
 | AC3 | Post-CC-114 anchor registered with hashes; failing metrics listed as blockers; scorer bridge for changed code | `metric_compare.py register`; bridge test | NOT RUN |
 | AC4 | Isolation harness: fixed intent/changed wording, changed intent/same wording, repair path, keyword mutants caught | `test_execution_isolation.py` | NOT RUN |
@@ -65,9 +65,9 @@ The matrix now lives in `evidence/closure/CC-133.toml`; `uv run python scripts/c
 Evidence: `evidence/slice-6/cc-133/` (gate1.txt, gate1-fixes.txt, gate1-newtests.txt, gate1-rerun-fixes.txt, gate2.txt, gate2-r2.txt, e2e-pre/).
 Corrections to the pre-flight: AC1 named a test_metric_protocol.py that was never written (coverage is in test_metric_compare.py).
 D5 is stricter than planned: a Story or Bug with no recognised AC/TC ids is refused, not waved through. E2E ran at 71fa8d5 and predates the has_moe fix (93d8692).
-Open for the owner: oracle review (AC1/AC6), strict no-decrease tolerance, trap/core cohort size, A0-to-A bridge, a third review of the fix delta.
+Open for the owner: strict no-decrease tolerance, trap/core cohort size, A0-to-A bridge, a third review of the fix delta.
 
 ## Status at 18a1bce (2026-11-10) - supersedes the status above
 
 Gate 2 ran three times; the third review (gate2-r3.txt) found closure type-strictness gaps and a forgeable L proof, all fixed and mutation-checked (31 of 31, gate1-third-review*.txt). The final fix delta has no independent cold review. E2E still predates the has_moe fix.
-Reference L now moves only with a ledger PASS record that names the same run, file hash and head; bridges are owner-only. The oracle review is pending and not urgent.
+Reference L now moves only with a ledger PASS record that names the same run, file hash and head; bridges are owner-only.

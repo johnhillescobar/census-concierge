@@ -936,3 +936,105 @@ def test_a_trial_the_metrics_cannot_read_is_a_bad_file_not_a_traceback(
             victim[key] = value
     cand = write_run(lab["dir"] / "cand.json", made)
     assert status(mc.compare(cand, ["A"], {}), "candidate run file") == "FAIL"
+
+
+# --- the whole chain, with nothing stubbed but the directory and the size of the cohorts --------
+
+
+def test_register_compare_promote_and_the_records_guard_agree_with_real_hashes_and_git(
+    protocol: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protocol["sampling"]["min_families"] = 4  # the real trap and core cohorts are smaller than 30
+    monkeypatch.setattr(mc, "METRICS", tmp_path)
+    monkeypatch.setattr(mc, "load_protocol", lambda head=None: protocol)
+    monkeypatch.setattr(mc, "MAIN", "HEAD")  # this checkout is a branch, not main
+    head = mc._head()
+    stamp = {"head": head, **mc.hashes()}  # real scorer, cohort and protocol hashes at real HEAD
+
+    def produce(name: str) -> str:
+        made = with_contract(run(protocol, stamp=stamp))
+        return write_run(tmp_path / f"{name}.json", made)
+
+    assert mc.cmd_register("A", produce("a"), head, "anchor") == 0
+    candidate = produce("p")
+    assert mc.cmd_compare(candidate, ["A"], {}, record=False) == 0  # PASS: nothing stubbed
+    before = {
+        "evidence/metrics/references.json": (tmp_path / "references.json").read_text(),
+        "evidence/metrics/ledger.jsonl": "",
+    }
+    assert mc.cmd_promote(candidate) == 0
+    refs = mc.load_refs()
+    assert refs["L"]["head"] == head and refs["A"]["run"].endswith("a.json")
+
+    repo = tmp_path / "repo"
+    (repo / "evidence" / "metrics").mkdir(parents=True)
+    (repo / "evidence" / "metrics" / "references.json").write_text(
+        (tmp_path / "references.json").read_text()
+    )
+    (repo / "evidence" / "metrics" / "ledger.jsonl").write_text(
+        (tmp_path / "ledger.jsonl").read_text()
+    )
+    monkeypatch.setattr(ci, "ROOT", repo)
+    monkeypatch.setattr(ci, "_text_at", lambda ref, rel: before.get(rel))
+    assert ci.check_metric_records_not_rewritten("origin/main") == []  # what promote wrote passes
+    forged = json.loads((repo / "evidence" / "metrics" / "references.json").read_text())
+    forged["L"]["run"] = "evidence/elsewhere.json"  # L pointed at a run no comparison passed
+    (repo / "evidence" / "metrics" / "references.json").write_text(json.dumps(forged))
+    assert ci.check_metric_records_not_rewritten("origin/main")
+
+
+def test_a_worse_candidate_is_rejected_by_the_same_real_chain(
+    protocol: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protocol["sampling"]["min_families"] = 4
+    monkeypatch.setattr(mc, "METRICS", tmp_path)
+    monkeypatch.setattr(mc, "load_protocol", lambda head=None: protocol)
+    monkeypatch.setattr(mc, "MAIN", "HEAD")
+    head = mc._head()
+    stamp = {"head": head, **mc.hashes()}
+    anchor = write_run(tmp_path / "a.json", with_contract(run(protocol, stamp=stamp)))
+    assert mc.cmd_register("A", anchor, head, "anchor") == 0
+    ids = families_of(protocol, "long_tail", 2)
+    worse = with_contract(run(protocol, losing("long_tail", ids), stamp=stamp))
+    path = write_run(tmp_path / "p.json", worse)
+    refs_before = (tmp_path / "references.json").read_bytes()
+    assert mc.cmd_promote(path) == 1  # an observed decrease is a FAIL at any size
+    assert (tmp_path / "references.json").read_bytes() == refs_before
+
+
+# --- AC1 and AC3 against the committed files ------------------------------------------------------
+
+
+def test_editing_an_expectation_moves_the_cohort_hash_and_nothing_else(
+    protocol: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    goldens = mc.goldens(protocol)
+    before = mc.cohort_hashes(protocol)
+    edited = [
+        dict(e, expect_table="B00000") if e["id"] == mc.cohort(protocol, "trap")[0]["id"] else e
+        for e in goldens
+    ]
+    monkeypatch.setattr(mc, "goldens", lambda proto, head=None: edited)
+    after = mc.cohort_hashes(protocol)
+    assert after["trap"] != before["trap"]
+    assert after["long_tail"] == before["long_tail"] and after["core"] == before["core"]
+
+
+def test_freeze_prints_the_protocol_scorer_and_every_cohort(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert mc.cmd_freeze() == 0
+    out = capsys.readouterr().out
+    assert mc.protocol_hash() in out and mc.scorer_hash(mc.load_protocol()) in out
+    for name, digest in mc.cohort_hashes(mc.load_protocol()).items():
+        assert name in out and digest in out
+
+
+def test_the_committed_anchors_are_registered_whole_and_unaltered() -> None:
+    refs = mc.load_refs()
+    assert {"A", "A0"} <= set(refs)
+    for name, entry in refs.items():
+        text = (mc.ROOT / entry["run"]).read_bytes()
+        assert hashlib.sha256(text).hexdigest() == entry["run_sha256"], name
+        assert entry["hashes"]["protocol"] == "legacy" and entry["blockers"] is not None
+    assert refs["A"]["head"].startswith("69d7364") and refs["A0"]["head"].startswith("4b24f77")
