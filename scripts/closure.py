@@ -34,6 +34,25 @@ ROOT = Path(__file__).resolve().parent.parent
 STATUSES = {"PASS", "FAIL", "NOT RUN", "UNKNOWN", "AMENDED"}
 ROW_FIELDS = ("command", "expected", "observed", "tested_head", "reviewer")
 GitFn = Callable[..., subprocess.CompletedProcess[str]]
+HEX = set("0123456789abcdef")
+LINE_NODES = {
+    "paragraph",
+    "heading",
+    "listItem",
+    "taskItem",
+    "decisionItem",
+    "codeBlock",
+    "blockquote",
+}
+
+
+def _text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _is_commit_hash(value: Any) -> bool:
+    """A hash, never a ref or an option: `HEAD`, `main` and `--stat` would all satisfy git."""
+    return isinstance(value, str) and 7 <= len(value) <= 40 and set(value.lower()) <= HEX
 
 
 def adf_text(node: object) -> str:
@@ -47,7 +66,7 @@ def adf_text(node: object) -> str:
     if node.get("type") == "hardBreak":
         return "\n"
     inner = "".join(adf_text(child) for child in node.get("content") or [])
-    return inner + "\n" if node.get("type") in {"paragraph", "heading", "listItem"} else inner
+    return inner + "\n" if node.get("type") in LINE_NODES else inner
 
 
 def required_ids(text: str) -> list[str]:
@@ -56,7 +75,7 @@ def required_ids(text: str) -> list[str]:
     or the end of the line, so "AC1 is the first" is not one."""
     found: list[str] = []
     for line in text.replace("\u00a0", " ").splitlines():
-        rest = line.strip().lstrip(" \t-*+#>_`|\u2022\u2013\u2014").upper()
+        rest = line.strip().lstrip(" \t-*+#>_`|(\u2022\u2013\u2014").upper()
         if rest[:2] not in {"AC", "TC"}:
             continue
         digits = rest[2:].lstrip(" ")
@@ -99,10 +118,11 @@ def _row_problems(
         return [] if name in amended else [f"{name}: AMENDED without an [[amendment]] for it"]
     if status != "PASS":
         return [f"{name}: {status} blocks closure"] if readiness else []
-    out = [f"{name}: missing {field}" for field in ROW_FIELDS if not row.get(field)]
-    evidence = row.get("evidence") or []
-    out += [] if evidence else [f"{name}: no evidence"]
-    for item in evidence:
+    out = [f"{name}: missing {field}" for field in ROW_FIELDS if not _text(row.get(field))]
+    evidence = row.get("evidence")
+    if not isinstance(evidence, list) or not evidence:
+        out.append(f"{name}: evidence must be a non-empty list")
+    for item in evidence if isinstance(evidence, list) else []:
         out += _evidence_problems(item, name, root)
     if row.get("new_tests"):
         mutation = row.get("mutation")
@@ -111,12 +131,21 @@ def _row_problems(
             if mutation
             else [f"{name}: new tests with no mutation check"]
         )
-    tested = str(row.get("tested_head") or "")
-    if not readiness or not tested:
+    tested = row.get("tested_head")
+    if _text(tested) and not _is_commit_hash(tested):
+        return [*out, f"{name}: tested_head must be a commit hash, not {tested!r}"]
+    if not readiness or not _is_commit_hash(tested):
         return out
-    affects = [str(p) for p in row.get("affects") or []]
-    if not affects:
-        return [*out, f"{name}: no `affects` paths, so staleness cannot be checked"]
+    affects = row.get("affects")
+    if (
+        not isinstance(affects, list)
+        or not affects
+        or not all(_text(p) and not p.startswith((":", "-")) for p in affects)
+    ):
+        return [*out, f"{name}: `affects` must be a non-empty list of plain paths"]
+    missing = [p for p in affects if not (root / p).exists()]
+    if missing:
+        return [*out, f"{name}: `affects` names paths that do not exist: {missing}"]
     diff = git(root, "diff", "--name-only", tested, head, "--", *affects)
     if diff.returncode:  # git cannot diff against something that is not a commit
         return [
@@ -170,13 +199,24 @@ def problems(
     out += [f"{i}: absent from the manifest" for i in (required or []) if i not in ids]
     block = manifest.get("post_merge") or {}
     if done:
-        e2e, main_head = block.get("e2e"), str(block.get("main_head") or "")
+        e2e, main_head = block.get("e2e"), block.get("main_head")
         if not e2e or not main_head:
             out.append("post_merge: the post-merge E2E (e2e, main_head) is not recorded")
+        elif not _is_commit_hash(main_head):
+            out.append(f"post_merge: main_head must be a commit hash, not {main_head!r}")
         else:
+            if not (isinstance(e2e, dict) and e2e.get("sha256")):
+                out.append("post_merge: the E2E evidence must be pinned with a sha256")
             out += _evidence_problems(e2e, "post_merge", root)
             if git(root, "merge-base", "--is-ancestor", main_head, base).returncode:
                 out.append(f"post_merge: {main_head[:7]} is not on {base}")
+            passed = {str(r.get("tested_head")) for r in rows if r.get("status") == "PASS"}
+            for tested in sorted(passed):
+                if git(root, "merge-base", "--is-ancestor", tested, main_head).returncode:
+                    out.append(
+                        f"post_merge: {main_head[:7]} does not contain the work tested at "
+                        f"{tested[:7]}"
+                    )
     return out
 
 

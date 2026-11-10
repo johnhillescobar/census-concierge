@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import io
 import json
 import re
@@ -793,11 +794,14 @@ def _json_object(text: str) -> dict:
 
 
 def _json_list(text: str | None) -> list:
+    # an unreadable or non-list file is one marker entry that carries the text's hash, so two
+    # different bad files never compare equal and a change to one is never invisible
+    mark = hashlib.sha256((text or "").encode("utf-8", errors="replace")).hexdigest()[:12]
     try:
         value = json.loads(text or "[]")
     except json.JSONDecodeError:
-        return ["<unreadable>"]
-    return value if isinstance(value, list) else ["<not a list>"]
+        return [f"<unreadable {mark}>"]
+    return value if isinstance(value, list) else [f"<not a list {mark}>"]
 
 
 def check_metric_records_not_rewritten(base: str) -> list[Violation]:
@@ -810,7 +814,9 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
 
     def now(rel: str) -> str:
         path = ROOT / rel
-        return path.read_bytes().decode("utf-8").replace("\r\n", "\n") if path.is_file() else ""
+        if not path.is_file():
+            return ""
+        return path.read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n")
 
     refs, ledger = METRIC_RECORDS
     if (old := _text_at(base, refs)) is not None:
@@ -826,13 +832,23 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
                 flag(refs, f"reference {name} was changed or removed; references are immutable")
         if "L" in before and "L" not in after:
             flag(refs, "reference L was removed; only `promote` moves it")
-        elif after.get("L") is not None and after.get("L") != before.get("L"):
-            # L moves only through `promote`, which appends a PASS record for that very run
-            grown = now(ledger)[len((_text_at(base, ledger) or "").replace("\r\n", "\n")) :]
-            records = [_json_object(line) for line in grown.splitlines()]
-            run = after["L"].get("run") if isinstance(after["L"], dict) else None
-            if not any(r.get("run") == run and r.get("verdict") == "PASS" for r in records):
-                flag(refs, "reference L changed with no PASS record for its run in the ledger")
+        if "L" in after:
+            entry = after["L"]
+            keys = ("run", "head", "run_sha256")
+            if not isinstance(entry, dict) or not all(
+                isinstance(entry.get(k), str) and entry.get(k) for k in keys
+            ):
+                flag(refs, "reference L is not a complete entry (run, head, run_sha256)")
+            elif entry != before.get("L"):
+                # L moves only through `promote`, which appends a PASS record that names the
+                # same run, the same file hash and the same head the new L carries
+                grown = now(ledger)[len((_text_at(base, ledger) or "").replace("\r\n", "\n")) :]
+                records = [_json_object(line) for line in grown.splitlines()]
+                if not any(
+                    r.get("verdict") == "PASS" and all(r.get(k) == entry[k] for k in keys)
+                    for r in records
+                ):
+                    flag(refs, "reference L changed with no matching PASS record in the ledger")
     if (old := _text_at(base, ledger)) is not None and not now(ledger).startswith(
         old.replace("\r\n", "\n")
     ):
@@ -849,9 +865,11 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
         try:
             was = tomllib.loads(old).get("accepted", {})
             is_now = tomllib.loads(now(ORACLE_REVIEW) or "").get("accepted", {})
+            if not isinstance(was, dict) or not isinstance(is_now, dict):
+                raise tomllib.TOMLDecodeError("accepted must be a table")
         except tomllib.TOMLDecodeError:
             was, is_now = {}, {}
-            flag(ORACLE_REVIEW, "oracle_review.toml is not valid TOML")
+            flag(ORACLE_REVIEW, "oracle_review.toml is not valid, or `accepted` is not a table")
         for case, review in is_now.items():
             if was.get(case) != review:
                 flag(

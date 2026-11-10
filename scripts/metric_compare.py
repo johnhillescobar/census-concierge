@@ -26,6 +26,7 @@ import ast
 import hashlib
 import json
 import math
+import os
 import random
 import subprocess
 import sys
@@ -181,19 +182,24 @@ def percentile(values: list[float], p: float) -> float:
 
 
 def load_run(path: str | Path) -> Run:
+    """A run file as a Run. A file that is missing keys or malformed is a PlanError (a FAIL row),
+    never a bare KeyError that leaves no record."""
     full = Path(path) if Path(path).is_absolute() else ROOT / path
-    data = json.loads(full.read_text(encoding="utf-8"))
-    demo = data["demo"]
-    scalars = {k: float(data[k]) for k in ("retrieval_at_10", "selector_at_1") if k in data}
-    scalars["answered_rate"] = float(demo["answered_rate"])
-    return Run(
-        path=str(path),
-        repeat=int(demo["repeat"]),
-        index_hash=str(demo.get("index_hash") or ""),
-        p95_reported=float(demo["p95_latency_seconds"]),
-        scalars=scalars,
-        trials=list(demo["trials"]),
-    )
+    try:
+        data = json.loads(full.read_text(encoding="utf-8"))
+        demo = data["demo"]
+        scalars = {k: float(data[k]) for k in ("retrieval_at_10", "selector_at_1") if k in data}
+        scalars["answered_rate"] = float(demo["answered_rate"])
+        return Run(
+            path=str(path),
+            repeat=int(demo["repeat"]),
+            index_hash=str(demo.get("index_hash") or ""),
+            p95_reported=float(demo["p95_latency_seconds"]),
+            scalars=scalars,
+            trials=list(demo["trials"]),
+        )
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise PlanError(f"{path}: not a usable run file ({type(exc).__name__}: {exc})") from exc
 
 
 def families(run: Run, ids: list[str], tier: str, repeat: int) -> dict[str, list[dict[str, Any]]]:
@@ -247,6 +253,8 @@ def paired_interval(diffs: list[float], protocol: dict[str, Any]) -> tuple[float
 
 def judge(diffs: list[float], protocol: dict[str, Any]) -> tuple[str, str]:
     sampling = protocol["sampling"]
+    if not diffs:
+        return "INCONCLUSIVE", "no families to compare"
     point = sum(diffs) / len(diffs)  # an observed decrease is a fact at any sample size
     if point < 0:
         return "FAIL", f"observed decrease ({point:+.3f} over {len(diffs)} families)"
@@ -389,7 +397,9 @@ def evaluate(
         )
     )
     for key in ("retrieval_at_10", "selector_at_1"):
-        if key in cand.scalars and key in ref.scalars:
+        if key in cand.scalars and key not in ref.scalars:
+            out.append(Check(name, key, "UNKNOWN", "the reference does not report it"))
+        elif key in cand.scalars:
             drop = cand.scalars[key] < ref.scalars[key]
             out.append(
                 Check(
@@ -475,7 +485,10 @@ def load_refs() -> dict[str, Any]:
 def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> list[Check]:
     protocol = load_protocol()
     now = hashes()
-    cand = load_run(cand_path)
+    try:
+        cand = load_run(cand_path)
+    except PlanError as exc:
+        return [Check("run", "candidate run file", "FAIL", str(exc))]
     refs = load_refs()
     out = absolute(cand, protocol)
     state = oracle_state(protocol)
@@ -528,9 +541,14 @@ def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> 
                 out.append(Check(name, "bridge", "FAIL", "rescored run missing or not pinned"))
                 continue
             run_path, label = bridge["rescored_run"], f"{label}; bridged: {bridge['note']}"
-        out += evaluate(cand, load_run(run_path), name, protocol, label=label)
+        try:
+            reference = load_run(run_path)
+        except PlanError as exc:
+            out.append(Check(name, "reference run file", "FAIL", str(exc)))
+            continue
+        out += evaluate(cand, reference, name, protocol, label=label)
         for cohort_name, goal in targets.items():
-            out += target_check(cand, load_run(run_path), protocol, cohort_name, goal)
+            out += target_check(cand, reference, protocol, cohort_name, goal)
     return out
 
 
@@ -604,7 +622,10 @@ def build_entry(run_path: str, head: str, label: str, *, legacy: bool) -> dict[s
 def write_refs(refs: dict[str, Any]) -> None:
     METRICS.mkdir(parents=True, exist_ok=True)
     text = json.dumps(refs, indent=2, sort_keys=True) + "\n"
-    (METRICS / "references.json").write_bytes(text.encode("utf-8"))  # LF on every platform
+    target = METRICS / "references.json"
+    scratch = target.with_suffix(".json.tmp")
+    scratch.write_bytes(text.encode("utf-8"))  # LF on every platform
+    os.replace(scratch, target)  # an interrupted write never leaves a truncated file
 
 
 def cmd_register(name: str, run_path: str, head: str, label: str, *, legacy: bool = False) -> int:
@@ -621,6 +642,9 @@ def cmd_register(name: str, run_path: str, head: str, label: str, *, legacy: boo
 
 
 def cmd_compare(run_path: str, names: list[str], targets: dict[str, float], record: bool) -> int:
+    if not names:  # floors alone are not a comparison, and must never write a PASS record
+        print("compare needs at least one reference (--refs)", file=sys.stderr)
+        return 2
     checks = compare(run_path, names, targets)
     width = max(len(c.name) for c in checks)
     for c in checks:
@@ -633,6 +657,9 @@ def cmd_compare(run_path: str, names: list[str], targets: dict[str, float], reco
             "at": datetime.now(UTC).isoformat(timespec="seconds"),
             "head": _head(),
             "run": run_path,
+            "run_sha256": hashlib.sha256((ROOT / run_path).read_bytes()).hexdigest()
+            if (ROOT / run_path).is_file()
+            else "",
             "refs": names,
             "verdict": final,
             "hashes": hashes(),

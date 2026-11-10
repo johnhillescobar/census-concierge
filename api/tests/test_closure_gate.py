@@ -52,6 +52,11 @@ def fresh(tmp_path: Path) -> Path:
 FAKE = "a" * 40  # a head for tests that never ask git
 
 
+def pinned(repo: Path) -> dict[str, str]:
+    digest = hashlib.sha256((repo / "e2e-post.txt").read_bytes()).hexdigest()
+    return {"path": "e2e-post.txt", "sha256": digest}
+
+
 def sha(repo: Path) -> str:
     return git(repo, "rev-parse", "HEAD")
 
@@ -75,7 +80,7 @@ def row(repo: Path, name: str = "AC1", **fields: Any) -> dict[str, Any]:
 def manifest(repo: Path, *rows: dict[str, Any], **extra: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "row": list(rows),
-        "post_merge": {"e2e": "e2e-post.txt", "main_head": FAKE},
+        "post_merge": {"e2e": pinned(repo), "main_head": FAKE},
     }
     body.update(extra)
     return body
@@ -167,7 +172,7 @@ def test_a_row_that_covers_nothing_cannot_show_it_is_current(repo: Path) -> None
 
 def test_closing_needs_the_post_merge_run_on_a_commit_on_the_base(fresh: Path) -> None:
     merged = sha(fresh)
-    on_main = {"e2e": "e2e-post.txt", "main_head": merged}
+    on_main = {"e2e": pinned(fresh), "main_head": merged}
     rows = row(fresh, tested_head=merged)
     assert blocked_by_git(fresh, manifest(fresh, rows, post_merge=on_main), head=merged) == []
     nothing = manifest(fresh, rows)
@@ -178,7 +183,7 @@ def test_closing_needs_the_post_merge_run_on_a_commit_on_the_base(fresh: Path) -
     (fresh / "notes.txt").write_text("unmerged\n")
     git(fresh, "add", "-A")
     git(fresh, "commit", "-qm", "unmerged")
-    off_main = {"e2e": "e2e-post.txt", "main_head": sha(fresh)}  # a run on a commit not on main
+    off_main = {"e2e": pinned(fresh), "main_head": sha(fresh)}  # a run on a commit not on main
     found = blocked_by_git(fresh, manifest(fresh, rows, post_merge=off_main), head=merged)
     assert any("not on main" in line for line in found)
 
@@ -349,7 +354,7 @@ def test_ids_in_ordinary_jira_formatting_are_still_required(text: str, expected:
 
 
 def test_a_manifest_with_no_rows_cannot_back_a_closure(repo: Path) -> None:
-    only_post_merge = {"post_merge": {"e2e": "e2e-post.txt", "main_head": FAKE}}
+    only_post_merge = {"post_merge": {"e2e": pinned(repo), "main_head": FAKE}}
     found = blocked(repo, only_post_merge, required=[])
     assert any("no rows" in line for line in found)
 
@@ -379,7 +384,7 @@ def test_a_references_file_that_is_not_an_object_is_a_violation_not_a_crash(
 
 def test_a_malformed_manifest_blocks_instead_of_crashing(tmp_path: Path) -> None:
     broken = tmp_path / "CC-7.toml"
-    broken.write_text('[[row]]\nid = "AC1"\nstatus = "PASS"\nevidence = 5\n')
+    broken.write_text("row = 5\n")  # not a list of tables: iterating it raises
     found = closure.check_file(broken, root=tmp_path)
     assert found and "malformed" in found[0]
 
@@ -465,38 +470,87 @@ LEDGER = "evidence/metrics/ledger.jsonl"
 REVIEW = "evals/oracle_review.toml"
 
 
+def reference_l(run: str, head: str = "h2", sha: str = "s2") -> dict[str, str]:
+    return {"run": run, "head": head, "run_sha256": sha}
+
+
+def refs_json(**entries: Any) -> str:
+    return json.dumps(entries)
+
+
 def test_a_registered_reference_cannot_be_edited_and_a_new_one_may_be_added(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    before = '{"A": {"head": "1"}, "L": {"head": "2"}}'
-    added = '{"A": {"head": "1"}, "L": {"head": "2"}, "B": {"head": "4"}}'
+    before = refs_json(A={"head": "1"}, L=reference_l("r2.json"))
+    added = refs_json(A={"head": "1"}, L=reference_l("r2.json"), B={"head": "4"})
     assert records(monkeypatch, tmp_path, {REFS: (before, added)}) == []
-    edited = '{"A": {"head": "9"}, "L": {"head": "2"}}'
+    edited = refs_json(A={"head": "9"}, L=reference_l("r2.json"))
     assert records(monkeypatch, tmp_path, {REFS: (before, edited)})
-    dropped = '{"L": {"head": "2"}}'
-    assert records(monkeypatch, tmp_path, {REFS: (before, dropped)})
+    assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(L=reference_l("r2.json")))})
 
 
-def promoted(run: str, verdict: str = "PASS") -> str:
-    return json.dumps({"run": run, "verdict": verdict}) + chr(10)
+def promoted(run: str, verdict: str = "PASS", head: str = "h3", sha: str = "s3") -> str:
+    row = {"run": run, "verdict": verdict, "head": head, "run_sha256": sha}
+    return json.dumps(row) + chr(10)
 
 
-def test_l_moves_only_with_a_pass_record_for_its_run_in_the_ledger(
+def test_l_moves_only_with_a_pass_record_that_names_the_same_run_file_and_head(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    before = '{"A": {"head": "1"}, "L": {"head": "2", "run": "r2.json"}}'
-    moved = '{"A": {"head": "1"}, "L": {"head": "3", "run": "r3.json"}}'
-    old_ledger = promoted("r2.json")
+    before = refs_json(A={"head": "1"}, L=reference_l("r2.json"))
+    moved = refs_json(A={"head": "1"}, L=reference_l("r3.json", "h3", "s3"))
+    old_ledger = promoted("r2.json", head="h2", sha="s2")
 
-    def moves(ledger_now: str) -> list[Any]:
-        files = {REFS: (before, moved), LEDGER: (old_ledger, old_ledger + ledger_now)}
+    def moves(ledger_now: str, refs_now: str = moved) -> list[Any]:
+        files = {REFS: (before, refs_now), LEDGER: (old_ledger, old_ledger + ledger_now)}
         return records(monkeypatch, tmp_path, files)
 
     assert moves(promoted("r3.json")) == []
     assert moves("")  # a hand edit: nothing in the ledger says promote ran
     assert moves(promoted("r3.json", "FAIL"))  # the run did not pass
     assert moves(promoted("other.json"))  # a PASS, but for a different run
-    assert records(monkeypatch, tmp_path, {REFS: (before, '{"A": {"head": "1"}}')})  # L removed
+    assert moves(promoted("r3.json", head="other"))  # a different head
+    assert moves(promoted("r3.json", sha="other"))  # a different file
+    assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(A={"head": "1"}))})  # removed
+
+
+@pytest.mark.parametrize("bad", ["null", "5", '{"verdict": "PASS"}', '{"run": "r3.json"}', "[]"])
+def test_an_l_that_is_not_a_complete_entry_cannot_slip_past_a_bare_ledger_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, bad: str
+) -> None:
+    before = refs_json(L=reference_l("r2.json"))
+    now_refs = '{"L": ' + bad + "}"
+    ledger = promoted("r2.json", head="h2", sha="s2") + json.dumps({"verdict": "PASS"}) + chr(10)
+    old = promoted("r2.json", head="h2", sha="s2")
+    assert records(monkeypatch, tmp_path, {REFS: (before, now_refs), LEDGER: (old, ledger)})
+
+
+def test_a_base_ledger_with_windows_line_endings_still_prefixes_the_current_one(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    crlf = '{"n": 1}' + chr(13) + chr(10)
+    now_text = '{"n": 1}' + chr(10) + '{"n": 2}' + chr(10)
+    assert records(monkeypatch, tmp_path, {LEDGER: (crlf, now_text)}) == []
+
+
+def test_a_ledger_with_bytes_that_are_not_utf8_is_a_violation_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / LEDGER).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / LEDGER).write_bytes(b'{"n": 1}' + bytes([10, 255, 254]))
+    monkeypatch.setattr(ci, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        ci, "_text_at", lambda ref, rel: '{"n": 2}' + chr(10) if rel == LEDGER else None
+    )
+    assert ci.check_metric_records_not_rewritten("origin/main")
+
+
+def test_an_oracle_review_whose_accepted_is_not_a_table_is_a_violation_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    assert records(
+        monkeypatch, tmp_path, {REVIEW: ("accepted = 5" + chr(10), "accepted = 5" + chr(10))}
+    )
 
 
 def test_a_bridge_is_owner_only_whether_added_changed_or_removed(
@@ -510,6 +564,8 @@ def test_a_bridge_is_owner_only_whether_added_changed_or_removed(
     assert records(monkeypatch, tmp_path, {bridges: (one, "[]")})
     assert records(monkeypatch, tmp_path, {bridges: (one, "not json")})
     assert records(monkeypatch, tmp_path, {bridges: (None, "not json")})  # nothing to remove
+    assert records(monkeypatch, tmp_path, {bridges: ("not json", "other junk")})  # both bad
+    assert records(monkeypatch, tmp_path, {bridges: ("{}", '{"a": 1}')})  # both not lists
 
 
 def test_the_ledger_only_grows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -573,3 +629,108 @@ def test_an_issue_key_that_is_not_a_key_is_refused_before_any_request(
     with pytest.raises(SystemExit) as stop:
         jt.main()
     assert stop.value.code == 2 and calls == []
+
+
+# --- type strictness: a mistyped field must block, never skip a check ----------------------------
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"affects": "src"},  # a string iterates as pathspecs s, r, c
+        {"affects": ["nonexistent"]},
+        {"affects": [":(exclude)src"]},
+        {"affects": ["-p"]},
+        {"affects": []},
+        {"affects": None},
+        {"tested_head": "HEAD"},
+        {"tested_head": "main"},
+        {"tested_head": "--stat"},
+        {"tested_head": "zzzzzzz"},
+        {"command": "   "},
+        {"expected": "   "},
+        {"observed": "   "},
+        {"reviewer": True},
+        {"reviewer": "   "},
+        {"evidence": "gate1.txt"},  # a string iterates as characters
+        {"evidence": []},
+        {"evidence": [5]},
+    ],
+)
+def test_a_mistyped_or_blank_field_blocks_instead_of_skipping_its_check(
+    repo: Path, bad: dict[str, Any]
+) -> None:
+    assert blocked(repo, manifest(repo, row(repo, **bad)))
+
+
+def test_a_stale_row_with_a_mistyped_affects_is_still_blocked_by_git(fresh: Path) -> None:
+    body = manifest(fresh, row(fresh, tested_head=sha(fresh), affects="src"))
+    (fresh / "src" / "code.py").write_text("two\n")
+    git(fresh, "commit", "-qam", "change covered code")
+    assert blocked_by_git(fresh, body, done=False)
+
+
+def test_the_post_merge_run_must_be_pinned_a_hash_and_contain_the_tested_work(
+    fresh: Path,
+) -> None:
+    tested = sha(fresh)
+    git(fresh, "commit", "-q", "--allow-empty", "-m", "later work")
+    later = sha(fresh)
+    rows = row(fresh, tested_head=tested)
+    good = {"e2e": pinned(fresh), "main_head": later}
+    assert blocked_by_git(fresh, manifest(fresh, rows, post_merge=good), head=tested) == []
+    unpinned = {"e2e": "e2e-post.txt", "main_head": later}
+    assert blocked_by_git(fresh, manifest(fresh, rows, post_merge=unpinned), head=tested)
+    not_a_hash = {"e2e": pinned(fresh), "main_head": "main"}
+    assert blocked_by_git(fresh, manifest(fresh, rows, post_merge=not_a_hash), head=tested)
+    # a commit on main that is older than the tested work does not contain it
+    git(fresh, "branch", "old", tested)
+    git(fresh, "checkout", "-q", "-b", "newer")
+    (fresh / "src" / "code.py").write_text("newer\n")
+    git(fresh, "commit", "-qam", "newer work")
+    work = sha(fresh)
+    git(fresh, "checkout", "-q", "main")
+    early = {"e2e": pinned(fresh), "main_head": tested}
+    body = manifest(fresh, row(fresh, tested_head=work), post_merge=early)
+    found = blocked_by_git(fresh, body, head=work)
+    assert any("does not contain" in line for line in found)
+
+
+def test_adf_lists_and_code_blocks_keep_their_ids_on_separate_lines() -> None:
+    def item(kind: str, text: str) -> dict[str, Any]:
+        return {"type": kind, "content": [{"type": "text", "text": text}]}
+
+    doc_ = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "taskList",
+                "content": [item("taskItem", "AC1. a"), item("taskItem", "AC2. b")],
+            },
+            item("codeBlock", "some code"),
+            item("paragraph", "TC1. c"),
+            item("paragraph", "(AC3) d"),
+        ],
+    }
+    assert closure.required_ids(closure.adf_text(doc_)) == ["AC1", "AC2", "TC1", "AC3"]
+
+
+def test_only_known_chore_types_skip_the_ac_requirement(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    for kind in ("Epic", "Task", "Sub-task", "Spike"):
+        issue(monkeypatch, tmp_path, "no criteria here", kind)
+        jt._closure_gate("CC-7")
+    for kind in ("Story", "Bug", "Feature", ""):
+        issue(monkeypatch, tmp_path, "no criteria here", kind)
+        with pytest.raises(SystemExit):
+            jt._closure_gate("CC-7")
+
+
+def test_a_status_that_is_not_in_the_workflow_is_not_a_closure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(jt, "_transitions", lambda key: MOVES)
+    assert jt._is_done("CC-7", "No Such Status") is False
+    assert jt._is_done("CC-7", "In Progress") is False
+    assert jt._is_done("CC-7", "Closed") is True

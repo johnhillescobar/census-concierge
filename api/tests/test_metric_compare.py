@@ -612,3 +612,68 @@ def test_what_promote_writes_satisfies_the_records_guard_and_a_hand_edit_does_no
     assert ci.check_metric_records_not_rewritten("origin/main") == []
     (metrics / "ledger.jsonl").write_text("")  # the same reference file with the proof removed
     assert ci.check_metric_records_not_rewritten("origin/main")
+
+
+# --- findings of the third cold review --------------------------------------------------------
+
+
+def test_judging_no_families_is_inconclusive_not_a_crash(protocol: dict[str, Any]) -> None:
+    assert mc.judge([], protocol)[0] == "INCONCLUSIVE"
+
+
+@pytest.mark.parametrize(
+    "text", ["", "not json", "[]", '{"demo": {}}', '{"demo": {"repeat": "x"}}', '{"demo": null}']
+)
+def test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception(
+    protocol: dict[str, Any], lab: dict[str, Any], text: str
+) -> None:
+    bad = lab["dir"] / "bad.json"
+    bad.write_text(text)
+    assert status(mc.compare(str(bad), ["A"], {}), "candidate run file") == "FAIL"
+    register(lab, "A", run(protocol))
+    good = write_run(lab["dir"] / "good.json", run(protocol))
+    Path(mc.load_refs()["A"]["run"]).write_text(text)  # a reference whose file went bad
+    checks = mc.compare(good, ["A"], {})
+    assert any(c.status == "FAIL" for c in checks if c.ref == "A")
+
+
+def test_a_regression_metric_the_reference_does_not_report_is_unknown_not_skipped(
+    protocol: dict[str, Any],
+) -> None:
+    cand, ref = run(protocol), run(protocol)
+    del ref.scalars["retrieval_at_10"]
+    assert status(mc.evaluate(cand, ref, "A", protocol), "retrieval_at_10") == "UNKNOWN"
+
+
+def test_compare_without_a_reference_is_refused_and_writes_no_record(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    path = write_run(lab["dir"] / "cand.json", contract_run(protocol, []))
+    assert mc.cmd_compare(path, [], {}, record=True) == 2
+    assert not (lab["dir"] / "ledger.jsonl").exists()
+
+
+def test_the_ledger_row_names_the_run_file_by_hash(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    complete = contract_run(protocol, [])
+    register(lab, "A", complete)
+    path = write_run(lab["dir"] / "cand.json", complete)
+    mc.cmd_compare(path, ["A"], {}, record=True)
+    row = json.loads((lab["dir"] / "ledger.jsonl").read_text().splitlines()[-1])
+    assert row["run_sha256"] == hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def test_an_interrupted_write_of_the_references_leaves_the_old_file_whole(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register(lab, "A", run(protocol))
+    before = (lab["dir"] / "references.json").read_bytes()
+
+    def interrupted(src: object, dst: object) -> None:
+        raise OSError("disk went away")
+
+    monkeypatch.setattr(mc.os, "replace", interrupted)
+    with pytest.raises(OSError):
+        mc.write_refs({"A": {"head": "changed"}})
+    assert (lab["dir"] / "references.json").read_bytes() == before

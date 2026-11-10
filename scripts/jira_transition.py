@@ -30,6 +30,7 @@ import closure
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
+NO_AC_TYPES = {"epic", "task", "sub-task", "subtask", "spike"}  # chores and containers
 DEFAULT_SITE = "johnhillescobar.atlassian.net"
 
 
@@ -128,9 +129,10 @@ def _closure_gate(key: str) -> None:
     manifest = ROOT / "evidence" / "closure" / f"{key}.toml"
     kind = str((fields.get("issuetype") or {}).get("name") or "").lower()
     if not needed and not manifest.is_file():
-        if kind in {"story", "bug"}:  # these carry AC/TC; none found is a refusal, not a pass
+        if kind not in NO_AC_TYPES:  # anything that may carry AC/TC: none found is a refusal
             print(
-                f"{key} cannot be closed: a {kind} with no AC/TC ids and no closure manifest",
+                f"{key} cannot be closed: a {kind or 'typeless issue'} with no AC/TC ids and no "
+                "closure manifest",
                 file=sys.stderr,
             )
             sys.exit(1)
