@@ -1,5 +1,5 @@
 ticket = "CC-133"
-head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 # Every row is UNKNOWN or NOT RUN on purpose: closure.py check exits 1 on this file.
 
 [[row]]
@@ -7,166 +7,166 @@ id = "AC1"
 status = "UNKNOWN"
 command = "uv run python scripts/metric_compare.py freeze --check"
 expected = "FROZEN: every cohort case accepted by the owner"
-observed = "UNFROZEN: 62 cases pending, 0 accepted. Protocol, cohorts, hashes and repeat-3 case/trial metrics are built and tested. Blocked on the owner's oracle review (evals/oracle_review.toml). The plan names a test_metric_protocol.py that was never written; the coverage is in test_metric_compare.py."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "UNFROZEN: 62 cases pending, 0 accepted. Protocol, cohorts, hashes and repeat-3 case/trial metrics are built and tested. Pending the owner's oracle review (evals/oracle_review.toml), not urgent. The plan names a test_metric_protocol.py that was never written; coverage is in test_metric_compare.py."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "AC2"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "B/P/A/L, ratchets, intervals, stopping rules, retained runs"
-observed = "Built; tests pass; every mutation caught (gate1*). Sampling defaults await the owner's ratification. No same-window B registered. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "Built; tests pass; every mutation caught. Sampling defaults await the owner's ratification. No same-window B registered. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "AC3"
 status = "UNKNOWN"
 command = "uv run python scripts/metric_compare.py compare evidence/slice-6/cc-133/e2e-pre/latest-after-demo.json --refs A,A0"
 expected = "post-CC-114 anchor registered; failing baselines listed as blockers; scorer change bridged"
-observed = "A (69d7364) and A0 (4b24f77) registered as legacy-unfrozen-protocol with floors unmet as blockers. A0 to A has no bridge: CC-114 changed the scorer and the trial records hold no response bodies, so it needs a live re-score."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "A (69d7364) and A0 (4b24f77) registered as legacy-unfrozen-protocol with floors unmet as blockers. A0 to A has no bridge: CC-114 changed the scorer and trial records hold no response bodies, so it needs a live re-score."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "AC4"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_execution_isolation.py -q"
 expected = "fixed intent under changed wording, changed intent, repair path, keyword/substring/regex mutants caught"
-observed = "10 pass, 8 strict xfail findings (CC-104, CC-129, one unplaced), 4 mutants caught; gate1 found no survivors in the harness. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "10 pass, 8 strict xfail findings (CC-104, CC-129, one unplaced), 4 mutants caught; no Gate 1 survivors in the harness. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "AC5"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_closure_gate.py -q"
 expected = "manifest gate on both Done paths, in check_invariants and the gate handoff; rejects absent/failed/unrun/stale"
-observed = "Built; tests pass; every mutation caught. Never run against real Jira. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "Built; tests pass; every mutation caught. Read-only run against the live Jira descriptions of CC-133, CC-114 and CC-3 behaved as intended; no transition was ever sent. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "AC6"
 status = "NOT RUN"
 command = "uv run python scripts/closure.py check evidence/closure/CC-133.toml --pre-merge"
 expected = "exit 0 with every row PASS"
-observed = "Running this command on this manifest exits 1: that is the live rejection of an incomplete closure. Acceptance of a whole manifest is covered by test_a_whole_record_backs_the_closure. E2E ran at 71fa8d5 (demo long_tail 0.708, p95 26.745s over the 20s ceiling, retriever@10 0.900, selector@1 0.825, grid 0.99); it predates the has_moe fix, so its response-contract result is stale until the post-merge E2E. Blocked on the oracle review."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "This command exits 1 on this manifest: the live rejection of an incomplete closure. Acceptance of a whole manifest is covered by test_a_whole_record_backs_the_closure. E2E ran at 71fa8d5 (long_tail 0.708, p95 26.745s over the 20s ceiling, retriever@10 0.900, selector@1 0.825, grid 0.99); it predates the has_moe fix, so its response-contract result is stale until the post-merge E2E. Pending the oracle review."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC1"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "a candidate better in one cohort and worse in another is rejected"
-observed = "passes; mutation caught. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "passes; mutation caught. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC2"
 status = "UNKNOWN"
-command = "uv run pytest api/tests/test_metric_compare.py -q"
+command = "uv run pytest api/tests/test_metric_compare.py api/tests/test_closure_gate.py -q"
 expected = "sequential small decreases cannot reset A or move L"
-observed = "passes; mutation caught (promote also holds the candidate to L). Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "passes; mutation caught (promote holds the candidate to A and L; L moves only with a matching PASS ledger record). Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC3"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "scorer/denominator/hash change cannot read as a code gain"
-observed = "passes; mutation caught. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "passes; mutation caught. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC4"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_execution_isolation.py -q"
 expected = "same intent, different prose: identical execution; prohibited access caught"
-observed = "mutants caught. Today's code does read the wording in 8 recorded cases (strict xfail). Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "mutants caught. Today's code reads the wording in 8 recorded cases (strict xfail). Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC5"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_closure_gate.py -q"
 expected = "missing/NOT RUN/stale/no post-merge result blocks Done"
-observed = "passes; mutation caught. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "passes; mutation caught. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC6"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "small samples inconclusive; repeats are not independent observations"
-observed = "passes; mutation caught. Trap (18) and core (4) cohorts can never reach the 30-family minimum: owner decision. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "passes; mutation caught. Trap (18) and core (4) cohorts cannot reach the 30-family minimum: owner decision. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"
 
 [[row]]
 id = "TC7"
 status = "UNKNOWN"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "faster failures, dropped rows, blanket refusal, outage filtering cannot pass"
-observed = "passes; mutation caught. Gate 2 r2 said Not yet; its blockers (P1-1, P1-2, P1-3, P1-4) are fixed in 93d8692, which has no independent cold review (the playbook allows one re-run): the owner's call."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt"]
-tested_head = "93d869221e7cf7524e7bb5cbbd5e3b8116816fee"
+observed = "passes; mutation caught. Gate 2 ran three times (8f8ac92, d04684d, fdfce78), each Not yet with real findings that are now fixed and mutation-checked; the final fix delta (1c9230f..18a1bce) has no independent cold review: the owner's call."
+evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt"]
+tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
 mutation = "evidence/slice-6/cc-133/gate1.txt"
-reviewer = "evidence/slice-6/cc-133/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-133/gate2-r3.txt"

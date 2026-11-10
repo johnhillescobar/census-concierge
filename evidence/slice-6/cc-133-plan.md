@@ -66,3 +66,8 @@ Evidence: `evidence/slice-6/cc-133/` (gate1.txt, gate1-fixes.txt, gate1-newtests
 Corrections to the pre-flight: AC1 named a test_metric_protocol.py that was never written (coverage is in test_metric_compare.py).
 D5 is stricter than planned: a Story or Bug with no recognised AC/TC ids is refused, not waved through. E2E ran at 71fa8d5 and predates the has_moe fix (93d8692).
 Open for the owner: oracle review (AC1/AC6), strict no-decrease tolerance, trap/core cohort size, A0-to-A bridge, a third review of the fix delta.
+
+## Status at 18a1bce (2026-11-10) - supersedes the status above
+
+Gate 2 ran three times; the third review (gate2-r3.txt) found closure type-strictness gaps and a forgeable L proof, all fixed and mutation-checked (31 of 31, gate1-third-review*.txt). The final fix delta has no independent cold review. E2E still predates the has_moe fix.
+Reference L now moves only with a ledger PASS record that names the same run, file hash and head; bridges are owner-only. The oracle review is pending and not urgent.
