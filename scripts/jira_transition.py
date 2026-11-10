@@ -112,11 +112,13 @@ def _is_done(key: str, target: str | None) -> bool:
     """Moving to any status Jira files under Done (Closed, Resolved...) is a closure, not just
     the one named Done."""
     wanted = str(target or "").strip().lower()
+    if wanted == "done":  # whatever category the workflow files it under
+        return True
     for move in _transitions(key):
-        to = move.get("to", {})
-        if to.get("name", "").lower() == wanted:
-            return to.get("statusCategory", {}).get("key") == "done"
-    return wanted == "done"
+        to = move.get("to") or {}
+        if str(to.get("name", "")).lower() == wanted:
+            return (to.get("statusCategory") or {}).get("key") == "done"
+    return False
 
 
 def _closure_gate(key: str) -> None:

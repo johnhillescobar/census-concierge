@@ -324,10 +324,56 @@ def test_an_epic_with_no_ids_needs_no_manifest(
 
 
 @pytest.mark.parametrize(
-    "text", ["AC1: x", "- AC1. x", "**AC1.** x", "AC 1. x", "ac1) x", "TC1. x"]
+    ("text", "expected"),
+    [
+        ("AC1: x", ["AC1"]),
+        ("- AC1. x", ["AC1"]),
+        ("**AC1.** x", ["AC1"]),
+        ("**AC1**: x", ["AC1"]),
+        ("AC 1. x", ["AC1"]),
+        ("ac1) x", ["AC1"]),
+        ("TC1. x", ["TC1"]),
+        ("AC1 - x", ["AC1"]),
+        ("AC1", ["AC1"]),
+        ("AC007. x", ["AC7"]),
+        (chr(0x2013) + " AC1. x", ["AC1"]),
+        ("AC" + chr(0xA0) + "1. x", ["AC1"]),
+        ("AC1 is the first criterion", []),
+        ("ACCESS 1. foo", []),
+        ("AC" + "9" * 5000 + ". x", []),
+    ],
 )
-def test_ids_in_ordinary_jira_formatting_are_still_required(text: str) -> None:
-    assert closure.required_ids(text)
+def test_ids_in_ordinary_jira_formatting_are_still_required(text: str, expected: list[str]) -> None:
+    assert closure.required_ids(text) == expected
+
+
+def test_a_manifest_with_no_rows_cannot_back_a_closure(repo: Path) -> None:
+    only_post_merge = {"post_merge": {"e2e": "e2e-post.txt", "main_head": FAKE}}
+    found = blocked(repo, only_post_merge, required=[])
+    assert any("no rows" in line for line in found)
+
+
+def test_done_is_gated_whatever_category_the_workflow_files_it_under(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for moves in (
+        [{"to": {"name": "Done"}}],
+        [{"to": {"name": "Done", "statusCategory": {"key": "indeterminate"}}}],
+        [{"to": None}],
+        [],
+    ):
+        monkeypatch.setattr(jt, "_transitions", lambda key, moves=moves: moves)
+        assert jt._is_done("CC-7", "Done") is True
+        assert jt._is_done("CC-7", "done") is True
+    monkeypatch.setattr(jt, "_transitions", lambda key: [{"to": None}, {"to": {"name": "Shipped"}}])
+    assert jt._is_done("CC-7", "Shipped") is False  # no category says it is a closure
+    assert jt._is_done("CC-7", "") is False
+
+
+def test_a_references_file_that_is_not_an_object_is_a_violation_not_a_crash(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    assert records(monkeypatch, tmp_path, {REFS: ("[]", "[]")})
 
 
 def test_a_malformed_manifest_blocks_instead_of_crashing(tmp_path: Path) -> None:

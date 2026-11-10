@@ -120,11 +120,14 @@ def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[st
 
 
 def has_moe(body: dict[str, Any]) -> bool:
-    """An M column was fetched. `moe` rows always carry GEO_ID and NAME, so those do not count."""
+    """A margin of error came back. `moe` rows always carry GEO_ID and NAME, and name an M column
+    with a null for every estimate whose M was not fetched, so only a value counts."""
     moe = body.get("moe")
     rows = moe if isinstance(moe, list) else []
     return any(
-        isinstance(row, dict) and any(key not in {"GEO_ID", "NAME"} for key in row) for row in rows
+        isinstance(row, dict)
+        and any(k not in {"GEO_ID", "NAME"} and value not in (None, "") for k, value in row.items())
+        for row in rows
     )
 
 

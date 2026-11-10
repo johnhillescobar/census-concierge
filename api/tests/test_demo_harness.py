@@ -561,3 +561,14 @@ def test_geoid_is_judged_per_row_not_from_the_empty_top_level_field() -> None:
 
 def test_no_rows_is_not_a_geoid() -> None:
     assert _contract(rows=[], geoid="x")[1] is False
+
+
+def test_a_margin_of_error_is_present_only_when_the_api_returned_a_value() -> None:
+    from src.vintages import moe_rows
+
+    estimate_only = [{"GEO_ID": "0500000US17031", "NAME": "Cook", "B01001_001E": "5"}]
+    with_margin = [{**estimate_only[0], "B01001_001M": "3"}]
+    suppressed = [{**estimate_only[0], "B01001_001M": "-555555555"}]
+    assert _contract(rows=estimate_only, moe=moe_rows(estimate_only))[0] is False
+    assert _contract(rows=with_margin, moe=moe_rows(with_margin))[0] is True
+    assert _contract(rows=suppressed, moe=moe_rows(suppressed))[0] is False

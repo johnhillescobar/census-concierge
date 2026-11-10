@@ -439,10 +439,10 @@ def test_one_trial_without_contract_fields_is_unknown_not_a_crash(protocol: dict
         trial.update(dict.fromkeys(mc.CONTRACT_KEYS, True))
     del trials[-1]["has_moe"]
     trials[-1]["tier"] = "long_tail"
-    assert status(mc.absolute(run(protocol, trials=trials), protocol), "response contract") in {
-        "UNKNOWN",
-        "FAIL",
-    }
+    assert (
+        status(mc.absolute(run(protocol, trials=trials), protocol), "response contract")
+        == "UNKNOWN"
+    )
 
 
 def test_the_scorer_hash_sees_an_annotated_constant(

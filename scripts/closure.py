@@ -52,15 +52,17 @@ def adf_text(node: object) -> str:
 
 def required_ids(text: str) -> list[str]:
     """AC1, TC3 ... at the start of a line, in order, once each. Bullets, bold and a space before
-    the number are tolerated ("- **AC 1.**"); the identifier must end in `.`, `:` or `)`."""
+    the number are tolerated ("- **AC 1.**"); the identifier is followed by `.`, `:`, `)`, a dash
+    or the end of the line, so "AC1 is the first" is not one."""
     found: list[str] = []
-    for line in text.splitlines():
-        rest = line.strip().lstrip(" \t-*+#>_`|\u2022").upper()
+    for line in text.replace("\u00a0", " ").splitlines():
+        rest = line.strip().lstrip(" \t-*+#>_`|\u2022\u2013\u2014").upper()
         if rest[:2] not in {"AC", "TC"}:
             continue
         digits = rest[2:].lstrip(" ")
         number = digits[: len(digits) - len(digits.lstrip("0123456789"))]
-        if number and digits[len(number) : len(number) + 1] in {".", ":", ")"}:
+        after = digits[len(number) :].lstrip("*_` ")[:1]
+        if number and len(number) <= 4 and after in {"", ".", ":", ")", "-", "\u2013", "\u2014"}:
             name = rest[:2] + str(int(number))
             if name not in found:
                 found.append(name)
@@ -163,6 +165,8 @@ def problems(
         out += _row_problems(row, root, head, amended, readiness, git)
     if not readiness:
         return out
+    if not rows:
+        out.append("the manifest has no rows; it cannot back a closure")
     out += [f"{i}: absent from the manifest" for i in (required or []) if i not in ids]
     block = manifest.get("post_merge") or {}
     if done:

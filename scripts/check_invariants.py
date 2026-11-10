@@ -800,9 +800,11 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
     if (old := _text_at(base, refs)) is not None:
         try:
             before, after = json.loads(old), json.loads(now(refs) or "{}")
+            if not isinstance(before, dict) or not isinstance(after, dict):
+                raise json.JSONDecodeError("not an object", "", 0)
         except json.JSONDecodeError:
             before, after = {}, {}
-            flag(refs, "references.json is not valid JSON")
+            flag(refs, "references.json is not a valid JSON object")
         for name, entry in before.items():
             if name != "L" and after.get(name) != entry:
                 flag(refs, f"reference {name} was changed or removed; references are immutable")

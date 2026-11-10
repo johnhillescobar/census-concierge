@@ -1,0 +1,108 @@
+GATE 2 RE-RUN (cold review of the fix delta), CC-133
+====================================================
+Branch cc-133/instrument tip d04684dd8bb05ac186e1f846bd71d19a32294abf (worktree detached at it)
+Start: HEAD d04684dd8bb05ac186e1f846bd71d19a32294abf ; git status --short: (empty)
+Delta reviewed: git diff 8f8ac92 HEAD -- scripts api/tests (8 files, +578/-79; commits 71fa8d5, d04684d)
+Tests: uv run pytest -q -p no:cacheprovider test_closure_gate.py test_demo_harness.py test_metric_compare.py -> 143 passed
+
+PASS 1 (code only; findings written BEFORE reading PLAN / DESIGN / cc-133-plan / tickets)
+=========================================================================================
+
+Probe 1: closure.required_ids (executed)
+  'ACCESS 1. foo' -> []                         ok
+  'TC2) nope' -> ['TC2']                        accepted by design (')' is a terminator)
+  'AC1.5 sub' -> ['AC1']                        accepted as AC1
+  'AC007. x' -> ['AC7']                         leading zeros normalised
+  '- **AC 1.** foo' -> ['AC1']
+  '**AC1**: foo' -> []                          MISSED (close-bold between id and ':')
+  'AC1 - foo', 'AC1 <en dash> foo' -> []        MISSED (no . : ) terminator)
+  '<en dash> AC1. foo', '<white bullet> AC1. foo' -> []  MISSED (only U+2022 bullet stripped)
+  '1. AC1. foo' -> []                           MISSED (typed numbered list)
+  'AC<nbsp>1. x', '<zwsp>AC1. x', '<BOM>AC1. x' -> []   MISSED
+  'AC99999999999999999999999. big' -> accepted; a >4300 digit number would make int() raise ValueError (crash)
+
+Probe 2: jira_transition._is_done (executed with a stubbed _transitions)
+  moves=[{'to':{'name':'Done'}}] (no statusCategory), target 'Done'              -> False (gate SKIPPED)
+  moves=[{'to':{'name':'Done','statusCategory':{'key':'indeterminate'}}}], 'Done' -> False (gate SKIPPED)
+  'Closed' with category done -> True ; 'DONE' vs ' done ' -> True
+  no transitions, target 'Done' -> True (fallback) ; target None -> False
+  `to: None` -> AttributeError crash
+  Before the fix a target spelled "done" always went through the gate.
+
+Probe 3: run_demo.has_moe / has_geoid against the real shapes (rows_with_geoid + moe_rows + response_geoid
+  from api/src, then run_demo.has_*)
+  single county E+M            has_moe=True  has_geoid=True
+  single county E ONLY (no M)  has_moe=True  has_geoid=True  moe=[{GEO_ID, NAME, 'B01001_001M': None}]
+  multi county E+M             has_moe=True  has_geoid=True
+  multi county E only          has_moe=True  has_geoid=True  moe=[{... 'B01001_001M': None}, ...]
+  single, row lacks GEO_ID, no fallback   has_geoid=False (correct)
+  moe_rows() emits '<var>M': None for every E column even when no M column was fetched, so the
+  "key not in {GEO_ID, NAME}" test is true for an answer that fetched no margin of error.
+  The new tests hand-write moe=[{"B01003_001M": "5"}]; none uses moe_rows() output.
+
+Probe 4: metric_compare (read + executed)
+  scorer_hash with AnnAssign branch: head 69d7364 -> 6054312479188110 == registered A; 8f8ac92 and HEAD same;
+  4b24f77 -> 78a504c5cbb4b5ff == registered A0. The fix moved no stored hash.
+  answered_rate cross-check: run_demo rounds to 3 dp (error <= 0.0005), tolerance 0.001, long_tail only like
+  run_demo._rate(long_tail). Consistent.
+  contract-key probing (all(k in t for t in answered for k in CONTRACT_KEYS)): correct.
+  evaluate(): empty index_hash now FAIL. Bridge pin: sha required (None != digest -> FAIL). Correct.
+  bridges.json is not covered by check_metric_records_not_rewritten (author can add bridge + own rescored run).
+  cmd_promote: single write_refs; ledger row written before refs write; write_bytes not atomic (acceptable).
+  --legacy: explicit, --label now required. Any new reference may be registered --legacy.
+
+Probe 5: check_invariants new guards
+  _text_at returns None for a missing base file or an unresolvable ref -> guard returns [] (skip).
+  CRLF normalised (refs via json whitespace; ledger/review via replace). BOM: flagged. Malformed JSON/TOML: flagged.
+  Non-dict JSON root: AttributeError crash. Protocol: deleted/unparseable now a Violation.
+  references.json: every name except "L" immutable; "L" may be rewritten by hand to anything
+  (test_a_registered_reference_cannot_be_edited_but_l_may_move... asserts this) and nothing checks that a
+  promote ledger record exists.
+
+Probe 6: vacuous manifest
+  _closure_gate: needed == [] (ids in an unrecognised format) and a manifest present ->
+  closure.check_file(required=[]) ; problems() with zero rows and a valid [post_merge] returns [] ->
+  the Story closes "covering its own rows" (none).
+
+Weak tests: test_ids_in_ordinary_jira_formatting_are_still_required asserts truthiness only;
+  test_one_trial_without_contract_fields accepts UNKNOWN or FAIL. No test for _is_done without statusCategory,
+  none for has_moe with moe_rows() output.
+
+PASS 1 FINDINGS
+  P1-1 (medium) scripts/run_demo.py:122-129 has_moe true when no M fetched.
+       input: rows=[{GEO_ID:'0500000US17031',NAME:'Cook','B01001_001E':'5'}] -> moe {'B01001_001M': None} -> True.
+  P1-2 (medium) scripts/jira_transition.py:111-118 _is_done False for literal "Done" when `to` lacks
+       statusCategory.key=="done". input: moves=[{'to':{'name':'Done'}}], target 'Done' -> gate skipped. Regression.
+  P1-3 (medium) scripts/jira_transition.py:129-146 + scripts/closure.py:166 zero-row manifest passes when ids
+       are unrecognised. input: description "AC1 - a\nTC1 - b", manifest = only a valid [post_merge] block.
+  P1-4 (low) scripts/closure.py:58-63 required_ids misses "AC1 - x", "**AC1**: x", "<en dash> AC1. x",
+       "AC<nbsp>1. x", "1. AC1. x" (partial recognition silently under-requires).
+  P1-5 (low) scripts/check_invariants.py:807 "L" exempt without promote proof; bridges.json unguarded.
+       input: PR edits references.json L -> a lower run with matching sha256 => returns [].
+  P1-6 (low) scripts/closure.py:64 int() of >4300 digits -> ValueError crash.
+  P1-7 (low) scripts/jira_transition.py:114 move['to'] None -> AttributeError.
+
+PASS 2 (project invariants, docs/playbooks/review-pr.md)
+=========================================================
+Branch (HEAD d04684d) vs main 57f7533 (clean temp worktree outside the repo, removed afterwards):
+  check_budgets.py branch : FAIL p95 latency 25.472 > 20 ; FAIL answered_rate 0.683 < 0.7 ; doc lines 1820 <= 1820 ok
+  check_budgets.py main   : FAIL doc lines 1822 > 1820 ; FAIL p95 25.472 ; FAIL answered_rate 0.683
+     -> p95 and answered_rate inherited unchanged; doc lines improved (branch no worse).
+  check_invariants.py --base 57f7533 branch: 6 violations, all 'eval phrasing in api/src' (contract.py:29, geo.py:36,
+     geo.py:349, geo_level.py:28, geo_list.py:80, guards.py:32). Same 6 on main (no api/src diff in this branch).
+     closure manifests, budget increases, new regex (delta +0), new exemptions, protocol weakened,
+     metric records rewritten: ok.
+  ruff check: pass ; ruff format --check: 251 files already formatted ; mypy api/src: no issues.
+  git diff 57f7533..HEAD: no change under api/src, web, budgets.toml. 49 files (most under evidence/).
+Plan (evidence/slice-6/cc-133-plan.md):
+  D5 says "a ticket with none [ids] has none required"; the fix refuses Story/Bug with none (stricter, a deliberate
+  deviation; fine, but it makes P1-3/P1-4 matter more).
+  evidence/closure/CC-133.toml does not exist, so AC6 (closure.py check) cannot pass yet; freeze --check exits 1
+  (62 cases pending the owner's oracle review, D8). Both are owner/close-time items, not fix-delta defects.
+  AC1 names test_metric_protocol.py; no such file (protocol guard tests live in test_closure_gate.py).
+  No new finding other than P1-1 and P1-2 blocks on its own; P1-1 defeats the MOE contract floor and P1-2 is a
+  regression that disables the Done gate.
+PASS 2 FINDINGS: nothing new beyond the inherited failures above.
+
+End: HEAD d04684dd8bb05ac186e1f846bd71d19a32294abf ; git status --short: (empty)
+VERDICT: Not yet (P1-1, P1-2 should be fixed; P1-3 recommended).
