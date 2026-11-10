@@ -19,6 +19,7 @@ import check_invariants as ci  # noqa: E402
 import metric_compare as mc  # noqa: E402
 
 Failing = set[tuple[str, str, int]]  # (tier, family, repeat) trials that were not answered
+STAMP = {"head": "f" * 40, "scorer": "s1", "cohorts": {"c": "h"}, "protocol": "p1"}
 
 
 @pytest.fixture
@@ -61,6 +62,7 @@ def run(
     seconds: float = 10.0,
     scalars: dict[str, float] | None = None,
     trials: list[dict[str, Any]] | None = None,
+    stamp: dict[str, Any] | None = None,
 ) -> mc.Run:
     made = trials if trials is not None else _trials(protocol, failing or set(), rows, seconds)
     tail = [t for t in made if t["tier"] == "long_tail"]
@@ -72,6 +74,7 @@ def run(
         p95_reported=mc.percentile([t["latency_s"] for t in made], 95),
         scalars=scalars or {"retrieval_at_10": 0.9, "selector_at_1": 0.8, "answered_rate": rate},
         trials=made,
+        hashes=dict(STAMP) if stamp is None else stamp,  # {} is a run that predates provenance
     )
 
 
@@ -224,6 +227,7 @@ def write_run(path: Path, made: mc.Run) -> str:
         "p95_latency_seconds": made.p95_reported,
         "answered_rate": made.scalars["answered_rate"],
         "trials": made.trials,
+        **({"provenance": made.hashes} if made.hashes else {}),
     }
     body = {"retrieval_at_10": 0.9, "selector_at_1": 0.8, "demo": demo}
     path.write_text(json.dumps(body))
@@ -569,7 +573,8 @@ def test_only_an_explicit_legacy_flag_skips_the_protocol_hash_check(
     assert refs["O"]["hashes"]["protocol"] == "legacy"
     assert refs["O2"]["hashes"]["protocol"] == "legacy"
     lab["now"]["protocol"] = "p2"  # the frozen protocol changed after both were registered
-    cand = write_run(lab["dir"] / "cand.json", complete)
+    later = with_contract(run(protocol, stamp={**STAMP, "protocol": "p2"}))  # collected under p2
+    cand = write_run(lab["dir"] / "cand.json", later)
     assert status(mc.compare(cand, ["S"], {}), "protocol hash") == "FAIL"
     assert not any(c.name == "protocol hash" for c in mc.compare(cand, ["O"], {}))
 
@@ -680,3 +685,165 @@ def test_an_interrupted_write_of_the_references_leaves_the_old_file_whole(
     with pytest.raises(OSError):
         mc.write_refs({"A": {"head": "changed"}})
     assert (lab["dir"] / "references.json").read_bytes() == before
+
+
+# --- findings of the Copilot review of the draft PR ---------------------------------------
+
+
+def with_contract(made: mc.Run) -> mc.Run:
+    for trial in made.trials:
+        trial.update(dict.fromkeys(mc.CONTRACT_KEYS, True))
+    return made
+
+
+@pytest.mark.parametrize("tier", ["core", "trap"])
+def test_the_contract_is_checked_on_every_trial_that_returned_rows(
+    protocol: dict[str, Any], tier: str
+) -> None:
+    made = with_contract(run(protocol))
+    victim = next(t for t in made.trials if t["tier"] == tier)
+    victim["has_geoid"] = False
+    assert status(mc.absolute(made, protocol), "response contract") == "FAIL"
+
+
+def test_an_unanswered_trial_that_still_returned_rows_must_meet_the_contract(
+    protocol: dict[str, Any],
+) -> None:
+    made = with_contract(run(protocol))
+    victim = next(t for t in made.trials if t["tier"] == "long_tail")
+    victim.update(answered=False, rows=3, has_moe=False)  # scored a miss, yet it returned data
+    assert status(mc.absolute(made, protocol), "response contract") == "FAIL"
+
+
+def test_a_trial_that_returned_no_rows_owes_no_contract_field(protocol: dict[str, Any]) -> None:
+    made = with_contract(run(protocol))
+    victim = next(t for t in made.trials if t["tier"] == "trap")
+    victim.update(rows=0, has_moe=False, has_universe=False)
+    assert status(mc.absolute(made, protocol), "response contract") == "PASS"
+
+
+def fast_extras(made: mc.Run, tier: str = "other") -> list[dict[str, Any]]:
+    template = made.trials[0]
+    return [{**template, "tier": tier, "id": f"x{n}", "latency_s": 0.1} for n in range(5000)]
+
+
+def test_extra_fast_trials_in_another_tier_cannot_lower_the_p95(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    slow = with_contract(run(protocol, seconds=30.0))
+    padded = run(protocol, trials=[*slow.trials, *fast_extras(slow)])
+    assert mc.percentile([t["latency_s"] for t in padded.trials], 95) < 20  # the dodge works...
+    path = write_run(lab["dir"] / "padded.json", padded)
+    register(lab, "A", with_contract(run(protocol)))
+    checks = mc.compare(path, ["A"], {})
+    assert status(checks, "candidate run file") == "FAIL"  # ...unless the plan is enforced
+    assert not any(c.name == "p95 ceiling" for c in checks)
+
+
+def test_a_reference_padded_with_extra_trials_is_not_comparable(protocol: dict[str, Any]) -> None:
+    base = with_contract(run(protocol))
+    padded = run(protocol, trials=[*base.trials, *fast_extras(base)])
+    checks = mc.evaluate(base, padded, "A", protocol)
+    assert [c.name for c in checks] == ["planned trials"] and checks[0].status == "FAIL"
+
+
+@pytest.mark.parametrize("damage", ["duplicate", "missing", "no repeat", "no id"])
+def test_a_run_that_is_not_exactly_the_plan_is_a_plan_error(
+    protocol: dict[str, Any], damage: str
+) -> None:
+    trials = run(protocol).trials
+    if damage == "duplicate":
+        trials.append(dict(trials[0]))
+    elif damage == "missing":
+        trials.pop()
+    elif damage == "no repeat":
+        del trials[0]["repeat"]
+    else:
+        del trials[0]["id"]
+    with pytest.raises(mc.PlanError):
+        mc.planned(run(protocol, trials=trials), protocol)
+    mc.planned(run(protocol), protocol)  # the whole plan raises nothing
+
+
+def stamped(head: str, scorer: str) -> dict[str, Any]:
+    return {**STAMP, "head": head, "scorer": scorer}
+
+
+def test_a_run_scored_by_an_older_scorer_is_judged_by_the_scorer_that_scored_it(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old = "e" * 40
+    heads = {old: {"scorer": "s0", "cohorts": {"c": "h"}, "protocol": "p1"}}
+    monkeypatch.setattr(mc, "hashes", lambda head=None: dict(heads.get(head, lab["now"])))
+    register(
+        lab, "A", with_contract(run(protocol))
+    )  # A was scored by s1, the scorer now checked out
+    stale = with_contract(run(protocol, stamp=stamped(old, "s0")))  # the candidate by s0
+    checks = mc.compare(write_run(lab["dir"] / "stale.json", stale), ["A"], {})
+    assert status(checks, "scorer / cohort hashes") == "FAIL"  # the checkout's s1 must not hide it
+
+
+def test_hashes_a_run_records_must_be_those_of_its_head(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    lying = with_contract(run(protocol, stamp=stamped("e" * 40, "s9")))  # the checkout says s1
+    checks = mc.compare(write_run(lab["dir"] / "lying.json", lying), ["A"], {})
+    assert status(checks, "provenance") == "FAIL"
+
+
+def test_a_head_that_cannot_be_checked_is_a_failure_not_a_crash(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unknown_head(head: str | None = None) -> dict[str, Any]:
+        if head:
+            raise mc.subprocess.CalledProcessError(128, "git show")
+        return dict(lab["now"])
+
+    monkeypatch.setattr(mc, "hashes", unknown_head)
+    register(lab, "A", with_contract(run(protocol)))
+    cand = write_run(lab["dir"] / "cand.json", with_contract(run(protocol)))
+    assert status(mc.compare(cand, ["A"], {}), "provenance") == "FAIL"
+
+
+def test_a_run_collected_under_another_protocol_is_refused(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    other = with_contract(run(protocol, stamp={**STAMP, "protocol": "p0"}))
+    checks = mc.compare(write_run(lab["dir"] / "other.json", other), ["A"], {})
+    assert status(checks, "provenance") == "FAIL"
+
+
+def test_a_run_with_no_provenance_is_unknown_and_can_never_be_promoted(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    legacy = write_run(lab["dir"] / "legacy.json", with_contract(run(protocol, stamp={})))
+    assert status(mc.compare(legacy, ["A"], {}), "provenance") == "UNKNOWN"
+    before = (lab["dir"] / "references.json").read_bytes()
+    assert mc.cmd_promote(legacy) == 1
+    assert (lab["dir"] / "references.json").read_bytes() == before
+
+
+def test_a_partial_provenance_record_counts_as_none(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    path = write_run(lab["dir"] / "partial.json", with_contract(run(protocol)))
+    body = json.loads(Path(path).read_text())
+    del body["demo"]["provenance"]["scorer"]
+    Path(path).write_text(json.dumps(body))
+    assert mc.load_run(path).hashes == {}
+
+
+def test_promotion_labels_the_run_with_the_head_that_produced_it(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    producing = "e" * 40
+    monkeypatch.setattr(
+        mc, "hashes", lambda head=None: {"scorer": "s1", "cohorts": {"c": "h"}, "protocol": "p1"}
+    )
+    register(lab, "A", with_contract(run(protocol)))
+    mine = with_contract(run(protocol, stamp=stamped(producing, "s1")))
+    assert mc.cmd_promote(write_run(lab["dir"] / "next.json", mine)) == 0
+    assert mc.load_refs()["L"]["head"] == producing  # not the "f" * 40 that is checked out

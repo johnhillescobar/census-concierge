@@ -43,6 +43,7 @@ METRICS = ROOT / "evidence" / "metrics"
 ORACLE_FIELDS = ("text", "tier", "expect_table", "expect_geo_level", "expect_warning")
 ORACLE_FLAGS = ("expect_no_url", "holdout")
 CONTRACT_KEYS = ("has_moe", "has_geoid", "has_universe", "has_alternatives")
+PROVENANCE_KEYS = ("head", "scorer", "cohorts", "protocol")  # what a run records about its scoring
 RANK = {"PASS": 0, "INCONCLUSIVE": 1, "UNKNOWN": 2, "UNFROZEN": 3, "FAIL": 4}
 
 
@@ -190,6 +191,8 @@ def load_run(path: str | Path) -> Run:
         demo = data["demo"]
         scalars = {k: float(data[k]) for k in ("retrieval_at_10", "selector_at_1") if k in data}
         scalars["answered_rate"] = float(demo["answered_rate"])
+        stamp = demo.get("provenance")
+        whole = isinstance(stamp, dict) and all(k in stamp for k in PROVENANCE_KEYS)
         return Run(
             path=str(path),
             repeat=int(demo["repeat"]),
@@ -197,6 +200,7 @@ def load_run(path: str | Path) -> Run:
             p95_reported=float(demo["p95_latency_seconds"]),
             scalars=scalars,
             trials=list(demo["trials"]),
+            hashes={k: stamp[k] for k in PROVENANCE_KEYS} if whole else {},
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise PlanError(f"{path}: not a usable run file ({type(exc).__name__}: {exc})") from exc
@@ -220,6 +224,33 @@ def families(run: Run, ids: list[str], tier: str, repeat: int) -> dict[str, list
                 f"{tier}/{family}: expected repeats 1..{repeat}, got {len(items)} trials"
             )
     return grouped
+
+
+def planned(run: Run, protocol: dict[str, Any]) -> None:
+    """The run holds exactly the frozen (tier, id, repeat) trials: no missing, duplicate or extra
+    one, in any tier. Extra fast trials would otherwise lower the full-run p95 unseen."""
+    want = {
+        (spec["tier"], entry["id"], n)
+        for name, spec in protocol["cohorts"].items()
+        for entry in cohort(protocol, name)
+        for n in range(1, protocol["sampling"]["repeat"] + 1)
+    }
+    try:
+        got = [(str(t["tier"]), str(t["id"]), int(t["repeat"])) for t in run.trials]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise PlanError(f"a trial lacks tier, id or repeat ({type(exc).__name__})") from exc
+    problems = {
+        "missing": sorted(want - set(got)),
+        "extra": sorted(set(got) - want),
+        "duplicated": sorted({key for key in got if got.count(key) > 1}),
+    }
+    if any(problems.values()):
+        counts = ", ".join(f"{len(v)} {k}" for k, v in problems.items() if v)
+        raise PlanError(f"trials differ from the frozen plan ({counts}; first {_first(problems)})")
+
+
+def _first(problems: dict[str, list[tuple[str, str, int]]]) -> str:
+    return next(f"{k} {v[0]}" for k, v in problems.items() if v)
 
 
 def family_rates(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, float]]:
@@ -328,21 +359,19 @@ def absolute(run: Run, protocol: dict[str, Any]) -> list[Check]:
             f"{p95:.3f}s vs {ceiling:g}s",
         )
     )
-    answered = [
-        t for t in run.trials if t.get("tier") == "long_tail" and t["answered"] and t.get("rows")
-    ]
-    if answered and not all(k in t for t in answered for k in CONTRACT_KEYS):
+    returned = [t for t in run.trials if t.get("rows")]  # any tier, answered or not: data is data
+    if returned and not all(k in t for t in returned for k in CONTRACT_KEYS):
         out.append(
             Check("floor", "response contract", "UNKNOWN", "trial records carry no contract fields")
         )
-    elif answered:
-        bad = sum(not all(t[k] for k in CONTRACT_KEYS) for t in answered)
+    elif returned:
+        bad = sum(not all(t[k] for k in CONTRACT_KEYS) for t in returned)
         out.append(
             Check(
                 "floor",
                 "response contract",
                 "PASS" if not bad else "FAIL",
-                f"{bad} of {len(answered)} answered trials lack a contract field",
+                f"{bad} of {len(returned)} trials that returned rows lack a contract field",
             )
         )
     return out
@@ -361,6 +390,8 @@ def evaluate(
         return [Check(name, "index", "FAIL", "missing or different index; not like for like")]
     rates: dict[str, tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]] = {}
     try:
+        planned(cand, protocol)
+        planned(ref, protocol)
         for cohort_name in protocol["cohorts"]:
             ids = [e["id"] for e in cohort(protocol, cohort_name)]
             tier = protocol["cohorts"][cohort_name]["tier"]
@@ -482,15 +513,40 @@ def load_refs() -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
+def provenance_checks(cand: Run, now: dict[str, Any]) -> tuple[dict[str, Any], list[Check]]:
+    """(the hashes the candidate is judged by, problems with them). They are the ones recorded when
+    the run was collected, never the ones checked out now. A run that records none predates this
+    and is UNKNOWN: it can be read but not credited or promoted."""
+    if not cand.hashes:
+        gap = "the run records no head or hashes; it cannot be credited or promoted"
+        return now, [Check("run", "provenance", "UNKNOWN", gap)]
+    problems: list[Check] = []
+    if cand.hashes["protocol"] != now["protocol"]:
+        problems.append(Check("run", "provenance", "FAIL", "collected under another protocol"))
+    try:
+        actual = hashes(str(cand.hashes["head"]))
+    except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError) as exc:
+        problems.append(Check("run", "provenance", "FAIL", f"head cannot be checked ({exc})"))
+    else:
+        if any(cand.hashes[k] != actual[k] for k in ("scorer", "cohorts")):
+            problems.append(
+                Check("run", "provenance", "FAIL", "recorded hashes are not those of its head")
+            )
+    return {k: cand.hashes[k] for k in ("scorer", "cohorts", "protocol")}, problems
+
+
 def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> list[Check]:
     protocol = load_protocol()
     now = hashes()
     try:
         cand = load_run(cand_path)
+        planned(cand, protocol)
     except PlanError as exc:
         return [Check("run", "candidate run file", "FAIL", str(exc))]
     refs = load_refs()
     out = absolute(cand, protocol)
+    judged, found = provenance_checks(cand, now)
+    out += found
     state = oracle_state(protocol)
     for cohort_name, rows in state.items():
         todo = len(rows["pending"]) + len(rows["stale"])
@@ -514,15 +570,15 @@ def compare(cand_path: str, ref_names: list[str], targets: dict[str, float]) -> 
             continue
         old = entry["hashes"]
         run_path, label = entry["run"], entry["label"]
-        if old["protocol"] not in ("legacy", now["protocol"]):
+        if old["protocol"] not in ("legacy", judged["protocol"]):
             out.append(
                 Check(
                     name, "protocol hash", "FAIL", "the frozen protocol changed since the reference"
                 )
             )
             continue
-        if old["scorer"] != now["scorer"] or old["cohorts"] != now["cohorts"]:
-            bridge = _bridge(name, old, now)
+        if old["scorer"] != judged["scorer"] or old["cohorts"] != judged["cohorts"]:
+            bridge = _bridge(name, old, judged)
             if bridge is None:
                 out.append(
                     Check(
@@ -682,7 +738,10 @@ def cmd_promote(run_path: str) -> int:
     if cmd_compare(run_path, names, {}, record=True):
         print("not promoted", file=sys.stderr)
         return 1
-    entry = build_entry(run_path, _head(), "accepted post-merge reference", legacy=False)
+    head = str(
+        load_run(run_path).hashes["head"]
+    )  # the head that produced it, not the one checked out
+    entry = build_entry(run_path, head, "accepted post-merge reference", legacy=False)
     write_refs({**refs, "L": entry})  # one write: no state in which L is missing
     print(f"L is now {entry['head'][:7]}")
     return 0

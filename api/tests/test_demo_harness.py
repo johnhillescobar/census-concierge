@@ -541,7 +541,7 @@ def _contract(**fields: Any) -> tuple[bool, bool, bool, bool]:
 
 def test_each_trial_records_which_response_contract_fields_the_answer_carried() -> None:
     moe = [{"B01003_001M": "5"}]
-    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}]
+    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1", "B01003_001M": "5"}]
     full = _contract(rows=rows, moe=moe, universe="Households", alternatives=[])
     assert full == (True, True, True, False)
     bare = _contract(rows=rows, moe=moe, universe="", alternatives=[{"table_id": "B19013"}])
@@ -563,12 +563,40 @@ def test_no_rows_is_not_a_geoid() -> None:
     assert _contract(rows=[], geoid="x")[1] is False
 
 
-def test_a_margin_of_error_is_present_only_when_the_api_returned_a_value() -> None:
+def test_a_margin_of_error_counts_when_its_column_was_fetched_even_if_suppressed() -> None:
     from src.vintages import moe_rows
 
     estimate_only = [{"GEO_ID": "0500000US17031", "NAME": "Cook", "B01001_001E": "5"}]
     with_margin = [{**estimate_only[0], "B01001_001M": "3"}]
     suppressed = [{**estimate_only[0], "B01001_001M": "-555555555"}]
-    assert _contract(rows=estimate_only, moe=moe_rows(estimate_only))[0] is False
+    nulled = [{**estimate_only[0], "B01001_001M": None}]
+    assert _contract(rows=estimate_only, moe=moe_rows(estimate_only))[0] is False  # never fetched
     assert _contract(rows=with_margin, moe=moe_rows(with_margin))[0] is True
-    assert _contract(rows=suppressed, moe=moe_rows(suppressed))[0] is False
+    assert _contract(rows=suppressed, moe=moe_rows(suppressed))[0] is True  # fetched, then withheld
+    assert _contract(rows=nulled, moe=moe_rows(nulled))[0] is True
+
+
+def test_one_margin_of_error_does_not_cover_a_second_estimate() -> None:
+    row = {"GEO_ID": "0500000US17031", "B01001_001E": "5", "B01001_002E": "3", "B01001_001M": "1"}
+    assert _contract(rows=[row])[0] is False
+    assert _contract(rows=[{**row, "B01001_002M": "1"}])[0] is True
+
+
+def test_every_row_must_carry_its_margins_and_a_row_with_no_estimate_has_none() -> None:
+    full = {"GEO_ID": "1", "B01001_001E": "5", "B01001_001M": "1"}
+    assert _contract(rows=[full, {"GEO_ID": "2", "B01001_001E": "4"}])[0] is False
+    assert _contract(rows=[full, {"GEO_ID": "2"}])[0] is False
+    assert _contract(rows=[full, {**full, "GEO_ID": "2"}])[0] is True
+
+
+def test_a_run_records_the_head_and_hashes_it_was_scored_under(tmp_path: Path) -> None:
+    import metric_compare
+
+    stamp = run_demo.provenance()
+    assert set(stamp) == set(metric_compare.PROVENANCE_KEYS)
+    assert len(stamp["head"]) == 40
+    saved = tmp_path / "latest.json"
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+    summary["provenance"] = stamp
+    saved.write_text(json.dumps({"retrieval_at_10": 0.9, "demo": summary}), encoding="utf-8")
+    assert metric_compare.load_run(saved).hashes == stamp  # what the comparator reads back

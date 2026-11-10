@@ -120,15 +120,22 @@ def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[st
 
 
 def has_moe(body: dict[str, Any]) -> bool:
-    """A margin of error came back. `moe` rows always carry GEO_ID and NAME, and name an M column
-    with a null for every estimate whose M was not fetched, so only a value counts."""
-    moe = body.get("moe")
-    rows = moe if isinstance(moe, list) else []
-    return any(
+    """Every returned estimate in every row had its M variable fetched. The contract is to fetch M
+    with each E, so a fetched M that Census suppressed (null or a sentinel) still counts, while one
+    M beside two Es, or an E with no M column at all, does not."""
+    rows = body.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    return bool(rows) and all(
         isinstance(row, dict)
-        and any(k not in {"GEO_ID", "NAME"} and value not in (None, "") for k, value in row.items())
+        and any(_is_estimate(key) for key in row)
+        and all(f"{key[:-1]}M" in row for key in row if _is_estimate(key))
         for row in rows
     )
+
+
+def _is_estimate(key: str) -> bool:
+    """A Census estimate column such as B01003_001E; the same rule moe_rows applies."""
+    return key.endswith("E") and "_" in key
 
 
 def has_geoid(body: dict[str, Any]) -> bool:
@@ -413,6 +420,19 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
     }
 
 
+def provenance() -> dict[str, Any]:
+    """The head and the scorer, cohort and protocol hashes this run was scored under, so a later
+    comparison judges the run by what produced it and not by whatever is checked out then."""
+    import subprocess
+
+    import metric_compare
+
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, check=True, text=True
+    ).stdout.strip()
+    return {"head": head, **metric_compare.hashes()}
+
+
 def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial:
     from src.census_url import redact_text
 
@@ -587,6 +607,7 @@ def main() -> int:
                     )
 
     summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index)
+    summary["provenance"] = provenance()
     blob = json.dumps(summary)
     if leaks_key(blob):
         print("Refusing to write evidence: a Census key leaked into the record.", file=sys.stderr)
