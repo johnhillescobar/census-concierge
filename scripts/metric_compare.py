@@ -738,9 +738,8 @@ def cmd_promote(run_path: str) -> int:
     if cmd_compare(run_path, names, {}, record=True):
         print("not promoted", file=sys.stderr)
         return 1
-    head = str(
-        load_run(run_path).hashes["head"]
-    )  # the head that produced it, not the one checked out
+    # the head that produced the run, not the one checked out
+    head = str(load_run(run_path).hashes["head"])
     entry = build_entry(run_path, head, "accepted post-merge reference", legacy=False)
     write_refs({**refs, "L": entry})  # one write: no state in which L is missing
     print(f"L is now {entry['head'][:7]}")

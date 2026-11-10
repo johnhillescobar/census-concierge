@@ -417,6 +417,7 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "by_tier": by_tier,
         "trials": records,
         "misses": [record for record in records if not record["answered"]],
+        "provenance": provenance(),
     }
 
 
@@ -607,7 +608,6 @@ def main() -> int:
                     )
 
     summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index)
-    summary["provenance"] = provenance()
     blob = json.dumps(summary)
     if leaks_key(blob):
         print("Refusing to write evidence: a Census key leaked into the record.", file=sys.stderr)

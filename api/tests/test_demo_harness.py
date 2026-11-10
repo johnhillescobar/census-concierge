@@ -592,11 +592,10 @@ def test_every_row_must_carry_its_margins_and_a_row_with_no_estimate_has_none() 
 def test_a_run_records_the_head_and_hashes_it_was_scored_under(tmp_path: Path) -> None:
     import metric_compare
 
-    stamp = run_demo.provenance()
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+    stamp = summary["provenance"]
     assert set(stamp) == set(metric_compare.PROVENANCE_KEYS)
     assert len(stamp["head"]) == 40
     saved = tmp_path / "latest.json"
-    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
-    summary["provenance"] = stamp
     saved.write_text(json.dumps({"retrieval_at_10": 0.9, "demo": summary}), encoding="utf-8")
     assert metric_compare.load_run(saved).hashes == stamp  # what the comparator reads back
