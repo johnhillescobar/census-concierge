@@ -784,6 +784,22 @@ METRIC_RECORDS = ("evidence/metrics/references.json", "evidence/metrics/ledger.j
 ORACLE_REVIEW = "evals/oracle_review.toml"
 
 
+def _json_object(text: str) -> dict:
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _json_list(text: str | None) -> list:
+    try:
+        value = json.loads(text or "[]")
+    except json.JSONDecodeError:
+        return ["<unreadable>"]
+    return value if isinstance(value, list) else ["<not a list>"]
+
+
 def check_metric_records_not_rewritten(base: str) -> list[Violation]:
     """References are immutable (only L moves, and only by `promote`), the ledger is append-only,
     and the owner's oracle signatures are never added in the change they would let pass."""
@@ -808,10 +824,27 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
         for name, entry in before.items():
             if name != "L" and after.get(name) != entry:
                 flag(refs, f"reference {name} was changed or removed; references are immutable")
+        if "L" in before and "L" not in after:
+            flag(refs, "reference L was removed; only `promote` moves it")
+        elif after.get("L") is not None and after.get("L") != before.get("L"):
+            # L moves only through `promote`, which appends a PASS record for that very run
+            grown = now(ledger)[len((_text_at(base, ledger) or "").replace("\r\n", "\n")) :]
+            records = [_json_object(line) for line in grown.splitlines()]
+            run = after["L"].get("run") if isinstance(after["L"], dict) else None
+            if not any(r.get("run") == run and r.get("verdict") == "PASS" for r in records):
+                flag(refs, "reference L changed with no PASS record for its run in the ledger")
     if (old := _text_at(base, ledger)) is not None and not now(ledger).startswith(
         old.replace("\r\n", "\n")
     ):
         flag(ledger, "the ledger is append-only; an earlier record was changed or removed")
+    bridges = "evidence/metrics/bridges.json"
+    was_bridges = _json_list(_text_at(base, bridges))
+    for entry in _json_list(now(bridges)):
+        if entry not in was_bridges:
+            flag(bridges, "a bridge changes what a scorer change means: owner-only, its own commit")
+    for entry in was_bridges:
+        if entry not in _json_list(now(bridges)):
+            flag(bridges, "a bridge was removed or changed")
     if (old := _text_at(base, ORACLE_REVIEW)) is not None:
         try:
             was = tomllib.loads(old).get("accepted", {})

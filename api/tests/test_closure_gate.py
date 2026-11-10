@@ -4,6 +4,7 @@ current, new tests mutation-checked, and the post-merge run on a commit that is 
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -464,16 +465,50 @@ LEDGER = "evidence/metrics/ledger.jsonl"
 REVIEW = "evals/oracle_review.toml"
 
 
-def test_a_registered_reference_cannot_be_edited_but_l_may_move_and_a_new_one_may_be_added(
+def test_a_registered_reference_cannot_be_edited_and_a_new_one_may_be_added(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     before = '{"A": {"head": "1"}, "L": {"head": "2"}}'
-    moved = '{"A": {"head": "1"}, "L": {"head": "3"}, "B": {"head": "4"}}'
-    assert records(monkeypatch, tmp_path, {REFS: (before, moved)}) == []
+    added = '{"A": {"head": "1"}, "L": {"head": "2"}, "B": {"head": "4"}}'
+    assert records(monkeypatch, tmp_path, {REFS: (before, added)}) == []
     edited = '{"A": {"head": "9"}, "L": {"head": "2"}}'
     assert records(monkeypatch, tmp_path, {REFS: (before, edited)})
     dropped = '{"L": {"head": "2"}}'
     assert records(monkeypatch, tmp_path, {REFS: (before, dropped)})
+
+
+def promoted(run: str, verdict: str = "PASS") -> str:
+    return json.dumps({"run": run, "verdict": verdict}) + chr(10)
+
+
+def test_l_moves_only_with_a_pass_record_for_its_run_in_the_ledger(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    before = '{"A": {"head": "1"}, "L": {"head": "2", "run": "r2.json"}}'
+    moved = '{"A": {"head": "1"}, "L": {"head": "3", "run": "r3.json"}}'
+    old_ledger = promoted("r2.json")
+
+    def moves(ledger_now: str) -> list[Any]:
+        files = {REFS: (before, moved), LEDGER: (old_ledger, old_ledger + ledger_now)}
+        return records(monkeypatch, tmp_path, files)
+
+    assert moves(promoted("r3.json")) == []
+    assert moves("")  # a hand edit: nothing in the ledger says promote ran
+    assert moves(promoted("r3.json", "FAIL"))  # the run did not pass
+    assert moves(promoted("other.json"))  # a PASS, but for a different run
+    assert records(monkeypatch, tmp_path, {REFS: (before, '{"A": {"head": "1"}}')})  # L removed
+
+
+def test_a_bridge_is_owner_only_whether_added_changed_or_removed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bridges = "evidence/metrics/bridges.json"
+    one = '[{"ref": "A", "note": "x"}]'
+    assert records(monkeypatch, tmp_path, {bridges: (one, one)}) == []
+    assert records(monkeypatch, tmp_path, {bridges: (None, one)})  # a first bridge is an addition
+    assert records(monkeypatch, tmp_path, {bridges: (one, '[{"ref": "A", "note": "y"}]')})
+    assert records(monkeypatch, tmp_path, {bridges: (one, "[]")})
+    assert records(monkeypatch, tmp_path, {bridges: (one, "not json")})
 
 
 def test_the_ledger_only_grows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import check_invariants as ci  # noqa: E402
 import metric_compare as mc  # noqa: E402
 
 Failing = set[tuple[str, str, int]]  # (tier, family, repeat) trials that were not answered
@@ -587,3 +588,27 @@ def test_the_register_command_passes_legacy_through_and_requires_a_label(
     monkeypatch.setattr(sys, "argv", argv[:-2])
     with pytest.raises(SystemExit):
         mc.main()
+
+
+def test_what_promote_writes_satisfies_the_records_guard_and_a_hand_edit_does_not(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    complete = contract_run(protocol, [])
+    register(lab, "A", complete)
+    register(lab, "L", complete)
+    refs_file, ledger_file = lab["dir"] / "references.json", lab["dir"] / "ledger.jsonl"
+    before = refs_file.read_text()
+    assert mc.cmd_promote(write_run(lab["dir"] / "next.json", complete)) == 0
+    after, ledger = refs_file.read_text(), ledger_file.read_text()
+
+    repo = lab["dir"] / "repo"
+    metrics = repo / "evidence" / "metrics"
+    metrics.mkdir(parents=True)
+    (metrics / "references.json").write_text(after)
+    (metrics / "ledger.jsonl").write_text(ledger)
+    base = {"evidence/metrics/references.json": before, "evidence/metrics/ledger.jsonl": ""}
+    monkeypatch.setattr(ci, "ROOT", repo)
+    monkeypatch.setattr(ci, "_text_at", lambda ref, rel: base.get(rel))
+    assert ci.check_metric_records_not_rewritten("origin/main") == []
+    (metrics / "ledger.jsonl").write_text("")  # the same reference file with the proof removed
+    assert ci.check_metric_records_not_rewritten("origin/main")
