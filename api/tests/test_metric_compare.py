@@ -998,6 +998,7 @@ def test_a_worse_candidate_is_rejected_by_the_same_real_chain(
     worse = with_contract(run(protocol, losing("long_tail", ids), stamp=stamp))
     path = write_run(tmp_path / "p.json", worse)
     refs_before = (tmp_path / "references.json").read_bytes()
+    assert status(mc.compare(path, ["A"], {}), "long_tail trial rate") == "FAIL"  # not merely open
     assert mc.cmd_promote(path) == 1  # an observed decrease is a FAIL at any size
     assert (tmp_path / "references.json").read_bytes() == refs_before
 
