@@ -31,6 +31,9 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
 NO_AC_TYPES = {"epic", "task", "sub-task", "subtask", "spike"}  # chores and containers
+# Done-category statuses that mean the work was NOT delivered. They need a reason, not a
+# closure manifest; only the status named Done is a claim that the AC/TC were met.
+CANCELLED = {"won't do", "wont do", "cancelled", "canceled", "duplicate", "declined"}
 DEFAULT_SITE = "johnhillescobar.atlassian.net"
 
 
@@ -195,10 +198,15 @@ def main() -> int:
             print(f"  {t.get('id', '?'):>3}  {t.get('name', '?')} -> {to_name}")
 
     target = "Done" if args.done else args.transition
-    if _is_done(key, target):
+    text = _read_comment(args)
+    if not args.done and str(target or "").strip().lower() in CANCELLED:
+        if not text:
+            print(f"{key}: closing as {target} needs --comment saying why", file=sys.stderr)
+            return 1
+        print(f"{key}: {target} is not a delivery; no closure manifest required")
+    elif _is_done(key, target):
         _closure_gate(key)
 
-    text = _read_comment(args)
     if text:
         _add_comment(key, text)
         print(f"Comment added to {key}")

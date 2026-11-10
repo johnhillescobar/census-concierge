@@ -54,6 +54,10 @@ def fresh(tmp_path: Path) -> Path:
 FAKE = "a" * 40  # a head for tests that never ask git
 
 
+def pin(repo: Path, name: str) -> dict[str, str]:
+    return {"path": name, "sha256": hashlib.sha256((repo / name).read_bytes()).hexdigest()}
+
+
 def pinned(repo: Path) -> dict[str, str]:
     digest = hashlib.sha256((repo / "e2e-post.txt").read_bytes()).hexdigest()
     return {"path": "e2e-post.txt", "sha256": digest}
@@ -70,7 +74,7 @@ def row(repo: Path, name: str = "AC1", **fields: Any) -> dict[str, Any]:
         "command": "pytest",
         "expected": "passes",
         "observed": "passed",
-        "evidence": ["gate1.txt"],
+        "evidence": [pin(repo, "gate1.txt")],
         "tested_head": FAKE,
         "affects": ["src"],
         "reviewer": "gate2.txt",
@@ -81,6 +85,7 @@ def row(repo: Path, name: str = "AC1", **fields: Any) -> dict[str, Any]:
 
 def manifest(repo: Path, *rows: dict[str, Any], **extra: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
+        "required": [str(r["id"]) for r in rows],
         "row": list(rows),
         "post_merge": {"e2e": pinned(repo), "main_head": FAKE},
     }
@@ -150,7 +155,11 @@ def test_a_row_without_a_tested_head_or_reviewer_blocks(repo: Path) -> None:
 def test_new_tests_need_a_mutation_check_on_record(repo: Path) -> None:
     assert blocked(repo, manifest(repo, row(repo, new_tests=True)))
     assert blocked(repo, manifest(repo, row(repo, new_tests=True, mutation="no-such.txt")))
-    assert blocked(repo, manifest(repo, row(repo, new_tests=True, mutation="gate1.txt"))) == []
+    assert blocked(
+        repo, manifest(repo, row(repo, new_tests=True, mutation="gate1.txt"))
+    )  # unpinned
+    pinned_mutation = pin(repo, "gate1.txt")
+    assert blocked(repo, manifest(repo, row(repo, new_tests=True, mutation=pinned_mutation))) == []
 
 
 def test_evidence_goes_stale_when_a_covered_file_changes(fresh: Path) -> None:
@@ -731,3 +740,79 @@ def test_a_status_that_is_not_in_the_workflow_is_not_a_closure(
     assert jt._is_done("CC-7", "No Such Status") is False
     assert jt._is_done("CC-7", "In Progress") is False
     assert jt._is_done("CC-7", "Closed") is True
+
+
+# --- findings of the /code-review pass -----------------------------------------------------------
+
+
+def test_a_pass_cannot_rest_on_evidence_that_is_not_pinned(repo: Path) -> None:
+    unpinned = blocked(repo, manifest(repo, row(repo, evidence=["gate1.txt"])))
+    assert any("pinned" in line for line in unpinned)
+    assert blocked(repo, manifest(repo, row(repo, evidence=[pin(repo, "gate1.txt")]))) == []
+    # a row still being worked may cite a plain path: only a PASS is a claim
+    open_row = row(repo, status="UNKNOWN", evidence=["gate1.txt"])
+    assert blocked(repo, manifest(repo, open_row), readiness=False) == []
+
+
+def test_a_manifest_must_declare_which_ids_it_covers(repo: Path) -> None:
+    body = manifest(repo, row(repo), row(repo, "TC1"))
+    del body["required"]
+    assert any("declare `required`" in line for line in blocked(repo, body))
+    body["required"] = []
+    assert blocked(repo, body)
+    body["required"] = ["AC1", "TC1", "TC2"]  # claims a row it does not have
+    assert any("TC2: absent" in line for line in blocked(repo, body))
+
+
+def test_dotted_and_ranged_ids_are_each_required() -> None:
+    text = "AC 6.1: a\nAC 6.2: b\nAC6.2: again\nTC3-5\nAC9. plain\nAC1-2 are first"
+    assert closure.required_ids(text) == [
+        "AC6.1",
+        "AC6.2",
+        "TC3",
+        "TC4",
+        "TC5",
+        "AC9",
+        "AC1",
+        "AC2",
+    ]
+    assert closure.required_ids("AC1-9999") == ["AC1"]  # not a range: far too wide
+    assert closure.required_ids("AC5-3") == ["AC5"]  # backwards is not a range
+
+
+@pytest.mark.parametrize("target", ["Won't Do", "Cancelled", "Duplicate"])
+def test_a_cancellation_needs_a_reason_and_no_manifest(
+    monkeypatch: pytest.MonkeyPatch, target: str
+) -> None:
+    gated: list[str] = []
+    monkeypatch.setattr(jt, "_closure_gate", lambda key: gated.append(key))
+    sent: list[str] = []
+    monkeypatch.setattr(jt, "_add_comment", lambda key, text: sent.append(text))
+    monkeypatch.setattr(jt, "_transition", lambda key, to: sent.append(f"-> {to}"))
+    monkeypatch.setattr(jt, "_issue", lambda key, fields="": {"fields": {"status": {"name": "x"}}})
+    argv = ["jira_transition.py", "CC-9", "--transition", target]
+    monkeypatch.setattr(sys, "argv", argv)
+    assert jt.main() == 1 and sent == []  # no reason, nothing sent
+    monkeypatch.setattr(sys, "argv", [*argv, "--comment", "duplicate of CC-7"])
+    assert jt.main() == 0 and gated == [] and sent[-1] == f"-> {target}"
+
+
+def test_done_is_still_gated_whatever_the_comment(monkeypatch: pytest.MonkeyPatch) -> None:
+    gated: list[str] = []
+    monkeypatch.setattr(jt, "_closure_gate", lambda key: gated.append(key))
+    monkeypatch.setattr(jt, "_add_comment", lambda key, text: None)
+    monkeypatch.setattr(jt, "_transition", lambda key, to: None)
+    monkeypatch.setattr(jt, "_issue", lambda key, fields="": {"fields": {"status": {"name": "x"}}})
+    monkeypatch.setattr(sys, "argv", ["jira_transition.py", "CC-9", "--done", "--comment", "x"])
+    assert jt.main() == 0 and gated == ["CC-9"]
+
+
+def test_the_records_guard_checks_a_store_that_is_new_at_the_base(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    keep = {"run": "r.json", "head": "h", "run_sha256": "s"}
+    with_l = refs_json(A={"head": "1"}, L=keep)
+    assert records(monkeypatch, tmp_path, {REFS: (None, with_l)})  # L with no PASS record
+    assert records(monkeypatch, tmp_path, {REFS: (None, refs_json(A={"head": "1"}))}) == []
+    ledger = promoted("r.json", head="h", sha="s")
+    assert records(monkeypatch, tmp_path, {REFS: (None, with_l), LEDGER: (None, ledger)}) == []

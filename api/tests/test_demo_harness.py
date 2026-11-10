@@ -587,7 +587,7 @@ def test_one_margin_of_error_does_not_cover_a_second_estimate() -> None:
 def test_every_row_must_carry_its_margins_and_a_row_with_no_estimate_has_none() -> None:
     full = {"GEO_ID": "1", "B01001_001E": "5", "B01001_001M": "1"}
     assert _contract(rows=[full, {"GEO_ID": "2", "B01001_001E": "4"}])[0] is False
-    assert _contract(rows=[full, {"GEO_ID": "2"}])[0] is False
+    assert _contract(rows=[full, {"GEO_ID": "2"}])[0] is True  # a row with no estimate owes none
     assert _contract(rows=[full, {**full, "GEO_ID": "2"}])[0] is True
 
 
@@ -644,3 +644,9 @@ def test_a_run_whose_checkout_moved_part_way_carries_no_stamp(
     assert run_demo.unmoved(started) == {}
     monkeypatch.setattr(run_demo, "provenance", lambda: {})  # git failed at the end
     assert run_demo.unmoved(started) == {}
+
+
+def test_a_decennial_count_with_no_estimate_column_owes_no_margin_of_error() -> None:
+    count = [{"GEO_ID": "0500000US48201", "P1_001N": "4731145"}]
+    assert _contract(rows=count)[0] is True
+    assert _contract(rows=[*count, {"GEO_ID": "2", "B01001_001E": "1"}])[0] is False

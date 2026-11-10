@@ -12,8 +12,10 @@ mutation check, evidence is not stale against the files the row says it covers, 
 post-merge E2E ran on a commit that is on the base ref. Reviewers still verify the substance of a
 row. This cannot stop a human from closing a ticket in Jira directly.
 
+    required = ["AC1", "TC1"]      the ids this manifest claims to cover; each needs a row
     [[row]]  id status command expected observed evidence tested_head affects
              new_tests mutation reviewer
+             (a PASS row pins every evidence entry and its mutation check: {path, sha256})
     [[amendment]]  id date owner reason destination
     [post_merge]   e2e main_head
 """
@@ -69,22 +71,38 @@ def adf_text(node: object) -> str:
     return inner + "\n" if node.get("type") in LINE_NODES else inner
 
 
+def _digits(text: str) -> str:
+    return text[: len(text) - len(text.lstrip("0123456789"))]
+
+
 def required_ids(text: str) -> list[str]:
     """AC1, TC3 ... at the start of a line, in order, once each. Bullets, bold and a space before
     the number are tolerated ("- **AC 1.**"); the identifier is followed by `.`, `:`, `)`, a dash
-    or the end of the line, so "AC1 is the first" is not one."""
+    or the end of the line, so "AC1 is the first" is not one. "AC 6.2" is its own id (AC6.2), and
+    "AC6-12" (a dash straight onto a number) requires every id from AC6 to AC12."""
     found: list[str] = []
     for line in text.replace("\u00a0", " ").splitlines():
         rest = line.strip().lstrip(" \t-*+#>_`|(\u2022\u2013\u2014").upper()
         if rest[:2] not in {"AC", "TC"}:
             continue
         digits = rest[2:].lstrip(" ")
-        number = digits[: len(digits) - len(digits.lstrip("0123456789"))]
-        after = digits[len(number) :].lstrip("*_` ")[:1]
-        if number and len(number) <= 4 and after in {"", ".", ":", ")", "-", "\u2013", "\u2014"}:
-            name = rest[:2] + str(int(number))
-            if name not in found:
-                found.append(name)
+        number = _digits(digits)
+        tail = digits[len(number) :]
+        parts = [number]
+        while tail[:1] == "." and _digits(tail[1:]):  # AC6.2, AC6.2.1
+            parts.append(_digits(tail[1:]))
+            tail = tail[1 + len(parts[-1]) :]
+        last = tail[:1] in {"-", "\u2013", "\u2014"} and _digits(tail[1:])
+        after = tail.lstrip("*_` ")[:1]
+        if not number or any(len(p) > 4 for p in parts):
+            continue
+        if last and len(parts) == 1 and 0 < int(last) - int(number) <= 50:
+            names = [f"{rest[:2]}{n}" for n in range(int(number), int(last) + 1)]
+        elif after in {"", ".", ":", ")", "-", "\u2013", "\u2014"}:
+            names = [rest[:2] + ".".join(str(int(p)) for p in parts)]
+        else:
+            continue
+        found += [name for name in names if name not in found]
     return found
 
 
@@ -92,7 +110,7 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
 
 
-def _evidence_problems(item: Any, where: str, root: Path) -> list[str]:
+def _evidence_problems(item: Any, where: str, root: Path, *, pinned: bool = False) -> list[str]:
     spec = {"path": item} if isinstance(item, str) else item
     if not isinstance(spec, dict) or not spec.get("path"):
         return [f"{where}: evidence entry needs a path"]
@@ -102,6 +120,8 @@ def _evidence_problems(item: Any, where: str, root: Path) -> list[str]:
     if not path.is_file():
         return [f"{where}: evidence {spec['path']} does not exist"]
     want = spec.get("sha256")
+    if pinned and not want:  # a PASS must not rest on a file anyone can still rewrite
+        return [f"{where}: evidence {spec['path']} must be pinned with a sha256"]
     if want and hashlib.sha256(path.read_bytes()).hexdigest() != want:
         return [f"{where}: evidence {spec['path']} changed since it was recorded"]
     return []
@@ -123,11 +143,11 @@ def _row_problems(
     if not isinstance(evidence, list) or not evidence:
         out.append(f"{name}: evidence must be a non-empty list")
     for item in evidence if isinstance(evidence, list) else []:
-        out += _evidence_problems(item, name, root)
+        out += _evidence_problems(item, name, root, pinned=True)
     if row.get("new_tests"):
         mutation = row.get("mutation")
         out += (
-            _evidence_problems(mutation, name, root)
+            _evidence_problems(mutation, name, root, pinned=True)
             if mutation
             else [f"{name}: new tests with no mutation check"]
         )
@@ -196,7 +216,12 @@ def problems(
         return out
     if not rows:
         out.append("the manifest has no rows; it cannot back a closure")
-    out += [f"{i}: absent from the manifest" for i in (required or []) if i not in ids]
+    declared = manifest.get("required")
+    if not isinstance(declared, list) or not declared or not all(_text(i) for i in declared):
+        out.append("the manifest must declare `required`, the AC/TC ids it covers")
+        declared = []
+    wanted = list(dict.fromkeys([*declared, *(required or [])]))
+    out += [f"{i}: absent from the manifest" for i in wanted if i not in ids]
     block = manifest.get("post_merge") or {}
     if done:
         e2e, main_head = block.get("e2e"), block.get("main_head")

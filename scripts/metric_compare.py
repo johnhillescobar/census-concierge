@@ -43,7 +43,15 @@ EXPECTATION_FIELDS = ("text", "tier", "expect_table", "expect_geo_level", "expec
 EXPECTATION_FLAGS = ("expect_no_url", "holdout")
 CONTRACT_KEYS = ("has_moe", "has_geoid", "has_universe", "has_alternatives")
 MAIN = "origin/main"  # L may only be a head that reached main
-PROVENANCE_KEYS = ("head", "scorer", "cohorts", "protocol")  # what a run records about its scoring
+# what decides a run's behaviour besides the index: the app, the harness, the dependency pins
+MEASURED = ("api/src", "scripts/run_demo.py", "pyproject.toml", "uv.lock")
+PROVENANCE_KEYS = (
+    "head",
+    "scorer",
+    "cohorts",
+    "protocol",
+    "dirty",
+)  # what a run records about its scoring
 RANK = {"PASS": 0, "INCONCLUSIVE": 1, "UNKNOWN": 2, "FAIL": 3}
 
 
@@ -168,7 +176,7 @@ def _git_status(*args: str) -> int:
 def _same_code(head: str) -> bool:
     """The code a run measured is the code under judgment: api/src and the harness are identical
     at the run's head and at HEAD (evidence and docs may differ)."""
-    return _git_status("diff", "--quiet", head, "HEAD", "--", "api/src", "scripts/run_demo.py") == 0
+    return _git_status("diff", "--quiet", head, "HEAD", "--", *MEASURED) == 0
 
 
 def _reachable(commit: str, tip: str) -> bool:
@@ -522,6 +530,8 @@ def provenance_checks(cand: Run, now: dict[str, Any]) -> tuple[dict[str, Any], l
         gap = "the run records no head or hashes; it cannot be credited or promoted"
         return now, [Check("run", "provenance", "UNKNOWN", gap)]
     problems: list[Check] = []
+    if cand.hashes["dirty"] is not False:  # uncommitted code was measured under a clean head's name
+        problems.append(Check("run", "provenance", "FAIL", "measured uncommitted changes"))
     if cand.hashes["protocol"] != now["protocol"]:
         problems.append(Check("run", "provenance", "FAIL", "collected under another protocol"))
     try:

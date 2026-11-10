@@ -818,9 +818,10 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
         return path.read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n")
 
     refs, ledger = METRIC_RECORDS
-    if (old := _text_at(base, refs)) is not None:
+    old = _text_at(base, refs)  # a store that does not exist at the base starts empty, unchecked
+    if old is not None or now(refs):
         try:
-            before, after = json.loads(old), json.loads(now(refs) or "{}")
+            before, after = json.loads(old or "{}"), json.loads(now(refs) or "{}")
             if not isinstance(before, dict) or not isinstance(after, dict):
                 raise json.JSONDecodeError("not an object", "", 0)
         except json.JSONDecodeError:

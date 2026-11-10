@@ -122,13 +122,12 @@ def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[st
 def has_moe(body: dict[str, Any]) -> bool:
     """Every returned estimate in every row had its M variable fetched. The contract is to fetch M
     with each E, so a fetched M that Census suppressed (null or a sentinel) still counts, while one
-    M beside two Es, or an E with no M column at all, does not."""
+    M beside two Es, or an E with no M column at all, does not. A row with no estimate column (a
+    decennial count) owes none."""
     rows = body.get("rows")
     rows = rows if isinstance(rows, list) else []
     return bool(rows) and all(
-        isinstance(row, dict)
-        and any(_is_estimate(key) for key in row)
-        and all(f"{key[:-1]}M" in row for key in row if _is_estimate(key))
+        isinstance(row, dict) and all(f"{key[:-1]}M" in row for key in row if _is_estimate(key))
         for row in rows
     )
 
@@ -440,7 +439,14 @@ def provenance() -> dict[str, Any]:
         head = subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, check=True, text=True
         ).stdout.strip()
-        return {"head": head, **metric_compare.hashes()}
+        touched = subprocess.run(
+            ["git", "status", "--porcelain", "--", *metric_compare.MEASURED],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.strip()
+        return {"head": head, **metric_compare.hashes(), "dirty": bool(touched)}
     except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError, KeyError):
         return {}
 
@@ -448,7 +454,9 @@ def provenance() -> dict[str, Any]:
 def unmoved(started: dict[str, Any]) -> dict[str, Any]:
     """The stamp taken before the first question, or none if the checkout moved during the run:
     the trials then measured more than one head."""
-    return started if provenance().get("head") == started.get("head") else {}
+    now = provenance()
+    same = all(now.get(k) == started.get(k) for k in ("head", "dirty"))
+    return started if now and same else {}
 
 
 def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial:

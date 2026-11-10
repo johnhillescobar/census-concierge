@@ -19,7 +19,7 @@ import check_invariants as ci  # noqa: E402
 import metric_compare as mc  # noqa: E402
 
 Failing = set[tuple[str, str, int]]  # (tier, family, repeat) trials that were not answered
-STAMP = {"head": "f" * 40, "scorer": "s1", "cohorts": {"c": "h"}, "protocol": "p1"}
+STAMP = {"head": "f" * 40, "scorer": "s1", "cohorts": {"c": "h"}, "protocol": "p1", "dirty": False}
 
 
 @pytest.fixture
@@ -949,7 +949,11 @@ def test_register_compare_promote_and_the_records_guard_agree_with_real_hashes_a
     monkeypatch.setattr(mc, "load_protocol", lambda head=None: protocol)
     monkeypatch.setattr(mc, "MAIN", "HEAD")  # this checkout is a branch, not main
     head = mc._head()
-    stamp = {"head": head, **mc.hashes()}  # real scorer, cohort and protocol hashes at real HEAD
+    stamp = {
+        "head": head,
+        **mc.hashes(),
+        "dirty": False,
+    }  # real scorer, cohort and protocol hashes at real HEAD
 
     def produce(name: str) -> str:
         made = with_contract(run(protocol, stamp=stamp))
@@ -991,7 +995,7 @@ def test_a_worse_candidate_is_rejected_by_the_same_real_chain(
     monkeypatch.setattr(mc, "load_protocol", lambda head=None: protocol)
     monkeypatch.setattr(mc, "MAIN", "HEAD")
     head = mc._head()
-    stamp = {"head": head, **mc.hashes()}
+    stamp = {"head": head, **mc.hashes(), "dirty": False}
     anchor = write_run(tmp_path / "a.json", with_contract(run(protocol, stamp=stamp)))
     assert mc.cmd_register("A", anchor, head, "anchor") == 0
     ids = families_of(protocol, "long_tail", 2)
@@ -1039,3 +1043,32 @@ def test_the_committed_anchors_are_registered_whole_and_unaltered() -> None:
         assert hashlib.sha256(text).hexdigest() == entry["run_sha256"], name
         assert entry["hashes"]["protocol"] == "legacy" and entry["blockers"] is not None
     assert refs["A"]["head"].startswith("69d7364") and refs["A0"]["head"].startswith("4b24f77")
+
+
+# --- findings of the /code-review pass -----------------------------------------------------------
+
+
+def test_a_run_that_measured_uncommitted_code_is_refused(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "A", with_contract(run(protocol)))
+    dirty = with_contract(run(protocol, stamp={**STAMP, "dirty": True}))
+    checks = mc.compare(write_run(lab["dir"] / "dirty.json", dirty), ["A"], {})
+    assert status(checks, "provenance") == "FAIL"
+    clean = write_run(lab["dir"] / "clean.json", with_contract(run(protocol)))
+    assert not any(c.name == "provenance" for c in mc.compare(clean, ["A"], {}))
+
+
+def test_a_stamp_without_the_dirty_flag_counts_as_no_provenance(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    old = {k: v for k, v in STAMP.items() if k != "dirty"}
+    made = with_contract(run(protocol, stamp=old))
+    assert mc.load_run(write_run(lab["dir"] / "old.json", made)).hashes == {}
+
+
+def test_the_code_comparison_covers_the_dependency_pins(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[tuple[str, ...]] = []
+    monkeypatch.setattr(mc, "_git_status", lambda *args: seen.append(args) or 0)
+    assert mc._same_code("a" * 40) is True
+    assert {"pyproject.toml", "uv.lock", "api/src", "scripts/run_demo.py"} <= set(seen[0])
