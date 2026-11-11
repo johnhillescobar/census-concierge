@@ -436,3 +436,12 @@ async def test_a_report_without_given_keeps_the_lenient_rule_rather_than_refusin
         "Poverty in tract 12 in Cook County", _frame("tract", cook, ["tract"], county_named=True)
     )
     assert record.timings
+
+
+@pytest.mark.parametrize("name", ["St. Louis", "Winston-Salem", "San José", "Coeur d'Alene"])
+async def test_a_place_name_with_punctuation_or_accents_still_gives_the_state(name: str) -> None:
+    """Real names carry periods, hyphens, apostrophes and accents: only a digit makes a code."""
+    response, record, _fetched = await _ask(
+        f"Population by tract in {name}", _frame("tract", [name])
+    )
+    assert record.timings and STOPPED not in response.answer
