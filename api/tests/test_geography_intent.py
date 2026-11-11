@@ -153,3 +153,18 @@ async def test_a_place_parent_named_without_its_state_is_found_by_name_across_st
         tracts.legal and tracts.wider
     )  # Detroit, Michigan: the largest match, not a guess at a state
     assert tracts.specs[0].in_spec == "state:26 county:163"  # other Detroits stay as alternatives
+
+
+async def test_a_county_parent_named_without_its_state_is_found_by_name_across_states() -> None:
+    tracts = await resolved(parents=["Wayne County"], parent_level="county", level="tract")
+    assert tracts.legal and tracts.specs[0].in_spec == "state:26 county:163"
+    assert [spec.name for spec in tracts.specs[1:]] == ["Wayne County, North Carolina"]
+
+
+async def test_a_nationwide_listing_is_run_only_when_parent_level_is_us() -> None:
+    counties = await resolved(level="county", parent_level="us")
+    assert counties.legal and counties.wildcard
+    assert (counties.specs[0].for_spec, counties.specs[0].in_spec) == ("county:*", "state:*")
+    tracts = await resolved(level="tract", parent_level="us")  # published nowhere: a candidate
+    assert not tracts.legal and tracts.specs[0].for_spec == "tract:*"
+    assert (await resolved(level="county")).specs == []  # no parent_level, no parents: a repair

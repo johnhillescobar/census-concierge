@@ -4,9 +4,11 @@ every ask loop, regardless of whether the model's own turns hit an error.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
+import pytest
 from ask_fixtures import _harris
 from src.ask import ExecutionRecord, dispatch
 from src.census_url import CensusURL
@@ -274,6 +276,27 @@ async def test_a_county_parent_is_re_resolved_with_the_level_the_model_gave() ->
     assert seen == [{"parents": ["Dane County, WI"], "parent_level": "county", "level": "tract"}]
 
 
+async def test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing() -> None:
+    """Fewer geographies than parents, but the loop had none: the candidate and why it cannot
+    be run are the only answer there is."""
+    record = ExecutionRecord(question="Counties of Ohio and Michigan")
+    candidate = _wildcard("every county", "")
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [candidate]
+        rec.geo_status = {"legal": False, "detail": "not published", "nested": True}
+        return ""
+
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, _splitter(["Ohio", "Michigan"])),
+    )
+    assert record.geographies == [candidate]
+    assert record.geo_status is not None and record.geo_status["detail"] == "not published"
+
+
 async def test_single_named_place_is_left_alone_when_the_model_says_it_is_not_a_listing() -> None:
     complete = _splitter(["Harris County, Texas"], None)
     seen, record = await _run_split("population of Harris County, Texas", [_harris()], complete)
@@ -498,3 +521,76 @@ async def test_finish_never_resolves_the_question_itself() -> None:
     assert await _redo_args(record) == []
     empty = ExecutionRecord(question="every tract in Cook County, Illinois")
     assert await _redo_args(empty) == []
+
+
+async def test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows() -> None:
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
+    record.geographies = [_wildcard("m", "26")]
+    record.url = CensusURL(
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:26"
+    )
+    record.rows = [{"GEO_ID": "old"}]
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        if call["id"] == "resolve_geography":
+            rec.geographies = [_wildcard("a", "01"), _wildcard("b", "02")]
+        return ""  # build_url fails to produce a new URL
+
+    tools = {"resolve_geography": object(), "build_url": object()}
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, tools, record, split)
+    assert record.url is None and record.rows == []
+
+
+async def test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_the_repair() -> (
+    None
+):
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
+    record.geographies = [_wildcard("m", "26")]
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [
+            _wildcard("a", "01"),
+            _wildcard("b", "02"),
+            GeoSpec(level="county", name="other", for_spec="county:001", in_spec="state:13"),
+        ]
+        return ""
+
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
+    assert len(record.geographies) == 3 and record.geographies[0].name == "a"
+
+
+async def test_cancelling_the_request_while_waiting_for_the_split_is_not_swallowed() -> None:
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
+    record.geographies = [_wildcard("m", "26")]
+
+    async def never() -> dict[str, Any] | None:
+        await asyncio.sleep(30)
+
+    async def run() -> None:
+        async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+            return ""
+
+        await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, never())
+
+    task = asyncio.create_task(run())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+async def test_a_rejected_repair_restores_the_retained_urls() -> None:
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
+    record.geographies = [_wildcard("m", "26")]
+    record.retained_urls = ["https://api.census.gov/old"]
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.retained_urls = ["https://api.census.gov/old", "https://api.census.gov/new"]
+        rec.geographies = [_harris(), _harris()]  # not wildcards: rejected
+        return ""
+
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
+    assert record.retained_urls == ["https://api.census.gov/old"]
