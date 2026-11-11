@@ -415,6 +415,7 @@ def _shape(**over: Any) -> dict[str, Any]:
             "level": None,
             "named": [],
             "numbered": [],
+            "given": None,
             "asks_for": None,
             "county_named": False,
             "pointing": False,
