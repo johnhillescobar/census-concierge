@@ -15,10 +15,9 @@ regex2|zip code|api/src/guards.py  # the zip-code warning's trigger word
 # Plain domain vocabulary found after CC-117/CC-120 added phrases to the visible evals (2026-11-08,
 # owner approved). Census level and state names, not eval wording; the pattern around each is
 # judged by the regex ratchet. One line per occurrence.
-# The ZCTA level name: contract.py (code-to-name table) and geo.py (the ZIP-code branch) stay.
+# The ZCTA level name: contract.py (code-to-name table) stays; geo.py now imports the constant.
 gram4|zip code tabulation area|api/src/contract.py  # published level name; no removal planned
 gram4|zip code tabulation area|api/src/contract.py  # same
-# The alias table (zcta, zctas, zip -> the published name). CC-104 removes it with the word scan,
-# and deletes these three lines in the same change.
-gram4|zip code tabulation area|api/src/geo_level.py  # CC-104: alias table removed with the word scan
+# The one definition of the level name (zcta, zctas, zip alias to it).
+gram4|zip code tabulation area|api/src/geo_level.py  # published level name, defined once
 regex2|statistical area|api/src/guards.py  # Census class word in the aggregation trigger
