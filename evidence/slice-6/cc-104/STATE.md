@@ -48,6 +48,11 @@ via the `given` report (a unit identified by its number needs parents the questi
 gate1-given.txt). Cycle order: Gate 1 subagent on the new HEAD (gate1-c3.txt) -> fix -> Gate 2: /code-review then review-pr
 (gate2-c3.txt) -> fix each finding with tests + mutation. After that the E2E waits on the owner's cohort commit.
 
+Cycle 3 progress: Gate 1 c3 (gate1-c3.txt, 117 mutation runs) -> one finding fixed (gate1-c3-fixes.txt) -> Gate 2 c3
+NOT YET with C1-C10 (gate2-c3.txt) -> all fixed with tests (gate1-c3-gate2-fixes.txt, 10 GOOD). C10: the manifest `head`
+is refreshed with every commit that changes code; keep it equal to the head the rows were last run at. The one allowed Gate 2
+re-run for this cycle is next (gate2-c3-r2.txt); fix what it finds, then stop.
+
 ## Open
 
 - **Owner:** commit `[cohorts.geography]` to `evals/metric_protocol.toml` (not seen landed). Do not measure P before it.
