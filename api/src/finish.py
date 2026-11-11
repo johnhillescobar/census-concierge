@@ -157,9 +157,10 @@ _NEEDS: dict[tuple[str, bool], tuple[str, ...]] = {
 _ORDER = ("state", "county", "place", "tract", "block group")
 
 
-def _a_name(text: str) -> bool:
-    """Words and no digit: a digit makes an entry a code, which must ground itself."""
-    return any(ch.isalpha() for ch in text) and not any(ch.isdigit() for ch in text)
+def _unit(entry: Any) -> str | None:
+    """The level an entry of `numbered` states: "tract", or "tract 12" as the model wrote it."""
+    words = entry.split() if isinstance(entry, str) else []
+    return next((lv for n in (2, 1) if (lv := level_name(" ".join(words[:n]))) in _ORDER), None)
 
 
 def _join(parts: list[str]) -> str:
@@ -169,9 +170,11 @@ def _join(parts: list[str]) -> str:
 async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | None) -> str | None:
     """The answer to return at once when a question lacks what its geography level needs.
 
-    The model reports the level, the places the question names (each written with its state), the
-    places it identifies only by a number inside another, whether a county is named, and whether
-    it asks for tables (the split call, beside the loop). Code compares that with `_NEEDS` for the
+    The model reports the level, the places and codes the question names, the levels of the places
+    it identifies only by a number inside another, whether a county is named, whether a phrase
+    points at a place, and whether it asks for tables (the split call, beside the loop). A place
+    name gives the state (the lookup finds it); a code with a digit must ground itself. Code
+    compares that with `_NEEDS` for the
     kind of question asked: every tract needs the state, one tract by its number needs state and
     county, and so on. It does not second-guess a name against the question's words: measured
     live, that refused 38 of 60 valid questions that wrote a state as "Calif.", "Penn" or "tx". A
@@ -196,9 +199,7 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
             "not name. Name the place, with its state, and ask again."
         )
     reported = [n for n in frame.get("named") or [] if isinstance(n, str)][:MAX_REPORTED]
-    units = [lv for n in frame.get("numbered") or [] if (lv := level_name(n)) in _ORDER][
-        :MAX_REPORTED
-    ]
+    units = [lv for n in frame.get("numbered") or [] if (lv := _unit(n)) in _ORDER][:MAX_REPORTED]
     level = level_name(frame.get("level")) or next(iter(units), None)
     need = _NEEDS.get((level or "", False), ())
     if units:  # each number is judged at its own unit's level
@@ -206,7 +207,8 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
     # A place the model names gives the state, with or without it written ("Los Angeles"): the
     # lookup finds it. An entry with a digit is a code, so it must ground itself (a number filed
     # under named is not a place). The county and tract are what the model reports apart.
-    have = {"state"} if any(state_of(p) or _a_name(p) for p in reported) else set()
+    named = [p for p in reported if state_of(p) or (p.isascii() and p.replace(" ", "").isalpha())]
+    have = {"state"} if named else set()
     if frame.get("county_named") is True or "county" in units:
         have.add("county")
     if "tract" in units:
@@ -233,14 +235,14 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
 
 
 async def _split_parents(
-    dispatch: Dispatch, geo: BaseTool | None, record: Any, question: str, found: Any
+    dispatch: Dispatch, geo: BaseTool | None, record: Any, found: Any, acs1: bool
 ) -> bool:
     """Re-resolve a listing the loop got wrong, with the parents and unit the model reported."""
     geos = list(getattr(record, "geographies", []) or [])
     if not (found and found.get("parents") and geo):
         return False
     parents, unit = found["parents"], found["unit"]
-    dataset = "acs1" if wants_acs1(question) else "acs5"
+    dataset = "acs1" if acs1 else "acs5"
     right = [g.level == level_name(unit) and g.dataset == dataset for g in geos[: len(parents)]]
     want = {s[1] for p in parents if (s := state_of(p))}  # the states the model says it lies in
     inside = want <= {g.codes.get("state") for g in geos}
@@ -253,7 +255,7 @@ async def _split_parents(
         "parent_level": found.get("parent_level"),
         "level": unit,  # the model's own unit from the split call
     }
-    if wants_acs1(question):
+    if acs1:
         args["dataset"] = "acs1"
     try:
         await dispatch(geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record)
@@ -286,6 +288,7 @@ async def finish_tools(
     a question the model reported nothing for gets no guessed place.
     """
     question = str(getattr(record, "question", "") or "")
+    acs1 = wants_acs1(question)  # time and product are still read from words: the next story
     record.consecutive_failures.clear()
     year = _latest(record)
     geo = tools.get("resolve_geography")
@@ -296,29 +299,30 @@ async def finish_tools(
         found = await asyncio.wait_for(split, SPLIT_WAIT_SECONDS) if split is not None else None
     except TimeoutError:
         found = None
-    redone = plan is None and await _split_parents(dispatch, geo, record, question, found)
+    redone = plan is None and await _split_parents(dispatch, geo, record, found, acs1)
     status = getattr(record, "geo_status", None) or {}
     queries = list(getattr(record, "geo_queries", None) or [])
     places = list((found or {}).get("places") or [])
     short = len(places) >= 2 and int(status.get("compare_count", 0) or 0) < len(places)
     redo = redone or short or (len(queries) >= 2 and not status.get("compare"))
-    redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
+    redo = redo or bool(acs1 and (url is None or "/acs/acs1" not in str(url)))
     if plan is not None and plan.geographies:
         redo = False
     if not url or redo:
         search = tools.get("search_tables")
         if search is not None and not record.pool:
-            asked = {"question": question, "dataset": "acs1" if wants_acs1(question) else "acs5"}
+            asked = {"question": question, "dataset": "acs1" if acs1 else "acs5"}
             await dispatch(search, {"id": "search_tables", "args": asked}, record)
         if geo is not None and not redone and not refused and (redo or not record.geographies):
             legs = places or queries
             stated = list(getattr(record, "asked_levels", None) or [])
             stated = stated if len(stated) == len(legs) else []  # the model's own, if any
-            level = (stated or [((found or {}).get("frame") or {}).get("level")])[0]
+            reported = ((found or {}).get("frame") or {}).get("level")
+            level = (stated or [reported if len(legs) < 2 else None])[0]  # legs differ: none
             args: dict[str, Any] = {"places": legs, "level": level}
             if len(legs) >= 2:
                 args["levels"] = stated
-            if wants_acs1(question):
+            if acs1:
                 args["dataset"] = "acs1"
             if legs or level_name(level) == "us":  # nothing reported means nothing to resolve
                 await dispatch(
@@ -337,7 +341,7 @@ async def finish_tools(
             and status.get("nested") is not False
         ):
             args = {"table_id": table}
-            if wants_acs1(question):
+            if acs1:
                 args["dataset"] = "acs1"
             await dispatch(build, {"id": "build_url", "args": args}, record)
     fetch = tools.get("fetch_data")
