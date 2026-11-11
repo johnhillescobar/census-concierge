@@ -845,8 +845,8 @@ async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> No
     assert artifact.specs[0].in_spec == "state:41"
 
 
-async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
-    """2+ `parents` are a listing, never the comparison of `places`, even if both are sent."""
+async def test_parents_with_places_is_refused_for_repair_not_narrowed_silently() -> None:
+    """A listing and a comparison in one call is invalid intent: nothing is dropped quietly."""
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -861,9 +861,8 @@ async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
         }
     )
     artifact = message.artifact
-    assert artifact.compare is True
-    assert [row.for_spec for row in artifact.specs[:2]] == ["county:*", "county:*"]
-    assert [row.in_spec for row in artifact.specs[:2]] == ["state:48", "state:22"]
+    assert artifact.legal is False and artifact.specs == [] and artifact.refused is False
+    assert "parents" in artifact.detail
 
 
 async def test_versus_emits_austin_then_texas_as_comparison_legs() -> None:

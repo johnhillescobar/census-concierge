@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 from ask_fixtures import _geo_tool, only_dane
-from src.geo_level import ResolveGeographyResult
+from src.geo_level import ResolveGeographyResult, level_name
 from src.geo_list import name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
 from test_geography_completeness import STOPPED, _ask, _frame
@@ -168,3 +168,57 @@ async def test_a_nationwide_listing_is_run_only_when_parent_level_is_us() -> Non
     tracts = await resolved(level="tract", parent_level="us")  # published nowhere: a candidate
     assert not tracts.legal and tracts.specs[0].for_spec == "tract:*"
     assert (await resolved(level="county")).specs == []  # no parent_level, no parents: a repair
+
+
+async def test_a_city_written_with_its_state_is_the_city_not_the_state_it_shares_a_name_with() -> (
+    None
+):
+    city = await resolved(places=["New York, NY"], level=None)
+    state = await resolved(places=["New York"], level=None)
+    assert city.specs and city.specs[0].level != "state"
+    assert [spec.level for spec in state.specs] == [
+        "state"
+    ]  # a bare name with no level is the state
+
+
+async def test_a_blank_level_is_no_level_everywhere() -> None:
+    blank = await resolved(places=["Cook County, IL"], level=" ")
+    none = await resolved(places=["Cook County, IL"], level=None)
+    assert blank.specs and [s.for_spec for s in blank.specs] == [s.for_spec for s in none.specs]
+    assert blank.inferred is none.inferred is True  # the county fallback is flagged either way
+
+
+@pytest.mark.parametrize("sent", [{"places": ["Chicago, IL"]}, {"levels": ["county", "county"]}])
+async def test_a_listing_mixed_with_places_or_levels_is_refused_for_repair(
+    sent: dict[str, Any],
+) -> None:
+    hit = await resolved(parents=["Texas", "Louisiana"], level="county", **sent)
+    assert hit.specs == [] and hit.legal is False and "parents" in hit.detail
+    assert hit.refused is False
+
+
+async def test_several_unplaced_county_parents_are_asked_for_with_their_states() -> None:
+    args = {"parent_level": "county", "level": "tract"}
+    bare = await resolved(parents=["Wayne County", "Harris County"], **args)
+    assert bare.specs == [] and "with its state" in bare.detail
+    placed = await resolved(parents=["Wayne County, MI", "Harris County, TX"], **args)
+    assert placed.legal and placed.compare
+
+
+@pytest.mark.parametrize(
+    ("spelled", "published"),
+    [("census tract", "tract"), ("Census Block Groups", "block group"), ("ZIP codes", "zcta")],
+)
+def test_the_spellings_a_model_gives_a_level_are_normalised(spelled: str, published: str) -> None:
+    assert level_name(spelled) == level_name(published)
+
+
+async def test_a_level_spelled_census_tract_still_needs_its_state() -> None:
+    response, record, fetched = await _ask("Population by census tract", _frame("census tract", []))
+    assert STOPPED in response.answer and record.timings == [] and fetched == []
+
+
+async def test_a_question_about_the_nation_resolves_when_the_model_reports_the_nation() -> None:
+    response, record, _fetched = await _ask("Total population of the country", _frame("us", []))
+    assert [g.for_spec for g in record.geographies] == ["us:1"]
+    assert response.urls and "for=us" in response.urls[0]

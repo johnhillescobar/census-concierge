@@ -594,3 +594,46 @@ async def test_a_rejected_repair_restores_the_retained_urls() -> None:
     split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
     assert record.retained_urls == ["https://api.census.gov/old"]
+
+
+async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_question() -> None:
+    done = [_wildcard("a", "39"), _wildcard("b", "26")]
+    seen, _ = await _run_split(
+        "ACS 1-year all counties in Ohio and Michigan.", done, _splitter(["Ohio", "Michigan"])
+    )
+    assert [call.get("dataset") for call in seen] == ["acs1"]
+
+
+def _tracts_in(state: str, county: str) -> GeoSpec:
+    return GeoSpec(
+        level="tract", name="t", for_spec="tract:*", in_spec=f"state:{state} county:{county}"
+    )
+
+
+async def test_a_listing_at_the_right_level_in_the_wrong_parent_is_resolved_again() -> None:
+    reply = _splitter(["Lancaster County, Nebraska"], "tract", "county")
+    wrong, _ = await _run_split("tracts in Lancaster County", [_tracts_in("42", "071")], reply, 1)
+    assert [call["parents"] for call in wrong] == [["Lancaster County, Nebraska"]]
+    right, _ = await _run_split("tracts in Lancaster County", [_tracts_in("31", "109")], reply, 1)
+    assert right == []
+
+
+async def test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation() -> None:
+    async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
+        reply = {"level": "us", "parents": [], "unit": "county", "listing": False}
+        return {"content": json.dumps(reply), "tool_calls": []}
+
+    record = ExecutionRecord(question="population of the country")
+    seen: list[dict[str, Any]] = []
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        seen.append(call["args"])
+        return ""
+
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
+    assert seen == [{"places": [], "level": "us"}]

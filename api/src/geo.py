@@ -97,9 +97,9 @@ def _stated(level: str | None, entries: list[GeoLevel]) -> tuple[str | None, Rep
     return None, (detail, refusal.model_copy(update={"refused": True}))
 
 
-def _only_state(entry: str, state: tuple[str, str]) -> bool:
-    """The entry is the state itself, not a place that lies in it."""
-    return "," not in entry or name_token(entry) == state[0]
+def _only_state(entry: str) -> bool:
+    """The entry is the state itself ("New York"), not a place that lies in it ("New York, NY")."""
+    return "," not in entry
 
 
 def _spec(row: dict[str, str], dataset: str, year: int) -> GeoSpec:
@@ -150,6 +150,16 @@ class ResolveGeographyTool(BaseTool):
             o.strip() if isinstance(o, str) and o.strip() else "(blank)" for o in parents or []
         ]
         if owners or level_name(parent_level) == "us":
+            if legs or levels:
+                return _fail(
+                    "a listing takes parents; send places in their own call", wildcard=True
+                )
+            by_name = level_name(parent_level) not in {None, "state", "us"}
+            if len(owners) > 1 and by_name and not all(state_of(o) for o in owners):
+                # each would search every state: name each parent with its state instead
+                return _fail(
+                    "name each parent with its state when there are several", wildcard=True
+                )
             args = (level, parent_level, dataset, year, entries)
             picks = await asyncio.gather(*(self._list(owner, *args) for owner in owners or [""]))
             if len(owners) < 2:
@@ -215,7 +225,7 @@ class ResolveGeographyTool(BaseTool):
         leftover: list[dict[str, str]] = []
         if parent != "us":
             state = state_of(owner)
-            if parent == "state" and (state is None or not _only_state(owner, state)):
+            if parent == "state" and (state is None or not _only_state(owner)):
                 return _fail(
                     f"{owner!r} is not a state; send parent_level for what it is",
                     wildcard=True,
@@ -287,7 +297,7 @@ class ResolveGeographyTool(BaseTool):
             return f"1 geography: {spec.for_spec}", result
         state = state_of(entry)
         if for_level is None:
-            for_level = "state" if state and _only_state(entry, state) else "place"
+            for_level = "state" if state and _only_state(entry) else "place"
         in_parts: dict[str, str] = {}
         if for_level != "state" and state is not None:
             if not nests_in(for_level, "state", entries):
@@ -334,7 +344,7 @@ class ResolveGeographyTool(BaseTool):
         )
         matched = named_rows(token, rows)
         inferred = False
-        if not matched and for_level == "place" and level is None:
+        if not matched and for_level == "place" and level_name(level) is None:
             inferred = True  # no place matched; the county listing is a different level
             county = await asyncio.to_thread(
                 self.list_geographies, "county", list_in, dataset=dataset, vintage=year
