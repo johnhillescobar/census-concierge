@@ -51,11 +51,15 @@ gate1-given.txt). Cycle order: Gate 1 subagent on the new HEAD (gate1-c3.txt) ->
 Cycle 3 progress: Gate 1 c3 (gate1-c3.txt, 117 mutation runs) -> one finding fixed (gate1-c3-fixes.txt) -> Gate 2 c3
 NOT YET with C1-C10 (gate2-c3.txt) -> all fixed with tests (gate1-c3-gate2-fixes.txt, 10 GOOD). C10: the manifest `head`
 is refreshed with every commit that changes code; keep it equal to the head the rows were last run at. The one allowed Gate 2
-re-run for this cycle is next (gate2-c3-r2.txt); fix what it finds, then stop.
+re-run for this cycle ran (gate2-c3-r2.txt, D1-D10): D2, D4, D7 fixed with tests (gate1-c3-r2-fixes.txt, GOOD), D6 not
+reachable, D1/D3/D5/D8-D10 kept with reasons. Owner: stop re-running Gate 2 -- no further round.
 
 ## Open
 
-- **Owner:** commit `[cohorts.geography]` to `evals/metric_protocol.toml` (not seen landed). Do not measure P before it.
+- **Owner decision needed (cohort):** the protocol loads cohorts by `tier` only, so `[cohorts.geography]` as first described
+  (goldens that carry expect_geo_level) cannot be loaded. Recommended: use the existing frozen `long_tail` cohort (48 families,
+  all carry expect_geo_level; the metro golden counts as a miss until CC-106, 47/48 = 97.9%). Option 2: add a field filter to
+  metric_compare.py (instrument change). Correct plan D8 and the Jira comment once chosen. Do not measure P before it.
 - **E2E, once, on frozen code**, in an isolated worktree, HEAD identical at start and end:
   `bash evidence/slice-6/cc-133/e2e-r4/driver.sh` pattern (copy it to `evidence/slice-6/cc-104/e2e/`). Quote gated keys
   and `demo.misses` only; `metric_compare compare ... --refs A,A0`; then `git checkout -- evidence/latest.json` and delete
