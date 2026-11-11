@@ -1,0 +1,52 @@
+CC-104 Gate 2, cycle 3 (owner-requested fresh cycle after rounds 1 and 2)
+branch cc-104/structured-geography
+reviewed HEAD 03779be against origin/main
+passes: (1) /code-review high origin/main  (2) review-pr (docs/playbooks/review-pr.md)
+
+=== MACHINES (review-pr, run first, at 03779be) ===
+pytest -m "not integration"   1430 passed, 34 skipped, 5 xfailed (4 time/product CC-129, 1 ZIP CC-135)
+ruff check / format --check   clean (259 files)        mypy api/src   Success: no issues found in 29 source files
+check_invariants --base       exit 0; api/src regex call sites 28 (base 55, delta -27); per file none rose (geo 16->0,
+                              finish 4->0, geo_list 20->4)
+check_budgets                 exit 1, only FAIL answered_rate 0.683 >= 0.7 (same value on main, inherited from the CC-114
+                              close). p95 row "waive" (owner waiver #130, the 2026-11-09 run only).
+                              api LOC 4780/4890, largest file 409/410, prompt tokens 1033/1200, doc lines 1807/1820.
+
+=== PASS 1: /code-review (10 findings, summaries) ===
+C1  geo_list.py:72  state_of reads "FIPS 39049"/"GEOID 06037"/"fips 3904" as a state from the first two digits: with a null
+                    level the user asks for a county and gets state:06. Silent wrong level.
+C2  geo.py:168      The multi-parent guard accepts bare "Washington" (a state name) but _list only parses a state from an
+                    entry with a comma: ambiguous candidates are taken as a parent's wildcard listing (hit.specs[0]).
+C3  geo_within.py:42 The dominance rule applies in tracts_in_place even to a state-qualified place ("Portland, OR");
+                    ask-path.md and _list restrict it to parents named without a state.
+C4  finish.py:164   _unit only tries 2-word and 1-word prefixes: "Census Block Group 3" is dropped, so the block-group
+                    requirement (state, county, tract) is never applied.
+C5  finish.py:218   given entries are compared to _ORDER verbatim: ["State","County"] or ["state "] gives an empty `have`
+                    and a complete question is refused.
+C6  geo.py:306      level "us" returns the nation before the entry is looked at: places=["Texas"], level="us" is us:1.
+C7  finish.py:336   The nationwide fallback is gone, so a place-less question reaches repair with no URL when the split call
+                    times out or reports level null. (The loop model is told to resolve the nation when none is named.)
+C8  geo_list.py:139 dominant compares ranked[0] and ranked[1] but ranking is by place class first; two zero populations
+                    count as dominant (0 >= 0).
+C9  finish.py:300   acs1 = wants_acs1(question): a wording read threaded through _split_parents' `right` check and repair args.
+C10 closure/CC-104.toml  pins head eb24581 while the branch head is 03779be.
+
+=== PASS 2: review-pr (invariants) ===
+Claim:      Migration. A question gets the same kind of answer as before; the geography run is now a function of the model's
+            structured fields and not the wording. New for users: a famous place needs no state; an ambiguous unqualified
+            listing parent returns candidates (no URL) instead of the largest match. Not a new feature.
+Evidence:   No E2E / MET numbers / closure PASS yet (owner's [cohorts.geography] commit not seen). Gate 1 transcripts are
+            test evidence only. NOT enough to ship.
+Scope:      ~35 files (test migration + docs); every file is geography execution or its tests. Over the "~15 files" guide with
+            reason. Added beyond the letter: the dominance rule and `given` (owner decisions in this cycle).
+Silent wrong answer: C1 (a county code answered as a state), C6 (a named place answered as the nation) and C2 (a concrete place
+            for a listing) are silent-wrong-level/place answers and BLOCK. C3 changes a documented behaviour. C7 touches "URL is
+            the product". C4/C5 are completeness errors that fail open or refuse a valid question.
+Shape:      No new tool, route, model or node. ARCHITECTURE.md and ask-path.md updated.
+Tests:      Behaviour tests; Gate 1 c3 found 14 BADs, 13 strengthened, 1 fixed in 03779be. No prompt-wording assertions.
+Rule check: C9 is a wording read in changed lines (CLAUDE.md "never interpret question wording"). `wants_acs1` is the time/
+            product story's (CC-129); the NEW use in _split_parents is removable and is removed in this cycle.
+
+VERDICT: NOT YET.
+Single most important reason: C1, C6 and C2 are silent-wrong-answer findings in code written this cycle. After the fixes
+(tests + mutation checks): the E2E, closure rows and cohort evidence are still missing.
