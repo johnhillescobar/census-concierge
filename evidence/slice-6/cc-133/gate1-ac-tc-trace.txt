@@ -1,0 +1,15 @@
+CAUGHT   freeze skips cohorts
+CAUGHT   freeze exit code
+CAUGHT   hash ignores expect_table
+SURVIVED hash ignores holdout flag
+CAUGHT   anchor file altered
+CAUGHT   ledger refs empty
+CAUGHT   promote writes no L
+CAUGHT   decrease not FAIL
+CAUGHT   promote ignores compare
+CAUGHT   L labelled with checkout head
+survivors/missing: 1
+
+Note: the surviving "hash ignores holdout flag" mutant is equivalent. cohort() already excludes every
+holdout-flagged golden (protocol selection.exclude_flags), so the flag is always falsy for a cohort member
+and cannot change a cohort hash. 9 of 10 caught; 0 real survivors.

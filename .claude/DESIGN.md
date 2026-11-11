@@ -118,10 +118,9 @@ nothing.
    apart from code gains.
 
 ### Understanding and completion gates (2026-11-08)
-CC-133 implements early independent oracles, baselines, isolation tests and AC/TC closure checks; CC-132 certifies the final release. PLAN contains per-story targets and cumulative non-regression rules; Jira carries the full protocol. These are future gates, not current performance claims.
 Final regression AND sealed gates: repeat 3, joint interpretation >=98% overall and >=95% per category (case and trial rates), overall 95% confidence lower bound >=95%; >=200 independent families/suite and >=30/category. Categories: geography/coverage, time/product, measure/universe/cells, operations, follow-ups and ambiguous/incomplete/unavailable cases. All applicable fields must match independently reviewed expectations; cluster paraphrases/repeats by family.
 Supported answerable-request determinate coverage >=95%, accuracy among determinate interpretations >=98%; report negative controls separately. Freeze oracle/scorer and sampling before results; self-confidence is not proof. Fixed intent must execute identically under changed/absent question wording, including repair. Wrong cells/coverage fail despite HTTP success. Zero silent substitutions/fabrications in acceptance suites is not a universal guarantee.
-Every in-scope AC/TC requires verified PASS evidence before shipping; post-merge E2E precedes Done. The canonical run-slice matrix applies now; CC-133 adds automation. Missing evidence/precision blocks readiness; no budget or quality-gate weakening.
+Every in-scope AC/TC requires verified PASS evidence before shipping; post-merge E2E precedes Done. The canonical run-slice matrix applies now and CC-133's instrument enforces it (`scripts/closure.py`, `scripts/metric_compare.py`, `api/tests/test_execution_isolation.py`); CC-132 certifies the final release. PLAN holds per-story targets and cumulative non-regression rules, Jira the full protocol; these are future gates, not current performance claims. Missing evidence/precision blocks readiness; no budget or quality-gate weakening.
 
 ## 9. Open decisions
 

@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import io
+import json
 import re
 import subprocess
 import sys
@@ -28,6 +30,7 @@ from pathlib import Path
 from typing import TypeGuard
 
 import budget_log
+import closure
 
 ROOT = Path(__file__).resolve().parent.parent
 API_SRC = ROOT / "api" / "src"
@@ -701,6 +704,172 @@ def check_no_new_exemptions(base: str) -> list[Violation]:
     return found
 
 
+def check_closure_manifests() -> list[Violation]:
+    """A closure manifest in the tree must be well formed. Whether it is complete is decided when
+    the ticket closes (scripts/closure.py), because a ticket in progress has rows not yet run."""
+    found: list[Violation] = []
+    for path in sorted((EVIDENCE / "closure").glob("*.toml")):
+        rel = path.relative_to(ROOT).as_posix()
+        found += [Violation(rel, line) for line in closure.check_file(path, readiness=False)]
+    return found
+
+
+PROTOCOL = "evals/metric_protocol.toml"
+# (section, key): a value may never fall / rise / change, and a list may never lose / gain a name.
+PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))
+PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))
+PROTOCOL_NOT_HIGHER = (("sampling", "max_regression"),)
+PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))
+PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))
+PROTOCOL_KEEP = (("scorer", "symbols"),)  # the old names must all remain
+PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))
+
+
+def check_protocol_not_weakened(base: str) -> list[Violation]:
+    """The frozen sampling protocol is loosened only by its owner, in its own commit. A looser
+    interval, a smaller sample, a new exclusion, a dropped scorer symbol or cohort, or a new seed
+    would let a failing run pass; a changed hash is also what makes old results incomparable."""
+    old_text = _text_at(base, PROTOCOL)
+    if old_text is None:
+        return []
+    try:
+        old = tomllib.loads(old_text)
+        new = tomllib.loads((ROOT / PROTOCOL).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        return [Violation(PROTOCOL, f"the protocol is missing or unreadable ({exc})")]
+    found: list[Violation] = []
+
+    def flag(where: str, why: str) -> None:
+        found.append(
+            Violation(f"{PROTOCOL} {where}", f"{why}. This belongs in its own commit, by a human.")
+        )
+
+    def number(doc: dict, section: str, key: str) -> float | None:
+        value = doc.get(section, {}).get(key)
+        return float(value) if isinstance(value, int | float) else None
+
+    def names(doc: dict, section: str, key: str) -> set[str]:
+        return {str(item) for item in doc.get(section, {}).get(key) or []}
+
+    for section, key in PROTOCOL_NOT_LOWER:
+        before, after = number(old, section, key), number(new, section, key)
+        if before is not None and (after is None or after < before):
+            flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
+    for section, key in PROTOCOL_NOT_HIGHER:
+        before, after = number(old, section, key), number(new, section, key)
+        if before is not None and (after is None or after > before):
+            flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
+    for section, key in PROTOCOL_UNCHANGED:
+        before = (old.get(section, {}) if section else old).get(key)
+        after = (new.get(section, {}) if section else new).get(key)
+        if before != after:
+            flag(f"[{section}] {key}", f"{before!r} -> {after!r}: a frozen setting changed")
+    for section, key in PROTOCOL_KEEP:
+        if lost := names(old, section, key) - names(new, section, key):
+            flag(f"[{section}] {key}", f"dropped {sorted(lost)}")
+    for section, key in PROTOCOL_NO_NEW:
+        if added := names(new, section, key) - names(old, section, key):
+            flag(f"[{section}] {key}", f"new exclusion {sorted(added)} shrinks the denominator")
+    for name, spec in old.get("cohorts", {}).items():
+        now = new.get("cohorts", {}).get(name)
+        if now is None:
+            flag(f"[cohorts.{name}]", "cohort dropped")
+        elif {k: now.get(k) for k in ("tier", "source")} != {
+            k: spec.get(k) for k in ("tier", "source")
+        }:
+            flag(f"[cohorts.{name}]", "the cohort now draws from a different tier or source")
+    return found
+
+
+METRIC_RECORDS = ("evidence/metrics/references.json", "evidence/metrics/ledger.jsonl")
+
+
+def _json_object(text: str) -> dict:
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _json_list(text: str | None) -> list:
+    # an unreadable or non-list file is one marker entry that carries the text's hash, so two
+    # different bad files never compare equal and a change to one is never invisible
+    mark = hashlib.sha256((text or "").encode("utf-8", errors="replace")).hexdigest()[:12]
+    try:
+        value = json.loads(text or "[]")
+    except json.JSONDecodeError:
+        return [f"<unreadable {mark}>"]
+    return value if isinstance(value, list) else [f"<not a list {mark}>"]
+
+
+def check_metric_records_not_rewritten(base: str) -> list[Violation]:
+    """References are immutable (only L moves, and only by `promote`), the ledger is append-only,
+    and bridges are owner-only."""
+    found: list[Violation] = []
+
+    def flag(rel: str, why: str) -> None:
+        found.append(Violation(rel, why))
+
+    def now(rel: str) -> str:
+        path = ROOT / rel
+        if not path.is_file():
+            return ""
+        return path.read_bytes().decode("utf-8", errors="replace").replace("\r\n", "\n")
+
+    refs, ledger = METRIC_RECORDS
+    old = _text_at(base, refs)  # a store that does not exist at the base starts empty, unchecked
+    if old is not None or now(refs):
+        try:
+            before, after = json.loads(old or "{}"), json.loads(now(refs) or "{}")
+            if not isinstance(before, dict) or not isinstance(after, dict):
+                raise json.JSONDecodeError("not an object", "", 0)
+        except json.JSONDecodeError:
+            before, after = {}, {}
+            flag(refs, "references.json is not a valid JSON object")
+        for name, entry in before.items():
+            if name != "L" and after.get(name) != entry:
+                flag(refs, f"reference {name} was changed or removed; references are immutable")
+        if "L" in before and "L" not in after:
+            flag(refs, "reference L was removed; only `promote` moves it")
+        if "L" in after:
+            entry = after["L"]
+            keys = ("run", "head", "run_sha256")
+            if not isinstance(entry, dict) or not all(
+                isinstance(entry.get(k), str) and entry.get(k) for k in keys
+            ):
+                flag(refs, "reference L is not a complete entry (run, head, run_sha256)")
+            elif entry != before.get("L"):
+                # L moves only through `promote`, which appends a PASS record that names the
+                # same run, file hash and producing head the new L carries, judged against A
+                # and the L it replaces
+                grown = now(ledger)[len((_text_at(base, ledger) or "").replace("\r\n", "\n")) :]
+                records = [_json_object(line) for line in grown.splitlines()]
+                held = {"A", *(["L"] if "L" in before else [])}  # what a promotion is judged by
+                if not any(
+                    r.get("verdict") == "PASS"
+                    and all(r.get(k) == entry[k] for k in ("run", "run_sha256"))
+                    and r.get("run_head") == entry["head"]
+                    and isinstance(r.get("refs"), list)
+                    and held <= set(r["refs"])
+                    for r in records
+                ):
+                    flag(refs, "reference L changed with no matching PASS record in the ledger")
+    if (old := _text_at(base, ledger)) is not None and not now(ledger).startswith(
+        old.replace("\r\n", "\n")
+    ):
+        flag(ledger, "the ledger is append-only; an earlier record was changed or removed")
+    bridges = "evidence/metrics/bridges.json"
+    was_bridges = _json_list(_text_at(base, bridges))
+    for entry in _json_list(now(bridges)):
+        if entry not in was_bridges:
+            flag(bridges, "a bridge changes what a scorer change means: owner-only, its own commit")
+    for entry in was_bridges:
+        if entry not in _json_list(now(bridges)):
+            flag(bridges, "a bridge was removed or changed")
+    return found
+
+
 def check_mandatory_catalogs() -> list[Violation]:
     """Agent catalogs must exist. Does not validate their prose."""
     found: list[Violation] = []
@@ -729,6 +898,7 @@ CHECKS: tuple[tuple[str, Callable[[], list[Violation]]], ...] = (
     ("mandatory catalogs", check_mandatory_catalogs),
     ("budget log matches values", check_budget_log_matches_values),
     ("eval phrasing in api/src", check_no_eval_phrasing_in_api_src),
+    ("closure manifests", check_closure_manifests),
 )
 
 
@@ -738,10 +908,14 @@ def collect(base: str | None) -> list[tuple[str, list[Violation]]]:
         rows.append(("budget increases", check_budgets_not_weakened(base)))
         rows.append(("new regex", check_no_new_regex(base)))
         rows.append(("new exemptions", check_no_new_exemptions(base)))
+        rows.append(("protocol weakened", check_protocol_not_weakened(base)))
+        rows.append(("metric records rewritten", check_metric_records_not_rewritten(base)))
     else:
         rows.append(("budget increases", []))
         rows.append(("new regex", []))
         rows.append(("new exemptions", []))
+        rows.append(("protocol weakened", []))
+        rows.append(("metric records rewritten", []))
     return rows
 
 
@@ -773,7 +947,9 @@ def main() -> int:
     print("\nINVARIANTS\n")
     failed = 0
     for name, violations in rows:
-        if name in {"budget increases", "new regex", "new exemptions"} and not args.base:
+        diffed = {"budget increases", "new regex", "new exemptions", "protocol weakened"}
+        diffed |= {"metric records rewritten"}
+        if name in diffed and not args.base:
             print(f"  skip  {name:<{width}}  pass --base to diff against a ref")
             continue
         if not violations:

@@ -119,6 +119,31 @@ def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[st
     return sorted(fetched - legs), sorted(legs - fetched if isinstance(expected, list) else [])
 
 
+def has_moe(body: dict[str, Any]) -> bool:
+    """Every returned estimate in every row had its M variable fetched. The contract is to fetch M
+    with each E, so a fetched M that Census suppressed (null or a sentinel) still counts, while one
+    M beside two Es, or an E with no M column at all, does not. A row with no estimate column (a
+    decennial count) owes none."""
+    rows = body.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    return bool(rows) and all(
+        isinstance(row, dict) and all(f"{key[:-1]}M" in row for key in row if _is_estimate(key))
+        for row in rows
+    )
+
+
+def _is_estimate(key: str) -> bool:
+    """A Census estimate column such as B01003_001E; the same rule moe_rows applies."""
+    return key.endswith("E") and "_" in key
+
+
+def has_geoid(body: dict[str, Any]) -> bool:
+    """Every returned row names its GEOID. The top-level `geoid` is empty when many rows return."""
+    rows = body.get("rows")
+    rows = rows if isinstance(rows, list) else []
+    return bool(rows) and all(isinstance(r, dict) and r.get("GEO_ID") for r in rows)
+
+
 def census_urls(body: dict[str, Any]) -> list[str]:
     items = body.get("urls")
     if not isinstance(items, list):
@@ -269,6 +294,10 @@ class Trial:
     rows: int = 0
     t_rerank: float = 0.0
     t_embed: float = 0.0
+    has_moe: bool = False  # the response contract, recorded so a comparison can check it
+    has_geoid: bool = False
+    has_universe: bool = False
+    has_alternatives: bool = False
 
 
 def install_clock(clock: Clock) -> None:
@@ -347,10 +376,21 @@ def trial_record(trial: Trial) -> dict[str, Any]:
         "t_rerank": round(trial.t_rerank, 3),
         "t_embed": round(trial.t_embed, 3),
         "rows": trial.rows,
+        "has_moe": trial.has_moe,
+        "has_geoid": trial.has_geoid,
+        "has_universe": trial.has_universe,
+        "has_alternatives": trial.has_alternatives,
     }
 
 
-def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> dict[str, Any]:
+def summarize(
+    trials: list[Trial],
+    *,
+    repeat: int,
+    prompt: str,
+    index: str,
+    stamp: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     latencies = [trial.latency_s for trial in trials]
     long_tail = [trial for trial in trials if trial.tier == "long_tail"]
     records = [trial_record(trial) for trial in trials]
@@ -383,7 +423,40 @@ def summarize(trials: list[Trial], *, repeat: int, prompt: str, index: str) -> d
         "by_tier": by_tier,
         "trials": records,
         "misses": [record for record in records if not record["answered"]],
+        "provenance": provenance() if stamp is None else stamp,
     }
+
+
+def provenance() -> dict[str, Any]:
+    """The head and the scorer, cohort and protocol hashes this run was scored under, so a later
+    comparison judges the run by what produced it and not by whatever is checked out then. Any
+    failure gives {}: the run is kept and reads as having no provenance, never lost."""
+    import subprocess
+
+    import metric_compare
+
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, check=True, text=True
+        ).stdout.strip()
+        touched = subprocess.run(
+            ["git", "status", "--porcelain", "--", *metric_compare.MEASURED],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.strip()
+        return {"head": head, **metric_compare.hashes(), "dirty": bool(touched)}
+    except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError, KeyError):
+        return {}
+
+
+def unmoved(started: dict[str, Any]) -> dict[str, Any]:
+    """The stamp taken before the first question, or none if the checkout moved during the run:
+    the trials then measured more than one head."""
+    now = provenance()
+    same = all(now.get(k) == started.get(k) for k in ("head", "dirty"))
+    return started if now and same else {}
 
 
 def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial:
@@ -431,6 +504,10 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
         rows=len(body.get("rows") or []),
         t_rerank=clock.seconds("rerank"),
         t_embed=clock.seconds("embed"),
+        has_moe=has_moe(body),
+        has_geoid=has_geoid(body),
+        has_universe=bool(body.get("universe")),
+        has_alternatives=bool(body.get("alternatives")),
     )
 
 
@@ -523,6 +600,7 @@ def main() -> int:
     install_clock(clock)
     prompt = short_hash(ROLE)
     index = index_hash()
+    started = provenance()  # taken before the first question: the code that is being measured
     trials: list[Trial] = []
     # Entered as a context manager: a bare TestClient leaves one event loop alive per request.
     with TestClient(app) as client:
@@ -555,7 +633,9 @@ def main() -> int:
                         f"  {trial.table_id or '—'}  {trial.detail}"
                     )
 
-    summary = summarize(trials, repeat=args.repeat, prompt=prompt, index=index)
+    summary = summarize(
+        trials, repeat=args.repeat, prompt=prompt, index=index, stamp=unmoved(started)
+    )
     blob = json.dumps(summary)
     if leaks_key(blob):
         print("Refusing to write evidence: a Census key leaked into the record.", file=sys.stderr)

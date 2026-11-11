@@ -1,0 +1,522 @@
+CC-133 Gate 1 on the FIXES: mutation check of the tests added in 71fa8d5 (on top of 8f8ac92)
+worktree detached at 71fa8d5 (git checkout --detach 71fa8d5); main checkout untouched
+start: HEAD=71fa8d5b9b9f3852572cc2124a3689316e7d5bcb status --short=[]
+method: one behaviour reverted at a time in the source; each named test run alone with
+  uv run pytest <nodeid> -q -p no:cacheprovider; file restored with git checkout -- <file>;
+  git diff verified empty before the next mutation. A test that passes on broken code = SURVIVED.
+
+GOOD   unmodified code, the 32 test functions under mutation
+.........................................................                [100%]
+57 passed, 1 warning in 1.51s
+
+BAD   mutation: c01 evidence outside the repository is accepted   [scripts/closure.py]
+      change: 'if not path.is_relative_to(root.resolve()):' -> 'if False:'
+      CAUGHT   test_evidence_outside_the_repository_is_refused  =>  1 failed, 1 warning in 1.39s
+               E   assert False
+      restored: git diff EMPTY
+
+BAD   mutation: c02 a mutation evidence file need not exist   [scripts/closure.py]
+      change: '_evidence_problems(mutation, name, root)' -> '[]'
+      CAUGHT   test_new_tests_need_a_mutation_check_on_record  =>  1 failed, 1 warning in 1.27s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: c03 required_ids needs no terminator after the number   [scripts/closure.py]
+      change: 'if number and digits[len(number) : len(number) + 1] in {".", ":", ")"}:' -> 'if number:'
+      CAUGHT   test_identifiers_are_read_from_the_start_of_each_line_only  =>  1 failed, 1 warning in 0.15s
+               E   AssertionError: assert ['AC1', 'AC2'...'TC10', 'AC3'] == ['AC1', 'AC2', 'TC1']
+      restored: git diff EMPTY
+
+BAD   mutation: c04 required_ids reads an identifier anywhere in a line   [scripts/closure.py]
+      change: 'for line in text.splitlines():' -> 'for line in text.replace(" ", "\\n").splitlines():'
+      CAUGHT   test_identifiers_are_read_from_the_start_of_each_line_only  =>  1 failed, 1 warning in 0.19s
+               E   AssertionError: assert ['AC1', 'AC2', 'AC9', 'TC1'] == ['AC1', 'AC2', 'TC1']
+      restored: git diff EMPTY
+
+BAD   mutation: c05 required_ids does not tolerate bullets / bold markers   [scripts/closure.py]
+      change: 'rest = line.strip().lstrip(" \\t-*+#>_`|\\u2022").upper()' -> 'rest = line.strip().upper()'
+      CAUGHT   test_ids_in_ordinary_jira_formatting_are_still_required  =>  2 failed, 4 passed, 1 warning in 0.19s
+               E   AssertionError: assert []
+               failed: test_ids_in_ordinary_jira_formatting_are_still_required[- AC1. x]
+               failed: test_ids_in_ordinary_jira_formatting_are_still_required[**AC1.** x]
+      restored: git diff EMPTY
+
+BAD   mutation: c06 required_ids is case sensitive   [scripts/closure.py]
+      change: 'rest = line.strip().lstrip(" \\t-*+#>_`|\\u2022").upper()' -> 'rest = line.strip().lstrip(" \\t-*+#>_`|\\u2022")'
+      CAUGHT   test_ids_in_ordinary_jira_formatting_are_still_required  =>  1 failed, 5 passed, 1 warning in 0.17s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: c07 required_ids does not tolerate a space before the number   [scripts/closure.py]
+      change: 'digits = rest[2:].lstrip(" ")' -> 'digits = rest[2:]'
+      CAUGHT   test_ids_in_ordinary_jira_formatting_are_still_required  =>  1 failed, 5 passed, 1 warning in 0.21s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: c08 required_ids does not accept ':' as terminator   [scripts/closure.py]
+      change: 'in {".", ":", ")"}:' -> 'in {".", ")"}:'
+      CAUGHT   test_ids_in_ordinary_jira_formatting_are_still_required  =>  1 failed, 5 passed, 1 warning in 0.24s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: c09 required_ids does not accept ')' as terminator   [scripts/closure.py]
+      change: 'in {".", ":", ")"}:' -> 'in {".", ":"}:'
+      CAUGHT   test_ids_in_ordinary_jira_formatting_are_still_required  =>  1 failed, 5 passed, 1 warning in 0.19s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: c10 an amendment need not name an owner   [scripts/closure.py]
+      change: '("id", "date", "owner", "reason", "destination")' -> '("id", "date", "reason", "destination")'
+      CAUGHT   test_an_amended_row_needs_a_dated_owner_amendment  =>  1 failed, 1 warning in 1.38s
+               E   AssertionError: owner
+      restored: git diff EMPTY
+
+BAD   mutation: c11 an amendment need not give a reason   [scripts/closure.py]
+      change: '("id", "date", "owner", "reason", "destination")' -> '("id", "date", "owner", "destination")'
+      CAUGHT   test_an_amended_row_needs_a_dated_owner_amendment  =>  1 failed, 1 warning in 1.26s
+               E   AssertionError: reason
+      restored: git diff EMPTY
+
+BAD   mutation: c12 an amendment need not name a destination   [scripts/closure.py]
+      change: '("id", "date", "owner", "reason", "destination")' -> '("id", "date", "owner", "reason")'
+      CAUGHT   test_an_amended_row_needs_a_dated_owner_amendment  =>  1 failed, 1 warning in 1.03s
+               E   AssertionError: destination
+      restored: git diff EMPTY
+
+BAD   mutation: c13 the post-merge evidence file need not exist   [scripts/closure.py]
+      change: 'out += _evidence_problems(e2e, "post_merge", root)' -> 'pass'
+      CAUGHT   test_the_post_merge_evidence_file_must_exist  =>  1 failed, 1 warning in 1.20s
+               E   assert False
+      restored: git diff EMPTY
+
+BAD   mutation: c14 a malformed manifest crashes instead of blocking   [scripts/closure.py]
+      change: 'except (OSError, ValueError, TypeError, AttributeError, KeyError) as exc:' -> 'except (OSError, tomllib.TOMLDecodeError) as exc:'
+      CAUGHT   test_a_malformed_manifest_blocks_instead_of_crashing  =>  1 failed, 1 warning in 0.21s
+               E   TypeError: 'int' object is not iterable
+      restored: git diff EMPTY
+
+BAD   mutation: j01 a Story/Bug with no AC/TC ids is waved through   [scripts/jira_transition.py]
+      change: 'if kind in {"story", "bug"}:' -> 'if False:'
+      CAUGHT   test_a_story_with_no_recognised_ids_is_refused_not_waved_through  =>  1 failed, 1 warning in 0.23s
+               E   Failed: DID NOT RAISE SystemExit
+      restored: git diff EMPTY
+
+BAD   mutation: j02 an Epic with no ids is refused like a Story   [scripts/jira_transition.py]
+      change: 'if kind in {"story", "bug"}:' -> 'if True:'
+      CAUGHT   test_an_epic_with_no_ids_needs_no_manifest  =>  1 failed, 1 warning in 0.29s
+               E   SystemExit: 1
+      restored: git diff EMPTY
+
+BAD   mutation: j03 only the status named Done is gated (Closed skips the gate)   [scripts/jira_transition.py]
+      change: 'return to.get("statusCategory", {}).get("key") == "done"' -> 'return wanted == "done"'
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write  =>  1 failed, 3 passed, 1 warning in 0.16s
+               E   Failed: DID NOT RAISE SystemExit
+      restored: git diff EMPTY
+
+BAD   mutation: j04 every transition is gated, done or not   [scripts/jira_transition.py]
+      change: 'wanted = str(target or "").strip().lower()' -> 'return True'
+      CAUGHT   test_a_move_that_is_not_done_does_not_meet_the_gate  =>  1 failed, 1 warning in 0.16s
+               E   SystemExit: 1
+      restored: git diff EMPTY
+
+BAD   mutation: j05 the target name is compared case-sensitively   [scripts/jira_transition.py]
+      change: 'wanted = str(target or "").strip().lower()' -> 'wanted = str(target or "").strip()'
+      CAUGHT   test_both_done_paths_stop_at_a_refused_closure_before_any_write  =>  3 failed, 1 passed, 1 warning in 0.18s
+               E   Failed: DID NOT RAISE SystemExit
+               failed: test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv0]
+               failed: test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv1]
+               failed: test_both_done_paths_stop_at_a_refused_closure_before_any_write[argv3]
+      restored: git diff EMPTY
+
+BAD   mutation: j06 the issue key is not validated   [scripts/jira_transition.py]
+      change: 'parser.error(f"{args.issue!r} is not an issue key like CC-21")' -> 'pass'
+      CAUGHT   test_an_issue_key_that_is_not_a_key_is_refused_before_any_request  =>  5 failed, 1 warning in 0.19s
+               E   assert (1 == 2)
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[not a key]
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[CC-]
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[-7]
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[CC-7; rm -rf]
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[../CC-7]
+      restored: git diff EMPTY
+
+BAD   mutation: j07 the issue key check drops the project-letters test   [scripts/jira_transition.py]
+      change: 'if not (project.isalpha() and number.isdigit()):' -> 'if not number.isdigit():'
+      CAUGHT   test_an_issue_key_that_is_not_a_key_is_refused_before_any_request  =>  2 failed, 3 passed, 1 warning in 0.18s
+               E   assert (1 == 2)
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[-7]
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[../CC-7]
+      restored: git diff EMPTY
+
+BAD   mutation: j08 the issue key check drops the numeric-suffix test   [scripts/jira_transition.py]
+      change: 'if not (project.isalpha() and number.isdigit()):' -> 'if not project.isalpha():'
+      CAUGHT   test_an_issue_key_that_is_not_a_key_is_refused_before_any_request  =>  2 failed, 3 passed, 1 warning in 0.19s
+               E   assert (1 == 2)
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[CC-]
+               failed: test_an_issue_key_that_is_not_a_key_is_refused_before_any_request[CC-7; rm -rf]
+      restored: git diff EMPTY
+
+BAD   mutation: i01 min_families may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))' -> 'PROTOCOL_NOT_LOWER = (("sampling", "confidence"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.20s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i02 confidence may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))' -> 'PROTOCOL_NOT_LOWER = (("sampling", "min_families"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.27s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i03 repeat may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))' -> 'PROTOCOL_NOT_LOWER += (("sampling", "resamples"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.36s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i04 resamples may fall   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))' -> 'PROTOCOL_NOT_LOWER += (("sampling", "repeat"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.20s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i05 max_regression may rise   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NOT_HIGHER = (("sampling", "max_regression"),)' -> 'PROTOCOL_NOT_HIGHER = ()'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.23s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i06 case_rule may change   [scripts/check_invariants.py]
+      change: 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))' -> 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("stopping", "seed", "blocks"))'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.32s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i07 stopping may change   [scripts/check_invariants.py]
+      change: 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))' -> 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "seed", "blocks"))'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.33s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i08 seed may change   [scripts/check_invariants.py]
+      change: 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))' -> 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "blocks"))'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.22s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i09 blocks may change   [scripts/check_invariants.py]
+      change: 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))' -> 'PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed"))'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.22s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i10 scorer.source may be repointed   [scripts/check_invariants.py]
+      change: 'PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))' -> 'PROTOCOL_UNCHANGED += (("", "version"),)'
+      CAUGHT   test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard  =>  1 failed, 2 passed, 1 warning in 0.21s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i11 protocol version may change   [scripts/check_invariants.py]
+      change: 'PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))' -> 'PROTOCOL_UNCHANGED += (("scorer", "source"),)'
+      CAUGHT   test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard  =>  1 failed, 2 passed, 1 warning in 0.19s
+               E   AssertionError: assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i12 a scorer symbol may be dropped   [scripts/check_invariants.py]
+      change: 'PROTOCOL_KEEP = (("scorer", "symbols"),)' -> 'PROTOCOL_KEEP = ()'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.31s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i13 an availability exclusion may be added   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))' -> 'PROTOCOL_NO_NEW = (("selection", "exclude_flags"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.24s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i14 a selection exclude_flag may be added   [scripts/check_invariants.py]
+      change: 'PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))' -> 'PROTOCOL_NO_NEW = (("sampling", "exclusions"),)'
+      CAUGHT   test_loosening_the_frozen_protocol_fails  =>  1 failed, 11 passed, 1 warning in 0.30s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i15 a cohort may be repointed to a different tier   [scripts/check_invariants.py]
+      change: 'elif {k: now.get(k) for k in ("tier", "source")} != {\n            k: spec.get(k) for k in ("tier", "source")\n        }:' -> 'elif {k: now.get(k) for k in ("source",)} != {\n            k: spec.get(k) for k in ("source",)\n        }:'
+      CAUGHT   test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard  =>  1 failed, 2 passed, 1 warning in 0.22s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i16 a cohort may be repointed to a different source (extra, not named by a test)   [scripts/check_invariants.py]
+      change: 'elif {k: now.get(k) for k in ("tier", "source")} != {\n            k: spec.get(k) for k in ("tier", "source")\n        }:' -> 'elif {k: now.get(k) for k in ("tier",)} != {\n            k: spec.get(k) for k in ("tier",)\n        }:'
+      SURVIVED test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard  =>  3 passed, 1 warning in 0.11s
+      restored: git diff EMPTY
+
+BAD   mutation: i17 a cohort may be dropped   [scripts/check_invariants.py]
+      change: 'flag(f"[cohorts.{name}]", "cohort dropped")' -> 'pass'
+      CAUGHT   test_dropping_a_cohort_fails_the_protocol_guard  =>  1 failed, 1 warning in 0.19s
+               E   assert False
+      restored: git diff EMPTY
+
+BAD   mutation: i18 a missing/unreadable protocol file crashes instead of a violation   [scripts/check_invariants.py]
+      change: 'except (OSError, tomllib.TOMLDecodeError) as exc:\n        return [Violation(PROTOCOL, f"the protocol is missing or unreadable ({exc})")]' -> 'except tomllib.TOMLDecodeError as exc:\n        return [Violation(PROTOCOL, f"the protocol is missing or unreadable ({exc})")]'
+      CAUGHT   test_a_deleted_protocol_file_is_a_violation_not_a_crash  =>  1 failed, 1 warning in 0.25s
+               E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\johnh\\AppData\\Local\\Temp\\pytest-of-johnh\\pytest-1126\\test_a_deleted_protocol_file_i0\\evals\\metric_protocol.toml'
+      restored: git diff EMPTY
+
+BAD   mutation: i19 a registered reference may be edited   [scripts/check_invariants.py]
+      change: 'if name != "L" and after.get(name) != entry:' -> 'if False:'
+      CAUGHT   test_a_registered_reference_cannot_be_edited_but_l_may_move_and_a_new_one_may_be_added  =>  1 failed, 1 warning in 0.23s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i20 L may not move either (L treated as immutable)   [scripts/check_invariants.py]
+      change: 'if name != "L" and after.get(name) != entry:' -> 'if after.get(name) != entry:'
+      CAUGHT   test_a_registered_reference_cannot_be_edited_but_l_may_move_and_a_new_one_may_be_added  =>  1 failed, 1 warning in 0.22s
+               E   AssertionError: assert [Violation(wh...e immutable')] == []
+      restored: git diff EMPTY
+
+BAD   mutation: i21 a registered reference may be removed   [scripts/check_invariants.py]
+      change: 'if name != "L" and after.get(name) != entry:' -> 'if name in after and name != "L" and after[name] != entry:'
+      CAUGHT   test_a_registered_reference_cannot_be_edited_but_l_may_move_and_a_new_one_may_be_added  =>  1 failed, 1 warning in 0.21s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i22 the ledger may be rewritten   [scripts/check_invariants.py]
+      change: 'if (old := _text_at(base, ledger)) is not None and not now(ledger).startswith(' -> 'if False and (old := _text_at(base, ledger)) is not None and not now(ledger).startswith('
+      CAUGHT   test_the_ledger_only_grows  =>  1 failed, 1 warning in 0.20s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i23 the ledger check only looks at length   [scripts/check_invariants.py]
+      change: 'not now(ledger).startswith(\n        old.replace("\\r\\n", "\\n")\n    ):' -> 'len(now(ledger)) < len(old):'
+      CAUGHT   test_the_ledger_only_grows  =>  1 failed, 1 warning in 0.21s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i24 an oracle signature may be added or changed   [scripts/check_invariants.py]
+      change: 'if was.get(case) != review:' -> 'if False:'
+      CAUGHT   test_an_oracle_signature_is_never_added_in_the_change_it_would_let_pass  =>  1 failed, 1 warning in 0.18s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: i25 an oracle signature may be changed (only additions flagged)   [scripts/check_invariants.py]
+      change: 'if was.get(case) != review:' -> 'if case not in was:'
+      CAUGHT   test_an_oracle_signature_is_never_added_in_the_change_it_would_let_pass  =>  1 failed, 1 warning in 0.17s
+               E   assert []
+      restored: git diff EMPTY
+
+BAD   mutation: m01 a bridge judges against the original reference, not the rescored run   [scripts/metric_compare.py]
+      change: 'run_path, label = bridge["rescored_run"], f"{label}; bridged: {bridge[\'note\']}"' -> 'label = f"{label}; bridged: {bridge[\'note\']}"'
+      CAUGHT   test_a_bridge_judges_against_the_rescored_run_not_the_original  =>  1 failed, 1 warning in 0.23s
+               E   AssertionError: assert 'PASS' == 'FAIL'
+      restored: git diff EMPTY
+
+BAD   mutation: m02 a bridge whose rescored run is not sha-pinned is accepted   [scripts/metric_compare.py]
+      change: 'if not pinned:' -> 'if False:'
+      CAUGHT   test_a_bridge_whose_rescored_run_is_not_pinned_is_refused  =>  1 failed, 1 warning in 0.26s
+               E   StopIteration
+      restored: git diff EMPTY
+
+BAD   mutation: m03 the sha pin compares nothing (file existence only)   [scripts/metric_compare.py]
+      change: 'hashlib.sha256(rescored.read_bytes()).hexdigest() == bridge.get("rescored_sha256")' -> 'True'
+      CAUGHT   test_a_bridge_whose_rescored_run_is_not_pinned_is_refused  =>  1 failed, 1 warning in 0.25s
+               E   StopIteration
+      restored: git diff EMPTY
+
+BAD   mutation: m04 runs with no index hash are comparable   [scripts/metric_compare.py]
+      change: 'if not cand.index_hash or cand.index_hash != ref.index_hash:' -> 'if cand.index_hash != ref.index_hash:'
+      CAUGHT   test_runs_with_no_index_hash_are_not_comparable  =>  1 failed, 1 warning in 0.25s
+               E   StopIteration
+      restored: git diff EMPTY
+
+BAD   mutation: m05 a reported answered_rate need not match the trials   [scripts/metric_compare.py]
+      change: 'agrees = abs(rate - run.scalars["answered_rate"]) <= 0.001' -> 'agrees = True'
+      CAUGHT   test_a_reported_answered_rate_that_the_trials_do_not_support_fails  =>  1 failed, 1 warning in 0.17s
+               E   AssertionError: assert 'PASS' == 'FAIL'
+      restored: git diff EMPTY
+
+BAD   mutation: m06 only the first answered trial is checked for contract keys (crash on a later one)   [scripts/metric_compare.py]
+      change: 'if answered and not all(k in t for t in answered for k in CONTRACT_KEYS):' -> 'if answered and not all(k in answered[0] for k in CONTRACT_KEYS):'
+      CAUGHT   test_one_trial_without_contract_fields_is_unknown_not_a_crash  =>  1 failed, 1 warning in 0.19s
+               E   KeyError: 'has_moe'
+      restored: git diff EMPTY
+
+BAD   mutation: m07 the scorer hash ignores annotated constants   [scripts/metric_compare.py]
+      change: 'targets = getattr(node, "targets", None) or [getattr(node, "target", None)]\n        names += [t.id for t in targets if isinstance(t, ast.Name)]  # Assign and AnnAssign' -> 'for target in getattr(node, "targets", []):\n            if isinstance(target, ast.Name):\n                names.append(target.id)'
+      CAUGHT   test_the_scorer_hash_sees_an_annotated_constant  =>  1 failed, 1 warning in 0.23s
+               E   AssertionError: assert '20b339408057056f' != '20b339408057056f'
+      restored: git diff EMPTY
+
+BAD   mutation: m08 references.json is written with the platform newline (CRLF on Windows)   [scripts/metric_compare.py]
+      change: '(METRICS / "references.json").write_bytes(text.encode("utf-8"))  # LF on every platform' -> '(METRICS / "references.json").write_text(text, encoding="utf-8")'
+      CAUGHT   test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only  =>  1 failed, 1 warning in 0.28s
+               E   assert b'\r\n' not in b'{\r\n  "A": {\r\n    "hashes": {\r\n      "cohorts": {\r\n        "c": "h"\r\n      },\r\n      "protocol": "p1",\r\...\\\next.json",\r\n    "run_sha256": "e4d447f5a04676f1
+      restored: git diff EMPTY
+
+BAD   mutation: m09 the ledger is overwritten, not appended   [scripts/metric_compare.py]
+      change: '(METRICS / "ledger.jsonl").open("ab")' -> '(METRICS / "ledger.jsonl").open("wb")'
+      CAUGHT   test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only  =>  1 failed, 1 warning in 0.36s
+               E   assert False
+      restored: git diff EMPTY
+
+BAD   mutation: m10 the ledger is appended in text mode (CRLF on Windows)   [scripts/metric_compare.py]
+      change: 'with (METRICS / "ledger.jsonl").open("ab") as handle:  # append-only, LF everywhere\n            handle.write(line.encode("utf-8"))' -> 'with (METRICS / "ledger.jsonl").open("a", encoding="utf-8") as handle:\n            handle.write(line)'
+      SURVIVED test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only  =>  1 passed, 1 warning in 0.20s
+      restored: git diff EMPTY
+
+BAD   mutation: m11 promotion removes L then re-registers it (two writes, a state with no L)   [scripts/metric_compare.py]
+      change: 'entry = build_entry(run_path, _head(), "accepted post-merge reference", legacy=False)\n    write_refs({**refs, "L": entry})  # one write: no state in which L is missing\n    print(f"L is now {entry[\'head\'][:7]}")\n    return 0' -> 'refs.pop("L", None)\n    write_refs(refs)\n    return cmd_register("L", run_path, _head(), "accepted post-merge reference")'
+      SURVIVED test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only  =>  1 passed, 1 warning in 0.18s
+      restored: git diff EMPTY
+
+BAD   mutation: m12 promote holds the candidate to A only, not to the current L   [scripts/metric_compare.py]
+      change: 'names = [n for n in ("A", "L") if n in refs]' -> 'names = ["A"]'
+      CAUGHT   test_a_candidate_that_passes_a_but_loses_to_l_does_not_become_l  =>  1 failed, 1 warning in 0.35s
+               E   AssertionError: assert 0 == 1
+      restored: git diff EMPTY
+
+BAD   mutation: m13 a case passes if any repeat answered   [scripts/metric_compare.py]
+      change: '"case": 1.0 if all(t["answered"] for t in items) else 0.0,' -> '"case": 1.0 if any(t["answered"] for t in items) else 0.0,'
+      CAUGHT   test_a_case_passes_only_if_every_repeat_answered  =>  1 failed, 1 warning in 0.21s
+               E   assert 1.0 == 0.0
+      restored: git diff EMPTY
+
+BAD   mutation: m14 an extra family is not flagged (only missing ones)   [scripts/metric_compare.py]
+      change: 'if set(grouped) != set(ids):' -> 'if set(ids) - set(grouped):'
+      SURVIVED test_a_family_outside_the_frozen_cohort_is_a_plan_error  =>  1 passed, 1 warning in 0.07s
+      restored: git diff EMPTY
+
+BAD   mutation: m15 the repeat-count check is also gone (extra family unflagged by any route)   [scripts/metric_compare.py]
+      change: 'if set(grouped) != set(ids):' -> 'if set(ids) - set(grouped):'
+      change: 'if sorted(int(t["repeat"]) for t in items) != list(range(1, repeat + 1)):' -> 'if False:'
+      CAUGHT   test_a_family_outside_the_frozen_cohort_is_a_plan_error  =>  1 failed, 1 warning in 0.18s
+               E   Failed: DID NOT RAISE PlanError
+      restored: git diff EMPTY
+
+BAD   mutation: m16 --legacy does nothing: a legacy register stores the live protocol hash   [scripts/metric_compare.py]
+      change: '"protocol": "legacy" if legacy else protocol_hash()' -> '"protocol": protocol_hash()'
+      SURVIVED api/tests/test_metric_compare.py  =>  36 passed, 1 warning in 1.20s
+      SURVIVED api/tests/test_closure_gate.py  =>  64 passed, 1 warning in 7.99s
+      restored: git diff EMPTY
+
+BAD   mutation: m17 every register is marked legacy (the protocol-hash check is always skipped)   [scripts/metric_compare.py]
+      change: '"protocol": "legacy" if legacy else protocol_hash()' -> '"protocol": "legacy"'
+      SURVIVED api/tests/test_metric_compare.py  =>  36 passed, 1 warning in 1.11s
+      SURVIVED api/tests/test_closure_gate.py  =>  64 passed, 1 warning in 7.80s
+      restored: git diff EMPTY
+
+BAD   mutation: m18 the protocol-hash check in compare is gone   [scripts/metric_compare.py]
+      change: 'if old["protocol"] not in ("legacy", now["protocol"]):' -> 'if False:'
+      SURVIVED api/tests/test_metric_compare.py  =>  36 passed, 1 warning in 1.20s
+      SURVIVED api/tests/test_closure_gate.py  =>  64 passed, 1 warning in 7.74s
+      restored: git diff EMPTY
+
+BAD   mutation: m19 the CLI --legacy flag is not passed through   [scripts/metric_compare.py]
+      change: 'return cmd_register(args.name, args.run, args.head, args.label, legacy=args.legacy)' -> 'return cmd_register(args.name, args.run, args.head, args.label, legacy=False)'
+      SURVIVED api/tests/test_metric_compare.py  =>  36 passed, 1 warning in 1.42s
+      SURVIVED api/tests/test_closure_gate.py  =>  64 passed, 1 warning in 7.39s
+      restored: git diff EMPTY
+
+BAD   mutation: d01 has_moe is any non-empty moe field again   [scripts/run_demo.py]
+      change: 'has_moe=has_moe(body),' -> 'has_moe=bool(body.get("moe")),'
+      CAUGHT   test_a_moe_row_with_only_names_is_not_a_margin_of_error  =>  1 failed, 1 warning in 0.15s
+               E   assert True is False
+      SURVIVED test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 passed, 1 warning in 0.05s
+      restored: git diff EMPTY
+
+BAD   mutation: d02 has_moe counts NAME as a margin column   [scripts/run_demo.py]
+      change: 'key not in {"GEO_ID", "NAME"}' -> 'key not in {"GEO_ID"}'
+      CAUGHT   test_a_moe_row_with_only_names_is_not_a_margin_of_error  =>  1 failed, 1 warning in 0.16s
+               E   assert True is False
+      restored: git diff EMPTY
+
+BAD   mutation: d03 has_moe counts GEO_ID as a margin column   [scripts/run_demo.py]
+      change: 'key not in {"GEO_ID", "NAME"}' -> 'key not in {"NAME"}'
+      CAUGHT   test_a_moe_row_with_only_names_is_not_a_margin_of_error  =>  1 failed, 1 warning in 0.15s
+               E   assert True is False
+      restored: git diff EMPTY
+
+BAD   mutation: d04 has_geoid reads the empty top-level geoid again   [scripts/run_demo.py]
+      change: 'has_geoid=has_geoid(body),' -> 'has_geoid=bool(body.get("geoid")),'
+      CAUGHT   test_geoid_is_judged_per_row_not_from_the_empty_top_level_field  =>  1 failed, 1 warning in 0.28s
+               E   assert False is True
+      SURVIVED test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 passed, 1 warning in 0.03s
+      restored: git diff EMPTY
+
+BAD   mutation: d05 has_geoid is true if any row has a GEO_ID   [scripts/run_demo.py]
+      change: 'all(isinstance(r, dict) and r.get("GEO_ID") for r in rows)' -> 'any(isinstance(r, dict) and r.get("GEO_ID") for r in rows)'
+      CAUGHT   test_geoid_is_judged_per_row_not_from_the_empty_top_level_field  =>  1 failed, 1 warning in 0.17s
+               E   assert True is False
+      restored: git diff EMPTY
+
+BAD   mutation: d06 has_geoid is true for zero rows   [scripts/run_demo.py]
+      change: 'return bool(rows) and all(' -> 'return all('
+      SURVIVED test_geoid_is_judged_per_row_not_from_the_empty_top_level_field  =>  1 passed, 1 warning in 0.04s
+      restored: git diff EMPTY
+
+BAD   mutation: d07 trial record always says has_moe False   [scripts/run_demo.py]
+      change: '"has_moe": trial.has_moe,' -> '"has_moe": False,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.17s
+               E   assert (False, True, True, False) == (True, True, True, False)
+      restored: git diff EMPTY
+
+BAD   mutation: d08 trial record always says has_geoid False   [scripts/run_demo.py]
+      change: '"has_geoid": trial.has_geoid,' -> '"has_geoid": False,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.15s
+               E   assert (True, False, True, False) == (True, True, True, False)
+      restored: git diff EMPTY
+
+BAD   mutation: d09 trial record always says has_universe False   [scripts/run_demo.py]
+      change: '"has_universe": trial.has_universe,' -> '"has_universe": False,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.17s
+               E   assert (True, True, False, False) == (True, True, True, False)
+      restored: git diff EMPTY
+
+BAD   mutation: d10 trial record always says has_alternatives True   [scripts/run_demo.py]
+      change: '"has_alternatives": trial.has_alternatives,' -> '"has_alternatives": True,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.20s
+               E   assert (True, True, True, True) == (True, True, True, False)
+      restored: git diff EMPTY
+
+BAD   mutation: d11 _ask never sets has_universe   [scripts/run_demo.py]
+      change: 'has_universe=bool(body.get("universe")),' -> 'has_universe=False,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.16s
+               E   assert (True, True, False, False) == (True, True, True, False)
+      restored: git diff EMPTY
+
+BAD   mutation: d12 _ask always sets has_alternatives   [scripts/run_demo.py]
+      change: 'has_alternatives=bool(body.get("alternatives")),' -> 'has_alternatives=True,'
+      CAUGHT   test_each_trial_records_which_response_contract_fields_the_answer_carried  =>  1 failed, 1 warning in 0.15s
+               E   assert (True, True, True, True) == (True, True, True, False)
+      restored: git diff EMPTY
+
+SUMMARY  78 mutations run; 69 CAUGHT, 9 SURVIVED (m16-m19 are one uncovered behaviour, no test exists)
+  SURVIVORS (a test that passes on the broken code):
+   i16  check_invariants: a cohort repointed to a different SOURCE passes the guard.
+        test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard edits only `tier`.
+        Add the param ('source = "evals/golden_questions.toml"', 'source = "evals/other.toml"') -- the
+        first occurrence is [cohorts.long_tail]; assert loosened(...) is non-empty.
+   m10  metric_compare cmd_compare: the ledger opened in text mode ("a") writes CRLF on Windows and the
+        test still passes. test_promotion_writes_...ledger_append_only never checks the ledger for CR.
+        Add: assert b"\r\n" not in (lab["dir"] / "ledger.jsonl").read_bytes()
+   m11  metric_compare cmd_promote: reverting to pop-L / write / cmd_register (two writes, a state with no
+        L) passes. The test cannot see the intermediate state. Add a spy on mc.write_refs (or on
+        Path.write_bytes) and assert it ran exactly once per promote, or make cmd_register raise
+        (monkeypatch) and assert references.json still holds the old L.
+   m14  metric_compare.families: an EXTRA family is not caught by the set comparison but still raises
+        PlanError through the repeat-count check, because the test's extra trial has one repeat. Mutation m15
+        (set check weakened AND repeat check removed) is caught, so the test only exercises the redundant
+        check. Fix the test: extra = three trials of "zz99", repeats 1, 2, 3 (a complete extra family).
+   d06  run_demo.has_geoid: `bool(rows) and` removed -> zero rows reports has_geoid True. Add
+        assert _contract(rows=[], geoid="x")[1] is False
+   d01/d04 (secondary only): test_each_trial_records_which_response_contract_fields... also passes with
+        the old has_moe/has_geoid; both are caught by their dedicated tests (d01, d04 CAUGHT above), so
+        this is not a gap.
+  NO TEST COVERS (m16-m19, all four mutations survive both whole test files, 36 + 64 tests):
+   `--legacy` is the only way to skip the protocol-hash check: build_entry(legacy=...) storing
+   "legacy" vs protocol_hash(), the `old["protocol"] not in ("legacy", now[...])` check in compare(),
+   and main() passing args.legacy through. The only register test is "already registered".
+   Needed: register with legacy=False, change the live protocol hash, compare -> "protocol hash" FAIL;
+   register with legacy=True, same change -> no FAIL; and parse `register ... --legacy` in main().
+   (cmd_register's `--label` now required is also untested.)
+
+end: HEAD=71fa8d5b9b9f3852572cc2124a3689316e7d5bcb status --short=[] git diff empty

@@ -1,0 +1,118 @@
+GATE 2 ROUND 3 (cold review) - cc-133/instrument fdfce7880b51c66e8c86c5464b84ac0021de08cc
+Start: HEAD fdfce78 (detached in worktree .claude/worktrees/agent-a01343163a883ac51), git status --short: clean (empty)
+Probes: scratchpad probe1.py (records guard), probe2.py (closure), probe3.py (ADF/jira), probe4.py (metric_compare), mutate.py (test mutation)
+
+======================= PASS 1 (code only; written before reading the plan) =======================
+
+Verdict pass 1: findings below, none are crashes in the happy path; several are bypasses of the guard each was written for.
+
+P1-1  MEDIUM  scripts/closure.py:117-120  `affects` typo makes staleness vacuous
+  input: row tested_head=<older commit>, covered file changed since; affects = "src" (a TOML string, not a list)
+         -> list(str) = ['s','r','c'], three pathspecs matching nothing -> problems() == []
+  also:  affects = ["nonexistent"] and affects = [":(exclude)src"] -> []
+  probe2 output: "affects string 'src' -> []", "affects nonexistent path, stale otherwise -> []",
+         "affects exclude magic -> []" while the control "stale (tested first, src changed)" -> stale.
+  fix: require list[str]; require each pathspec to match `git ls-files -- p` at head.
+
+P1-2  MEDIUM  scripts/closure.py:114-126  tested_head is any string git accepts
+  input: tested_head = "HEAD" (or a branch name "main", or an option such as "--stat") with covered files changed
+         since the test -> [] (never stale). Measured: 'tested_head HEAD -> []', "'main' branch ref -> []",
+         "'--stat' -> []" (argument injection: `git diff --name-only --stat HEAD -- src` diffs the work tree).
+  The row then claims to be tested at a commit it never was. TC5 says stale blocks Done.
+  fix: require ^[0-9a-f]{40}$ (or rev-parse --verify --end-of-options "<x>^{commit}" and compare to the 40-hex).
+
+P1-3  MEDIUM  scripts/closure.py:173-179 and :85  post-merge E2E is not tied to the work
+  input: post_merge.main_head = the repository's FIRST commit (an ancestor of base), e2e = any existing file
+         (even src/code.py; sha256 is optional) -> [] . Probe2: "post_merge main_head = first commit -> []",
+         "post_merge e2e any file -> []".
+  `is-ancestor main_head base` proves the commit is on main, not that it contains tested_head/head, and
+  `sha256` omitted means the "still hashes the same" promise in the module docstring is not enforced.
+  fix: also require `merge-base --is-ancestor <tested_head of every row> main_head`; require sha256 for evidence.
+
+P1-4  MEDIUM  scripts/check_invariants.py:827-835  records guard is a tripwire a one-line edit defeats
+  (a) forged line: base ledger "", now ledger '{"run":"r3","verdict":"PASS"}\n' + L moved to run r3 -> [] (probe1 #1).
+      The record carries no run_sha256 / head / hashes / refs, so nothing binds it to promote.
+  (b) L set to null: '{"A":..., "L": null}' with L present at base -> [] (line 829 `is not None` skips it, and
+      line 827 only tests key presence). probe1 #2. Downstream `refs.get("L")` is None -> "not registered" UNKNOWN,
+      so promote can then never PASS; it is an L reset without a record.
+  (c) L moved to a scalar (5) or a dict with no "run" key, with a ledger line {"verdict":"PASS"} that has no "run":
+      `run` is None and r.get("run") == None -> [] (probe1 #3, #3b).
+  (d) vacuous PASS records are creatable by the CLI: `compare RUN --refs "" --record` (metric_compare.py:695
+      `[n for n in refs.split(",") if n]` -> no references) yields verdict PASS from the absolute floors alone
+      (once the oracle is signed) and appends it, so even an unforged record need not have run against A.
+  fix: require run to be a non-empty str; require the record's refs to contain "A" and its hashes to equal
+  L.hashes; flag L null; make compare refuse an empty refs list when --record.
+
+P1-5  LOW  scripts/closure.py:102  required text fields accept whitespace / any truthy type
+  input: command=" ", expected="\t", observed=" ", reviewer=" " or reviewer=true -> [] (probe2).
+  Same row passes with evidence = "a" when a file named `a` exists (a str iterates chars, :105).
+
+P1-6  LOW  scripts/closure.py:50 adf_text adds no line break between taskItem / decisionItem / codeBlock
+  input (ADF): taskList of two taskItems "AC1. a" and "AC2. b" -> text 'AC1. aAC2. b' -> ids ['AC1'] only;
+         codeBlock "some code" followed by paragraph "AC1. a" -> ids [] . AC2 is silently not required.
+         Also "AC-1:", "(AC1) x", "AC1/AC2:" are not ids; "AC1.1 x" collapses to AC1 (probe3).
+
+P1-7  LOW  scripts/jira_transition.py:130-136  only "story"/"bug" are refused when no ids are found
+  input: issuetype Task / Spike / Feature / "" with description "AC1 users can x" (no punctuation) and no manifest
+         -> gate passes ("PASSED GATE", probe3). Any issue type other than the two names closes ungated.
+
+P1-8  LOW  scripts/metric_compare.py:248-253, 183-196, 391-392
+  - judge([]) -> ZeroDivisionError (an empty cohort); load_run({}) KeyError 'demo', missing trials KeyError,
+    answered_rate null TypeError: raw traceback, not a FAIL row; nothing is recorded. Fails closed.
+  - evaluate silently skips the retrieval_at_10 / selector_at_1 regression check when the REFERENCE lacks the key
+    (`key in cand.scalars and key in ref.scalars`): no UNKNOWN row. (cand must carry them: absolute() FAILs.)
+  - judge uses the mean only: 29 families +0.1 and one family 1.0 -> 0.0 (a case lost entirely) = PASS
+    ("diff +0.063, lower -0.010", probe4). By design of D3, noted so it is a decision, not a surprise.
+  percentile: float index equals integer nearest-rank for n=1..3000 and equals run_demo.percentile.
+  paired_interval n=1 returns (x, x); judge gates n < min_families first. OK.
+
+P1-9  LOW  scripts/metric_compare.py:604-607,659  write_refs is not atomic
+  write_bytes truncates then writes; an interrupted promote leaves a truncated references.json (comment says
+  "one write: no state in which L is missing"). fix: temp file + os.replace.
+
+P1-10 LOW  scripts/check_invariants.py:795-800, 811-813, 850-856  guard edge cases
+  - bridges: base and now both non-list, or both unreadable, are equal sentinels -> a change is invisible
+    (probe1 9a, 9b). Duplicate add/remove invisible (9c, 9d, harmless). Real bridge add/remove/edit flagged (9g-9i).
+  - now() decodes strictly: an invalid-UTF-8 ledger raises UnicodeDecodeError (probe1 #15) while _text_at uses
+    errors="replace"; oracle_review `accepted = [..]` raises AttributeError (10c/10d). All crash = exit non-zero,
+    fail closed, but not reported as a violation.
+  - verified OK: CRLF/LF both directions, base ledger missing, ledger deleted, refs deleted, refs non-dict L,
+    new reference name added (allowed), oracle signature add flagged / remove allowed / file new at base skipped.
+
+P1-11 LOW  tests (mutation runs against a copy at fdfce78 in a temp worktree outside the repo, removed afterwards)
+  KILLED: no verdict check, no run match, no bridge add flag, no bridge removal loop, no end-of-id check,
+          no empty-rows check, old _is_done, no len<=4, old has_moe, no isinstance in refs guard, L-move check
+          off, L-removal flag off, nbsp strip off, dash strip off, judge point<0 off.
+  SURVIVED: (M6b) _is_done returning True for an unknown target (untested direction); (M12) ledger CRLF
+          normalisation of the base text removed (no CRLF case in test_closure_gate.py).
+  (jira `_is_done(key, None)` returns True if any transition has a nameless `to` in category done; contrived.)
+
+Tests: pytest closure_gate + metric_compare + demo_harness: 159 passed.
+
+======================= PASS 2 (project invariants) =======================
+Commands (run in worktree at fdfce78; baselines run in a temp worktree of 57f7533 outside the repo, removed after):
+
+check_budgets.py @ fdfce78:  FAIL p95 latency 25.472 <= 20; FAIL answered_rate 0.683 >= 0.7; doc lines 1820 <= 1820 ok.
+check_budgets.py @ 57f7533:  FAIL doc lines 1822 <= 1820; FAIL p95 25.472; FAIL answered_rate 0.683.
+  => both remaining failures are inherited from main (evidence/latest.json); the branch fixes doc_lines. budgets.toml unchanged.
+check_invariants.py --base 57f7533 @ fdfce78: 6 violations, all "eval phrasing in api/src" (contract.py:29, geo.py:36,
+  geo.py:349, geo_level.py:28, geo_list.py:80, guards.py:32). Same 6 at 57f7533. budget increases, new regex (delta +0),
+  new exemptions, protocol weakened, metric records rewritten, closure manifests: ok.
+  => nothing new; api/src is untouched by this branch.
+ruff check: clean. ruff format --check: clean. mypy api/src: clean.
+pytest -m "not integration": 1287 passed, 34 skipped, 8 xfailed, 1 failed:
+  api/tests/test_invariants.py::test_invariants_print_every_named_pattern - it asserts inv.main() == 0 and fails on
+  the same 6 inherited eval-phrasing violations; not caused by this branch.
+closure.py check evidence/closure/CC-133.toml --pre-merge: exit 1, 13 rows UNKNOWN/NOT RUN (the plan says by design).
+
+Plan (evidence/slice-6/cc-133-plan.md): instrument only, no runtime change, no budget change, A/A0 legacy registered
+with blockers listed. Branch matches that: no api/src change, scripts + tests + evidence + 2 playbook lines.
+Scope note: 53 files, 46 of them evidence. D5 "Story or Bug with no ids refused" is P1-7. TC5 ("missing / NOT RUN / stale /
+no post-merge blocks Done") is the requirement P1-1, P1-2, P1-3 bypass. has_moe is not in scorer.symbols, so the fix
+does not move the scorer hash. Open owner items listed in the plan (oracle review, strict tolerance, trap/core
+cohort size, A0-to-A bridge) are unchanged and out of scope here.
+
+Pass 2 new blockers: nothing. Inherited: p95, answered_rate, six leakage hits, test_invariants_print_every_named_pattern.
+
+End: HEAD fdfce78, git status --short clean (see final line).
+[end check] HEAD fdfce7880b51c66e8c86c5464b84ac0021de08cc, status lines: 0

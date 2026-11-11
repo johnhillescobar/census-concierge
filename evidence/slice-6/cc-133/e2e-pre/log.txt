@@ -1,0 +1,23 @@
+HEAD start 71fa8d5b9b9f3852572cc2124a3689316e7d5bcb branch cc-133/instrument status: 1 changed
+s START 2026-11-10T00:19:12Z :: uv sync
+s END 2026-11-10T00:19:12Z rc=0
+n1 START 2026-11-10T00:19:12Z :: npm --prefix web ci
+n1 END 2026-11-10T00:19:36Z rc=0
+n2 START 2026-11-10T00:19:36Z :: npm --prefix web run build
+n2 END 2026-11-10T00:19:51Z rc=0
+a START 2026-11-10T00:19:51Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-10T00:20:16Z rc=0
+b START 2026-11-10T00:20:17Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-10T00:22:55Z rc=0
+c START 2026-11-10T00:22:55Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-10T00:23:01Z rc=0
+d START 2026-11-10T00:23:01Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-10T01:08:50Z rc=1
+e START 2026-11-10T01:08:51Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-10T01:24:28Z rc=0
+f START 2026-11-10T01:24:29Z :: uv run python scripts/check_budgets.py
+f END 2026-11-10T01:24:30Z rc=1
+g START 2026-11-10T01:24:30Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-10T01:24:42Z rc=1
+HEAD end 71fa8d5b9b9f3852572cc2124a3689316e7d5bcb
+DONE

@@ -10,7 +10,9 @@ ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN are in .env. MCP is optional.
     python scripts/jira_transition.py CC-21 --done --comment-file evidence/latest.json
     python scripts/jira_transition.py CC-21 --transition Done
 
-Exits non-zero on API or auth failure.
+Moving an issue to Done first runs the closure gate (scripts/closure.py): if the description
+carries AC/TC identifiers, evidence/closure/<KEY>.toml must back every one of them. A refused
+closure adds no comment and makes no transition. Exits non-zero on API, auth or gate failure.
 """
 
 from __future__ import annotations
@@ -24,9 +26,14 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import closure
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
+NO_AC_TYPES = {"epic", "task", "sub-task", "subtask", "spike"}  # chores and containers
+# Done-category statuses that mean the work was NOT delivered. They need a reason, not a
+# closure manifest; only the status named Done is a claim that the AC/TC were met.
+CANCELLED = {"won't do", "wont do", "cancelled", "canceled", "duplicate", "declined"}
 DEFAULT_SITE = "johnhillescobar.atlassian.net"
 
 
@@ -105,6 +112,48 @@ def _transition(key: str, target: str) -> None:
     _api("POST", f"/issue/{key}/transitions", {"transition": {"id": matches[0]["id"]}})
 
 
+def _is_done(key: str, target: str | None) -> bool:
+    """Moving to any status Jira files under Done (Closed, Resolved...) is a closure, not just
+    the one named Done."""
+    wanted = str(target or "").strip().lower()
+    if wanted == "done":  # whatever category the workflow files it under
+        return True
+    for move in _transitions(key):
+        to = move.get("to") or {}
+        if str(to.get("name", "")).lower() == wanted:
+            return (to.get("statusCategory") or {}).get("key") == "done"
+    return False
+
+
+def _closure_gate(key: str) -> None:
+    """Refuse Done unless the AC/TC manifest is whole. Both Done paths come through here."""
+    fields = _issue(key, "description,issuetype")["fields"]
+    needed = closure.required_ids(closure.adf_text(fields.get("description")))
+    manifest = ROOT / "evidence" / "closure" / f"{key}.toml"
+    kind = str((fields.get("issuetype") or {}).get("name") or "").lower()
+    if not needed and not manifest.is_file():
+        if kind not in NO_AC_TYPES:  # anything that may carry AC/TC: none found is a refusal
+            print(
+                f"{key} cannot be closed: a {kind or 'typeless issue'} with no AC/TC ids and no "
+                "closure manifest",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"{key}: {kind or 'issue'} with no AC/TC identifiers; no closure manifest required")
+        return
+    found = (
+        closure.check_file(manifest, required=needed, root=ROOT)
+        if manifest.is_file()
+        else [f"no closure manifest at {manifest.relative_to(ROOT).as_posix()}"]
+    )
+    if found:
+        print(f"{key} cannot be closed:", file=sys.stderr)
+        for line in found:
+            print(f"  BLOCKED  {line}", file=sys.stderr)
+        sys.exit(1)
+    print(f"{key}: closure manifest covers {', '.join(needed) or 'its own rows'}")
+
+
 def _read_comment(args: argparse.Namespace) -> str | None:
     if args.comment:
         return args.comment
@@ -130,6 +179,9 @@ def main() -> int:
     )
     args = parser.parse_args()
     key = args.issue.upper()
+    project, _, number = key.partition("-")
+    if not (project.isalpha() and number.isdigit()):
+        parser.error(f"{args.issue!r} is not an issue key like CC-21")
 
     if args.status or not any(
         [args.transitions, args.comment, args.comment_file, args.transition, args.done]
@@ -145,12 +197,20 @@ def main() -> int:
             to_name = t.get("to", {}).get("name", "?")
             print(f"  {t.get('id', '?'):>3}  {t.get('name', '?')} -> {to_name}")
 
+    target = "Done" if args.done else args.transition
     text = _read_comment(args)
+    if not args.done and str(target or "").strip().lower() in CANCELLED:
+        if not text:
+            print(f"{key}: closing as {target} needs --comment saying why", file=sys.stderr)
+            return 1
+        print(f"{key}: {target} is not a delivery; no closure manifest required")
+    elif _is_done(key, target):
+        _closure_gate(key)
+
     if text:
         _add_comment(key, text)
         print(f"Comment added to {key}")
 
-    target = "Done" if args.done else args.transition
     if target:
         before = _issue(key, "status")["fields"]["status"]["name"]
         _transition(key, target)

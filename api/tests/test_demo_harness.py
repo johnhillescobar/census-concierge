@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -506,3 +508,191 @@ def test_search_split_reaches_the_summary_and_the_record() -> None:
     assert summary["t_rerank"] == 3.0
     assert summary["t_embed"] == 0.3
     assert summary["trials"][0]["t_rerank"] == 2.0
+
+
+class _Reply:
+    status_code = 200
+
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = body
+
+    def json(self) -> dict[str, Any]:
+        return self._body
+
+
+class _Client:
+    def __init__(self, body: dict[str, Any]) -> None:
+        self._body = body
+
+    def post(self, path: str, json: dict[str, Any]) -> _Reply:
+        _ = path, json
+        return _Reply(self._body)
+
+
+def _contract(**fields: Any) -> tuple[bool, bool, bool, bool]:
+    entry = {"id": "q05", "text": "t", "tier": "long_tail", "expect_table": "B01003"}
+    trial = run_demo._ask(_Client(_body(**fields)), run_demo.Clock(), entry, 1)
+    record = run_demo.trial_record(trial)
+    return (
+        record["has_moe"],
+        record["has_geoid"],
+        record["has_universe"],
+        record["has_alternatives"],
+    )
+
+
+def test_each_trial_records_which_response_contract_fields_the_answer_carried() -> None:
+    moe = [{"B01003_001M": "5"}]
+    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1", "B01003_001M": "5"}]
+    full = _contract(rows=rows, moe=moe, universe="Households", alternatives=[])
+    assert full == (True, True, True, False)
+    bare = _contract(rows=rows, moe=moe, universe="", alternatives=[{"table_id": "B19013"}])
+    assert bare[2:] == (False, True)
+
+
+def test_a_moe_row_with_only_names_is_not_a_margin_of_error() -> None:
+    names_only = [{"GEO_ID": "0500000US48201", "NAME": "Harris County, Texas"}]
+    assert _contract(moe=names_only)[0] is False
+
+
+def test_geoid_is_judged_per_row_not_from_the_empty_top_level_field() -> None:
+    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1"}, {"GEO_ID": "0500000US48203"}]
+    assert _contract(rows=rows, geoid="")[1] is True
+    assert _contract(rows=[*rows, {"B01003_001E": "3"}], geoid="x")[1] is False
+
+
+def test_no_rows_is_not_a_geoid() -> None:
+    assert _contract(rows=[], geoid="x")[1] is False
+
+
+def test_a_margin_of_error_counts_when_its_column_was_fetched_even_if_suppressed() -> None:
+    from src.vintages import moe_rows
+
+    estimate_only = [{"GEO_ID": "0500000US17031", "NAME": "Cook", "B01001_001E": "5"}]
+    with_margin = [{**estimate_only[0], "B01001_001M": "3"}]
+    suppressed = [{**estimate_only[0], "B01001_001M": "-555555555"}]
+    nulled = [{**estimate_only[0], "B01001_001M": None}]
+    assert _contract(rows=estimate_only, moe=moe_rows(estimate_only))[0] is False  # never fetched
+    assert _contract(rows=with_margin, moe=moe_rows(with_margin))[0] is True
+    assert _contract(rows=suppressed, moe=moe_rows(suppressed))[0] is True  # fetched, then withheld
+    assert _contract(rows=nulled, moe=moe_rows(nulled))[0] is True
+
+
+def test_one_margin_of_error_does_not_cover_a_second_estimate() -> None:
+    row = {"GEO_ID": "0500000US17031", "B01001_001E": "5", "B01001_002E": "3", "B01001_001M": "1"}
+    assert _contract(rows=[row])[0] is False
+    assert _contract(rows=[{**row, "B01001_002M": "1"}])[0] is True
+
+
+def test_every_row_must_carry_its_margins_and_a_row_with_no_estimate_has_none() -> None:
+    full = {"GEO_ID": "1", "B01001_001E": "5", "B01001_001M": "1"}
+    assert _contract(rows=[full, {"GEO_ID": "2", "B01001_001E": "4"}])[0] is False
+    assert _contract(rows=[full, {"GEO_ID": "2"}])[0] is True  # a row with no estimate owes none
+    assert _contract(rows=[full, {**full, "GEO_ID": "2"}])[0] is True
+
+
+def test_a_run_records_the_head_and_hashes_it_was_scored_under(tmp_path: Path) -> None:
+    import metric_compare
+
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+    stamp = summary["provenance"]
+    assert set(stamp) == set(metric_compare.PROVENANCE_KEYS)
+    assert len(stamp["head"]) == 40
+    saved = tmp_path / "latest.json"
+    saved.write_text(json.dumps({"retrieval_at_10": 0.9, "demo": summary}), encoding="utf-8")
+    assert metric_compare.load_run(saved).hashes == stamp  # what the comparator reads back
+
+
+def test_the_recorded_head_is_the_checked_out_head() -> None:
+    import subprocess
+
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=run_demo.ROOT, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert run_demo.provenance()["head"] == head
+
+
+def test_a_provenance_failure_keeps_the_run_with_no_stamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    import metric_compare
+
+    def broken() -> dict[str, Any]:
+        raise KeyError("question")
+
+    monkeypatch.setattr(metric_compare, "hashes", broken)
+    assert run_demo.provenance() == {}
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i")
+    assert summary["provenance"] == {} and summary["trials"]
+
+
+def test_a_stamp_taken_at_the_start_is_the_one_summarize_records() -> None:
+    stamp = {"head": "a" * 40}
+    summary = run_demo.summarize([_trial()], repeat=1, prompt="p", index="i", stamp=stamp)
+    assert summary["provenance"] == stamp
+
+
+def test_a_response_with_no_rows_has_no_margin_of_error() -> None:
+    assert _contract(rows=[], moe=[{"B01003_001M": "5"}])[0] is False
+
+
+def test_a_run_whose_checkout_moved_part_way_carries_no_stamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = {"head": "a" * 40, "scorer": "s"}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "a" * 40})
+    assert run_demo.unmoved(started) == started
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "b" * 40})
+    assert run_demo.unmoved(started) == {}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {})  # git failed at the end
+    assert run_demo.unmoved(started) == {}
+
+
+def test_a_decennial_count_with_no_estimate_column_owes_no_margin_of_error() -> None:
+    count = [{"GEO_ID": "0500000US48201", "P1_001N": "4731145"}]
+    assert _contract(rows=count)[0] is True
+    assert _contract(rows=[*count, {"GEO_ID": "2", "B01001_001E": "1"}])[0] is False
+
+
+def _measured_repo(path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    import subprocess
+
+    import metric_compare
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=path, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    (path / "api" / "src").mkdir(parents=True)
+    (path / "api" / "src" / "app.py").write_text("one\n")
+    (path / "docs").mkdir()
+    (path / "docs" / "note.md").write_text("a\n")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    monkeypatch.setattr(run_demo, "ROOT", path)
+    monkeypatch.setattr(metric_compare, "hashes", lambda head=None: {"scorer": "s"})
+    return path
+
+
+def test_a_run_notes_whether_the_measured_code_was_committed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _measured_repo(tmp_path, monkeypatch)
+    assert run_demo.provenance()["dirty"] is False
+    (repo / "docs" / "note.md").write_text("b\n")  # not measured code
+    assert run_demo.provenance()["dirty"] is False
+    (repo / "api" / "src" / "app.py").write_text("two\n")  # an uncommitted edit
+    assert run_demo.provenance()["dirty"] is True
+    (repo / "api" / "src" / "app.py").write_text("one\n")
+    (repo / "api" / "src" / "new.py").write_text("x\n")  # an untracked file is code too
+    assert run_demo.provenance()["dirty"] is True
+
+
+def test_a_checkout_that_turned_dirty_part_way_carries_no_stamp(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = {"head": "a" * 40, "dirty": False}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "a" * 40, "dirty": True})
+    assert run_demo.unmoved(started) == {}
+    monkeypatch.setattr(run_demo, "provenance", lambda: {"head": "a" * 40, "dirty": False})
+    assert run_demo.unmoved(started) == started

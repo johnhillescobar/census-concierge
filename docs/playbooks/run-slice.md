@@ -45,7 +45,7 @@ the next reader. Not a numbered gate - it costs a `grep`.
 ## AC/TC clearance — required for every story
 Before implementation assign stable IDs/expected outcomes to every in-scope AC and TC. The PR/Jira matrix records ID, command/test, expected/observed result, PASS/FAIL/NOT RUN/UNKNOWN, evidence, tested head, relevant hashes/repeats, mutation result for new tests and reviewer verification.
 Every item must be verified PASS before merge readiness; missing/failed/unrun items block. Gate 2 verifies substance. Only a dated explicit owner amendment removes scope (reason/destination recorded), never silent N/A/PASS. Existing applicable evidence may be reused with rationale; rerun affected checks after changes. Owner-only merge remains.
-Refresh the matrix with required post-merge E2E on merged main before Done. No sealed/E2E transcript reads; use authorized aggregates. CC-133 automates closure integrity; review applies now. PLAN/Jira prescribe B/P/A/L comparisons, cumulative floors and predeclared sampling; do not rerun until green.
+Refresh the matrix with required post-merge E2E on merged main before Done. No sealed/E2E transcript reads; use authorized aggregates. `scripts/closure.py check evidence/closure/<KEY>.toml` enforces the matrix (`jira_transition.py` runs it on every move to Done; `make check` checks form). `scripts/metric_compare.py` runs B/P/A/L under `evals/metric_protocol.toml`; never rerun until green. Reviewers still verify substance.
 
 ## 2. Implement
 

@@ -1,0 +1,54 @@
+HEAD 71fa8d5b9b9f3852572cc2124a3689316e7d5bcb; tests are the uncommitted working-tree versions
+
+== legacy-always: build_entry stores 'legacy' whatever the flag
+   test: api/tests/test_metric_compare.py::test_only_an_explicit_legacy_flag_skips_the_protocol_hash_check
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.22s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.18s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== legacy-never-checked: compare drops the protocol-hash check
+   test: api/tests/test_metric_compare.py::test_only_an_explicit_legacy_flag_skips_the_protocol_hash_check
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.16s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.22s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== legacy-label-inferred: skip when the label starts with legacy
+   test: api/tests/test_metric_compare.py::test_only_an_explicit_legacy_flag_skips_the_protocol_hash_check
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.08s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.17s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== main-drops-legacy: the flag is parsed but not passed
+   test: api/tests/test_metric_compare.py::test_the_register_command_passes_legacy_through_and_requires_a_label
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.10s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.24s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== label-optional: --label no longer required
+   test: api/tests/test_metric_compare.py::test_the_register_command_passes_legacy_through_and_requires_a_label
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.18s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== promote-two-writes: write without L first
+   test: api/tests/test_metric_compare.py::test_promotion_is_a_single_write_of_the_references
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.09s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.19s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== ledger-text-mode: CRLF on Windows
+   test: api/tests/test_metric_compare.py::test_promotion_writes_the_new_l_in_one_step_and_keeps_the_ledger_append_only
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.22s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.22s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== extra-family-unchecked: only the repeat check remains
+   test: api/tests/test_metric_compare.py::test_a_family_outside_the_frozen_cohort_is_a_plan_error
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.17s  -> CAUGHT
+   restored; diff of scripts/metric_compare.py: clean
+== zero-rows-is-a-geoid: bool(rows) dropped
+   test: api/tests/test_demo_harness.py::test_no_rows_is_not_a_geoid
+GOOD  unmodified: rc=0 1 passed, 1 warning in 0.05s
+BAD   mutated:    rc=1 1 failed, 1 warning in 0.19s  -> CAUGHT
+   restored; diff of scripts/run_demo.py: clean
+== cohort-source-ignored: guard compares tier only
+   test: api/tests/test_closure_gate.py::test_repointing_the_scorer_or_a_cohort_fails_the_protocol_guard
+GOOD  unmodified: rc=0 4 passed, 1 warning in 0.08s
+BAD   mutated:    rc=1 1 failed, 3 passed, 1 warning in 0.20s  -> CAUGHT
+   restored; diff of scripts/check_invariants.py: clean
+
+10 mutations, 10 caught, 0 survived

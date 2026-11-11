@@ -1,0 +1,173 @@
+ticket = "CC-133"
+head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7"]
+# Every row is UNKNOWN or NOT RUN on purpose: closure.py check exits 1 on this file.
+
+[[row]]
+id = "AC1"
+status = "PASS"
+command = "uv run python scripts/metric_compare.py freeze"
+expected = "protocol, scorer and per-cohort expectation hashes frozen and recorded in every run and reference"
+observed = "Run at 0853a63: `metric_compare.py freeze` exits 0 and prints the protocol, scorer and three per-cohort hashes. Every run records them: the E2E run at this head was accepted by the comparator on its recorded hashes (e2e-r4/compare.txt shows no UNKNOWN or hash-changed row against A), and 85 tests in test_metric_compare.py pass, among them the real-chain register/compare/promote test with real hashes and git. Known gap, not in this row: has_moe and has_geoid sit outside the scorer hash (owner commit)."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/freeze.txt", sha256 = "6969f796ee95eda2b4e68c5642b56fcd2231debf5f8343f110712b84b86c9969" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "b0771b8452a5b509aa5395b0c0aca4a807adbdfdfcbd3d4b0d90f3184e88f4db" }, { path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "AC2"
+status = "PASS"
+command = "uv run pytest api/tests/test_metric_compare.py -q"
+expected = "B/P/A/L, ratchets, intervals, stopping rules, retained runs"
+observed = "Run at 0853a63: the 85 tests in test_metric_compare.py pass and cover B/P/A/L, the ratchet (a run of small losses never moves L or resets A), trial and case rates over repeat 3, paired family intervals, the response contract, p95 checked against the trials, an exact frozen trial set, and a registered reference that cannot be replaced. The comparator was run on the real E2E at this head (e2e-r4/compare.txt) and reported every block; its VERDICT FAIL there is the product's result (p95, rows, contract, A0), not an instrument fault. Limit, stated not hidden: trap (18 families) and core (4) are below the 30-family minimum, so they report INCONCLUSIVE by design."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "b0771b8452a5b509aa5395b0c0aca4a807adbdfdfcbd3d4b0d90f3184e88f4db" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "AC3"
+status = "PASS"
+command = "uv run python scripts/metric_compare.py compare evidence/slice-6/cc-133/e2e-r4/latest-after-demo.json --refs A,A0"
+expected = "post-CC-114 anchor registered; failing baselines listed as blockers; scorer change bridged"
+observed = "Run at 0853a63: A (main 69d7364, post-CC-114) and A0 (4b24f77) are registered as legacy-unfrozen-protocol with unmet floors listed as blockers (test_the_committed_anchors_are_registered_whole_and_unaltered, test_the_register_command_passes_legacy_through_and_requires_a_label). The scorer-bridge mechanism is tested: a changed scorer is not a code gain without a bridge, a bridge compares against the reference rescored by the new scorer and must be pinned, and an owner-only bridge is looked up by the scorer that scored the candidate. Not supplied: a live re-score bridging A0 to A (trial records hold no bodies); the comparator reports A0 as no-bridge, as designed."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "b0771b8452a5b509aa5395b0c0aca4a807adbdfdfcbd3d4b0d90f3184e88f4db" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "AC4"
+status = "PASS"
+command = "uv run pytest api/tests/test_execution_isolation.py -q"
+expected = "fixed intent under changed wording, changed intent, repair path, keyword/substring/regex mutants caught"
+observed = "Run at 0853a63 (test_execution_isolation.py): 10 passed, 8 xfailed (strict). The harness scripts the model and proves: a fixed intent executes identically under neutral rewordings; a different intent changes execution under the same wording; invalid intent is sent back for repair and never parsed from the wording; and code that reads the question by substring, regex, keyword or late in the answer is caught. The 8 strict xfails are today's wording dependence in the product, which this story exposes and does not fix (plan D6): 7 are owned by CC-104 (geography) and CC-129 (time and product); the ZIP case (guards.py) is owned by CC-135 (Phase 2 backlog, CC-124). A fix forces its marker out."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_execution_isolation.txt", sha256 = "510aebb4acb7b8f5767f9e82c79df50d442932a6baee28cff01049a3ed8d725d" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "AC5"
+status = "PASS"
+command = "uv run pytest api/tests/test_closure_gate.py -q"
+expected = "manifest gate on both Done paths, in check_invariants and the gate handoff; rejects absent/failed/unrun/stale"
+observed = "Run at 0853a63: 118 tests in test_closure_gate.py pass. Both Done paths in jira_transition.py are gated by the manifest check; check_invariants runs it on every manifest in the tree; the live gate rejects this very manifest (exit 1) while rows are open. Cancellations need a comment and skip the gate; --done is always gated."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_closure_gate.txt", sha256 = "b58c144cff7281c164f598245300caa78f1dca5977419f7db15a1392487a164b" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "AC6"
+status = "PASS"
+command = "uv run python scripts/closure.py check evidence/closure/CC-133.toml --pre-merge"
+expected = "exit 0 with every row PASS"
+observed = "Run at 0853a63: `closure.py check evidence/closure/CC-133.toml --pre-merge` rejects an incomplete manifest (it exited 1 with 13 problems until the rows above were verified) and accepts a whole one (test_a_whole_record_backs_the_closure; 118 tests pass). budgets.toml is untouched (budgets-diff.txt) and doc lines are 1820 <= 1820; the one budget check red is p95 (25.472s in the committed evidence/latest.json, which is main's; this branch's own E2E measured 31.236s) against the 20s ceiling, inherited: this branch changes no api/src. The E2E ran once at the final head (HEAD identical at start and end, e2e-r4/log.txt) and its scoreboard and comparator verdict are in the PR. The post-merge E2E on main is recorded in [post_merge] after the merge."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_closure_gate.txt", sha256 = "b58c144cff7281c164f598245300caa78f1dca5977419f7db15a1392487a164b" }, { path = "evidence/slice-6/cc-133/closure-run/check_budgets.txt", sha256 = "731615827b1ba92ea75da96bd60e6d3f6e83709dbf7615ee1ffb2a0ee0e8d510" }, { path = "evidence/slice-6/cc-133/closure-run/budgets-diff.txt", sha256 = "32ae265c7738b3af6c560fb5f57d54790d0260d485142a81202f6960717eaa5a" }, { path = "evidence/slice-6/cc-133/e2e-r4/log.txt", sha256 = "87d012f1b4812548e811cc9750f6c4ab44589fabdbd951bf000468c02dcb987b" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC1"
+status = "PASS"
+command = "uv run pytest api/tests/test_metric_compare.py -q"
+expected = "a candidate better in one cohort and worse in another is rejected"
+observed = "Run at 0853a63: test_a_candidate_better_in_one_cohort_and_worse_in_another_is_rejected passes with the other 84 tests in test_metric_compare.py; the real-chain test test_a_worse_candidate_is_rejected_by_the_same_real_chain passes too."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC2"
+status = "PASS"
+command = "uv run pytest api/tests/test_metric_compare.py api/tests/test_closure_gate.py -q"
+expected = "sequential small decreases cannot reset A or move L"
+observed = "Run at 0853a63: test_a_run_of_small_losses_never_moves_l_or_resets_a passes. L moves only through promote, which needs a PASS against A and L and a matching ledger row (run, run_sha256, run_head); the records guard in test_closure_gate.py rejects a rewritten reference or ledger."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }, { path = "evidence/slice-6/cc-133/closure-run/test_closure_gate.txt", sha256 = "b58c144cff7281c164f598245300caa78f1dca5977419f7db15a1392487a164b" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC3"
+status = "PASS"
+command = "uv run pytest api/tests/test_metric_compare.py -q"
+expected = "scorer/denominator/hash change cannot read as a code gain"
+observed = "Run at 0853a63: test_a_scorer_change_is_not_a_code_gain_without_a_bridge, test_the_scorer_hash_ignores_formatting_and_moves_with_logic, test_the_scorer_hash_sees_an_annotated_constant and test_a_run_scored_by_an_older_scorer_is_judged_by_the_scorer_that_scored_it pass. In the real comparison against A0 the changed scorer hash is reported FAIL (\"changed since the reference, no bridge; any gain is the instrument's\")."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "b0771b8452a5b509aa5395b0c0aca4a807adbdfdfcbd3d4b0d90f3184e88f4db" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC4"
+status = "PASS"
+command = "uv run pytest api/tests/test_execution_isolation.py -q"
+expected = "same intent, different prose: identical execution; prohibited access caught"
+observed = "Run at 0853a63 (test_execution_isolation.py): 10 passed, 8 xfailed (strict). The harness scripts the model and proves: a fixed intent executes identically under neutral rewordings; a different intent changes execution under the same wording; invalid intent is sent back for repair and never parsed from the wording; and code that reads the question by substring, regex, keyword or late in the answer is caught. The 8 strict xfails are today's wording dependence in the product, which this story exposes and does not fix (plan D6): 7 are owned by CC-104 (geography) and CC-129 (time and product); the ZIP case (guards.py) is owned by CC-135 (Phase 2 backlog, CC-124). A fix forces its marker out."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_execution_isolation.txt", sha256 = "510aebb4acb7b8f5767f9e82c79df50d442932a6baee28cff01049a3ed8d725d" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC5"
+status = "PASS"
+command = "uv run pytest api/tests/test_closure_gate.py -q"
+expected = "missing/NOT RUN/stale/no post-merge result blocks Done"
+observed = "Run at 0853a63: 118 tests in test_closure_gate.py pass, covering absent, FAIL, NOT RUN, UNKNOWN, stale (covered files changed since tested_head), unpinned evidence, missing post-merge E2E and a post-merge head not on origin/main."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_closure_gate.txt", sha256 = "b58c144cff7281c164f598245300caa78f1dca5977419f7db15a1392487a164b" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC6"
+status = "PASS"
+command = "uv run pytest api/tests/test_metric_compare.py -q"
+expected = "small samples inconclusive; repeats are not independent observations"
+observed = "Run at 0853a63: test_fewer_families_than_the_minimum_is_inconclusive, test_a_gain_inside_the_noise_is_inconclusive_not_a_pass, test_extra_repeats_of_one_family_are_not_extra_observations, test_judging_no_families_is_inconclusive_not_a_crash and test_a_case_passes_only_if_every_repeat_answered pass. A family counts once however often it repeats."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
+
+[[row]]
+id = "TC7"
+status = "PASS"
+command = "uv run pytest api/tests/test_metric_compare.py -q"
+expected = "faster failures, dropped rows, blanket refusal, outage filtering cannot pass"
+observed = "Run at 0853a63: faster failures (test_faster_failures_are_not_a_speed_gain), dropped trials, dropping the failed questions, fewer rows for the same questions and more empty answers than the reference each fail; a run must hold exactly the frozen trials, so filtering an outage or padding another tier cannot pass."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "78316219d10938438a6a9cbee4f3f57b2f0d6a4e319d460d1b07694837dbc3f8" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
+affects = ["scripts", "api/tests", "evals"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
+reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"

@@ -1,0 +1,41 @@
+# Frozen metric protocol (CC-133). Read by scripts/metric_compare.py.
+#
+# Change this file only in its own commit, with the owner's reason in the message.
+# check_invariants.py (--base) fails when a number here is loosened or a symbol, cohort or
+# exclusion is dropped. A changed hash separates old results from new ones: the comparison
+# refuses to call it a code gain unless evidence/metrics/bridges.json carries a bridge.
+# Values here are defaults awaiting owner ratification (see evidence/slice-6/cc-133-plan.md D2-D4).
+
+version = 1
+
+[sampling]
+repeat = 3             # trials per question; a planned trial that is missing fails the run
+min_families = 30      # fewer independent families than this is INCONCLUSIVE, never PASS
+confidence = 0.95      # two-sided percentile interval on the paired difference
+max_regression = 0.02  # the interval's lower bound must stay at or above -0.02
+resamples = 10000
+seed = 20261109
+case_rule = "all_repeats"  # a case passes only if every repeat answered; trial rate is separate
+blocks = "B,P,P,B"         # order-balanced; every planned block is kept, none rerun until green
+stopping = "fixed"         # no optional stopping, no rerun-until-green
+exclusions = []            # availability exclusions: none. Outages stay in the denominator.
+
+[selection]
+exclude_flags = ["holdout"]  # run_demo.select_questions never asks these (retrieval-only holdout)
+
+[scorer]
+source = "scripts/run_demo.py"
+symbols = ["is_answered", "level_problems", "census_urls", "fetched_level", "http_ok", "_WARNING_WITHOUT_FETCH"]
+
+# A family is one question id until the owner assigns families (D2).
+[cohorts.long_tail]
+source = "evals/golden_questions.toml"
+tier = "long_tail"
+
+[cohorts.trap]
+source = "evals/golden_questions.toml"
+tier = "trap"
+
+[cohorts.core]
+source = "evals/golden_questions.toml"
+tier = "core"
