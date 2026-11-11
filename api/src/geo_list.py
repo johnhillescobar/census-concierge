@@ -75,7 +75,7 @@ def state_of(entry: str) -> tuple[str, str] | None:
     for part in (entry.rsplit(",", 1)[-1], entry):
         key = _bare(part)
         for name, usps, fips in STATES:
-            if key in {name, usps.casefold()}:
+            if key in {name, usps.casefold(), f"state {fips}"}:
                 return name, fips
     return None
 

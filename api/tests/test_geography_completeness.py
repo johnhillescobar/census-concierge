@@ -19,8 +19,8 @@ from ask_fixtures import DANE, ENTRIES, _tools, only_dane
 from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.contract import ResultPlan
-from src.geo import detect_level
-from src.geo_list import find_state
+from src.geo_level import level_name
+from src.geo_list import state_of
 from src.retrieval.metadata import GeoLevel
 
 GOLDEN = (Path(__file__).resolve().parents[2] / "evals" / "golden_questions.toml").read_text(
@@ -124,11 +124,11 @@ def _novel_codes(seed: int, count: int) -> list[str]:
     return codes
 
 
-TRACTS = ["tract 71", "tract 305"]
+TRACTS = ["tract", "tract"]
 Q_TRACTS = "Is the poverty rate in tract 71 higher than tract 305"
 Q_BLOCKS = "Is block group 4 larger than block group 9"
 Q_COUNTIES = "Which is bigger, county 15 or county 33"
-BGS, COUNTIES = ["block group 4", "block group 9"], ["county 15", "county 33"]
+BGS, COUNTIES = ["block group", "block group"], ["county", "county"]
 
 # (question, level, named, numbered, county_named, what the question lacks; () = answerable)
 # A listing wants every unit in the parents; "by number" is one unit its number alone cannot find.
@@ -157,21 +157,21 @@ CASES = [
         "Tract 5871 in county 201, state 21",
         "tract",
         ["state 21"],
-        ["tract 5871", "county 201"],
+        ["tract", "county"],
         False,
         (),
     ),
     # every tract or block group in a county given by number: the number carries the county, and
     # the unit listed is never asked for its own number
-    ("Poverty by tract in county 5 of Ohio", "tract", ["Ohio"], ["county 5"], False, ()),
-    ("Rent by block group in county 5 of Ohio", "block group", ["Ohio"], ["county 5"], False, ()),
-    ("Rent by block group in county 5", "block group", [], ["county 5"], False, ("state",)),
+    ("Poverty by tract in county 5 of Ohio", "tract", ["Ohio"], ["county"], False, ()),
+    ("Rent by block group in county 5 of Ohio", "block group", ["Ohio"], ["county"], False, ()),
+    ("Rent by block group in county 5", "block group", [], ["county"], False, ("state",)),
     # every block group inside a tract given by number: the tract number needs its county and state
     (
         "Income by block group in tract 1201 of Ohio",
         "block group",
         ["Ohio"],
-        ["tract 1201"],
+        ["tract"],
         False,
         ("county",),
     ),
@@ -189,7 +189,7 @@ CASES = [
         f"{Q_BLOCKS} of tract 1201 in Franklin County, KY?",
         "block group",
         ["Franklin County, Kentucky"],
-        [*BGS, "tract 1201"],
+        [*BGS, "tract"],
         True,
         (),
     ),
@@ -222,7 +222,7 @@ async def test_a_question_is_answerable_exactly_when_it_carries_what_its_level_n
     expected = level or "tract"
     assert expected in response.answer and expected in response.warnings[0].detail
     assert all(part in response.answer for part in lacks)
-    assert find_state(response.answer) is None  # code wrote it; no state or county invented
+    assert state_of(response.answer) is None  # code wrote it; no state or county invented
 
 
 @pytest.mark.parametrize(
@@ -253,19 +253,19 @@ async def test_a_question_is_answerable_exactly_when_it_carries_what_its_level_n
         ),
         (
             "Rent by block group in county 5",
-            _frame("block group", [], ["county 5"]),
+            _frame("block group", [], ["county"]),
             "every block group in a county identified by its number needs state, and it names "
             "no geography. Name the state and ask again.",
         ),
         (
             "Rent by block group in tract 1201 of Ohio",
-            _frame("block group", ["Ohio"], ["tract 1201"]),
+            _frame("block group", ["Ohio"], ["tract"]),
             "every block group in a tract identified by its number needs state and county, and "
             "it names only the state. Name the county and ask again.",
         ),
         (
             "What is the median age in my county?",
-            _frame("county", [], pointing=["my county"]),
+            _frame("county", [], pointing=True),
             "it is about a place it does not name. Name the place, with its state, and ask again.",
         ),
     ],
@@ -286,33 +286,12 @@ async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> Non
 
 
 async def test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_named() -> None:
-    ref = f"tract {_novel_codes(15, 1)[0]}"  # in no question: the model made it up
-    response, record, _fetched = await _ask("Population by tract", _frame("tract", [ref], [ref]))
+    ref = f"tract {_novel_codes(15, 1)[0]}"  # the model made it up, and filed it under named
+    response, record, _fetched = await _ask(
+        "Population by tract", _frame("tract", [ref], ["tract"])
+    )
     assert STOPPED in response.answer
     assert record.timings == []
-
-
-async def test_a_number_that_is_only_the_start_of_one_the_user_wrote_is_not_theirs() -> None:
-    # "county 1" and "county 3" are the first characters of "county 15" and "county 33".
-    reply = _frame("county", [], ["county 1", "county 3"])
-    _response, record, _fetched = await _ask("Which is bigger, county 15 or county 33?", reply)
-    assert record.timings
-
-
-async def test_a_number_the_user_never_wrote_cannot_make_a_question_incomplete() -> None:
-    invented = f"county {_novel_codes(6, 1)[0]}"  # the model reports it; "by county" never says it
-    _response, record, _fetched = await _ask(
-        "Population by county", _frame("county", [], [invented])
-    )
-    assert record.timings
-
-
-async def test_a_number_written_in_words_is_not_one_the_user_wrote_verbatim() -> None:
-    # "county fifteen" reported as "county 15": it cannot refuse a county question, which lists
-    # under state:* anyway.
-    question = "Which is bigger, county fifteen or county thirty-three?"
-    _response, record, _fetched = await _ask(question, _frame("county", [], COUNTIES))
-    assert record.timings
 
 
 async def test_no_verdict_from_the_model_means_the_loop_runs_as_usual() -> None:
@@ -437,7 +416,7 @@ def _shape(**over: Any) -> dict[str, Any]:
             "numbered": [],
             "asks_for": None,
             "county_named": False,
-            "pointing": [],
+            "pointing": False,
             **over,
         }
     }
@@ -450,14 +429,14 @@ async def test_the_split_report_always_carries_the_level_and_the_places_it_found
         listing=False,
         level="county",
         named=["Dane County, Wisconsin"],
-        numbered=["county 7301"],
+        numbered=["county"],
         county_named=True,
         asks_for="data",
     )
     assert found == _shape(
         level="county",
         named=["Dane County, Wisconsin"],
-        numbered=["county 7301"],
+        numbered=["county"],
         county_named=True,
         asks_for="data",
     )
@@ -491,11 +470,11 @@ async def test_a_multi_parent_listing_report_carries_parents_unit_and_frame() ->
     assert found["frame"]["named"] == ["Dane County, Wisconsin", "Sauk County, Wisconsin"]
 
 
-async def test_one_parent_is_not_a_split_but_is_still_a_frame() -> None:
+async def test_one_parent_is_a_listing_and_still_a_frame() -> None:
     found = await _split(
         parents=["Dane County, Wisconsin"], unit="tract", listing=True, level="tract"
     )
-    assert found is not None and "parents" not in found
+    assert found is not None and found["parents"] == ["Dane County, Wisconsin"]
     assert found["frame"]["named"] == ["Dane County, Wisconsin"]
 
 
@@ -556,7 +535,10 @@ async def test_tracts_inside_a_named_county_still_fetch_and_compare_with_margins
     ]
     steps = [
         ("search_tables", {"question": question}),
-        ("resolve_geography", {"level": None, "query": "every tract in Dane County, Wisconsin"}),
+        (
+            "resolve_geography",
+            {"level": "tract", "parents": ["Dane County, WI"], "parent_level": "county"},
+        ),
         ("build_url", {"table_id": "B17001"}),
         ("fetch_data", {}),
     ]
@@ -586,7 +568,7 @@ def test_the_needs_table_is_what_the_censuss_own_metadata_says(row: str, single:
         (tuple(p for p in entry.requires if single or p not in entry.wildcard) for entry in rows),
         key=len,
     )
-    assert finish._NEEDS.get((detect_level(row) or "", single), ()) == derived
+    assert finish._NEEDS.get((level_name(row) or "", single), ()) == derived
 
 
 # --- a GEOID the user wrote carries the hierarchy it encodes -----------------------------------
@@ -627,13 +609,13 @@ async def test_a_geoid_the_user_wrote_supplies_the_parents_it_encodes(
         # too short to be a tract GEOID, so it encodes nothing
         (
             "Population of block group 1 in tract 1400000US5502",
-            _frame("block group", ["1400000US5502"], ["block group 1"]),
+            _frame("block group", ["1400000US5502"], ["block group"]),
             "county",
         ),
         # a state GEOID encodes the state and no county
         (
             f"Poverty in tract 71 of {GEOID_STATE}",
-            _frame("tract", [GEOID_STATE], ["tract 71"]),
+            _frame("tract", [GEOID_STATE], ["tract"]),
             "county",
         ),
     ],
@@ -653,15 +635,15 @@ async def test_a_geoid_supplies_only_what_it_encodes(
 @pytest.mark.parametrize(
     ("question", "frame"),
     [
-        ("What is the median age in my county?", _frame("county", [], pointing=["my county"])),
-        ("Population of where I live", _frame(None, [], pointing=["where I live"])),
+        ("What is the median age in my county?", _frame("county", [], pointing=True)),
+        ("Population of where I live", _frame(None, [], pointing=True)),
         (
             "Compare my county with Harris County, Texas",
             _frame(
                 "county",
                 ["Harris County, Texas"],
                 county_named=True,
-                pointing=["my county"],
+                pointing=True,
             ),
         ),
     ],
@@ -673,51 +655,18 @@ async def test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_o
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert response.urls == [] and response.rows == [] and response.alternatives == []
     assert record.timings == [] and fetched == []
-    assert find_state(response.answer) is None  # code wrote it; no place was guessed
-
-
-@pytest.mark.parametrize(
-    ("question", "pointing"),
-    [
-        ("Population of Harris County, Texas", ["my county"]),  # the user never wrote it
-        ("Population of Smyth County, Virginia", ["my"]),  # a piece of another word
-        ("Population of Harris County, Texas", ["", " ", "-"]),  # nothing to look for
-        ("Population of Harris County, Texas", [7, None, {"a": "my county"}]),  # not text
-    ],
-)
-async def test_a_pointing_phrase_the_user_did_not_write_cannot_refuse_a_question(
-    question: str, pointing: list[Any]
-) -> None:
-    frame = _frame("county", ["Harris County, Texas"], county_named=True, pointing=pointing)
-    response, record, _fetched = await _ask(question, frame)
-    assert record.timings
-    assert STOPPED not in response.answer
-
-
-async def test_a_pointing_phrase_on_an_empty_question_is_judged_on_the_report_alone() -> None:
-    record = ExecutionRecord(question="")
-    done: asyncio.Future[dict[str, Any] | None] = asyncio.get_running_loop().create_future()
-    done.set_result({"frame": {"level": "county", "pointing": [""]}})
-    assert await finish.incomplete(record, done) is None
-
-
-async def test_pointing_phrases_past_the_cap_are_not_read() -> None:
-    padding = [f"phrase {n}" for n in range(finish.MAX_REPORTED)]
-    frame = _frame("county", [], pointing=[*padding, "my county"])
-    _response, record, _fetched = await _ask("What is the median age in my county?", frame)
-    assert record.timings  # the phrase is past the cap, so the report is not read that far
+    assert state_of(response.answer) is None  # code wrote it; no place was guessed
 
 
 async def test_a_question_that_asks_which_table_holds_something_may_point_at_a_place() -> None:
-    frame = _frame("county", [], asks_for="tables", pointing=["my county"])
+    frame = _frame("county", [], asks_for="tables", pointing=True)
     response, record, _fetched = await _ask("Which table has median age for my county?", frame)
     assert record.timings and STOPPED not in response.answer
     assert record.tables_only is True
 
 
-async def test_the_split_report_carries_pointing_phrases_as_a_list() -> None:
-    found = await _split(level="county", pointing=["my county"])
-    assert found == _shape(level="county", pointing=["my county"])
-    for sent in ("my county", 7, None, {"a": "my county"}):
+async def test_the_split_report_carries_pointing_as_a_flag_and_nothing_else() -> None:
+    assert await _split(level="county", pointing=True) == _shape(level="county", pointing=True)
+    for sent in ("my county", 7, None, ["my county"]):
         found = await _split(level="county", pointing=sent)
-        assert found is not None and found["frame"]["pointing"] == []
+        assert found is not None and found["frame"]["pointing"] is False

@@ -12,6 +12,7 @@ from langchain_core.tools import BaseTool
 
 from src.contract import clauses_from_geoid
 from src.geo_level import level_name
+from src.geo_list import state_of
 from src.vintages import latest_vintages, requested_years, wants_acs1
 
 Dispatch = Callable[..., Awaitable[str]]
@@ -189,14 +190,17 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
             "not name. Name the place, with its state, and ask again."
         )
     reported = [n for n in frame.get("named") or [] if isinstance(n, str)][:MAX_REPORTED]
-    units = [lv for n in frame.get("numbered") or [] if (lv := level_name(n))][:MAX_REPORTED]
+    units = [lv for n in frame.get("numbered") or [] if (lv := level_name(n)) in _ORDER][
+        :MAX_REPORTED
+    ]
     level = level_name(frame.get("level")) or next(iter(units), None)
     need = _NEEDS.get((level or "", False), ())
     if units:  # each number is judged at its own unit's level
         need = tuple(p for p in _ORDER if any(p in _NEEDS.get((lv, True), ()) for lv in units))
-    # A place the model names is written with its state ("Name, State"), so any name gives the
-    # state. The county and tract are what the model reports apart, from the numbers it saw.
-    have = {"state"} if reported else set()
+    # A place the model names is written with its state ("Name, State"): only an entry code can
+    # ground to a state gives it (a number filed under named is not a place). The county and tract
+    # are what the model reports apart.
+    have = {"state"} if any(state_of(part) for part in reported) else set()
     if frame.get("county_named") is True or "county" in units:
         have.add("county")
     if "tract" in units:
