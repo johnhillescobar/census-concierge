@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from ask_fixtures import _geo_tool, only_dane
 from src.geo_level import ResolveGeographyResult, level_name
-from src.geo_list import DOMINANCE, dominant, name_token, state_of
+from src.geo_list import DOMINANCE, dominant, fips_state, name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
 from test_geography_completeness import STOPPED, _ask, _frame, _run
 from test_tracts_in_place import ASK as IN_PLACE
@@ -97,11 +97,25 @@ def test_a_sentence_or_an_unnamed_state_names_no_state(text: str) -> None:
     assert state_of(text) is None  # nothing is found by scanning words
 
 
-def test_only_a_state_fips_or_geoid_label_makes_a_code_a_state() -> None:
-    assert state_of("geoid 06037") == ("california", "06")
+def test_only_a_state_code_makes_a_code_a_state() -> None:
+    assert state_of("state 21") == ("kentucky", "21")
+    assert state_of("geoid 06037") is None  # a county code is not a state
+    assert state_of("fips 39049") is None
     assert state_of("zip 21234") is None  # a label that is not a state's own
     assert state_of("state 2112") is None  # "state" takes the two digits of a state, no more
     assert state_of("21234") is None
+
+
+def test_a_labelled_fips_or_geoid_code_grounds_only_the_state_it_lies_in() -> None:
+    assert fips_state("GEOID 06037") == ("california", "06")
+    assert fips_state("FIPS 39049") == ("ohio", "39")
+    assert fips_state("fips 3904") is None  # not the length of any FIPS code
+    assert fips_state("zip 60614") is None and fips_state("fips 99999") is None
+
+
+async def test_a_county_code_asked_for_with_no_level_is_not_answered_as_its_state() -> None:
+    hit = await resolved(places=["FIPS 39049"], level=None)
+    assert [spec.level for spec in hit.specs] != ["state"]
 
 
 def test_the_name_of_an_entry_is_the_part_before_its_first_comma() -> None:
@@ -154,9 +168,7 @@ async def test_a_number_filed_under_named_is_a_code_that_must_ground_itself(code
 
 async def test_a_code_with_its_own_label_grounds_the_state() -> None:
     _response, record, _fetched = await _ask("Population by tract", _frame("tract", ["FIPS 39049"]))
-    assert record.timings
-    assert state_of("FIPS 39049") == ("ohio", "39")
-    assert state_of("state 21") == ("kentucky", "21") and state_of("60614") is None
+    assert record.timings  # the code grounds the state it lies in, for completeness only
 
 
 async def test_a_place_parent_named_without_its_state_is_found_by_name_across_states() -> None:
@@ -445,3 +457,68 @@ async def test_a_place_name_with_punctuation_or_accents_still_gives_the_state(na
         f"Population by tract in {name}", _frame("tract", [name])
     )
     assert record.timings and STOPPED not in response.answer
+
+
+async def test_a_bare_state_name_among_several_parents_is_not_a_parent_with_its_state() -> None:
+    args = {"parent_level": "place", "level": "tract"}
+    hit = await resolved(alike, parents=["Washington", "Kansas City, MO"], **args)
+    assert hit.specs == [] and "with its state" in hit.detail  # "Washington" was never qualified
+
+
+async def test_tracts_in_a_place_written_with_its_state_take_the_largest_match() -> None:
+    from test_tracts_in_place import WITH_STEP, listing
+
+    def places(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        if level != "place":
+            return listing(level, parts, **kwargs)
+        return [
+            {
+                **_row("Detroit city, Michigan", "26", "000", "630000"),
+                "level": "place",
+                "for": "place:22000",
+            },
+            {
+                **_row("Detroit township, Michigan", "26", "000", "500000"),
+                "level": "place",
+                "for": "place:99999",
+            },
+        ]
+
+    args = {"parents": ["Detroit, MI"], "parent_level": "place", "level": "tract"}
+    tool = _geo_tool(listing=places, table=WITH_STEP)
+    hit = (
+        await tool.ainvoke(
+            {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c"}
+        )
+    ).artifact
+    assert hit.legal and not hit.ambiguous and hit.specs[0].in_spec == "state:26 county:163"
+
+
+@pytest.mark.parametrize(
+    "written", ["Census Block Group 3", "census block groups", "block-group 3"]
+)
+async def test_a_numbered_unit_is_found_wherever_the_model_wrote_its_level(written: str) -> None:
+    frame = _frame("block group", ["Kentucky"], [written], given=["state"])
+    response, record, fetched = await _ask("Income in block group 3 in Kentucky", frame)
+    assert STOPPED in response.answer and record.timings == [] and fetched == []
+
+
+async def test_given_is_read_however_the_model_cases_or_pads_it() -> None:
+    dane = ["Dane County, Wisconsin"]
+    frame = _frame("tract", dane, ["tract"], county_named=True, given=["State ", " COUNTY"])
+    _response, record, _fetched = await _ask("Poverty in tract 12 in Dane County, WI", frame)
+    assert record.timings
+
+
+async def test_the_nation_level_does_not_swallow_a_named_state() -> None:
+    texas = await resolved(places=["Texas"], level="us")
+    assert texas.specs == [] and texas.legal is False and "nation" in texas.detail
+    nation = await resolved(places=["United States"], level="us")
+    assert [spec.for_spec for spec in nation.specs] == ["us:1"]
+
+
+def test_empty_places_dominate_nothing_and_the_comparison_is_with_the_largest_other() -> None:
+    zero = {"population": "0"}
+    assert not dominant([zero, zero])
+    big, mid, small = {"population": "1000"}, {"population": "900"}, {"population": "10"}
+    assert not dominant([big, small, mid])  # the best match is compared with the largest other one

@@ -165,7 +165,7 @@ class ResolveGeographyTool(BaseTool):
                     "a listing takes parents; send places in their own call", wildcard=True
                 )
             by_name = level_name(parent_level) not in {None, "state", "us"}
-            if len(owners) > 1 and by_name and not all(state_of(o) for o in owners):
+            if len(owners) > 1 and by_name and not all("," in o and state_of(o) for o in owners):
                 # each would search every state: name each parent with its state instead
                 return _fail(
                     "name each parent with its state when there are several", wildcard=True
@@ -304,6 +304,8 @@ class ResolveGeographyTool(BaseTool):
         if refusal:
             return refusal
         if for_level == "us":
+            if entry and state_of(entry):  # the nation names no state: do not drop one silently
+                return _fail(f"level us is the nation, but {entry!r} names a state; send its level")
             spec = GeoSpec(
                 level="us",
                 name="United States",

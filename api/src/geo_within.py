@@ -39,7 +39,7 @@ async def tracts_in_place(
     _detail, hit = await tool._place(names[0], "place", dataset, year, entries)
     if not (hit.legal and hit.specs):
         return ordinary
-    if not hit.dominant:  # which place is not known: candidates, not the largest by default
+    if not hit.dominant and "," not in names[0]:  # no state given: candidates, not the largest
         found = hit.specs[:MAX_CANDIDATES]
         detail = f"{names[0]!r} matches {len(hit.specs)} places; name its state"
         return detail, ResolveGeographyResult(
