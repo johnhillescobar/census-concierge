@@ -339,6 +339,7 @@ async def finish_tools(
             and record.geographies
             and (not record.url or redo)
             and status.get("nested") is not False
+            and not status.get("ambiguous")
         ):
             args = {"table_id": table}
             if acs1:

@@ -102,7 +102,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         specs = get("specs")
         record.geographies = list(specs if specs is not None else get("matches") or [])
         record.geo_status = geo_status(get)
-        record.geography = record.geographies[0] if record.geographies else None
+        picked = bool(record.geographies) and not record.geo_status["ambiguous"]
+        record.geography = record.geographies[0] if picked else None
         if record.geography != previous:
             clear_series(record)
         legs = [p.strip() for p in args.get("places") or [] if isinstance(p, str) and p.strip()]

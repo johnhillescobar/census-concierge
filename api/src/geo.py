@@ -12,7 +12,15 @@ from pydantic import ConfigDict
 from src.compare import unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
 from src.geo_level import ZCTA, ResolveGeographyResult, declared_levels, level_name
-from src.geo_list import filter_rows, name_token, named_rows, rank_matches, state_of
+from src.geo_list import (
+    MAX_CANDIDATES,
+    dominant,
+    filter_rows,
+    name_token,
+    named_rows,
+    rank_matches,
+    state_of,
+)
 from src.geo_within import tracts_in_place
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput
@@ -253,6 +261,13 @@ class ResolveGeographyTool(BaseTool):
             matched = rank_matches(filter_rows(name_token(owner), rows))
             if not matched:
                 return _fail(f"{for_level} nested in unresolved {parent}", wildcard=True)
+            if where.get("state") == "*" and not dominant(matched):
+                names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
+                detail = f"{owner!r} matches {len(matched)} places ({names}); name its state"
+                found = [_spec(row, dataset, year) for row in matched[:MAX_CANDIDATES]]
+                return detail, ResolveGeographyResult(
+                    specs=found, wildcard=False, legal=True, detail=detail, ambiguous=True
+                )
             pick, leftover = matched[0], matched[1:]
             in_parts.update(clause_codes(pick.get("in", "")))
             parsed = clause_codes(pick["for"])
@@ -358,7 +373,12 @@ class ResolveGeographyTool(BaseTool):
         specs = [_spec(row, dataset, year) for row in matched]
         detail = f"no {for_level} matched {entry!r}" if not specs else ""
         result = ResolveGeographyResult(
-            specs=specs, wildcard=False, legal=True, detail=detail, inferred=inferred
+            specs=specs,
+            wildcard=False,
+            legal=True,
+            detail=detail,
+            inferred=inferred,
+            dominant=dominant(matched),
         )
         n = len(specs)
         chosen = specs[0] if specs else None
