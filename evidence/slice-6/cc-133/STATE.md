@@ -46,4 +46,6 @@ real-chain tests added; context hooks (.claude/hooks/ctx.py, .claude/settings.js
   reach PASS on them (ticket wording: insufficient precision is inconclusive). Default taken: leave
   as written and report it; do not weaken.
 - A0->A bridge needs a live re-score. p95 and 6 leakage entries are inherited red from main.
-- All 13 AC/TC rows stay UNKNOWN/NOT RUN until verified PASS with a tested head.
+- Rows PASS at tested head 0853a63 (closure-run/): AC1, AC5, TC1, TC2, TC5, TC7. Still open: AC2, AC3, TC3, TC6
+  (cohort size / A0 bridge), AC4, TC4 (8 strict xfails: the real product still reads wording; owner to say
+  whether the harness alone meets them), AC6 (needs all rows). Post-merge E2E after merge.

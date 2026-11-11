@@ -33,7 +33,7 @@ long_tail answered 0.700 (floor 0.700) | overall 0.801 | demo.p95 31.236s (ceili
 5. A0-to-A bridge needs a live re-score.
 6. p95, answered_rate floor, 6 leakage entries and one invariants test are red on main as well.
 7. PLAN lines 41-42 and 46 still describe a rollback that did not happen; D1 here takes A = 69d7364.
-8. Post-merge E2E on main is still to run, so no AC/TC row is PASS yet (the manifest says so; `closure.py check --pre-merge` exits 1).
+8. Rows PASS at tested head 0853a63: AC1, AC5, TC1, TC2, TC5, TC7 (`evidence/slice-6/cc-133/closure-run/`). Open: AC2, AC3, TC3, TC6 (cohort size, A0 bridge), AC4, TC4 (8 strict xfails: real code still reads wording; does the harness alone meet them?), AC6. Post-merge E2E on main is still to run; `closure.py check --pre-merge` exits 1 with 7 problems.
 
 ~25 files touched against the ~15 guideline: the story is three tools, their tests and their evidence. Doc lines 1822 -> 1820.
 

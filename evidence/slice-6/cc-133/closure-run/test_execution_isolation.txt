@@ -1,0 +1,34 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 18 items
+
+api/tests/test_execution_isolation.py::test_a_fixed_intent_executes_identically_under_neutral_rewordings PASSED [  5%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a statistic] PASSED [ 11%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[filler] PASSED [ 16%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word] XFAIL [ 22%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison] XFAIL [ 27%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip] XFAIL [ 33%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset] XFAIL [ 38%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year] XFAIL [ 44%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range] XFAIL [ 50%]
+api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span] XFAIL [ 55%]
+api/tests/test_execution_isolation.py::test_a_different_stated_intent_changes_execution_under_the_same_wording PASSED [ 61%]
+api/tests/test_execution_isolation.py::test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording PASSED [ 66%]
+api/tests/test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[How many people live in Harris County, TX?] PASSED [ 72%]
+api/tests/test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[a level word] XFAIL [ 77%]
+api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[substring] PASSED [ 83%]
+api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[regex] PASSED [ 88%]
+api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[keyword] PASSED [ 94%]
+api/tests/test_execution_isolation.py::test_the_harness_catches_code_that_reads_the_question[late-in-the-answer] PASSED [100%]
+
+============================== warnings summary ===============================
+api/tests/test_execution_isolation.py::test_a_fixed_intent_executes_identically_under_neutral_rewordings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 10 passed, 8 xfailed, 1 warning in 20.14s ==================
