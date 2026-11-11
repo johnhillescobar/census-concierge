@@ -49,4 +49,5 @@ real-chain tests added; context hooks (.claude/hooks/ctx.py, .claude/settings.js
 - Rows PASS at tested head 0853a63 (closure-run/): AC1, AC4, AC5, TC1, TC2, TC4, TC5, TC7. Still open: AC2, AC3, TC3, TC6
   (cohort size / A0 bridge), AC6 (needs all rows). Post-merge E2E after merge.
 - AC4/TC4 closed on the harness (plan D6: the story exposes wording dependence, does not fix it). The ZIP xfail in
-  guards.py has no owning story: file one under CC-104/106 when the owner asks.
+  guards.py is now CC-135 (under CC-124). Its reason string in test_execution_isolation.py still says
+  "no PLAN story owns it"; change it to name CC-135 with the next change to that file (it makes AC4/TC4 stale, so re-run them then).
