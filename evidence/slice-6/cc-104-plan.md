@@ -43,6 +43,33 @@ Rules: `CLAUDE.md`, `docs/playbooks/run-slice.md`. Jira CC-104 owns scope; AC1-5
 - D8 **owner**: the owner commits `[cohorts.geography]` to `evals/metric_protocol.toml`. Default definition: `long_tail`
   and `trap` goldens that carry `expect_geo_level` (long_tail 48, trap 8 of 18). Nothing is measured against it before it lands.
 
+## State at 2026-11-11 (after #129 and #130 merged; supersedes the NOT RUN columns below only where stated)
+
+Branch rebased on `main` 261c18f. `check_invariants --base origin/main` all ok (regex sites 55, delta +0);
+`check_budgets`: only `answered_rate` 0.683 < 0.700 red (p95 waived for the 2026-11-09 run by #130).
+Baseline `uv run pytest api/tests`: 1397 passed, 34 skipped, 8 xfailed (3 min). Cohort block: owner has not yet confirmed it landed.
+
+## Design refinement (default; implementation notes from reading every caller)
+
+- **Tool** `ResolveGeographyInput`: drop `query`. `places` (direct: one = single, 2+ = comparison), `parents` (non-empty means
+  listing, so no separate `listing` flag: a flag restating `parents` is the ambiguity this story removes; D1 shortened),
+  `parent_level` (new: level of the parents, null = state), `level`/`levels` (required), `dataset`, `vintage`.
+  `level="us"` with no places = the United States; null level and no place is refused for bounded repair (no national guess).
+- **Entities**: an entry is "Name, ST" or a bare state. The state comes from `STATES` by exact match on the part after the last
+  comma (or the whole entry); the NAME token is the part before the first comma, matched with `named_rows`. A 5-digit entry at
+  the ZCTA level is an exact code. `find_state`/`place_token`/`WILDCARD`/`WITHIN`/`detect_level`/`split_comparison`/`_nation`/
+  `_US`/`_HAS_YEAR`/`_IN_PLACE`/`_NOISE`/`_AVERAGE` are deleted; `track_geo_query` keys on the entry, not a query.
+- **Frame** (`plan_split`, the auxiliary report): `parents`/`unit`/`listing` returned for 1+ parents (was 2+), `places` for a direct
+  comparison, `given` = hierarchy levels the question itself states (state, county, tract), `numbered` = levels of places
+  identified only by number, `pointing` = bool. `incomplete()` uses `given` + exact GEOID parsing only; it no longer searches the
+  question for the report's strings. A part the model supplied from its own knowledge is not in `given` (AC5).
+- **finish.py**: `_LISTING/_BY_COUNTY/_listing_level/_listing_query/_wrong_listing/_wrong_comparison` deleted; redo compares the
+  frame (`unit`, `parents`, `places`) with the record's geographies. The `query="nationwide"` repair is deleted (AC4).
+- **LEVELS** alias table: kept only for `zcta`/`zip` -> the published name, written once (one `geo_level.py` baseline line remains,
+  two are deleted in this change). Plural and city/cities spellings go; an unknown spelling is refused with the published list.
+- Left for CC-129 (time and product): `wants_acs1`, `requested_years`, `guards.py` reads. Left, listed as a finding (D5):
+  `compare.py:107` `_COMPARE` on the question (a warning trigger, not execution).
+
 ## AC / TC matrix (IDs are the ticket's; evidence goes in `evidence/closure/CC-104.toml`)
 
 | ID | Expected | Command / test | Status |
