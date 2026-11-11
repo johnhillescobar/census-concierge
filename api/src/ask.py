@@ -105,12 +105,12 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         record.geography = record.geographies[0] if record.geographies else None
         if record.geography != previous:
             clear_series(record)
-        query = str(args.get("query") or "").strip()
-        if record.geo_status["compare"] or get("wildcard", False) or args.get("places"):
+        legs = [p.strip() for p in args.get("places") or [] if isinstance(p, str) and p.strip()]
+        if record.geo_status["compare"] or get("wildcard", False) or len(legs) != 1:
             record.geo_queries = []
         # An unsupported candidate (legal False) is not a place that was compared.
-        elif query and record.geographies and record.geo_status["legal"]:
-            record.geo_queries = track_geo_query(record.geo_queries, query)
+        elif record.geographies and record.geo_status["legal"]:
+            record.geo_queries = track_geo_query(record.geo_queries, legs[0])
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)

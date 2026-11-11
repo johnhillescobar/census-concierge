@@ -11,6 +11,7 @@ from src.census_url import CensusURL
 from src.contract import AskWarning, GeoSpec
 from src.tools import ToolResult
 
+ZCTA = "zip code tabulation area"
 # Spellings of a level the model may write for a published name. Not a reading of the question.
 LEVELS = {
     "county": "county",
@@ -25,9 +26,9 @@ LEVELS = {
     "tracts": "tract",
     "block group": "block group",
     "block groups": "block group",
-    "zcta": "zip code tabulation area",
-    "zctas": "zip code tabulation area",
-    "zip": "zip code tabulation area",
+    "zcta": ZCTA,
+    "zctas": ZCTA,
+    "zip": ZCTA,
 }
 
 
