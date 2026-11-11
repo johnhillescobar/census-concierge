@@ -24,8 +24,11 @@ D5  finish.py:340 Every geography fallback is gone: if the split call times out 
                  fails and the loop resolved nothing, no URL for a question that         no national/latest/total fallback); the
                  named a place.                                                          loop resolves geography in the normal
                                                                                          case. Measured in the E2E.
-D6  ask.py:113   An ambiguous single-place result is appended to geo_queries as a        FIXED. Only a selected geography is
-                 comparison leg, so the next resolve can force a needless redo.          tracked as a leg.
+D6  ask.py:113   An ambiguous single-place result is appended to geo_queries as a        NOT REACHABLE, no change. Ambiguity
+                 comparison leg, so the next resolve can force a needless redo.          comes only from a `parents` call, where
+                                                                                         `places` is empty, so _absorb already
+                                                                                         resets geo_queries; a guard would be
+                                                                                         dead code.
 D7  geo.py:353   The 5-digit word extraction rewrites `token` for every level.           FIXED. It happens only for ZCTA.
 D8  geo.py:271   A parent that carries its state takes matched[0] silently; several      KEPT. `_list` lists rows of the parent
                  same-state matches are never flagged; the level of the match is not     level, so the level matches by
@@ -42,4 +45,4 @@ D10 geo.py:160   A parent with no state downloads every place or county in every
                                                                                          the direct single-place path already
                                                                                          does the same. The E2E p95 decides.
 
-Gate 2 stops here by owner instruction. Fixes D2, D4, D6, D7 carry tests and mutation checks: gate1-c3-r2-fixes.txt.
+Gate 2 stops here by owner instruction. Fixes D2, D4, D7 carry tests and mutation checks: gate1-c3-r2-fixes.txt.
