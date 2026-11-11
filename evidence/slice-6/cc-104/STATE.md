@@ -29,20 +29,31 @@ status source of truth. Rules: `CLAUDE.md`, `docs/playbooks/run-slice.md` (re-re
 
 ## Done
 
-Pre-flight and plan (09469c2, f41873f). Branch rebased on main with #129 and #130. Invariants all ok; budgets: only
-`answered_rate` 0.683 < 0.700 red (inherited from CC-114's close, not waivable by the p95 mechanism).
+Pre-flight and plan (09469c2, f41873f). Branch rebased on main with #129 and #130 (waiver and baseline both landed).
+Steps 2(a)-(c) built in 8e31a5c: `geo_list.py` (`state_of`, `name_token`), `tools.py` schema (`places`, `parents`,
+`parent_level`, `level`, `levels`; `query` gone), `geo.py` (`_place`, `_list`, `_stated`), `finish.py` (frame carries
+`parent_level`, `numbered` levels, `pointing` bool, `places`; `_split_parents` also checks the unit; no word rescans, no
+`query="nationwide"` repair), `ask.py` `_absorb` tracks `places`, `geo_level.ZCTA`. ruff, mypy clean; invariants all ok.
+Measured: api LOC 4890 -> 4679, regex call sites 55 -> 28 (delta -27), largest file 408/410, prompt tokens untouched (1095).
+Leakage baseline lines deleted with their code: tools.py oregon, geo_list.py x2, geo.py zip x2 and united states x2,
+geo_level.py zip x2 (one stays: the `ZCTA` constant).
 
 ## Open
 
-- No product code changed yet. Next action: step 2(a).
-- Baseline lines this change must delete in the same change that removes their code (a stale line fails the build):
-  `evals/leakage_baseline.txt` `geo_level.py` x3 (keep one if a single `zcta` constant remains, see plan) and `geo.py`
-  `regex2|united states` x2. Keep `contract.py` x2, `geo.py` 'zip code tabulation area' x2, `geo_list.py`, `guards.py`.
-- Regex call sites: 55 on main. The story must lower it; report the delta from `check_invariants --base origin/main`.
-- Left to CC-129/CC-135, not this story: `wants_acs1`, `requested_years`, `guards.py` question reads. `compare.py:107`
-  (`_COMPARE` on the question) is a warning trigger; list it as a finding. The 7 CC-133 xfails owned by CC-104/129:
-  the geography ones must flip to passing here; the strict marker forces the removal.
-- The ZIP xfail reason string in `test_execution_isolation.py` still says "no PLAN story owns it"; it is CC-135 (change with
-  the next edit to that file, then re-run AC4/TC4 of CC-133).
-- Context: `.claude/hooks/ctx.py` warns at 80% of the window; when it does, finish the phase, update this file, commit, and
-  ask the user to run `/clear`.
+- **Tests are red: step 2(d).** `pytest api/tests` errors at import in `test_ask_tools.py`, `test_finish.py`,
+  `test_geography_completeness.py` (they import `find_state`, `place_token`, `split_comparison`, etc., which are deleted) and
+  many tests pass `query=`. Migration rules: a test of a deleted prose reader is deleted (never ported); a test of behavior
+  (comparison, wildcard parents, ambiguous names, incomplete chains, level fidelity) is kept with the same assertion and
+  structured args (`query="Harris County, Texas"` -> `places=["Harris County, TX"]`; `all counties in X` -> `parents=[X]`,
+  `level="county"`; a tract in a county -> `parents=["Dane County, WI"]`, `parent_level="county"`).
+  Files with `query`: test_ask_tools (68), test_level_fidelity (51), test_ask_loop (16), test_guards (13), test_finish,
+  test_tracts_in_place, test_execution_isolation, ask_fixtures, and six others (grep `"query"`).
+- Not yet done in the prompt: `prompts.py` GEOGRAPHY paragraph still describes `query`/phrases. Rewrite shorter (budget 1095/1200).
+- Docs: `docs/ask-path.md` geography section and `docs/ARCHITECTURE.md` still describe the old resolver; update in the same PR
+  (doc_lines is at 1820/1820: net-negative edit only). Fix the stale comment at `evals/leakage_baseline.txt` lines 18-22.
+- New fixed-intent tests for AC1-5/TC1-5 on the real chain, then flip the `CC104` xfails in `test_execution_isolation.py`.
+- Then: `evidence/closure/CC-104.toml`, Gate 1 (subagent), Gate 2, cohort check, E2E, draft PR.
+- Behavior changes to watch in E2E (defaults I took): a listing whose parent is a place or county needs `parent_level`
+  (else refused for repair); DC must be written "District of Columbia" as a state parent; `level=null` listing is refused.
+- Left to CC-129/CC-135: `wants_acs1`, `requested_years`, `guards.py` question reads. `compare.py:107` is a finding.
+- Context: `.claude/hooks/ctx.py` warns at 80% of the window; then finish the phase, update this file, commit, ask for `/clear`.
