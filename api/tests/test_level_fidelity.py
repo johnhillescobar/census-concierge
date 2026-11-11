@@ -700,7 +700,7 @@ async def test_an_unsupported_candidate_is_not_a_comparison_leg() -> None:
     await dispatch(geo, {"id": "2", "args": listing}, record)
     assert record.geo_status is not None and record.geo_status["legal"] is False
     assert [g.level for g in record.geographies] == ["tract"]  # the candidate the model may build
-    assert len(record.geo_queries) < 2  # one place at most: finish sees no comparison to replay
+    assert record.geo_queries == []  # a listing leaves no place for finish to replay as a leg
 
 
 def test_a_stated_level_not_served_is_flagged_even_when_nothing_else_was_stated() -> None:

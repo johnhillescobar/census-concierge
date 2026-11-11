@@ -291,6 +291,7 @@ async def test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_nam
         "Population by tract", _frame("tract", [ref], ["tract"])
     )
     assert STOPPED in response.answer
+    assert "names no geography" in response.answer  # the made-up number gave no state
     assert record.timings == []
 
 

@@ -238,6 +238,14 @@ async def test_a_model_that_reports_no_place_gets_no_guessed_geography() -> None
     assert response.urls == []
 
 
+async def test_a_question_that_is_only_a_place_name_is_not_resolved_unreported() -> None:
+    record = ExecutionRecord()
+    response = await run_ask(
+        "Harris County, TX", complete=_stopped(), tools=_tools(record), record=record
+    )
+    assert record.geographies == [] and response.urls == []
+
+
 async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
