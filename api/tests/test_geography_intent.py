@@ -316,8 +316,16 @@ async def test_an_unqualified_parent_that_no_match_dominates_returns_candidates_
 
 
 async def test_a_parent_with_its_state_is_never_ambiguous() -> None:
+    """Two matches inside the one state named are not a reason to hold the listing back."""
+
+    def inside_ohio(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        return [
+            _row("Washington County, Ohio", "39", "167", "61000"),
+            _row("Washington County (part), Ohio", "39", "168", "60000"),
+        ]
+
     hit = await resolved(
-        alike, parents=["Washington County, OH"], parent_level="county", level="tract"
+        inside_ohio, parents=["Washington County, OH"], parent_level="county", level="tract"
     )
     assert hit.legal and hit.wildcard and not hit.ambiguous
     assert hit.specs[0].in_spec == "state:39 county:167"
