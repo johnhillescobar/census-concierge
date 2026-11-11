@@ -151,9 +151,8 @@ class ResolveGeographyTool(BaseTool):
         ]
         if owners or level_name(parent_level) == "us":
             repeats = {leg.casefold() for leg in legs} <= {own.casefold() for own in owners}
-            if (
-                levels or not repeats
-            ):  # the same names again are redundant; anything else is a second ask
+            # the same names again are redundant; anything else is a second ask
+            if levels or not repeats:
                 return _fail(
                     "a listing takes parents; send places in their own call", wildcard=True
                 )

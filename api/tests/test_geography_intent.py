@@ -234,8 +234,8 @@ async def test_places_that_only_repeat_the_parents_are_redundant_not_a_second_re
 async def test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents() -> None:
     for written in (["tract 12"], ["Tract 12"], ["block group 4"]):
         level = "block group" if "block" in written[0] else "tract"
-        frame = _frame(level, [], written)
-        response, record, fetched = await _ask("Poverty in tract 12", frame)
+        frame = _frame(level, ["Kentucky"], written)  # the state is named: the county is what lacks
+        response, record, fetched = await _ask("Poverty in tract 12 in Kentucky", frame)
         assert STOPPED in response.answer and record.timings == [] and fetched == []
 
 
