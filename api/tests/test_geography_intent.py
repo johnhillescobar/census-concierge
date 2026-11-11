@@ -321,7 +321,7 @@ async def test_a_parent_with_its_state_is_never_ambiguous() -> None:
     def inside_ohio(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
         return [
             _row("Washington County, Ohio", "39", "167", "61000"),
-            _row("Washington County (part), Ohio", "39", "168", "60000"),
+            _row("Fort Washington County, Ohio", "39", "168", "60000"),
         ]
 
     hit = await resolved(
