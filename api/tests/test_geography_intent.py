@@ -222,3 +222,52 @@ async def test_a_question_about_the_nation_resolves_when_the_model_reports_the_n
     response, record, _fetched = await _ask("Total population of the country", _frame("us", []))
     assert [g.for_spec for g in record.geographies] == ["us:1"]
     assert response.urls and "for=us" in response.urls[0]
+
+
+async def test_places_that_only_repeat_the_parents_are_redundant_not_a_second_request() -> None:
+    same = await resolved(
+        parents=["Texas", "Louisiana"], places=["texas", "Louisiana"], level="county"
+    )
+    assert same.legal and same.compare and len(same.specs) == 2
+
+
+async def test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents() -> None:
+    for written in (["tract 12"], ["Tract 12"], ["block group 4"]):
+        level = "block group" if "block" in written[0] else "tract"
+        frame = _frame(level, [], written)
+        response, record, fetched = await _ask("Poverty in tract 12", frame)
+        assert STOPPED in response.answer and record.timings == [] and fetched == []
+
+
+async def test_a_labelled_zip_code_is_the_code_and_not_a_nationwide_search() -> None:
+    calls: list[str] = []
+
+    def listing(level: str, parts: dict[str, str], **kw: Any) -> list[dict[str, str]]:
+        calls.append(level)
+        return []
+
+    hit = await resolved(listing, places=["ZCTA5 90210"], level="zcta")
+    assert hit.legal and [s.for_spec for s in hit.specs] == ["zip code tabulation area:90210"]
+    assert calls == []  # the code names it: nothing was listed
+
+
+async def test_a_bare_name_that_is_also_a_state_is_not_taken_for_the_state_as_a_parent() -> None:
+    seen: list[dict[str, str]] = []
+
+    def listing(level: str, parts: dict[str, str], **kw: Any) -> list[dict[str, str]]:
+        seen.append(parts)
+        return []
+
+    await resolved(listing, parents=["Washington"], parent_level="county", level="tract")
+    assert seen == [{"state": "*"}]  # a county named Washington, searched everywhere: not state 53
+
+
+async def test_a_comparison_that_resolves_no_leg_is_not_looked_up_a_second_time() -> None:
+    calls: list[str] = []
+
+    def listing(level: str, parts: dict[str, str], **kw: Any) -> list[dict[str, str]]:
+        calls.append(level)
+        return []
+
+    hit = await resolved(listing, places=["Nowhere, TX", "Noplace, OH"], level="county")
+    assert hit.specs == [] and len(calls) == 2  # one lookup per leg, none repeated

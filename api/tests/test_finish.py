@@ -637,3 +637,24 @@ async def test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nat
         plan_split(record.question, complete),
     )
     assert seen == [{"places": [], "level": "us"}]
+
+
+async def test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level() -> None:
+    async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
+        reply = {"level": "county", "parents": ["Cook County, IL", "Texas"], "listing": False}
+        return {"content": json.dumps(reply), "tool_calls": []}
+
+    record = ExecutionRecord(question="Cook County versus Texas")
+    seen: list[dict[str, Any]] = []
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        seen.append(call["args"])
+        return ""
+
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
+    assert seen == [{"places": ["Cook County, IL", "Texas"], "level": None, "levels": []}]

@@ -150,7 +150,10 @@ class ResolveGeographyTool(BaseTool):
             o.strip() if isinstance(o, str) and o.strip() else "(blank)" for o in parents or []
         ]
         if owners or level_name(parent_level) == "us":
-            if legs or levels:
+            repeats = {leg.casefold() for leg in legs} <= {own.casefold() for own in owners}
+            if (
+                levels or not repeats
+            ):  # the same names again are redundant; anything else is a second ask
                 return _fail(
                     "a listing takes parents; send places in their own call", wildcard=True
                 )
@@ -196,6 +199,8 @@ class ResolveGeographyTool(BaseTool):
             for hit in hits:
                 if hit.legal and hit.specs:
                     return f"1 geography: {hit.specs[0].for_spec}", hit
+        if len(legs) > 1:
+            return resolved[0]  # no leg resolved: the first leg's own answer, not a second lookup
         if not legs and level_name(level) != "us":
             return _fail(
                 "name the place in places (parents for a listing); level 'us' is the nation"
@@ -224,7 +229,7 @@ class ResolveGeographyTool(BaseTool):
         in_parts: dict[str, str] = {}
         leftover: list[dict[str, str]] = []
         if parent != "us":
-            state = state_of(owner)
+            state = state_of(owner) if "," in owner or parent == "state" else None
             if parent == "state" and (state is None or not _only_state(owner)):
                 return _fail(
                     f"{owner!r} is not a state; send parent_level for what it is",
@@ -295,7 +300,7 @@ class ResolveGeographyTool(BaseTool):
             )
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
             return f"1 geography: {spec.for_spec}", result
-        state = state_of(entry)
+        state = state_of(entry) if "," in entry or for_level in {None, "state"} else None
         if for_level is None:
             for_level = "state" if state and _only_state(entry) else "place"
         in_parts: dict[str, str] = {}
@@ -329,6 +334,7 @@ class ResolveGeographyTool(BaseTool):
         if predicate is None:
             return _fail(f"{for_level} with in={in_parts} is not a legal combination")
         token = name_token(entry)
+        token = next((w for w in token.split() if len(w) == 5 and w.isdigit()), token)
         if for_level == ZCTA and len(token) == 5 and token.isdigit():
             spec = GeoSpec(
                 level=for_level,
