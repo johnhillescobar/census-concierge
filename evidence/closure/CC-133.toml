@@ -44,15 +44,15 @@ reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "AC4"
-status = "UNKNOWN"
+status = "PASS"
 command = "uv run pytest api/tests/test_execution_isolation.py -q"
 expected = "fixed intent under changed wording, changed intent, repair path, keyword/substring/regex mutants caught"
-observed = "10 pass, 8 strict xfail findings (CC-104, CC-129, one unplaced), 4 mutants caught; no Gate 1 survivors in the harness. Gate 2 ran five times, the last the prescribed way (/code-review then review-pr, gate2-r5.txt), each Not yet with real findings; all but the open items in gate2-r4.txt and gate2-r5.txt are fixed and mutation-checked, and the fixes of the fifth review have no independent cold review."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63 (test_execution_isolation.py): 10 passed, 8 xfailed (strict). The harness scripts the model and proves: a fixed intent executes identically under neutral rewordings; a different intent changes execution under the same wording; invalid intent is sent back for repair and never parsed from the wording; and code that reads the question by substring, regex, keyword or late in the answer is caught. The 8 strict xfails are today's wording dependence in the product, which this story exposes and does not fix (plan D6): 7 are owned by CC-104 (geography) and CC-129 (time and product); the ZIP case (guards.py) has no owning story yet. A fix forces its marker out."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_execution_isolation.txt", sha256 = "98bc3525dceb4eae08a76262346f3295c103258de31f19fd5f84054df0381aba" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
@@ -122,15 +122,15 @@ reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "TC4"
-status = "UNKNOWN"
+status = "PASS"
 command = "uv run pytest api/tests/test_execution_isolation.py -q"
 expected = "same intent, different prose: identical execution; prohibited access caught"
-observed = "mutants caught. Today's code reads the wording in 8 recorded cases (strict xfail). Gate 2 ran five times, the last the prescribed way (/code-review then review-pr, gate2-r5.txt), each Not yet with real findings; all but the open items in gate2-r4.txt and gate2-r5.txt are fixed and mutation-checked, and the fixes of the fifth review have no independent cold review."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63 (test_execution_isolation.py): 10 passed, 8 xfailed (strict). The harness scripts the model and proves: a fixed intent executes identically under neutral rewordings; a different intent changes execution under the same wording; invalid intent is sent back for repair and never parsed from the wording; and code that reads the question by substring, regex, keyword or late in the answer is caught. The 8 strict xfails are today's wording dependence in the product, which this story exposes and does not fix (plan D6): 7 are owned by CC-104 (geography) and CC-129 (time and product); the ZIP case (guards.py) has no owning story yet. A fix forces its marker out."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_execution_isolation.txt", sha256 = "98bc3525dceb4eae08a76262346f3295c103258de31f19fd5f84054df0381aba" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
