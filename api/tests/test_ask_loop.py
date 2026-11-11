@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -17,6 +18,40 @@ from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
 from src.vintages import requested_years
 from test_ask_route import CONTRACT_FIELDS
+
+
+def _split(
+    parents: list[str], unit: str = "place", *, listing: bool = False, **frame: Any
+) -> dict[str, Any]:
+    """What the split call reports: the places the user names and the level they ask about."""
+    return {"parents": parents, "unit": unit, "listing": listing, **frame}
+
+
+def _stopped(
+    split: dict[str, Any] | None = None, calls: list[tuple[str, dict[str, Any]]] | None = None
+) -> Any:
+    """A model that makes the given tool calls, then stops; the split call reports `split`."""
+    queue = [
+        {"content": "", "tool_calls": [{"id": str(n), "name": name, "args": args}]}
+        for n, (name, args) in enumerate(calls or [])
+    ]
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        del messages
+        if not openai_tools:
+            return {"content": json.dumps(split) if split else "stopped", "tool_calls": []}
+        return queue.pop(0) if queue else {"content": "stopped", "tool_calls": []}
+
+    return complete
+
+
+_US = ("resolve_geography", {"level": "us"})
+_WAYNE_MI_TRACTS = _split(
+    ["Wayne County, MI"], "tract", listing=True, parent_level="county", level="tract"
+)
+_DENVER_TRACTS = _split(["Denver, CO"], "tract", listing=True, parent_level="place", level="tract")
 
 
 async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
@@ -39,7 +74,7 @@ async def test_scripted_loop_fills_url_rows_geoid_and_universe() -> None:
                 {
                     "id": "2",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Harris County, Texas"},
+                    "args": {"level": "county", "places": ["Harris County, TX"]},
                 }
             ],
         },
@@ -117,7 +152,7 @@ async def test_in_year_uses_that_vintage_not_latest() -> None:
                 {
                     "id": "2",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Harris County, Texas"},
+                    "args": {"level": "county", "places": ["Harris County, TX"]},
                 }
             ],
         },
@@ -132,8 +167,8 @@ async def test_in_year_uses_that_vintage_not_latest() -> None:
     async def complete(
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        _ = messages, openai_tools
-        return queue.pop(0)
+        _ = messages
+        return queue.pop(0) if openai_tools else {"content": "", "tool_calls": []}
 
     response = await run_ask(
         "population of Harris County, Texas in 2022",
@@ -178,15 +213,9 @@ async def test_computer_share_finishes_when_the_model_stops() -> None:
         question_years=lambda: requested_years(record.question, 2024),
     )
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "How has the share of households with a computer changed since 2013?",
-        complete=complete,
+        complete=_stopped(calls=[_US]),
         tools=tools,
         record=record,
     )
@@ -197,19 +226,25 @@ async def test_computer_share_finishes_when_the_model_stops() -> None:
     assert "us:1" in response.urls[0]
 
 
+async def test_a_model_that_reports_no_place_gets_no_guessed_geography() -> None:
+    record = ExecutionRecord()
+    response = await run_ask(
+        "How has the share of households with a computer changed since 2013?",
+        complete=_stopped(),
+        tools=_tools(record),
+        record=record,
+    )
+    assert record.geographies == []
+    assert response.urls == []
+
+
 async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "Compare median household income between 2015-2019 and 2018-2022",
-        complete=complete,
+        complete=_stopped(calls=[_US]),
         tools=tools,
         record=record,
     )
@@ -223,15 +258,9 @@ async def test_universe_mismatch_finishes_with_a_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "What share of households are Black families earning over $75k?",
-        complete=complete,
+        complete=_stopped(calls=[_US]),
         tools=tools,
         record=record,
     )
@@ -244,15 +273,9 @@ async def test_austin_rent_finishes_when_the_model_stops() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "Compare median gross rent in Austin to the Texas average",
-        complete=complete,
+        complete=_stopped(_split(["Austin, TX", "Texas"], level=None)),
         tools=tools,
         record=record,
     )
@@ -267,15 +290,9 @@ async def test_sentence_place_finishes_with_a_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "What is median gross rent in Detroit?",
-        complete=complete,
+        complete=_stopped(_split(["Detroit, MI"], level="place")),
         tools=tools,
         record=record,
     )
@@ -294,20 +311,14 @@ async def test_block_group_state_listing_finishes_with_a_url() -> None:
     ]
     tools["resolve_geography"] = _geo_tool(table=entries)
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "Median household income for every block group in Wyoming",
-        complete=complete,
+        complete=_stopped(_split(["Wyoming"], "block group", listing=True, level="block group")),
         tools=tools,
         record=record,
     )
-    # The model made no geography call, so finish chose the level from the question's words:
-    # that is shown as unverified, not passed off as a level the model stated.
+    # No geography call stated the level: finish ran the model's split report, which the response
+    # shows as unverified, not passed off as a level the model stated.
     assert [item.code for item in response.warnings] == [
         "geography_unsupported",
         "geography_level_unverified",
@@ -320,30 +331,14 @@ async def test_tract_within_denver_does_not_finish_a_url() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
     response = await run_ask(
         "Compare poverty by census tract within the city of Denver",
-        complete=complete,
+        complete=_stopped(_DENVER_TRACTS),
         tools=tools,
         record=record,
     )
     assert any(item.code == "geography_not_nested" for item in response.warnings)
     assert response.urls == []
-
-
-def _stopped() -> Any:
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        del messages, openai_tools
-        return {"content": "stopped", "tool_calls": []}
-
-    return complete
 
 
 async def test_block_group_listing_replaces_a_state_url() -> None:
@@ -355,7 +350,9 @@ async def test_block_group_listing_replaces_a_state_url() -> None:
     ]
     tools["resolve_geography"] = _geo_tool(table=entries)
     await dispatch(
-        tools["resolve_geography"], {"id": "1", "args": {"level": None, "query": "Wyoming"}}, record
+        tools["resolve_geography"],
+        {"id": "1", "args": {"level": None, "places": ["Wyoming"]}},
+        record,
     )
     await dispatch(
         tools["search_tables"],
@@ -367,7 +364,7 @@ async def test_block_group_listing_replaces_a_state_url() -> None:
     assert "state:56" in str(record.url)
     response = await run_ask(
         "Median household income for every block group in Wyoming",
-        complete=_stopped(),
+        complete=_stopped(_split(["Wyoming"], "block group", listing=True, level="block group")),
         tools=tools,
         record=record,
     )
@@ -398,7 +395,7 @@ async def test_tract_within_place_keeps_the_built_city_url() -> None:
     )
     response = await run_ask(
         "Compare poverty by census tract within the city of Denver",
-        complete=_stopped(),
+        complete=_stopped(_DENVER_TRACTS),
         tools=tools,
         record=record,
     )
@@ -432,7 +429,7 @@ async def test_every_tract_listing_replaces_a_county_url() -> None:
     )
     response = await run_ask(
         "Total population without health insurance across every tract in Wayne County",
-        complete=_stopped(),
+        complete=_stopped(_WAYNE_MI_TRACTS),
         tools=tools,
         record=record,
     )
@@ -463,7 +460,7 @@ async def test_tract_in_county_listing_replaces_a_county_url() -> None:
     )
     response = await run_ask(
         "Broadband subscription trend by census tract in Wayne County, 2018 to 2022",
-        complete=_stopped(),
+        complete=_stopped(_WAYNE_MI_TRACTS),
         tools=tools,
         record=record,
     )
@@ -496,7 +493,11 @@ async def test_tract_in_named_state_keeps_that_county() -> None:
     response = await run_ask(
         "Broadband subscription trend by census tract in Wayne County, "
         "North Carolina, 2018 to 2022",
-        complete=_stopped(),
+        complete=_stopped(
+            _split(
+                ["Wayne County, NC"], "tract", listing=True, parent_level="county", level="tract"
+            )
+        ),
         tools=tools,
         record=record,
     )
@@ -511,7 +512,7 @@ async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": None, "query": "Fresno County"}},
+        {"id": "1", "args": {"level": "county", "places": ["Fresno County, CA"]}},
         record,
     )
     await dispatch(
@@ -554,7 +555,7 @@ async def test_acs1_year_span_replaces_an_acs5_url() -> None:
     )
     response = await run_ask(
         "1-year ACS poverty for Fresno County, 2018 through 2022",
-        complete=_stopped(),
+        complete=_stopped(_split(["Fresno County, CA"], "county", level="county")),
         tools=tools,
         record=record,
     )
@@ -568,7 +569,9 @@ async def test_texas_only_rent_compare_adds_austin() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "1", "args": {"level": None, "query": "Texas"}}, record
+        tools["resolve_geography"],
+        {"id": "1", "args": {"level": "state", "places": ["Texas"]}},
+        record,
     )
     await dispatch(
         tools["search_tables"],
@@ -580,7 +583,7 @@ async def test_texas_only_rent_compare_adds_austin() -> None:
     assert "state:48" in str(record.url)
     response = await run_ask(
         "Compare median gross rent in Austin to the Texas average",
-        complete=_stopped(),
+        complete=_stopped(_split(["Austin, TX", "Texas"], level=None)),
         tools=tools,
         record=record,
     )
@@ -696,7 +699,7 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
     await dispatch(tools["search_tables"], {"id": "1", "args": {"question": "population"}}, record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": "county", "query": "Cook County"}},
+        {"id": "2", "args": {"level": "county", "places": ["Cook County"]}},
         record,
     )
     assert len(record.geographies) == 3
@@ -738,7 +741,8 @@ async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
             "id": "2",
             "args": {
                 "level": None,
-                "query": "Median gross rent in Austin versus the Texas average",
+                "places": ["Austin, TX", "Texas"],
+                "levels": ["place", "state"],
             },
         },
         record,
@@ -755,7 +759,14 @@ async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": None, "query": "Springfield versus the Texas average"}},
+        {
+            "id": "2",
+            "args": {
+                "level": None,
+                "places": ["Springfield", "Texas"],
+                "levels": ["place", "state"],
+            },
+        },
         record,
     )
     assert record.geo_status is not None
@@ -885,7 +896,7 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
                 {
                     "id": "1",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Austin city, Texas"},
+                    "args": {"level": "place", "places": ["Austin, TX"]},
                 }
             ],
         },
@@ -895,7 +906,7 @@ async def test_sequential_single_place_calls_are_repaired_by_finish_tools() -> N
                 {
                     "id": "2",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Dallas city, Texas"},
+                    "args": {"level": "place", "places": ["Dallas, TX"]},
                 }
             ],
         },
@@ -942,7 +953,7 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
                 {
                     "id": "1",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Springfield"},
+                    "args": {"level": "place", "places": ["Springfield"]},
                 }
             ],
         },
@@ -952,7 +963,7 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
                 {
                     "id": "2",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Springfield, Illinois"},
+                    "args": {"level": "place", "places": ["Springfield, IL"]},
                 }
             ],
         },
@@ -985,12 +996,12 @@ async def test_bare_name_and_its_own_city_stay_two_distinct_legs() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": None, "query": "New York"}},
+        {"id": "1", "args": {"level": None, "places": ["New York"]}},
         record,
     )
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": None, "query": "New York City, NY"}},
+        {"id": "2", "args": {"level": None, "places": ["New York City, NY"]}},
         record,
     )
     assert record.geo_queries == ["New York", "New York City, NY"]
@@ -1010,7 +1021,7 @@ async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None
                 {
                     "id": "1",
                     "name": "resolve_geography",
-                    "args": {"level": None, "query": "Harris County, Texas"},
+                    "args": {"level": "county", "places": ["Harris County, TX"]},
                 }
             ],
         },
@@ -1075,7 +1086,7 @@ async def test_unauthorized_geography_cannot_reach_fetch() -> None:
     tools["resolve_geography"] = _geo_tool(table=[GeoLevel("state", "040", (), (), "")])
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": None, "query": "all counties in Oregon"}},
+        {"id": "1", "args": {"parents": ["Oregon"], "level": "county"}},
         record,
     )
     assert record.geographies == []
@@ -1599,6 +1610,9 @@ async def test_finish_with_an_empty_pool_searches_once_and_builds_the_selector_p
     tools = _tools(record)
     calls: list[str] = []
     _with_search(tools, {question: retrieved}, calls)
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
     await finish_tools(dispatch, tools, record)
     assert calls == [question]
     assert [hit["table_id"] for hit in record.pool][0] == expected
@@ -1613,7 +1627,8 @@ async def test_a_pick_outside_the_pool_leaves_the_pool_as_the_alternatives() -> 
     calls: list[str] = []
     _with_search(tools, {question: ["B19013", "B19113"]}, calls)
     tools["search_tables"].select = lambda _question, _hits: "B25064"
-    response = await run_ask(question, complete=_stopped(), tools=tools, record=record)
+    harris = _split(["Harris County, TX"], "county", level="county")
+    response = await run_ask(question, complete=_stopped(harris), tools=tools, record=record)
     assert response.table_id == "B19013"
     listed = {item.table_id for item in response.alternatives}
     assert "B19113" in listed

@@ -164,9 +164,9 @@ class ResolveGeographyTool(BaseTool):
             return f"{len(specs)} wildcard geographies", _compare_result(
                 specs, extra, legal=True, inferred=flag
             )
+        if levels and (len(legs) < 2 or len(levels) != len(legs)):
+            return _fail("levels pairs with two or more places, one entry each")
         if len(legs) >= 2:
-            if levels and len(levels) != len(legs):
-                return _fail("levels pairs with two or more places, one entry each")
             stated = declared_levels({"places": legs, "levels": levels, "level": level})
             resolved = await asyncio.gather(
                 *(

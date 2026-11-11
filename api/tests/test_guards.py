@@ -528,7 +528,7 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
     tool = _geo_tool(table=entries)
     await dispatch(
         tool,
-        {"id": "bg1", "args": {"level": None, "query": "every block group in Wyoming"}},
+        {"id": "bg1", "args": {"level": "block group", "parents": ["Wyoming"]}},
         record,
     )
     assert record.geo_status is not None
@@ -546,7 +546,7 @@ async def test_unknown_place_is_not_unsupported_geography() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": None, "query": "Atlantis, Texas"}},
+        {"id": "2", "args": {"level": "place", "places": ["Atlantis, Texas"]}},
         record,
     )
     assert record.geo_status is not None
@@ -561,7 +561,7 @@ async def test_new_geography_clears_current_fetch_but_keeps_the_url() -> None:
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": "county", "query": "Harris County, Texas"}},
+        {"id": "1", "args": {"level": "county", "places": ["Harris County, Texas"]}},
         record,
     )
     await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
@@ -569,7 +569,7 @@ async def test_new_geography_clears_current_fetch_but_keeps_the_url() -> None:
     assert record.rows
     await dispatch(
         tools["resolve_geography"],
-        {"id": "4", "args": {"level": "county", "query": "Cook County"}},
+        {"id": "4", "args": {"level": "county", "places": ["Cook County"]}},
         record,
     )
     assert record.url is None
@@ -590,7 +590,7 @@ async def test_same_geography_keeps_the_fetch() -> None:
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": "county", "query": "Harris County, Texas"}},
+        {"id": "1", "args": {"level": "county", "places": ["Harris County, Texas"]}},
         record,
     )
     await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
@@ -598,7 +598,7 @@ async def test_same_geography_keeps_the_fetch() -> None:
     rows = list(record.rows)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "4", "args": {"level": "county", "query": "Harris County, Texas"}},
+        {"id": "4", "args": {"level": "county", "places": ["Harris County, Texas"]}},
         record,
     )
     assert record.rows == rows
@@ -610,7 +610,7 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": "county", "query": "Cook County"}},
+        {"id": "2", "args": {"level": "county", "places": ["Cook County"]}},
         record,
     )
     response = assemble("three Cook Counties", record)
@@ -978,7 +978,12 @@ async def test_tract_within_a_place_does_not_invent_a_fetch() -> None:
     record = ExecutionRecord(question=T16)
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": T16}}, record
+        tools["resolve_geography"],
+        {
+            "id": "2",
+            "args": {"level": "tract", "parents": ["Denver, CO"], "parent_level": "place"},
+        },
+        record,
     )
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
@@ -996,16 +1001,17 @@ async def test_tract_within_a_place_does_not_invent_a_fetch() -> None:
 
 
 async def test_zctas_in_a_state_warn_as_not_nested() -> None:
-    for query in ("all ZCTAs in Oregon", "ZCTAs within Oregon"):
-        record = ExecutionRecord(question=query)
-        tools = _tools(record)
-        await dispatch(
-            tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": query}}, record
-        )
-        response = assemble("ZCTAs nest in nothing", _stated(record))
-        assert record.geographies == []
-        assert [item.code for item in response.warnings] == ["geography_not_nested"], query
-        assert response.urls == []
+    record = ExecutionRecord(question="all ZCTAs in Oregon")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": "zcta", "parents": ["Oregon"]}},
+        record,
+    )
+    response = assemble("ZCTAs nest in nothing", _stated(record))
+    assert record.geographies == []
+    assert [item.code for item in response.warnings] == ["geography_not_nested"]
+    assert response.urls == []
 
 
 async def test_named_zcta_with_a_state_warns_as_not_nested() -> None:
@@ -1013,7 +1019,9 @@ async def test_named_zcta_with_a_state_warns_as_not_nested() -> None:
     record = ExecutionRecord(question=query)
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": query}}, record
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": "zcta", "places": ["90210, OR"]}},
+        record,
     )
     response = assemble("ZCTAs nest in nothing", _stated(record))
     assert record.geographies == []
@@ -1028,7 +1036,11 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
         tools["resolve_geography"],
         {
             "id": "2",
-            "args": {"level": "zip code tabulation area", "query": "all zctas in Harris County"},
+            "args": {
+                "level": "zcta",
+                "parents": ["Harris County, TX"],
+                "parent_level": "county",
+            },
         },
         record,
     )
@@ -1039,36 +1051,19 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
 
 async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
     tool = _geo_tool()
-    for query in (
-        "zctas inside Denver",
-        "zip codes inside Denver",
-        "census tract within Denver",
-        "places inside Denver",
-        "cities inside Denver",
-        "all zip codes in Denver",
-        "every zcta in Denver",
-        "all places in Denver",
-        "all counties in Denver",
-        "cities inside Denver, Colorado",
-        "places inside Denver, CO",
-        "counties inside Denver, Colorado",
-        "the part of ZIP 80202 inside Denver",
-        "ZCTA 80202 inside Denver",
-        "ZIP 80202 inside Denver",
-        "ZIP 80202 in Denver",
-        "ZCTA 80202 in Denver",
-    ):
-        message = await tool.ainvoke(
-            {
-                "type": "tool_call",
-                "name": "resolve_geography",
-                "args": {"level": None, "query": query},
-                "id": "c1",
-            }
-        )
-        assert message.artifact.specs == [], query
-        assert message.artifact.legal is False, query
-        assert message.artifact.nested is False, query
+    for level in ("zcta", "tract", "place", "county"):
+        for parent in ("Denver", "Denver, CO"):
+            message = await tool.ainvoke(
+                {
+                    "type": "tool_call",
+                    "name": "resolve_geography",
+                    "args": {"level": level, "parents": [parent], "parent_level": "place"},
+                    "id": "c1",
+                }
+            )
+            assert message.artifact.specs == [], (level, parent)
+            assert message.artifact.legal is False, (level, parent)
+            assert message.artifact.nested is False, (level, parent)
 
 
 def test_dict_geo_artifact_preserves_nested_false() -> None:
@@ -1103,7 +1098,11 @@ async def test_tract_within_a_county_is_not_a_nesting_warning() -> None:
         tools["resolve_geography"],
         {
             "id": "2",
-            "args": {"level": "tract", "query": "poverty by census tract within Wayne County"},
+            "args": {
+                "level": "tract",
+                "parents": ["Wayne County, MI"],
+                "parent_level": "county",
+            },
         },
         record,
     )

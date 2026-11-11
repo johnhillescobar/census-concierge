@@ -64,7 +64,7 @@ def declared_levels(args: dict[str, Any]) -> list[str | None]:
         [p for p in given if isinstance(p, str) and p.strip()] if isinstance(given, list) else []
     )
     stated = raw if isinstance(raw, list) else []
-    legs = max(len(places), len(stated), 1)  # per-leg levels also count legs split by "versus"
+    legs = max(len(places), len(stated), 1)  # per-leg levels also count the legs they pair with
     if legs >= 2 and len(stated) == legs:
         return [level_name(item) for item in stated]
     return [level_name(args.get("level"))] * legs
