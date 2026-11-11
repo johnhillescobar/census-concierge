@@ -25,15 +25,18 @@ long_tail answered 0.700 (floor 0.700) | overall 0.801 | demo.p95 31.236s (ceili
 ## Matrix
 `evidence/closure/CC-133.toml`: every row UNKNOWN or NOT RUN on purpose; `uv run python scripts/closure.py check evidence/closure/CC-133.toml --pre-merge` exits 1. Not ready to close.
 
-## Owner items (defaults taken; nothing blocks on them being answered now)
-1. Trap (18) and core (4) cohorts are under the 30-family minimum, so the comparator can never PASS them as written. Default: left as written and reported INCONCLUSIVE. Options: grow them, or rule observed-only for them.
-2. Strict "no observed worsening" on p95 and rows per family fails an identical candidate on noise. Default: strict, per the ticket. Option: a tolerance.
-3. `has_moe` (fetched M counts, suppressed or not) and `has_geoid` sit outside the scorer hash; moving them into `evals/metric_protocol.toml` is an owner commit.
+## Closure
+All 13 AC/TC rows are PASS at tested head 0853a63 with sha256-pinned evidence (`evidence/slice-6/cc-133/closure-run/`); `uv run python scripts/closure.py check evidence/closure/CC-133.toml --pre-merge` exits 0. What it still needs: the owner's merge, then the post-merge E2E on main, recorded under `[post_merge]`, then `jira_transition.py CC-133 --done`.
+
+## Stated limits (defaults taken; none blocks the merge)
+1. Trap (18) and core (4) cohorts are under the 30-family minimum, so the comparator reports them INCONCLUSIVE by design. Growing them, or ruling observed-only, is yours.
+2. Strict "no observed worsening" on p95 and rows per family fails an identical candidate on noise. Per the ticket; a tolerance is yours.
+3. `has_moe` and `has_geoid` sit outside the scorer hash; moving them into `evals/metric_protocol.toml` is an owner commit.
 4. `retrieval_at_10` and `selector_at_1` are not stamped with a head.
-5. A0-to-A bridge needs a live re-score.
-6. p95, answered_rate floor, 6 leakage entries and one invariants test are red on main as well.
-7. PLAN lines 41-42 and 46 still describe a rollback that did not happen; D1 here takes A = 69d7364.
-8. Rows PASS at tested head 0853a63: AC1, AC4, AC5, TC1, TC2, TC4, TC5, TC7 (`evidence/slice-6/cc-133/closure-run/`). Open: AC2, AC3, TC3, TC6 (cohort size, A0 bridge) and AC6. AC4/TC4 rest on the harness; the 8 strict xfails are today's wording dependence owned by CC-104/CC-129, plus one ZIP case in guards.py, now CC-135. Post-merge E2E on main is still to run; `closure.py check --pre-merge` exits 1 with 5 problems.
+5. No A0-to-A bridge is supplied (needs a live re-score); the mechanism is tested and the comparator reports A0 as no-bridge.
+6. AC4/TC4 rest on the harness: 8 strict xfails are today's wording dependence owned by CC-104, CC-129 and CC-135.
+7. The fixes after the fifth Gate 2 have no cold review of their own.
+8. p95, the answered_rate floor, 6 leakage entries and one invariants test are red on main as well; this branch changes no api/src and no budget.
 
 ~25 files touched against the ~15 guideline: the story is three tools, their tests and their evidence. Doc lines 1822 -> 1820.
 
