@@ -146,7 +146,9 @@ class ResolveGeographyTool(BaseTool):
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
         legs = [leg.strip() for leg in places or [] if isinstance(leg, str) and leg.strip()]
-        owners = [own.strip() for own in parents or [] if isinstance(own, str) and own.strip()]
+        owners = [
+            o.strip() if isinstance(o, str) and o.strip() else "(blank)" for o in parents or []
+        ]
         if owners or level_name(parent_level) == "us":
             args = (level, parent_level, dataset, year, entries)
             picks = await asyncio.gather(*(self._list(owner, *args) for owner in owners or [""]))
@@ -213,20 +215,25 @@ class ResolveGeographyTool(BaseTool):
         leftover: list[dict[str, str]] = []
         if parent != "us":
             state = state_of(owner)
-            if state is None or (parent == "state" and not _only_state(owner, state)):
+            if parent == "state" and (state is None or not _only_state(owner, state)):
                 return _fail(
                     f"{owner!r} is not a state; send parent_level for what it is",
                     wildcard=True,
                     nested=False,
                 )
-            in_parts["state"] = state[1]
+            if state is not None:
+                in_parts["state"] = state[1]
             if not (nests_in(for_level, "state", entries) and nests_in(for_level, parent, entries)):
                 return _fail(
                     f"{for_level} does not nest in {parent} ({owner})", wildcard=True, nested=False
                 )
         if parent not in {"us", "state"}:
+            # a county named without its state: every state is searched, the largest match wins
+            where = dict(in_parts) or ({"state": "*"} if parent == "county" else {})
+            if not where:
+                return _fail(f"{for_level} nested in unresolved {parent}", wildcard=True)
             rows = await asyncio.to_thread(
-                self.list_geographies, parent, dict(in_parts), dataset=dataset, vintage=year
+                self.list_geographies, parent, where, dataset=dataset, vintage=year
             )
             matched = rank_matches(filter_rows(name_token(owner), rows))
             if not matched:
@@ -236,6 +243,9 @@ class ResolveGeographyTool(BaseTool):
             parsed = clause_codes(pick["for"])
             if parent in parsed:
                 in_parts[parent] = parsed[parent]
+        star = legal_predicate(for_level, frozenset({"state"}), wildcard=True, entries=entries)
+        if not in_parts and for_level != ZCTA and star:
+            in_parts = {"state": "*"}  # nationwide: the state wildcard the URL writes itself
         label = f"every {for_level} in {owner}" if owner else f"every {for_level}"
         predicate = legal_predicate(for_level, frozenset(in_parts), wildcard=True, entries=entries)
         if predicate is None:
