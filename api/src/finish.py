@@ -156,6 +156,11 @@ _NEEDS: dict[tuple[str, bool], tuple[str, ...]] = {
 _ORDER = ("state", "county", "place", "tract", "block group")
 
 
+def _a_name(text: str) -> bool:
+    """Words and no digit: a digit makes an entry a code, which must ground itself."""
+    return any(ch.isalpha() for ch in text) and not any(ch.isdigit() for ch in text)
+
+
 def _join(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
 
@@ -197,10 +202,10 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
     need = _NEEDS.get((level or "", False), ())
     if units:  # each number is judged at its own unit's level
         need = tuple(p for p in _ORDER if any(p in _NEEDS.get((lv, True), ()) for lv in units))
-    # A place the model names is written with its state ("Name, State"): only an entry code can
-    # ground to a state gives it (a number filed under named is not a place). The county and tract
-    # are what the model reports apart.
-    have = {"state"} if any(state_of(part) for part in reported) else set()
+    # A place the model names gives the state, with or without it written ("Los Angeles"): the
+    # lookup finds it. An entry with a digit is a code, so it must ground itself (a number filed
+    # under named is not a place). The county and tract are what the model reports apart.
+    have = {"state"} if any(state_of(p) or _a_name(p) for p in reported) else set()
     if frame.get("county_named") is True or "county" in units:
         have.add("county")
     if "tract" in units:
