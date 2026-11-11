@@ -74,13 +74,22 @@ def state_of(entry: str) -> tuple[str, str] | None:
     state. An exact lookup on the part after the last comma (or the whole entry); never a scan."""
     for part in (entry.rsplit(",", 1)[-1], entry):
         key = _bare(part)
-        word, _, code = key.partition(" ")  # "state 21", "FIPS 39049": a code with its own label
-        code = code if word in {"state", "fips", "geoid"} and code.isdigit() else ""
+        word, _, code = key.partition(" ")  # "state 21": a state code with its label
+        code = code if word == "state" and len(code) == 2 and code.isdigit() else ""
         for name, usps, fips in STATES:
-            coded = code[:2] == fips and (word != "state" or len(code) == 2)
-            if key in {name, usps.casefold()} or coded:
+            if key in {name, usps.casefold()} or code == fips:
                 return name, fips
     return None
+
+
+def fips_state(entry: str) -> tuple[str, str] | None:
+    """The state a labelled FIPS or GEOID code lies in ("FIPS 39049"): for completeness only.
+
+    A county or tract code is not a state, so `state_of` never returns one for it."""
+    word, _, code = _bare(entry).partition(" ")
+    if word not in {"fips", "geoid"} or not code.isdigit() or len(code) not in {2, 5, 11, 12}:
+        return None
+    return next(((n, f) for n, _u, f in STATES if f == code[:2]), None)
 
 
 def name_token(entry: str) -> str:
@@ -141,9 +150,11 @@ def dominant(ranked: list[dict[str, str]]) -> bool:
     if len(ranked) < 2:
         return True
     try:
-        return float(ranked[0]["population"]) >= DOMINANCE * float(ranked[1]["population"])
+        top = float(ranked[0]["population"])
+        rest = max(float(row["population"]) for row in ranked[1:])
     except (KeyError, TypeError, ValueError):
         return False  # no population to judge by: it is not known to dominate
+    return top > 0 and top >= DOMINANCE * rest  # two empty places dominate nothing
 
 
 def rank_matches(matches: list[dict[str, str]]) -> list[dict[str, str]]:

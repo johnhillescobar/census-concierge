@@ -110,8 +110,10 @@ async def _run_split(
     complete: Any,
     resolved: int = 2,
     status: dict[str, Any] | None = None,
+    url: str | None = None,
 ) -> tuple[list[dict[str, Any]], ExecutionRecord]:
     record = ExecutionRecord(question=question)
+    record.url = CensusURL(url) if url else None
     record.geographies = geos
     record.geo_status = status
     seen: list[dict[str, Any]] = []
@@ -626,8 +628,14 @@ async def test_a_rejected_repair_restores_the_retained_urls() -> None:
 
 async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_question() -> None:
     done = [_wildcard("a", "39"), _wildcard("b", "26")]
+    built = (
+        "https://api.census.gov/data/2024/acs/acs1?get=NAME,B01003_001E&for=county:*&in=state:39"
+    )
     seen, _ = await _run_split(
-        "ACS 1-year all counties in Ohio and Michigan.", done, _splitter(["Ohio", "Michigan"])
+        "ACS 1-year all counties in Ohio and Michigan.",
+        done,
+        _splitter(["Ohio", "Michigan"]),
+        url=built,
     )
     assert [call.get("dataset") for call in seen] == ["acs1"]
 

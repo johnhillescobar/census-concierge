@@ -12,7 +12,7 @@ from langchain_core.tools import BaseTool
 
 from src.contract import clauses_from_geoid
 from src.geo_level import level_name
-from src.geo_list import state_of
+from src.geo_list import fips_state, state_of
 from src.vintages import latest_vintages, requested_years, wants_acs1
 
 Dispatch = Callable[..., Awaitable[str]]
@@ -29,7 +29,8 @@ _SPLIT_PARENTS = (
     "listing is true when they want a row for every unit inside the parents, false when they want "
     "the parents themselves. parent_level is the level the parents are (county or place), null "
     "for states. level is the geography level the question asks about (state, county, place, "
-    "tract, block group, zcta, or us for the whole nation), or null when it asks about none; a "
+    "tract, block group, zcta, or us for the whole nation or when no place is named), or null "
+    "when it asks about none; a "
     "tract, block group or county "
     "identified by number asks about that level. named lists each code that identifies a place "
     "on its own, as the user wrote it ('FIPS 39049', 'GEOID 06037', a ZIP code); never replace a "
@@ -164,7 +165,8 @@ _ORDER = ("state", "county", "place", "tract", "block group")
 def _unit(entry: Any) -> str | None:
     """The level an entry of `numbered` states: "tract", or "tract 12" as the model wrote it."""
     words = entry.split() if isinstance(entry, str) else []
-    return next((lv for n in (2, 1) if (lv := level_name(" ".join(words[:n]))) in _ORDER), None)
+    spans = (words[i : i + n] for n in (3, 2, 1) for i in range(len(words) - n + 1))
+    return next((lv for span in spans if (lv := level_name(" ".join(span))) in _ORDER), None)
 
 
 def _join(parts: list[str]) -> str:
@@ -212,10 +214,10 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
     # lookup finds it. An entry with a digit is a code, so it must ground itself (a number filed
     # under named is not a place). The county and tract are what the model reports apart.
     words = [p for p in reported if any(c.isalpha() for c in p) and not any(c.isdigit() for c in p)]
-    named = [p for p in reported if state_of(p) or p in words]
+    named = [p for p in reported if state_of(p) or fips_state(p) or p in words]
     given = frame.get("given")
     if units and isinstance(given, list):  # a number needs parents the question itself states
-        have = {g for g in given if g in _ORDER}
+        have = {lv for g in given if (lv := level_name(g)) in _ORDER}
     else:
         have = {"state"} if named else set()
     if frame.get("county_named") is True or "county" in units:
@@ -251,8 +253,10 @@ async def _split_parents(
     if not (found and found.get("parents") and geo):
         return False
     parents, unit = found["parents"], found["unit"]
-    dataset = "acs1" if acs1 else "acs5"
-    right = [g.level == level_name(unit) and g.dataset == dataset for g in geos[: len(parents)]]
+    built = getattr(getattr(record, "url", None), "dataset", None)  # what the model itself built
+    right = [
+        g.level == level_name(unit) and built in {None, g.dataset} for g in geos[: len(parents)]
+    ]
     want = {s[1] for p in parents if (s := state_of(p))}  # the states the model says it lies in
     inside = want <= {g.codes.get("state") for g in geos}
     if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside:
