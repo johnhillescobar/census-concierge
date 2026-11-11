@@ -350,12 +350,12 @@ class ResolveGeographyTool(BaseTool):
         if predicate is None:
             return _fail(f"{for_level} with in={in_parts} is not a legal combination")
         token = name_token(entry)
-        token = next((w for w in token.split() if len(w) == 5 and w.isdigit()), token)
-        if for_level == ZCTA and len(token) == 5 and token.isdigit():
+        code = next((w for w in token.split() if len(w) == 5 and w.isdigit()), "")
+        if for_level == ZCTA and code:
             spec = GeoSpec(
                 level=for_level,
-                name=f"ZCTA5 {token}",
-                for_spec=f"{for_level}:{token}",
+                name=f"ZCTA5 {code}",
+                for_spec=f"{for_level}:{code}",
                 dataset=dataset,
                 vintage=year,
             )

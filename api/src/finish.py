@@ -165,8 +165,13 @@ _ORDER = ("state", "county", "place", "tract", "block group")
 def _unit(entry: Any) -> str | None:
     """The level an entry of `numbered` states: "tract", or "tract 12" as the model wrote it."""
     words = entry.split() if isinstance(entry, str) else []
-    spans = (words[i : i + n] for n in (3, 2, 1) for i in range(len(words) - n + 1))
-    return next((lv for span in spans if (lv := level_name(" ".join(span))) in _ORDER), None)
+    hits = [
+        (i + n, n, lv)  # the level word that ends last is the one its number follows
+        for n in (3, 2, 1)
+        for i in range(len(words) - n + 1)
+        if (lv := level_name(" ".join(words[i : i + n]))) in _ORDER
+    ]
+    return max(hits)[2] if hits else None
 
 
 def _join(parts: list[str]) -> str:
@@ -281,8 +286,8 @@ async def _split_parents(
     if nested and len(chosen) == len(parents) and _all_wild(chosen):
         record.url, record.rows, record.fetch = None, [], None  # never show the old parent's data
         return True
-    if not before["geographies"]:  # the loop resolved nothing: the repair, even an unsupported
-        return bool(record.geographies)  # candidate with its warning, is the only answer there is
+    if not before["geographies"]:  # the loop had nothing to protect: keep what the repair found
+        return False  # and why it failed; the normal checks and resolve step still apply
     for name, value in before.items():
         if name != "geo_status" or nested:  # keep why it cannot be nested: it is the warning
             setattr(record, name, value)

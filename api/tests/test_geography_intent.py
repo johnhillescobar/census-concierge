@@ -10,6 +10,8 @@ from typing import Any
 
 import pytest
 from ask_fixtures import _geo_tool, only_dane
+from src.ask import ExecutionRecord
+from src.contract import GeoSpec
 from src.geo_level import ResolveGeographyResult, level_name
 from src.geo_list import DOMINANCE, dominant, fips_state, name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
@@ -522,3 +524,47 @@ def test_empty_places_dominate_nothing_and_the_comparison_is_with_the_largest_ot
     assert not dominant([zero, zero])
     big, mid, small = {"population": "1000"}, {"population": "900"}, {"population": "10"}
     assert not dominant([big, small, mid])  # the best match is compared with the largest other one
+
+
+async def test_a_repair_over_nothing_keeps_what_it_found_but_is_not_taken_as_done() -> None:
+    from src import finish
+
+    candidate = GeoSpec(
+        level="county", name="Washington County, Ohio", for_spec="county:167", in_spec="state:39"
+    )
+
+    async def dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [candidate]  # one candidate, not one all-wildcard spec per parent
+        rec.geo_status = {"legal": True, "nested": True, "ambiguous": True}
+        return ""
+
+    record = ExecutionRecord(question="x")
+    found = {"parents": ["Ohio", "Texas"], "unit": "county"}
+    done = await finish._split_parents(dispatch, object(), record, found, False)  # type: ignore[arg-type]
+    assert done is False and record.geographies == [candidate]  # kept, but the normal checks go on
+
+
+@pytest.mark.parametrize(
+    ("written", "level"),
+    [
+        ("Dane County tract 12", "tract"),
+        ("County 5 tract 7", "tract"),
+        ("tract 12 in Dane County", "county"),
+        ("Census Block Group 3", "block group"),
+    ],
+)
+def test_the_unit_of_a_numbered_entry_is_the_level_word_its_number_follows(
+    written: str, level: str
+) -> None:
+    from src import finish
+
+    assert finish._unit(written) == level
+
+
+async def test_a_five_digit_word_in_a_place_name_is_not_taken_for_a_zip_code() -> None:
+    def listing(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        row = {**_row("Route 12345 city, Texas", "48", "000", "900"), "level": "place"}
+        return [{**row, "for": "place:55555"}] if level == "place" else []
+
+    hit = await resolved(listing, places=["Route 12345, TX"], level="place")
+    assert [s.for_spec for s in hit.specs] == ["place:55555"]
