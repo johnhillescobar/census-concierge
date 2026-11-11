@@ -56,6 +56,10 @@ class ResolveGeographyResult(ToolResult):
     refused: bool = False
     # Executable but wider than asked (the counties a place lies in): warn, still run.
     wider: bool = False
+    # The name matched several places, none dominates: the specs are candidates, none is selected.
+    ambiguous: bool = False
+    # The best NAME match is far larger than the next (or the only one).
+    dominant: bool = True
 
 
 def level_name(token: str | None) -> str | None:
@@ -106,6 +110,7 @@ def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
         "inferred": bool(get("inferred", False)),
         "refused": bool(get("refused", False)),
         "wider": bool(get("wider", False)),
+        "ambiguous": bool(get("ambiguous", False)),
     }
 
 

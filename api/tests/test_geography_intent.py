@@ -11,9 +11,9 @@ from typing import Any
 import pytest
 from ask_fixtures import _geo_tool, only_dane
 from src.geo_level import ResolveGeographyResult, level_name
-from src.geo_list import name_token, state_of
+from src.geo_list import DOMINANCE, dominant, name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
-from test_geography_completeness import STOPPED, _ask, _frame
+from test_geography_completeness import STOPPED, _ask, _frame, _run
 from test_tracts_in_place import ASK as IN_PLACE
 from test_tracts_in_place import resolve as in_place
 
@@ -271,3 +271,106 @@ async def test_a_comparison_that_resolves_no_leg_is_not_looked_up_a_second_time(
 
     hit = await resolved(listing, places=["Nowhere, TX", "Noplace, OH"], level="county")
     assert hit.specs == [] and len(calls) == 2  # one lookup per leg, none repeated
+
+
+def _row(name: str, state: str, county: str, people: str) -> dict[str, str]:
+    return {
+        "name": name,
+        "level": "county",
+        "for": f"county:{county}",
+        "in": f"state:{state}",
+        "geoid": "",
+        "population": people,
+    }
+
+
+ALIKE = [
+    _row("Washington County, Ohio", "39", "167", "61000"),
+    _row("Washington County, Pennsylvania", "42", "125", "210000"),
+]
+
+
+def alike(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+    """Two same-named counties of similar size, listed the way the Census API lists them."""
+    state = parts.get("state", "*")
+    return [r for r in ALIKE if level == "county" and state in {"*", r["in"].split(":")[1]}]
+
+
+def test_a_best_match_dominates_only_when_it_is_several_times_the_next() -> None:
+    big, small = {"population": str(DOMINANCE * 100)}, {"population": "100"}
+    near = {"population": str(DOMINANCE * 100 - 1)}
+    assert dominant([big, small]) and dominant([small]) and dominant([])
+    assert not dominant([near, small])  # just under the threshold: not known to dominate
+    assert not dominant([big, {"name": "no population"}])  # nothing to judge by
+
+
+async def test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick() -> (
+    None
+):
+    hit = await resolved(alike, parents=["Washington County"], parent_level="county", level="tract")
+    assert hit.ambiguous and hit.legal and hit.wildcard is False
+    assert [s.name for s in hit.specs] == [
+        r["name"] for r in reversed(ALIKE)
+    ]  # ranked, largest first
+    assert "name its state" in hit.detail
+
+
+async def test_a_parent_with_its_state_is_never_ambiguous() -> None:
+    hit = await resolved(
+        alike, parents=["Washington County, OH"], parent_level="county", level="tract"
+    )
+    assert hit.legal and hit.wildcard and not hit.ambiguous
+    assert hit.specs[0].in_spec == "state:39 county:167"
+
+
+@pytest.mark.parametrize("model_builds", [True, False])
+async def test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch(
+    model_builds: bool,
+) -> None:
+    question = "Poverty by tract in Washington County"
+    steps = [
+        ("search_tables", {"question": question}),
+        (
+            "resolve_geography",
+            {"parents": ["Washington County"], "parent_level": "county", "level": "tract"},
+        ),
+    ]
+    if model_builds:  # the model builds and fetches itself, or stops and finish would
+        steps += [("build_url", {"table_id": "B17001"}), ("fetch_data", {})]
+    response, record, fetched, _calls = await _run(
+        question, _frame("tract", ["Washington County"]), steps=steps, listing=alike
+    )
+    assert response.urls == [] and fetched == [] and record.geography is None
+    ambiguous = [w for w in response.warnings if w.code == "ambiguous_place"]
+    assert len(ambiguous) == 1 and len(ambiguous[0].candidates) == 2
+
+
+async def test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest() -> None:
+    from test_tracts_in_place import WITH_STEP, listing
+
+    def places(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        if level != "place":
+            return listing(level, parts, **kwargs)
+        return [
+            {
+                **_row(f"Springfield city, {state}", fips, "000", people),
+                "level": "place",
+                "for": f"place:{code}",
+            }
+            for state, fips, code, people in [
+                ("Illinois", "17", "72000", "114000"),
+                ("Missouri", "29", "70000", "169000"),
+            ]
+        ]
+
+    hit = (
+        await _geo_tool(listing=places, table=WITH_STEP).ainvoke(
+            {
+                "type": "tool_call",
+                "name": "resolve_geography",
+                "args": {"parents": ["Springfield"], "parent_level": "place", "level": "tract"},
+                "id": "c1",
+            }
+        )
+    ).artifact
+    assert hit.ambiguous and len(hit.specs) == 2 and "name its state" in hit.detail
