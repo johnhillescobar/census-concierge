@@ -1,0 +1,45 @@
+CC-104 Gate 2, cycle 3, the one allowed re-run (/code-review high origin/main)
+branch cc-104/structured-geography
+reviewed HEAD 017414b (the cycle 3 fixes: C1-C10, transcripts gate2-c3.txt and gate1-c3-gate2-fixes.txt)
+Owner instruction: fix what it finds, then stop re-running Gate 2. No further Gate 2 round follows this one.
+
+FINDING                                                                                  DISPOSITION
+D1  ask.py:105   An ambiguous resolution leaves record.geography None, so finish's       KEPT, owner decision (2026-11-11:
+                 build_url fails and the answer has candidates but no Census URL;        "use the dominance rule and return
+                 CLAUDE.md says every answer renders the URL.                            candidates"). A named exception to
+                                                                                         "the URL is the product": the
+                                                                                         candidates carry for/in so the plan
+                                                                                         strip can re-run. Stated in the PR.
+D2  finish.py:284 The early return for "the loop resolved nothing" skips the shape       FIXED. It now only keeps the repair's
+                 check (right count of all-wildcard specs): ambiguity candidates or a    status (why it failed) and returns
+                 short repair are accepted and force `redo`.                             False, so the normal checks and the
+                                                                                         normal resolve step still apply.
+D3  finish.py:201 A refusal rests only on the split model's unverified `pointing` and    KEPT. The ticket forbids re-reading the
+                 `numbered`; the old check against the question's words is gone; a       question (AC2); the model's report is
+                 hallucinated flag refuses a valid question.                             the authority. A risk to watch in the
+                                                                                         E2E (refusal count), listed in the PR.
+D4  finish.py:165 _unit returns the first level word in an entry: "Dane County tract    FIXED. The unit is the level word that
+                 12" gives county, so the tract requirement drops.                       ends last (the number follows it).
+D5  finish.py:340 Every geography fallback is gone: if the split call times out or      KEPT. This is AC4 (no prose parser,
+                 fails and the loop resolved nothing, no URL for a question that         no national/latest/total fallback); the
+                 named a place.                                                          loop resolves geography in the normal
+                                                                                         case. Measured in the E2E.
+D6  ask.py:113   An ambiguous single-place result is appended to geo_queries as a        FIXED. Only a selected geography is
+                 comparison leg, so the next resolve can force a needless redo.          tracked as a leg.
+D7  geo.py:353   The 5-digit word extraction rewrites `token` for every level.           FIXED. It happens only for ZCTA.
+D8  geo.py:271   A parent that carries its state takes matched[0] silently; several      KEPT. `_list` lists rows of the parent
+                 same-state matches are never flagged; the level of the match is not     level, so the level matches by
+                 compared with parent_level.                                             construction; county names are unique in
+                                                                                         a state; place parents go through
+                                                                                         tracts_in_place, which keeps the
+                                                                                         documented largest-match rule.
+D9  geo_list.py:144 dominant() compares ranked[0] (class order) with the rest, so a      KEPT. The selected row is the class-
+                 small city ahead of a larger CDP reads as ambiguous.                    ranked one; reporting candidates when it
+                                                                                         is not clearly the largest is the safe
+                                                                                         side. Measured in the E2E.
+D10 geo.py:160   A parent with no state downloads every place or county in every        KEPT, measured. One call at most (the
+                 state, uncached, per call: a p95 cost.                                  multi-parent case is refused earlier);
+                                                                                         the direct single-place path already
+                                                                                         does the same. The E2E p95 decides.
+
+Gate 2 stops here by owner instruction. Fixes D2, D4, D6, D7 carry tests and mutation checks: gate1-c3-r2-fixes.txt.
