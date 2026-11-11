@@ -149,6 +149,16 @@ async def test_listing_resolved_at_the_wrong_level_is_resolved_again() -> None:
     assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "county"}]
 
 
+async def test_a_listing_at_the_wrong_level_in_the_right_parent_is_resolved_again() -> None:
+    """Every row is a wildcard, in Ohio, for the right dataset: only the level is wrong."""
+    tracts = [GeoSpec(level="tract", name="t", for_spec="tract:*", in_spec="state:39")]
+    seen, _ = await _run_split("counties of Ohio", tracts, _splitter(["Ohio"]), resolved=1)
+    assert seen == [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+    counties = [_wildcard("a", "39")]
+    kept, _ = await _run_split("counties of Ohio", counties, _splitter(["Ohio"]), resolved=1)
+    assert kept == []  # the same listing at the right level is left alone
+
+
 async def test_listing_already_one_wildcard_per_parent_is_left_alone() -> None:
     done = [_wildcard("a", "39"), _wildcard("b", "26")]
     seen, _ = await _run_split(
@@ -295,6 +305,24 @@ async def test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing() ->
     )
     assert record.geographies == [candidate]
     assert record.geo_status is not None and record.geo_status["detail"] == "not published"
+
+
+async def test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why() -> None:
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
+    first = [_wildcard("m", "26")]
+    record.geographies = first
+    why = "zip code tabulation area does not nest in state"
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [_wildcard("a", "01")]
+        rec.geo_status = {"legal": False, "detail": why, "nested": False}
+        return ""
+
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
+    assert record.geographies == first  # the unsupported repair does not replace what ran
+    assert record.geo_status is not None and record.geo_status["nested"] is False
+    assert record.geo_status["detail"] == why  # and the reason it cannot be nested is kept
 
 
 async def test_single_named_place_is_left_alone_when_the_model_says_it_is_not_a_listing() -> None:

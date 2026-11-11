@@ -246,6 +246,50 @@ async def test_a_question_that_is_only_a_place_name_is_not_resolved_unreported()
     assert record.geographies == [] and response.urls == []
 
 
+async def test_a_call_for_the_nation_names_no_place_for_finish_to_replay() -> None:
+    record = ExecutionRecord()
+    geo = _tools(record)["resolve_geography"]
+    out = await dispatch(geo, {"id": "1", "args": {"places": [], "level": "us"}}, record)
+    assert "failed" not in out and [g.for_spec for g in record.geographies] == ["us:1"]
+    assert record.geo_queries == [] and record.asked_levels == ["us"]
+    assert record.unmet_levels == set()  # the level asked for was served
+
+
+def _washington_counties(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+    """Two counties of the same name and similar size, listed the way the Census API lists them."""
+    return [
+        {
+            "name": f"Washington County, {state}",
+            "level": "county",
+            "for": f"county:{county}",
+            "in": f"state:{fips}",
+            "geoid": "",
+            "population": people,
+        }
+        for state, fips, county, people in [
+            ("Ohio", "39", "167", "61000"),
+            ("Oregon", "41", "067", "60000"),
+        ]
+    ]
+
+
+async def test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url() -> None:
+    record = ExecutionRecord()
+    tools = _tools(record)
+    tools["resolve_geography"].list_geographies = _washington_counties
+    args = {"parents": ["Washington County"], "parent_level": "county", "level": "tract"}
+    stopped = _stopped(
+        _split(["Washington County"], "tract", listing=True, parent_level="county", level="tract"),
+        calls=[("search_tables", {"question": "Poverty by tract"}), ("resolve_geography", args)],
+    )
+    response = await run_ask(
+        "Poverty by tract in Washington County", complete=stopped, tools=tools, record=record
+    )
+    assert record.geography is None and response.urls == []  # no county was picked for the user
+    warned = [w for w in response.warnings if w.code == "ambiguous_place"]
+    assert len(warned) == 1 and len(warned[0].candidates) == 2
+
+
 async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     record = ExecutionRecord()
     tools = _tools(record)
