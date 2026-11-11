@@ -1,0 +1,20 @@
+CC-104 mutation checks for the Gate 2 round 1 fixes
+branch cc-104/structured-geography, fix commit d8f0fbe (committed BEFORE mutating; each mutation restored with git checkout)
+
+GOOD F1 split prompt names no 'us' level / finish skips the nation repair
+2 failed in 0.43s
+GOOD F2 _split_parents ignores the dataset
+1 failed in 0.32s
+GOOD F7 _split_parents ignores the parent's state
+1 failed in 0.25s
+GOOD F3 census tract spelling not normalised
+2 failed, 2 passed in 0.36s
+GOOD F4 a 'Name, ST' entry whose name is the state's name is the state
+1 failed in 0.30s
+GOOD F5 county fallback gated on raw level is None
+1 failed in 0.22s
+GOOD F6 places dropped silently when parents are sent
+3 failed in 0.31s
+GOOD F8 several unplaced parents each search every state
+1 failed in 0.22s
+tree after: clean
