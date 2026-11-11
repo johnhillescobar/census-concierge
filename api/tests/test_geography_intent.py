@@ -57,6 +57,11 @@ async def test_intent_missing_a_field_is_sent_back_for_repair_not_guessed(
     assert hit.refused is False  # a repair, not a refusal that stands
 
 
+async def test_a_level_nothing_publishes_is_refused_not_read_as_another() -> None:
+    hit = await resolved(places=["Harris County, TX"], level="neighbourhood")
+    assert hit.specs == [] and hit.legal is False and hit.refused is True
+
+
 async def test_the_nation_is_resolved_only_when_the_model_states_it() -> None:
     hit = await resolved(places=[], level="us")
     assert [spec.for_spec for spec in hit.specs] == ["us:1"] and hit.inferred is False
@@ -90,6 +95,13 @@ def test_the_state_of_an_entry_is_an_exact_lookup(entry: str, state: str) -> Non
 )
 def test_a_sentence_or_an_unnamed_state_names_no_state(text: str) -> None:
     assert state_of(text) is None  # nothing is found by scanning words
+
+
+def test_only_a_state_fips_or_geoid_label_makes_a_code_a_state() -> None:
+    assert state_of("geoid 06037") == ("california", "06")
+    assert state_of("zip 21234") is None  # a label that is not a state's own
+    assert state_of("state 2112") is None  # "state" takes the two digits of a state, no more
+    assert state_of("21234") is None
 
 
 def test_the_name_of_an_entry_is_the_part_before_its_first_comma() -> None:
@@ -207,7 +219,15 @@ async def test_several_unplaced_county_parents_are_asked_for_with_their_states()
 
 @pytest.mark.parametrize(
     ("spelled", "published"),
-    [("census tract", "tract"), ("Census Block Groups", "block group"), ("ZIP codes", "zcta")],
+    [
+        ("census tract", "tract"),
+        ("census tracts", "tract"),
+        ("Census Block Groups", "block group"),
+        ("census block group", "block group"),
+        ("ZIP codes", "zcta"),
+        ("zip code", "zcta"),
+        ("ZCTA5", "zcta"),
+    ],
 )
 def test_the_spellings_a_model_gives_a_level_are_normalised(spelled: str, published: str) -> None:
     assert level_name(spelled) == level_name(published)
@@ -260,6 +280,17 @@ async def test_a_bare_name_that_is_also_a_state_is_not_taken_for_the_state_as_a_
 
     await resolved(listing, parents=["Washington"], parent_level="county", level="tract")
     assert seen == [{"state": "*"}]  # a county named Washington, searched everywhere: not state 53
+
+
+async def test_a_place_named_without_its_state_is_searched_in_every_state() -> None:
+    seen: list[tuple[str, dict[str, str]]] = []
+
+    def listing(level: str, parts: dict[str, str], **kw: Any) -> list[dict[str, str]]:
+        seen.append((level, parts))
+        return []
+
+    await resolved(listing, places=["Springfield"], level="place")
+    assert seen == [("place", {"state": "*"})]  # the API takes no place listing without `in`
 
 
 async def test_a_comparison_that_resolves_no_leg_is_not_looked_up_a_second_time() -> None:
