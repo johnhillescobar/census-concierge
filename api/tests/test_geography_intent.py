@@ -495,7 +495,7 @@ async def test_tracts_in_a_place_written_with_its_state_take_the_largest_match()
 
 
 @pytest.mark.parametrize(
-    "written", ["Census Block Group 3", "census block groups", "block-group 3"]
+    "written", ["Census Block Group 3", "census block groups", "block group 3"]
 )
 async def test_a_numbered_unit_is_found_wherever_the_model_wrote_its_level(written: str) -> None:
     frame = _frame("block group", ["Kentucky"], [written], given=["state"])
