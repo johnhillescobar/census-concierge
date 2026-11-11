@@ -211,7 +211,8 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
     # A place the model names gives the state, with or without it written ("Los Angeles"): the
     # lookup finds it. An entry with a digit is a code, so it must ground itself (a number filed
     # under named is not a place). The county and tract are what the model reports apart.
-    named = [p for p in reported if state_of(p) or (p.isascii() and p.replace(" ", "").isalpha())]
+    words = [p for p in reported if any(c.isalpha() for c in p) and not any(c.isdigit() for c in p)]
+    named = [p for p in reported if state_of(p) or p in words]
     given = frame.get("given")
     if units and isinstance(given, list):  # a number needs parents the question itself states
         have = {g for g in given if g in _ORDER}
