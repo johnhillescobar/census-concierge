@@ -46,8 +46,9 @@ real-chain tests added; context hooks (.claude/hooks/ctx.py, .claude/settings.js
   reach PASS on them (ticket wording: insufficient precision is inconclusive). Default taken: leave
   as written and report it; do not weaken.
 - A0->A bridge needs a live re-score. p95 and 6 leakage entries are inherited red from main.
-- Rows PASS at tested head 0853a63 (closure-run/): AC1, AC4, AC5, TC1, TC2, TC4, TC5, TC7. Still open: AC2, AC3, TC3, TC6
-  (cohort size / A0 bridge), AC6 (needs all rows). Post-merge E2E after merge.
+- All 13 rows PASS at tested head 0853a63 (closure-run/); `closure.py check --pre-merge` exits 0.
+  Remaining to Done: owner reviews and merges PR 127 -> post-merge E2E on main (driver.sh in a worktree of
+  main) -> add [post_merge] e2e + main_head (sha256-pinned) -> `jira_transition.py CC-133 --done`.
 - AC4/TC4 closed on the harness (plan D6: the story exposes wording dependence, does not fix it). The ZIP xfail in
   guards.py is now CC-135 (under CC-124). Its reason string in test_execution_isolation.py still says
   "no PLAN story owns it"; change it to name CC-135 with the next change to that file (it makes AC4/TC4 stale, so re-run them then).

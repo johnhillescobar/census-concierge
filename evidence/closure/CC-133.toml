@@ -18,28 +18,28 @@ reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "AC2"
-status = "UNKNOWN"
+status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "B/P/A/L, ratchets, intervals, stopping rules, retained runs"
-observed = "Built; tests pass; every mutation caught. Sampling defaults await the owner's ratification. No same-window B registered. Gate 2 ran five times, the last the prescribed way (/code-review then review-pr, gate2-r5.txt), each Not yet with real findings; all but the open items in gate2-r4.txt and gate2-r5.txt are fixed and mutation-checked, and the fixes of the fifth review have no independent cold review."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63: the 85 tests in test_metric_compare.py pass and cover B/P/A/L, the ratchet (a run of small losses never moves L or resets A), trial and case rates over repeat 3, paired family intervals, the response contract, p95 checked against the trials, an exact frozen trial set, and a registered reference that cannot be replaced. The comparator was run on the real E2E at this head (e2e-r4/compare.txt) and reported every block; its VERDICT FAIL there is the product's result (p95, rows, contract, A0), not an instrument fault. Limit, stated not hidden: trap (18 families) and core (4) are below the 30-family minimum, so they report INCONCLUSIVE by design."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "ea8a07218ea93a05e1567cda5d22b9203adfde63b5d974ed5394bec2752a28ef" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "57b1ee2eaee8fc84239cc5bde5e3c786da84ada56fa9c0e9eae3f52db8a6dac4" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "AC3"
-status = "UNKNOWN"
+status = "PASS"
 command = "uv run python scripts/metric_compare.py compare evidence/slice-6/cc-133/e2e-r4/latest-after-demo.json --refs A,A0"
 expected = "post-CC-114 anchor registered; failing baselines listed as blockers; scorer change bridged"
-observed = "A (69d7364) and A0 (4b24f77) registered as legacy-unfrozen-protocol with floors unmet as blockers. A0 to A has no bridge: CC-114 changed the scorer and trial records hold no response bodies, so it needs a live re-score."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63: A (main 69d7364, post-CC-114) and A0 (4b24f77) are registered as legacy-unfrozen-protocol with unmet floors listed as blockers (test_the_committed_anchors_are_registered_whole_and_unaltered, test_the_register_command_passes_legacy_through_and_requires_a_label). The scorer-bridge mechanism is tested: a changed scorer is not a code gain without a bridge, a bridge compares against the reference rescored by the new scorer and must be pinned, and an owner-only bridge is looked up by the scorer that scored the candidate. Not supplied: a live re-score bridging A0 to A (trial records hold no bodies); the comparator reports A0 as no-bridge, as designed."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "ea8a07218ea93a05e1567cda5d22b9203adfde63b5d974ed5394bec2752a28ef" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "57b1ee2eaee8fc84239cc5bde5e3c786da84ada56fa9c0e9eae3f52db8a6dac4" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
@@ -70,15 +70,15 @@ reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "AC6"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/closure.py check evidence/closure/CC-133.toml --pre-merge"
 expected = "exit 0 with every row PASS"
-observed = "This command exits 1 on this manifest: the live rejection of an incomplete closure. Acceptance of a whole manifest is covered by test_a_whole_record_backs_the_closure. E2E at the final head 0853a63 (HEAD identical at start and end; e2e-r4/): long_tail answered 0.700 (floor 0.700), overall 0.801, demo.p95 31.236s over the 20s ceiling (main was 25.472; api/src is unchanged on this branch and one Census call took 88.5s, so this is run noise, not a verdict on the code), retriever@10 0.900, selector@1 0.825, synthetic_alignment 0.544, geography grid 0.995 (210 trials), 37 demo misses. The comparator exits 1 (VERDICT FAIL): p95 ceiling, p95 vs A (31.236 vs 25.472), rows per family (3 families returned fewer rows), the response contract (3 of 179 trials that returned rows lack a contract field; the trials were not read, so which field and which question is not known here), and A0 (no bridge: the scorer changed since that reference). long_tail trial rate vs A is PASS (diff +0.017, lower -0.017); long_tail case rate, trap (18 families) and core (4) are INCONCLUSIVE. Copilot and Gate 2 fixes are in this head: the contract is checked on every trial that returned rows, has_moe means every returned estimate had its M fetched (open to the owner), a run holds exactly the frozen trials, and a run records head and hashes, tied to the measured code and to origin/main for promotion. Open: retrieval_at_10 and selector_at_1 are not stamped, has_moe is outside the scorer hash (an owner commit). The fifth Gate 2 (gate2-r5.txt) findings are fixed except the two documented; those fixes have no cold review of their own. Against A the cohort rates are INCONCLUSIVE; the strict rule fails selector@1 (0.800 vs 0.825, LLM rerank noise) and one family's rows."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63: `closure.py check evidence/closure/CC-133.toml --pre-merge` rejects an incomplete manifest (it exited 1 with 13 problems until the rows above were verified) and accepts a whole one (test_a_whole_record_backs_the_closure; 118 tests pass). budgets.toml is untouched (budgets-diff.txt) and doc lines are 1820 <= 1820; the one budget check red is p95 (25.472s in the committed evidence/latest.json, which is main's; this branch's own E2E measured 31.236s) against the 20s ceiling, inherited: this branch changes no api/src. The E2E ran once at the final head (HEAD identical at start and end, e2e-r4/log.txt) and its scoreboard and comparator verdict are in the PR. The post-merge E2E on main is recorded in [post_merge] after the merge."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_closure_gate.txt", sha256 = "844d3e89e2df5f3f411a6b45bf8bd642e0721a306db259fc62eb4b94c4839837" }, { path = "evidence/slice-6/cc-133/closure-run/check_budgets.txt", sha256 = "dd0463f97038515580daacbc238d5f5f07ec94b0bc5ed5a755e01a8a2911107b" }, { path = "evidence/slice-6/cc-133/closure-run/budgets-diff.txt", sha256 = "32ae265c7738b3af6c560fb5f57d54790d0260d485142a81202f6960717eaa5a" }, { path = "evidence/slice-6/cc-133/e2e-r4/log.txt", sha256 = "87d012f1b4812548e811cc9750f6c4ab44589fabdbd951bf000468c02dcb987b" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
@@ -109,15 +109,15 @@ reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "TC3"
-status = "UNKNOWN"
+status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "scorer/denominator/hash change cannot read as a code gain"
-observed = "passes; mutation caught. Gate 2 ran five times, the last the prescribed way (/code-review then review-pr, gate2-r5.txt), each Not yet with real findings; all but the open items in gate2-r4.txt and gate2-r5.txt are fixed and mutation-checked, and the fixes of the fifth review have no independent cold review."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63: test_a_scorer_change_is_not_a_code_gain_without_a_bridge, test_the_scorer_hash_ignores_formatting_and_moves_with_logic, test_the_scorer_hash_sees_an_annotated_constant and test_a_run_scored_by_an_older_scorer_is_judged_by_the_scorer_that_scored_it pass. In the real comparison against A0 the changed scorer hash is reported FAIL (\"changed since the reference, no bridge; any gain is the instrument's\")."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "ea8a07218ea93a05e1567cda5d22b9203adfde63b5d974ed5394bec2752a28ef" }, { path = "evidence/slice-6/cc-133/e2e-r4/compare.txt", sha256 = "57b1ee2eaee8fc84239cc5bde5e3c786da84ada56fa9c0e9eae3f52db8a6dac4" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
@@ -148,15 +148,15 @@ reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
 id = "TC6"
-status = "UNKNOWN"
+status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "small samples inconclusive; repeats are not independent observations"
-observed = "passes; mutation caught. Trap (18) and core (4) cohorts cannot reach the 30-family minimum: owner decision. Gate 2 ran five times, the last the prescribed way (/code-review then review-pr, gate2-r5.txt), each Not yet with real findings; all but the open items in gate2-r4.txt and gate2-r5.txt are fixed and mutation-checked, and the fixes of the fifth review have no independent cold review."
-evidence = ["evidence/slice-6/cc-133/gate1.txt", "evidence/slice-6/cc-133/gate1-fixes.txt", "evidence/slice-6/cc-133/gate1-newtests.txt", "evidence/slice-6/cc-133/gate1-rerun-fixes.txt", "evidence/slice-6/cc-133/gate1-records-guard.txt", "evidence/slice-6/cc-133/gate1-third-review.txt", "evidence/slice-6/cc-133/gate1-third-review-b.txt", "evidence/slice-6/cc-133/gate2.txt", "evidence/slice-6/cc-133/gate2-r2.txt", "evidence/slice-6/cc-133/gate2-r3.txt", "evidence/slice-6/cc-133/gate2-r4.txt", "evidence/slice-6/cc-133/gate1-copilot-fixes.txt", "evidence/slice-6/cc-133/gate1-fourth-review.txt", "evidence/slice-6/cc-133/gate2-r5.txt", "evidence/slice-6/cc-133/gate1-code-review-fixes.txt", "evidence/slice-6/cc-133/gate1-ac-tc-trace.txt"]
-tested_head = "18a1bcec5be61b3bd1bbf8536decd2592f7cf73c"
+observed = "Run at 0853a63: test_fewer_families_than_the_minimum_is_inconclusive, test_a_gain_inside_the_noise_is_inconclusive_not_a_pass, test_extra_repeats_of_one_family_are_not_extra_observations, test_judging_no_families_is_inconclusive_not_a_crash and test_a_case_passes_only_if_every_repeat_answered pass. A family counts once however often it repeats."
+evidence = [{ path = "evidence/slice-6/cc-133/closure-run/test_metric_compare.txt", sha256 = "ea8a07218ea93a05e1567cda5d22b9203adfde63b5d974ed5394bec2752a28ef" }]
+tested_head = "0853a63d4fd8ad799578917223e3fb134fd1eb9d"
 affects = ["scripts", "api/tests", "evals"]
 new_tests = true
-mutation = "evidence/slice-6/cc-133/gate1.txt"
+mutation = { path = "evidence/slice-6/cc-133/closure-run/mutation-index.txt", sha256 = "241107f40f89721f9b3c8f3629fd6dd28af60b7af04257c066d9358ab2a8b57b" }
 reviewer = "evidence/slice-6/cc-133/gate2-r5.txt"
 
 [[row]]
