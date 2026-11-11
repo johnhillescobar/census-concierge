@@ -22,6 +22,8 @@ Rules live in `CLAUDE.md` and `docs/playbooks/run-slice.md`; re-read both, they 
 
 ## Standing decisions (owner)
 
+- Gate 1 runs in a subagent (2026-11-10): it commits first, writes `gate1-*.txt`, returns a one-line verdict.
+
 - No oracle review and no signing, ever (2026-11-10). Removed in aa1feb1. Do not raise it.
 - Never raise a budget. Never read sealed sets or `demo.trials`.
 - Do not press the owner for decisions that have a default; state the default and proceed.
