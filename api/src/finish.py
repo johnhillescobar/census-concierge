@@ -28,7 +28,8 @@ _SPLIT_PARENTS = (
     "listing is true when they want a row for every unit inside the parents, false when they want "
     "the parents themselves. parent_level is the level the parents are (county or place), null "
     "for states. level is the geography level the question asks about (state, county, place, "
-    "tract, block group, zcta), or null when it asks about none; a tract, block group or county "
+    "tract, block group, zcta, or us for the whole nation), or null when it asks about none; a "
+    "tract, block group or county "
     "identified by number asks about that level. named lists each code that identifies a place "
     "on its own, as the user wrote it ('FIPS 39049', 'GEOID 06037', a ZIP code); never replace a "
     "code with a name. numbered lists the level (tract, block group or county) of each place the "
@@ -239,8 +240,11 @@ async def _split_parents(
     if not (found and found.get("parents") and geo):
         return False
     parents, unit = found["parents"], found["unit"]
-    right = [g.level == level_name(unit) for g in geos[: len(parents)]]
-    if _all_wild(geos) and len(parents) <= len(geos) and all(right):
+    dataset = "acs1" if wants_acs1(question) else "acs5"
+    right = [g.level == level_name(unit) and g.dataset == dataset for g in geos[: len(parents)]]
+    want = {s[1] for p in parents if (s := state_of(p))}  # the states the model says it lies in
+    inside = want <= {g.codes.get("state") for g in geos}
+    if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside:
         return False
     before = {name: getattr(record, name) for name in _SNAPSHOT}
     before["geo_queries"] = list(record.geo_queries)
@@ -316,7 +320,7 @@ async def finish_tools(
                 args["levels"] = stated
             if wants_acs1(question):
                 args["dataset"] = "acs1"
-            if legs:  # nothing the model reported means nothing to resolve, never a guess
+            if legs or level_name(level) == "us":  # nothing reported means nothing to resolve
                 await dispatch(
                     geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record
                 )
