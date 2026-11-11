@@ -91,7 +91,7 @@ no place, a listing without `level`, or a non-state parent without `parent_level
 NAME listing ranks by place class, population, then GEO_ID; `specs[0]` is selected. A token matches the NAME
 head or that head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`) and
 is not retried as its last word. A place with a null level and no NAME hit falls back to the county listing,
-flagged inferred. A county parent named without its state is searched across states, largest first. A blank
+flagged inferred. A county or place parent named without its state is searched across states, largest first. A blank
 parent fails the whole call. `ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
 dataset/vintage, `for`/`in`). Comparison legs resolve concurrently and merge.
 A named-county parent of a tract wildcard is `for=tract:*` without listing
@@ -105,9 +105,10 @@ identified only by number inside another (`numbered`), whether a county is named
 phrase points at a place without naming it (`pointing`), and whether it `asks_for` `tables` (which table holds
 something: never stopped) or `data`. On the first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`,
 the minimum the API accepts (ACS5 2023): every tract or block group, the state; one county or place by number,
-the state; one tract, state and county; one block group, state, county and tract. A name counts as a state only if
-`state_of` grounds it (a number filed under `named` is not a place); the report is never matched against the
-question's words. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
+the state; one tract, state and county; one block group, state, county and tract. A reported name gives the state
+with or without it written ("Los Angeles"): resolution finds it by NAME. An entry with a digit is a code and must
+ground itself (`state_of`, a GEOID); a number filed under `named` is not a place. The report is never matched
+against the question's words. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
 search, fetch, URL or candidates. Any failure, a missing report or a late one fails open.
 
 The level is the model's statement, not a reading of the question

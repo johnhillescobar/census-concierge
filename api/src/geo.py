@@ -228,8 +228,9 @@ class ResolveGeographyTool(BaseTool):
                     f"{for_level} does not nest in {parent} ({owner})", wildcard=True, nested=False
                 )
         if parent not in {"us", "state"}:
-            # a county named without its state: every state is searched, the largest match wins
-            where = dict(in_parts) or ({"state": "*"} if parent == "county" else {})
+            # a parent named without its state: every state is searched, the largest match wins
+            star = legal_predicate(parent, frozenset({"state"}), wildcard=True, entries=entries)
+            where = dict(in_parts) or ({"state": "*"} if star else {})
             if not where:
                 return _fail(f"{for_level} nested in unresolved {parent}", wildcard=True)
             rows = await asyncio.to_thread(

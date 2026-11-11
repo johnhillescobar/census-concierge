@@ -14,6 +14,8 @@ from src.geo_level import ResolveGeographyResult
 from src.geo_list import name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
 from test_geography_completeness import STOPPED, _ask, _frame
+from test_tracts_in_place import ASK as IN_PLACE
+from test_tracts_in_place import resolve as in_place
 
 
 async def resolved(listing: Any = None, **args: Any) -> ResolveGeographyResult:
@@ -124,9 +126,30 @@ async def test_changing_the_listing_level_changes_execution_under_the_same_wordi
     assert tracts["urls"] != other["urls"]
 
 
-async def test_a_place_the_model_reports_without_its_state_is_not_a_state() -> None:
-    """A name that cannot be grounded to a state does not satisfy "every tract needs a state"."""
+async def test_a_famous_place_named_without_its_state_is_not_refused() -> None:
+    """People write "Los Angeles", not "Los Angeles, CA": the lookup finds the state."""
     response, record, fetched = await _ask(
-        "Population by tract in Chicago", _frame("tract", ["Chicago"])
+        "Population by tract in Los Angeles", _frame("tract", ["Los Angeles"])
     )
+    assert record.timings and STOPPED not in response.answer
+
+
+@pytest.mark.parametrize("code", ["tract 71", "tract 4821", "71"])
+async def test_a_number_filed_under_named_is_a_code_that_must_ground_itself(code: str) -> None:
+    response, record, fetched = await _ask("Population by tract", _frame("tract", [code]))
     assert STOPPED in response.answer and record.timings == [] and fetched == []
+
+
+async def test_a_code_with_its_own_label_grounds_the_state() -> None:
+    _response, record, _fetched = await _ask("Population by tract", _frame("tract", ["FIPS 39049"]))
+    assert record.timings
+    assert state_of("FIPS 39049") == ("ohio", "39")
+    assert state_of("state 21") == ("kentucky", "21") and state_of("60614") is None
+
+
+async def test_a_place_parent_named_without_its_state_is_found_by_name_across_states() -> None:
+    tracts = await in_place({**IN_PLACE, "parents": ["Detroit"]})
+    assert (
+        tracts.legal and tracts.wider
+    )  # Detroit, Michigan: the largest match, not a guess at a state
+    assert tracts.specs[0].in_spec == "state:26 county:163"  # other Detroits stay as alternatives

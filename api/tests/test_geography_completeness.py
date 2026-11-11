@@ -278,7 +278,7 @@ async def test_the_answer_says_what_the_question_needs_what_it_names_and_what_it
 
 
 async def test_a_number_the_model_files_under_named_is_still_not_a_name() -> None:
-    reply = _frame("tract", TRACTS, TRACTS)
+    reply = _frame("tract", ["tract 71", "tract 305"], TRACTS)
     response, record, _fetched = await _ask(f"{Q_TRACTS}?", reply)
     assert [item.code for item in response.warnings] == ["geography_unsupported"]
     assert "names no geography" in response.answer  # the numbers did not pass for a state

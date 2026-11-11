@@ -40,6 +40,11 @@ geo_level.py zip x2 (one stays: the `ZCTA` constant).
 
 ## Open
 
+- 2026-11-11: owner asked how a famous city without its state is handled. Fixed in the next commit: `incomplete()` counts a
+  reported name (letters, no digit) as giving the state; a digit entry must ground itself; `_list` searches a state-less
+  county or place parent across states. Gate 1 was started on 0f9841f and stopped by the owner before any transcript was
+  written; the tree was restored. Re-run Gate 1 on the commit after this one.
+
 - **Tests are red: step 2(d).** `pytest api/tests` errors at import in `test_ask_tools.py`, `test_finish.py`,
   `test_geography_completeness.py` (they import `find_state`, `place_token`, `split_comparison`, etc., which are deleted) and
   many tests pass `query=`. Migration rules: a test of a deleted prose reader is deleted (never ported); a test of behavior

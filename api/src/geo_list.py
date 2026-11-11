@@ -74,8 +74,11 @@ def state_of(entry: str) -> tuple[str, str] | None:
     state. An exact lookup on the part after the last comma (or the whole entry); never a scan."""
     for part in (entry.rsplit(",", 1)[-1], entry):
         key = _bare(part)
+        word, _, code = key.partition(" ")  # "state 21", "FIPS 39049": a code with its own label
+        code = code if word in {"state", "fips", "geoid"} and code.isdigit() else ""
         for name, usps, fips in STATES:
-            if key in {name, usps.casefold(), f"state {fips}"}:
+            coded = code[:2] == fips and (word != "state" or len(code) == 2)
+            if key in {name, usps.casefold()} or coded:
                 return name, fips
     return None
 
