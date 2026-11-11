@@ -36,12 +36,13 @@ async def test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_
 async def test_a_repair_resolution_never_replaces_the_level_the_model_stated() -> None:
     record = ExecutionRecord(question="population of Harris County, Texas")
     record.asked_levels = ["county"]
+    record.geo_queries = ["Harris County, Texas"]
     await finish_tools(dispatch, {"resolve_geography": _geo_tool()}, record)
     assert record.geographies  # the repair did resolve something
     assert record.asked_levels == ["county"]
 
 
-async def test_the_nationwide_fallback_is_a_repair_call_that_states_no_level() -> None:
+async def test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one() -> None:
     record = ExecutionRecord(question="households and families in Texas")
     record.asked_levels = ["tract"]
     calls: list[dict[str, Any]] = []
@@ -51,9 +52,7 @@ async def test_the_nationwide_fallback_is_a_repair_call_that_states_no_level() -
         return ""
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
-    fallback = calls[-1]
-    assert fallback["args"]["query"] == "nationwide"
-    assert fallback["origin"] == "repair" and fallback["args"]["level"] is None
+    assert calls == []
 
 
 async def test_a_repair_of_a_multi_parent_listing_is_marked_as_repair() -> None:

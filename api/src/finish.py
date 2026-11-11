@@ -252,13 +252,16 @@ async def _split_parents(
         record.geographies = []
     record.consecutive_failures.pop("resolve_geography", None)
     after = getattr(record, "geo_status", None) or {}
-    legal = after.get("legal") is not False and after.get("nested") is not False
+    nested = after.get("nested") is not False  # an unsupported candidate is still what was asked
     chosen = record.geographies[: len(parents)]  # the rest are ambiguity candidates
-    if legal and len(chosen) == len(parents) and _all_wild(chosen):
+    if nested and len(chosen) == len(parents) and _all_wild(chosen):
         record.url, record.rows, record.fetch = None, [], None  # never show the old parent's data
         return True
+    if not before["geographies"]:  # the loop resolved nothing: the repair, even an unsupported
+        return bool(record.geographies)  # candidate with its warning, is the only answer there is
     for name, value in before.items():
-        setattr(record, name, value)
+        if name != "geo_status" or nested:  # keep why it cannot be nested: it is the warning
+            setattr(record, name, value)
     return False
 
 
@@ -303,7 +306,9 @@ async def finish_tools(
             stated = list(getattr(record, "asked_levels", None) or [])
             stated = stated if len(stated) == len(legs) else []  # the model's own, if any
             level = (stated or [((found or {}).get("frame") or {}).get("level")])[0]
-            args: dict[str, Any] = {"places": legs, "level": level, "levels": stated}
+            args: dict[str, Any] = {"places": legs, "level": level}
+            if len(legs) >= 2:
+                args["levels"] = stated
             if wants_acs1(question):
                 args["dataset"] = "acs1"
             if legs:  # nothing the model reported means nothing to resolve, never a guess

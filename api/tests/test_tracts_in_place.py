@@ -55,7 +55,7 @@ async def resolve(args: dict[str, Any], table: list[GeoLevel] = WITH_STEP) -> An
     return message.artifact
 
 
-ASK = {"level": "tract", "query": "census tract in Detroit", "parents": ["Detroit, MI"]}
+ASK = {"level": "tract", "parents": ["Detroit, MI"], "parent_level": "place"}
 
 
 async def test_tracts_in_a_place_are_the_tracts_of_the_county_it_lies_in() -> None:
@@ -94,7 +94,9 @@ async def test_without_the_county_step_nothing_is_derived_and_nothing_is_asked()
 async def test_only_a_tract_request_beside_one_named_place_is_derived() -> None:
     """A block-group request beside a place is unsupported too, so the derivation is attempted: it
     must decline (it derives tracts only) and leave the ordinary unsupported result."""
-    groups = await resolve({"level": "block group", "query": "Detroit", "parents": ["Detroit, MI"]})
+    groups = await resolve(
+        {"level": "block group", "parents": ["Detroit, MI"], "parent_level": "place"}
+    )
     assert "not published" not in groups.detail and all(s.level != "tract" for s in groups.specs)
     two = await resolve({**ASK, "parents": ["Detroit, MI", "Dallas, TX"]})
     assert "place boundary is not applied" not in two.detail
@@ -159,8 +161,8 @@ async def test_a_county_parent_is_served_by_the_ordinary_lookup_with_no_county_s
 
     args = {
         "level": "tract",
-        "query": "all tracts in Cook County, Illinois",
         "parents": ["Cook County, IL"],
+        "parent_level": "county",
     }
     message = await _geo_tool(listing=spy, table=WITH_STEP).ainvoke(
         {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
@@ -199,8 +201,8 @@ async def test_a_place_whose_name_contains_a_level_word_is_still_derived() -> No
 
     args = {
         "level": "tract",
-        "query": "census tract in State College",
         "parents": ["State College, PA"],
+        "parent_level": "place",
     }
     message = await _geo_tool(listing=with_borough, table=WITH_STEP).ainvoke(
         {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
@@ -223,7 +225,7 @@ async def test_a_county_listing_that_raises_leaves_the_tract_request_unserved_an
     steps = [
         ("search_tables", {"question": "poverty"}),
         ("resolve_geography", ASK),
-        ("resolve_geography", {"level": "place", "query": "Detroit, MI"}),
+        ("resolve_geography", {"level": "place", "places": ["Detroit, MI"]}),
         ("build_url", {"table_id": "B17001"}),
         ("fetch_data", {}),
     ]

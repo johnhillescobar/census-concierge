@@ -4,11 +4,9 @@ every ask loop, regardless of whether the model's own turns hit an error.
 
 from __future__ import annotations
 
-import asyncio
 import json
 from typing import Any
 
-import pytest
 from ask_fixtures import _harris
 from src.ask import ExecutionRecord, dispatch
 from src.census_url import CensusURL
@@ -243,9 +241,7 @@ async def test_model_naming_no_listing_level_leaves_the_resolution_alone() -> No
     assert seen == []
 
 
-async def test_comparison_the_loop_did_not_resolve_together_is_resolved_with_the_models_places() -> (
-    None
-):
+async def test_comparison_resolved_apart_is_resolved_together_with_the_models_places() -> None:
     two = [_harris(), _harris()]
     seen, _ = await _run_split(
         "population of Harris County and Travis County",
@@ -494,7 +490,7 @@ async def test_unresolved_pair_of_single_place_queries_is_resolved_together() ->
 
 
 async def test_finish_never_resolves_the_question_itself() -> None:
-    """The model reported nothing, so there is nothing to resolve: no place is read from the words."""
+    """The model reported nothing, so nothing is resolved: no place is read from the words."""
     record = ExecutionRecord(question="every tract in Cook County, Illinois")
     record.geographies = [_harris()]
     record.geo_queries = ["Cook County, IL", "Harris County, TX"]

@@ -1,0 +1,132 @@
+"""The model's structured geography intent decides what runs; what the user typed does not.
+
+Every case drives the real resolver with scripted tool calls, and the real `run_ask` chain for the
+cases about wording. Nothing here reads a sentence: the inputs are the fields the tool takes.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+from ask_fixtures import _geo_tool, only_dane
+from src.geo_level import ResolveGeographyResult
+from src.geo_list import name_token, state_of
+from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
+from test_geography_completeness import STOPPED, _ask, _frame
+
+
+async def resolved(listing: Any = None, **args: Any) -> ResolveGeographyResult:
+    tool = _geo_tool(listing) if listing else _geo_tool()
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+    )
+    return message.artifact  # type: ignore[no-any-return]
+
+
+DANE_TRACTS = {"parents": ["Dane County, WI"], "parent_level": "county", "level": "tract"}
+
+
+async def test_a_listing_is_executed_from_its_fields_with_no_listing_words_anywhere() -> None:
+    hit = await resolved(only_dane, **DANE_TRACTS)
+    assert hit.legal and hit.wildcard
+    assert (hit.specs[0].for_spec, hit.specs[0].in_spec) == ("tract:*", "state:55 county:025")
+
+
+async def test_a_changed_parent_level_changes_the_listing_it_resolves() -> None:
+    hit = await resolved(only_dane, parents=["Dane County, WI"], level="tract")
+    assert not hit.legal and hit.specs == []  # a county is not a state; nothing is guessed
+    assert "send parent_level" in hit.detail
+
+
+@pytest.mark.parametrize(
+    ("args", "missing"),
+    [
+        ({"parents": ["Texas"], "level": None}, "level"),
+        ({"places": [], "level": None}, "nation"),
+        ({"places": None, "parents": None, "level": None}, "nation"),
+    ],
+)
+async def test_intent_missing_a_field_is_sent_back_for_repair_not_guessed(
+    args: dict[str, Any], missing: str
+) -> None:
+    hit = await resolved(**args)
+    assert hit.specs == [] and hit.legal is False and missing in hit.detail
+    assert hit.refused is False  # a repair, not a refusal that stands
+
+
+async def test_the_nation_is_resolved_only_when_the_model_states_it() -> None:
+    hit = await resolved(places=[], level="us")
+    assert [spec.for_spec for spec in hit.specs] == ["us:1"] and hit.inferred is False
+
+
+@pytest.mark.parametrize(
+    ("entry", "state"),
+    [
+        ("Washington County, OR", "oregon"),
+        ("Kansas City, Missouri", "missouri"),
+        ("West Virginia", "west virginia"),
+        ("Virginia", "virginia"),
+        ("Washington, D.C.", "district of columbia"),
+        ("DC", "district of columbia"),
+    ],
+)
+def test_the_state_of_an_entry_is_an_exact_lookup(entry: str, state: str) -> None:
+    found = state_of(entry)
+    assert found is not None and found[0] == state
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "population of Texas",
+        "all counties in Ohio",
+        "Harris County",
+        "tract 71",
+        "Cook County, 2022",
+    ],
+)
+def test_a_sentence_or_an_unnamed_state_names_no_state(text: str) -> None:
+    assert state_of(text) is None  # nothing is found by scanning words
+
+
+def test_the_name_of_an_entry_is_the_part_before_its_first_comma() -> None:
+    assert name_token("Harris County, TX") == "harris county"
+    assert name_token("Kansas City, Missouri") == "kansas city"
+
+
+LISTING = [
+    SEARCH,
+    resolve(parents=["Harris County, TX"], parent_level="county", level="tract"),
+    BUILD,
+    FETCH,
+]
+REWORDED = [
+    *NEUTRAL,
+    "give me the tracts for Harris County",
+    "pop. by neighborhood unit, Houston area",
+]
+
+
+async def test_a_fixed_listing_executes_identically_under_any_wording() -> None:
+    assert await differing(LISTING, REWORDED) == []
+    assert "for=tract" in (await execute(NEUTRAL[0], LISTING))["urls"][0]
+
+
+async def test_changing_the_listing_level_changes_execution_under_the_same_wording() -> None:
+    blocks = [
+        *LISTING[:1],
+        resolve(parents=["Harris County, TX"], parent_level="county", level="county"),
+        *LISTING[2:],
+    ]
+    tracts = await execute(NEUTRAL[0], LISTING)
+    other = await execute(NEUTRAL[0], blocks)
+    assert tracts["urls"] != other["urls"]
+
+
+async def test_a_place_the_model_reports_without_its_state_is_not_a_state() -> None:
+    """A name that cannot be grounded to a state does not satisfy "every tract needs a state"."""
+    response, record, fetched = await _ask(
+        "Population by tract in Chicago", _frame("tract", ["Chicago"])
+    )
+    assert STOPPED in response.answer and record.timings == [] and fetched == []
