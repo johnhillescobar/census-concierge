@@ -382,3 +382,26 @@ async def test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest() 
         )
     ).artifact
     assert hit.ambiguous and len(hit.specs) == 2 and "name its state" in hit.detail
+
+
+async def test_a_tract_by_number_needs_parents_the_question_states_not_supplied_ones() -> None:
+    cook = ["Cook County, Illinois"]
+    supplied = _frame("tract", cook, ["tract"], county_named=True, given=["county"])
+    response, record, fetched = await _ask("Poverty in tract 12 in Cook County", supplied)
+    assert STOPPED in response.answer and "state" in response.answer
+    assert record.timings == [] and fetched == []
+
+
+async def test_a_tract_by_number_runs_when_the_question_states_its_parents() -> None:
+    cook = ["Cook County, Illinois"]
+    stated = _frame("tract", cook, ["tract"], county_named=True, given=["state", "county"])
+    _response, record, _fetched = await _ask("Poverty in tract 12 in Cook County, IL", stated)
+    assert record.timings
+
+
+async def test_a_report_without_given_keeps_the_lenient_rule_rather_than_refusing() -> None:
+    cook = ["Cook County, Illinois"]  # a model that sends no `given` at all must not fail closed
+    _response, record, _fetched = await _ask(
+        "Poverty in tract 12 in Cook County", _frame("tract", cook, ["tract"], county_named=True)
+    )
+    assert record.timings

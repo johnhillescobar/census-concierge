@@ -261,6 +261,7 @@ async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
             "level": "tract",
             "named": ["Dane County, Wisconsin"],
             "numbered": ["tract"],
+            "given": None,
             "asks_for": None,
             "county_named": False,
             "pointing": False,

@@ -20,9 +20,10 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "parent_level": ..., '
-    '"level": ..., "named": [...], "numbered": [...], "asks_for": ..., "pointing": bool, '
-    '"county_named": bool}. parents are the places the user names, one entry each, whatever word '
-    "connects them. Write a place smaller than a state as 'Name, State' with the state from your "
+    '"level": ..., "named": [...], "numbered": [...], "given": [...], "asks_for": ..., '
+    '"pointing": bool, "county_named": bool}. parents are the places the user names, one entry '
+    "each, whatever word connects them. Write a place smaller than a state as 'Name, State' "
+    "with the state from your "
     "own knowledge (such as 'Lancaster County, Nebraska'), never as two entries; name a state "
     "alone. unit is county, tract, block group, zcta or place: the kind of row the user wants. "
     "listing is true when they want a row for every unit inside the parents, false when they want "
@@ -32,8 +33,10 @@ _SPLIT_PARENTS = (
     "tract, block group or county "
     "identified by number asks about that level. named lists each code that identifies a place "
     "on its own, as the user wrote it ('FIPS 39049', 'GEOID 06037', a ZIP code); never replace a "
-    "code with a name. numbered lists the level (tract, block group or county) of each place the "
-    "question identifies only by a number inside another place, such as 'tract 12'; a state, ZIP "
+    "code with a name. given lists which of state, county and tract the question itself states, "
+    "by name or code; one you supplied from your own knowledge is not given. numbered lists the "
+    "level (tract, block group or county) of each place the question identifies only by a "
+    "number inside another place, such as 'tract 12'; a state, ZIP "
     "code or GEOID is never numbered. asks_for is 'tables' when the question asks which table or "
     "variable holds something or where to find it, and 'data' when it asks for figures. pointing "
     "is true when a phrase stands in for a place by pointing at it ('my county', 'where I "
@@ -103,6 +106,7 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         "level": found.get("level"),
         "named": [*(named if isinstance(named, list) else []), *names],
         "numbered": numbered if isinstance(numbered, list) else [],
+        "given": found["given"] if isinstance(found.get("given"), list) else None,
         "asks_for": found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
         "county_named": found.get("county_named") is True,
         "pointing": found.get("pointing") is True,
@@ -208,7 +212,11 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
     # lookup finds it. An entry with a digit is a code, so it must ground itself (a number filed
     # under named is not a place). The county and tract are what the model reports apart.
     named = [p for p in reported if state_of(p) or (p.isascii() and p.replace(" ", "").isalpha())]
-    have = {"state"} if named else set()
+    given = frame.get("given")
+    if units and isinstance(given, list):  # a number needs parents the question itself states
+        have = {g for g in given if g in _ORDER}
+    else:
+        have = {"state"} if named else set()
     if frame.get("county_named") is True or "county" in units:
         have.add("county")
     if "tract" in units:
