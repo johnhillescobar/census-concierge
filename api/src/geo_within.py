@@ -35,7 +35,7 @@ async def tracts_in_place(
     step = any(e.name == COUNTY_PART and set(e.requires) == {"state", "place"} for e in entries)
     if ordinary[1].legal or len(names) != 1 or level_name(level) != "tract" or not step:
         return ordinary
-    _detail, hit = await tool._resolve(names[0], "place", dataset, year, entries)
+    _detail, hit = await tool._place(names[0], "place", dataset, year, entries)
     if not (hit.legal and hit.specs):
         return ordinary
     place, state = hit.specs[0], clause_codes(hit.specs[0].in_spec).get("state", "")

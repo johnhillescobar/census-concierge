@@ -1,9 +1,8 @@
-"""resolve_geography: names to Census `for`/`in`, legality from geography.json."""
+"""resolve_geography: the model's structured places to Census `for`/`in` codes."""
 
 from __future__ import annotations
 
 import asyncio
-import re
 from collections.abc import Callable
 from typing import Any, Literal
 
@@ -12,43 +11,19 @@ from pydantic import ConfigDict
 
 from src.compare import unsupported_wildcard
 from src.contract import GeoSpec, clause_codes
-from src.geo_level import LEVELS, ResolveGeographyResult, declared_levels, level_name
-from src.geo_list import (
-    WILDCARD,
-    WITHIN,
-    filter_rows,
-    find_state,
-    named_rows,
-    place_token,
-    rank_matches,
-    token_is_dc,
-)
+from src.geo_level import ZCTA, ResolveGeographyResult, declared_levels, level_name
+from src.geo_list import filter_rows, name_token, named_rows, rank_matches, state_of
 from src.geo_within import tracts_in_place
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput
 
-_VERSUS = re.compile(r"\s+(?:versus|compared to|vs\.?)\s+", re.IGNORECASE)
-_COMPARE_TO = re.compile(r"(?is)^\s*compare\b(.+)\bto\b(.+)$")
-_NOISE = frozenset(
-    {"population", "of", "the", "in", "a", "an", "how", "many", "people", "what", "is", "are"}
-)
-_AVERAGE = frozenset({"average", "avg", "mean"})
-_US = re.compile(r"\b(?:u\.?s\.?a?\.?|united states|nationwide|the nation)\b", re.I)
-_HAS_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
-_IN_PLACE = re.compile(
-    r"\b(?:in|for)\s+(?!((?:19|20)\d{2})\b)([A-Za-z][A-Za-z.'-]*)",
-    re.I,
-)
-
-
 ListGeographies = Callable[..., list[dict[str, str]]]
 GeoTable = Callable[[str, int], list[GeoLevel]]
 LatestVintage = Callable[[str], int]
+Reply = tuple[str, ResolveGeographyResult]
 
 
-def _fail(
-    detail: str, *, wildcard: bool = False, nested: bool = True
-) -> tuple[str, ResolveGeographyResult]:
+def _fail(detail: str, *, wildcard: bool = False, nested: bool = True) -> Reply:
     hit = ResolveGeographyResult(
         specs=[], wildcard=wildcard, legal=False, detail=detail, nested=nested
     )
@@ -98,28 +73,6 @@ def nests_in(child: str, parent: str, entries: list[GeoLevel]) -> bool:
     )
 
 
-def detect_level(text: str) -> str | None:
-    folded = text.casefold()
-    for alias, level in sorted(LEVELS.items(), key=lambda item: -len(item[0])):
-        if re.search(rf"\b{re.escape(alias)}\b", folded):
-            return level
-    return None
-
-
-def split_comparison(query: str) -> list[str] | None:
-    # Two-way keyword split only. Segmenting an arbitrary comma/"and" list of
-    # places by inferring prose boundaries is the model's job (see `places`
-    # on ResolveGeographyInput) -- it knows Los Angeles is in California
-    # without a regex having to guess where one place name ends.
-    parts = [part.strip() for part in _VERSUS.split(query, maxsplit=1)]
-    if len(parts) == 2 and all(parts):
-        return parts
-    match = _COMPARE_TO.match(query)
-    if match and (left := match.group(1).strip()) and (right := match.group(2).strip()):
-        return [left, right]
-    return None
-
-
 def track_geo_query(queries: list[str], query: str) -> list[str]:
     """Append `query` as a new comparison leg, or replace the last entry if
     it only adds a state/qualifier to the SAME name ("Springfield" ->
@@ -134,24 +87,38 @@ def track_geo_query(queries: list[str], query: str) -> list[str]:
     return [*queries, query]
 
 
-def _nation(query: str) -> bool:
-    if WILDCARD.search(query) or WITHIN.search(query):
-        return False
-    if detect_level(query) is not None or find_state(query) is not None:
-        return False
-    if any(match.group(2).casefold() not in _NOISE for match in _IN_PLACE.finditer(query)):
-        return False
-    if re.search(r"\bof\s+[A-Z][a-z]", query):
-        return False
-    leftover = re.sub(r"[^A-Za-z]+", " ", _HAS_YEAR.sub(" ", query)).strip()
-    if not leftover:
-        return False
-    return bool(_US.search(query) or _HAS_YEAR.search(query))
+def _stated(level: str | None, entries: list[GeoLevel]) -> tuple[str | None, Reply | None]:
+    """The model's level as published for the dataset, or the refusal that sends it back."""
+    name = level_name(level)
+    if name in {None, "us"} or name in {entry.name for entry in entries}:
+        return name, None
+    names = ", ".join(dict.fromkeys(entry.name for entry in entries))
+    detail, refusal = _fail(f"unknown geography level {level!r}; published here: {names}")
+    return None, (detail, refusal.model_copy(update={"refused": True}))
+
+
+def _only_state(entry: str, state: tuple[str, str]) -> bool:
+    """The entry is the state itself, not a place that lies in it."""
+    return "," not in entry or name_token(entry) == state[0]
+
+
+def _spec(row: dict[str, str], dataset: str, year: int) -> GeoSpec:
+    return GeoSpec(
+        level=row["level"],
+        name=row["name"],
+        for_spec=row["for"],
+        in_spec=row.get("in", ""),
+        geoid=row.get("geoid", ""),
+        dataset=dataset,
+        vintage=year,
+    )
 
 
 class ResolveGeographyTool(BaseTool):
     name: str = "resolve_geography"
-    description: str = "Turn a place name or 'all counties in X' into Census for/in codes."
+    description: str = (
+        "Turn the places a question names, or a listing's parents, into Census codes."
+    )
     args_schema: type[ResolveGeographyInput] = ResolveGeographyInput
     response_format: Literal["content_and_artifact"] = "content_and_artifact"
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -165,25 +132,28 @@ class ResolveGeographyTool(BaseTool):
 
     async def _arun(
         self,
-        query: str = "",
         places: list[str] | None = None,
         parents: list[str] | None = None,
+        parent_level: str | None = None,
         level: str | None = None,
         levels: list[str | None] | None = None,
         dataset: str = "acs5",
         vintage: int | None = None,
-    ) -> tuple[str, ResolveGeographyResult]:
+    ) -> Reply:
         year = vintage if vintage is not None else self.latest_vintage(dataset)
         try:
             entries = await asyncio.to_thread(self.geo_table, dataset, year)
         except (OSError, ValueError, TypeError, KeyError):
             return _fail(f"no geography metadata for {dataset} {year}")
-        names = [n.strip() if n and n.strip() else "(blank)" for n in parents] if parents else []
-        if len(names) >= 2 and (WILDCARD.search(query) or WITHIN.search(query)):
-            picks = await asyncio.gather(
-                *(self._resolve(query, level, dataset, year, entries, n) for n in names)
-            )
-            bad = [n for i, n in enumerate(names) if not (picks[i][1].legal and picks[i][1].specs)]
+        legs = [leg.strip() for leg in places or [] if isinstance(leg, str) and leg.strip()]
+        owners = [own.strip() for own in parents or [] if isinstance(own, str) and own.strip()]
+        if owners or level_name(parent_level) == "us":
+            args = (level, parent_level, dataset, year, entries)
+            picks = await asyncio.gather(*(self._list(owner, *args) for owner in owners or [""]))
+            if len(owners) < 2:
+                return await tracts_in_place(self, owners, level, dataset, year, entries, picks[0])
+            pairs = zip(owners, picks, strict=True)
+            bad = [owner for owner, (_d, hit) in pairs if not (hit.legal and hit.specs)]
             if bad:
                 return _fail(f"unresolved wildcard parent(s): {', '.join(bad)}", wildcard=True)
             specs = [hit.specs[0] for _d, hit in picks]
@@ -192,43 +162,108 @@ class ResolveGeographyTool(BaseTool):
             return f"{len(specs)} wildcard geographies", _compare_result(
                 specs, extra, legal=True, inferred=flag
             )
-        legs = [leg.strip() for leg in places if leg and leg.strip()] if places else []
-        sides = legs if len(legs) >= 2 else split_comparison(query)
-        if levels and len(levels) != len(sides or []):
-            return _fail("levels pairs with two or more places, one entry each")
-        if sides:
-            stated = declared_levels({"places": sides, "levels": levels, "level": level})
-            legs_at = zip(sides, stated, strict=True)
+        if len(legs) >= 2:
+            if levels and len(levels) != len(legs):
+                return _fail("levels pairs with two or more places, one entry each")
+            stated = declared_levels({"places": legs, "levels": levels, "level": level})
             resolved = await asyncio.gather(
-                *(self._resolve(side, lv, dataset, year, entries) for side, lv in legs_at)
+                *(
+                    self._place(leg, lv, dataset, year, entries)
+                    for leg, lv in zip(legs, stated, strict=True)
+                )
             )
             hits = [hit for _detail, hit in resolved]
             if all(hit.legal and hit.specs for hit in hits):
                 specs = [hit.specs[0] for hit in hits]
                 extra = [row for hit in hits for row in hit.specs[1:]]
                 summary = " vs ".join(spec.for_spec for spec in specs)
-                return (
-                    f"{len(specs)} geographies: {summary}",
-                    _compare_result(
-                        specs, extra, legal=True, inferred=any(h.inferred for h in hits)
-                    ),
+                inferred = any(h.inferred for h in hits)
+                return f"{len(specs)} geographies: {summary}", _compare_result(
+                    specs, extra, legal=True, inferred=inferred
                 )
             for hit in hits:
                 if hit.legal and hit.specs:
                     return f"1 geography: {hit.specs[0].for_spec}", hit
-        ordinary = await self._resolve(legs[0] if legs else query, level, dataset, year, entries)
-        return await tracts_in_place(self, names, level, dataset, year, entries, ordinary)
+        if not legs and level_name(level) != "us":
+            return _fail(
+                "name the place in places (parents for a listing); level 'us' is the nation"
+            )
+        return await self._place(legs[0] if legs else "", level, dataset, year, entries)
 
-    async def _resolve(
+    async def _list(
         self,
-        query: str,
+        owner: str,
         level: str | None,
+        parent_level: str | None,
         dataset: str,
         year: int,
         entries: list[GeoLevel],
-        parent_override: str | None = None,
-    ) -> tuple[str, ResolveGeographyResult]:
-        if level is None and _nation(query):
+    ) -> Reply:
+        """Every `level` unit inside one parent the model named."""
+        for_level, refusal = _stated(level, entries)
+        if refusal:
+            return refusal
+        if for_level in {None, "us"}:
+            return _fail("a listing needs level: the kind of unit to list", wildcard=True)
+        parent, refusal = _stated(parent_level, entries)
+        if refusal:
+            return refusal
+        parent = parent or "state"
+        in_parts: dict[str, str] = {}
+        leftover: list[dict[str, str]] = []
+        if parent != "us":
+            state = state_of(owner)
+            if state is None or (parent == "state" and not _only_state(owner, state)):
+                return _fail(
+                    f"{owner!r} is not a state; send parent_level for what it is",
+                    wildcard=True,
+                    nested=False,
+                )
+            in_parts["state"] = state[1]
+            if not (nests_in(for_level, "state", entries) and nests_in(for_level, parent, entries)):
+                return _fail(
+                    f"{for_level} does not nest in {parent} ({owner})", wildcard=True, nested=False
+                )
+        if parent not in {"us", "state"}:
+            rows = await asyncio.to_thread(
+                self.list_geographies, parent, dict(in_parts), dataset=dataset, vintage=year
+            )
+            matched = rank_matches(filter_rows(name_token(owner), rows))
+            if not matched:
+                return _fail(f"{for_level} nested in unresolved {parent}", wildcard=True)
+            pick, leftover = matched[0], matched[1:]
+            in_parts.update(clause_codes(pick.get("in", "")))
+            parsed = clause_codes(pick["for"])
+            if parent in parsed:
+                in_parts[parent] = parsed[parent]
+        label = f"every {for_level} in {owner}" if owner else f"every {for_level}"
+        predicate = legal_predicate(for_level, frozenset(in_parts), wildcard=True, entries=entries)
+        if predicate is None:
+            detail = f"{for_level} with in={in_parts} is not a legal combination"
+            spec = unsupported_wildcard(label, for_level, in_parts, dataset=dataset, year=year)
+            return detail, ResolveGeographyResult(
+                specs=[spec], wildcard=True, legal=False, detail=detail
+            )
+        spec = GeoSpec(
+            level=for_level,
+            name=label,
+            for_spec=f"{for_level}:*",
+            in_spec=" ".join(f"{k}:{v}" for k, v in in_parts.items()),
+            dataset=dataset,
+            vintage=year,
+        )
+        others = [_spec(row, dataset, year) for row in leftover]
+        result = ResolveGeographyResult(specs=[spec, *others], wildcard=True, legal=True, detail="")
+        return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
+
+    async def _place(
+        self, entry: str, level: str | None, dataset: str, year: int, entries: list[GeoLevel]
+    ) -> Reply:
+        """The place(s) one entry names, matched by NAME at the level the model stated."""
+        for_level, refusal = _stated(level, entries)
+        if refusal:
+            return refusal
+        if for_level == "us":
             spec = GeoSpec(
                 level="us",
                 name="United States",
@@ -238,46 +273,15 @@ class ResolveGeographyTool(BaseTool):
                 vintage=year,
             )
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
-            return f"1 geography: {spec.for_spec}", result.model_copy(update={"inferred": True})
-        wildcard_match = WILDCARD.search(query) or WITHIN.search(query)
-        wildcard = wildcard_match is not None
-        parent_text = parent_override or (wildcard_match.group(2) if wildcard_match else query)
-        state = find_state(parent_text)
-        known = {entry.name for entry in entries}
-        inferred = False  # True: code read the level from the query's words or a fallback
-        if level:
-            for_level = level_name(level) if level_name(level) in known else None
-            if for_level is None:
-                names = ", ".join(dict.fromkeys(entry.name for entry in entries))
-                detail, refusal = _fail(
-                    f"unknown geography level {level!r}; published here: {names}"
-                )
-                return detail, refusal.model_copy(update={"refused": True})
-        else:
-            for_level = detect_level(wildcard_match.group(1) if wildcard_match else query)
-            inferred = for_level is not None
+            return f"1 geography: {spec.for_spec}", result
+        state = state_of(entry)
         if for_level is None:
-            token = place_token(query, state[0] if state else None)
-            dc_as_state = token_is_dc(token) if state is not None and state[1] == "11" else False
-            average = token in _AVERAGE
-            if state is not None and (token in {"", state[0]} or dc_as_state or average):
-                for_level = "state"
-            else:
-                for_level = "place"
+            for_level = "state" if state and _only_state(entry, state) else "place"
         in_parts: dict[str, str] = {}
-        parent_level = detect_level(parent_text) if wildcard else None
         if for_level != "state" and state is not None:
-            host = place_token(parent_text, state[0]) if wildcard else state[0]
-            named_parent = bool(parent_level) and parent_level not in {for_level, "state"}
-            if host in {"", state[0], "state"} or named_parent:
-                if nests_in(for_level, "state", entries):
-                    in_parts["state"] = state[1]
-                elif host in {"", state[0], "state"}:
-                    return _fail(
-                        f"{for_level} does not nest in state ({parent_text.strip()})",
-                        wildcard=wildcard,
-                        nested=False,
-                    )
+            if not nests_in(for_level, "state", entries):
+                return _fail(f"{for_level} does not nest in state ({entry})", nested=False)
+            in_parts["state"] = state[1]
         if for_level == "state" and state is not None:
             if legal_predicate("state", frozenset(), wildcard=False, entries=entries) is None:
                 return _fail("state with in={} is not a legal combination")
@@ -289,143 +293,44 @@ class ResolveGeographyTool(BaseTool):
                 dataset=dataset,
                 vintage=year,
             )
-            result = ResolveGeographyResult(
-                specs=[spec], wildcard=False, legal=True, detail="", inferred=inferred
-            )
+            result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
             return f"1 geography: {spec.for_spec}", result
-
-        leftover_parents: list[dict[str, str]] = []
-        extra: set[str] = set()
-        if parent_level and parent_level != for_level and parent_level not in in_parts:
-            extra.add(parent_level)
-        if extra:
-            allowed = all(nests_in(for_level, parent, entries) for parent in extra)
-            parents = ", ".join(sorted(extra))
-            if not allowed:
-                return _fail(
-                    f"{for_level} does not nest in {parents} ({parent_text.strip()})",
-                    wildcard=wildcard,
-                    nested=False,
-                )
-            for parent in list(extra):
-                list_in = dict(in_parts)
-                if not list_in and parent == "county":
-                    list_in = {"state": "*"}
-                if not list_in:
-                    return _fail(
-                        f"{for_level} nested in unresolved {parents}",
-                        wildcard=wildcard,
-                        nested=True,
-                    )
-                rows = await asyncio.to_thread(
-                    self.list_geographies, parent, list_in, dataset=dataset, vintage=year
-                )
-                token = place_token(parent_text, state[0] if state else None)
-                matched = rank_matches(filter_rows(token, rows))
-                if not matched:
-                    return _fail(
-                        f"{for_level} nested in unresolved {parents}",
-                        wildcard=wildcard,
-                        nested=True,
-                    )
-                pick = matched[0]
-                leftover_parents.extend(matched[1:])
-                in_parts.update(clause_codes(pick.get("in", "")))
-                parsed = clause_codes(pick["for"])
-                if parent in parsed:
-                    in_parts[parent] = parsed[parent]
-                extra.discard(parent)
-        us = re.search(r"\b(?:u\.?s\.?a?\.?|united states)\b", parent_text, re.I)
-        if wildcard and not extra and not in_parts and parent_text.strip() and not us:
-            return _fail(f"{for_level} does not nest in ({parent_text.strip()})", nested=False)
-        in_names = frozenset(in_parts) | extra
         predicate = legal_predicate(
-            for_level, in_names, wildcard=wildcard or not in_parts, entries=entries
+            for_level, frozenset(in_parts), wildcard=not in_parts, entries=entries
         )
         list_in = dict(in_parts)
         state_wildcard = legal_predicate(
             for_level, frozenset({"state"}), wildcard=True, entries=entries
         )
-        skip_star = for_level in {"state", "zip code tabulation area", "us"}
-        if not list_in and not skip_star and state_wildcard:
+        if not list_in and for_level not in {"state", ZCTA, "us"} and state_wildcard:
             list_in = {"state": "*"}
             predicate = predicate or state_wildcard
         if predicate is None:
-            detail = f"{for_level} with in={dict(in_parts)} is not a legal combination"
-            if not (wildcard or in_parts):
-                return _fail(detail, wildcard=wildcard)
-            spec = unsupported_wildcard(query, for_level, in_parts, dataset=dataset, year=year)
-            unsupported = ResolveGeographyResult(
-                specs=[spec], wildcard=wildcard, legal=False, detail=detail
-            )
-            return detail, unsupported
-        # fmt: off
-        zcta = for_level == "zip code tabulation area" and not wildcard
-        hit = re.search(r"(?i)\b(?:zcta5?s?|zips?|zip codes?)\s+(\d{5})\b", query) if zcta else None
-        if hit:
-            code = hit.group(1)
-            after = query[hit.end():]
-            if re.search(r"\b(?:inside|within|in)\s+[A-Za-z]", after, re.I):
-                return _fail(f"{for_level} does not nest in ({after.strip()})", nested=False)
-            spec = GeoSpec(
-                level=for_level, name=f"ZCTA5 {code}",
-                for_spec=f"{for_level}:{code}", dataset=dataset, vintage=year)
-            return f"1 geography: {spec.for_spec}", ResolveGeographyResult(
-                specs=[spec], wildcard=False, legal=True, detail="", inferred=inferred)
-        # fmt: on
-        if wildcard:
-            parent = " ".join(f"{k}:{v}" for k, v in list_in.items())
+            return _fail(f"{for_level} with in={in_parts} is not a legal combination")
+        token = name_token(entry)
+        if for_level == ZCTA and len(token) == 5 and token.isdigit():
             spec = GeoSpec(
                 level=for_level,
-                name=query.strip(),
-                for_spec=f"{for_level}:*",
-                in_spec=parent,
+                name=f"ZCTA5 {token}",
+                for_spec=f"{for_level}:{token}",
                 dataset=dataset,
                 vintage=year,
             )
-            others = [
-                GeoSpec(
-                    level=row["level"],
-                    name=row["name"],
-                    for_spec=row["for"],
-                    in_spec=row.get("in", ""),
-                    geoid=row.get("geoid", ""),
-                    dataset=dataset,
-                    vintage=year,
-                )
-                for row in leftover_parents
-            ]
-            result = ResolveGeographyResult(
-                specs=[spec, *others], wildcard=True, legal=True, detail="", inferred=inferred
-            )
-            return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
-
+            result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
+            return f"1 geography: {spec.for_spec}", result
         rows = await asyncio.to_thread(
             self.list_geographies, for_level, list_in, dataset=dataset, vintage=year
         )
-        token = place_token(query, state[0] if state else None)
         matched = named_rows(token, rows)
-        if not matched and for_level == "place" and not level and detect_level(query) is None:
+        inferred = False
+        if not matched and for_level == "place" and level is None:
             inferred = True  # no place matched; the county listing is a different level
-            matched = named_rows(
-                token,
-                await asyncio.to_thread(
-                    self.list_geographies, "county", list_in, dataset=dataset, vintage=year
-                ),
+            county = await asyncio.to_thread(
+                self.list_geographies, "county", list_in, dataset=dataset, vintage=year
             )
-        specs = [
-            GeoSpec(
-                level=row["level"],
-                name=row["name"],
-                for_spec=row["for"],
-                in_spec=row.get("in", ""),
-                geoid=row.get("geoid", ""),
-                dataset=dataset,
-                vintage=year,
-            )
-            for row in matched
-        ]
-        detail = f"no {for_level} matched {query!r}" if not specs else ""
+            matched = named_rows(token, county)
+        specs = [_spec(row, dataset, year) for row in matched]
+        detail = f"no {for_level} matched {entry!r}" if not specs else ""
         result = ResolveGeographyResult(
             specs=specs, wildcard=False, legal=True, detail=detail, inferred=inferred
         )

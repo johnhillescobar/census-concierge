@@ -29,7 +29,7 @@ _RANK = {
 
 
 def unsupported_wildcard(
-    query: str,
+    label: str,
     for_level: str,
     in_parts: dict[str, str],
     *,
@@ -39,7 +39,7 @@ def unsupported_wildcard(
     parent = " ".join(f"{k}:{v}" for k, v in in_parts.items())
     return GeoSpec(
         level=for_level,
-        name=query.strip(),
+        name=label,
         for_spec=f"{for_level}:*",
         in_spec=parent,
         dataset=dataset,

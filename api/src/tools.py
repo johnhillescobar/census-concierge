@@ -47,30 +47,32 @@ class SearchTablesResult(ToolResult):
 
 
 class ResolveGeographyInput(ToolInput):
-    query: str = Field(
-        default="", description="Place, county, or a wildcard like 'all counties in Oregon'."
-    )
     places: list[str] | None = Field(
         default=None,
         description=(
-            "For a 2+ way comparison: every compared place, each already canonicalized as "
-            "'Place, ST' (infer the state yourself even if the question named none, e.g. "
-            "'Chicago' -> 'Chicago, IL'). One call resolves all of them; omit query."
+            "The places the question asks about themselves: one for a single place, 2+ for a "
+            "comparison. Each is 'Place, ST' (supply the state from your own knowledge when the "
+            "question names none, e.g. 'Chicago' -> 'Chicago, IL') or a state alone. A ZIP code "
+            "is its 5 digits. One call resolves all of them."
         ),
     )
     parents: list[str] | None = Field(
         default=None,
         description=(
-            "For a wildcard listing naming 2+ parents: each parent by name. "
-            "Keep query the full phrase."
+            "For a listing (every unit of `level` inside some places): the places it lies in, "
+            "each 'Place, ST' or a state alone. Leave places empty."
         ),
+    )
+    parent_level: str | None = Field(
+        default=None,
+        description="The level the parents are, such as county; null means state.",
     )
     level: str | None = Field(
         description=(
             "Required. The Census geography level the question asks about, such as county, "
-            "tract, place or state, or null when the question names no level. A name that is "
-            "not published for the dataset is refused with the published list; resend with one "
-            "of those."
+            "tract, place, state, zcta or us, or null when the question names no level. A name "
+            "that is not published for the dataset is refused with the published list; resend "
+            "with one of those."
         ),
     )
     levels: list[str | None] | None = Field(
