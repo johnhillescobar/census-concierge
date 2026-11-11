@@ -30,8 +30,8 @@ def resolve(**args: Any) -> dict[str, Any]:
     return {"id": "2", "name": "resolve_geography", "args": args}
 
 
-COUNTY = [SEARCH, resolve(query="Harris County, Texas", level="county"), BUILD, FETCH]
-STATE = [SEARCH, resolve(query="Harris County, Texas", level="state"), BUILD, FETCH]
+COUNTY = [SEARCH, resolve(places=["Harris County, TX"], level="county"), BUILD, FETCH]
+STATE = [SEARCH, resolve(places=["Harris County, TX"], level="state"), BUILD, FETCH]
 # The model's report beside the loop. `named` stays empty: it is copied from the wording as the
 # user wrote it, so it is the one report that legitimately differs between two wordings.
 FRAME = {
@@ -53,9 +53,8 @@ NEUTRAL = [
 
 # Where today's code reads the wording, with the PLAN story that removes it. "unplaced" means
 # no story in PLAN's table owns it yet.
-CC104 = "geography execution still re-reads the question (finish.py, compare.py); CC-104"
 CC129 = "time and product are still read from the question's words (vintages.py); CC-129"
-UNPLACED = "guards.py reads a ZIP from the question; no PLAN story owns it (geography: CC-104/106)"
+ZIP = "guards.py reads a ZIP from the question; CC-135 (Phase 2 backlog, under CC-124)"
 
 
 def model(calls: list[dict[str, Any]]) -> Callable[..., Any]:
@@ -104,18 +103,10 @@ async def test_a_fixed_intent_executes_identically_under_neutral_rewordings() ->
 SCANNED = [
     pytest.param("average population of Harris County, Texas", id="a statistic"),
     pytest.param("population of Harris County, Texas if you can, thanks", id="filler"),
+    pytest.param("population of every tract in Harris County, Texas", id="a level word"),
+    pytest.param("Harris County, Texas population compared to Dane County", id="a comparison"),
     pytest.param(
-        "population of every tract in Harris County, Texas",
-        marks=finding(CC104),
-        id="a level word",
-    ),
-    pytest.param(
-        "Harris County, Texas population compared to Dane County",
-        marks=finding(CC104),
-        id="a comparison",
-    ),
-    pytest.param(
-        "population of Harris County, Texas zip code 77002", marks=finding(UNPLACED), id="a zip"
+        "population of Harris County, Texas zip code 77002", marks=finding(ZIP), id="a zip"
     ),
     pytest.param(
         "population of Harris County, Texas in 1-year ACS", marks=finding(CC129), id="a dataset"
@@ -148,7 +139,7 @@ async def test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_
     for wording in [NEUTRAL[0], "population of every tract in Harris County, Texas"]:
         record = ExecutionRecord(question=wording)
         tools = _tools(record)
-        call = resolve(query="Harris County, Texas")  # `level` is required and missing
+        call = resolve(places=["Harris County, TX"])  # `level` is required and missing
         out = await dispatch(tools["resolve_geography"], call, record)
         assert "failed" in out
         assert record.geography is None  # no level was invented from `tract` or `county`
@@ -158,11 +149,11 @@ async def test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_
     "wording",
     [
         NEUTRAL[1],
-        pytest.param("every tract, Harris County", marks=finding(CC104), id="a level word"),
+        pytest.param("every tract, Harris County", id="a level word"),
     ],
 )
 async def test_a_repaired_intent_executes_identically_under_any_wording(wording: str) -> None:
-    repaired = [SEARCH, resolve(query="Harris County, Texas"), *COUNTY[1:]]  # first call invalid
+    repaired = [SEARCH, resolve(places=["Harris County, TX"]), *COUNTY[1:]]  # first call invalid
     assert await differing(repaired, [NEUTRAL[0], wording]) == []
 
 

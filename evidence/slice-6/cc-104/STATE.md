@@ -54,6 +54,6 @@ geo_level.py zip x2 (one stays: the `ZCTA` constant).
 - New fixed-intent tests for AC1-5/TC1-5 on the real chain, then flip the `CC104` xfails in `test_execution_isolation.py`.
 - Then: `evidence/closure/CC-104.toml`, Gate 1 (subagent), Gate 2, cohort check, E2E, draft PR.
 - Behavior changes to watch in E2E (defaults I took): a listing whose parent is a place or county needs `parent_level`
-  (else refused for repair); DC must be written "District of Columbia" as a state parent; `level=null` listing is refused.
+  (else refused for repair); DC as a state parent must be written "DC" or the full name alone, never "Washington, DC"; `level=null` listing is refused.
 - Left to CC-129/CC-135: `wants_acs1`, `requested_years`, `guards.py` question reads. `compare.py:107` is a finding.
 - Context: `.claude/hooks/ctx.py` warns at 80% of the window; then finish the phase, update this file, commit, ask for `/clear`.
