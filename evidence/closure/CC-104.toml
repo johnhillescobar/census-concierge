@@ -1,0 +1,75 @@
+ticket = "CC-104"
+head = "eb245811f49d85fb8b80e1474644e60d45cc08d8"
+required = ["AC1", "AC2", "AC3", "AC4", "AC5", "TC1", "TC2", "TC3", "TC4", "TC5"]
+# Work in progress: every row is NOT RUN on purpose, so `closure.py check` exits 1 until Gate 2 clears and the E2E has run.
+# MET (>=95% on the geography cohort, P vs B/A/L) and INH (no budget worse) are tracked by metric_compare and the PR, not by ticket ids.
+
+[[row]]
+id = "AC1"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_execution_isolation.py api/tests/test_geography_intent.py -q"
+expected = "structured scope, level, entities and parents decide execution; the question's words are not an input"
+observed = "Automated evidence exists at the head above (isolation harness: the former wording findings pass; a fixed listing executes identically under any wording). Not verified PASS: Gate 2 round 3, E2E and MET numbers are pending."
+
+[[row]]
+id = "AC2"
+status = "NOT RUN"
+command = "uv run python scripts/check_invariants.py --base origin/main"
+expected = "WILDCARD/WITHIN, detect_level, split_comparison, sentence find_state/place_token, finish rescans and English rebuilds are gone; exact lookups stay"
+observed = "Every named reader was removed (grep); regex call sites 55 -> 28 (delta -27); invariants exit 0. Not verified PASS: Gate 2 round 3 pending."
+
+[[row]]
+id = "AC3"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_geography_report.py api/tests/test_level_fidelity.py api/tests/test_finish.py -q"
+expected = "main-loop and split reports reach one execution with requested/executed/default/inferred kept apart; CC-114 checks and the response contract preserved"
+observed = "The loop's resolve_geography call and the split report both land on the ExecutionRecord and are reconciled in finish.py; repair calls never change asked_levels. Judged the weakest row: two reports, not one object. Not verified PASS."
+
+[[row]]
+id = "AC4"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_finish.py api/tests/test_geography_intent.py api/tests/test_level_repair.py -q"
+expected = "recovery uses complete validated intent or returns missing fields for repair; no national/latest/total fallback; a missing or late report activates no parser"
+observed = "The nationwide repair is deleted; a listing without level, a call with no place and no level, mixed parents and places, and unqualified multi-parent lists are refused for repair; finish resolves nothing when the model reported nothing. Not verified PASS."
+
+[[row]]
+id = "AC5"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_geography_completeness.py api/tests/test_geography_intent.py -q"
+expected = "completeness cannot mistake an inferred or hallucinated parent for an explicitly supplied identifier; CC-133 boundary tests pass"
+observed = "A digit entry under named must ground itself; a unit identified by its number needs parents the question states (given); a state the model supplied does not count for it. Listings keep the lenient name rule, guarded by the dominance rule. Not verified PASS."
+
+[[row]]
+id = "TC1"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_geography_intent.py -q -k listing"
+expected = "a listing with no historical keyword executes correctly"
+observed = "A listing built from fields alone resolves. Not verified PASS."
+
+[[row]]
+id = "TC2"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_execution_isolation.py api/tests/test_geography_intent.py -q"
+expected = "a fixed intent yields identical execution under different or absent outer wording"
+observed = "Isolation harness and listing variants pass. Not verified PASS."
+
+[[row]]
+id = "TC3"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_execution_isolation.py api/tests/test_geography_intent.py -q"
+expected = "a changed structured level changes execution with unchanged wording"
+observed = "County vs state vs tract listing differ under one wording. Not verified PASS."
+
+[[row]]
+id = "TC4"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_ask_tools.py api/tests/test_ask_loop.py api/tests/test_geography_completeness.py -q"
+expected = "comparison, wildcard parents, ambiguous names and incomplete numeric chains retain their behavior"
+observed = "Migrated suites keep their outcome assertions; the ambiguity assertion for unqualified listing parents is new (dominance rule). Not verified PASS."
+
+[[row]]
+id = "TC5"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_finish.py api/tests/test_level_repair.py api/tests/test_geography_intent.py -q"
+expected = "a missing model report, an invalid level and finish recovery cannot fall back to prose"
+observed = "Tests assert no geography is resolved from the question's words. Not verified PASS."

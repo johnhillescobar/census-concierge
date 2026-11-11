@@ -106,7 +106,8 @@ phrase points at a place without naming it (`pointing`), and whether it `asks_fo
 something: never stopped) or `data`. On the first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`,
 the minimum the API accepts (ACS5 2023): every tract or block group, the state; one county or place by number,
 the state; one tract, state and county; one block group, state, county and tract. A reported name gives the state
-with or without it written ("Los Angeles"): resolution finds it by NAME. An entry with a digit is a code and must
+with or without it written ("Los Angeles"): resolution finds it by NAME. For a unit identified by its number
+only the parents the question states (`given`) count, not ones the model supplied; a report without `given` keeps the name rule. An entry with a digit is a code and must
 ground itself (`state_of`, a GEOID); a number filed under `named` is not a place. The report is never matched
 against the question's words. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
 search, fetch, URL or candidates. Any failure, a missing report or a late one fails open.

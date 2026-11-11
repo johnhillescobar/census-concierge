@@ -40,6 +40,14 @@ Machines at HEAD: pytest 1412 passed / 34 skipped / 5 strict xfail (4 CC-129, 1 
 check_invariants exit 0, regex call sites 28 (delta -27); api LOC 4771/4890, largest file 409/410, prompt tokens
 1033/1200, doc lines 1806/1820; p95 row waive (2026-11-09 run only); answered_rate 0.683 FAIL (inherited).
 
+## Cycle 3 (owner request 2026-11-11: "solve the Gate 2 issues and run another cycle")
+
+Ticket: Jira CC-104 moved To Do -> In Progress with a status comment (2026-11-11). Workflow: `evidence/closure/CC-104.toml`
+exists, all 10 rows NOT RUN on purpose (well-formed; `closure.py check` blocks until rows are PASS). Fixed for the cycle: R1
+via the `given` report (a unit identified by its number needs parents the question states; mutation transcript
+gate1-given.txt). Cycle order: Gate 1 subagent on the new HEAD (gate1-c3.txt) -> fix -> Gate 2: /code-review then review-pr
+(gate2-c3.txt) -> fix each finding with tests + mutation. After that the E2E waits on the owner's cohort commit.
+
 ## Open
 
 - **Owner:** commit `[cohorts.geography]` to `evals/metric_protocol.toml` (not seen landed). Do not measure P before it.
