@@ -1,0 +1,21 @@
+CC-104 mutation checks for the Gate 2 re-run fixes
+branch cc-104/structured-geography; fixes committed before mutating (fb4b964 + the numbered-unit test fix); each mutation restored with git checkout
+
+GOOD R2 repair forces the split's single level on every leg
+1 failed in 0.27s
+GOOD R3 a comparison that resolves no leg is looked up again
+1 failed in 0.28s
+BAD R4 numbered entry read only as an exact level name (first run: the test named no state, so it was refused anyway)
+1 passed in 0.50s
+GOOD R5 a labelled ZIP is not reduced to its code
+1 failed in 0.24s
+GOOD R6 a bare name that is also a state is taken for the state as a parent
+1 failed in 0.29s
+--- rerun of R4 and the two F6 mutations after strengthening the R4 test and reformatting ---
+GOOD R4 numbered entry read only as an exact level name
+1 failed in 0.42s
+GOOD F6 places that repeat the parents refused as a second request
+1 failed in 0.33s
+GOOD F6 unrelated places mixed with parents are dropped
+2 failed in 0.28s
+tree after: clean
