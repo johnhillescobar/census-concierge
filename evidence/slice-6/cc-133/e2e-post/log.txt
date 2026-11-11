@@ -1,0 +1,23 @@
+HEAD start d327f4dcfaf91ea5a78201e85975cdae94ab598a branch  status: 1 changed
+s START 2026-11-11T01:11:22Z :: uv sync
+s END 2026-11-11T01:11:26Z rc=0
+n1 START 2026-11-11T01:11:27Z :: npm --prefix web ci
+n1 END 2026-11-11T01:11:38Z rc=0
+n2 START 2026-11-11T01:11:38Z :: npm --prefix web run build
+n2 END 2026-11-11T01:11:48Z rc=0
+a START 2026-11-11T01:11:48Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-11T01:12:15Z rc=0
+b START 2026-11-11T01:12:15Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-11T01:14:44Z rc=0
+c START 2026-11-11T01:14:44Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-11T01:14:50Z rc=0
+d START 2026-11-11T01:14:50Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-11T02:00:06Z rc=1
+e START 2026-11-11T02:00:07Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-11T02:16:15Z rc=0
+f START 2026-11-11T02:16:16Z :: uv run python scripts/check_budgets.py
+f END 2026-11-11T02:16:17Z rc=1
+g START 2026-11-11T02:16:18Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-11T02:16:31Z rc=1
+HEAD end d327f4dcfaf91ea5a78201e85975cdae94ab598a
+DONE
