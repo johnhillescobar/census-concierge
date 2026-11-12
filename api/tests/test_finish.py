@@ -88,7 +88,9 @@ def _wildcard(name: str, state: str) -> GeoSpec:
     return GeoSpec(level="county", name=name, for_spec="county:*", in_spec=f"state:{state}")
 
 
-def _splitter(parents: object, level: object = "county", parent_level: object = None) -> Any:
+def _splitter(
+    parents: object, level: object = "county", parent_level: object = None, dataset: object = None
+) -> Any:
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
         complete.calls += 1  # type: ignore[attr-defined]
         reply = {
@@ -97,6 +99,7 @@ def _splitter(parents: object, level: object = "county", parent_level: object = 
             "unit": level or "county",
             "listing": level is not None,
             "parent_level": parent_level,
+            "dataset": dataset,
         }
         return {"content": json.dumps(reply), "tool_calls": []}
 
@@ -477,11 +480,11 @@ async def test_repair_resolution_that_is_not_nested_is_rejected() -> None:
     assert record.geographies == first
 
 
-async def test_acs1_question_resolves_the_repair_against_acs1() -> None:
+async def test_an_acs1_report_resolves_the_repair_against_acs1() -> None:
     seen, _ = await _run_split(
         "ACS 1-year all counties in Ohio and Michigan.",
         [_wildcard("m", "26")],
-        _splitter(["Ohio", "Michigan"]),
+        _splitter(["Ohio", "Michigan"], dataset="acs1"),
     )
     assert seen[0]["dataset"] == "acs1"
 
@@ -626,7 +629,7 @@ async def test_a_rejected_repair_restores_the_retained_urls() -> None:
     assert record.retained_urls == ["https://api.census.gov/old"]
 
 
-async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_question() -> None:
+async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_report() -> None:
     done = [_wildcard("a", "39"), _wildcard("b", "26")]
     built = (
         "https://api.census.gov/data/2024/acs/acs1?get=NAME,B01003_001E&for=county:*&in=state:39"
@@ -634,7 +637,7 @@ async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1
     seen, _ = await _run_split(
         "ACS 1-year all counties in Ohio and Michigan.",
         done,
-        _splitter(["Ohio", "Michigan"]),
+        _splitter(["Ohio", "Michigan"], dataset="acs1"),
         url=built,
     )
     assert [call.get("dataset") for call in seen] == ["acs1"]

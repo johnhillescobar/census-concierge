@@ -9,7 +9,6 @@ import httpx
 from src.census_url import CensusURL
 from src.contract import GeoSpec
 from src.fetch import MAX_IN_FLIGHT, MAX_YEARS, FetchDataTool, unique_years
-from src.vintages import requested_years
 
 TEMPLATE = CensusURL(
     "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M"
@@ -86,7 +85,7 @@ async def test_in_year_rewrites_the_built_url() -> None:
         last_url=lambda: TEMPLATE,
         census_key=lambda: "secret",
         http_get=http_get,
-        question_years=lambda: requested_years("population of Harris County, Texas in 2022", 2024),
+        question_years=lambda: [2022],
     )
     message = await tool.ainvoke(
         {"type": "tool_call", "name": "fetch_data", "args": {}, "id": "c1"}

@@ -3,9 +3,8 @@ question's wording. The model is scripted: the same tool calls and the same fram
 whatever the user typed, so any difference between two wordings was made by our own code.
 
 The harness proves itself with mutants: code that reads the question with a keyword, a substring
-or a regex is injected, and the comparison must catch it. Differences that exist today are marked
-`xfail(strict=True)` with the story that owns the fix (PLAN, Slice 6), so fixing one forces its
-marker out. They are findings of this instrument, not fixes: nothing in api/src changed.
+or a regex is injected, and the comparison must catch it. A difference found by this instrument
+is marked `xfail(strict=True)` with the story that owns the fix, so fixing it forces the marker out.
 """
 
 from __future__ import annotations
@@ -51,11 +50,6 @@ NEUTRAL = [
     "Harris County Texas headcount",
 ]
 
-# Where today's code reads the wording, with the PLAN story that removes it. "unplaced" means
-# no story in PLAN's table owns it yet.
-CC129 = "time and product are still read from the question's words (vintages.py); CC-129"
-ZIP = "guards.py reads a ZIP from the question; CC-135 (Phase 2 backlog, under CC-124)"
-
 
 def model(calls: list[dict[str, Any]]) -> Callable[..., Any]:
     """The same turns every time: one tool call per turn, then a closing sentence."""
@@ -91,10 +85,6 @@ async def differing(calls: list[dict[str, Any]], wordings: list[str]) -> list[st
     return [w for w in wordings[1:] if await execute(w, calls) != first]
 
 
-def finding(reason: str) -> Any:
-    return pytest.mark.xfail(strict=True, reason=reason)
-
-
 async def test_a_fixed_intent_executes_identically_under_neutral_rewordings() -> None:
     assert await differing(COUNTY, NEUTRAL) == []
     assert (await execute(NEUTRAL[0], COUNTY))["rows"]  # the run really fetched something
@@ -105,19 +95,12 @@ SCANNED = [
     pytest.param("population of Harris County, Texas if you can, thanks", id="filler"),
     pytest.param("population of every tract in Harris County, Texas", id="a level word"),
     pytest.param("Harris County, Texas population compared to Dane County", id="a comparison"),
-    pytest.param(
-        "population of Harris County, Texas zip code 77002", marks=finding(ZIP), id="a zip"
-    ),
-    pytest.param(
-        "population of Harris County, Texas in 1-year ACS", marks=finding(CC129), id="a dataset"
-    ),
-    pytest.param("population of Harris County, Texas in 2022", marks=finding(CC129), id="a year"),
-    pytest.param(
-        "population of Harris County, Texas since 2018", marks=finding(CC129), id="an open range"
-    ),
+    pytest.param("population of Harris County, Texas zip code 77002", id="a zip"),
+    pytest.param("population of Harris County, Texas in 1-year ACS", id="a dataset"),
+    pytest.param("population of Harris County, Texas in 2022", id="a year"),
+    pytest.param("population of Harris County, Texas since 2018", id="an open range"),
     pytest.param(
         "population of Harris County, Texas every year from 2018",
-        marks=finding(CC129),
         id="a year span",
     ),
 ]

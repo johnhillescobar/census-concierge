@@ -106,6 +106,8 @@ class GeoIntent:
     parents: list[str] = field(default_factory=list)
     unit: str | None = None
     parent_level: str | None = None
+    dataset: str | None = None  # acs1 or acs5, as the report stated it
+    years: list[int] = field(default_factory=list)  # end years the report stated
 
     @property
     def tables_only(self) -> bool:
@@ -118,7 +120,7 @@ class GeoIntent:
             return
         for name in ("level", "named", "numbered", "given", "asks_for", "county_named"):
             setattr(self, name, getattr(report, name))
-        for name in ("pointing", "places", "parents", "unit", "parent_level"):
+        for name in ("pointing", "places", "parents", "unit", "parent_level", "dataset", "years"):
             setattr(self, name, getattr(report, name))
         self.reported = True
 
