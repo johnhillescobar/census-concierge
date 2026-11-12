@@ -62,11 +62,19 @@ Audit found AC3 NOT met (Gate 2 round 1 had called it weak; carried unfixed). Fi
 a stronger test) -> Gate 2 once (gate2-ac3.txt, READY, E1-E7 NOTE) -> E1 (listing flag must be `is True`), E2/E6 (docstring)
 fixed with a test and mutation (gate1-ac3-gate2-fixes.txt). E3 unreachable, E4 benign, E5/E7 known. Stale item removed: R1 is
 fixed (probe: county given without state is refused). Do not run Gate 2 again.
-Manifest `evidence/closure/CC-104.toml` rewritten at the code head: AC2-5, TC1, TC3-5 PASS with pinned evidence; **AC1 and TC2
-are UNKNOWN** because 5 isolation xfails remain (4 time/product = CC-129, 1 `guards.py zcta_not_zip` = CC-122/CC-135). Only a dated
-owner `[[amendment]]` (id, date, owner, reason, destination) makes them AMENDED; or the owner fixes them in scope.
-Machines at that head: pytest 1469 passed / 34 skipped / 5 xfailed; ruff, mypy clean; invariants ok (regex 28, delta -27);
-api LOC 4834/4890. Any later change to api/src or api/tests makes every row stale: re-run the row commands, refresh closure-run/.
+Owner decision 2026-11-12: "Fix them inside CC-104" (the 5 isolation xfails). Done in 76d20f9: `wants_acs1`, `requested_years`,
+`question_years`, `year_span` and their regexes deleted; plan path and `overlapping_vintage` no longer read the question;
+`zcta_not_zip` fires on a ZCTA geography / `860` rows; recovery takes `dataset` and `years` from the split report (validated by
+type and 2000-2100); the fetch tool's asked-years hook falls back to the report's years (a pinned plan outranks it). Gate 1
+gate1-timeprod.txt (36 mutations, 13 BAD each strengthened) -> Gate 2 once gate2-timeprod.txt (NOT YET: G1, G2, G8 SHOULD) ->
+fixed with tests and mutation (gate1-timeprod-gate2-fixes.txt). Known and kept: G3 (overlap warning no longer fires when ACS5 thins
+a series to non-overlapping years), G6 (a missing report gives ACS5 for a 1-year ask; a plan with no dataset is the user's plan),
+G9 (guards.py still reads the question for universe/combine/derived/median warnings: CC-122). Do not run Gate 2 again.
+Manifest `evidence/closure/CC-104.toml`: all ten rows PASS at the code head; `closure.py check --pre-merge` prints CLOSURE OK.
+Machines at that head: pytest 1505 passed / 34 skipped / 0 xfailed; ruff, mypy clean; invariants ok (regex 18, delta -37); api LOC
+4801/4890; prompt 1050/1200. RISK for the E2E: time and product are no longer backstopped by code reading the question; a model
+that omits years or the 1-year product now gets the latest ACS5 unless the report supplies them. Watch time questions in demo.misses.
+Any later change to api/src or api/tests makes every row stale: re-run the row commands, refresh closure-run/.
 
 ## Open
 
