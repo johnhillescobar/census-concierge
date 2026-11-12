@@ -43,9 +43,9 @@ _SPLIT_PARENTS = (
     "is true when a phrase stands in for a place by pointing at it ('my county', 'where I "
     "live'). county_named is true when the question names a specific county, by name or by a "
     "five-digit FIPS code. dataset is acs1 when the question asks for the 1-year product, else "
-    "acs5. years lists the end year of every vintage the question asks for; a range or an "
-    "open-ended period lists each year through {latest}, the latest published; empty when it "
-    "names none."
+    "acs5. years lists the end year of every vintage the question asks for: a period such as "
+    "2015-2019 is the vintage ending 2019, a span of years lists each year in it, and an "
+    "open-ended period lists each year through {latest}; empty when it names none."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -85,7 +85,12 @@ async def plan_split(
     try:
         turn = await complete(
             [
-                {"role": "system", "content": _SPLIT_PARENTS.replace("{latest}", str(latest))},
+                {
+                    "role": "system",
+                    "content": _SPLIT_PARENTS.replace(
+                        "{latest}", str(latest or "the latest published year")
+                    ),
+                },
                 {"role": "user", "content": question},
             ],
             [],
@@ -108,7 +113,9 @@ async def plan_split(
     return GeoIntent(
         reported=True,
         dataset=found["dataset"] if found.get("dataset") in _PRODUCTS else None,
-        years=[y for y in years if type(y) is int] if isinstance(years, list) else [],
+        years=[y for y in years if type(y) is int and 2000 <= y <= 2100]
+        if isinstance(years, list)
+        else [],
         level=found.get("level"),
         named=[*(named if isinstance(named, list) else []), *names],
         numbered=numbered if isinstance(numbered, list) else [],

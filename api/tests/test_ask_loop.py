@@ -1821,7 +1821,7 @@ async def test_finish_searches_the_dataset_the_report_states_whatever_the_questi
     assert seen and set(seen) == {searched}
 
 
-def test_the_shipped_fetch_tool_takes_its_years_from_the_plan_never_the_question(
+def test_the_shipped_fetch_tool_takes_years_from_the_plan_or_the_report_never_the_question(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from types import SimpleNamespace
@@ -1841,22 +1841,26 @@ def test_the_shipped_fetch_tool_takes_its_years_from_the_plan_never_the_question
     assert years() == []  # nothing in the wording is read as a year
     record.override = ResultPlan(requested_years=[2019, 2022])
     assert years() == [2019, 2022]  # the plan's years are
+    record.intent.years = [2015, 2016]
+    assert years() == [2019, 2022]  # a pinned plan outranks the report
+    record.override = None
+    assert years() == [2015, 2016]  # the model's report supplies them when the loop did not
 
 
-async def test_the_split_call_is_told_the_latest_published_vintage() -> None:
+async def test_the_split_call_is_told_the_latest_published_vintage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src import ask
     from src.vintages import latest_vintages
 
-    system: list[str] = []
+    told: list[Any] = []
+    real = ask.split_beside
 
-    async def complete(
-        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        if not openai_tools:
-            system.append(messages[0]["content"])
-        return {"content": "stopped", "tool_calls": []}
+    def spy(question: str, complete: Any, enabled: bool, latest: Any = None) -> Any:
+        told.append(latest)
+        return real(question, complete, enabled, latest)
 
+    monkeypatch.setattr(ask, "split_beside", spy)
     record = ExecutionRecord()
-    await run_ask("population since 2018", complete=complete, tools=_tools(record), record=record)
-    latest = str(latest_vintages()[0])
-    assert system and latest in system[0] and "{latest}" not in system[0]
-    assert f"through {latest}" in system[0] and "through None" not in system[0]
+    await run_ask("population", complete=_stopped(), tools=_tools(record), record=record)
+    assert told == [latest_vintages()[0]]

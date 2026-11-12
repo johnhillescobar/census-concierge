@@ -368,7 +368,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             table_facts=facts,
-            question_years=lambda: override_years(record.override),
+            question_years=lambda: override_years(record.override) or list(record.intent.years),
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }
