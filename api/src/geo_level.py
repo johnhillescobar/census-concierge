@@ -84,11 +84,12 @@ def declared_levels(args: dict[str, Any]) -> list[str | None]:
 
 @dataclass
 class GeoIntent:
-    """What the model asked for, in one place, from both of its reports. This is the requested
-    side only: what ran is `record.geographies`, what the lookup guessed is
-    `geo_status["inferred"]`, and a value code supplies is never written here. The loop's own
-    resolve_geography calls fill the first group (a repair call never does); the split call fills
-    the second, read once by `adopt`."""
+    """What the model asked for, in one place, from both of its reports. It holds requests, never
+    results: what ran is `record.geographies`, what the lookup guessed is `geo_status["inferred"]`,
+    and a value code supplies is never written here. The loop's own resolve_geography calls fill
+    the first group (`levels` and `unmet` only for what the model stated; `legs` follows what
+    resolved, so a repair resolve can reset it); the split call fills the second, read once by
+    `adopt`."""
 
     levels: list[str | None] = field(default_factory=list)  # one per leg the model stated, null too
     legs: list[str] = field(default_factory=list)  # single-place legs resolved so far

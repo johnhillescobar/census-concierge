@@ -461,6 +461,14 @@ async def test_a_multi_parent_listing_report_carries_parents_unit_and_frame() ->
     assert found.named == ["Dane County, Wisconsin", "Sauk County, Wisconsin"]
 
 
+@pytest.mark.parametrize("sent", ["false", "true", "yes", 1, 0, None, [True]])
+async def test_only_a_true_listing_flag_makes_the_places_a_listing(sent: Any) -> None:
+    found = await _split(parents=["Ohio", "Michigan"], unit="county", listing=sent, level="county")
+    assert found is not None
+    assert (found.parents, found.unit) == ([], None)  # a string is not the model saying yes
+    assert found.places == ["Ohio", "Michigan"]
+
+
 async def test_one_parent_is_a_listing_and_still_a_frame() -> None:
     found = await _split(
         parents=["Dane County, Wisconsin"], unit="tract", listing=True, level="tract"
