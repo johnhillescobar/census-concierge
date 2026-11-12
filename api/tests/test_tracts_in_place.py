@@ -243,7 +243,7 @@ async def test_a_county_listing_that_raises_leaves_the_tract_request_unserved_an
     response = await run_ask(
         "Poverty rate by census tract in Detroit", complete=complete, tools=tools, record=record
     )
-    assert record.unmet_levels == {"tract"}
+    assert record.intent.unmet == {"tract"}
     assert CensusURL(response.urls[0]).for_level() == "place"
     flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
     assert flag and "no URL fetches tract" in flag[0].detail

@@ -251,8 +251,8 @@ async def test_a_call_for_the_nation_names_no_place_for_finish_to_replay() -> No
     geo = _tools(record)["resolve_geography"]
     out = await dispatch(geo, {"id": "1", "args": {"places": [], "level": "us"}}, record)
     assert "failed" not in out and [g.for_spec for g in record.geographies] == ["us:1"]
-    assert record.geo_queries == [] and record.asked_levels == ["us"]
-    assert record.unmet_levels == set()  # the level asked for was served
+    assert record.intent.legs == [] and record.intent.levels == ["us"]
+    assert record.intent.unmet == set()  # the level asked for was served
 
 
 def _washington_counties(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
@@ -1039,6 +1039,24 @@ async def test_refining_an_ambiguous_single_place_is_not_mistaken_for_a_comparis
     assert [row.for_spec for row in response.plan.geographies] == ["place:72000"]
 
 
+async def test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran() -> None:
+    record = ExecutionRecord()
+    complete = _stopped(
+        _WAYNE_MI_TRACTS,
+        calls=[("resolve_geography", {"places": ["Texas"], "level": "state"})],
+    )
+    await run_ask("anything", complete=complete, tools=_tools(record), record=record)
+    intent = record.intent
+    assert intent.levels == ["state"]  # what the loop asked for; a repair never rewrites it
+    assert (intent.parents, intent.unit, intent.parent_level) == (
+        ["Wayne County, MI"],
+        "tract",
+        "county",
+    )
+    assert intent.reported is True and intent.level == "tract"  # what the split call reported
+    assert {g.level for g in record.geographies} != {"state"}  # what ran is kept elsewhere
+
+
 async def test_bare_name_and_its_own_city_stay_two_distinct_legs() -> None:
     """Gate 2 re-run finding: track_geo_query's refinement check must not
     collide "New York" (the bare state) with "New York City, NY" (a
@@ -1056,7 +1074,7 @@ async def test_bare_name_and_its_own_city_stay_two_distinct_legs() -> None:
         {"id": "2", "args": {"level": None, "places": ["New York City, NY"]}},
         record,
     )
-    assert record.geo_queries == ["New York", "New York City, NY"]
+    assert record.intent.legs == ["New York", "New York City, NY"]
 
 
 async def test_answer_is_not_left_as_a_raw_tool_failure_after_recovery() -> None:
@@ -1530,7 +1548,7 @@ async def test_split_call_runs_beside_the_loop_and_finish_reuses_it(monkeypatch:
     await run_ask("anything", complete=complete, tools=_tools(record), record=record)
     assert order.index("split") < order.index("loop-end")
     assert order.count("split") == 1
-    assert [(item["parents"], item["unit"]) for item in seen] == [(["Ohio", "Michigan"], "county")]
+    assert [(item.parents, item.unit) for item in seen] == [(["Ohio", "Michigan"], "county")]
 
 
 async def test_failing_split_call_never_fails_the_request(monkeypatch: Any) -> None:

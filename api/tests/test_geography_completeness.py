@@ -19,7 +19,7 @@ from ask_fixtures import DANE, ENTRIES, _tools, only_dane
 from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.contract import ResultPlan
-from src.geo_level import level_name
+from src.geo_level import GeoIntent, level_name
 from src.geo_list import state_of
 from src.retrieval.metadata import GeoLevel
 
@@ -343,10 +343,10 @@ async def test_a_report_that_is_late_means_the_loop_runs_as_usual(
     assert STOPPED not in response.answer
 
 
-@pytest.mark.parametrize("report", [None, {}, {"frame": None}])
+@pytest.mark.parametrize("report", [None, GeoIntent(), GeoIntent(reported=True)])
 async def test_without_a_usable_report_nothing_is_stopped(report: Any) -> None:
     record = ExecutionRecord(question="Population by tract")
-    done: asyncio.Future[dict[str, Any] | None] = asyncio.get_running_loop().create_future()
+    done: asyncio.Future[GeoIntent | None] = asyncio.get_running_loop().create_future()
     done.set_result(report)
     assert await finish.incomplete(record, done) is None
     assert await finish.incomplete(record, None) is None
@@ -399,7 +399,7 @@ async def test_parents_the_model_lists_count_as_named_places() -> None:
 # --- what the model's report is allowed to look like -------------------------------------------
 
 
-async def _split(**fields: Any) -> dict[str, Any] | None:
+async def _split(**fields: Any) -> GeoIntent | None:
     async def complete(
         messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
@@ -409,19 +409,8 @@ async def _split(**fields: Any) -> dict[str, Any] | None:
     return await finish.plan_split("any question", complete)
 
 
-def _shape(**over: Any) -> dict[str, Any]:
-    return {
-        "frame": {
-            "level": None,
-            "named": [],
-            "numbered": [],
-            "given": None,
-            "asks_for": None,
-            "county_named": False,
-            "pointing": False,
-            **over,
-        }
-    }
+def _shape(**over: Any) -> GeoIntent:
+    return GeoIntent(reported=True, **over)
 
 
 async def test_the_split_report_always_carries_the_level_and_the_places_it_found() -> None:
@@ -452,7 +441,7 @@ async def test_a_county_is_named_only_when_the_model_says_true_and_nothing_else(
     sent: Any, reported: bool
 ) -> None:
     found = await _split(level="tract", county_named=sent)
-    assert found is not None and found["frame"]["county_named"] is reported
+    assert found is not None and found.county_named is reported
 
 
 async def test_a_multi_parent_listing_report_carries_parents_unit_and_frame() -> None:
@@ -465,19 +454,19 @@ async def test_a_multi_parent_listing_report_carries_parents_unit_and_frame() ->
         numbered=[],
     )
     assert found is not None
-    assert (found["parents"], found["unit"]) == (
+    assert (found.parents, found.unit) == (
         ["Dane County, Wisconsin", "Sauk County, Wisconsin"],
         "tract",
     )
-    assert found["frame"]["named"] == ["Dane County, Wisconsin", "Sauk County, Wisconsin"]
+    assert found.named == ["Dane County, Wisconsin", "Sauk County, Wisconsin"]
 
 
 async def test_one_parent_is_a_listing_and_still_a_frame() -> None:
     found = await _split(
         parents=["Dane County, Wisconsin"], unit="tract", listing=True, level="tract"
     )
-    assert found is not None and found["parents"] == ["Dane County, Wisconsin"]
-    assert found["frame"]["named"] == ["Dane County, Wisconsin"]
+    assert found is not None and found.parents == ["Dane County, Wisconsin"]
+    assert found.named == ["Dane County, Wisconsin"]
 
 
 async def test_places_of_the_wrong_type_are_ignored_not_iterated() -> None:
@@ -664,11 +653,11 @@ async def test_a_question_that_asks_which_table_holds_something_may_point_at_a_p
     frame = _frame("county", [], asks_for="tables", pointing=True)
     response, record, _fetched = await _ask("Which table has median age for my county?", frame)
     assert record.timings and STOPPED not in response.answer
-    assert record.tables_only is True
+    assert record.intent.tables_only is True
 
 
 async def test_the_split_report_carries_pointing_as_a_flag_and_nothing_else() -> None:
     assert await _split(level="county", pointing=True) == _shape(level="county", pointing=True)
     for sent in ("my county", 7, None, ["my county"]):
         found = await _split(level="county", pointing=sent)
-        assert found is not None and found["frame"]["pointing"] is False
+        assert found is not None and found.pointing is False

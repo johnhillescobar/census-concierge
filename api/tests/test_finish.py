@@ -377,7 +377,7 @@ async def _split_with(
 ) -> tuple[list[dict[str, Any]], ExecutionRecord]:
     record = ExecutionRecord(question="All counties in Ohio and Michigan.")
     record.geographies = geos
-    record.geo_queries = ["earlier"]
+    record.intent.legs = ["earlier"]
     seen: list[dict[str, Any]] = []
 
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
@@ -390,7 +390,7 @@ async def _split_with(
         if isinstance(dispatch_result, Exception):
             rec.consecutive_failures["resolve_geography"] = 1
             raise dispatch_result
-        rec.geo_queries = []
+        rec.intent.legs = []
         rec.geographies = (
             [_wildcard("a", "01"), _wildcard("b", "02")]
             if dispatch_result == "wild"
@@ -436,7 +436,7 @@ async def test_failed_dispatch_keeps_the_loops_own_two_geographies() -> None:
 async def test_re_resolution_to_non_wildcards_is_rejected_and_state_restored() -> None:
     first = [_wildcard("m", "26")]
     _, record = await _split_with(_GOOD, first, dispatch_result="parents")
-    assert record.geographies == first and record.geo_queries == ["earlier"]
+    assert record.geographies == first and record.intent.legs == ["earlier"]
 
 
 async def test_failed_repair_restores_the_fetched_answer() -> None:
@@ -527,7 +527,7 @@ async def _redo_args(record: ExecutionRecord) -> list[dict[str, Any]]:
 async def test_resolved_comparison_with_two_queries_is_not_resolved_again() -> None:
     record = ExecutionRecord(question="Harris County and Travis County")
     record.geographies = [_harris()]
-    record.geo_queries = ["Harris County, TX", "Travis County, TX"]
+    record.intent.legs = ["Harris County, TX", "Travis County, TX"]
     record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
     assert await _redo_args(record) == []
 
@@ -535,7 +535,7 @@ async def test_resolved_comparison_with_two_queries_is_not_resolved_again() -> N
 async def test_unresolved_pair_of_single_place_queries_is_resolved_together() -> None:
     record = ExecutionRecord(question="Harris County and Travis County")
     record.geographies = [_harris()]
-    record.geo_queries = ["Harris County, TX", "Travis County, TX"]
+    record.intent.legs = ["Harris County, TX", "Travis County, TX"]
     record.geo_status = {"legal": True, "compare": False}
     assert await _redo_args(record) == [
         {"places": ["Harris County, TX", "Travis County, TX"], "level": None, "levels": []}
@@ -546,7 +546,7 @@ async def test_finish_never_resolves_the_question_itself() -> None:
     """The model reported nothing, so nothing is resolved: no place is read from the words."""
     record = ExecutionRecord(question="every tract in Cook County, Illinois")
     record.geographies = [_harris()]
-    record.geo_queries = ["Cook County, IL", "Harris County, TX"]
+    record.intent.legs = ["Cook County, IL", "Harris County, TX"]
     record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
     assert await _redo_args(record) == []
     empty = ExecutionRecord(question="every tract in Cook County, Illinois")

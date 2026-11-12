@@ -11,7 +11,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from src.contract import clauses_from_geoid
-from src.geo_level import level_name
+from src.geo_level import GeoIntent, intent_of, level_name
 from src.geo_list import fips_state, state_of
 from src.vintages import latest_vintages, requested_years, wants_acs1
 
@@ -70,7 +70,7 @@ def _all_wild(geos: list[Any]) -> bool:
     return bool(geos) and all(g.for_spec.endswith(":*") for g in geos)
 
 
-_SNAPSHOT = ("geographies", "geo_status", "geography", "geo_queries", "url", "rows") + (
+_SNAPSHOT = ("geographies", "geo_status", "geography", "url", "rows") + (
     "fetch",
     "table_id",
     "universe",
@@ -79,8 +79,8 @@ _SNAPSHOT = ("geographies", "geo_status", "geography", "geo_queries", "url", "ro
 )
 
 
-async def plan_split(question: str, complete: Complete | None) -> dict[str, Any] | None:
-    """Ask the model to split the question's parents; return validated parts or None.
+async def plan_split(question: str, complete: Complete | None) -> GeoIntent | None:
+    """Ask the model to split the question's parents; return its validated report or None.
 
     Needs only the question, so run_ask starts it beside the loop as a task.
     """
@@ -103,34 +103,28 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
             n.strip().casefold(): n.strip() for n in names if isinstance(n, str) and n.strip()
         }.values()
     )
-    frame = {
-        "level": found.get("level"),
-        "named": [*(named if isinstance(named, list) else []), *names],
-        "numbered": numbered if isinstance(numbered, list) else [],
-        "given": found["given"] if isinstance(found.get("given"), list) else None,
-        "asks_for": found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
-        "county_named": found.get("county_named") is True,
-        "pointing": found.get("pointing") is True,
-    }
-    if not names:
-        return {"frame": frame}
-    if not found.get("listing"):
-        return {"frame": frame, "places": names}
-    if unit not in _SPLIT_UNITS:
-        return {"frame": frame}
+    listing = bool(names) and bool(found.get("listing")) and unit in _SPLIT_UNITS
     up = found.get("parent_level")
-    return {
-        "frame": frame,
-        "parents": names,
-        "unit": unit,
-        "parent_level": up if isinstance(up, str) else None,
-    }
+    return GeoIntent(
+        reported=True,
+        level=found.get("level"),
+        named=[*(named if isinstance(named, list) else []), *names],
+        numbered=numbered if isinstance(numbered, list) else [],
+        given=found["given"] if isinstance(found.get("given"), list) else None,
+        asks_for=found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
+        county_named=found.get("county_named") is True,
+        pointing=found.get("pointing") is True,
+        places=names if names and not found.get("listing") else [],
+        parents=names if listing else [],
+        unit=unit if listing else None,
+        parent_level=up if listing and isinstance(up, str) else None,
+    )
 
 
 @asynccontextmanager
 async def split_beside(
     question: str, complete: Complete | None, enabled: bool
-) -> AsyncIterator[asyncio.Task[dict[str, Any] | None] | None]:
+) -> AsyncIterator[asyncio.Task[GeoIntent | None] | None]:
     """Run plan_split beside the caller's work; always cancel and reap it on exit."""
     task = asyncio.create_task(plan_split(question, complete)) if enabled and complete else None
     try:
@@ -178,7 +172,7 @@ def _join(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
 
 
-async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | None) -> str | None:
+async def incomplete(record: Any, split: asyncio.Task[GeoIntent | None] | None) -> str | None:
     """The answer to return at once when a question lacks what its geography level needs.
 
     The model reports the level, the places and codes the question names, the levels of the places
@@ -199,19 +193,19 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
         found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
     except Exception:  # noqa: BLE001 - a failed check must never fail the answer
         return None
-    frame = (found or {}).get("frame") or {}
-    if str(frame.get("asks_for") or "").strip().casefold() == "tables":
-        record.tables_only = True  # no geography is wanted, so none is flagged later
+    intent = intent_of(record)
+    intent.adopt(found)
+    if intent.tables_only:
         return None  # which table holds something is not a search by geography
-    if frame.get("pointing") is True:
+    if intent.pointing:
         record.geo_status = {"legal": False, "detail": "a place is not named", "nested": True}
         return (
             "This question is incomplete and cannot be searched: it is about a place it does "
             "not name. Name the place, with its state, and ask again."
         )
-    reported = [n for n in frame.get("named") or [] if isinstance(n, str)][:MAX_REPORTED]
-    units = [lv for n in frame.get("numbered") or [] if (lv := _unit(n)) in _ORDER][:MAX_REPORTED]
-    level = level_name(frame.get("level")) or next(iter(units), None)
+    reported = [n for n in intent.named if isinstance(n, str)][:MAX_REPORTED]
+    units = [lv for n in intent.numbered if (lv := _unit(n)) in _ORDER][:MAX_REPORTED]
+    level = level_name(intent.level) or next(iter(units), None)
     need = _NEEDS.get((level or "", False), ())
     if units:  # each number is judged at its own unit's level
         need = tuple(p for p in _ORDER if any(p in _NEEDS.get((lv, True), ()) for lv in units))
@@ -220,12 +214,12 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
     # under named is not a place). The county and tract are what the model reports apart.
     words = [p for p in reported if any(c.isalpha() for c in p) and not any(c.isdigit() for c in p)]
     named = [p for p in reported if state_of(p) or fips_state(p) or p in words]
-    given = frame.get("given")
+    given = intent.given
     if units and isinstance(given, list):  # a number needs parents the question itself states
         have = {lv for g in given if (lv := level_name(g)) in _ORDER}
     else:
         have = {"state"} if named else set()
-    if frame.get("county_named") is True or "county" in units:
+    if intent.county_named or "county" in units:
         have.add("county")
     if "tract" in units:
         have.add("tract")
@@ -251,13 +245,13 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
 
 
 async def _split_parents(
-    dispatch: Dispatch, geo: BaseTool | None, record: Any, found: Any, acs1: bool
+    dispatch: Dispatch, geo: BaseTool | None, record: Any, intent: GeoIntent, acs1: bool
 ) -> bool:
     """Re-resolve a listing the loop got wrong, with the parents and unit the model reported."""
     geos = list(getattr(record, "geographies", []) or [])
-    if not (found and found.get("parents") and geo):
+    if not (intent.parents and geo):
         return False
-    parents, unit = found["parents"], found["unit"]
+    parents, unit = intent.parents, intent.unit
     built = getattr(getattr(record, "url", None), "dataset", None)  # what the model itself built
     right = [
         g.level == level_name(unit) and built in {None, g.dataset} for g in geos[: len(parents)]
@@ -267,10 +261,10 @@ async def _split_parents(
     if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside:
         return False
     before = {name: getattr(record, name) for name in _SNAPSHOT}
-    before["geo_queries"] = list(record.geo_queries)
+    legs = list(intent.legs)
     args: dict[str, Any] = {
         "parents": parents,
-        "parent_level": found.get("parent_level"),
+        "parent_level": intent.parent_level,
         "level": unit,  # the model's own unit from the split call
     }
     if acs1:
@@ -291,6 +285,7 @@ async def _split_parents(
     for name, value in before.items():
         if name != "geo_status" or nested:  # keep why it cannot be nested: it is the warning
             setattr(record, name, value)
+    intent.legs = legs
     return False
 
 
@@ -298,7 +293,7 @@ async def finish_tools(
     dispatch: Dispatch,
     tools: dict[str, BaseTool],
     record: Any,
-    split: Awaitable[dict[str, Any] | None] | None = None,
+    split: Awaitable[GeoIntent | None] | None = None,
 ) -> None:
     """Search, resolve, build, and fetch when the loop stopped without a URL.
 
@@ -317,10 +312,12 @@ async def finish_tools(
         found = await asyncio.wait_for(split, SPLIT_WAIT_SECONDS) if split is not None else None
     except TimeoutError:
         found = None
-    redone = plan is None and await _split_parents(dispatch, geo, record, found, acs1)
+    intent = intent_of(record)
+    intent.adopt(found)
+    redone = plan is None and await _split_parents(dispatch, geo, record, intent, acs1)
     status = getattr(record, "geo_status", None) or {}
-    queries = list(getattr(record, "geo_queries", None) or [])
-    places = list((found or {}).get("places") or [])
+    queries = list(intent.legs)
+    places = list(intent.places)
     short = len(places) >= 2 and int(status.get("compare_count", 0) or 0) < len(places)
     redo = redone or short or (len(queries) >= 2 and not status.get("compare"))
     redo = redo or bool(acs1 and (url is None or "/acs/acs1" not in str(url)))
@@ -333,10 +330,9 @@ async def finish_tools(
             await dispatch(search, {"id": "search_tables", "args": asked}, record)
         if geo is not None and not redone and not refused and (redo or not record.geographies):
             legs = places or queries
-            stated = list(getattr(record, "asked_levels", None) or [])
+            stated = list(intent.levels)
             stated = stated if len(stated) == len(legs) else []  # the model's own, if any
-            reported = ((found or {}).get("frame") or {}).get("level")
-            level = (stated or [reported if len(legs) < 2 else None])[0]  # legs differ: none
+            level = (stated or [intent.level if len(legs) < 2 else None])[0]  # legs differ: none
             args: dict[str, Any] = {"places": legs, "level": level}
             if len(legs) >= 2:
                 args["levels"] = stated

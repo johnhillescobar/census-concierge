@@ -16,6 +16,7 @@ from ask_fixtures import ENTRIES, _tools
 from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.finish import plan_split
+from src.geo_level import GeoIntent
 from src.guards import geography_unsupported
 from src.retrieval.metadata import GeoLevel
 
@@ -137,7 +138,7 @@ async def test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait(monkeyp
     monkeypatch.setattr("src.ask.finish_tools", spy)
     reply = _reply("county", ["Ohio", "Michigan"], listing=True, parents=["Ohio", "Michigan"])
     await _ask("All counties in Ohio and Michigan", reply, split_delay=0.3)
-    assert [item["parents"] for item in seen] == [["Ohio", "Michigan"]]
+    assert [item.parents for item in seen] == [["Ohio", "Michigan"]]
 
 
 @pytest.mark.parametrize("parents", [1, "Kentucky", {"a": 1}])
@@ -157,7 +158,7 @@ async def test_plan_split_reports_only_list_parents_as_named(parents: Any) -> No
         return _reply("tract", [], ["tract"], parents=parents)
 
     found = await plan_split("anything", complete)
-    assert found is not None and found["frame"]["named"] == []
+    assert found is not None and found.named == []
 
 
 # --- edges of the model's report: wrong types, empty, absent, adversarial ----------------------
@@ -256,17 +257,9 @@ async def test_a_level_that_is_a_container_never_fails_the_request(level: Any) -
 async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
     reply = _reply("tract", ["Dane County, Wisconsin"], ["tract"], frame=sent)
     found = await _split(reply)
-    assert found == {
-        "frame": {
-            "level": "tract",
-            "named": ["Dane County, Wisconsin"],
-            "numbered": ["tract"],
-            "given": None,
-            "asks_for": None,
-            "county_named": False,
-            "pointing": False,
-        }
-    }
+    assert found == GeoIntent(
+        reported=True, level="tract", named=["Dane County, Wisconsin"], numbered=["tract"]
+    )
 
 
 async def test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request() -> None:
@@ -425,7 +418,7 @@ async def test_anything_but_tables_is_a_question_for_data_and_is_still_refused(
 async def test_plan_split_reports_asks_for_only_when_it_is_text(sent: Any) -> None:
     found = await _split(_reply("tract", [], [], asks_for=sent))
     assert found is not None
-    assert found["frame"]["asks_for"] == (sent if isinstance(sent, str) else None)
+    assert found.asks_for == (sent if isinstance(sent, str) else None)
 
 
 async def _ask_then_resolve(question: str, split_reply: dict[str, Any]) -> Any:

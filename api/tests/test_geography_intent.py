@@ -12,7 +12,7 @@ import pytest
 from ask_fixtures import _geo_tool, only_dane
 from src.ask import ExecutionRecord
 from src.contract import GeoSpec
-from src.geo_level import ResolveGeographyResult, level_name
+from src.geo_level import GeoIntent, ResolveGeographyResult, level_name
 from src.geo_list import DOMINANCE, dominant, fips_state, name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
 from test_geography_completeness import STOPPED, _ask, _frame, _run
@@ -539,7 +539,7 @@ async def test_a_repair_over_nothing_keeps_what_it_found_but_is_not_taken_as_don
         return ""
 
     record = ExecutionRecord(question="x")
-    found = {"parents": ["Ohio", "Texas"], "unit": "county"}
+    found = GeoIntent(parents=["Ohio", "Texas"], unit="county")
     done = await finish._split_parents(dispatch, object(), record, found, False)  # type: ignore[arg-type]
     assert done is False and record.geographies == [candidate]  # kept, but the normal checks go on
 
@@ -568,3 +568,29 @@ async def test_a_five_digit_word_in_a_place_name_is_not_taken_for_a_zip_code() -
 
     hit = await resolved(listing, places=["Route 12345, TX"], level="place")
     assert [s.for_spec for s in hit.specs] == ["place:55555"]
+
+
+# --- one intent: the loop's calls and the split report land in the same object -----------------
+
+
+def test_the_report_is_taken_once_and_never_touches_what_the_loop_stated() -> None:
+    intent = GeoIntent(levels=["county"], legs=["Harris County, TX"], unmet={"tract"})
+    intent.adopt(GeoIntent(reported=True, level="tract", parents=["Ohio"], unit="county"))
+    intent.adopt(GeoIntent(reported=True, level="state", parents=["Texas"], unit="tract"))
+    assert (intent.level, intent.parents, intent.unit) == ("tract", ["Ohio"], "county")
+    assert (intent.levels, intent.legs, intent.unmet) == (
+        ["county"],
+        ["Harris County, TX"],
+        {"tract"},
+    )
+
+
+def test_no_report_leaves_the_intent_unreported_and_asking_for_data() -> None:
+    intent = GeoIntent()
+    intent.adopt(None)
+    assert intent.reported is False and intent.tables_only is False
+
+
+def test_a_report_that_asks_for_tables_means_no_geography_is_wanted() -> None:
+    assert GeoIntent(asks_for="tables").tables_only is True
+    assert GeoIntent(asks_for="data").tables_only is False
