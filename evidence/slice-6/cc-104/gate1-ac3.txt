@@ -1,0 +1,550 @@
+CC-104 Gate 1 (tests and the mutation check), AC3: one GeoIntent on the record
+Scope: git diff 71c9daa 52662e7 -- api docs   (commit 52662e7, "one GeoIntent on the record ...")
+Branch cc-104/structured-geography contains 52662e7; this worktree branch worktree-agent-a7705698e404354fa
+was set to 52662e7 and the strengthened tests are one commit on top of it (see end of file).
+HEAD at start: 52662e799602d1db1fbc2e020ff3491e2040a8bb   Python 3.12 via uv   no network, no live API
+Baseline at 52662e7 (all of api/tests): 1450 passed, 34 skipped, 5 xfailed
+
+Method: one mutation at a time in api/src (a behaviour reverted), run ONLY the tests named on the
+"tests:" line, then `git checkout -- api/src` (checked to leave api/src clean after every mutation).
+GOOD = at least one named test FAILED against the mutation. BAD = every named test still PASSED.
+A BAD is always followed by a GOOD twin that names a strengthened (or corrected-target) test.
+The lines below are the real pytest output (FAILED ids and the summary line).
+
+Findings (BAD, then what closed it):
+ - plan_split_reports_a_parent_level_when_not_a_listing / ..._that_is_not_text / plan_split_lists_with_no_parents:
+   no test pinned them -> new tests in test_geography_completeness.py
+   (test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing,
+    test_a_listing_needs_parents_and_a_unit_it_can_split, test_a_parent_level_that_is_not_text_is_not_reported)
+ - incomplete_adopts_into_a_throwaway_intent: the tables-question test passed because finish_tools adopts the
+   report later -> test_the_report_incomplete_reads_stays_on_the_record_for_the_guards
+ - note_intent_lets_a_repair_call_write_in_the_repair_test: the repair there re-states the same level, so a
+   write is invisible -> test_a_repair_resolution_never_records_a_level_the_model_did_not_state
+ - note_intent_records_a_level_from_any_tool_call_in_the_old_test: its record had no geographies so nothing was
+   "served" -> test_a_level_in_another_tools_call_is_not_a_stated_level_even_after_a_place_was_served
+ - note_intent_counts_an_unsupported_candidate_as_served_in_the_old_test: that candidate has no geographies, so a
+   second guard hid the mutation -> test_an_unsupported_listing_candidate_keeps_the_earlier_legs_level_and_stays_unmet
+ - unverified_guard_ignores_a_tables_question_in_the_old_test: -> test_a_table_question_has_no_level_to_verify
+ - unsupported_guard_ignores_a_tables_question: BAD only because the first target test never reaches that guard
+   (an early return in incomplete); the existing end-to-end test in test_geography_report.py covers it (rerun at the end).
+Notes:
+ - test_figures.py::test_a_discovery_response_keeps_its_framing_end_to_end now passes intent=GeoIntent(asks_for="tables").
+   That record has no geography, so no guard reads it: the argument is incidental (the old tables_only=True was equally so).
+   The test still catches the discovery framing it covers (last mutation below).
+ - Where two guards protect one behaviour (for example a refused call has neither a level key nor geographies) the
+   mutation removes both, and is named for that.
+ - Mutations of the migrated field renames (levels/legs/unmet/tables_only) and of each GeoIntent field are included.
+
+Totals in the run below: 75 mutations, 66 GOOD, 9 BAD (the unsupported-guard re-run adds one GOOD).
+
+GOOD
+MUTATION adopt_takes_the_report_more_than_once  [api/src/geo_level.py]
+  tests: test_geography_intent.py::test_the_report_is_taken_once_and_never_touches_what_the_loop_stated
+  FAILED test_geography_intent.py::test_the_report_is_taken_once_and_never_touches_what_the_loop_stated
+  1 failed, 1 warning in 0.30s 
+
+GOOD
+MUTATION adopt_never_marks_the_intent_reported  [api/src/geo_level.py]
+  tests: test_geography_intent.py::test_the_report_is_taken_once_and_never_touches_what_the_loop_stated test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_geography_intent.py::test_the_report_is_taken_once_and_never_touches_what_the_loop_stated
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  2 failed, 1 warning in 0.55s 
+
+GOOD
+MUTATION adopt_overwrites_the_loops_levels_legs_and_unmet  [api/src/geo_level.py]
+  tests: test_geography_intent.py::test_the_report_is_taken_once_and_never_touches_what_the_loop_stated
+  FAILED test_geography_intent.py::test_the_report_is_taken_once_and_never_touches_what_the_loop_stated
+  1 failed, 1 warning in 0.32s 
+
+GOOD
+MUTATION adopt_given_no_report_does_not_return  [api/src/geo_level.py]
+  tests: test_geography_intent.py::test_no_report_leaves_the_intent_unreported_and_asking_for_data
+  FAILED test_geography_intent.py::test_no_report_leaves_the_intent_unreported_and_asking_for_data
+  1 failed, 1 warning in 0.32s 
+
+GOOD
+MUTATION adopt_skips_the_split_level  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  1 failed, 1 warning in 0.36s 
+
+GOOD
+MUTATION adopt_skips_the_listing_parents  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  1 failed, 1 warning in 0.37s 
+
+GOOD
+MUTATION adopt_skips_the_listing_unit  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  1 failed, 1 warning in 0.38s 
+
+GOOD
+MUTATION adopt_skips_the_parent_level  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  1 failed, 1 warning in 0.39s 
+
+GOOD
+MUTATION tables_only_is_any_asks_for_text  [api/src/geo_level.py]
+  tests: test_geography_intent.py::test_a_report_that_asks_for_tables_means_no_geography_is_wanted
+  FAILED test_geography_intent.py::test_a_report_that_asks_for_tables_means_no_geography_is_wanted
+  1 failed, 1 warning in 0.31s 
+
+GOOD
+MUTATION tables_only_is_never_true  [api/src/geo_level.py]
+  tests: test_geography_intent.py::test_a_report_that_asks_for_tables_means_no_geography_is_wanted test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place
+  FAILED test_geography_intent.py::test_a_report_that_asks_for_tables_means_no_geography_is_wanted
+  FAILED test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place
+  2 failed, 1 warning in 0.36s 
+
+GOOD
+MUTATION the_loops_levels_are_rewritten_by_a_finish_repair  [api/src/finish.py]
+  tests: test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  1 failed, 1 warning in 0.39s 
+
+GOOD
+MUTATION a_repair_call_writes_the_loops_levels  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  FAILED test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran
+  1 failed, 1 warning in 0.37s 
+
+GOOD
+MUTATION plan_split_reports_places_for_a_listing_too  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing test_geography_completeness.py::test_a_listing_needs_parents_and_a_unit_it_can_split
+  FAILED test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing
+  FAILED test_geography_completeness.py::test_a_listing_needs_parents_and_a_unit_it_can_split[sent0]
+  2 failed, 1 passed, 1 warning in 0.36s 
+
+GOOD
+MUTATION plan_split_reports_parents_when_not_a_listing  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing test_finish.py::test_comparison_resolution_is_left_alone_when_the_model_says_it_is_not_a_listing
+  FAILED test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing
+  FAILED test_finish.py::test_comparison_resolution_is_left_alone_when_the_model_says_it_is_not_a_listing
+  2 failed, 1 warning in 0.33s 
+
+GOOD
+MUTATION plan_split_reports_the_unit_when_not_a_listing  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing
+  FAILED test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found
+  FAILED test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing
+  2 failed, 1 warning in 0.33s 
+
+BAD
+MUTATION plan_split_reports_a_parent_level_when_not_a_listing  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found test_geography_completeness.py::test_a_multi_parent_listing_report_carries_parents_unit_and_frame test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  3 passed, 1 warning in 0.18s 
+
+BAD
+MUTATION plan_split_reports_a_parent_level_that_is_not_text  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found test_geography_completeness.py::test_a_multi_parent_listing_report_carries_parents_unit_and_frame test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  3 passed, 1 warning in 0.23s 
+
+GOOD
+MUTATION plan_split_reports_a_parent_level_when_not_a_listing_strengthened  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing
+  FAILED test_geography_completeness.py::test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing
+  1 failed, 1 warning in 0.33s 
+
+GOOD
+MUTATION plan_split_reports_a_parent_level_that_is_not_text_strengthened  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_parent_level_that_is_not_text_is_not_reported
+  FAILED test_geography_completeness.py::test_a_parent_level_that_is_not_text_is_not_reported[7]
+  FAILED test_geography_completeness.py::test_a_parent_level_that_is_not_text_is_not_reported[level1]
+  FAILED test_geography_completeness.py::test_a_parent_level_that_is_not_text_is_not_reported[level2]
+  3 failed, 1 passed, 1 warning in 0.39s 
+
+GOOD
+MUTATION plan_split_lists_under_a_unit_it_cannot_split  [api/src/finish.py]
+  tests: test_finish.py::test_unit_outside_the_listing_levels_is_ignored test_geography_completeness.py::test_a_listing_needs_parents_and_a_unit_it_can_split
+  FAILED test_finish.py::test_unit_outside_the_listing_levels_is_ignored
+  FAILED test_geography_completeness.py::test_a_listing_needs_parents_and_a_unit_it_can_split[sent0]
+  2 failed, 1 passed, 1 warning in 0.42s 
+
+BAD
+MUTATION plan_split_lists_with_no_parents  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found test_geography_completeness.py::test_a_multi_parent_listing_report_carries_parents_unit_and_frame test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  3 passed, 1 warning in 0.23s 
+
+GOOD
+MUTATION plan_split_lists_with_no_parents_strengthened  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_listing_needs_parents_and_a_unit_it_can_split
+  FAILED test_geography_completeness.py::test_a_listing_needs_parents_and_a_unit_it_can_split[sent1]
+  1 failed, 1 passed, 1 warning in 0.36s 
+
+GOOD
+MUTATION plan_split_report_not_marked_reported  [api/src/finish.py]
+  tests: test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[tract]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[sent1]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[5]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[None]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[sent4]
+  5 failed, 1 warning in 0.42s 
+
+GOOD
+MUTATION plan_split_drops_the_numbered_units  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found
+  FAILED test_geography_completeness.py::test_the_split_report_always_carries_the_level_and_the_places_it_found
+  1 failed, 1 warning in 0.31s 
+
+GOOD
+MUTATION plan_split_drops_the_named_places  [api/src/finish.py]
+  tests: test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[tract]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[sent1]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[5]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[None]
+  FAILED test_geography_report.py::test_a_frame_the_model_sends_is_never_the_report[sent4]
+  5 failed, 1 warning in 0.43s 
+
+GOOD
+MUTATION plan_split_does_not_name_the_parents_as_named_places  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_multi_parent_listing_report_carries_parents_unit_and_frame test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  FAILED test_geography_completeness.py::test_a_multi_parent_listing_report_carries_parents_unit_and_frame
+  FAILED test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  2 failed, 1 warning in 0.38s 
+
+GOOD
+MUTATION plan_split_names_the_unvalidated_parents  [api/src/finish.py]
+  tests: test_geography_report.py::test_plan_split_reports_only_list_parents_as_named
+  FAILED test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[1]
+  FAILED test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[True]
+  FAILED test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[2.5]
+  FAILED test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[Kentucky]
+  FAILED test_geography_report.py::test_plan_split_reports_only_list_parents_as_named[parents4]
+  5 failed, 1 warning in 0.45s 
+
+GOOD
+MUTATION plan_split_takes_any_truthy_county_named  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_county_is_named_only_when_the_model_says_true_and_nothing_else
+  FAILED test_geography_completeness.py::test_a_county_is_named_only_when_the_model_says_true_and_nothing_else[true-False]
+  FAILED test_geography_completeness.py::test_a_county_is_named_only_when_the_model_says_true_and_nothing_else[1-False]
+  FAILED test_geography_completeness.py::test_a_county_is_named_only_when_the_model_says_true_and_nothing_else[sent5-False]
+  3 failed, 3 passed, 1 warning in 0.39s 
+
+GOOD
+MUTATION plan_split_takes_any_truthy_pointing  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_split_report_carries_pointing_as_a_flag_and_nothing_else
+  FAILED test_geography_completeness.py::test_the_split_report_carries_pointing_as_a_flag_and_nothing_else
+  1 failed, 1 warning in 0.39s 
+
+GOOD
+MUTATION plan_split_reports_asks_for_unvalidated  [api/src/finish.py]
+  tests: test_geography_report.py::test_plan_split_reports_asks_for_only_when_it_is_text
+  FAILED test_geography_report.py::test_plan_split_reports_asks_for_only_when_it_is_text[5]
+  FAILED test_geography_report.py::test_plan_split_reports_asks_for_only_when_it_is_text[sent4]
+  2 failed, 3 passed, 1 warning in 0.39s 
+
+GOOD
+MUTATION plan_split_reports_no_parents_to_the_loop_task  [api/src/finish.py]
+  tests: test_ask_loop.py::test_split_call_runs_beside_the_loop_and_finish_reuses_it test_geography_report.py::test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait
+  FAILED test_ask_loop.py::test_split_call_runs_beside_the_loop_and_finish_reuses_it
+  FAILED test_geography_report.py::test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait
+  2 failed, 1 warning in 0.75s 
+
+GOOD
+MUTATION plan_split_reports_no_unit_to_the_loop_task  [api/src/finish.py]
+  tests: test_ask_loop.py::test_split_call_runs_beside_the_loop_and_finish_reuses_it
+  FAILED test_ask_loop.py::test_split_call_runs_beside_the_loop_and_finish_reuses_it
+  1 failed, 1 warning in 0.37s 
+
+GOOD
+MUTATION incomplete_does_not_adopt_the_report  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place test_geography_completeness.py::test_the_report_incomplete_reads_stays_on_the_record_for_the_guards test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once
+  FAILED test_geography_completeness.py::test_the_report_incomplete_reads_stays_on_the_record_for_the_guards
+  FAILED test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once[What is the median age in my county?-frame0]
+  FAILED test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once[Population of where I live-frame1]
+  FAILED test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once[Compare my county with Harris County, Texas-frame2]
+  4 failed, 1 passed, 1 warning in 0.42s 
+
+BAD
+MUTATION incomplete_adopts_into_a_throwaway_intent  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place
+  1 passed, 1 warning in 0.20s 
+
+GOOD
+MUTATION incomplete_adopts_into_a_throwaway_intent_strengthened  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_the_report_incomplete_reads_stays_on_the_record_for_the_guards
+  FAILED test_geography_completeness.py::test_the_report_incomplete_reads_stays_on_the_record_for_the_guards
+  1 failed, 1 warning in 0.32s 
+
+GOOD
+MUTATION incomplete_ignores_a_tables_question  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place
+  FAILED test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place
+  1 failed, 1 warning in 0.32s 
+
+GOOD
+MUTATION incomplete_stops_a_question_with_an_empty_report  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_without_a_usable_report_nothing_is_stopped
+  FAILED test_geography_completeness.py::test_without_a_usable_report_nothing_is_stopped[None]
+  FAILED test_geography_completeness.py::test_without_a_usable_report_nothing_is_stopped[report1]
+  FAILED test_geography_completeness.py::test_without_a_usable_report_nothing_is_stopped[report2]
+  3 failed, 1 warning in 0.33s 
+
+GOOD
+MUTATION incomplete_ignores_pointing  [api/src/finish.py]
+  tests: test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once
+  FAILED test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once[What is the median age in my county?-frame0]
+  FAILED test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once[Population of where I live-frame1]
+  FAILED test_geography_completeness.py::test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once[Compare my county with Harris County, Texas-frame2]
+  3 failed, 1 warning in 0.42s 
+
+GOOD
+MUTATION split_parents_does_not_restore_the_loops_legs  [api/src/finish.py]
+  tests: test_finish.py::test_re_resolution_to_non_wildcards_is_rejected_and_state_restored
+  FAILED test_finish.py::test_re_resolution_to_non_wildcards_is_rejected_and_state_restored
+  1 failed, 1 warning in 0.28s 
+
+GOOD
+MUTATION split_parents_clears_the_loops_legs  [api/src/finish.py]
+  tests: test_finish.py::test_re_resolution_to_non_wildcards_is_rejected_and_state_restored
+  FAILED test_finish.py::test_re_resolution_to_non_wildcards_is_rejected_and_state_restored
+  1 failed, 1 warning in 0.27s 
+
+GOOD
+MUTATION split_parents_reads_no_parents  [api/src/finish.py]
+  tests: test_geography_intent.py::test_a_repair_over_nothing_keeps_what_it_found_but_is_not_taken_as_done
+  FAILED test_geography_intent.py::test_a_repair_over_nothing_keeps_what_it_found_but_is_not_taken_as_done
+  1 failed, 1 warning in 0.32s 
+
+GOOD
+MUTATION split_parents_sends_no_parent_level  [api/src/finish.py]
+  tests: test_finish.py::test_a_county_parent_is_re_resolved_with_the_level_the_model_gave
+  FAILED test_finish.py::test_a_county_parent_is_re_resolved_with_the_level_the_model_gave
+  1 failed, 1 warning in 0.30s 
+
+GOOD
+MUTATION note_intent_never_records_the_stated_levels  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_a_call_for_the_nation_names_no_place_for_finish_to_replay test_level_fidelity.py::test_a_loop_whose_model_states_the_level_raises_no_level_warning
+  FAILED test_ask_loop.py::test_a_call_for_the_nation_names_no_place_for_finish_to_replay
+  FAILED test_level_fidelity.py::test_a_loop_whose_model_states_the_level_raises_no_level_warning
+  2 failed, 1 warning in 0.40s 
+
+GOOD
+MUTATION note_intent_overwrites_levels_instead_of_per_leg  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level
+  FAILED test_level_fidelity.py::test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level
+  1 failed, 1 warning in 0.40s 
+
+GOOD
+MUTATION note_intent_never_records_an_unmet_level  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped_silently test_level_fidelity.py::test_a_level_asked_for_and_not_served_cannot_be_swapped_for_place_without_a_flag
+  FAILED test_level_fidelity.py::test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped_silently
+  FAILED test_level_fidelity.py::test_a_level_asked_for_and_not_served_cannot_be_swapped_for_place_without_a_flag
+  2 failed, 1 warning in 0.35s 
+
+GOOD
+MUTATION note_intent_never_clears_a_served_unmet_level  [api/src/geo_level.py]
+  tests: test_ask_loop.py::test_a_call_for_the_nation_names_no_place_for_finish_to_replay test_level_fidelity.py::test_an_unserved_level_is_cleared_once_a_later_call_serves_it
+  FAILED test_ask_loop.py::test_a_call_for_the_nation_names_no_place_for_finish_to_replay
+  FAILED test_level_fidelity.py::test_an_unserved_level_is_cleared_once_a_later_call_serves_it
+  2 failed, 1 warning in 0.41s 
+
+GOOD
+MUTATION note_intent_lets_a_repair_call_write_in_the_fidelity_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_repair_call_never_overwrites_the_level_the_model_stated
+  FAILED test_level_fidelity.py::test_a_repair_call_never_overwrites_the_level_the_model_stated
+  1 failed, 1 warning in 0.35s 
+
+BAD
+MUTATION note_intent_lets_a_repair_call_write_in_the_repair_test  [api/src/geo_level.py]
+  tests: test_level_repair.py::test_a_repair_resolution_never_replaces_the_level_the_model_stated
+  1 passed, 1 warning in 0.17s 
+
+GOOD
+MUTATION note_intent_lets_a_repair_call_write_a_level_the_model_did_not_state  [api/src/geo_level.py]
+  tests: test_level_repair.py::test_a_repair_resolution_never_records_a_level_the_model_did_not_state
+  FAILED test_level_repair.py::test_a_repair_resolution_never_records_a_level_the_model_did_not_state
+  1 failed, 1 warning in 0.30s 
+
+BAD
+MUTATION note_intent_records_a_level_from_any_tool_call_in_the_old_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_only_a_resolve_call_that_states_a_level_records_one
+  1 passed, 1 warning in 0.18s 
+
+GOOD
+MUTATION note_intent_records_a_level_from_any_tool_call_in_the_strengthened_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_level_in_another_tools_call_is_not_a_stated_level_even_after_a_place_was_served
+  FAILED test_level_fidelity.py::test_a_level_in_another_tools_call_is_not_a_stated_level_even_after_a_place_was_served
+  1 failed, 1 warning in 0.31s 
+
+GOOD
+MUTATION note_intent_records_a_call_that_stated_no_level_and_resolved_nothing  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_call_that_omits_the_level_is_refused_for_repair_and_is_bounded
+  FAILED test_level_fidelity.py::test_a_call_that_omits_the_level_is_refused_for_repair_and_is_bounded
+  1 failed, 1 warning in 0.35s 
+
+GOOD
+MUTATION note_intent_counts_a_failed_call_as_served  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_refused_call_between_legs_does_not_shift_the_legs_stated_levels test_level_fidelity.py::test_an_unserved_candidate_does_not_overwrite_an_earlier_legs_level
+  FAILED test_level_fidelity.py::test_a_refused_call_between_legs_does_not_shift_the_legs_stated_levels
+  FAILED test_level_fidelity.py::test_an_unserved_candidate_does_not_overwrite_an_earlier_legs_level
+  2 failed, 1 warning in 0.40s 
+
+GOOD
+MUTATION note_intent_counts_a_call_that_found_nothing_as_served  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_call_that_finds_nothing_does_not_shift_the_legs_stated_levels
+  FAILED test_level_fidelity.py::test_a_call_that_finds_nothing_does_not_shift_the_legs_stated_levels
+  1 failed, 1 warning in 0.37s 
+
+BAD
+MUTATION note_intent_counts_an_unsupported_candidate_as_served_in_the_old_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_an_unserved_candidate_does_not_overwrite_an_earlier_legs_level
+  1 passed, 1 warning in 0.20s 
+
+GOOD
+MUTATION note_intent_counts_an_unsupported_candidate_as_served_in_the_strengthened_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_an_unsupported_listing_candidate_keeps_the_earlier_legs_level_and_stays_unmet
+  FAILED test_level_fidelity.py::test_an_unsupported_listing_candidate_keeps_the_earlier_legs_level_and_stays_unmet
+  1 failed, 1 warning in 0.33s 
+
+GOOD
+MUTATION note_intent_counts_a_partial_comparison_as_served  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_partial_comparison_keeps_every_stated_level_unmet
+  FAILED test_level_fidelity.py::test_a_partial_comparison_keeps_every_stated_level_unmet
+  1 failed, 1 warning in 0.33s 
+
+GOOD
+MUTATION dispatch_does_not_note_a_call_that_raised  [api/src/ask.py]
+  tests: test_tracts_in_place.py::test_a_county_listing_that_raises_leaves_the_tract_request_unserved_and_flagged
+  FAILED test_tracts_in_place.py::test_a_county_listing_that_raises_leaves_the_tract_request_unserved_and_flagged
+  1 failed, 1 warning in 0.34s 
+
+GOOD
+MUTATION absorb_never_tracks_a_single_place_leg  [api/src/ask.py]
+  tests: test_ask_loop.py::test_bare_name_and_its_own_city_stay_two_distinct_legs
+  FAILED test_ask_loop.py::test_bare_name_and_its_own_city_stay_two_distinct_legs
+  1 failed, 1 warning in 0.43s 
+
+GOOD
+MUTATION absorb_appends_instead_of_replacing_a_refined_leg  [api/src/ask.py]
+  tests: test_level_fidelity.py::test_a_refinement_of_the_same_place_replaces_its_level_not_adds_a_leg
+  FAILED test_level_fidelity.py::test_a_refinement_of_the_same_place_replaces_its_level_not_adds_a_leg
+  1 failed, 1 warning in 0.35s 
+
+GOOD
+MUTATION absorb_resets_the_legs_only_for_a_comparison  [api/src/ask.py]
+  tests: test_level_fidelity.py::test_an_unsupported_candidate_is_not_a_comparison_leg
+  FAILED test_level_fidelity.py::test_an_unsupported_candidate_is_not_a_comparison_leg
+  1 failed, 1 warning in 0.52s 
+
+GOOD
+MUTATION finish_tools_does_not_adopt_the_report  [api/src/finish.py]
+  tests: test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  FAILED test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places
+  FAILED test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  2 failed, 1 warning in 0.53s 
+
+GOOD
+MUTATION finish_tools_ignores_the_reported_places  [api/src/finish.py]
+  tests: test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places test_finish.py::test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level
+  FAILED test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places
+  FAILED test_finish.py::test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level
+  2 failed, 1 warning in 0.39s 
+
+GOOD
+MUTATION finish_tools_ignores_the_stated_levels  [api/src/finish.py]
+  tests: test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+  FAILED test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+  1 failed, 1 warning in 0.34s 
+
+GOOD
+MUTATION finish_tools_ignores_the_reported_level  [api/src/finish.py]
+  tests: test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation test_geography_intent.py::test_a_question_about_the_nation_resolves_when_the_model_reports_the_nation test_level_repair.py::test_a_repair_resolution_never_records_a_level_the_model_did_not_state
+  FAILED test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  FAILED test_geography_intent.py::test_a_question_about_the_nation_resolves_when_the_model_reports_the_nation
+  2 failed, 1 passed, 1 warning in 0.38s 
+
+GOOD
+MUTATION finish_tools_ignores_the_loops_single_place_legs  [api/src/finish.py]
+  tests: test_finish.py::test_unresolved_pair_of_single_place_queries_is_resolved_together test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+  FAILED test_finish.py::test_unresolved_pair_of_single_place_queries_is_resolved_together
+  FAILED test_level_repair.py::test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair
+  2 failed, 1 warning in 0.36s 
+
+GOOD
+MUTATION finish_redoes_a_comparison_the_loop_already_resolved_together  [api/src/finish.py]
+  tests: test_finish.py::test_resolved_comparison_with_two_queries_is_not_resolved_again test_finish.py::test_finish_never_resolves_the_question_itself
+  FAILED test_finish.py::test_resolved_comparison_with_two_queries_is_not_resolved_again
+  FAILED test_finish.py::test_finish_never_resolves_the_question_itself
+  2 failed, 1 warning in 0.40s 
+
+GOOD
+MUTATION finish_resolves_when_the_model_reported_nothing  [api/src/finish.py]
+  tests: test_finish.py::test_finish_never_resolves_the_question_itself test_level_fidelity.py::test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none test_level_repair.py::test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one
+  FAILED test_finish.py::test_finish_never_resolves_the_question_itself
+  FAILED test_level_fidelity.py::test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none
+  FAILED test_level_repair.py::test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one
+  3 failed, 1 warning in 0.40s 
+
+GOOD
+MUTATION mismatch_guard_ignores_a_tables_question  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_table_question_is_never_flagged_for_its_level
+  FAILED test_level_fidelity.py::test_a_table_question_is_never_flagged_for_its_level
+  1 failed, 1 warning in 0.31s 
+
+GOOD
+MUTATION mismatch_guard_reads_no_unmet_levels  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_stated_level_not_served_is_flagged_even_when_nothing_else_was_stated
+  FAILED test_level_fidelity.py::test_a_stated_level_not_served_is_flagged_even_when_nothing_else_was_stated
+  1 failed, 1 warning in 0.42s 
+
+BAD
+MUTATION unverified_guard_ignores_a_tables_question_in_the_old_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_table_question_is_never_flagged_for_its_level
+  1 passed, 1 warning in 0.18s 
+
+GOOD
+MUTATION unverified_guard_ignores_a_tables_question_in_the_strengthened_test  [api/src/geo_level.py]
+  tests: test_level_fidelity.py::test_a_table_question_has_no_level_to_verify
+  FAILED test_level_fidelity.py::test_a_table_question_has_no_level_to_verify
+  1 failed, 1 warning in 0.30s 
+
+GOOD
+MUTATION unverified_guard_reads_no_stated_levels  [api/src/geo_level.py]
+  tests: test_guards.py
+  FAILED test_guards.py::test_fetched_years_replace_the_built_template_vintage
+  FAILED test_guards.py::test_overlapping_fetched_years_still_warn - ...
+  FAILED test_guards.py::test_parent_place_exposes_shared_sample_and_conclusion
+  FAILED test_guards.py::test_several_matching_places_are_the_result
+  FAILED test_guards.py::test_one_geography_is_not_ambiguous - Assert...
+  FAILED test_guards.py::test_comparison_legs_are_not_ambiguous_places
+  FAILED test_guards.py::test_comparison_with_leftover_matches_still_warns
+  FAILED test_guards.py::test_block_group_wildcard_in_a_state_is_illegal
+  FAILED test_guards.py::test_new_geography_clears_current_fetch_but_keeps_the_url
+  FAILED test_guards.py::test_ambiguous_resolve_lands_on_the_response
+  FAILED test_guards.py::test_zcta_wording_does_not_emit_zcta_not_zip
+  FAILED test_guards.py::test_tract_series_crossing_2020_warns_from_requested_years
+  FAILED test_guards.py::test_block_group_series_crossing_2020_warns
+  FAILED test_guards.py::test_tract_series_entirely_before_or_after_redraw_does_not_warn
+  FAILED test_guards.py::test_boundary_warning_survives_partial_fetch_failure
+  15 failed, 73 passed, 1 warning in 0.88s 
+
+BAD
+MUTATION unsupported_guard_ignores_a_tables_question  [api/src/guards.py]
+  tests: test_geography_completeness.py::test_a_question_that_asks_which_table_holds_something_may_point_at_a_place
+  1 passed, 1 warning in 0.24s 
+
+GOOD
+MUTATION discovery_framing_ignores_the_pool_titles  [api/src/figures.py]
+  tests: test_figures.py::test_a_discovery_response_keeps_its_framing_end_to_end
+  FAILED test_figures.py::test_a_discovery_response_keeps_its_framing_end_to_end
+  1 failed, 1 warning in 0.33s 
+
+
+RE-RUN (corrected target) of the one BAD whose first target could not reach the guard
+GOOD
+MUTATION unsupported_guard_ignores_a_tables_question  [api/src/guards.py]
+  tests: test_geography_report.py::test_a_table_question_gets_no_geography_warning_but_a_data_question_does
+  FAILED test_geography_report.py::test_a_table_question_gets_no_geography_warning_but_a_data_question_does
+  1 failed, 1 warning in 0.32s 
+
+
+FINAL STATE: api/src is identical to 52662e7 (git status of api/src is clean); only api/tests changed.
+ruff check api: All checks passed; ruff format --check api: 80 files already formatted
+`uv run pytest api/tests -q -p no:cacheprovider`
+1462 passed, 34 skipped, 5 xfailed, 1 warning in 88.47s (0:01:28)
