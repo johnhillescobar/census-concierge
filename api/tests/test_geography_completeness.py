@@ -485,6 +485,10 @@ async def test_a_dataset_that_is_not_a_published_product_name_is_not_reported(da
     ("sent", "kept"),
     [
         ([True, 2022, "2021", 2020.0, None, [2019], 2018], [2022, 2018]),
+        (
+            [10**30, -(10**7), 1999, 2101, 2000, 2100],
+            [2000, 2100],
+        ),  # a year the loop could never walk
         ("2022", []),
         (2022, []),
         ({"2022": 1}, []),

@@ -33,7 +33,7 @@ resolve_geography is the sole lookup for geography codes. Never invent or manual
 RETRIEVAL
 Call build_url with the selected table ID before fetch_data. Code handles the resolved geographies and URL. Do not manually construct a URL or geography selection.
 
-For multi-year retrieval, call fetch_data once with the requested years, every end year of a range or an open-ended period through the latest; the tool handles the individual years. Warnings do not skip fetching a built request.
+For multi-year retrieval, call fetch_data once with the requested years, every end year of a span, through the latest when it is open-ended; the tool handles the individual years. Warnings do not skip fetching a built request.
 
 Use only successfully fetched data as evidence. Write the answer as qualitative framing only: which table was chosen and why, the geography and years, what the figures in the result are about, and any limitation. Write no figure in the answer: no estimate, margin of error, count, share, percentage, rate, ranking or comparison of values between places or years, and no number written in words. Years, table IDs and variable names are fine. The system shows the figures from the fetched data itself. Describe failed or omitted years only as reported in the fetch summary.
 
