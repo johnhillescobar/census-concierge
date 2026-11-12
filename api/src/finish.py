@@ -13,7 +13,6 @@ from langchain_core.tools import BaseTool
 from src.contract import clauses_from_geoid
 from src.geo_level import GeoIntent, intent_of, level_name
 from src.geo_list import fips_state, state_of
-from src.vintages import latest_vintages, requested_years, wants_acs1
 
 Dispatch = Callable[..., Awaitable[str]]
 Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
@@ -21,7 +20,8 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "parent_level": ..., '
     '"level": ..., "named": [...], "numbered": [...], "given": [...], "asks_for": ..., '
-    '"pointing": bool, "county_named": bool}. parents are the places the user names, one entry '
+    '"pointing": bool, "county_named": bool, "dataset": ..., "years": [...]}. parents are the '
+    "places the user names, one entry "
     "each, whatever word connects them. Write a place smaller than a state as 'Name, State' "
     "with the state from your "
     "own knowledge (such as 'Lancaster County, Nebraska'), never as two entries; name a state "
@@ -42,22 +42,15 @@ _SPLIT_PARENTS = (
     "variable holds something or where to find it, and 'data' when it asks for figures. pointing "
     "is true when a phrase stands in for a place by pointing at it ('my county', 'where I "
     "live'). county_named is true when the question names a specific county, by name or by a "
-    "five-digit FIPS code."
+    "five-digit FIPS code. dataset is acs1 when the question asks for the 1-year product, else "
+    "acs5. years lists the end year of every vintage the question asks for; a range or an "
+    "open-ended period lists each year through {latest}, the latest published; empty when it "
+    "names none."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
 SPLIT_WAIT_SECONDS = 6.0  # the call normally finishes beside the loop; never delay an answer more
 FRAME_WAIT_SECONDS = 3.0  # before the first tool runs; past it the question is treated as complete
-
-
-def _latest(record: Any) -> int:
-    getter = getattr(record, "published_vintages", None)
-    if callable(getter):
-        years = getter("acs5")
-        if years:
-            return max(int(year) for year in years)
-    acs5, _acs1 = latest_vintages()
-    return acs5
 
 
 def degraded_answer(record: Any) -> str:
@@ -79,7 +72,9 @@ _SNAPSHOT = ("geographies", "geo_status", "geography", "url", "rows") + (
 )
 
 
-async def plan_split(question: str, complete: Complete | None) -> GeoIntent | None:
+async def plan_split(
+    question: str, complete: Complete | None, latest: int | None = None
+) -> GeoIntent | None:
     """Ask the model to split the question's parents; return its validated report or None.
 
     Needs only the question, so run_ask starts it beside the loop as a task.
@@ -88,7 +83,10 @@ async def plan_split(question: str, complete: Complete | None) -> GeoIntent | No
         return None
     try:
         turn = await complete(
-            [{"role": "system", "content": _SPLIT_PARENTS}, {"role": "user", "content": question}],
+            [
+                {"role": "system", "content": _SPLIT_PARENTS.replace("{latest}", str(latest))},
+                {"role": "user", "content": question},
+            ],
             [],
         )
         raw = str(turn.get("content") or "")
@@ -105,9 +103,11 @@ async def plan_split(question: str, complete: Complete | None) -> GeoIntent | No
     )
     wants_rows = found.get("listing") is True  # a string or a number is not the model saying yes
     listing = bool(names) and wants_rows and unit in _SPLIT_UNITS
-    up = found.get("parent_level")
+    up, years = found.get("parent_level"), found.get("years")
     return GeoIntent(
         reported=True,
+        dataset=found["dataset"] if found.get("dataset") in {"acs1", "acs5"} else None,
+        years=[y for y in years if type(y) is int] if isinstance(years, list) else [],
         level=found.get("level"),
         named=[*(named if isinstance(named, list) else []), *names],
         numbered=numbered if isinstance(numbered, list) else [],
@@ -124,10 +124,14 @@ async def plan_split(question: str, complete: Complete | None) -> GeoIntent | No
 
 @asynccontextmanager
 async def split_beside(
-    question: str, complete: Complete | None, enabled: bool
+    question: str, complete: Complete | None, enabled: bool, latest: int | None = None
 ) -> AsyncIterator[asyncio.Task[GeoIntent | None] | None]:
     """Run plan_split beside the caller's work; always cancel and reap it on exit."""
-    task = asyncio.create_task(plan_split(question, complete)) if enabled and complete else None
+    task = (
+        asyncio.create_task(plan_split(question, complete, latest))
+        if enabled and complete
+        else None
+    )
     try:
         yield task
     finally:
@@ -302,9 +306,7 @@ async def finish_tools(
     a question the model reported nothing for gets no guessed place.
     """
     question = str(getattr(record, "question", "") or "")
-    acs1 = wants_acs1(question)  # time and product are still read from words: the next story
     record.consecutive_failures.clear()
-    year = _latest(record)
     geo = tools.get("resolve_geography")
     url = getattr(record, "url", None)
     plan = getattr(record, "override", None)
@@ -315,6 +317,7 @@ async def finish_tools(
         found = None
     intent = intent_of(record)
     intent.adopt(found)
+    acs1 = intent.dataset == "acs1"  # the model's report; the question's words are never read
     redone = plan is None and await _split_parents(dispatch, geo, record, intent, acs1)
     status = getattr(record, "geo_status", None) or {}
     queries = list(intent.legs)
@@ -362,5 +365,4 @@ async def finish_tools(
     fetch = tools.get("fetch_data")
     fetch_failed = record.fetch is not None and not record.fetch.ok
     if fetch is not None and record.url is not None and (record.fetch is None or fetch_failed):
-        years = requested_years(question, year)
-        await dispatch(fetch, {"id": "fetch_data", "args": {"years": years}}, record)
+        await dispatch(fetch, {"id": "fetch_data", "args": {"years": intent.years}}, record)

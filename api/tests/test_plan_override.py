@@ -231,10 +231,12 @@ async def test_acs1_dataset_override_builds_a_county_url() -> None:
     assert response.plan.geographies[0].dataset == "acs1"
 
 
-async def test_geo_only_override_keeps_acs1_from_the_question() -> None:
+async def test_geo_only_override_keeps_the_acs1_the_plan_states() -> None:
     record = ExecutionRecord()
-    plan = ResultPlan.model_validate({"geographies": [{"geoid": "0500000US48201"}]})
-    question = "1-year ACS population of Harris County"
+    plan = ResultPlan.model_validate(
+        {"geographies": [{"geoid": "0500000US48201"}], "dataset": "acs1"}
+    )
+    question = "population of Harris County"
     record.question = question
     apply_override(record, plan)
     response = await run_ask(

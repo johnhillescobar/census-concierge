@@ -25,7 +25,6 @@ from src.fetch import FetchDataTool
 from src.geo import ResolveGeographyTool
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
-from src.vintages import requested_years
 
 ENTRIES = [
     GeoLevel("state", "040", (), (), ""),
@@ -506,9 +505,7 @@ def _tools(record: ExecutionRecord) -> dict[str, Any]:
                 else []
             ),
             census_key=lambda: "secret",
-            question_years=lambda: (
-                override_years(record.override) or requested_years(record.question, 2024)
-            ),
+            question_years=lambda: override_years(record.override),
             published=lambda dataset: (
                 set(range(2016, 2025)) - ({2020} if dataset == "acs1" else set())
             ),

@@ -14,9 +14,9 @@ from src.census_url import CensusURL
 from src.contract import AskResponse, GeoSpec, ResultPlan
 from src.fetch import FetchDataTool
 from src.finish import finish_tools
+from src.geo_level import GeoIntent
 from src.retrieval.metadata import GeoLevel
 from src.tools import BuildUrlTool, SearchTablesTool
-from src.vintages import requested_years
 from test_ask_route import CONTRACT_FIELDS
 
 
@@ -160,7 +160,10 @@ async def test_in_year_uses_that_vintage_not_latest() -> None:
             "content": "",
             "tool_calls": [{"id": "3", "name": "build_url", "args": {"table_id": "B01003"}}],
         },
-        {"content": "", "tool_calls": [{"id": "4", "name": "fetch_data", "args": {}}]},
+        {
+            "content": "",
+            "tool_calls": [{"id": "4", "name": "fetch_data", "args": {"years": [2022]}}],
+        },
         {"content": "Harris County has data.", "tool_calls": []},
     ]
 
@@ -210,12 +213,12 @@ async def test_computer_share_finishes_when_the_model_stops() -> None:
         ),
         published=lambda dataset: published[dataset],
         table_facts=facts,
-        question_years=lambda: requested_years(record.question, 2024),
+        question_years=lambda: [],
     )
 
     response = await run_ask(
         "How has the share of households with a computer changed since 2013?",
-        complete=_stopped(calls=[_US]),
+        complete=_stopped(_split([], "county", years=list(range(2013, 2025))), calls=[_US]),
         tools=tools,
         record=record,
     )
@@ -296,7 +299,7 @@ async def test_overlapping_income_finishes_when_the_model_stops() -> None:
 
     response = await run_ask(
         "Compare median household income between 2015-2019 and 2018-2022",
-        complete=_stopped(calls=[_US]),
+        complete=_stopped(_split([], "county", years=[2019, 2022]), calls=[_US]),
         tools=tools,
         record=record,
     )
@@ -575,7 +578,7 @@ async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
     record.consecutive_failures["build_url"] = 2
     response = await run_ask(
         "1-year ACS poverty for Fresno County, 2018 through 2022",
-        complete=_stopped(),
+        complete=_stopped(_split([], "county", dataset="acs1", years=list(range(2018, 2023)))),
         tools=tools,
         record=record,
     )
@@ -607,7 +610,15 @@ async def test_acs1_year_span_replaces_an_acs5_url() -> None:
     )
     response = await run_ask(
         "1-year ACS poverty for Fresno County, 2018 through 2022",
-        complete=_stopped(_split(["Fresno County, CA"], "county", level="county")),
+        complete=_stopped(
+            _split(
+                ["Fresno County, CA"],
+                "county",
+                level="county",
+                dataset="acs1",
+                years=list(range(2018, 2023)),
+            )
+        ),
         tools=tools,
         record=record,
     )
@@ -1755,7 +1766,7 @@ async def test_a_plan_pins_the_dataset_the_selector_pool_is_filtered_for() -> No
     assert set(seen) == {"acs1"}
 
 
-async def test_finish_searches_the_dataset_the_question_asks_for() -> None:
+async def test_finish_searches_the_dataset_the_report_asks_for() -> None:
     question = "1-year ACS median family income in Harris County"
     record = ExecutionRecord(question=question)
     tools = _tools(record)
@@ -1769,5 +1780,7 @@ async def test_finish_searches_the_dataset_the_question_asks_for() -> None:
     record.geography = _harris()
     record.geographies = [_harris()]
     record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
-    await finish_tools(dispatch, tools, record)
+    report: asyncio.Future[GeoIntent] = asyncio.get_running_loop().create_future()
+    report.set_result(GeoIntent(reported=True, dataset="acs1"))
+    await finish_tools(dispatch, tools, record, report)
     assert seen and set(seen) == {"acs1"}

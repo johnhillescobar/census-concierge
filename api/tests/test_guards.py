@@ -46,7 +46,7 @@ def test_empty_record_emits_no_warnings() -> None:
 
 
 def test_overlapping_acs5_ranges_warn_without_a_second_fetch() -> None:
-    record = ExecutionRecord(question=T01)
+    record = ExecutionRecord(question=T01, vintages=[("acs5", 2019), ("acs5", 2022)])
     assert _codes(record) == ["overlapping_vintage"]
     response = assemble("answer still ships", _stated(record))
     assert response.answer == "answer still ships"
@@ -67,9 +67,10 @@ def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
     assert _codes(record) == []
 
 
-def test_from_to_consecutive_acs5_years_overlap() -> None:
+def test_consecutive_acs5_vintages_overlap() -> None:
     record = ExecutionRecord(
-        question="Plot median household income for Cuyahoga County every year from 2017 to 2023"
+        question="Plot median household income for Cuyahoga County",
+        vintages=[("acs5", year) for year in range(2017, 2024)],
     )
     assert _codes(record) == ["overlapping_vintage"]
 
@@ -957,7 +958,7 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
     assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US10001"]
 
 
-def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
+def test_a_zcta_answer_warns_whatever_the_user_called_it() -> None:
     record = ExecutionRecord(question=Q24)
     record.geographies = [
         GeoSpec(
@@ -969,7 +970,8 @@ def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
     record.geography = record.geographies[0]
     record.rows = [{"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"}]
     response = assemble("single vintage", _stated(record))
-    assert response.warnings == []
+    assert [item.code for item in response.warnings] == ["zcta_not_zip"]
+    assert "90210" in response.warnings[0].detail
     assert response.geoid == "860Z200US90210"
     assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US90210"]
 
@@ -1373,6 +1375,7 @@ def test_redefined_universe_is_named_from_fetch_omissions() -> None:
 def test_overlapping_vintage_still_ships_the_url() -> None:
     record = ExecutionRecord(
         question=T01,
+        vintages=[("acs5", 2019), ("acs5", 2022)],
         url=CensusURL(
             "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M"
             "&for=us:1"
@@ -1411,7 +1414,9 @@ _RETAINED = (
 
 def test_warning_only_keeps_url_after_series_clear() -> None:
     built = CensusURL(_RETAINED.replace("B17001", "B19013"))
-    record = ExecutionRecord(question=T01, url=built, table_id="B19013")
+    record = ExecutionRecord(
+        question=T01, url=built, table_id="B19013", vintages=[("acs5", 2019), ("acs5", 2022)]
+    )
     clear_series(record)
     response = assemble("warning only", _stated(record))
     assert [item.code for item in response.warnings] == ["overlapping_vintage"]

@@ -26,7 +26,7 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 stops without a URL, or with the wrong listing level, an incomplete comparison,
 or an ACS1 request that never built `/acs/acs1`, it
 retries: search (only if the pool is empty); resolve
-(from the model's own split report; ACS1 dataset; never from the question's words);
+(from the model's own split report, including its dataset and years; never from the question's words);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
 
@@ -68,8 +68,9 @@ httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
 
 ## Years
 
-`fetch_data(years=…)` is a parameter, not a fifth tool. A lone `in YYYY` or `for YYYY` is that ACS5 end
-year (not latest). ACS1 when Census publishes every listed member with rows; else non-overlapping ACS5
+`fetch_data(years=…)` is a parameter, not a fifth tool. The years and the product (`build_url.dataset`)
+are what the model states in its calls, or in the split report when it stopped short; the question's words are
+never read for them. A stated lone year is that ACS5 end year (not latest). ACS1 when Census publishes every listed member with rows; else non-overlapping ACS5
 end years. Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
 `acs1_geography_ineligible`). A variable absent or redefined mid-range — including unpublished years
 before a table’s first in-matrix vintage when any dataset has a published hole in the requested span —

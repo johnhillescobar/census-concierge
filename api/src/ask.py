@@ -36,7 +36,7 @@ from src.guards import finish_aggregation
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import BuildUrlResult, BuildUrlTool, SearchTablesResult, SearchTablesTool
-from src.vintages import latest_vintages, moe_rows, requested_years, stamp_provenance
+from src.vintages import latest_vintages, moe_rows, stamp_provenance
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
@@ -368,9 +368,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             table_facts=facts,
-            question_years=lambda: (
-                override_years(record.override) or requested_years(record.question, latest("acs5"))
-            ),
+            question_years=lambda: override_years(record.override),
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }
@@ -401,7 +399,7 @@ async def run_ask(
     answer = ""
     calls_used = 0
     given = bool(record.override and record.override.geographies)  # a plan that names the places
-    async with split_beside(question, complete, not given) as split:
+    async with split_beside(question, complete, not given, acs5) as split:
         try:
             for turn_no in range(MAX_TURNS):
                 turn = await complete(messages, openai_tools)
