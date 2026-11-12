@@ -1,0 +1,443 @@
+Gate 1 (tests and the mutation check): CC-104 time and product are the model's report
+Scope: git diff 8cd7d0b 9077083 -- api docs evals
+Worktree branch: worktree-agent-a76f457847e023679 (reset to 9077083 for this run)
+Start HEAD: 90770834d612edef46fc41ed71d106510f12b9de (api/src identical to 9077083 throughout; restored with git checkout -- api/src after every mutation)
+Baseline at 9077083: 1487 passed, 34 skipped
+Rules: one mutation at a time, only the covering tests run, restore after each. GOOD = the covering
+tests fail against the mutation. BAD = a test written or rewritten for that behaviour still passes
+(a mutation caught only by a neighbouring test, noted on the block, is BAD for the behaviour's own tests).
+
+Behaviour map: (1) ask.default_tools question_years; (2) contract.apply_override dataset default;
+(3) finish.finish_tools acs1; (4) finish.finish_tools fetch years; (5) finish.plan_split validation;
+(6) GeoIntent.adopt; (7) guards.overlapping_vintage; (8) guards.zcta_not_zip; (9) isolation harness.
+test_vintages.py only lost tests (nothing to mutate); the rewritten test_ask_loop / test_finish /
+test_guards / test_plan_override tests are covered by the mutations below.
+The two acs1_year_span tests in test_ask_loop do not pin the dataset: a consecutive series is fetched as
+acs1 by the fetch layer when it is eligible, with or without the report's dataset (probed). They pin the
+report's years; the dataset is pinned by the finish_searches_* and test_finish repair tests.
+
+====================================================================
+PART 1: first pass, tests as they stood at 9077083
+====================================================================
+BAD
+mutation: default_tools_question_years_read_from_the_question
+reverts: ask.default_tools question_years returns [2022] when the question contains '2022'
+tests: api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year] api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range] api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url
+result: 3 passed, 1 warning in 0.31s
+
+GOOD
+mutation: fetch_ignores_question_years
+reverts: FetchDataTool no longer applies question_years (the plan's years) to the fetch
+tests: api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url
+  FAILED api/tests/test_fetch_years.py::test_in_year_rewrites_the_built_url - a...
+result: 1 failed, 1 warning in 0.25s
+
+GOOD
+mutation: apply_override_sets_acs1_from_1_year_in_the_question
+reverts: contract.apply_override sets plan.dataset='acs1' when the question contains '1-year' and the plan states no dataset
+tests: api/tests/test_plan_override.py::test_a_plan_with_no_dataset_stays_acs5_whatever_the_question_says api/tests/test_plan_override.py::test_geo_only_override_keeps_the_acs1_the_plan_states api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+  FAILED api/tests/test_plan_override.py::test_a_plan_with_no_dataset_stays_acs5_whatever_the_question_says
+result: 1 failed, 2 passed, 1 warning in 0.34s
+
+GOOD
+mutation: apply_override_resets_the_dataset_the_plan_states
+reverts: contract.apply_override forces plan.dataset back to acs5 even when the plan states acs1
+tests: api/tests/test_plan_override.py::test_geo_only_override_keeps_the_acs1_the_plan_states
+  FAILED api/tests/test_plan_override.py::test_geo_only_override_keeps_the_acs1_the_plan_states
+result: 1 failed, 1 warning in 0.21s
+
+BAD
+mutation: finish_acs1_from_the_question_words_instead_of_the_report
+reverts: finish_tools: acs1 is True when the question contains '1-year'/'acs1' (the report ignored)
+note: rewritten tests for the dataset all pass; only the isolation case [a dataset] fails
+tests: api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_asks_for api/tests/test_finish.py::test_an_acs1_report_resolves_the_repair_against_acs1 api/tests/test_finish.py::test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_report api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+result: 1 failed, 5 passed, 1 warning in 0.44s
+
+BAD
+mutation: finish_acs1_from_the_report_or_the_question_words
+reverts: finish_tools: acs1 is the report's dataset OR the question containing '1-year'
+note: rewritten tests for the dataset all pass; only the isolation case [a dataset] fails
+tests: api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_asks_for api/tests/test_finish.py::test_an_acs1_report_resolves_the_repair_against_acs1 api/tests/test_finish.py::test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_report api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+result: 1 failed, 5 passed, 1 warning in 0.37s
+
+BAD
+mutation: finish_fetches_with_years_read_from_the_question_instead_of_the_report
+reverts: finish_tools: fetch_data years are every 4-digit year in the question, not intent.years
+note: test_computer_share fails, but test_overlapping_income and both acs1_year_span tests pass
+tests: api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+  FAILED api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops
+result: 1 failed, 4 passed, 1 warning in 0.37s
+
+BAD
+mutation: finish_fetches_with_no_years_instead_of_the_reports
+reverts: finish_tools: fetch_data is sent no years (intent.years dropped)
+note: test_computer_share and test_overlapping_income fail, both acs1_year_span tests pass
+tests: api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+  FAILED api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops
+  FAILED api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops
+result: 2 failed, 3 passed, 1 warning in 0.45s
+
+GOOD
+mutation: plan_split_accepts_any_dataset_string
+reverts: plan_split reports whatever dataset the model sent
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[ACS1]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[1-year]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[acs3]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[1]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[True]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[dataset6]
+result: 6 failed, 7 passed, 1 warning in 0.32s
+
+GOOD
+mutation: plan_split_accepts_only_the_acs1_product_name_with_case_folding
+reverts: plan_split lower-cases the dataset before matching the product names (ACS1 accepted)
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[ACS1]
+result: 1 failed, 12 passed, 1 warning in 0.25s
+
+GOOD
+mutation: plan_split_product_names_held_in_a_set_so_a_list_dataset_is_unhashable
+reverts: _PRODUCTS is a set, so a list-valued dataset raises instead of being dropped
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[dataset6]
+result: 1 failed, 12 passed, 1 warning in 0.29s
+
+GOOD
+mutation: plan_split_accepts_bool_years
+reverts: plan_split keeps True/False as years (isinstance int)
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated[sent0-kept0]
+result: 1 failed, 12 passed, 1 warning in 0.32s
+
+GOOD
+mutation: plan_split_coerces_string_and_float_years
+reverts: plan_split keeps '2021' and 2020.0 as years via int()
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated[sent0-kept0]
+result: 1 failed, 12 passed, 1 warning in 0.33s
+
+GOOD
+mutation: plan_split_accepts_a_years_value_that_is_not_a_list
+reverts: plan_split iterates years without checking it is a list (a bare number raises)
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[ACS1]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[1-year]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[acs3]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[1]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[True]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[None]
+  FAILED api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported[dataset6]
+  FAILED api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated[2022-kept2]
+  FAILED api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated[None-kept4]
+result: 9 failed, 4 passed, 1 warning in 0.34s
+
+GOOD
+mutation: plan_split_wraps_a_bare_years_value_in_a_list
+reverts: plan_split wraps a non-list years value as a one-item list
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated[2022-kept2]
+result: 1 failed, 12 passed, 1 warning in 0.35s
+
+GOOD
+mutation: adopt_does_not_copy_dataset
+reverts: GeoIntent.adopt leaves dataset at its default
+tests: api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_asks_for api/tests/test_finish.py::test_an_acs1_report_resolves_the_repair_against_acs1 api/tests/test_finish.py::test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_report
+  FAILED api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_asks_for
+  FAILED api/tests/test_finish.py::test_an_acs1_report_resolves_the_repair_against_acs1
+  FAILED api/tests/test_finish.py::test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_report
+result: 3 failed, 2 passed, 1 warning in 0.55s
+
+BAD
+mutation: adopt_does_not_copy_years
+reverts: GeoIntent.adopt leaves years at its default
+note: test_computer_share and test_overlapping_income fail, both acs1_year_span tests pass
+tests: api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+  FAILED api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops
+  FAILED api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops
+result: 2 failed, 3 passed, 1 warning in 0.38s
+
+BAD
+mutation: run_ask_does_not_pass_the_latest_vintage_to_the_split
+reverts: ask.run_ask calls split_beside without the latest acs5 vintage (the prompt would say None)
+tests: api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest api/tests/test_ask_loop.py::test_computer_share_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+result: 16 passed, 1 warning in 0.52s
+
+BAD
+mutation: overlapping_vintage_reads_year_ranges_out_of_the_question_text
+reverts: guards.overlapping_vintage adds the end years of every 'YYYY-YYYY' five-year range in the question
+tests: api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls api/tests/test_guards.py::test_non_overlapping_acs5_end_years_do_not_warn api/tests/test_guards.py::test_consecutive_acs5_vintages_overlap api/tests/test_guards.py::test_overlapping_vintage_still_ships_the_url api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear
+result: 6 passed, 1 warning in 0.24s
+
+BAD
+mutation: overlapping_vintage_reads_every_year_span_out_of_the_question_text
+reverts: guards.overlapping_vintage adds each year of 'every year from A to B' in the question
+tests: api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls api/tests/test_guards.py::test_non_overlapping_acs5_end_years_do_not_warn api/tests/test_guards.py::test_consecutive_acs5_vintages_overlap api/tests/test_guards.py::test_overlapping_vintage_still_ships_the_url api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear
+result: 6 passed, 1 warning in 0.21s
+
+GOOD
+mutation: overlapping_vintage_ignores_the_recorded_vintages
+reverts: guards.overlapping_vintage no longer reads record.vintages
+tests: api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls api/tests/test_guards.py::test_non_overlapping_acs5_end_years_do_not_warn api/tests/test_guards.py::test_consecutive_acs5_vintages_overlap api/tests/test_guards.py::test_overlapping_vintage_still_ships_the_url api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear
+  FAILED api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch
+  FAILED api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls
+  FAILED api/tests/test_guards.py::test_consecutive_acs5_vintages_overlap - Ass...
+  FAILED api/tests/test_guards.py::test_overlapping_vintage_still_ships_the_url
+  FAILED api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear
+result: 5 failed, 1 passed, 1 warning in 0.29s
+
+BAD
+mutation: overlapping_vintage_counts_non_acs5_vintages
+reverts: guards.overlapping_vintage counts every dataset's vintages, not only acs5
+tests: api/tests/test_guards.py::test_overlapping_acs5_ranges_warn_without_a_second_fetch api/tests/test_guards.py::test_overlapping_vintages_from_build_url_calls api/tests/test_guards.py::test_non_overlapping_acs5_end_years_do_not_warn api/tests/test_guards.py::test_consecutive_acs5_vintages_overlap api/tests/test_guards.py::test_overlapping_vintage_still_ships_the_url api/tests/test_guards.py::test_warning_only_keeps_url_after_series_clear
+result: 6 passed, 1 warning in 0.26s
+
+GOOD
+mutation: zcta_not_zip_fires_only_when_the_question_says_zip
+reverts: guards.zcta_not_zip returns nothing unless the question contains 'zip'
+tests: api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip]
+  FAILED api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it
+result: 1 failed, 2 passed, 1 warning in 0.28s
+
+BAD
+mutation: zcta_not_zip_does_not_fire_for_a_zcta_geography
+reverts: guards.zcta_not_zip ignores a resolved ZCTA geography (fires on 860 rows only)
+tests: api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+result: 2 passed, 1 warning in 0.37s
+
+GOOD
+mutation: zcta_not_zip_does_not_fire_for_860_rows
+reverts: guards.zcta_not_zip ignores 860 rows (fires on a ZCTA geography only)
+tests: api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+  FAILED api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+result: 1 failed, 1 passed, 1 warning in 0.24s
+
+BAD
+mutation: zcta_not_zip_reads_the_code_from_the_question_not_the_geo_id
+reverts: guards.zcta_not_zip takes the 5-digit code from the question's words
+tests: api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+result: 2 passed, 1 warning in 0.34s
+
+BAD
+mutation: zcta_not_zip_names_one_code_when_several_zctas_were_returned
+reverts: guards.zcta_not_zip names an arbitrary one of several returned ZCTAs
+tests: api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+result: 2 passed, 1 warning in 0.25s
+
+GOOD
+mutation: zcta_not_zip_reads_the_geoid_prefix_wrongly
+reverts: guards.zcta_not_zip takes the first five characters of the GEO_ID as the code
+tests: api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+  FAILED api/tests/test_guards.py::test_a_zcta_answer_warns_whatever_the_user_called_it
+  FAILED api/tests/test_guards.py::test_zip_language_warns_without_blocking_a_zcta_row
+result: 2 failed, 1 warning in 0.27s
+
+GOOD
+mutation: isolation_catches_a_year_regex_over_the_question
+reverts: regex '\\b(?:19|20)\\d{2}\\b' over the question injected in guards.overlapping_vintage
+tests: api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year]
+result: 1 failed, 1 warning in 0.35s
+
+GOOD
+mutation: isolation_catches_a_zip_regex_over_the_question
+reverts: regex '\\bzip\\b' over the question injected in guards.overlapping_vintage
+tests: api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a zip]
+result: 1 failed, 1 warning in 0.32s
+
+GOOD
+mutation: isolation_catches_a_1_year_regex_over_the_question
+reverts: regex '\\b1-year\\b' over the question injected in guards.overlapping_vintage
+tests: api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a dataset]
+result: 1 failed, 1 warning in 0.35s
+
+GOOD
+mutation: isolation_catches_a_since_regex_over_the_question
+reverts: regex '\\bsince\\b' over the question injected in guards.overlapping_vintage
+tests: api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[an open range]
+result: 1 failed, 1 warning in 0.46s
+
+GOOD
+mutation: isolation_catches_an_every_year_regex_over_the_question
+reverts: regex '\\bevery year\\b' over the question injected in guards.overlapping_vintage
+tests: api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span]
+  FAILED api/tests/test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a year span]
+result: 1 failed, 1 warning in 0.29s
+
+GOOD
+mutation: plan_split_drops_the_reported_dataset
+reverts: plan_split reports no dataset whatever the model sent
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated
+result: 1 failed, 12 passed, 1 warning in 0.34s
+
+GOOD
+mutation: plan_split_drops_the_reported_years
+reverts: plan_split reports no years whatever the model sent
+tests: api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated api/tests/test_geography_completeness.py::test_a_dataset_that_is_not_a_published_product_name_is_not_reported api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_the_report_carries_the_dataset_and_years_the_model_stated
+  FAILED api/tests/test_geography_completeness.py::test_only_whole_numbers_count_as_the_years_the_model_stated[sent0-kept0]
+result: 2 failed, 11 passed, 1 warning in 0.32s
+
+====================================================================
+PART 2: every BAD above, re-run after the strengthened tests (committed in this change)
+Strengthened/new tests:
+  test_ask_loop.py  test_the_shipped_fetch_tool_takes_its_years_from_the_plan_never_the_question
+  test_ask_loop.py  test_the_split_call_is_told_the_latest_published_vintage
+  test_ask_loop.py  test_finish_searches_the_dataset_the_report_states_whatever_the_question_says (3 cases)
+  test_ask_loop.py  fetched-vintage assertions added to test_overlapping_income_* and both test_acs1_year_span_*
+  test_finish.py    test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording (3 cases)
+  test_guards.py    test_overlap_is_judged_from_the_vintages_fetched_never_the_wording (4 cases)
+  test_guards.py    test_only_acs5_vintages_can_overlap
+  test_guards.py    test_a_resolved_zcta_warns_before_any_row_is_fetched
+  test_guards.py    test_the_word_zip_alone_does_not_warn_when_no_zcta_is_involved
+  test_guards.py    test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question
+  test_guards.py    test_several_zctas_returned_are_not_collapsed_into_naming_one
+(also added: fetch_data_ignores_the_years_it_is_called_with, a fresh mutation against the existing
+ test_in_year_uses_that_vintage_not_latest)
+====================================================================
+GOOD
+mutation: default_tools_question_years_read_from_the_question
+reverts: ask.default_tools question_years returns [2022] when the question contains '2022'
+tests: api/tests/test_ask_loop.py::test_the_shipped_fetch_tool_takes_its_years_from_the_plan_never_the_question
+  FAILED api/tests/test_ask_loop.py::test_the_shipped_fetch_tool_takes_its_years_from_the_plan_never_the_question
+result: 1 failed, 1 warning in 0.40s
+
+GOOD
+mutation: run_ask_does_not_pass_the_latest_vintage_to_the_split
+reverts: ask.run_ask calls split_beside without the latest acs5 vintage (the prompt would say None)
+tests: api/tests/test_ask_loop.py::test_the_split_call_is_told_the_latest_published_vintage
+  FAILED api/tests/test_ask_loop.py::test_the_split_call_is_told_the_latest_published_vintage
+result: 1 failed, 1 warning in 0.28s
+
+GOOD
+mutation: finish_acs1_from_the_question_words_instead_of_the_report
+reverts: finish_tools: acs1 is True when the question contains '1-year'/'acs1' (the report ignored)
+tests: api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_states_whatever_the_question_says api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording
+  FAILED api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_states_whatever_the_question_says[1-year ACS median family income in Harris County-None-acs5]
+  FAILED api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_states_whatever_the_question_says[acs1 median family income in Harris County-acs5-acs5]
+  FAILED api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_states_whatever_the_question_says[median family income in Harris County-acs1-acs1]
+  FAILED api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording[ACS 1-year all counties in Ohio and Michigan.-None-None]
+  FAILED api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording[ACS 1-year all counties in Ohio and Michigan.-acs5-None]
+  FAILED api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording[all counties in Ohio and Michigan.-acs1-acs1]
+result: 6 failed, 1 warning in 0.32s
+
+GOOD
+mutation: finish_acs1_from_the_report_or_the_question_words
+reverts: finish_tools: acs1 is the report's dataset OR the question containing '1-year'
+tests: api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_states_whatever_the_question_says api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording
+  FAILED api/tests/test_ask_loop.py::test_finish_searches_the_dataset_the_report_states_whatever_the_question_says[1-year ACS median family income in Harris County-None-acs5]
+  FAILED api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording[ACS 1-year all counties in Ohio and Michigan.-None-None]
+  FAILED api/tests/test_finish.py::test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording[ACS 1-year all counties in Ohio and Michigan.-acs5-None]
+result: 3 failed, 3 passed, 1 warning in 0.33s
+
+GOOD
+mutation: finish_fetches_with_years_read_from_the_question_instead_of_the_report
+reverts: finish_tools: fetch_data years are every 4-digit year in the question, not intent.years
+tests: api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+  FAILED api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops
+  FAILED api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve
+  FAILED api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+result: 3 failed, 1 warning in 0.34s
+
+GOOD
+mutation: finish_fetches_with_no_years_instead_of_the_reports
+reverts: finish_tools: fetch_data is sent no years (intent.years dropped)
+tests: api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+  FAILED api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops
+  FAILED api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve
+  FAILED api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+result: 3 failed, 1 warning in 0.29s
+
+GOOD
+mutation: adopt_does_not_copy_years
+reverts: GeoIntent.adopt leaves years at its default
+tests: api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+  FAILED api/tests/test_ask_loop.py::test_overlapping_income_finishes_when_the_model_stops
+  FAILED api/tests/test_ask_loop.py::test_acs1_year_span_builds_after_acs5_resolve
+  FAILED api/tests/test_ask_loop.py::test_acs1_year_span_replaces_an_acs5_url
+result: 3 failed, 1 warning in 0.29s
+
+GOOD
+mutation: fetch_data_ignores_the_years_it_is_called_with
+reverts: FetchDataTool uses the built URL's year and drops the years argument
+tests: api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+  FAILED api/tests/test_ask_loop.py::test_in_year_uses_that_vintage_not_latest
+result: 1 failed, 1 warning in 0.30s
+
+GOOD
+mutation: overlapping_vintage_reads_year_ranges_out_of_the_question_text
+reverts: guards.overlapping_vintage adds the end years of every 'YYYY-YYYY' five-year range in the question
+tests: api/tests/test_guards.py::test_overlap_is_judged_from_the_vintages_fetched_never_the_wording
+  FAILED api/tests/test_guards.py::test_overlap_is_judged_from_the_vintages_fetched_never_the_wording[Compare median household income between 2015-2019 and 2018-2022_0]
+  FAILED api/tests/test_guards.py::test_overlap_is_judged_from_the_vintages_fetched_never_the_wording[Compare median household income between 2015-2019 and 2018-2022_1]
+result: 2 failed, 2 passed, 1 warning in 0.22s
+
+GOOD
+mutation: overlapping_vintage_reads_every_year_span_out_of_the_question_text
+reverts: guards.overlapping_vintage adds each year of 'every year from A to B' in the question
+tests: api/tests/test_guards.py::test_overlap_is_judged_from_the_vintages_fetched_never_the_wording
+  FAILED api/tests/test_guards.py::test_overlap_is_judged_from_the_vintages_fetched_never_the_wording[Plot median household income for Cuyahoga County every year from 2017 to 2023]
+result: 1 failed, 3 passed, 1 warning in 0.19s
+
+GOOD
+mutation: overlapping_vintage_counts_non_acs5_vintages
+reverts: guards.overlapping_vintage counts every dataset's vintages, not only acs5
+tests: api/tests/test_guards.py::test_only_acs5_vintages_can_overlap
+  FAILED api/tests/test_guards.py::test_only_acs5_vintages_can_overlap - Assert...
+result: 1 failed, 1 warning in 0.23s
+
+GOOD
+mutation: zcta_not_zip_fires_only_when_the_question_says_zip
+reverts: guards.zcta_not_zip returns nothing unless the question contains 'zip'
+tests: api/tests/test_guards.py::test_a_resolved_zcta_warns_before_any_row_is_fetched api/tests/test_guards.py::test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question api/tests/test_guards.py::test_several_zctas_returned_are_not_collapsed_into_naming_one
+  FAILED api/tests/test_guards.py::test_a_resolved_zcta_warns_before_any_row_is_fetched
+  FAILED api/tests/test_guards.py::test_several_zctas_returned_are_not_collapsed_into_naming_one
+result: 2 failed, 1 passed, 1 warning in 0.25s
+
+GOOD
+mutation: zcta_not_zip_does_not_fire_for_a_zcta_geography
+reverts: guards.zcta_not_zip ignores a resolved ZCTA geography (fires on 860 rows only)
+tests: api/tests/test_guards.py::test_a_resolved_zcta_warns_before_any_row_is_fetched
+  FAILED api/tests/test_guards.py::test_a_resolved_zcta_warns_before_any_row_is_fetched
+result: 1 failed, 1 warning in 0.22s
+
+GOOD
+mutation: zcta_not_zip_does_not_fire_for_860_rows
+reverts: guards.zcta_not_zip ignores 860 rows (fires on a ZCTA geography only)
+tests: api/tests/test_guards.py::test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question api/tests/test_guards.py::test_several_zctas_returned_are_not_collapsed_into_naming_one
+  FAILED api/tests/test_guards.py::test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question
+  FAILED api/tests/test_guards.py::test_several_zctas_returned_are_not_collapsed_into_naming_one
+result: 2 failed, 1 warning in 0.25s
+
+GOOD
+mutation: zcta_not_zip_reads_the_code_from_the_question_not_the_geo_id
+reverts: guards.zcta_not_zip takes the 5-digit code from the question's words
+tests: api/tests/test_guards.py::test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question
+  FAILED api/tests/test_guards.py::test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question
+result: 1 failed, 1 warning in 0.23s
+
+GOOD
+mutation: zcta_not_zip_names_one_code_when_several_zctas_were_returned
+reverts: guards.zcta_not_zip names an arbitrary one of several returned ZCTAs
+tests: api/tests/test_guards.py::test_several_zctas_returned_are_not_collapsed_into_naming_one
+  FAILED api/tests/test_guards.py::test_several_zctas_returned_are_not_collapsed_into_naming_one
+result: 1 failed, 1 warning in 0.22s
+
+====================================================================
+SUMMARY
+Part 1: 35 mutations, 22 GOOD, 13 BAD
+Extra mutation first run in Part 2 (fetch_data_ignores_the_years_it_is_called_with, existing test): GOOD
+Total: 36 mutations, 23 GOOD, 13 BAD
+Part 2: 16 runs = the 13 BAD ones, the extra one, and 2 GOOD ones re-run against the new tests
+(16 GOOD, 0 BAD). Every BAD in Part 1 is followed by a strengthened test that fails
+against the same mutation: yes
+
+Final full suite at the end state (uv run pytest api/tests -q -p no:cacheprovider, api/src identical to 9077083):
+1504 passed, 34 skipped, 1 warning in 83.81s (0:01:23)   [baseline at 9077083: 1487 passed, 34 skipped]
+ruff check api/tests: All checks passed; ruff format --check api/tests: 51 files already formatted

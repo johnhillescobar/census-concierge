@@ -1492,3 +1492,61 @@ def test_series_clear_without_a_built_url_stays_empty() -> None:
     record = ExecutionRecord()
     clear_series(record)
     assert assemble("never built", _stated(record)).urls == []
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        T01,
+        "Compare median household income between 2015-2019 and 2018-2022",
+        "Plot median household income for Cuyahoga County every year from 2017 to 2023",
+        "Median household income in 2018, 2019, 2020, 2021 and 2022",
+    ],
+)
+def test_overlap_is_judged_from_the_vintages_fetched_never_the_wording(question: str) -> None:
+    record = ExecutionRecord(question=question, vintages=[("acs5", 2022)])
+    assert _codes(record) == []
+    assert _codes(ExecutionRecord(question=question)) == []
+
+
+def test_only_acs5_vintages_can_overlap() -> None:
+    record = ExecutionRecord(vintages=[("acs1", 2021), ("acs1", 2022), ("acs5", 2022)])
+    assert _codes(record) == []
+
+
+def _zcta_spec() -> GeoSpec:
+    return GeoSpec(
+        name="ZCTA5 90210",
+        level="zip code tabulation area",
+        for_spec="zip code tabulation area:90210",
+    )
+
+
+def test_a_resolved_zcta_warns_before_any_row_is_fetched() -> None:
+    record = ExecutionRecord(question="Median household income for 90210")
+    record.geographies = [_zcta_spec()]
+    record.geography = record.geographies[0]
+    assert _codes(record) == ["zcta_not_zip"]
+
+
+def test_the_word_zip_alone_does_not_warn_when_no_zcta_is_involved() -> None:
+    record = ExecutionRecord(question="Median household income by zip code 10001")
+    record.rows = [{"GEO_ID": "0500000US48201", "B19013_001E": "100", "B19013_001M": "10"}]
+    assert _codes(record) == []
+
+
+def test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question() -> None:
+    record = ExecutionRecord(question="Median household income for ZIP 11111")
+    record.rows = [{"GEO_ID": "860Z200US10001", "B19013_001E": "100", "B19013_001M": "10"}]
+    detail = assemble("x", _stated(record)).warnings[0].detail
+    assert "10001" in detail and "11111" not in detail
+
+
+def test_several_zctas_returned_are_not_collapsed_into_naming_one() -> None:
+    record = ExecutionRecord(question="Median household income for ZCTAs")
+    record.rows = [
+        {"GEO_ID": "860Z200US10001", "B19013_001E": "100", "B19013_001M": "10"},
+        {"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"},
+    ]
+    detail = assemble("x", _stated(record)).warnings[0].detail
+    assert "10001" not in detail and "90210" not in detail
