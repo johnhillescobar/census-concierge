@@ -103,7 +103,8 @@ async def plan_split(question: str, complete: Complete | None) -> GeoIntent | No
             n.strip().casefold(): n.strip() for n in names if isinstance(n, str) and n.strip()
         }.values()
     )
-    listing = bool(names) and bool(found.get("listing")) and unit in _SPLIT_UNITS
+    wants_rows = found.get("listing") is True  # a string or a number is not the model saying yes
+    listing = bool(names) and wants_rows and unit in _SPLIT_UNITS
     up = found.get("parent_level")
     return GeoIntent(
         reported=True,
@@ -114,7 +115,7 @@ async def plan_split(question: str, complete: Complete | None) -> GeoIntent | No
         asks_for=found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
         county_named=found.get("county_named") is True,
         pointing=found.get("pointing") is True,
-        places=names if names and not found.get("listing") else [],
+        places=names if names and not wants_rows else [],
         parents=names if listing else [],
         unit=unit if listing else None,
         parent_level=up if listing and isinstance(up, str) else None,
