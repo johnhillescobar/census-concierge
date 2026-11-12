@@ -56,10 +56,14 @@ reachable, D1/D3/D5/D8-D10 kept with reasons. Owner: stop re-running Gate 2 -- n
 
 ## Open
 
-- **Owner decision needed (cohort):** the protocol loads cohorts by `tier` only, so `[cohorts.geography]` as first described
-  (goldens that carry expect_geo_level) cannot be loaded. Recommended: use the existing frozen `long_tail` cohort (48 families,
-  all carry expect_geo_level; the metro golden counts as a miss until CC-106, 47/48 = 97.9%). Option 2: add a field filter to
-  metric_compare.py (instrument change). Correct plan D8 and the Jira comment once chosen. Do not measure P before it.
+- **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
+  included), in their own commit on `main`. I offered three options: existing `long_tail` (recommended, 47/48 ceiling), a field
+  filter (instrument change + bridge), or the owner commits. The owner chose the last. WAIT for it: `git fetch; git grep
+  cohorts.geography origin/main -- evals/metric_protocol.toml`. Then rebase this branch on that `main`, re-run the machines,
+  correct plan D8 and the Jira comment, and only then run the E2E. Do not measure P before it lands.
+- Machines re-run 2026-11-12 at HEAD 6c9eeff: pytest 1446 passed / 34 skipped / 5 xfailed; ruff clean; invariants exit 0
+  (regex 28, delta -27); budgets: only `answered_rate` 0.683 red (inherited), p95 row waived for the 2026-11-09 run only.
+  `make` is not installed on this machine: run the Makefile recipe lines directly.
 - **E2E, once, on frozen code**, in an isolated worktree, HEAD identical at start and end:
   `bash evidence/slice-6/cc-133/e2e-r4/driver.sh` pattern (copy it to `evidence/slice-6/cc-104/e2e/`). Quote gated keys
   and `demo.misses` only; `metric_compare compare ... --refs A,A0`; then `git checkout -- evidence/latest.json` and delete
