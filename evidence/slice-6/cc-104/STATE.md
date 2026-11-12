@@ -54,6 +54,20 @@ is refreshed with every commit that changes code; keep it equal to the head the 
 re-run for this cycle ran (gate2-c3-r2.txt, D1-D10): D2, D4, D7 fixed with tests (gate1-c3-r2-fixes.txt, GOOD), D6 not
 reachable, D1/D3/D5/D8-D10 kept with reasons. Owner: stop re-running Gate 2 -- no further round.
 
+## Cycle 4 (owner request 2026-11-12: "ALL AC AND TC fully met")
+
+Audit found AC3 NOT met (Gate 2 round 1 had called it weak; carried unfixed). Fixed in 52662e7: one `GeoIntent` on
+`record.intent` (loop group + report group + `adopt`, `intent_of`); `plan_split` returns it; loose fields
+(`asked_levels`, `geo_queries`, `unmet_levels`, `tables_only`) gone. Gate 1 (gate1-ac3.txt, 75 mutations, 9 BAD each followed by
+a stronger test) -> Gate 2 once (gate2-ac3.txt, READY, E1-E7 NOTE) -> E1 (listing flag must be `is True`), E2/E6 (docstring)
+fixed with a test and mutation (gate1-ac3-gate2-fixes.txt). E3 unreachable, E4 benign, E5/E7 known. Stale item removed: R1 is
+fixed (probe: county given without state is refused). Do not run Gate 2 again.
+Manifest `evidence/closure/CC-104.toml` rewritten at the code head: AC2-5, TC1, TC3-5 PASS with pinned evidence; **AC1 and TC2
+are UNKNOWN** because 5 isolation xfails remain (4 time/product = CC-129, 1 `guards.py zcta_not_zip` = CC-122/CC-135). Only a dated
+owner `[[amendment]]` (id, date, owner, reason, destination) makes them AMENDED; or the owner fixes them in scope.
+Machines at that head: pytest 1469 passed / 34 skipped / 5 xfailed; ruff, mypy clean; invariants ok (regex 28, delta -27);
+api LOC 4834/4890. Any later change to api/src or api/tests makes every row stale: re-run the row commands, refresh closure-run/.
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
@@ -81,8 +95,7 @@ reachable, D1/D3/D5/D8-D10 kept with reasons. Owner: stop re-running Gate 2 -- n
   and the behaviour changes below. Owner merges. Then post-merge E2E on main, then `jira_transition.py CC-104 --done`.
 - **Follow-ups to list in the PR, not fix here:** `compare.py:107` reads the question (warning trigger); `wants_acs1` and
   `requested_years` read words (CC-129); a partial comparison returns only the legs that resolved (old behaviour);
-  `geography_level_unverified` treats `asked_levels == [None]` as stated (CC-114); R1 (a named county without its state
-  gives the state, so "tract 12 in Cook County" is not refused).
+  `geography_level_unverified` treats `asked_levels == [None]` as stated (CC-114).
 - **Behaviour changes to name in the PR:** listing parents need `parent_level` unless a bare state; `level=null` listing
   refused; `parents` with other places/levels refused (same names again are redundant); several county/place parents
   must each carry their state; an unqualified listing parent that no match dominates returns candidates.
