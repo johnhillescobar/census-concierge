@@ -661,3 +661,54 @@ async def test_the_split_report_carries_pointing_as_a_flag_and_nothing_else() ->
     for sent in ("my county", 7, None, ["my county"]):
         found = await _split(level="county", pointing=sent)
         assert found is not None and found.pointing is False
+
+
+# --- the intent the split report fills: what each field carries, and when ----------------------
+
+
+async def test_places_are_reported_for_a_comparison_and_parents_only_for_a_listing() -> None:
+    sent = {"parents": ["Ohio", "Michigan"], "unit": "county", "parent_level": "state"}
+    compared = await _split(listing=False, **sent)
+    assert compared is not None
+    assert (compared.places, compared.parents, compared.unit, compared.parent_level) == (
+        ["Ohio", "Michigan"],
+        [],
+        None,
+        None,
+    )
+    listed = await _split(listing=True, **sent)
+    assert listed is not None
+    assert (listed.places, listed.parents, listed.unit, listed.parent_level) == (
+        [],
+        ["Ohio", "Michigan"],
+        "county",
+        "state",
+    )
+
+
+@pytest.mark.parametrize(
+    "sent",
+    [
+        {"parents": ["Ohio"], "unit": "galaxy", "parent_level": "state"},  # no unit it can split
+        {"parents": [], "unit": "county", "parent_level": "state"},  # nothing to list under
+    ],
+)
+async def test_a_listing_needs_parents_and_a_unit_it_can_split(sent: dict[str, Any]) -> None:
+    found = await _split(listing=True, **sent)
+    assert found is not None
+    assert (found.places, found.parents, found.unit, found.parent_level) == ([], [], None, None)
+
+
+@pytest.mark.parametrize("level", [7, ["state"], {"a": 1}, None])
+async def test_a_parent_level_that_is_not_text_is_not_reported(level: Any) -> None:
+    found = await _split(parents=["Ohio"], unit="county", listing=True, parent_level=level)
+    assert found is not None and found.parents == ["Ohio"] and found.parent_level is None
+
+
+async def test_the_report_incomplete_reads_stays_on_the_record_for_the_guards() -> None:
+    record = ExecutionRecord(question="Which table has median age?")
+    done: asyncio.Future[GeoIntent | None] = asyncio.get_running_loop().create_future()
+    done.set_result(GeoIntent(reported=True, asks_for="tables", level="county"))
+    assert await finish.incomplete(record, done) is None
+    assert record.intent.reported is True and record.intent.tables_only is True
+    assert record.intent.level == "county"

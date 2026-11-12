@@ -7,6 +7,7 @@ rather than invent others. These tests drive `finish_tools` and check the calls 
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -14,6 +15,7 @@ from ask_fixtures import _geo_tool
 from src.ask import ExecutionRecord, dispatch
 from src.contract import GeoSpec
 from src.finish import finish_tools, plan_split
+from src.geo_level import GeoIntent
 
 
 async def test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair() -> None:
@@ -40,6 +42,16 @@ async def test_a_repair_resolution_never_replaces_the_level_the_model_stated() -
     await finish_tools(dispatch, {"resolve_geography": _geo_tool()}, record)
     assert record.geographies  # the repair did resolve something
     assert record.intent.levels == ["county"]
+
+
+async def test_a_repair_resolution_never_records_a_level_the_model_did_not_state() -> None:
+    record = ExecutionRecord(question="population of Harris County, Texas")
+    record.intent.legs = ["Harris County, Texas"]  # the model stated no level for it
+    split: asyncio.Future[GeoIntent | None] = asyncio.get_running_loop().create_future()
+    split.set_result(GeoIntent(reported=True, level="county"))
+    await finish_tools(dispatch, {"resolve_geography": _geo_tool()}, record, split)
+    assert record.geographies  # the repair resolved it at the level the split call reported
+    assert record.intent.levels == []
 
 
 async def test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one() -> None:
