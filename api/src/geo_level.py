@@ -5,6 +5,7 @@ as unverified, never guessed quietly."""
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.census_url import CensusURL
@@ -81,6 +82,51 @@ def declared_levels(args: dict[str, Any]) -> list[str | None]:
     return [level_name(args.get("level"))] * legs
 
 
+@dataclass
+class GeoIntent:
+    """What the model asked for, in one place, from both of its reports. This is the requested
+    side only: what ran is `record.geographies`, what the lookup guessed is
+    `geo_status["inferred"]`, and a value code supplies is never written here. The loop's own
+    resolve_geography calls fill the first group (a repair call never does); the split call fills
+    the second, read once by `adopt`."""
+
+    levels: list[str | None] = field(default_factory=list)  # one per leg the model stated, null too
+    legs: list[str] = field(default_factory=list)  # single-place legs resolved so far
+    unmet: set[str] = field(default_factory=set)  # stated, and not later served by a legal call
+    reported: bool = False
+    level: str | None = None
+    named: list[Any] = field(default_factory=list)
+    numbered: list[Any] = field(default_factory=list)
+    given: list[Any] | None = None
+    asks_for: str | None = None
+    county_named: bool = False
+    pointing: bool = False
+    places: list[str] = field(default_factory=list)
+    parents: list[str] = field(default_factory=list)
+    unit: str | None = None
+    parent_level: str | None = None
+
+    @property
+    def tables_only(self) -> bool:
+        """The question asks which table holds something: no geography is wanted or flagged."""
+        return str(self.asks_for or "").strip().casefold() == "tables"
+
+    def adopt(self, report: GeoIntent | None) -> None:
+        """Take the split call's fields, once; the loop's own fields are never touched."""
+        if report is None or self.reported:
+            return
+        for name in ("level", "named", "numbered", "given", "asks_for", "county_named"):
+            setattr(self, name, getattr(report, name))
+        for name in ("pointing", "places", "parents", "unit", "parent_level"):
+            setattr(self, name, getattr(report, name))
+        self.reported = True
+
+
+def intent_of(record: Any) -> GeoIntent:
+    """The record's intent; a record that has none states nothing."""
+    return getattr(record, "intent", None) or GeoIntent()
+
+
 def note_intent(record: Any, name: str, call: dict[str, Any], failed: bool = False) -> None:
     """Keep the level the model stated in its own geography call; a repair call never changes it."""
     args = call.get("args") or {}
@@ -90,13 +136,14 @@ def note_intent(record: Any, name: str, call: dict[str, Any], failed: bool = Fal
     shown = max(int(status.get("compare_count") or 0), 1)  # legs the lookup actually resolved
     served = not failed and bool(record.geographies) and status.get("legal") is not False
     served = served and len(stated) <= shown
+    intent = record.intent
     for level in filter(None, stated):  # a level asked for and not served must not just vanish
-        (record.unmet_levels.discard if served else record.unmet_levels.add)(level)
+        (intent.unmet.discard if served else intent.unmet.add)(level)
     if not served:  # a failed, refused, empty or partial call keeps the legs it left
         return
-    legs = len(getattr(record, "geo_queries", None) or [])
+    legs = len(intent.legs)
     # Single-place calls resolve the legs of a comparison one at a time: keep each leg's own level.
-    record.asked_levels = [*record.asked_levels[: legs - 1], *stated] if legs else stated
+    intent.levels = [*intent.levels[: legs - 1], *stated] if legs else stated
 
 
 def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
@@ -117,9 +164,10 @@ def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
 def geography_level_mismatch(record: Any) -> AskWarning | None:
     """A URL whose `for=` level the model never stated: the substitution this ticket forbids."""
     plan = getattr(getattr(record, "override", None), "geographies", None)  # the user's own plan
-    asked = [g.level for g in plan] if plan else list(getattr(record, "asked_levels", None) or [])
-    unmet = set(getattr(record, "unmet_levels", ()))
-    if not (asked or unmet) or getattr(record, "tables_only", False):
+    intent = intent_of(record)
+    asked = [g.level for g in plan] if plan else list(intent.levels)
+    unmet = set(intent.unmet)
+    if not (asked or unmet) or intent.tables_only:
         return None
     allowed = {level for level in asked if level} | unmet  # fetching a stated level is not a swap
     if None in asked:  # a leg with no stated level may be answered at the level the lookup chose
@@ -145,12 +193,13 @@ def geography_level_mismatch(record: Any) -> AskWarning | None:
 
 def geography_level_unverified(record: Any) -> AskWarning | None:
     """A geography was resolved without a level the model stated, or the code had to infer one."""
-    if getattr(record, "tables_only", False) or not getattr(record, "geographies", None):
+    intent = intent_of(record)
+    if intent.tables_only or not getattr(record, "geographies", None):
         return None
     if getattr(getattr(record, "override", None), "geographies", None):
         return None  # the user's own plan names the places; no model reading is involved
     status = getattr(record, "geo_status", None) or {}
-    stated = bool(getattr(record, "asked_levels", None) or getattr(record, "unmet_levels", None))
+    stated = bool(intent.levels or intent.unmet)
     if stated and not status.get("inferred"):
         return None
     how = "inferred from the place name or its words" if stated else "never stated by the model"

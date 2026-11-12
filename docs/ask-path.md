@@ -39,8 +39,10 @@ with them when the loop's resolution is not one all-wildcard spec per parent at 
 shows fewer legs than `places`. Nothing reported means nothing is resolved: finish never reads the question
 for a place or level. A failed call or repair never fails the answer and restores the loop's own
 resolution; the task is always cancelled when the request ends.
-`ExecutionRecord.geo_queries` (`ask.py`) tracks single-place calls (a same-place refinement,
-"Springfield" then "Springfield, Illinois", replaces its entry); finish replays them as one `places` call.
+`ExecutionRecord.intent` (`GeoIntent`, `geo_level.py`) is the one place the model's requests are kept: the loop's
+calls fill `levels`, `legs` and `unmet`, the split report fills the rest once (`adopt`). `legs` tracks single-place
+calls (a same-place refinement, "Springfield" then "Springfield, Illinois", replaces its entry); finish replays
+them as one `places` call. What ran is `record.geographies`; what the lookup guessed is `geo_status["inferred"]`.
 `fetch_data` retries when `record.fetch is None or not record.fetch.ok`, not bare `is None`.
 
 If a tool fails twice in a row, `run_ask` catches that and — if `finish_tools`
@@ -119,7 +121,7 @@ comparison legs (else refused for repair). A call without `level` is refused for
 stop the tool). Code runs the stated level exactly. A name not published for the dataset fails with the
 published names and that refusal stands: finish neither re-resolves nor falls back, so no
 URL is built; a resend at another level leaves the refused level unmet, so the mismatch names it.
-`asked_levels` keeps one stated level per leg; a call that resolved nothing, and finish's repair calls
+`intent.levels` keeps one stated level per leg; a call that resolved nothing, and finish's repair calls
 (`"origin": "repair"`), never change it. A level the model stated that could not be served (an
 unsupported, refused, empty or partial result, or the call raised) stays unmet until a legal call serves it.
 `geography_level_mismatch` fires when a fetched `for=` level was not stated, or a stated or unmet level

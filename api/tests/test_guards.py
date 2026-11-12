@@ -33,7 +33,7 @@ Q24 = "Median household income for ZCTA 90210"
 
 def _stated(record: ExecutionRecord) -> ExecutionRecord:
     """A hand-built record stands for a loop whose model stated each geography's own level."""
-    record.asked_levels = [spec.level for spec in record.geographies[:1]]
+    record.intent.levels = [spec.level for spec in record.geographies[:1]]
     return record
 
 

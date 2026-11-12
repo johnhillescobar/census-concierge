@@ -18,9 +18,9 @@ from src.finish import finish_tools, plan_split
 
 async def test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair() -> None:
     record = ExecutionRecord(question="Austin and Texas")
-    record.geo_queries = ["Austin, Texas", "Texas"]
+    record.intent.legs = ["Austin, Texas", "Texas"]
     record.geo_status = {"legal": True, "compare": False}
-    record.asked_levels = ["place", "state"]
+    record.intent.levels = ["place", "state"]
     calls: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
@@ -35,16 +35,16 @@ async def test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_
 
 async def test_a_repair_resolution_never_replaces_the_level_the_model_stated() -> None:
     record = ExecutionRecord(question="population of Harris County, Texas")
-    record.asked_levels = ["county"]
-    record.geo_queries = ["Harris County, Texas"]
+    record.intent.levels = ["county"]
+    record.intent.legs = ["Harris County, Texas"]
     await finish_tools(dispatch, {"resolve_geography": _geo_tool()}, record)
     assert record.geographies  # the repair did resolve something
-    assert record.asked_levels == ["county"]
+    assert record.intent.levels == ["county"]
 
 
 async def test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one() -> None:
     record = ExecutionRecord(question="households and families in Texas")
-    record.asked_levels = ["tract"]
+    record.intent.levels = ["tract"]
     calls: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:

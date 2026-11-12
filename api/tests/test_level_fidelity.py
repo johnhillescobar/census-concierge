@@ -16,7 +16,7 @@ from src.ask import ExecutionRecord, assemble, dispatch, run_ask
 from src.census_url import CensusURL
 from src.contract import GeoSpec
 from src.finish import finish_tools
-from src.geo_level import declared_levels, note_intent
+from src.geo_level import GeoIntent, declared_levels, note_intent
 from src.guards import evaluate
 from src.retrieval.metadata import GeoLevel
 from src.tools import ResolveGeographyInput
@@ -31,10 +31,13 @@ def _codes(record: ExecutionRecord) -> list[str]:
 
 
 def _answered(url: str, asked: list[str | None], **fields: Any) -> ExecutionRecord:
-    record = ExecutionRecord(question="population", asked_levels=asked)
+    record = ExecutionRecord(question="population", intent=GeoIntent(levels=asked))
     record.geographies = [_harris()]
     record.geography = record.geographies[0]
     record.url = CensusURL(url)
+    record.intent.unmet = fields.pop("unmet_levels", set())
+    if fields.pop("tables_only", False):
+        record.intent.asks_for = "tables"
     for name, value in fields.items():
         setattr(record, name, value)
     return record
@@ -54,7 +57,7 @@ async def test_a_call_that_omits_the_level_is_refused_for_repair_and_is_bounded(
     geo = _tools(record)["resolve_geography"]
     refused = await dispatch(geo, {"id": "1", "args": {"places": ["Harris County, TX"]}}, record)
     assert refused.startswith("resolve_geography failed")
-    assert record.geographies == [] and record.asked_levels == []
+    assert record.geographies == [] and record.intent.levels == []
     with pytest.raises(RuntimeError, match="failed twice"):
         await dispatch(geo, {"id": "2", "args": {"places": ["Harris County, TX"]}}, record)
 
@@ -65,12 +68,12 @@ async def test_a_repair_call_never_overwrites_the_level_the_model_stated() -> No
     await dispatch(
         geo, {"id": "1", "args": {"level": "county", "places": ["Harris County, TX"]}}, record
     )
-    assert record.asked_levels == ["county"]
+    assert record.intent.levels == ["county"]
     # a repair call that DOES resolve something, at another level: it must not become the stated one
     repair = {"id": "2", "origin": "repair", "args": {"level": "place", "places": ["Austin, TX"]}}
     await dispatch(geo, repair, record)
     assert [g.level for g in record.geographies] == ["place"]
-    assert record.asked_levels == ["county"]
+    assert record.intent.levels == ["county"]
 
 
 def test_declared_levels_follow_the_legs_the_call_resolves() -> None:
@@ -86,7 +89,7 @@ def test_only_a_resolve_call_that_states_a_level_records_one() -> None:
     record = ExecutionRecord()
     note_intent(record, "resolve_geography", {"args": {"places": ["x"]}})
     note_intent(record, "build_url", {"args": {"level": "county"}})
-    assert record.asked_levels == []
+    assert record.intent.levels == []
 
 
 # --- execution: the stated level is the level run ----------------------------------------------
@@ -267,7 +270,7 @@ async def test_a_loop_whose_model_states_the_level_raises_no_level_warning() -> 
     response = await run_ask(
         "population of Harris County, Texas", complete=complete, tools=tools, record=record
     )
-    assert record.asked_levels == ["county"]
+    assert record.intent.levels == ["county"]
     assert response.urls
     assert not {w.code for w in response.warnings} & {
         "geography_level_mismatch",
@@ -430,7 +433,7 @@ async def test_legs_resolved_one_call_at_a_time_each_keep_their_own_stated_level
             ("fetch_data", {}),
         ],
     )
-    assert record.asked_levels == ["county", "place"]
+    assert record.intent.levels == ["county", "place"]
     # finish replays the legs as one call; the county leg must not be run as a place
     assert sorted(spec.level for spec in record.geographies[:2]) == ["county", "place"]
     assert "geography_level_mismatch" not in {w.code for w in response.warnings}
@@ -446,8 +449,8 @@ async def test_a_refinement_of_the_same_place_replaces_its_level_not_adds_a_leg(
             ("resolve_geography", {"level": "place", "places": ["Springfield, Illinois"]}),
         ],
     )
-    assert record.geo_queries == ["Springfield, Illinois"]
-    assert record.asked_levels == ["place"]
+    assert record.intent.legs == ["Springfield, Illinois"]
+    assert record.intent.levels == ["place"]
 
 
 async def test_a_levels_list_that_does_not_match_the_places_is_refused_for_repair() -> None:
@@ -465,7 +468,7 @@ async def test_finish_resolves_no_geography_from_the_question_when_the_model_rep
     """The question names a listing, but the model stated no place and no split reported one.
     Finish has nothing to resolve and must not pick a geography from the question's words."""
     record = ExecutionRecord(question="Show every tract in Cook County, Illinois")
-    record.asked_levels = [None]
+    record.intent.levels = [None]
     geo = _tools(record)["resolve_geography"]
     await finish_tools(dispatch, {"resolve_geography": geo}, record)
     assert record.geographies == [] and record.geo_status is None
@@ -496,7 +499,7 @@ async def test_a_call_that_finds_nothing_does_not_shift_the_legs_stated_levels()
             ("fetch_data", {}),
         ],
     )
-    assert record.asked_levels == ["county", "place"]
+    assert record.intent.levels == ["county", "place"]
     assert sorted(spec.level for spec in record.geographies[:2]) == ["county", "place"]
 
 
@@ -512,7 +515,7 @@ async def test_a_refused_call_between_legs_does_not_shift_the_legs_stated_levels
             ("fetch_data", {}),
         ],
     )
-    assert record.asked_levels == ["county", "place"]
+    assert record.intent.levels == ["county", "place"]
 
 
 async def test_a_level_the_code_chose_is_marked_inferred_in_every_result_shape() -> None:
@@ -570,7 +573,7 @@ async def test_a_level_asked_for_and_not_served_cannot_be_swapped_for_place_with
             ("fetch_data", {}),
         ],
     )
-    assert record.unmet_levels == {"tract"}
+    assert record.intent.unmet == {"tract"}
     assert response.urls and CensusURL(response.urls[0]).for_level() == "place"
     flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
     assert flag and "no URL fetches tract" in flag[0].detail
@@ -581,10 +584,10 @@ async def test_an_unserved_level_is_cleared_once_a_later_call_serves_it() -> Non
     geo = _tools(record)["resolve_geography"]
     unserved = {"id": "1", "args": {"level": "tract", "places": ["Cook County, Illinois"]}}
     await dispatch(geo, unserved, record)
-    assert record.unmet_levels == {"tract"}
+    assert record.intent.unmet == {"tract"}
     listing = {"level": "tract", "parents": ["Cook County, Illinois"], "parent_level": "county"}
     await dispatch(geo, {"id": "2", "args": listing}, record)
-    assert record.unmet_levels == set()
+    assert record.intent.unmet == set()
 
 
 async def test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped_silently() -> None:
@@ -596,7 +599,7 @@ async def test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped
             ("resolve_geography", {"level": "place", "places": ["Austin, Texas"]}),
         ]
     )
-    assert record.unmet_levels == {"congressional district"}
+    assert record.intent.unmet == {"congressional district"}
     assert CensusURL(response.urls[0]).for_level() == "place"
     flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
     assert flag and "no URL fetches congressional district" in flag[0].detail
@@ -636,7 +639,7 @@ async def test_a_lookup_that_matched_nothing_leaves_the_stated_level_unmet() -> 
         ]
     )
     assert CensusURL(response.urls[0]).for_level() == "county"
-    assert record.unmet_levels == {"place"}
+    assert record.intent.unmet == {"place"}
     flag = [w for w in response.warnings if w.code == "geography_level_mismatch"]
     assert flag and "no URL fetches place" in flag[0].detail
 
@@ -647,7 +650,7 @@ async def test_an_unserved_candidate_does_not_overwrite_an_earlier_legs_level() 
     place = {"level": "place", "places": ["Austin, Texas"]}
     await dispatch(geo, {"id": "1", "args": place}, record)
     await dispatch(geo, {"id": "2", "args": {"level": "tract", "places": ["Texas"]}}, record)
-    assert record.asked_levels == ["place"] and record.unmet_levels == {"tract"}
+    assert record.intent.levels == ["place"] and record.intent.unmet == {"tract"}
 
 
 async def test_a_partial_comparison_keeps_every_stated_level_unmet() -> None:
@@ -659,7 +662,7 @@ async def test_a_partial_comparison_keeps_every_stated_level_unmet() -> None:
         "levels": ["place", "county"],
     }
     await dispatch(geo, {"id": "1", "args": args}, record)
-    assert record.unmet_levels == {"place", "county"} and record.asked_levels == []
+    assert record.intent.unmet == {"place", "county"} and record.intent.levels == []
 
 
 async def test_malformed_level_arguments_do_not_crash_the_failure_handler() -> None:
@@ -695,12 +698,12 @@ async def test_an_unsupported_candidate_is_not_a_comparison_leg() -> None:
     geo = _tools(record)["resolve_geography"]
     place = {"level": "place", "places": ["Austin, Texas"]}
     await dispatch(geo, {"id": "1", "args": place}, record)
-    assert record.geo_queries == ["Austin, Texas"]
+    assert record.intent.legs == ["Austin, Texas"]
     listing = {"level": "tract", "parents": ["Texas"]}
     await dispatch(geo, {"id": "2", "args": listing}, record)
     assert record.geo_status is not None and record.geo_status["legal"] is False
     assert [g.level for g in record.geographies] == ["tract"]  # the candidate the model may build
-    assert record.geo_queries == []  # a listing leaves no place for finish to replay as a leg
+    assert record.intent.legs == []  # a listing leaves no place for finish to replay as a leg
 
 
 def test_a_stated_level_not_served_is_flagged_even_when_nothing_else_was_stated() -> None:

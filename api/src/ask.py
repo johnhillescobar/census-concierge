@@ -30,7 +30,7 @@ from src.contract import (
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
-from src.geo_level import geo_status, note_intent
+from src.geo_level import GeoIntent, geo_status, note_intent
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
 from src.prompts import system_prompt
@@ -59,23 +59,14 @@ class ExecutionRecord:
     question: str = ""
     vintages: list[tuple[str, int]] = field(default_factory=list)
     geo_status: dict[str, str | bool | int] | None = None
-    # Level per leg the model stated in its own resolve_geography call; [] if it never did.
-    asked_levels: list[str | None] = field(default_factory=list)
-    # Levels the model stated that came back unsupported and were not later served by a legal call.
-    unmet_levels: set[str] = field(default_factory=set)
+    # What the model asked for, from the loop's calls and the split call (requested only).
+    intent: GeoIntent = field(default_factory=GeoIntent)
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
     override: Any = None
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
-    # Single-place resolve_geography queries, most recent last. finish_tools
-    # replays these as one `places` call when the model resolved legs of a
-    # comparison one at a time instead of together -- mechanical bookkeeping
-    # of what was actually asked, not a re-parse of the question's prose.
-    geo_queries: list[str] = field(default_factory=list)
-    # The question asks which table holds something: no geography is wanted, so none is flagged.
-    tables_only: bool = False
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -108,10 +99,10 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
             clear_series(record)
         legs = [p.strip() for p in args.get("places") or [] if isinstance(p, str) and p.strip()]
         if record.geo_status["compare"] or get("wildcard", False) or len(legs) != 1:
-            record.geo_queries = []
+            record.intent.legs = []
         # An unsupported candidate (legal False) is not a place that was compared.
         elif record.geographies and record.geo_status["legal"]:
-            record.geo_queries = track_geo_query(record.geo_queries, legs[0])
+            record.intent.legs = track_geo_query(record.intent.legs, legs[0])
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)

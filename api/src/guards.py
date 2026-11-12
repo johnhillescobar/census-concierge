@@ -11,7 +11,7 @@ from typing import Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
-from src.geo_level import geography_level_mismatch, geography_level_unverified
+from src.geo_level import geography_level_mismatch, geography_level_unverified, intent_of
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
 )
@@ -172,7 +172,7 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
 
 def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
-    if getattr(record, "tables_only", False):
+    if intent_of(record).tables_only:
         return None  # a table question wants no geography, so none can be unsupported
     if not status or status.get("legal") is not False or status.get("nested") is False:
         return None
