@@ -697,3 +697,20 @@ async def test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_l
         plan_split(record.question, complete),
     )
     assert seen == [{"places": ["Cook County, IL", "Texas"], "level": None, "levels": []}]
+
+
+@pytest.mark.parametrize(
+    ("question", "stated", "repaired"),
+    [
+        ("ACS 1-year all counties in Ohio and Michigan.", None, None),
+        ("ACS 1-year all counties in Ohio and Michigan.", "acs5", None),
+        ("all counties in Ohio and Michigan.", "acs1", "acs1"),
+    ],
+)
+async def test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording(
+    question: str, stated: str | None, repaired: str | None
+) -> None:
+    seen, _ = await _run_split(
+        question, [_wildcard("m", "26")], _splitter(["Ohio", "Michigan"], dataset=stated)
+    )
+    assert [call.get("dataset") for call in seen] == [repaired]

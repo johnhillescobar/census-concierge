@@ -307,6 +307,8 @@ async def test_overlapping_income_finishes_when_the_model_stops() -> None:
     assert any(item.code == "overlapping_vintage" for item in response.warnings)
     assert response.urls
     assert response.rows
+    # fetched for the report's years, not for every year the wording contains
+    assert sorted(year for _, year in record.vintages) == [2019, 2022]
 
 
 async def test_universe_mismatch_finishes_with_a_url() -> None:
@@ -586,6 +588,8 @@ async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
     assert response.urls
     assert "/acs/acs1" in response.urls[0]
     assert "county:019" in response.urls[0]
+    # the report's span, minus 2020, which ACS 1-year never published
+    assert sorted({year for _, year in record.vintages}) == [2018, 2019, 2021, 2022]
 
 
 async def test_acs1_year_span_replaces_an_acs5_url() -> None:
@@ -626,6 +630,8 @@ async def test_acs1_year_span_replaces_an_acs5_url() -> None:
     assert response.urls
     assert "/acs/acs1" in response.urls[0]
     assert "county:019" in response.urls[0]
+    # the report's span, minus 2020, which ACS 1-year never published
+    assert sorted({year for _, year in record.vintages}) == [2018, 2019, 2021, 2022]
 
 
 async def test_texas_only_rent_compare_adds_austin() -> None:
@@ -1784,3 +1790,73 @@ async def test_finish_searches_the_dataset_the_report_asks_for() -> None:
     report.set_result(GeoIntent(reported=True, dataset="acs1"))
     await finish_tools(dispatch, tools, record, report)
     assert seen and set(seen) == {"acs1"}
+
+
+@pytest.mark.parametrize(
+    ("question", "stated", "searched"),
+    [
+        ("1-year ACS median family income in Harris County", None, "acs5"),
+        ("acs1 median family income in Harris County", "acs5", "acs5"),
+        ("median family income in Harris County", "acs1", "acs1"),
+    ],
+)
+async def test_finish_searches_the_dataset_the_report_states_whatever_the_question_says(
+    question: str, stated: str | None, searched: str
+) -> None:
+    record = ExecutionRecord(question=question)
+    tools = _tools(record)
+    seen: list[str] = []
+    tools["search_tables"] = SearchTablesTool(
+        search=lambda question, k=10: ["B19013", "B19113"][:k],
+        describe=_describe,
+        select=lambda question, hits: hits[0]["table_id"],
+        published=lambda dataset, table_id: seen.append(dataset) is None,
+    )
+    record.geography = _harris()
+    record.geographies = [_harris()]
+    record.geo_status = {"legal": True, "detail": "", "nested": True, "compare": False}
+    report: asyncio.Future[GeoIntent] = asyncio.get_running_loop().create_future()
+    report.set_result(GeoIntent(reported=True, dataset=stated))
+    await finish_tools(dispatch, tools, record, report)
+    assert seen and set(seen) == {searched}
+
+
+def test_the_shipped_fetch_tool_takes_its_years_from_the_plan_never_the_question(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from src import ask
+    from src.retrieval import availability, index
+
+    monkeypatch.setenv("CENSUS_API_KEY", "key")
+    monkeypatch.setattr(
+        index,
+        "load",
+        lambda: SimpleNamespace(tables=["B01003"], titles=["t"], universes=["u"], members=[[]]),
+    )
+    monkeypatch.setattr(availability, "load", lambda: {"datasets": {"acs5": {"2024": {}}}})
+    record = ExecutionRecord(question="population of Harris County in 2022 since 2018, 1-year")
+    years = ask.default_tools(record)["fetch_data"].question_years
+    assert years() == []  # nothing in the wording is read as a year
+    record.override = ResultPlan(requested_years=[2019, 2022])
+    assert years() == [2019, 2022]  # the plan's years are
+
+
+async def test_the_split_call_is_told_the_latest_published_vintage() -> None:
+    from src.vintages import latest_vintages
+
+    system: list[str] = []
+
+    async def complete(
+        messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        if not openai_tools:
+            system.append(messages[0]["content"])
+        return {"content": "stopped", "tool_calls": []}
+
+    record = ExecutionRecord()
+    await run_ask("population since 2018", complete=complete, tools=_tools(record), record=record)
+    latest = str(latest_vintages()[0])
+    assert system and latest in system[0] and "{latest}" not in system[0]
+    assert f"through {latest}" in system[0] and "through None" not in system[0]
