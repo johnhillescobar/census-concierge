@@ -61,6 +61,12 @@ reachable, D1/D3/D5/D8-D10 kept with reasons. Owner: stop re-running Gate 2 -- n
   filter (instrument change + bridge), or the owner commits. The owner chose the last. WAIT for it: `git fetch; git grep
   cohorts.geography origin/main -- evals/metric_protocol.toml`. Then rebase this branch on that `main`, re-run the machines,
   correct plan D8 and the Jira comment, and only then run the E2E. Do not measure P before it lands.
+- **Owner instruction 2026-11-12: every `budgets.toml` floor must be green except p95.** Only `answered_rate` is red (0.683,
+  inherited: the 2026-11-09 run on main, long_tail 82/120; 0.700 needs 84/120). It can only be cleared by this branch's own E2E
+  (`run_demo.py --repeat 3`), never by editing the budget, the instrument or the prompt against known misses. Of the
+  2026-11-09 long_tail misses, q06 (1 trial) and q08 (2 trials) are this story's level misses; fixing them would give 85/120
+  = 0.708, but that is a hypothesis until measured. If the run is still below 0.700 the scoreboard is red and the PR stays
+  open; report it, do not tune. p95 on this run is unwaived: a waiver is the owner's `[waiver]` commit, if they want one.
 - Machines re-run 2026-11-12 at HEAD 6c9eeff: pytest 1446 passed / 34 skipped / 5 xfailed; ruff clean; invariants exit 0
   (regex 28, delta -27); budgets: only `answered_rate` 0.683 red (inherited), p95 row waived for the 2026-11-09 run only.
   `make` is not installed on this machine: run the Makefile recipe lines directly.
