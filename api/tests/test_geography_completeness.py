@@ -469,6 +469,35 @@ async def test_only_a_true_listing_flag_makes_the_places_a_listing(sent: Any) ->
     assert found.places == ["Ohio", "Michigan"]
 
 
+async def test_the_report_carries_the_dataset_and_years_the_model_stated() -> None:
+    found = await _split(level="county", dataset="acs1", years=[2018, 2019, 2020])
+    assert found is not None
+    assert (found.dataset, found.years) == ("acs1", [2018, 2019, 2020])
+
+
+@pytest.mark.parametrize("dataset", ["ACS1", "1-year", "acs3", 1, True, None, ["acs1"]])
+async def test_a_dataset_that_is_not_a_published_product_name_is_not_reported(dataset: Any) -> None:
+    found = await _split(level="county", dataset=dataset)
+    assert found is not None and found.dataset is None
+
+
+@pytest.mark.parametrize(
+    ("sent", "kept"),
+    [
+        ([True, 2022, "2021", 2020.0, None, [2019], 2018], [2022, 2018]),
+        ("2022", []),
+        (2022, []),
+        ({"2022": 1}, []),
+        (None, []),
+    ],
+)
+async def test_only_whole_numbers_count_as_the_years_the_model_stated(
+    sent: Any, kept: list[int]
+) -> None:
+    found = await _split(level="county", years=sent)
+    assert found is not None and found.years == kept
+
+
 async def test_one_parent_is_a_listing_and_still_a_frame() -> None:
     found = await _split(
         parents=["Dane County, Wisconsin"], unit="tract", listing=True, level="tract"

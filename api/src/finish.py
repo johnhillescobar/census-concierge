@@ -49,6 +49,7 @@ _SPLIT_PARENTS = (
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
+_PRODUCTS = ("acs1", "acs5")  # a tuple: a model can send a list, and a set would need it hashable
 SPLIT_WAIT_SECONDS = 6.0  # the call normally finishes beside the loop; never delay an answer more
 FRAME_WAIT_SECONDS = 3.0  # before the first tool runs; past it the question is treated as complete
 
@@ -106,7 +107,7 @@ async def plan_split(
     up, years = found.get("parent_level"), found.get("years")
     return GeoIntent(
         reported=True,
-        dataset=found["dataset"] if found.get("dataset") in {"acs1", "acs5"} else None,
+        dataset=found["dataset"] if found.get("dataset") in _PRODUCTS else None,
         years=[y for y in years if type(y) is int] if isinstance(years, list) else [],
         level=found.get("level"),
         named=[*(named if isinstance(named, list) else []), *names],

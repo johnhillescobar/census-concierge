@@ -252,6 +252,14 @@ async def test_geo_only_override_keeps_the_acs1_the_plan_states() -> None:
     assert response.plan.dataset == "acs1"
 
 
+async def test_a_plan_with_no_dataset_stays_acs5_whatever_the_question_says() -> None:
+    record = ExecutionRecord()
+    plan = ResultPlan.model_validate({"geographies": [{"geoid": "0500000US48201"}]})
+    record.question = "1-year ACS population of Harris County"
+    apply_override(record, plan)
+    assert plan.dataset == "acs5" and record.override.dataset == "acs5"
+
+
 async def test_race_iteration_override_is_a_deliberate_selection() -> None:
     record = ExecutionRecord()
     plan = ResultPlan(table_id="B19013B", geographies=[_harris()])
