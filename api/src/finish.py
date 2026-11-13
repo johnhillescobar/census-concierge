@@ -265,14 +265,15 @@ async def _split_parents(
     if not (intent.parents and geo):
         return False
     parents, unit = intent.parents, intent.unit
-    if len(parents) < 2 and geos and any(intent.levels) and not intent.unmet:
-        return False  # one parent: a level the loop stated and got stands over a lone report
     built = getattr(getattr(record, "url", None), "dataset", None)  # what the model itself built
     right = [
         g.level == level_name(unit) and built in {None, g.dataset} for g in geos[: len(parents)]
     ]
     want = {s[1] for p in parents if (s := state_of(p))}  # the states the model says it lies in
     inside = want <= {g.codes.get("state") for g in geos}
+    stood = len(parents) < 2 and geos and any(intent.levels) and not intent.unmet
+    if stood and inside and intent.parent_level in {None, "state"}:
+        return False  # the state the loop asked for and got stands over a lone report's listing
     if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside:
         return False
     before = {name: getattr(record, name) for name in _SNAPSHOT}
