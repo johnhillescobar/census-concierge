@@ -1,4 +1,4 @@
-"""The ask loop: _openai_complete() then dispatch(), no graph."""
+# The ask loop: _openai_complete() then dispatch(), no graph.
 
 from __future__ import annotations
 
@@ -40,7 +40,6 @@ from src.vintages import latest_vintages, moe_rows, requested_years, stamp_prove
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
-MODEL = "gpt-4o-mini"
 
 CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
 
@@ -69,6 +68,7 @@ class ExecutionRecord:
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
+    url_limit_failure: BuildUrlResult | None = None
     # Single-place resolve_geography queries, most recent last. finish_tools
     # replays these as one `places` call when the model resolved legs of a
     # comparison one at a time instead of together -- mechanical bookkeeping
@@ -114,6 +114,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)
+        record.url_limit_failure = artifact if artifact.url and not artifact.ok else None
+        record.retained_urls.extend([artifact.url] if record.url_limit_failure else [])
         if artifact.ok:
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
@@ -293,7 +295,7 @@ async def _openai_complete(
     if not os.environ.get("OPENAI_API_KEY"):
         raise ValueError("missing OPENAI_API_KEY")
     response = await AsyncOpenAI().chat.completions.create(
-        model=MODEL,
+        model="gpt-4o-mini",
         messages=messages,  # type: ignore[arg-type]
         tools=openai_tools or None,  # type: ignore[arg-type]
     )
