@@ -1,0 +1,20 @@
+CC-104 mutation checks for the dominance rule (unqualified listing parents)
+branch cc-104/structured-geography; committed before mutating; each mutation restored with git checkout
+Earlier in this session two mutations were BAD and fixed: the finish.py build gate turned out to be redundant (build_url already fails with no selected geography) and was removed; the state-qualified parent test was given two matches inside the state.
+
+GOOD a best match always dominates
+2 failed in 0.29s
+GOOD dominance threshold is not applied (any larger match wins)
+1 failed in 0.21s
+GOOD a match with no population is taken as dominant
+1 failed in 0.21s
+GOOD an unqualified county parent is picked by largest population
+1 failed in 0.29s
+GOOD a parent with its state is also checked for ambiguity
+1 failed in 0.25s
+GOOD the first candidate is selected as the geography
+2 failed in 0.50s
+GOOD tracts in an ambiguous place pick the largest place
+1 failed in 0.27s
+tree after: M docs/ask-path.md
+?? evidence/slice-6/cc-104/gate1-dominance.txt

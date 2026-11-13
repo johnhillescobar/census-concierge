@@ -13,6 +13,7 @@ from src.ask import ExecutionRecord, assemble
 from src.census_url import CensusURL
 from src.contract import AskWarning, RequestLeg, take_chart
 from src.fetch import FetchDataResult, FetchDataTool
+from src.geo_level import GeoIntent
 from src.retrieval import metadata
 from src.vintages import CENSUS_MISSING, REASON_GAP_2020
 
@@ -1210,7 +1211,7 @@ def test_a_discovery_response_keeps_its_framing_end_to_end() -> None:
             },
         ],
         table_id="B19013",
-        tables_only=True,
+        intent=GeoIntent(asks_for="tables"),
     )
     record.published_vintages = lambda dataset: {2022, 2023}
     prose = (

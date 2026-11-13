@@ -14,7 +14,7 @@ from src.ask import ExecutionRecord, dispatch
 from src.census_url import CensusURL
 from src.contract import GeoSpec
 from src.fetch import FetchDataTool
-from src.finish import _wrong_comparison, finish_tools, plan_split
+from src.finish import finish_tools, plan_split
 
 
 def _fetch_tool(
@@ -88,7 +88,9 @@ def _wildcard(name: str, state: str) -> GeoSpec:
     return GeoSpec(level="county", name=name, for_spec="county:*", in_spec=f"state:{state}")
 
 
-def _splitter(parents: object, level: object = "county") -> Any:
+def _splitter(
+    parents: object, level: object = "county", parent_level: object = None, dataset: object = None
+) -> Any:
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
         complete.calls += 1  # type: ignore[attr-defined]
         reply = {
@@ -96,6 +98,8 @@ def _splitter(parents: object, level: object = "county") -> Any:
             "parents": parents,
             "unit": level or "county",
             "listing": level is not None,
+            "parent_level": parent_level,
+            "dataset": dataset,
         }
         return {"content": json.dumps(reply), "tool_calls": []}
 
@@ -104,10 +108,21 @@ def _splitter(parents: object, level: object = "county") -> Any:
 
 
 async def _run_split(
-    question: str, geos: list[GeoSpec], complete: Any, resolved: int = 2
+    question: str,
+    geos: list[GeoSpec],
+    complete: Any,
+    resolved: int = 2,
+    status: dict[str, Any] | None = None,
+    url: str | None = None,
+    stated: list[str | None] | None = None,
+    unmet: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], ExecutionRecord]:
     record = ExecutionRecord(question=question)
+    record.intent.levels = list(stated or [])  # what the model's own geography call asked for
+    record.intent.unmet = set(unmet or ())
+    record.url = CensusURL(url) if url else None
     record.geographies = geos
+    record.geo_status = status
     seen: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
@@ -129,13 +144,7 @@ async def test_listing_that_kept_one_parent_is_resolved_with_every_parent() -> N
     seen, _ = await _run_split(
         "List every county in Ohio and Michigan.", [_wildcard("m", "26")], complete
     )
-    assert seen == [
-        {
-            "level": "county",
-            "query": "every county in Ohio, Michigan",
-            "parents": ["Ohio", "Michigan"],
-        }
-    ]
+    assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "county"}]
 
 
 async def test_listing_resolved_at_the_wrong_level_is_resolved_again() -> None:
@@ -146,13 +155,17 @@ async def test_listing_resolved_at_the_wrong_level_is_resolved_again() -> None:
     seen, _ = await _run_split(
         "Show each county in Ohio plus Michigan.", states, _splitter(["Ohio", "Michigan"])
     )
-    assert seen == [
-        {
-            "level": "county",
-            "query": "every county in Ohio, Michigan",
-            "parents": ["Ohio", "Michigan"],
-        }
-    ]
+    assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "county"}]
+
+
+async def test_a_listing_at_the_wrong_level_in_the_right_parent_is_resolved_again() -> None:
+    """Every row is a wildcard, in Ohio, for the right dataset: only the level is wrong."""
+    tracts = [GeoSpec(level="tract", name="t", for_spec="tract:*", in_spec="state:39")]
+    seen, _ = await _run_split("counties of Ohio", tracts, _splitter(["Ohio"]), resolved=1)
+    assert seen == [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+    counties = [_wildcard("a", "39")]
+    kept, _ = await _run_split("counties of Ohio", counties, _splitter(["Ohio"]), resolved=1)
+    assert kept == []  # the same listing at the right level is left alone
 
 
 async def test_listing_already_one_wildcard_per_parent_is_left_alone() -> None:
@@ -239,10 +252,136 @@ async def test_finish_without_a_split_leaves_the_resolution_alone() -> None:
 
 async def test_model_naming_no_listing_level_leaves_the_resolution_alone() -> None:
     two = [_harris(), _harris()]
+    done = {"legal": True, "compare": True, "compare_count": 2}
     seen, _ = await _run_split(
-        "population of Harris County and Travis County", two, _splitter(["Harris", "Travis"], None)
+        "population of Harris County and Travis County",
+        two,
+        _splitter(["Harris", "Travis"], None),
+        status=done,
     )
     assert seen == []
+
+
+async def test_comparison_resolved_apart_is_resolved_together_with_the_models_places() -> None:
+    two = [_harris(), _harris()]
+    seen, _ = await _run_split(
+        "population of Harris County and Travis County",
+        two,
+        _splitter(["Harris County, TX", "Travis County, TX"], None),
+        status={"legal": True, "compare": False},
+    )
+    assert seen == [
+        {"places": ["Harris County, TX", "Travis County, TX"], "level": None, "levels": []}
+    ]
+
+
+async def test_listing_of_one_parent_at_the_wrong_level_is_resolved_again() -> None:
+    seen, _ = await _run_split(
+        "counties of Ohio",
+        [GeoSpec(level="state", name="Ohio", for_spec="state:39")],
+        _splitter(["Ohio"]),
+        resolved=1,
+    )
+    assert seen == [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+
+
+async def test_a_level_the_loop_stated_and_got_stands_over_a_one_parent_report() -> None:
+    """The split call is a second model reading the question and is often wrong about a listing;
+    for one parent it must not turn the state the loop asked for and fetched into a county list."""
+    ohio = [GeoSpec(level="state", name="Ohio", for_spec="state:39")]
+    seen, record = await _run_split(
+        "People without insurance in Ohio", ohio, _splitter(["Ohio"]), resolved=1, stated=["state"]
+    )
+    assert seen == [] and record.geographies == ohio
+
+
+async def test_a_one_parent_report_still_repairs_what_the_loop_never_stated_or_never_got() -> None:
+    ohio = [GeoSpec(level="state", name="Ohio", for_spec="state:39")]
+    want = [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+    for stated, unmet in [(None, None), (["state"], {"county"}), ([None], None)]:
+        seen, _ = await _run_split(
+            "counties of Ohio", ohio, _splitter(["Ohio"]), resolved=1, stated=stated, unmet=unmet
+        )
+        assert seen == want, (stated, unmet)
+
+
+async def test_a_county_parent_or_another_state_is_not_covered_by_the_loops_stated_state() -> None:
+    wisconsin = [GeoSpec(level="state", name="Wisconsin", for_spec="state:55")]
+    seen, _ = await _run_split(
+        "tracts in Dane County",
+        wisconsin,
+        _splitter(["Dane County, WI"], "tract", "county"),
+        resolved=1,
+        stated=["state"],
+    )
+    assert seen == [{"parents": ["Dane County, WI"], "parent_level": "county", "level": "tract"}]
+    seen, _ = await _run_split(
+        "counties of Ohio", wisconsin, _splitter(["Ohio"]), resolved=1, stated=["state"]
+    )
+    assert seen == [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+
+
+async def test_a_two_parent_report_still_overrides_the_loops_stated_level() -> None:
+    states = [
+        GeoSpec(level="state", name="Ohio", for_spec="state:39"),
+        GeoSpec(level="state", name="Michigan", for_spec="state:26"),
+    ]
+    seen, _ = await _run_split(
+        "List every county in Ohio and Michigan.",
+        states,
+        _splitter(["Ohio", "Michigan"]),
+        stated=["state", "state"],
+    )
+    assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "county"}]
+
+
+async def test_a_county_parent_is_re_resolved_with_the_level_the_model_gave() -> None:
+    seen, _ = await _run_split(
+        "tracts in Dane County",
+        [GeoSpec(level="state", name="Wisconsin", for_spec="state:55")],
+        _splitter(["Dane County, WI"], "tract", "county"),
+        resolved=1,
+    )
+    assert seen == [{"parents": ["Dane County, WI"], "parent_level": "county", "level": "tract"}]
+
+
+async def test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing() -> None:
+    """Fewer geographies than parents, but the loop had none: the candidate and why it cannot
+    be run are the only answer there is."""
+    record = ExecutionRecord(question="Counties of Ohio and Michigan")
+    candidate = _wildcard("every county", "")
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [candidate]
+        rec.geo_status = {"legal": False, "detail": "not published", "nested": True}
+        return ""
+
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, _splitter(["Ohio", "Michigan"])),
+    )
+    assert record.geographies == [candidate]
+    assert record.geo_status is not None and record.geo_status["detail"] == "not published"
+
+
+async def test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why() -> None:
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
+    first = [_wildcard("m", "26")]
+    record.geographies = first
+    why = "zip code tabulation area does not nest in state"
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        rec.geographies = [_wildcard("a", "01")]
+        rec.geo_status = {"legal": False, "detail": why, "nested": False}
+        return ""
+
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
+    assert record.geographies == first  # the unsupported repair does not replace what ran
+    assert record.geo_status is not None and record.geo_status["nested"] is False
+    assert record.geo_status["detail"] == why  # and the reason it cannot be nested is kept
 
 
 async def test_single_named_place_is_left_alone_when_the_model_says_it_is_not_a_listing() -> None:
@@ -258,9 +397,9 @@ async def test_single_named_county_for_a_tract_listing_is_re_resolved_with_every
     )
     assert seen == [
         {
-            "level": "tract",
-            "query": "every tract in King County, Washington, Pierce County, Washington",
             "parents": ["King County, Washington", "Pierce County, Washington"],
+            "parent_level": None,
+            "level": "tract",
         }
     ]
 
@@ -295,7 +434,7 @@ async def _split_with(
 ) -> tuple[list[dict[str, Any]], ExecutionRecord]:
     record = ExecutionRecord(question="All counties in Ohio and Michigan.")
     record.geographies = geos
-    record.geo_queries = ["earlier"]
+    record.intent.legs = ["earlier"]
     seen: list[dict[str, Any]] = []
 
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
@@ -308,7 +447,7 @@ async def _split_with(
         if isinstance(dispatch_result, Exception):
             rec.consecutive_failures["resolve_geography"] = 1
             raise dispatch_result
-        rec.geo_queries = []
+        rec.intent.legs = []
         rec.geographies = (
             [_wildcard("a", "01"), _wildcard("b", "02")]
             if dispatch_result == "wild"
@@ -354,7 +493,7 @@ async def test_failed_dispatch_keeps_the_loops_own_two_geographies() -> None:
 async def test_re_resolution_to_non_wildcards_is_rejected_and_state_restored() -> None:
     first = [_wildcard("m", "26")]
     _, record = await _split_with(_GOOD, first, dispatch_result="parents")
-    assert record.geographies == first and record.geo_queries == ["earlier"]
+    assert record.geographies == first and record.intent.legs == ["earlier"]
 
 
 async def test_failed_repair_restores_the_fetched_answer() -> None:
@@ -395,11 +534,11 @@ async def test_repair_resolution_that_is_not_nested_is_rejected() -> None:
     assert record.geographies == first
 
 
-async def test_acs1_question_resolves_the_repair_against_acs1() -> None:
+async def test_an_acs1_report_resolves_the_repair_against_acs1() -> None:
     seen, _ = await _run_split(
         "ACS 1-year all counties in Ohio and Michigan.",
         [_wildcard("m", "26")],
-        _splitter(["Ohio", "Michigan"]),
+        _splitter(["Ohio", "Michigan"], dataset="acs1"),
     )
     assert seen[0]["dataset"] == "acs1"
 
@@ -410,13 +549,7 @@ async def test_model_decides_for_a_phrasing_with_no_unit_word_or_joiner() -> Non
         [_wildcard("m", "26")],
         _splitter(["Ohio", "Michigan"], "place"),
     )
-    assert seen == [
-        {
-            "level": "place",
-            "query": "every place in Ohio, Michigan",
-            "parents": ["Ohio", "Michigan"],
-        }
-    ]
+    assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "place"}]
 
 
 async def test_one_parent_written_as_place_and_state_is_not_re_resolved() -> None:
@@ -437,25 +570,7 @@ async def test_repeated_parent_is_one_parent() -> None:
     assert seen == []
 
 
-async def test_resolved_comparison_with_two_queries_is_not_flagged_for_redo() -> None:
-    record = ExecutionRecord(question="Harris County and Travis County")
-    record.geo_queries = ["Harris County, TX", "Travis County, TX"]
-    record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
-    assert _wrong_comparison(record, record.question) is False
-
-
-async def test_unresolved_pair_of_single_place_queries_is_flagged_for_redo() -> None:
-    record = ExecutionRecord(question="Harris County and Travis County")
-    record.geo_queries = ["Harris County, TX", "Travis County, TX"]
-    record.geo_status = {"legal": True, "compare": False}
-    assert _wrong_comparison(record, record.question) is True
-
-
-async def test_redo_after_a_resolved_comparison_resolves_the_question_not_the_places() -> None:
-    record = ExecutionRecord(question="every tract in Cook County, Illinois")
-    record.geographies = [_harris()]
-    record.geo_queries = ["Cook County, IL", "Harris County, TX"]
-    record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
+async def _redo_args(record: ExecutionRecord) -> list[dict[str, Any]]:
     seen: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
@@ -463,59 +578,40 @@ async def test_redo_after_a_resolved_comparison_resolves_the_question_not_the_pl
         return ""
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
-    # The level here is read from the question's words, so it is passed as none stated and the
-    # tool marks the result inferred (the response then warns it is unverified).
-    assert seen == [{"level": None, "query": "every tract in Cook County, Illinois"}]
+    return seen
 
 
-def _three_parent_plan() -> dict[str, Any]:
-    return {
-        "level": None,
-        "parents": ["A County, S1", "B County, S1", "C County, S1"],
-        "unit": "county",
-    }
+async def test_resolved_comparison_with_two_queries_is_not_resolved_again() -> None:
+    record = ExecutionRecord(question="Harris County and Travis County")
+    record.geographies = [_harris()]
+    record.intent.legs = ["Harris County, TX", "Travis County, TX"]
+    record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
+    assert await _redo_args(record) == []
 
 
-async def _plan(value: dict[str, Any] | None) -> dict[str, Any] | None:
-    return value
+async def test_unresolved_pair_of_single_place_queries_is_resolved_together() -> None:
+    record = ExecutionRecord(question="Harris County and Travis County")
+    record.geographies = [_harris()]
+    record.intent.legs = ["Harris County, TX", "Travis County, TX"]
+    record.geo_status = {"legal": True, "compare": False}
+    assert await _redo_args(record) == [
+        {"places": ["Harris County, TX", "Travis County, TX"], "level": None, "levels": []}
+    ]
 
 
-async def test_a_resolution_with_fewer_geographies_than_parents_is_rejected_and_restored() -> None:
-    first = [_wildcard("m", "26")]
-    record = ExecutionRecord(question="Counties in A, B and C")
-    record.geographies = first
-
-    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
-        rec.geographies = [_wildcard("a", "01"), _wildcard("b", "02")]  # two of three parents
-        return ""
-
-    await finish_tools(
-        fake_dispatch, {"resolve_geography": object()}, record, _plan(_three_parent_plan())
-    )
-    assert record.geographies == first
-
-
-async def test_a_swallowed_resolve_failure_does_not_rebuild_the_loops_answer() -> None:
-    two = [_wildcard("a", "01"), _wildcard("b", "02")]
-    record = ExecutionRecord(question="Counties in A, B and C")
-    record.geographies = two
-    record.pool = [{"table_id": "B01003", "title": "Total Population", "members": []}]
-    record.url = CensusURL(
-        "https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:01"
-    )
-    called: list[str] = []
-
-    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
-        called.append(call["id"])  # dispatch swallows tool failures: nothing changes
-        return ""
-
-    tools = {"resolve_geography": object(), "build_url": object()}
-    await finish_tools(fake_dispatch, tools, record, _plan(_three_parent_plan()))
-    assert called == ["resolve_geography"] and record.geographies == two
+async def test_finish_never_resolves_the_question_itself() -> None:
+    """The model reported nothing, so nothing is resolved: no place is read from the words."""
+    record = ExecutionRecord(question="every tract in Cook County, Illinois")
+    record.geographies = [_harris()]
+    record.intent.legs = ["Cook County, IL", "Harris County, TX"]
+    record.geo_status = {"legal": True, "compare": True, "compare_count": 2}
+    assert await _redo_args(record) == []
+    empty = ExecutionRecord(question="every tract in Cook County, Illinois")
+    assert await _redo_args(empty) == []
 
 
 async def test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows() -> None:
-    record = ExecutionRecord(question="Counties in A, B")
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
     record.geographies = [_wildcard("m", "26")]
     record.url = CensusURL(
         "https://api.census.gov/data/2024/acs/acs5?get=NAME&for=county:*&in=state:26"
@@ -528,44 +624,32 @@ async def test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows() ->
         return ""  # build_url fails to produce a new URL
 
     tools = {"resolve_geography": object(), "build_url": object()}
-    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
-    await finish_tools(fake_dispatch, tools, record, _plan(plan))
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, tools, record, split)
     assert record.url is None and record.rows == []
 
 
-async def test_a_rejected_repair_restores_the_retained_urls() -> None:
-    record = ExecutionRecord(question="Counties in A, B")
+async def test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_the_repair() -> (
+    None
+):
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
     record.geographies = [_wildcard("m", "26")]
-    record.retained_urls = ["https://api.census.gov/old"]
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
-        rec.retained_urls = ["https://api.census.gov/old", "https://api.census.gov/new"]
-        rec.geographies = [_harris(), _harris()]  # not wildcards: rejected
+        rec.geographies = [
+            _wildcard("a", "01"),
+            _wildcard("b", "02"),
+            GeoSpec(level="county", name="other", for_spec="county:001", in_spec="state:13"),
+        ]
         return ""
 
-    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
-    assert record.retained_urls == ["https://api.census.gov/old"]
-
-
-async def test_a_split_that_never_finishes_does_not_hold_the_answer(monkeypatch: Any) -> None:
-    monkeypatch.setattr("src.finish.SPLIT_WAIT_SECONDS", 0.05)
-    record = ExecutionRecord(question="Counties in A, B")
-    record.geographies = [_wildcard("m", "26")]
-
-    async def never() -> dict[str, Any] | None:
-        await asyncio.sleep(30)
-
-    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
-        raise AssertionError("no repair without a split")
-
-    started = asyncio.get_event_loop().time()
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, never())
-    assert asyncio.get_event_loop().time() - started < 5
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
+    assert len(record.geographies) == 3 and record.geographies[0].name == "a"
 
 
 async def test_cancelling_the_request_while_waiting_for_the_split_is_not_swallowed() -> None:
-    record = ExecutionRecord(question="Counties in A, B")
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
     record.geographies = [_wildcard("m", "26")]
 
     async def never() -> dict[str, Any] | None:
@@ -584,34 +668,103 @@ async def test_cancelling_the_request_while_waiting_for_the_split_is_not_swallow
         await task
 
 
-async def test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_the_repair() -> (
-    None
-):
-    record = ExecutionRecord(question="Counties in A, B")
+async def test_a_rejected_repair_restores_the_retained_urls() -> None:
+    record = ExecutionRecord(question="Counties in Ohio, Michigan")
     record.geographies = [_wildcard("m", "26")]
+    record.retained_urls = ["https://api.census.gov/old"]
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
-        rec.geographies = [
-            _wildcard("a", "01"),
-            _wildcard("b", "02"),
-            GeoSpec(level="county", name="other", for_spec="county:001", in_spec="state:13"),
-        ]
+        rec.retained_urls = ["https://api.census.gov/old", "https://api.census.gov/new"]
+        rec.geographies = [_harris(), _harris()]  # not wildcards: rejected
         return ""
 
-    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
-    assert len(record.geographies) == 3 and record.geographies[0].name == "a"
+    split = plan_split(record.question, _splitter(["Ohio", "Michigan"]))
+    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, split)
+    assert record.retained_urls == ["https://api.census.gov/old"]
 
 
-async def test_a_non_wildcard_among_the_chosen_parents_still_rejects_the_repair() -> None:
-    first = [_wildcard("m", "26")]
-    record = ExecutionRecord(question="Counties in A, B")
-    record.geographies = first
+async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_report() -> None:
+    done = [_wildcard("a", "39"), _wildcard("b", "26")]
+    built = (
+        "https://api.census.gov/data/2024/acs/acs1?get=NAME,B01003_001E&for=county:*&in=state:39"
+    )
+    seen, _ = await _run_split(
+        "ACS 1-year all counties in Ohio and Michigan.",
+        done,
+        _splitter(["Ohio", "Michigan"], dataset="acs1"),
+        url=built,
+    )
+    assert [call.get("dataset") for call in seen] == ["acs1"]
+
+
+def _tracts_in(state: str, county: str) -> GeoSpec:
+    return GeoSpec(
+        level="tract", name="t", for_spec="tract:*", in_spec=f"state:{state} county:{county}"
+    )
+
+
+async def test_a_listing_at_the_right_level_in_the_wrong_parent_is_resolved_again() -> None:
+    reply = _splitter(["Lancaster County, Nebraska"], "tract", "county")
+    wrong, _ = await _run_split("tracts in Lancaster County", [_tracts_in("42", "071")], reply, 1)
+    assert [call["parents"] for call in wrong] == [["Lancaster County, Nebraska"]]
+    right, _ = await _run_split("tracts in Lancaster County", [_tracts_in("31", "109")], reply, 1)
+    assert right == []
+
+
+async def test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation() -> None:
+    async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
+        reply = {"level": "us", "parents": [], "unit": "county", "listing": False}
+        return {"content": json.dumps(reply), "tool_calls": []}
+
+    record = ExecutionRecord(question="population of the country")
+    seen: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
-        rec.geographies = [_wildcard("a", "01"), _harris(), _wildcard("c", "03")]
+        seen.append(call["args"])
         return ""
 
-    plan = {"level": None, "parents": ["A County, S1", "B County, S2"], "unit": "county"}
-    await finish_tools(fake_dispatch, {"resolve_geography": object()}, record, _plan(plan))
-    assert record.geographies == first
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
+    assert seen == [{"places": [], "level": "us"}]
+
+
+async def test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level() -> None:
+    async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
+        reply = {"level": "county", "parents": ["Cook County, IL", "Texas"], "listing": False}
+        return {"content": json.dumps(reply), "tool_calls": []}
+
+    record = ExecutionRecord(question="Cook County versus Texas")
+    seen: list[dict[str, Any]] = []
+
+    async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
+        seen.append(call["args"])
+        return ""
+
+    await finish_tools(
+        fake_dispatch,
+        {"resolve_geography": object()},
+        record,
+        plan_split(record.question, complete),
+    )
+    assert seen == [{"places": ["Cook County, IL", "Texas"], "level": None, "levels": []}]
+
+
+@pytest.mark.parametrize(
+    ("question", "stated", "repaired"),
+    [
+        ("ACS 1-year all counties in Ohio and Michigan.", None, None),
+        ("ACS 1-year all counties in Ohio and Michigan.", "acs5", None),
+        ("all counties in Ohio and Michigan.", "acs1", "acs1"),
+    ],
+)
+async def test_the_repair_resolves_against_the_dataset_the_report_states_not_the_wording(
+    question: str, stated: str | None, repaired: str | None
+) -> None:
+    seen, _ = await _run_split(
+        question, [_wildcard("m", "26")], _splitter(["Ohio", "Michigan"], dataset=stated)
+    )
+    assert [call.get("dataset") for call in seen] == [repaired]

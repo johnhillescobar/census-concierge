@@ -13,7 +13,7 @@ Four tools:
 | tool | module | does |
 |---|---|---|
 | `search_tables` | `tools.py` | `index.search` top-30 (`POOL_DEPTH`) on the model's `topic` (the question if none), keeping only tables the dataset's latest vintage publishes, then `rerank.choose` over the full question; the answer lists the pick plus the best 9; no wording pin picks or adds a table |
-| `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
+| `resolve_geography` | `geo.py` | ordered `GeoSpec` list from the model's structured places and that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
 
@@ -26,29 +26,23 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 stops without a URL, or with the wrong listing level, an incomplete comparison,
 or an ACS1 request that never built `/acs/acs1`, it
 retries: search (only if the pool is empty); resolve
-(listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
+(from the model's own split report, including its dataset and years; never from the question's words);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
 
-A listing that names several parents ("all counties in A and B") that the loop resolved to one
-parent, the wrong level, or nothing gets one extra model call
+A listing the loop resolved to the wrong parents, the wrong level, or nothing gets one extra model call
 ([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). It needs only the question, so
 `run_ask` starts it as a task beside the loop (`plan_split` in `finish.py`) and `finish_tools` uses its
-finished result; the end of the request never calls the model. The model returns
-`{parents, unit, listing}`; `resolve_geography` re-runs with all parents. The result must be a closed
-unit, 2+ parents, and a legal, nested, all-wildcard resolution that is not already one wildcard per parent. A failed call or repair never fails the
-answer and restores the loop's own resolution; the task is always cancelled when the request ends.
-
-An "incomplete comparison" is detected two ways
-([CC-100](https://johnhillescobar.atlassian.net/browse/CC-100)).
-`geo.split_comparison()` recognizes the "versus"/"compared to"/"compare X to Y" keyword shape
-directly in the question text: a literal split, not prose-boundary inference. For an "and"/comma-list
-comparison the model segments the places: `resolve_geography` takes `places`, each already
-canonicalized (see Geography), so no regex guesses a name boundary. If the model instead resolves each
-leg with its own `query` call, `ExecutionRecord.geo_queries` (`ask.py`) tracks those calls (a
-same-place refinement, "Springfield" then "Springfield, Illinois", replaces its entry) and finish
-replays them as one `places` call. Either way, `geo_status`'s `compare_count` (genuine per-place picks;
-later entries are ambiguous candidates) reading below the legs attempted warrants a repair.
+finished result; the end of the request never calls the model. For a listing the model reports
+`{parents, unit, parent_level}`; for a direct request or comparison, `places`. `resolve_geography` re-runs
+with them when the loop's resolution is not one all-wildcard spec per parent at `unit`, or a comparison
+shows fewer legs than `places`. Nothing reported means nothing is resolved: finish never reads the question
+for a place or level. A failed call or repair never fails the answer and restores the loop's own
+resolution; the task is always cancelled when the request ends.
+`ExecutionRecord.intent` (`GeoIntent`, `geo_level.py`) is the one place the model's requests are kept: the loop's
+calls fill `levels`, `legs` and `unmet`, the split report fills the rest once (`adopt`). `legs` tracks single-place
+calls (a same-place refinement, "Springfield" then "Springfield, Illinois", replaces its entry); finish replays
+them as one `places` call. What ran is `record.geographies`; what the lookup guessed is `geo_status["inferred"]`.
 `fetch_data` retries when `record.fetch is None or not record.fetch.ok`, not bare `is None`.
 
 If a tool fails twice in a row, `run_ask` catches that and — if `finish_tools`
@@ -74,8 +68,9 @@ httpx site. Missing `CENSUS_API_KEY` / `OPENAI_API_KEY` raise `ValueError`.
 
 ## Years
 
-`fetch_data(years=…)` is a parameter, not a fifth tool. A lone `in YYYY` or `for YYYY` is that ACS5 end
-year (not latest). ACS1 when Census publishes every listed member with rows; else non-overlapping ACS5
+`fetch_data(years=…)` is a parameter, not a fifth tool. The years and the product (`build_url.dataset`)
+are what the model states in its calls, or in the split report when it stopped short; the question's words are
+never read for them. A stated lone year is that ACS5 end year (not latest). ACS1 when Census publishes every listed member with rows; else non-overlapping ACS5
 end years. Unpublished points stay omitted (`omission_reasons[]`, `vintage_gap_2020`,
 `acs1_geography_ineligible`). A variable absent or redefined mid-range — including unpublished years
 before a table’s first in-matrix vintage when any dataset has a published hole in the requested span —
@@ -90,38 +85,34 @@ GEOID; submitted `for`/`in` is not authority. Invalid overrides are HTTP 422 bef
 
 ## Geography
 
-`resolve_geography` returns metadata-backed `for`/`in`, never model prose. NAME listing ranks by place
-class, population, then GEO_ID; `specs[0]` is selected. A leading token matches the NAME head or that
-head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`). A token that
-misses the NAME head is not retried as its last word (`valley` is not a Valley county). A county token
-is the name before `county`, not the sentence (`population of Harris County` and `what is harris county`
-are Harris). A full-sentence query extracts the capitalized name after `in` / `for` / `of` (lowercase
-`of` / `the` / `and` stay inside that name), not the whole question. An unspecified place with no NAME
-hit falls back to the county listing; a query that already named city/place does not. `ambiguous_place`
-carries ranked `GeoSpec` candidates (level, GEOID, dataset/vintage, `for`/`in`).
-`versus` / `compared to` / `compare … to` emits one executable spec per side.
-A 2+ way comparison instead names every place in `places` — each already
-canonicalized as "Place, ST" by the model itself, regardless of whether the
-question named a state — resolved concurrently and merged the same way.
-A wildcard listing naming 2+ parents ("all counties in Texas and Louisiana")
-takes `parents` instead — a field distinct from `places` so a wildcard clause
-and a comparison list can never be routed into each other's branch (CC-101).
-Each parent substitutes into the same query as its own leg; a single bad
-parent name fails the whole call rather than silently keeping the others.
+`resolve_geography` returns metadata-backed `for`/`in`, never model prose, and takes no sentence
+([CC-104](https://johnhillescobar.atlassian.net/browse/CC-104)). Inputs: `places` (a direct request; 2+ is a
+comparison), `parents` (a listing: every `level` unit inside them) with `parent_level` (null = state), `level`
+/ `levels`. Each entry is "Place, ST" or a state alone; its state is an exact lookup on the entry (`state_of`),
+its NAME token the part before the first comma. `level` `us` with no place is the nation; a null level and
+no place, a listing without `level`, or a non-state parent without `parent_level` is refused for repair.
+NAME listing ranks by place class, population, then GEO_ID; `specs[0]` is selected. A token matches the NAME
+head or that head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`) and
+is not retried as its last word. A place with a null level and no NAME hit falls back to the county listing,
+flagged inferred. A listing parent (county, or the place a tract lies in) named without its state is searched across states and taken only if its best match has 4 times the people of the next (`dominant`, Census population, no list of cities); otherwise `ambiguous_place` returns the ranked candidates and nothing is selected, built or fetched. A direct single place keeps the largest match with the others as alternatives. A blank
+parent fails the whole call. `ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
+dataset/vintage, `for`/`in`). Comparison legs resolve concurrently and merge.
 A named-county parent of a tract wildcard is `for=tract:*` without listing
 tracts. A named ACS5 ZCTA is `for=zip code tabulation area:<code>` with no
 `in=`. ACS1 has no ZCTA row and fail-closes. Non-expressible containment is
 `geography_not_nested` with no invented fetch, except tracts in one named place (ACS5): the `county (or part)` row names its counties and their tracts are fetched county-wide with `geography_not_nested` naming the counties (`geo_within.py`; the place boundary is not applied). A `:*` wildcard stays one GET.
 
 A question must carry what its level needs ([CC-102](https://johnhillescobar.atlassian.net/browse/CC-102)).
-The split call (`plan_split`) also reports the question's `level`, the places it `named`, those identified only
-`numbered` inside another, whether a county is named (`county_named`), phrases that point at a place without
-naming it (`pointing`), and whether it `asks_for` `tables` (which table holds something: never stopped) or
-`data`. On the first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`,
+The split call (`plan_split`) also reports the question's `level`, the places it `named`, the levels of those
+identified only by number inside another (`numbered`), whether a county is named (`county_named`), whether a
+phrase points at a place without naming it (`pointing`), and whether it `asks_for` `tables` (which table holds
+something: never stopped) or `data`. On the first turn (by index), before any tool runs, `finish.incomplete` compares that with `_NEEDS`,
 the minimum the API accepts (ACS5 2023): every tract or block group, the state; one county or place by number,
-the state; one tract, state and county; one block group, state, county and tract. Names count as reported, not
-matched against the question's words ("Calif." and "Penn" were refused); a pointing phrase refuses only if the
-question has it. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
+the state; one tract, state and county; one block group, state, county and tract. A reported name gives the state
+with or without it written ("Los Angeles"): resolution finds it by NAME. For a unit identified by its number
+only the parents the question states (`given`) count, not ones the model supplied; a report without `given` keeps the name rule. An entry with a digit is a code and must
+ground itself (`state_of`, a GEOID); a number filed under `named` is not a place. The report is never matched
+against the question's words. Short of it, `run_ask` returns at once: `geography_unsupported`, a code-written answer, no
 search, fetch, URL or candidates. Any failure, a missing report or a late one fails open.
 
 The level is the model's statement, not a reading of the question
@@ -129,16 +120,15 @@ The level is the model's statement, not a reading of the question
 a published level name, or null when the question names none; `levels` pairs one per place with
 comparison legs (else refused for repair). A call without `level` is refused for repair (two refusals
 stop the tool). Code runs the stated level exactly. A name not published for the dataset fails with the
-published names and that refusal stands: finish neither re-resolves nor falls back to nationwide, so no
+published names and that refusal stands: finish neither re-resolves nor falls back, so no
 URL is built; a resend at another level leaves the refused level unmet, so the mismatch names it.
-`asked_levels` keeps one stated level per leg; a call that resolved nothing, and finish's repair calls
+`intent.levels` keeps one stated level per leg; a call that resolved nothing, and finish's repair calls
 (`"origin": "repair"`), never change it. A level the model stated that could not be served (an
 unsupported, refused, empty or partial result, or the call raised) stays unmet until a legal call serves it.
 `geography_level_mismatch` fires when a fetched `for=` level was not stated, or a stated or unmet level
 has no URL (an override is held to its own plan's levels). `geography_level_unverified` fires when no
-level was stated, or code inferred one (query-word scan, county fallback, nationwide guess, finish's
-listing redo). A bare name with a stated null resolves to a state or place by NAME match, unflagged.
-CC-104 removes the word-reading paths.
+level was stated, or code inferred one (the county fallback). A bare name with a stated null resolves to a
+state or place by NAME match, unflagged.
 
 Runtime legality scans **all** matching `geography.json` rows
 (`geo_entries()` / `legal_predicate()`). Do not use `geo_levels()`: that dict

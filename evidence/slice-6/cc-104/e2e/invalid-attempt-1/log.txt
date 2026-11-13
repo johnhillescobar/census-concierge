@@ -1,0 +1,23 @@
+HEAD start b9eec53cf47012103d3ce799654bd2a3abec4dd0 branch  status: 0 changed
+s START 2026-11-13T01:30:15Z :: uv sync
+s END 2026-11-13T01:30:22Z rc=0
+n1 START 2026-11-13T01:30:23Z :: npm --prefix web ci
+n1 END 2026-11-13T01:30:34Z rc=0
+n2 START 2026-11-13T01:30:35Z :: npm --prefix web run build
+n2 END 2026-11-13T01:30:44Z rc=0
+a START 2026-11-13T01:30:44Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-13T01:30:47Z rc=0
+b START 2026-11-13T01:30:47Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-13T01:30:48Z rc=0
+c START 2026-11-13T01:30:48Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-13T01:30:50Z rc=1
+d START 2026-11-13T01:30:50Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-13T01:31:07Z rc=1
+e START 2026-11-13T01:31:07Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-13T01:36:59Z rc=0
+f START 2026-11-13T01:37:00Z :: uv run python scripts/check_budgets.py
+f END 2026-11-13T01:37:01Z rc=1
+g START 2026-11-13T01:37:01Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-13T01:37:13Z rc=0
+HEAD end b9eec53cf47012103d3ce799654bd2a3abec4dd0
+DONE

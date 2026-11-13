@@ -1,0 +1,18 @@
+HEAD start b9eec53cf47012103d3ce799654bd2a3abec4dd0 branch  status: 1 changed
+s START 2026-11-13T01:41:16Z :: uv sync
+s END 2026-11-13T01:41:17Z rc=0
+n1 START 2026-11-13T01:41:17Z :: npm --prefix web ci
+n1 END 2026-11-13T01:41:32Z rc=0
+n2 START 2026-11-13T01:41:33Z :: npm --prefix web run build
+n2 END 2026-11-13T01:41:46Z rc=0
+a START 2026-11-13T01:41:46Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-13T01:42:08Z rc=0
+b START 2026-11-13T01:42:08Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-13T01:45:15Z rc=0
+c START 2026-11-13T01:45:15Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-13T01:45:22Z rc=0
+d START 2026-11-13T01:45:22Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-13T02:38:11Z rc=1
+e START 2026-11-13T02:38:12Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-13T02:50:44Z rc=127
+f START 2026-11-13T02:50:45Z :: uv run python scripts/check_budgets.py

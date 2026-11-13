@@ -30,13 +30,13 @@ from src.contract import (
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
 from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
-from src.geo_level import geo_status, note_intent
+from src.geo_level import GeoIntent, geo_status, note_intent
 from src.geo_list import list_census_names
 from src.guards import finish_aggregation
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import BuildUrlResult, BuildUrlTool, SearchTablesResult, SearchTablesTool
-from src.vintages import latest_vintages, moe_rows, requested_years, stamp_provenance
+from src.vintages import latest_vintages, moe_rows, stamp_provenance
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
@@ -59,23 +59,14 @@ class ExecutionRecord:
     question: str = ""
     vintages: list[tuple[str, int]] = field(default_factory=list)
     geo_status: dict[str, str | bool | int] | None = None
-    # Level per leg the model stated in its own resolve_geography call; [] if it never did.
-    asked_levels: list[str | None] = field(default_factory=list)
-    # Levels the model stated that came back unsupported and were not later served by a legal call.
-    unmet_levels: set[str] = field(default_factory=set)
+    # What the model asked for, from the loop's calls and the split call (requested only).
+    intent: GeoIntent = field(default_factory=GeoIntent)
     fetch: FetchDataResult | None = None
     allow_overlapping_acs5: bool = False
     override: Any = None
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
-    # Single-place resolve_geography queries, most recent last. finish_tools
-    # replays these as one `places` call when the model resolved legs of a
-    # comparison one at a time instead of together -- mechanical bookkeeping
-    # of what was actually asked, not a re-parse of the question's prose.
-    geo_queries: list[str] = field(default_factory=list)
-    # The question asks which table holds something: no geography is wanted, so none is flagged.
-    tables_only: bool = False
 
 
 def _artifact_ok(artifact: Any) -> bool:
@@ -102,15 +93,16 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         specs = get("specs")
         record.geographies = list(specs if specs is not None else get("matches") or [])
         record.geo_status = geo_status(get)
-        record.geography = record.geographies[0] if record.geographies else None
+        picked = bool(record.geographies) and not record.geo_status["ambiguous"]
+        record.geography = record.geographies[0] if picked else None
         if record.geography != previous:
             clear_series(record)
-        query = str(args.get("query") or "").strip()
-        if record.geo_status["compare"] or get("wildcard", False) or args.get("places"):
-            record.geo_queries = []
+        legs = [p.strip() for p in args.get("places") or [] if isinstance(p, str) and p.strip()]
+        if record.geo_status["compare"] or get("wildcard", False) or len(legs) != 1:
+            record.intent.legs = []
         # An unsupported candidate (legal False) is not a place that was compared.
-        elif query and record.geographies and record.geo_status["legal"]:
-            record.geo_queries = track_geo_query(record.geo_queries, query)
+        elif record.geographies and record.geo_status["legal"]:
+            record.intent.legs = track_geo_query(record.intent.legs, legs[0])
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)
@@ -376,9 +368,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             census_key=lambda: key,
             published=lambda dataset: {int(year) for year in matrix["datasets"].get(dataset, {})},
             table_facts=facts,
-            question_years=lambda: (
-                override_years(record.override) or requested_years(record.question, latest("acs5"))
-            ),
+            question_years=lambda: override_years(record.override) or list(record.intent.years),
             allow_overlapping_acs5=record.allow_overlapping_acs5,
         ),
     }
@@ -409,7 +399,7 @@ async def run_ask(
     answer = ""
     calls_used = 0
     given = bool(record.override and record.override.geographies)  # a plan that names the places
-    async with split_beside(question, complete, not given) as split:
+    async with split_beside(question, complete, not given, acs5) as split:
         try:
             for turn_no in range(MAX_TURNS):
                 turn = await complete(messages, openai_tools)

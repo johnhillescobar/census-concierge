@@ -1,0 +1,165 @@
+CC-104 Gate 2 (cold review): time and product from the model's report
+=====================================================================
+Range: base ecf2a6a .. head 3afe12b (branch cc-104/structured-geography)
+Worktree: detached HEAD at 3afe12bf997e2a6f23ed06bad4abe1501b16381f (`git checkout 3afe12b`; `git branch --show-current` is empty because detached)
+Diff: 19 files (7 in api/src: ask, contract, finish, geo_level, guards, prompts, vintages), docs/ask-path.md, docs/requirements.md,
+      evals/leakage_baseline.txt (-1 line), tests. budgets.toml, scripts/ untouched.
+Hard rules kept: no evals/sealed*, no demo.trials, no E2E transcript read; no network; no run_demo/run_grid; no api/src, budgets.toml, evals/ edits;
+no mutation experiments. Pass 1 was written before evidence/, PLAN, STATE, Jira or earlier gate transcripts were opened (none of them were opened at all).
+A throwaway probe test (api/tests/test_zz_gate2_probe.py) was used for reproductions and deleted; it is not committed.
+
+=====================================================================
+PASS 1 - generic bugs, cold
+=====================================================================
+Method: read the diff and the code it touches (finish.py whole, fetch.py _arun, vintages.py, contract.py apply_override/pin_tool_args,
+geo_level.py GeoIntent/adopt, guards.py), then reproduced with scripted-model runs through run_ask using the repo's own fixtures
+(ask_fixtures._tools, test_ask_loop._stopped/_split). 412 tests in the eight touched test files pass at 3afe12b.
+
+Checked and clean:
+- Type confusion in plan_split: `found.get("dataset") in _PRODUCTS` is a tuple membership (== compare), so a list/dict value cannot raise; `years`
+  is filtered with `type(y) is int` (bool, float, str, nested list dropped) and only taken from a list; `listing is True` replaces truthiness.
+  Nothing after the try block in plan_split can raise on model JSON, so `asyncio.wait_for(split, ...)` in finish_tools (which only catches
+  TimeoutError) is not exposed to a new exception. `_SPLIT_PARENTS.replace("{latest}", ...)` is safe against the JSON braces in the prompt (no .format).
+- Removed fallbacks leave no importer: grep for requested_years/question_years/wants_acs1/year_span/_acs5_end_years/_ZIP/_ZCTA_CODE over api, scripts,
+  evals, docs finds no stale caller (api/src/contract.py's `requested_years` is an unrelated ResultPlan field).
+- No-years path in fetch: `_arun` with years=[] and no override uses `built.year` (the URL's own vintage), so no crash and no empty fetch.
+- Dead code: none left behind (`re` still used in guards; `_ACS5_SPAN` still used by `_overlaps`).
+- zcta_not_zip: `860` prefix is the ZCTA summary level only; `geoid[-5:]` is the ZCTA code for real GEO_IDs; guard no longer fires for a refused or
+  unresolved ZIP question with no ZCTA level and no rows (intended by the new tests).
+
+Findings (each with file:line, failing input/state, verdict)
+
+G1 [PASS-1, CONFIRMED] A year the user asked for is silently replaced by the latest vintage whenever the split report does not carry it.
+   api/src/finish.py:369 (`{"years": intent.years}`), api/src/fetch.py:309-312 (`requested = asked or [built.year]`), api/src/ask.py:371.
+   Reproduced two ways with the repo's fixtures:
+   (a) question "Median household income in 2015 in US", split report with no `years` (equally: split timed out at SPLIT_WAIT_SECONDS=6, plan_split
+       returned None, or the model sent 2015.0 / "2015", which the type filter drops) and the loop stopped before fetch.
+       Result: warnings [], vintages [('acs5', 2024)], URL .../data/2024/acs/acs5?... . No warning, no omission reason, no note that a year was asked.
+   (b) question "Median household income in the US in 2019", loop itself ran search/resolve/build/fetch_data with years omitted, split report years=[2019].
+       Result: warnings [], URL .../2024/acs/acs5. The report's years are consulted only on the finish-fallback fetch (finish.py:367-369, `record.fetch is None
+       or fetch_failed`); when the loop already fetched, the requested years (intent.years) and the executed years (record.vintages) are never compared.
+   Before this change the question's words were read at the fetch layer too, so (a) and (b) both fetched 2015 / 2019. Now data for the wrong year is
+   served with a correct-looking URL and no warning. CLAUDE.md: "Keep requested meaning distinct from execution" and review-pr: "Did anything start
+   silently repairing input - a substituted vintage? That is a warning on the answer, never an invisible fix." The design (model supplies years) is
+   right; the missing piece is a deterministic requested-vs-executed comparison (intent.years vs record.vintages / fetch.attempted_years) that warns,
+   which does not read any question wording. Related: dataset has the same asymmetry only when the report is missing (acs1 request answered from acs5,
+   see G6).
+
+G2 [PASS-1, CONFIRMED] Model-supplied years are unbounded, and is_series() iterates the whole span synchronously on the event loop.
+   api/src/finish.py:99-100 (`[y for y in years if type(y) is int]`), api/src/vintages.py:60 (`range(ordered[0], ordered[-1] + 1)` with `set(ordered)`
+   rebuilt per iteration), called from api/src/fetch.py:322 inside `_arun` (not in a thread).
+   Before this change years reaching finish came from `(?:19|20)\d{2}` regexes, so the span was at most ~200 iterations. Now a report with
+   years=[10**30, 2022] (an int, so it survives the filter) makes the probe run exceed 120 s and have to be killed; direct measurement of is_series:
+   [-1_000_000, 2022] 0.17 s, [-10_000_000, 2022] 2.12 s (linear), so [-10**9, 2022] is about 3.5 minutes and 10**30 does not return. It blocks the
+   whole server loop, not just the request. The fetch_data tool's own `years: list[int]` arg already had this exposure from the loop's model, so the
+   defect is pre-existing in is_series; this change adds a second, un-gated model channel and removes the regex that bounded it. Fix is at the
+   filter (accept only plausible end years, e.g. 1900 <= y <= latest + 1; plan_split already receives `latest`) and/or is_series should not
+   materialise the span.
+
+G3 [PASS-1, CONFIRMED] overlapping_vintage no longer fires for a requested series that the planner thins to non-overlapping years.
+   api/src/guards.py:131 (`years` now only from record.vintages).
+   Probe: report for "every county in Ohio every year from 2017 to 2023" with years 2017..2023, ACS1 ineligible (wildcard): record.vintages
+   [('acs5',2017),('acs5',2022)], fetch.omission_reasons ['overlapping_vintage'] x5, response warnings ['acs1_geography_ineligible',
+   'geography_level_mismatch'] - no overlapping_vintage. Old code warned from the question's range. This is arguably more truthful (the executed rows do
+   not overlap), and the dropped years are still named in fetch.omission_reasons per requirements.md line 17, so it is not a silent short series.
+   But the user-visible warning that taught "these 5-year periods share sample" is gone for this path, and the new tests
+   (test_guards.py test_consecutive_acs5_vintages_overlap etc.) only exercise the case where all overlapping vintages are fetched, which the thinning
+   planner prevents unless allow_overlapping_acs5 is set. Severity is a judgement call for the owner; recorded as NOTE.
+
+G4 [PASS-1, PLAUSIBLE] Prompt wording for `years` can conflict with ACS5 period labels.
+   api/src/finish.py:45-47 and api/src/prompts.py:36. "years lists the end year of every vintage the question asks for; a range or an open-ended
+   period lists each year through {latest}" reads, for a closed range like "2015-2019 vs 2018-2022", as every year 2015..2022 or every end year 2019..2022,
+   not [2019, 2022]. The test (test_ask_loop overlapping_income...) feeds a hand-written [2019, 2022], so it cannot show what the model sends.
+   Only E2E can settle this; PLAUSIBLE, not reproducible without a live model.
+
+G5 [PASS-1, CONFIRMED] plan_split's `latest` default is None and renders "through None".
+   api/src/finish.py:77 and :87 (`str(latest)`). Only run_ask passes it; test_finish.py calls plan_split(question, complete) without it, so those
+   tests exercise a prompt that says "each year through None, the latest published". Not reachable in production today, but a required argument would
+   remove the trap. NOTE.
+
+G6 [PASS-1, PLAUSIBLE] A 1-year request is answered from ACS5 silently when the report is missing, and a ResultPlan with no `dataset` now outranks the report.
+   api/src/finish.py:321 (`acs1 = intent.dataset == "acs1"`) and api/src/contract.py:256-262 (removed `wants_acs1` flip), contract.py pin_tool_args.
+   Split None/timeout means acs1 is never learned from the report; the model's own build_url dataset is then the only source. A client plan that omits
+   `dataset` defaults to acs5 and pin_tool_args forces dataset=plan.dataset onto search_tables and build_url, so a report of acs1 and a plan of acs5
+   disagree with no warning. In the UI flow the plan always comes from a prior response (dataset populated), so the practical exposure is small.
+   My probe with a table-only plan and an acs1 report returned no URL at all with a geography_level_unverified warning; I could not isolate this to the
+   plan/report conflict versus the fixture (B19013 under acs1), so PLAUSIBLE. NOTE.
+
+G7 [PASS-1, CONFIRMED] Float or string years are dropped silently.
+   api/src/finish.py:100. A report of [2022.0] or ["2022"] keeps nothing (tests test_only_whole_numbers_count_as_the_years... pin this deliberately);
+   consequence is G1(a): the latest vintage is served with no warning. Folded into G1's fix (warn when the report mentions years that were not used).
+   Not separate.
+
+Tests that could not fail: none found among the new ones. test_a_plan_with_no_dataset_stays_acs5_whatever_the_question_says asserts a field default plus
+that apply_override does not mutate; it fails if the removed flip returns, so it is weak but live. See also G8.
+
+=====================================================================
+PASS 2 - project invariants (docs/playbooks/review-pr.md)
+=====================================================================
+Machines (all run at 3afe12b, worktree venv):
+  uv run python scripts/check_invariants.py --base origin/main  -> exit 0. All 19 rows ok, including: eval phrasing in api/src, budget increases,
+      new regex, new exemptions, prompt assertions, forbidden module names, key attached only via CensusURL, mandatory catalogs.
+      info: api/src regex call sites 18 (base 55, delta -37).
+  uv run python scripts/check_budgets.py                         -> exit 1, ONLY answered_rate 0.683 < 0.7 (inherited from main, not a finding);
+      p95 row "waive" (owner waiver for the 2026-11-09 run, inherited); every other row ok (e.g. largest file LOC 404 <= 410, doc lines 1810 <= 1820,
+      prompt tokens 1050 <= 1200). budgets.toml not in the diff.
+  uv run ruff check .                                            -> exit 0, All checks passed
+  uv run ruff format --check .                                   -> exit 0, 259 files already formatted
+  uv run mypy api/src                                            -> exit 0, no issues in 29 source files
+  uv run pytest (8 touched test files, -m "not integration")     -> 412 passed.
+  (Full pytest run not repeated; the touched modules pass.)
+
+Question-wording readers in the changed area (time, product, geography, warnings):
+  - Removed: vintages.py _ACS1/_SINCE/_IN_YEAR/_SPAN/_YEAR_SPAN regexes and year_span/question_years/requested_years/wants_acs1;
+    guards.py _RANGE/_acs5_end_years/"every year" search and _ZIP/_ZCTA_CODE; contract.apply_override's wants_acs1 flip;
+    finish._latest/requested_years/wants_acs1 use. Leakage baseline: only `regex2|zip code|api/src/guards.py` removed (shrank, nothing added).
+  - Added: none. New code consumes structured fields only: GeoIntent.dataset/years from the model's split JSON, validated by type; execution via
+    record.vintages and record.rows/geographies for zcta_not_zip.
+  - Remaining in guards.py that read the question (NOTE G9, known and owned elsewhere, not introduced here):
+      guards.py:21-28 _UNIVERSES + :223-224 re.search(rf"\b{needle}\b") in _named_universes (universe_mismatch), called with record.question at :230
+      guards.py:30 _COMBINE and :354/:365/:400 _wants_combination(record.question) (aggregation / derived-measure warnings)
+      guards.py:37 _DERIVED and :266/:268 (derived-measure warning); :258 re.search(r"\bmedian\b", record.question)
+  - No remaining reader of the question for time, product or ZIP in api/src (grep of year/1-year/since/every year patterns finds only the
+    prompt text and a docstring).
+
+Requested vs executed vs inferred: kept apart in the new fields. GeoIntent docstring now says "requests, never results"; dataset/years live in the intent
+(requested), record.vintages / fetch.attempted_years are executed. The gap is the missing comparison between them (G1).
+URL construction: no URL is formed outside CensusURL in this diff (fetch.py/census_url.py untouched; finish passes only table/dataset/years args).
+Blocking clarification: none added. Refusal path (incomplete()) unchanged apart from adopt() now also copying dataset/years.
+Prompt change: finish.py _SPLIT_PARENTS and prompts.py line 36 add dataset/years instructions; no eval phrasing, no place, no table or example question.
+Docs: docs/ask-path.md (resolve step, Years section) and docs/requirements.md (zcta_not_zip row) match the new shape. ARCHITECTURE.md has no text about
+reading years/product from the wording. requirements.md line 32 still describes overlapping_vintage generically; the ask-path "Consecutive ACS5 still
+warns" sentence is now true only for fetched overlapping vintages (see G3).
+Leakage baseline: -1 line, none added. Shrank. OK.
+Scope: 19 files (7 src, 2 docs, 1 baseline, 9 tests) for one concern; no "while we were in there" additions seen.
+
+Findings on tests (invariant lens)
+G8 [PASS-2, CONFIRMED] A new test asserts prompt wording.
+   api/tests/test_ask_loop.py (end of file), test_the_split_call_is_told_the_latest_published_vintage:
+   `assert f"through {latest}" in system[0] and "through None" not in system[0]`. CLAUDE.md: "Assert on prompt wording or LLM prose. Those tests
+   break on edits and survive regressions." The `"{latest}" not in system[0]` and `latest in system[0]` halves are behaviour (the template was filled);
+   the `"through {latest}"` / `"through None"` halves pin phrasing. check_invariants "prompt assertions" passed, so this is the machine's blind spot,
+   not a green light. Drop the phrase-level assertions.
+
+G9 [PASS-2, NOTE] Other question readers remain in api/src/guards.py (list above); known and owned elsewhere, not introduced by CC-104.
+
+=====================================================================
+FINDINGS LIST
+=====================================================================
+G1  SHOULD  Wrong-year data silently served: a year the user asked for is replaced by the latest vintage when the split report omits it, times out,
+            or the loop fetched without years; intent.years vs executed vintages is never compared. finish.py:369, fetch.py:309-312. CONFIRMED.
+G2  SHOULD  Unbounded model-supplied years block the event loop in is_series (finish.py:99-100, vintages.py:60); years=[10**30, 2022] never returns,
+            [-10**7, 2022] takes 2.1 s. Filter to plausible end years in plan_split. CONFIRMED (hang observed on the full path, scaling measured directly).
+G3  NOTE    overlapping_vintage no longer fires for a thinned ACS5 series (omission_reasons still names the dropped years). guards.py:131. CONFIRMED.
+G4  NOTE    The `years` instruction conflates a closed range with an open-ended period and ACS5 period labels; only E2E can show what the model sends. PLAUSIBLE.
+G5  NOTE    plan_split(latest=None) renders "through None"; make `latest` required. finish.py:77,87. CONFIRMED.
+G6  NOTE    Missing split report means a 1-year ask is answered from ACS5 with no warning; a plan without dataset outranks the report. PLAUSIBLE.
+G7  (merged into G1)
+G8  SHOULD  Prompt-wording assertion in test_the_split_call_is_told_the_latest_published_vintage (test_ask_loop.py, end of file). CONFIRMED.
+G9  NOTE    Remaining question readers in guards.py (universe, combine, derived, median): 21-28/223-230, 30/354/365/400, 37/258/266/268. Owned elsewhere.
+
+No BLOCK findings: no machine failed other than the inherited answered_rate and waived p95; no budget touched; no URL, blocking clarification,
+or eval phrasing issue. Closure items (AC/TC matrix, scripts/closure.py check, E2E before and after merge) were not part of this cold range review and
+are not asserted here.
+
+VERDICT: NOT YET - G1: wrong-year (and wrong-product) data is served with no warning whenever the model's report misses the years (timeout, omission, loop fetched without years), the one silent-wrong-answer path this change opens; fix with a requested-vs-executed years warning, and bound the years (G2) and drop the prompt-wording assertion (G8) in the same pass.

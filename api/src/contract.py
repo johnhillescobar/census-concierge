@@ -256,11 +256,6 @@ def bind_override_geographies(plan: ResultPlan) -> ResultPlan:
 def apply_override(record: Any, plan: ResultPlan | None) -> None:
     if plan is None:
         return
-    if "dataset" not in plan.model_fields_set:
-        from src.vintages import wants_acs1
-
-        if wants_acs1(getattr(record, "question", "") or ""):
-            plan.dataset = "acs1"
     plan = bind_override_geographies(plan)
     record.override = plan
     record.allow_overlapping_acs5 = plan.allow_overlapping_acs5

@@ -18,15 +18,12 @@ from src.contract import GeoSpec, clause_codes
 from src.fetch import FetchDataTool
 from src.geo import (
     filter_rows,
-    find_state,
     legal_predicate,
     named_rows,
     nests_in,
-    place_token,
     rank_matches,
-    split_comparison,
 )
-from src.geo_list import list_census_names
+from src.geo_list import list_census_names, name_token, state_of
 from src.retrieval.metadata import GeoLevel, geo_entries, geo_levels
 from src.tools import (
     BuildUrlTool,
@@ -338,57 +335,15 @@ def test_zcta_nested_in_county_is_not_legal() -> None:
     )
 
 
-async def test_year_question_with_no_place_resolves_to_the_united_states() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {
-                "level": None,
-                "query": "How has the share of households with a computer changed since 2013?",
-            },
-            "id": "c1",
-        }
-    )
-    assert message.artifact.legal is True
-    assert [spec.for_spec for spec in message.artifact.specs] == ["us:1"]
-    overlap = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {
-                "level": None,
-                "query": "Compare median household income between 2015-2019 and 2018-2022",
-            },
-            "id": "c2",
-        }
-    )
-    assert [spec.for_spec for spec in overlap.artifact.specs] == ["us:1"]
-
-
-async def test_named_place_with_a_year_is_not_replaced_by_the_united_states() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": None, "query": "Number of cell phones in Denver since 2017"},
-            "id": "c1",
-        }
-    )
-    assert [spec.for_spec for spec in message.artifact.specs] != ["us:1"]
-
-
 async def test_all_zctas_in_a_county_is_rejected_not_rewritten() -> None:
     # Without the county parent in the legality check this becomes a national
-    # zcta:* wildcard — a silent substitution the Census API would 400.
+    # zcta:* wildcard -- a silent substitution the Census API would 400.
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all zctas in Harris County"},
+            "args": {"parents": ["Harris County, TX"], "parent_level": "county", "level": "zcta"},
             "id": "c1",
         }
     )
@@ -405,14 +360,7 @@ def test_tract_nests_in_county_not_place() -> None:
     assert not nests_in("zip code tabulation area", "place", ENTRIES)
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "Median household income for ZCTA 90210",
-        "population above 10000 for ZCTA 90210",
-    ],
-)
-async def test_named_zcta_resolves_without_a_parent(query: str) -> None:
+async def test_named_zcta_resolves_without_a_parent() -> None:
     called: list[object] = []
 
     def listing(
@@ -426,7 +374,7 @@ async def test_named_zcta_resolves_without_a_parent(query: str) -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"places": ["90210"], "level": "zcta"},
             "id": "c1",
         }
     )
@@ -456,12 +404,11 @@ async def test_acs1_zcta_is_rejected_before_listing() -> None:
         return []
 
     tool = _geo_tool(listing, geo_table=table)
-    query = "Median household income for ZCTA 90210"
     acs1 = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query, "dataset": "acs1"},
+            "args": {"places": ["90210"], "level": "zcta", "dataset": "acs1"},
             "id": "c1",
         }
     )
@@ -469,7 +416,7 @@ async def test_acs1_zcta_is_rejected_before_listing() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query, "dataset": "acs5"},
+            "args": {"places": ["90210"], "level": "zcta", "dataset": "acs5"},
             "id": "c2",
         }
     )
@@ -481,52 +428,13 @@ async def test_acs1_zcta_is_rejected_before_listing() -> None:
     assert called == []
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "the part of ZIP 80202 inside Denver",
-        "ZCTA 80202 inside Denver",
-        "ZIP 80202 inside Denver",
-        "the part of ZIP 80202 in Denver",
-        "ZCTA 80202 in Denver",
-        "ZIP 80202 in Denver",
-    ],
-)
-async def test_named_zcta_inside_a_place_is_not_nested(query: str) -> None:
-    called: list[object] = []
-
-    def listing(
-        level: str, parts: dict[str, str], dataset: str = "acs5", vintage: int = 2024
-    ) -> list[dict[str, str]]:
-        called.append((level, parts, dataset, vintage))
-        return _list_geographies(level, parts)
-
-    tool = _geo_tool(listing)
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": None, "query": query},
-            "id": "c1",
-        }
-    )
-    assert message.artifact.legal is False
-    assert message.artifact.nested is False
-    assert message.artifact.specs == []
-    assert called == []
-
-
-@pytest.mark.parametrize(
-    "query",
-    ["ZCTA 90210 Oregon", "Median household income for ZCTA 90210 in Oregon"],
-)
-async def test_named_zcta_with_a_state_is_not_nested(query: str) -> None:
+async def test_named_zcta_with_a_state_is_not_nested() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"places": ["90210, OR"], "level": "zcta"},
             "id": "c1",
         }
     )
@@ -675,17 +583,14 @@ def test_county_rank_ignores_place_class() -> None:
     assert rank_matches(rows)[0]["for"] == "county:031"
 
 
-@pytest.mark.parametrize(
-    "query",
-    ["all counties in Washington state", "all counties in the state of Washington"],
-)
-async def test_state_descriptor_is_still_a_county_wildcard(query: str) -> None:
+@pytest.mark.parametrize("parent", ["Washington", "WA"])
+async def test_state_descriptor_is_still_a_county_wildcard(parent: str) -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"parents": [parent], "level": "county"},
             "id": "c1",
         }
     )
@@ -703,7 +608,7 @@ async def test_all_places_in_oregon_is_a_state_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all places in Oregon"},
+            "args": {"parents": ["Oregon"], "level": "place"},
             "id": "c1",
         }
     )
@@ -719,7 +624,7 @@ async def test_all_places_in_washington_state_is_a_state_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all places in Washington state"},
+            "args": {"parents": ["Washington"], "level": "place"},
             "id": "c1",
         }
     )
@@ -729,14 +634,13 @@ async def test_all_places_in_washington_state_is_a_state_wildcard() -> None:
     assert spec.in_spec == "state:53"
 
 
-@pytest.mark.parametrize("query", ["all ZCTAs in Oregon", "ZCTAs within Oregon"])
-async def test_zctas_in_a_state_are_not_nested(query: str) -> None:
+async def test_zctas_in_a_state_are_not_nested() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"parents": ["Oregon"], "level": "zcta"},
             "id": "c1",
         }
     )
@@ -751,7 +655,7 @@ async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all counties in Oregon"},
+            "args": {"parents": ["Oregon"], "level": "county"},
             "id": "c1",
         }
     )
@@ -760,7 +664,7 @@ async def test_all_counties_in_oregon_is_one_wildcard_request() -> None:
     assert artifact.legal is True
     spec = artifact.specs[0]
     assert spec.level == "county"
-    assert spec.name == "all counties in Oregon"
+    assert spec.name == "every county in Oregon"
     assert spec.for_spec == "county:*"
     assert spec.in_spec == "state:41"
     assert spec.geoid == ""
@@ -784,7 +688,11 @@ async def test_tracts_in_wayne_county_are_one_wildcard_not_a_listing() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "All tracts in Wayne County, Michigan"},
+            "args": {
+                "parents": ["Wayne County, MI"],
+                "parent_level": "county",
+                "level": "tract",
+            },
             "id": "c1",
         }
     )
@@ -807,7 +715,7 @@ async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "every tract in Wayne County"},
+            "args": {"parents": ["Wayne County"], "parent_level": "county", "level": "tract"},
             "id": "c1",
         }
     )
@@ -824,7 +732,7 @@ async def test_all_tracts_in_michigan_stay_illegal() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all tracts in Michigan"},
+            "args": {"parents": ["Michigan"], "level": "tract"},
             "id": "c1",
         }
     )
@@ -834,17 +742,14 @@ async def test_all_tracts_in_michigan_stay_illegal() -> None:
 
 
 async def test_multi_state_wildcard_resolves_every_named_parent() -> None:
-    """CC-101: "all counties in Texas and Louisiana" used to silently collapse
-    to Louisiana only (find_state's last-match tie-break). Both parents must
-    come back as their own leg."""
+    """Two parents must come back as their own leg, never collapse to one state."""
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
-                "level": None,
-                "query": "all counties in Texas and Louisiana",
+                "level": "county",
                 "parents": ["Texas", "Louisiana"],
             },
             "id": "c1",
@@ -867,8 +772,7 @@ async def test_three_state_wildcard_resolves_every_named_parent() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
-                "level": None,
-                "query": "all counties in Texas, Louisiana, and Oklahoma",
+                "level": "county",
                 "parents": ["Texas", "Louisiana", "Oklahoma"],
             },
             "id": "c1",
@@ -880,25 +784,6 @@ async def test_three_state_wildcard_resolves_every_named_parent() -> None:
     assert [row.in_spec for row in artifact.specs[:3]] == ["state:48", "state:22", "state:40"]
 
 
-async def test_counties_within_two_states_also_resolves_both() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {
-                "level": None,
-                "query": "counties within Texas and Louisiana",
-                "parents": ["Texas", "Louisiana"],
-            },
-            "id": "c1",
-        }
-    )
-    artifact = message.artifact
-    assert artifact.legal is True
-    assert [row.in_spec for row in artifact.specs[:2]] == ["state:48", "state:22"]
-
-
 async def test_multi_state_wildcard_fails_explicitly_not_silently() -> None:
     """One bad parent name must not make the good one silently stand in for
     it -- an explicit failure naming only the parent that actually failed."""
@@ -908,8 +793,7 @@ async def test_multi_state_wildcard_fails_explicitly_not_silently() -> None:
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
-                "level": None,
-                "query": "all counties in Texas and Atlantis",
+                "level": "county",
                 "parents": ["Texas", "Atlantis"],
             },
             "id": "c1",
@@ -931,8 +815,7 @@ async def test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse() -> 
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
-                "level": None,
-                "query": "all counties in Texas and Louisiana",
+                "level": "county",
                 "parents": ["Texas", ""],
             },
             "id": "c1",
@@ -946,14 +829,13 @@ async def test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse() -> 
 
 
 async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> None:
-    """CC-73 regression guard: a single-state wildcard must resolve exactly
-    as before even when the model also populates `parents` with one entry."""
+    """A single-parent listing is one request, not a comparison."""
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all counties in Oregon", "parents": ["Oregon"]},
+            "args": {"level": "county", "parents": ["Oregon"]},
             "id": "c1",
         }
     )
@@ -963,41 +845,15 @@ async def test_single_parent_wildcard_is_unaffected_by_the_parents_field() -> No
     assert artifact.specs[0].in_spec == "state:41"
 
 
-async def test_versus_query_ignores_a_mistaken_parents_field() -> None:
-    """AC14: a genuine comparison must never be routed into wildcard-parent
-    handling, even if `parents` is (wrongly) populated alongside it."""
+async def test_parents_with_places_is_refused_for_repair_not_narrowed_silently() -> None:
+    """A listing and a comparison in one call is invalid intent: nothing is dropped quietly."""
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
             "args": {
-                "level": None,
-                "query": "Austin versus Dallas",
-                "parents": ["Texas", "Louisiana"],
-            },
-            "id": "c1",
-        }
-    )
-    artifact = message.artifact
-    assert artifact.compare is True
-    assert artifact.wildcard is False
-    assert artifact.specs[0].for_spec == "place:4805000"
-    assert artifact.specs[1].for_spec == "place:19000"
-
-
-async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
-    """AC14: a wildcard-phrased query with 2+ `parents` must never fall into
-    the `sides = legs if len(legs) >= 2 ...` comparison branch, even if
-    `places` is also (wrongly) populated."""
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {
-                "level": None,
-                "query": "all counties in Texas and Louisiana",
+                "level": "county",
                 "places": ["Chicago, IL", "Los Angeles, CA"],
                 "parents": ["Texas", "Louisiana"],
             },
@@ -1005,27 +861,21 @@ async def test_wildcard_parents_win_over_a_stale_places_field() -> None:
         }
     )
     artifact = message.artifact
-    assert artifact.compare is True
-    assert [row.for_spec for row in artifact.specs[:2]] == ["county:*", "county:*"]
-    assert [row.in_spec for row in artifact.specs[:2]] == ["state:48", "state:22"]
+    assert artifact.legal is False and artifact.specs == [] and artifact.refused is False
+    assert "parents" in artifact.detail
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "Median gross rent in Austin versus the Texas average",
-        "Compare median gross rent in Austin to the Texas average",
-        "Austin compared to the Texas average",
-        "Austin vs the Texas average",
-    ],
-)
-async def test_versus_emits_austin_then_texas_as_comparison_legs(query: str) -> None:
+async def test_versus_emits_austin_then_texas_as_comparison_legs() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {
+                "places": ["Austin, TX", "Texas"],
+                "level": None,
+                "levels": ["place", "state"],
+            },
             "id": "c1",
         }
     )
@@ -1040,32 +890,17 @@ async def test_versus_emits_austin_then_texas_as_comparison_legs(query: str) -> 
     assert artifact.specs[1].in_spec == ""
 
 
-async def test_versus_splits_even_when_level_is_passed() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {
-                "query": "Compare median gross rent in Austin to the Texas average",
-                "level": None,
-                "levels": ["place", "state"],
-            },
-            "id": "c1",
-        }
-    )
-    artifact = message.artifact
-    assert artifact.compare is True
-    assert [row.level for row in artifact.specs] == ["place", "state"]
-
-
 async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Springfield versus the Texas average"},
+            "args": {
+                "places": ["Springfield", "Texas"],
+                "level": None,
+                "levels": ["place", "state"],
+            },
             "id": "c1",
         }
     )
@@ -1076,45 +911,13 @@ async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
     assert {row.in_spec for row in artifact.specs[2:]} == {"state:17", "state:51"}
 
 
-async def test_tenure_versus_still_resolves_the_place() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": None, "query": "Renter versus owner households in Springfield"},
-            "id": "c1",
-        }
-    )
-    artifact = message.artifact
-    assert artifact.compare is False
-    assert artifact.legal is True
-    assert artifact.specs[0].name == "Springfield city, Missouri"
-
-
-async def test_compared_to_a_year_still_resolves_the_place() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": None, "query": "population of Austin compared to 2017"},
-            "id": "c1",
-        }
-    )
-    artifact = message.artifact
-    assert artifact.compare is False
-    assert artifact.legal is True
-    assert artifact.specs[0].for_spec == "place:4805000"
-
-
 async def test_springfield_alternatives_are_not_comparison_legs() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Population of Springfield"},
+            "args": {"places": ["Springfield"], "level": "place"},
             "id": "c1",
         }
     )
@@ -1128,7 +931,7 @@ async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Cook County"},
+            "args": {"places": ["Cook County"], "level": "county"},
             "id": "c1",
         }
     )
@@ -1146,7 +949,7 @@ async def test_queens_resolves_as_the_county_not_the_gate_cdp() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Queens"},
+            "args": {"places": ["Queens"], "level": None},
             "id": "c1",
         }
     )
@@ -1165,7 +968,7 @@ async def test_named_city_does_not_fall_back_to_the_county() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Harris city, Texas"},
+            "args": {"places": ["Harris city, TX"], "level": None},
             "id": "c1",
         }
     )
@@ -1179,7 +982,7 @@ async def test_portland_selects_oregon_over_maine() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "bike to work in Portland"},
+            "args": {"places": ["Portland"], "level": "place"},
             "id": "c1",
         }
     )
@@ -1195,7 +998,7 @@ async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Population of Springfield"},
+            "args": {"places": ["Springfield"], "level": "place"},
             "id": "c1",
         }
     )
@@ -1216,7 +1019,7 @@ async def test_state_qualified_place_stays_exact() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Portland, Maine"},
+            "args": {"places": ["Portland, ME"], "level": "place"},
             "id": "c1",
         }
     )
@@ -1224,22 +1027,14 @@ async def test_state_qualified_place_stays_exact() -> None:
     assert "alternatives" not in message.content
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "Harris County, Texas",
-        "population of Harris County, Texas",
-        "what is harris county",
-        "what is harris county, texas",
-    ],
-)
-async def test_harris_county_texas_resolves_to_codes(query: str) -> None:
+@pytest.mark.parametrize("entry", ["Harris County, TX", "Harris County, Texas"])
+async def test_harris_county_texas_resolves_to_codes(entry: str) -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"places": [entry], "level": "county"},
             "id": "c1",
         }
     )
@@ -1273,15 +1068,13 @@ async def test_informal_region_counties_do_not_become_a_valley_county() -> None:
         rows = _list_geographies(level, parts, dataset, vintage)
         return [*rows, *extra] if level == "county" else rows
 
-    query = "Occupation breakdown for workers in Silicon Valley counties"
-    assert place_token(query, None) == "silicon valley"
     assert named_rows("silicon valley", extra) == []
     tool = _geo_tool(listing)
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"places": ["Silicon Valley"], "level": "county"},
             "id": "c1",
         }
     )
@@ -1578,7 +1371,7 @@ async def test_all_counties_in_the_us_keeps_the_state_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all counties in the US"},
+            "args": {"parents": [], "parent_level": "us", "level": "county"},
             "id": "c1",
         }
     )
@@ -1595,7 +1388,7 @@ async def test_all_places_in_a_county_is_rejected_not_broadened() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all places in Harris County"},
+            "args": {"parents": ["Harris County, TX"], "parent_level": "county", "level": "place"},
             "id": "c1",
         }
     )
@@ -1621,7 +1414,7 @@ async def test_unknown_level_does_not_list_census_names() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"query": "Harris County, Texas", "level": "county:*&get=NAME"},
+            "args": {"places": ["Harris County, TX"], "level": "county:*&get=NAME"},
             "id": "c1",
         }
     )
@@ -1637,7 +1430,7 @@ async def test_unknown_place_keeps_predicate_legality() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Atlantis, Texas"},
+            "args": {"places": ["Atlantis, TX"], "level": None},
             "id": "c1",
         }
     )
@@ -1689,72 +1482,22 @@ def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyP
 
 
 def test_washington_dc_is_not_washington_state() -> None:
-    assert find_state("Washington, DC") == ("district of columbia", "11")
-    assert find_state("Washington DC") == ("district of columbia", "11")
-    assert find_state("Washington, D.C.") == ("district of columbia", "11")
-    assert find_state("Washington") == ("washington", "53")
-    assert find_state("all counties in Washington") == ("washington", "53")
-    assert find_state("Washington County, Oregon") == ("oregon", "41")
-    assert find_state("Washington County, OR") == ("oregon", "41")
-    assert find_state("Kansas City, Missouri") == ("missouri", "29")
-    assert find_state("West Virginia") == ("west virginia", "54")
-    assert find_state("Virginia") == ("virginia", "51")
+    assert state_of("Washington, DC") == ("district of columbia", "11")
+    assert state_of("Washington, D.C.") == ("district of columbia", "11")
+    assert state_of("District of Columbia") == ("district of columbia", "11")
+    assert state_of("Washington") == ("washington", "53")
+    assert state_of("Washington County, Oregon") == ("oregon", "41")
+    assert state_of("Washington County, OR") == ("oregon", "41")
+    assert state_of("Kansas City, Missouri") == ("missouri", "29")
+    assert state_of("West Virginia") == ("west virginia", "54")
+    assert state_of("Virginia") == ("virginia", "51")
+    assert state_of("Atlantis") is None
 
 
 def test_new_york_city_token_keeps_new_york() -> None:
-    assert place_token("New York City", "new york") == "new york"
-    assert place_token("Austin, Texas", "texas") == "austin"
-    assert place_token("State College, Pennsylvania", "pennsylvania") == "state college"
-
-
-def test_sentence_place_token_is_the_published_name() -> None:
-    rows = [
-        {
-            "name": "Detroit city, Michigan",
-            "level": "place",
-            "for": "place:22000",
-            "population": "638530",
-        },
-        {
-            "name": "Detroit city, Oregon",
-            "level": "place",
-            "for": "place:19100",
-            "population": "111",
-        },
-        {
-            "name": "Phoenix city, Arizona",
-            "level": "place",
-            "for": "place:55000",
-            "population": "1642323",
-        },
-        {
-            "name": "Ann Arbor city, Michigan",
-            "level": "place",
-            "for": "place:03000",
-            "population": "122036",
-        },
-    ]
-    cases = [
-        ("Why are so many homes in Detroit sitting empty?", "detroit", "place:22000"),
-        ("Population of Phoenix in 2024 from the 1-year ACS", "phoenix", "place:55000"),
-        ("What did people in Ann Arbor study in college?", "ann arbor", "place:03000"),
-    ]
-    for query, token, code in cases:
-        assert place_token(query, None) == token
-        assert filter_rows(query.casefold(), rows) == []
-        hits = rank_matches(filter_rows(token, rows))
-        assert hits[0]["for"] == code
-    assert place_token("population of Harris County, Texas", "texas") == "harris"
-    assert place_token("what is harris county", None) == "harris"
-    assert place_token("1-year ACS poverty for Fresno County, 2018 through 2022", None) == "fresno"
-    assert place_token("vacancy in Isle of Palms", None) == "isle of palms"
-    assert (
-        place_token("Population in District of Columbia", "district of columbia")
-        == "district of columbia"
-    )
-    assert (
-        place_token("in the District of Columbia", "district of columbia") == "district of columbia"
-    )
+    assert name_token("New York, NY") == "new york"
+    assert name_token("Austin, Texas") == "austin"
+    assert name_token("State College, Pennsylvania") == "state college"
 
 
 def test_empty_place_token_matches_nothing() -> None:
@@ -1763,23 +1506,14 @@ def test_empty_place_token_matches_nothing() -> None:
     assert filter_rows("new york", rows) == []
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "Washington, DC",
-        "Washington DC",
-        "Washington, D.C.",
-        "Population in District of Columbia",
-        "in the District of Columbia",
-    ],
-)
-async def test_washington_dc_resolves_as_district_of_columbia(query: str) -> None:
+@pytest.mark.parametrize("entry", ["Washington, DC", "Washington, D.C.", "District of Columbia"])
+async def test_washington_dc_resolves_as_district_of_columbia(entry: str) -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query},
+            "args": {"places": [entry], "level": "state"},
             "id": "c1",
         }
     )
@@ -1793,38 +1527,11 @@ async def test_new_york_city_does_not_return_every_new_york_place() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "New York City"},
+            "args": {"places": ["New York, NY"], "level": "place"},
             "id": "c1",
         }
     )
     assert [row.for_spec for row in message.artifact.specs] == ["place:3651000"]
-
-
-@pytest.mark.parametrize(
-    ("query", "for_spec", "in_spec"),
-    [
-        ("Why are so many homes in Detroit sitting empty?", "place:22000", "state:26"),
-        ("Population of Phoenix in 2024 from the 1-year ACS", "place:55000", "state:04"),
-        ("What did people in Ann Arbor study in college?", "place:03000", "state:26"),
-    ],
-)
-async def test_sentence_question_resolves_the_published_place(
-    query: str, for_spec: str, in_spec: str
-) -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": None, "query": query},
-            "id": "c1",
-        }
-    )
-    specs = message.artifact.specs
-    assert specs
-    assert specs[0].for_spec == for_spec
-    assert specs[0].in_spec == in_spec
-    assert specs[0].level == "place"
 
 
 async def test_bare_state_query_resolves_as_the_state() -> None:
@@ -1833,7 +1540,7 @@ async def test_bare_state_query_resolves_as_the_state() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "population of Texas"},
+            "args": {"places": ["Texas"], "level": "state"},
             "id": "c1",
         }
     )
@@ -1887,7 +1594,7 @@ async def test_removing_county_row_from_fixture_fails_before_listing(
     args = {
         "type": "tool_call",
         "name": "resolve_geography",
-        "args": {"level": None, "query": "all counties in Oregon"},
+        "args": {"parents": ["Oregon"], "level": "county"},
         "id": "c1",
     }
     _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS, _COUNTY_FIPS])
@@ -1918,14 +1625,13 @@ async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
         return _list_geographies(level, parts)
 
     tool = _geo_tool(listing, geo_table=metadata.geo_entries)
-    query = "Median household income for ZCTA 90210"
     _write_geo(tmp_path, "acs5", 2024, [_STATE_FIPS, _ZCTA_FIPS])
     _write_geo(tmp_path, "acs1", 2023, [_STATE_FIPS])
     acs5 = await tool.ainvoke(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query, "dataset": "acs5", "vintage": 2024},
+            "args": {"places": ["90210"], "level": "zcta", "dataset": "acs5", "vintage": 2024},
             "id": "c1",
         }
     )
@@ -1933,7 +1639,7 @@ async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query, "dataset": "acs1", "vintage": 2023},
+            "args": {"places": ["90210"], "level": "zcta", "dataset": "acs1", "vintage": 2023},
             "id": "c2",
         }
     )
@@ -1949,7 +1655,7 @@ async def test_zcta_row_in_geography_json_authorizes_acs5_not_acs1(
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": query, "dataset": "acs5", "vintage": 2024},
+            "args": {"places": ["90210"], "level": "zcta", "dataset": "acs5", "vintage": 2024},
             "id": "c3",
         }
     )
@@ -1979,7 +1685,7 @@ async def test_acs1_table_without_county_refuses_the_acs5_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all counties in Oregon", "dataset": "acs5"},
+            "args": {"parents": ["Oregon"], "level": "county", "dataset": "acs5"},
             "id": "c1",
         }
     )
@@ -1987,7 +1693,7 @@ async def test_acs1_table_without_county_refuses_the_acs5_wildcard() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "all counties in Oregon", "dataset": "acs1"},
+            "args": {"parents": ["Oregon"], "level": "county", "dataset": "acs1"},
             "id": "c2",
         }
     )
@@ -2014,7 +1720,7 @@ async def test_missing_vintage_geography_metadata_fails_closed() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Texas", "dataset": "acs1", "vintage": 2020},
+            "args": {"places": ["Texas"], "level": None, "dataset": "acs1", "vintage": 2020},
             "id": "c1",
         }
     )
@@ -2030,7 +1736,7 @@ async def test_unauthorized_state_row_does_not_emit_a_spec() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Texas"},
+            "args": {"places": ["Texas"], "level": None},
             "id": "c1",
         }
     )
@@ -2050,35 +1756,17 @@ async def test_dataset_and_vintage_select_the_geography_table() -> None:
         {
             "type": "tool_call",
             "name": "resolve_geography",
-            "args": {"level": None, "query": "Texas", "dataset": "acs1", "vintage": 2023},
+            "args": {"places": ["Texas"], "level": None, "dataset": "acs1", "vintage": 2023},
             "id": "c1",
         }
     )
     assert seen == [("acs1", 2023)]
 
 
-async def test_query_prose_cannot_override_resolved_clauses() -> None:
-    tool = _geo_tool()
-    message = await tool.ainvoke(
-        {
-            "type": "tool_call",
-            "name": "resolve_geography",
-            "args": {"level": None, "query": "Harris County, Texas for=county:999"},
-            "id": "c1",
-        }
-    )
-    spec = message.artifact.specs[0]
-    assert spec.for_spec == "county:201"
-    assert spec.in_spec == "state:48"
-    assert spec.codes == {"county": "201", "state": "48"}
-    assert message.content != spec.for_spec
-    assert "county:999" not in spec.for_spec
-
-
 def test_resolve_geography_dataset_rejects_a_path() -> None:
     with pytest.raises(ValidationError):
-        ResolveGeographyInput(query="Texas", level=None, dataset="../acs5")
-    ResolveGeographyInput(query="Texas", level=None, dataset="acs1")
+        ResolveGeographyInput(places=["Texas"], level=None, dataset="../acs5")
+    ResolveGeographyInput(places=["Texas"], level=None, dataset="acs1")
 
 
 def test_codes_keep_multi_word_geography_names() -> None:
@@ -2127,32 +1815,3 @@ def test_geo_entries_keeps_every_county_row(
     entries = geo_entries("acs5", 2023)
     assert [entry.code for entry in entries] == ["050", "324"]
     assert geo_levels("acs5", 2023)["county"].code == "324"
-
-
-def test_split_comparison_still_splits_versus_and_compare_to() -> None:
-    assert split_comparison("Austin versus Dallas") == ["Austin", "Dallas"]
-    assert split_comparison("compare Austin to Dallas") == ["Austin", "Dallas"]
-
-
-def test_split_comparison_ignores_wildcard_and_within_listing_queries() -> None:
-    assert split_comparison("all counties in Texas and Louisiana") is None
-    assert split_comparison("tracts within Harris County, Texas and Travis County, Texas") is None
-
-
-def test_split_comparison_returns_none_for_a_single_place() -> None:
-    assert split_comparison("population of Harris County, Texas") is None
-    assert split_comparison("population of Austin city, Texas") is None
-    assert split_comparison("population of Washington, DC") is None
-
-
-def test_split_comparison_does_not_segment_and_or_comma_lists() -> None:
-    """Retired (AC9 CC-100): segmenting an arbitrary list of places by inferring
-    prose boundaries is the model's job now (see `places` on
-    ResolveGeographyInput), not a regex clause-boundary anchor here."""
-    assert (
-        split_comparison(
-            "Compare the population of Kansas City, Kansas and St. Louis city, Missouri."
-        )
-        is None
-    )
-    assert split_comparison("Compare the population of Georgia and Alabama since 2019.") is None

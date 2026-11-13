@@ -16,6 +16,7 @@ from ask_fixtures import ENTRIES, _tools
 from src import finish
 from src.ask import ExecutionRecord, run_ask
 from src.finish import plan_split
+from src.geo_level import GeoIntent
 from src.guards import geography_unsupported
 from src.retrieval.metadata import GeoLevel
 
@@ -82,7 +83,11 @@ async def _ask(
     ("question", "level", "named"),
     [
         ("Poverty rate by tract in NYC", "tract", ["New York City, New York"]),
-        ("Block group income in Los Angelas County", "block group", ["Los Angeles County"]),
+        (
+            "Block group income in Los Angelas County",
+            "block group",
+            ["Los Angeles County, California"],
+        ),
     ],
 )
 async def test_a_place_the_user_abbreviated_or_misspelled_still_counts_as_named(
@@ -133,14 +138,14 @@ async def test_a_slow_split_call_is_not_cancelled_by_the_first_turn_wait(monkeyp
     monkeypatch.setattr("src.ask.finish_tools", spy)
     reply = _reply("county", ["Ohio", "Michigan"], listing=True, parents=["Ohio", "Michigan"])
     await _ask("All counties in Ohio and Michigan", reply, split_delay=0.3)
-    assert [item["parents"] for item in seen] == [["Ohio", "Michigan"]]
+    assert [item.parents for item in seen] == [["Ohio", "Michigan"]]
 
 
 @pytest.mark.parametrize("parents", [1, "Kentucky", {"a": 1}])
 async def test_a_malformed_parents_field_names_no_place_and_never_fails_the_request(
     parents: Any,
 ) -> None:
-    reply = _reply("tract", [], ["tract 71"], parents=parents)
+    reply = _reply("tract", [], ["tract"], parents=parents)
     response, record = await _ask("Poverty in tract 71 versus tract 305", reply)
     assert STOPPED in response.answer  # nothing in a number, a string or an object is a place
     assert record.timings == []
@@ -150,15 +155,15 @@ async def test_a_malformed_parents_field_names_no_place_and_never_fails_the_requ
 async def test_plan_split_reports_only_list_parents_as_named(parents: Any) -> None:
     async def complete(messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict:
         del messages, tools
-        return _reply("tract", [], ["tract 71"], parents=parents)
+        return _reply("tract", [], ["tract"], parents=parents)
 
     found = await plan_split("anything", complete)
-    assert found is not None and found["frame"]["named"] == []
+    assert found is not None and found.named == []
 
 
 # --- edges of the model's report: wrong types, empty, absent, adversarial ----------------------
 
-TWO_TRACTS = ["tract 71", "tract 305"]
+TWO_TRACTS = ["tract", "tract"]  # numbered holds levels: the kind of unit each number names
 TWO_TRACTS_QUESTION = "Is the poverty rate in tract 71 higher than tract 305?"
 
 
@@ -250,18 +255,11 @@ async def test_a_level_that_is_a_container_never_fails_the_request(level: Any) -
 
 @pytest.mark.parametrize("sent", ["tract", ["tract"], 5, None, {"level": "county"}])
 async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
-    reply = _reply("tract", ["Dane County, Wisconsin"], ["tract 71"], frame=sent)
+    reply = _reply("tract", ["Dane County, Wisconsin"], ["tract"], frame=sent)
     found = await _split(reply)
-    assert found == {
-        "frame": {
-            "level": "tract",
-            "named": ["Dane County, Wisconsin"],
-            "numbered": ["tract 71"],
-            "asks_for": None,
-            "county_named": False,
-            "pointing": [],
-        }
-    }
+    assert found == GeoIntent(
+        reported=True, level="tract", named=["Dane County, Wisconsin"], numbered=["tract"]
+    )
 
 
 async def test_a_frame_that_is_not_an_object_cannot_hide_a_trap_or_fail_the_request() -> None:
@@ -321,10 +319,7 @@ async def test_a_state_written_as_a_nickname_an_abbreviation_or_a_typo_counts(
 
 @pytest.mark.parametrize(
     ("named", "numbered"),
-    [
-        (["Census Tract 9501, Dane County, Wisconsin"], ["Census Tract 9501"]),
-        ([], ["Census Tract 9501, Dane County, Wisconsin"]),  # the chain rides on the number
-    ],
+    [(["Census Tract 9501, Dane County, Wisconsin"], ["tract"])],
 )
 async def test_a_place_reported_with_its_own_county_chain_still_counts_as_named(
     named: list[str], numbered: list[str]
@@ -350,8 +345,8 @@ async def test_entries_past_the_cap_are_not_read(which: str) -> None:
         assert STOPPED in response.answer
         assert record.timings == []
     else:  # filler fills the cap, so the number the user wrote sits past it
-        filler = [f"filler {n}" for n in range(cap)]
-        reply = _reply("county", [], [*filler, "county 15"])
+        filler = ["county"] * cap  # a county number needs only the state, which Ohio gives
+        reply = _reply("county", ["Ohio"], [*filler, "block group"])
         response, record = await _ask("Which is bigger, county 15 or county 33?", reply)
         assert STOPPED not in response.answer
         assert record.timings
@@ -413,7 +408,7 @@ async def test_a_question_that_asks_which_table_holds_something_is_not_refused(
 async def test_anything_but_tables_is_a_question_for_data_and_is_still_refused(
     asks_for: Any,
 ) -> None:
-    reply = _reply("tract", [], ["tract 71", "tract 305"], asks_for=asks_for)
+    reply = _reply("tract", [], TWO_TRACTS, asks_for=asks_for)
     response, record = await _ask("Is the poverty rate in tract 71 above tract 305?", reply)
     assert STOPPED in response.answer
     assert record.timings == []
@@ -423,10 +418,10 @@ async def test_anything_but_tables_is_a_question_for_data_and_is_still_refused(
 async def test_plan_split_reports_asks_for_only_when_it_is_text(sent: Any) -> None:
     found = await _split(_reply("tract", [], [], asks_for=sent))
     assert found is not None
-    assert found["frame"]["asks_for"] == (sent if isinstance(sent, str) else None)
+    assert found.asks_for == (sent if isinstance(sent, str) else None)
 
 
-async def _ask_then_resolve(question: str, split_reply: dict[str, Any], query: str) -> Any:
+async def _ask_then_resolve(question: str, split_reply: dict[str, Any]) -> Any:
     record = ExecutionRecord()
     tools = _tools(record)
     tools["resolve_geography"].geo_table = lambda dataset, year: [*ENTRIES, BLOCK_GROUP]
@@ -441,7 +436,7 @@ async def _ask_then_resolve(question: str, split_reply: dict[str, Any], query: s
             return {"content": "done", "tool_calls": []}
         name, args = [
             ("search_tables", {"question": question}),
-            ("resolve_geography", {"level": None, "query": query}),
+            ("resolve_geography", {"level": "tract", "parent_level": "us"}),
         ][turns["n"] - 1]
         return {"content": "", "tool_calls": [{"id": str(turns["n"]), "name": name, "args": args}]}
 
@@ -450,10 +445,10 @@ async def _ask_then_resolve(question: str, split_reply: dict[str, Any], query: s
 
 async def test_a_table_question_gets_no_geography_warning_but_a_data_question_does() -> None:
     question = "Which table has poverty rate by census tract?"
-    query = "every tract in the United States"  # the resolver cannot list this
-    data = await _ask_then_resolve(question, _reply("tract", [], asks_for="data"), query)
+    # every tract in the United States: the resolver cannot list this
+    data = await _ask_then_resolve(question, _reply("tract", [], asks_for="data"))
     assert "geography_unsupported" in {item.code for item in data.warnings}
-    tables = await _ask_then_resolve(question, _reply("tract", [], asks_for="tables"), query)
+    tables = await _ask_then_resolve(question, _reply("tract", [], asks_for="tables"))
     assert "geography_unsupported" not in {item.code for item in tables.warnings}
 
 
