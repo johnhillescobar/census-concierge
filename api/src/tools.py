@@ -1,4 +1,4 @@
-"""Ask-loop tools: schemas plus search_tables and build_url."""
+# Ask-loop tool schemas and implementations.
 
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ LastGeography = Callable[[], GeoSpec | None]
 
 
 def _promote(hits: list[dict[str, Any]], picked: str) -> list[dict[str, Any]]:
-    """Move the selector's table to front. An unknown ID leaves ranking as-is."""
+    # An unknown selector ID leaves retrieval ranking unchanged.
     if not any(hit["table_id"] == picked for hit in hits):
         return hits
     return [hit for hit in hits if hit["table_id"] == picked] + [
@@ -144,19 +144,18 @@ def _pick_table(question: str, hits: list[dict[str, Any]], select: SelectFn | No
 
 
 def pair_margins(variable_ids: list[str]) -> list[str]:
-    """Every E is followed by its M. Idempotent if M is already present."""
-    out: list[str] = []
-    seen: set[str] = set()
-    for variable_id in variable_ids:
-        if variable_id not in seen:
-            out.append(variable_id)
-            seen.add(variable_id)
-        if variable_id.endswith("E"):
-            margin = f"{variable_id[:-1]}M"
-            if margin not in seen:
-                out.append(margin)
-                seen.add(margin)
-    return out
+    # Every E is followed by its M; an explicit M stays unique.
+    return list(
+        dict.fromkeys(
+            item
+            for variable_id in variable_ids
+            for item in (
+                (variable_id, f"{variable_id[:-1]}M")
+                if variable_id.endswith("E")
+                else (variable_id,)
+            )
+        )
+    )
 
 
 def _build_fail(
@@ -291,19 +290,16 @@ class BuildUrlTool(BaseTool):
                 else f"{table_id}_{variable_id}"
             )
             suffix = full.removeprefix(f"{table_id}_")
-            if suffix.endswith("M"):
-                estimate = f"{suffix[:-1]}E"
-                if estimate not in suffixes:
-                    missing.append(full)
-                else:
-                    estimate_id = f"{table_id}_{estimate}"
-                    if estimate_id not in normalized:
-                        normalized.append(estimate_id)
-            elif suffix not in suffixes:
+            estimate = f"{suffix[:-1]}E" if suffix.endswith("M") else suffix
+            if estimate not in suffixes:
                 missing.append(full)
-            if full not in normalized:
-                normalized.append(full)
-        variables = normalized
+            additions = (
+                (f"{table_id}_{estimate}", full)
+                if suffix.endswith("M") and estimate in suffixes
+                else (full,)
+            )
+            normalized.extend(additions)
+        variables = list(dict.fromkeys(normalized))
         if missing:
             return _build_fail(
                 table_id, dataset, year, f"variables not in {dataset} {year}: {missing}", variables
@@ -327,14 +323,21 @@ class BuildUrlTool(BaseTool):
         if in_clause:
             query += f"&in={in_clause}"
         url = CensusURL(f"{CENSUS_API}/{year}/acs/{dataset}?{query}")
+        count = len(get_cols)
+        detail = (
+            f"request has {count} variables; Census limit is 50; "
+            "maximum is 24 estimates with margins"
+            if count > 50
+            else ""
+        )
         result = BuildUrlResult(
-            ok=True,
+            ok=not detail,
             url=str(url),
             table_id=table_id,
             variables=paired,
             dataset=dataset,
             vintage=year,
-            detail="",
+            detail=detail,
             universe=str(facts.get("universe") or ""),
         )
-        return str(url), result
+        return detail or str(url), result
