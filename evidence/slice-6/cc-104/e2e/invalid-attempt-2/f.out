@@ -1,0 +1,42 @@
+
+BUDGETS
+
+  ok    api src LOC               4801 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           404 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1050 <= 1200
+  ok    doc lines                 1810 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         25.429 <= 20
+        run 2026-11-13T02:38:10+00:00; slowest trial 37.617s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1              0.8 >= 0.7
+  FAIL  answered_rate                0 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+2 budget(s) exceeded:
+
+  - p95 latency (s): 25.429 (limit 20)
+  - answered_rate: 0 (limit 0.7)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
