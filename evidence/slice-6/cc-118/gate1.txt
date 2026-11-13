@@ -26,14 +26,14 @@ $ git diff --check origin/main...HEAD
 
 BASELINE: focused new CC-118 tests
 $ uv run pytest api/tests/test_ask_tools.py -q -k "twenty_four_estimates_fill_but_do_not_exceed_the_get_limit or explicit_margins_count_unique_outgoing_columns or over_limit_estimates_fail_with_an_inspectable_url or rejected_url_is_visible_but_never_becomes_fetchable"
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-87c142a9-25c9-4d36-9cc4-3faebdbb7990.ps1:650 char:22
 + ... Content $e; uv run pytest api/tests/test_ask_tools.py -q -k "twenty_f ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 .....                                                                    [100%]
 ============================== warnings summary ===============================
 api/tests/test_ask_tools.py::test_twenty_four_estimates_fill_but_do_not_exceed_the_get_limit
@@ -45,14 +45,14 @@ api/tests/test_ask_tools.py::test_twenty_four_estimates_fill_but_do_not_exceed_t
 
 MUTATION 1: remove GEO_ID from outgoing get columns (covers exact 24-estimate/50-column boundary)
 $ uv run pytest api/tests/test_ask_tools.py::test_twenty_four_estimates_fill_but_do_not_exceed_the_get_limit -q
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-3ff33bc3-a6c0-43ed-881c-2df54613a9ea.ps1:632 char:22
 + ... Content $e; uv run pytest api/tests/test_ask_tools.py::test_twenty_fo ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 F                                                                        [100%]
 ================================== FAILURES ===================================
 _______ test_twenty_four_estimates_fill_but_do_not_exceed_the_get_limit _______
@@ -88,14 +88,14 @@ GOOD: mutation produced a real focused-test failure.
 RESTORE 1: restored GEO_ID column.
 MUTATION 2: bypass outgoing-column deduplication in pair_margins (covers explicit E/M inputs)
 $ uv run pytest api/tests/test_ask_tools.py::test_explicit_margins_count_unique_outgoing_columns -q
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-322a9e84-a2c8-4da4-a88f-e343f28fbdad.ps1:633 char:22
 + ... Content $e; uv run pytest api/tests/test_ask_tools.py::test_explicit_ ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 F                                                                        [100%]
 ================================== FAILURES ===================================
 _____________ test_explicit_margins_count_unique_outgoing_columns _____________
@@ -134,14 +134,14 @@ GOOD: mutation produced a real focused-test failure.
 RESTORE 2: restored unique-column deduplication.
 MUTATION 3: bypass over-limit ok=False result (covers 25- and 30-estimate rejection)
 $ uv run pytest api/tests/test_ask_tools.py::test_over_limit_estimates_fail_with_an_inspectable_url -q
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-50894102-e839-4ecb-b6ce-58fdb006b8ee.ps1:633 char:22
 + ... Content $e; uv run pytest api/tests/test_ask_tools.py::test_over_limi ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 FF                                                                       [100%]
 ================================== FAILURES ===================================
 ______ test_over_limit_estimates_fail_with_an_inspectable_url[B88888-25] ______
@@ -201,14 +201,14 @@ GOOD: mutation produced real focused-test failures.
 RESTORE 3: restored over-limit ok=False behavior.
 MUTATION 4: remove finish guard against automatically rebuilding a rejected over-limit URL
 $ uv run pytest api/tests/test_ask_tools.py::test_rejected_url_is_visible_but_never_becomes_fetchable -q
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-618d6dee-0e94-4cea-8539-9556940f6ae3.ps1:633 char:22
 + ... Content $e; uv run pytest api/tests/test_ask_tools.py::test_rejected_ ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 F                                                                        [100%]
 ================================== FAILURES ===================================
 __________ test_rejected_url_is_visible_but_never_becomes_fetchable ___________
@@ -247,7 +247,7 @@ __________ test_rejected_url_is_visible_but_never_becomes_fetchable ___________
         response = assemble("The request could not be fetched.", record)
 >       assert http_calls == []
 E       AssertionError: assert ['https://api...8&key=secret'] == []
-E         
+E
 E         Left contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B99999_001E,B99999_001M&for=county:201&in=state:48&key=secret'
 E         Use -v to get more diff
 
@@ -270,14 +270,14 @@ PASS: all mutation edits restored.
 
 RESTORED focused CC-118 tests
 $ uv run pytest api/tests/test_ask_tools.py -q -k "twenty_four_estimates_fill_but_do_not_exceed_the_get_limit or explicit_margins_count_unique_outgoing_columns or over_limit_estimates_fail_with_an_inspectable_url or rejected_url_is_visible_but_never_becomes_fetchable"
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-5016ec88-b764-4df9-8c4c-ffdef5c9347a.ps1:637 char:22
 + ... Content $e; uv run pytest api/tests/test_ask_tools.py -q -k "twenty_f ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 .....                                                                    [100%]
 ============================== warnings summary ===============================
 api/tests/test_ask_tools.py::test_twenty_four_estimates_fill_but_do_not_exceed_the_get_limit
@@ -289,18 +289,18 @@ api/tests/test_ask_tools.py::test_twenty_four_estimates_fill_but_do_not_exceed_t
 
 LIVE AUTHENTICATED CENSUS BOUNDARY (key loaded from sibling .env; value not printed)
 $ uv run python -c "load key; request B15003 ACS5 2023 state 06 with 24 and 25 E/M pairs; print counts/status only"
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-27f9c79a-ed2b-4bda-9f79-21cfb3c5e1a0.ps1:632 char:22
 + ... Content $e; uv run python -c "import os,httpx; from dotenv import loa ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 Traceback (most recent call last):
   File "<string>", line 1, in <module>
   File "<string>", line 1, in <lambda>
-  File "C:\Users\johnh\Dropbox\Python\census-concierge-cc118\.venv\Lib\site-packages\httpx\_models.py", line 832, in 
+  File "C:\Users\johnh\Dropbox\Python\census-concierge-cc118\.venv\Lib\site-packages\httpx\_models.py", line 832, in
 json
     return jsonlib.loads(self.content, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -316,40 +316,40 @@ json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 24 estimates: get_count=50 unique=50 status=200 rows=1 error=none
 LIVE RETRY 3: PowerShell-safe invocation of 25-estimate boundary; key remains unprinted.
 $ uv run python -c <authenticated boundary probe>
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-713336a5-52d1-45c0-81b9-3ee83679b32a.ps1:642 char:5
 + '@; uv run python -c $code *>&1 | Tee-Object -FilePath $e -Append; ex ...
 +     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
   File "<string>", line 3
     load_dotenv(rC:\Users\johnh\Dropbox\Python\census-concierge\.env)
                   ^
 SyntaxError: invalid syntax
 LIVE RETRY 4: send probe on stdin to preserve quoting.
 $ <probe> | uv run python -
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-da946ef9-47bf-403a-9565-4ed64d48d7e9.ps1:642 char:13
 + '@; $code | uv run python - *>&1 | Tee-Object -FilePath $e -Append; e ...
 +             ~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 25 estimates: get_count=52 unique=52 status=400 body=error: 'get' is limited to 50 variables
 
 
 $ uv run pytest api/tests/test_ask_tools.py -q
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-2e3f939d-4065-417a-af8a-5be140d677b0.ps1:628 char:321
 + ... k_tools.py -q' { uv run pytest api/tests/test_ask_tools.py -q }; Run- ...
 +                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 ........................................................................ [ 53%]
 ..............................................................           [100%]
 ============================== warnings summary ===============================
@@ -363,14 +363,14 @@ EXIT 0
 
 
 $ uv run pytest api/tests/test_process.py -q  # adversarial matrix pinned transcripts
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-2e3f939d-4065-417a-af8a-5be140d677b0.ps1:628 char:468
 + ... ned transcripts' { uv run pytest api/tests/test_process.py -q }; Run- ...
 +                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 ........................                                                 [100%]
 ============================== warnings summary ===============================
 api/tests/test_process.py::test_the_expected_number_of_transcripts_are_pinned
@@ -383,14 +383,14 @@ EXIT 0
 
 
 $ uv run pytest api/tests/test_plan_override.py api/tests/test_chart.py api/tests/test_ask_loop.py -q -k "three_geography_override_is_not_truncated_to_two or comparison_chart_has_one_series_per_geography_with_correct_title or comparison_table_has_a_row_per_geography or bare_unqualified_city_names_resolve_all_places"  # CC-100 regression coverage
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-2e3f939d-4065-417a-af8a-5be140d677b0.ps1:628 char:875
 + ... coverage' { uv run pytest api/tests/test_plan_override.py api/tests/t ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 ....                                                                     [100%]
 ============================== warnings summary ===============================
 api/tests/test_plan_override.py::test_three_geography_override_is_not_truncated_to_two
@@ -403,53 +403,53 @@ EXIT 0
 
 
 $ uv run ruff check .
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:314
 + ... 1} }; Run-Check '$ uv run ruff check .' { uv run ruff check . }; Run- ...
 +                                               ~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 [1;32mAll checks passed![0m
 EXIT 0
 
 
 $ uv run ruff format --check .
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:382
 + ...  uv run ruff format --check .' { uv run ruff format --check . }; Run- ...
 +                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 257 files already formatted
 EXIT 0
 
 
 $ uv run mypy api/src
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:450
 + ...  . }; Run-Check '$ uv run mypy api/src' { uv run mypy api/src }; Run- ...
 +                                               ~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 Success: no issues found in 29 source files
 EXIT 0
 
 
 $ uv run pytest -q -m "not integration"
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:527
 + ... -m "not integration"' { uv run pytest -q -m 'not integration' }; Run- ...
 +                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 ........................................................................ [  4%]
 ........................................................................ [  9%]
 ........................................................................ [ 14%]
@@ -482,36 +482,36 @@ EXIT 0
 
 
 $ uv run python scripts/check_invariants.py --base origin/main
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:645
 + ... gin/main' { uv run python scripts/check_invariants.py --base origin/m ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 
 INVARIANTS
 
-  ok    banned agent frameworks        
-  ok    sqlite                         
-  ok    contextvars                    
-  ok    ticket-named tests             
-  ok    prompt assertions              
-  ok    forbidden module names         
-  ok    blocking clarification         
-  ok    census key in artifacts        
-  ok    empty secret defaults          
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
   ok    key attached only via CensusURL
-  ok    mandatory catalogs             
-  ok    budget log matches values      
-  ok    eval phrasing in api/src       
-  ok    closure manifests              
-  ok    budget increases               
-  ok    new regex                      
-  ok    new exemptions                 
-  ok    protocol weakened              
-  ok    metric records rewritten       
+  ok    mandatory catalogs
+  ok    budget log matches values
+  ok    eval phrasing in api/src
+  ok    closure manifests
+  ok    budget increases
+  ok    new regex
+  ok    new exemptions
+  ok    protocol weakened
+  ok    metric records rewritten
 
   info  api/src regex call sites: 55 (base 55, delta +0)
 
@@ -527,13 +527,13 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (npm error code EBUSY:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 npm error syscall rmdir
 npm error path C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\caniuse-lite\data\regions
 npm error errno -4082
-npm error EBUSY: resource busy or locked, rmdir 
+npm error EBUSY: resource busy or locked, rmdir
 'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\caniuse-lite\data\regions'
-npm error A complete log of this run can be found in: 
+npm error A complete log of this run can be found in:
 C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-11-13T11_58_53_368Z-debug-0.log
 EXIT -4082
 
@@ -549,7 +549,7 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: ('vitest' is not...ternal command,:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 operable program or batch file.
 EXIT 1
 
@@ -565,33 +565,33 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: ('tsc' is not re...ternal command,:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 operable program or batch file.
 EXIT 1
 
 
 $ uv run python scripts/generate_client.py --check
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:977
 + ... y --check' { uv run python scripts/generate_client.py --check }; Run- ...
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 openapi-typescript is not installed. Run: npm --prefix web ci
 EXIT 1
 
 
 $ uv run python scripts/check_budgets.py
-uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project 
+uv : warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project
 environment path `.venv` and will be ignored; use `--active` to target the active environment instead
 At C:\Users\johnh\AppData\Local\Temp\ps-script-6b5fda12-11c7-4f41-bc98-e8b549ba08e2.ps1:628 char:1084
 + ... ts/check_budgets.py' { uv run python scripts/check_budgets.py }; exit ...
 +                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (warning: `VIRTU...ronment instead:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 
 BUDGETS
 
@@ -639,13 +639,13 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (npm error code EBUSY:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 npm error syscall rmdir
 npm error path C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\jsdom\lib\jsdom\living\generated
 npm error errno -4082
-npm error EBUSY: resource busy or locked, rmdir 
+npm error EBUSY: resource busy or locked, rmdir
 'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\jsdom\lib\jsdom\living\generated'
-npm error A complete log of this run can be found in: 
+npm error A complete log of this run can be found in:
 C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-11-13T11_59_15_560Z-debug-0.log
 EXIT -4082
 
@@ -657,15 +657,15 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (npm error code ENOENT:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 npm error syscall open
 npm error path C:\Users\johnh\Dropbox\Python\census-concierge-cc118\package.json
 npm error errno -4058
-npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open 
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open
 'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\package.json'
 npm error enoent This is related to npm not being able to find a file.
 npm error enoent
-npm error A complete log of this run can be found in: 
+npm error A complete log of this run can be found in:
 C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-11-13T11_59_30_859Z-debug-0.log
 EXIT -4058
 COMMAND CORRECTION after npm install ignored pre-command --prefix:
@@ -676,15 +676,15 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (npm error code ENOENT:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 npm error syscall open
 npm error path C:\Users\johnh\Dropbox\Python\census-concierge-cc118\package.json
 npm error errno -4058
-npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open 
+npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open
 'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\package.json'
 npm error enoent This is related to npm not being able to find a file.
 npm error enoent
-npm error A complete log of this run can be found in: 
+npm error A complete log of this run can be found in:
 C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-11-13T11_59_43_638Z-debug-0.log
 EXIT -4058
 
@@ -696,15 +696,15 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (npm error code EBUSY:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 npm error syscall rename
 npm error path C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\vega-lite\build
 npm error dest C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\.vega-lite-zRiU141Z\build
 npm error errno -4082
-npm error EBUSY: resource busy or locked, rename 
-'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\vega-lite\build' -> 
+npm error EBUSY: resource busy or locked, rename
+'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\vega-lite\build' ->
 'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\.vega-lite-zRiU141Z\build'
-npm error A complete log of this run can be found in: 
+npm error A complete log of this run can be found in:
 C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-11-13T11_59_57_448Z-debug-0.log
 EXIT -4082
 
@@ -716,13 +716,13 @@ At line:1 char:1
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (npm error code EBUSY:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 npm error syscall rmdir
 npm error path C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\@redocly\openapi-core\lib
 npm error errno -4082
-npm error EBUSY: resource busy or locked, rmdir 
+npm error EBUSY: resource busy or locked, rmdir
 'C:\Users\johnh\Dropbox\Python\census-concierge-cc118\web\node_modules\@redocly\openapi-core\lib'
-npm error A complete log of this run can be found in: 
+npm error A complete log of this run can be found in:
 C:\Users\johnh\AppData\Local\npm-cache\_logs\2026-11-13T12_00_30_208Z-debug-0.log
 EXIT -4082
 
@@ -735,7 +735,7 @@ At C:\Users\johnh\AppData\Local\Temp\ps-script-a88c09b3-278c-4445-9645-4cf11fea4
 +                                                ~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (failed to load ...\vite.config.ts:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 
 ⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
 Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@vitejs/plugin-react' imported from C:\Users\johnh\Dropbox\Python\ce
