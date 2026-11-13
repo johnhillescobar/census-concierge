@@ -265,6 +265,8 @@ async def _split_parents(
     if not (intent.parents and geo):
         return False
     parents, unit = intent.parents, intent.unit
+    if len(parents) < 2 and geos and any(intent.levels) and not intent.unmet:
+        return False  # one parent: a level the loop stated and got stands over a lone report
     built = getattr(getattr(record, "url", None), "dataset", None)  # what the model itself built
     right = [
         g.level == level_name(unit) and built in {None, g.dataset} for g in geos[: len(parents)]

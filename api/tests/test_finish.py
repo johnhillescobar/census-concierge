@@ -114,8 +114,12 @@ async def _run_split(
     resolved: int = 2,
     status: dict[str, Any] | None = None,
     url: str | None = None,
+    stated: list[str | None] | None = None,
+    unmet: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], ExecutionRecord]:
     record = ExecutionRecord(question=question)
+    record.intent.levels = list(stated or [])  # what the model's own geography call asked for
+    record.intent.unmet = set(unmet or ())
     record.url = CensusURL(url) if url else None
     record.geographies = geos
     record.geo_status = status
@@ -279,6 +283,36 @@ async def test_listing_of_one_parent_at_the_wrong_level_is_resolved_again() -> N
         resolved=1,
     )
     assert seen == [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+
+
+async def test_a_level_the_loop_stated_and_got_stands_over_a_one_parent_report() -> None:
+    """The split call is a second model reading the question and is often wrong about a listing;
+    for one parent it must not turn the state the loop asked for and fetched into a county list."""
+    ohio = [GeoSpec(level="state", name="Ohio", for_spec="state:39")]
+    seen, record = await _run_split(
+        "People without insurance in Ohio", ohio, _splitter(["Ohio"]), resolved=1, stated=["state"]
+    )
+    assert seen == [] and record.geographies == ohio
+
+
+async def test_a_one_parent_report_still_repairs_what_the_loop_never_stated_or_never_got() -> None:
+    ohio = [GeoSpec(level="state", name="Ohio", for_spec="state:39")]
+    want = [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+    for stated, unmet in [(None, None), (["state"], {"county"}), ([None], None)]:
+        seen, _ = await _run_split(
+            "counties of Ohio", ohio, _splitter(["Ohio"]), resolved=1, stated=stated, unmet=unmet
+        )
+        assert seen == want, (stated, unmet)
+
+
+async def test_a_two_parent_report_still_overrides_the_loops_stated_level() -> None:
+    seen, _ = await _run_split(
+        "List every county in Ohio and Michigan.",
+        [_wildcard("m", "26")],
+        _splitter(["Ohio", "Michigan"]),
+        stated=["county"],
+    )
+    assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "county"}]
 
 
 async def test_a_county_parent_is_re_resolved_with_the_level_the_model_gave() -> None:
