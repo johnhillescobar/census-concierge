@@ -305,6 +305,22 @@ async def test_a_one_parent_report_still_repairs_what_the_loop_never_stated_or_n
         assert seen == want, (stated, unmet)
 
 
+async def test_a_county_parent_or_another_state_is_not_covered_by_the_loops_stated_state() -> None:
+    wisconsin = [GeoSpec(level="state", name="Wisconsin", for_spec="state:55")]
+    seen, _ = await _run_split(
+        "tracts in Dane County",
+        wisconsin,
+        _splitter(["Dane County, WI"], "tract", "county"),
+        resolved=1,
+        stated=["state"],
+    )
+    assert seen == [{"parents": ["Dane County, WI"], "parent_level": "county", "level": "tract"}]
+    seen, _ = await _run_split(
+        "counties of Ohio", wisconsin, _splitter(["Ohio"]), resolved=1, stated=["state"]
+    )
+    assert seen == [{"parents": ["Ohio"], "parent_level": None, "level": "county"}]
+
+
 async def test_a_two_parent_report_still_overrides_the_loops_stated_level() -> None:
     seen, _ = await _run_split(
         "List every county in Ohio and Michigan.",
