@@ -322,11 +322,15 @@ async def test_a_county_parent_or_another_state_is_not_covered_by_the_loops_stat
 
 
 async def test_a_two_parent_report_still_overrides_the_loops_stated_level() -> None:
+    states = [
+        GeoSpec(level="state", name="Ohio", for_spec="state:39"),
+        GeoSpec(level="state", name="Michigan", for_spec="state:26"),
+    ]
     seen, _ = await _run_split(
         "List every county in Ohio and Michigan.",
-        [_wildcard("m", "26")],
+        states,
         _splitter(["Ohio", "Michigan"]),
-        stated=["county"],
+        stated=["state", "state"],
     )
     assert seen == [{"parents": ["Ohio", "Michigan"], "parent_level": None, "level": "county"}]
 
