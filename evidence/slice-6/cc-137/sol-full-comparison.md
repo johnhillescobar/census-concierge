@@ -2,22 +2,38 @@
 
 The experiment recorded 540/540 planned outcomes, with 539 completed continuations. Both Sol models used low, medium, and high reasoning on the same 90 frozen post-retrieval checkpoints.
 
-The highest observed structural score was **61/90**, recorded by `gpt-6.2-sol` low, `gpt-6.1-sol` medium, `gpt-6.1-sol` high. `gpt-6.1-sol` low had the lowest continuation p95 at **17.29 s**.
+In the new Responses run, the highest structural score was **61/90**, recorded by `gpt-6.2-sol` low, `gpt-6.1-sol` medium, and `gpt-6.1-sol` high. `gpt-6.1-sol` low had the lowest p95 in that run at **17.29 s**.
 
 **CC-138 test selection is inconclusive.** The paired structural and latency results did not meet the predeclared selection rule.
 
-## Accuracy
+## All models compared
 
-| Model and effort | V6 structural | Full structural contract | All three repeats |
-| --- | ---: | ---: | ---: |
-| `gpt-6.1-sol` low | 60/90 (66.7%) | 60/90 | 19/30 |
-| `gpt-6.2-sol` low | 61/90 (67.8%) | 61/90 | 19/30 |
-| `gpt-6.1-sol` medium | 61/90 (67.8%) | 61/90 | 19/30 |
-| `gpt-6.2-sol` medium | 59/90 (65.6%) | 59/90 | 18/30 |
-| `gpt-6.1-sol` high | 61/90 (67.8%) | 61/90 | 19/30 |
-| `gpt-6.2-sol` high | 60/90 (66.7%) | 60/90 | 18/30 |
+| Model ID | Run | Reasoning | Structural passes | All three repeats | Required-cell passes | OpenAI HTTP mean | Census data / geography HTTP mean | Wall-time p95 |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `gpt-4o-mini-2024-07-18` | V3 whole app | Provider default | 80/186 (43.0%) | 21/62 | — | — | — | 18.65 s |
+| `gpt-4o-mini-2024-07-18` | V6 continuation | Provider default | 56/90 (62.2%) | 16/30 | 9/90 | 6.78 s | 0.93 / 0.69 s | 13.80 s |
+| `gpt-5-mini-2025-08-07` | V3 whole app | Provider default | 107/186 (57.5%) | 31/62 | — | — | — | 70.63 s |
+| `gpt-6-luna` | V3 whole app | None | 104/186 (55.9%) | 32/62 | — | — | — | 15.03 s |
+| `gpt-6-sol` | V3 whole app | None | 111/186 (59.7%) | 34/62 | — | — | — | 11.06 s |
+| `gpt-6-sol` | V6 continuation | None | 62/90 (68.9%) | 19/30 | 42/90 | 5.76 s | 0.88 / 0.61 s | 11.27 s |
+| `gpt-6.1-sol` | Responses continuation | Low | 60/90 (66.7%) | 19/30 | 18/90 | 11.43 s | 0.69 / 0.48 s | 17.29 s |
+| `gpt-6.1-sol` | Responses continuation | Medium | 61/90 (67.8%) | 19/30 | 22/90 | 13.06 s | 0.79 / 0.41 s | 21.73 s |
+| `gpt-6.1-sol` | Responses continuation | High | 61/90 (67.8%) | 19/30 | 30/90 | 19.57 s | 0.83 / 0.76 s | 30.78 s |
+| `gpt-6.2-sol` | Responses continuation | Low | 61/90 (67.8%) | 19/30 | 51/90 | 8.71 s | 0.93 / 0.61 s | 17.57 s |
+| `gpt-6.2-sol` | Responses continuation | Medium | 59/90 (65.6%) | 18/30 | 52/90 | 11.56 s | 0.77 / 0.58 s | 23.27 s |
+| `gpt-6.2-sol` | Responses continuation | High | 60/90 (66.7%) | 18/30 | 50/90 | 17.09 s | 0.77 / 0.50 s | 38.63 s |
+
+V3 p95 covers the whole application, including live retrieval. V6 and
+Responses p95 cover the continuation after frozen retrieval. Those two runs
+share the same 90 checkpoints and differ in API, reasoning, and concurrency.
+A dash marks unavailable or differently scoped evidence. See the earlier
+run notes for source hashes and the V3 cohort.
+
+## Responses accuracy
 
 The V6 score checks the expected table, requested geography level where specified, Census URL, and returned rows. The full structural contract also requires margins of error, GEOIDs, universe, and alternatives. The expected table was already admitted in 82/90 shared checkpoints.
+
+Every structural pass in the Responses run also passed the full structural contract.
 
 | Model and effort | Correct table | Required cells | Required MOE cells | Factual geography | Expected period | All necessary checks | Values checked / mismatched |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -121,13 +137,12 @@ The observed scores and timings describe those V6 configurations. The
 later results use Responses, different reasoning settings, and up to 12
 concurrent checkpoints.
 
-| Model ID | Structural passes | All three repeats | OpenAI HTTP mean | Census data HTTP mean | Census geography HTTP mean | Continuation p95 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `gpt-4o-mini-2024-07-18` | 56/90 | 16/30 | 6.78 s | 0.93 s | 0.69 s | 13.80 s |
-| `gpt-6-sol` | 62/90 | 19/30 | 5.76 s | 0.88 s | 0.61 s | 11.27 s |
-
 V6 source is `evidence/slice-6/cc-137/v6-analysis.json`, SHA-256
 `2d76d31e5f5feafdd1108392d4e423cd5531a6b768ceebaeacfd5fd16d378e6`.
+Required-cell counts come from `evidence/slice-6/cc-137/factual-audit.json`,
+SHA-256 `c476430932d7f0913a2adac4bcc70f3f397eb1595c48d926916796359cff575a`.
+The V6 audit and the Responses run used the same required-cell oracle and
+scorer.
 [V6 results in CC-137](https://johnhillescobar.atlassian.net/browse/CC-137?focusedCommentId=10881)
 
 ### V3 whole-application comparison
@@ -138,12 +153,8 @@ had 186 regression trials, including 120 long-tail trials. The model ran
 the full workflow including retrieval. The cohort and measured latency
 scope differ from the later post-retrieval runs.
 
-| Model ID | Regression structural passes | Long-tail structural passes | Whole-application regression p95 |
-| --- | ---: | ---: | ---: |
-| `gpt-4o-mini-2024-07-18` | 80/186 | 48/120 | 18.65 s |
-| `gpt-5-mini-2025-08-07` | 107/186 | 65/120 | 70.63 s |
-| `gpt-6-luna` | 104/186 | 64/120 | 15.03 s |
-| `gpt-6-sol` | 111/186 | 67/120 | 11.06 s |
+On the 120 long-tail trials per model, structural passes were 48 for
+GPT-4o mini, 65 for GPT-5 mini, 64 for GPT-6 Luna, and 67 for GPT-6 Sol.
 
 V3 source is `cc137_run_v3/learnings-aggregate.json` in the owner's Ad-hoc
 folder, SHA-256 `1063fe91c2bad90f9d88588f29080a03ccf0bd827ca635a9b9ab00427baec57a`.
