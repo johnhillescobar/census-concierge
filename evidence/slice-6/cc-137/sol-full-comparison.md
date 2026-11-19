@@ -1,5 +1,8 @@
 # CC-137 model accuracy and step latency
 
+The fresh controlled run supplies the six-model comparison and the CC-138
+test recommendation. [Controlled six-model results](model-comparison.md)
+
 The experiment recorded 540/540 planned outcomes, with 539 completed continuations. Both Sol models used low, medium, and high reasoning on the same 90 frozen post-retrieval checkpoints.
 
 In the new Responses run, the highest structural score was **61/90**, recorded by `gpt-6.2-sol` low, `gpt-6.1-sol` medium, and `gpt-6.1-sol` high. `gpt-6.1-sol` low had the lowest p95 in that run at **17.29 s**.
