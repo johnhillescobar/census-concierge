@@ -9,13 +9,16 @@ from __future__ import annotations
 import gzip
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from ask_fixtures import ENTRIES, _describe, _geo_tool, _harris, _list_geographies, _search
 from pydantic import ValidationError
+from src.ask import ExecutionRecord, assemble, dispatch
 from src.census_url import CensusURL
 from src.contract import GeoSpec, clause_codes
 from src.fetch import FetchDataTool
+from src.finish import finish_tools
 from src.geo import (
     filter_rows,
     find_state,
@@ -1493,12 +1496,12 @@ async def test_build_url_rejects_a_margin_with_no_estimate() -> None:
     assert "B01003_999M" in message.artifact.detail
 
 
-def _wide_url_tool(*, include_total: bool = True) -> BuildUrlTool:
+def _wide_url_tool(*, include_total: bool = True, table_id: str = "B99999") -> BuildUrlTool:
     start = 1 if include_total else 2
-    suffixes = [f"{i:03d}E" for i in range(start, start + 26)]
-    facts = {"acs5": {2024: {"B99999": {"universe": "Synthetic universe", "variables": suffixes}}}}
+    suffixes = [f"{i:03d}E" for i in range(start, start + 30)]
+    facts = {"acs5": {2024: {table_id: {"universe": "Synthetic universe", "variables": suffixes}}}}
     return BuildUrlTool(
-        allowed_tables=lambda: {"B99999"},
+        allowed_tables=lambda: {table_id},
         allowed_geographies=lambda: {("county:201", "state:48", "acs5")},
         latest_vintage=lambda dataset: 2024,
         table_facts=lambda dataset, year, table_id: (
@@ -1555,6 +1558,114 @@ async def test_missing_table_total_does_not_expand_to_every_cell() -> None:
     assert artifact.url == ""
     assert "B99999_001E" in artifact.detail
     assert "B99999_002E" not in artifact.variables
+
+
+def _estimate_ids(table_id: str, count: int) -> list[str]:
+    return [f"{table_id}_{index:03d}E" for index in range(1, count + 1)]
+
+
+async def test_twenty_four_estimates_fill_but_do_not_exceed_the_get_limit() -> None:
+    message = await _wide_url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999", "variables": _estimate_ids("B99999", 24)},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    columns = parse_qs(urlsplit(artifact.url).query)["get"][0].split(",")
+    assert artifact.ok is True
+    assert len(columns) == 50
+    assert len(set(columns)) == 50
+
+
+async def test_explicit_margins_count_unique_outgoing_columns() -> None:
+    estimates = _estimate_ids("B99999", 12)
+    requested = [item for estimate in estimates for item in (estimate, f"{estimate[:-1]}M")]
+    message = await _wide_url_tool().ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": "B99999", "variables": requested},
+            "id": "c1",
+        }
+    )
+    columns = parse_qs(urlsplit(message.artifact.url).query)["get"][0].split(",")
+    assert message.artifact.ok is True
+    assert len(columns) == len(set(columns)) == 26
+
+
+@pytest.mark.parametrize(("table_id", "count"), [("B88888", 25), ("B99999", 30)])
+async def test_over_limit_estimates_fail_with_an_inspectable_url(table_id: str, count: int) -> None:
+    message = await _wide_url_tool(table_id=table_id).ainvoke(
+        {
+            "type": "tool_call",
+            "name": "build_url",
+            "args": {"table_id": table_id, "variables": _estimate_ids(table_id, count)},
+            "id": "c1",
+        }
+    )
+    artifact = message.artifact
+    columns = parse_qs(urlsplit(artifact.url).query)["get"][0].split(",")
+    assert artifact.ok is False
+    assert len(columns) == count * 2 + 2
+    assert f"{len(columns)} variables" in artifact.detail
+    assert "limit is 50" in artifact.detail
+    assert "maximum is 24 estimates" in artifact.detail
+    assert "key=" not in artifact.url
+
+
+async def test_rejected_url_is_visible_but_never_becomes_fetchable() -> None:
+    record = ExecutionRecord(
+        pool=[{"table_id": "B99999", "title": "Wide table", "universe": "People"}],
+        geography=_harris(),
+        geographies=[_harris()],
+    )
+    built = _wide_url_tool()
+    http_calls: list[str] = []
+    fetched = FetchDataTool(
+        last_url=lambda: record.url,
+        census_key=lambda: "secret",
+        http_get=lambda url: (
+            http_calls.append(url)
+            or (
+                200,
+                [
+                    ["NAME", "GEO_ID", "state", "county"],
+                    ["Harris County, Texas", "0500000US48201", "48", "201"],
+                ],
+            )
+        ),
+    )
+    await dispatch(
+        built,
+        {
+            "id": "build",
+            "args": {"table_id": "B99999", "variables": _estimate_ids("B99999", 25)},
+        },
+        record,
+    )
+    await finish_tools(dispatch, {"build_url": built, "fetch_data": fetched}, record)
+    response = assemble("The request could not be fetched.", record)
+    assert http_calls == []
+    assert record.url is None
+    assert len(response.urls) == 1
+    assert "get=NAME,GEO_ID" in response.urls[0]
+    assert "Warning:" in response.answer
+    assert "52 variables" in response.answer
+    await dispatch(
+        built,
+        {
+            "id": "retry",
+            "args": {"table_id": "B99999", "variables": _estimate_ids("B99999", 24)},
+        },
+        record,
+    )
+    await dispatch(fetched, {"id": "fetch", "args": {}}, record)
+    assert len(http_calls) == 1
+    assert record.url_limit_failure is None
+    assert record.fetch is not None and record.fetch.ok is True
 
 
 async def test_fetch_error_body_does_not_carry_the_census_key() -> None:

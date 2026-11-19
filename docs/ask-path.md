@@ -14,7 +14,7 @@ Four tools:
 |---|---|---|
 | `search_tables` | `tools.py` | `index.search` top-30 (`POOL_DEPTH`) on the model's `topic` (the question if none), keeping only tables the dataset's latest vintage publishes, then `rerank.choose` over the full question; the answer lists the pick plus the best 9; no wording pin picks or adds a table |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
-| `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
+| `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M`; rejects over 50 unique outgoing columns before HTTP, retaining the URL and limit notice |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
 
 `assemble()` builds `AskResponse` from the execution record. `guards.evaluate()`

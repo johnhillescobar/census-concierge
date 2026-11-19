@@ -1,4 +1,4 @@
-"""HTTP models for POST /ask. One boundary; rows stay untyped dicts."""
+# HTTP models for POST /ask. One boundary; rows stay untyped dicts.
 
 from __future__ import annotations
 
@@ -391,7 +391,7 @@ class AskResponse(BaseModel):
 
 
 def _warn_unverified(warnings: list[Any] | None, detail: str) -> None:
-    """One answer_figures_unverified warning per response: a later notice joins the first."""
+    # Keep one answer_figures_unverified warning; later notices join it.
     for item in warnings or []:
         if getattr(item, "code", "") == "answer_figures_unverified":
             item.detail = f"{item.detail} {detail}"
@@ -406,9 +406,7 @@ def take_chart(
     warnings: list[Any] | None = None,
     record: Any = None,
 ) -> dict[str, Any]:
-    """The answer and chart in the model's reply. With a record, text and chart title that state
-    a number the response does not carry are replaced, with a warning appended to `warnings` when
-    given; without a record nothing is checked."""
+    # With a record, replace answer/chart figures that the response does not carry.
     text = answer.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1]
@@ -431,6 +429,9 @@ def take_chart(
         cleaned, problem = checked(cleaned, rows, record)
         if problem:
             _warn_unverified(warnings, problem)
+        if failure := getattr(record, "url_limit_failure", None):
+            notice = f"Warning: {failure.detail}."
+            cleaned = f"{cleaned}\n\n{notice}".strip()
     none: dict[str, Any] = {"answer": cleaned, "chart": None, "chart_unavailable": False}
     spec: ChartSpec | None = None
     unavailable = False

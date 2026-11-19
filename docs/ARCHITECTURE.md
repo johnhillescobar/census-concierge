@@ -46,7 +46,7 @@ api/src/finish.py            fills required fields if the model stops early; re-
 api/src/guards.py            warning codes; evaluated at assemble
 api/src/compare.py           comparisons[]
 api/src/vintages.py          ACS1 vs non-overlapping ACS5
-api/src/tools.py             search_tables, build_url
+api/src/tools.py             search_tables, build_url; rejects `get` lists over Census's 50-variable cap while retaining the inspectable URL
 api/src/fetch.py             fetch_data; year/geo fan-out, cap 5
 api/src/figures.py           the figure sentences in an answer, and the digits-only check on the model's text
 api/src/geo.py               resolve_geography → GeoSpec list

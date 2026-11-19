@@ -1,0 +1,212 @@
+Gate 2 review transcript — CC-118, slice 6
+
+Repository: C:\Users\johnh\Dropbox\Python\census-concierge-cc118
+Branch: cc-118/variable-limit
+Review base: origin/main at 261c18fbf280575ef92e64ff2809855e2a13d19f
+Review head: 1ec8b51616a502fa03cf24976faba3ca0f1c3646
+Implementation commit: 87a8bf4 (unchanged by the two evidence-only commits)
+Initial status: clean (git status --short --branch printed only
+"## cc-118/variable-limit...origin/main [ahead 2]")
+Scoped working tree: clean
+
+PASS 1 — COLD GENERIC BUG REVIEW
+
+Inputs read before this pass was recorded:
+- CLAUDE.md
+- docs/playbooks/run-slice.md
+- shared applicable rules: .cursor/rules/10-api-python.mdc,
+  .cursor/rules/30-evals-and-tests.mdc, and
+  .cursor/rules/40-census-domain.mdc
+- code diff origin/main...HEAD and the touched implementation/test files
+
+Excluded before recording this pass:
+- .claude/PLAN.md
+- evidence/slice-6/cc-118-plan.md
+- evidence/slice-6/cc-118/gate1.txt
+- implementation notes and caller intent
+
+Commands:
+1. git status --short --branch
+   Exit: 0
+   Output: ## cc-118/variable-limit...origin/main [ahead 2]
+2. git rev-parse --abbrev-ref HEAD
+   Exit: 0
+   Output: cc-118/variable-limit
+3. git rev-parse origin/main
+   Exit: 0
+   Output: 261c18fbf280575ef92e64ff2809855e2a13d19f
+4. git rev-parse HEAD
+   Exit: 0
+   Output: 7ec7e6b8529a1ea61d20ff7f5358da1009b017dc
+5. git diff --stat origin/main...HEAD
+   Exit: 0
+   Output:
+    api/src/ask.py                    |   8 +-
+    api/src/contract.py               |  11 +-
+    api/src/finish.py                 |   5 +-
+    api/src/tools.py                  |  63 +--
+    api/tests/test_ask_tools.py       | 119 +++++-
+    docs/ARCHITECTURE.md              |   2 +-
+    docs/ask-path.md                  |   2 +-
+    evidence/slice-6/cc-118-plan.md   |  66 +++
+    evidence/slice-6/cc-118/gate1.txt | 855 ++++++++++++++++++++++++++++++++++++++
+    9 files changed, 1085 insertions(+), 46 deletions(-)
+6. git diff --name-status origin/main...HEAD
+   Exit: 0
+   Output:
+    M api/src/ask.py
+    M api/src/contract.py
+    M api/src/finish.py
+    M api/src/tools.py
+    M api/tests/test_ask_tools.py
+    M docs/ARCHITECTURE.md
+    M docs/ask-path.md
+    A evidence/slice-6/cc-118-plan.md
+    A evidence/slice-6/cc-118/gate1.txt
+7. git diff --check origin/main...HEAD
+   Exit: 0
+   Output: none.
+8. git log --oneline --decorate origin/main..HEAD
+   Exit: 0
+   Output:
+    1ec8b51 (HEAD -> cc-118/variable-limit) CC-118: normalize Gate 1 transcript
+    7ec7e6b CC-118: record Gate 1 evidence
+    87a8bf4 CC-118: reject Census URLs over variable limit
+
+Cold generic findings: nothing.
+
+The generic pass is now recorded. No project plan, story plan, Gate 1 evidence,
+implementation notes, or caller intent was read before this point.
+The cold code review was performed before the evidence-only commits and remains
+valid because the reviewed implementation is still exactly commit 87a8bf4.
+
+PASS 2 — PROJECT-INVARIANTS REVIEW
+
+After the cold generic pass was persisted, the following were read:
+- .claude/PLAN.md
+- evidence/slice-6/cc-118-plan.md
+- docs/playbooks/review-pr.md
+- docs/requirements.md
+- docs/ask-path.md
+- docs/slices.md
+
+The applicable claim is: a user can receive a complete, key-redacted Census
+URL and deterministic limit notice when an explicit `get` list exceeds the
+50-variable cap, without that URL being fetched.
+
+Per docs/playbooks/review-pr.md, the required machines are ordered:
+1. uv run python scripts/check_budgets.py
+2. uv run python scripts/check_invariants.py --base origin/main
+3. uv run ruff check . && uv run ruff format --check .
+4. uv run mypy api/src
+5. uv run pytest -q -m "not integration"
+
+Machine 1 command:
+uv run python scripts/check_budgets.py
+
+Exit: 1
+
+Exact output:
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+
+BUDGETS
+
+  ok    api src LOC               4888 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           409 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  waive p95 latency (s)         25.472 <= 20
+        run 2026-11-09T17:53:49+00:00; slowest trial 35.774s (p95 leaves out the top 5%)
+        waived by owner: CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  FAIL  answered_rate            0.683 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - answered_rate: 0.683 (limit 0.7)
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+The inherited answered_rate 0.683 is below the required 0.700 floor. It is a
+blocker. It is not waived and is not passing. The run-specific CC-114 p95
+waiver applies only to the displayed inherited p95 run and does not alter the
+answered-rate failure.
+
+As required by review-pr.md, the non-zero first machine exit ended this pass.
+Machines 2–5 were not run. The manual invariants, AC/TC reconciliation, closure
+manifest check, and evidence-substance review were not entered after the
+machine failure.
+
+Project-invariants findings:
+- BLOCKER: `scripts/check_budgets.py` exits 1 because answered_rate is
+  0.683, below the 0.700 floor.
+- No further invariant findings were produced because the required machine
+  failure ended the pass.
+
+EVIDENCE-ONLY HEAD UPDATE
+
+An intervening evidence-only commit normalized whitespace in the Gate 1
+transcript:
+- 1ec8b51 CC-118: normalize Gate 1 transcript
+
+The preceding evidence-only commit remains:
+- 7ec7e6b CC-118: record Gate 1 evidence
+
+The implementation remains exactly:
+- 87a8bf4 CC-118: reject Census URLs over variable limit
+
+Command:
+git diff --check origin/main...HEAD
+
+Exit: 0
+
+Exact output: none.
+
+Machine 1 was rerun at review head
+1ec8b51616a502fa03cf24976faba3ca0f1c3646:
+uv run python scripts/check_budgets.py
+
+Exit: 1
+
+The output was unchanged in substance from the exact output recorded above:
+all structural budgets pass, the inherited p95 line is the same run-specific
+waiver, and answered_rate remains the sole failure at 0.683 < 0.700. The
+machine again printed `STOP. Do not edit budgets.toml to make this pass.`
+This preserves the invariants-pass blocker and, per review-pr.md, no later
+machine or manual invariants review was run.
+
+FINAL STATUS
+
+Repository: C:\Users\johnh\Dropbox\Python\census-concierge-cc118
+Branch: cc-118/variable-limit
+Review base: origin/main at 261c18fbf280575ef92e64ff2809855e2a13d19f
+Review head: 1ec8b51616a502fa03cf24976faba3ca0f1c3646
+Implementation commit: 87a8bf4
+Final git status:
+## cc-118/variable-limit...origin/main [ahead 3]
+?? evidence/slice-6/cc-118/gate2.txt
+
+The only scoped working-tree addition is this required Gate 2 evidence file.
+Implementation was not edited. No commit was created.
+
+VERDICT: NOT YET — the inherited answered_rate 0.683 is below the required
+0.700 floor, and the non-zero first machine exit terminates the invariants
+review.

@@ -1,4 +1,4 @@
-"""Finish the four-tool contract when the model stops short of a URL."""
+# Finish the four-tool contract when the model stops short of a URL.
 
 from __future__ import annotations
 
@@ -334,7 +334,7 @@ async def finish_tools(
     record: Any,
     split: Awaitable[dict[str, Any] | None] | None = None,
 ) -> None:
-    """Search, resolve, build, and fetch when the loop stopped without a URL."""
+    # Search, resolve, build, and fetch when the loop stopped without a URL.
     question = str(getattr(record, "question", "") or "")
     record.consecutive_failures.clear()
     year = _latest(record)
@@ -392,6 +392,7 @@ async def finish_tools(
             and record.geographies
             and (not record.url or redo)
             and status.get("nested") is not False
+            and not getattr(record, "url_limit_failure", None)
         ):
             args = {"table_id": table}
             if wants_acs1(question):
