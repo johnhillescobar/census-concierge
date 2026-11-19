@@ -110,6 +110,45 @@ Incremental conservative OpenAI accounting was **$14.0959**, under the $15 stop.
 
 Recorded execution failures and stops were `gpt-6.2-sol` high · APIConnectionError (1).
 
+## Earlier model versions tested
+
+### V6 post-retrieval comparison
+
+These two models ran on the same 90 frozen checkpoints as the later
+Responses experiment. V6 ran sequentially through Chat Completions, with
+reasoning `none` for GPT-6 Sol and provider defaults for GPT-4o mini.
+The observed scores and timings describe those V6 configurations. The
+later results use Responses, different reasoning settings, and up to 12
+concurrent checkpoints.
+
+| Model ID | Structural passes | All three repeats | OpenAI HTTP mean | Census data HTTP mean | Census geography HTTP mean | Continuation p95 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `gpt-4o-mini-2024-07-18` | 56/90 | 16/30 | 6.78 s | 0.93 s | 0.69 s | 13.80 s |
+| `gpt-6-sol` | 62/90 | 19/30 | 5.76 s | 0.88 s | 0.61 s | 11.27 s |
+
+V6 source is `evidence/slice-6/cc-137/v6-analysis.json`, SHA-256
+`2d76d31e5f5feafdd1108392d4e423cd5531a6b768ceebaeacfd5fd16d378e6`.
+[V6 results in CC-137](https://johnhillescobar.atlassian.net/browse/CC-137?focusedCommentId=10881)
+
+### V3 whole-application comparison
+
+V3 tested four models through Chat Completions, with reasoning `none` for
+the GPT-6 versions and provider defaults for the other versions. Each arm
+had 186 regression trials, including 120 long-tail trials. The model ran
+the full workflow including retrieval. The cohort and measured latency
+scope differ from the later post-retrieval runs.
+
+| Model ID | Regression structural passes | Long-tail structural passes | Whole-application regression p95 |
+| --- | ---: | ---: | ---: |
+| `gpt-4o-mini-2024-07-18` | 80/186 | 48/120 | 18.65 s |
+| `gpt-5-mini-2025-08-07` | 107/186 | 65/120 | 70.63 s |
+| `gpt-6-luna` | 104/186 | 64/120 | 15.03 s |
+| `gpt-6-sol` | 111/186 | 67/120 | 11.06 s |
+
+V3 source is `cc137_run_v3/learnings-aggregate.json` in the owner's Ad-hoc
+folder, SHA-256 `1063fe91c2bad90f9d88588f29080a03ccf0bd827ca635a9b9ab00427baec57a`.
+The three runs support comparisons within their respective protocols.
+
 ## Reproduction
 
 The run used POST `/v1/responses` with Standard service, 4,096 maximum output tokens, low/medium/high effort, `store=false`, non-strict parallel function calls, 60-second per-call timeout, and zero SDK retries. Each of 30 visible question families has three checkpoints. Arm order rotates on each checkpoint. V6 Chat Completions is historical context for an earlier configuration.
