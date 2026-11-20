@@ -41,7 +41,7 @@ evidence/retrieval_steps.md  slice-0 ladder
 api/src/main.py              FastAPI; POST /ask + 3 conversation routes (CC-41); serves web/dist; pool in lifespan (app.state.pool)
 api/src/store.py             conversations in Postgres: create/load/append/purge, plus the Turn/Conversation response models
 api/src/loop.py              selector event loop factory (Windows, psycopg async)
-api/src/ask.py               hand-rolled loop (_openai_complete, dispatch)
+api/src/ask.py               hand-rolled loop with GPT-6.2 Sol (low effort) on the Responses API
 api/src/finish.py            fills required fields if the model stops early; re-resolves multi-parent listings (CC-103); refuses a question that lacks what its geography level needs (CC-102)
 api/src/guards.py            warning codes; evaluated at assemble
 api/src/compare.py           comparisons[]
