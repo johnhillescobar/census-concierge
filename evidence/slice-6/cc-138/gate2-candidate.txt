@@ -1,0 +1,61 @@
+CC-138 Gate 2 candidate project-invariants review
+Measured HEAD: 653a5ab659358b3adb38028870e8a5d0ae97874a
+Review base: 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Evidence input: evidence/latest.json
+Evidence SHA-256: ab8386eeb389cb13a48a141ef006fd0c3998c7a5cf06ccadd49da61997ca3b3c
+Candidate aggregate: evidence/slice-6/cc-138/e2e-pre-scoreboard.json
+Cold bug pass: evidence/slice-6/cc-138/gate2.txt and evidence/slice-6/cc-138/gate2-final.txt
+
+Verdict: Not yet
+
+The head-matched candidate demo measured 32.215 seconds p95 across 186
+trials at repeat 3, above the project's 20-second latency ceiling. The
+canonical review-pr playbook stops the invariants review at the first
+nonzero machine check. Subsequent machine checks and manual invariants
+reconciliation remain open. The candidate needs passing latency evidence
+or an applicable owner waiver before this review can continue.
+
+PowerShell command:
+$env:PYTHONIOENCODING = 'utf-8'; & '../../.venv/Scripts/python.exe' scripts/check_budgets.py
+Exit code: 1
+Output:
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         32.215 <= 20
+        run 2026-11-20T03:04:38+00:00; slowest trial 55.202s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  ok    answered_rate            0.775 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 32.215 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
