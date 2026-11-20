@@ -89,3 +89,7 @@ On 2026-11-19 the owner clarified that the CC-138 waiver accepts the measured la
 - Candidate `2026-11-20T03:04:38+00:00`, 32.215 s p95, recorded in `948c107`.
 
 The budget checker recognized both exact-run waivers when applied to the captured scoreboards. The independent contract and non-latency regression findings remain open in the [closure manifest](../../closure/CC-138.toml).
+
+## Encrypted replay review
+
+Commit `32aabfe` adds opaque encrypted content to the reasoning fixture. The SDK test checks that the exact value survives in the next request. Removing the field during serialization failed that assertion, and all seven transport tests passed after restoration. The fixture-only change reuses the existing live evidence based on runtime and evaluation input parity. [Mutation evidence](gate1-encrypted-replay.txt)
