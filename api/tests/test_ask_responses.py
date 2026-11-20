@@ -74,7 +74,12 @@ def test_ask_replays_parallel_calls_with_exact_model_settings(
 ) -> None:
     place = "Harris County, Texas"
     question = f"Find the ACS total population for {place}."
-    reasoning = {"type": "reasoning", "id": "rs_fixture", "summary": []}
+    reasoning = {
+        "type": "reasoning",
+        "id": "rs_fixture",
+        "summary": [],
+        "encrypted_content": "opaque-encrypted-reasoning-fixture",
+    }
     search = function_call("search_tables", json.dumps({"question": question}))
     geography = function_call("resolve_geography", json.dumps({"query": place, "level": "county"}))
     replies = iter(
