@@ -11,7 +11,7 @@ This batch covers repository changes for the Responses transport, regression tes
 | TC2 | Existing API contract, deterministic tool guards, and bounded failure and repair continue to apply | Existing contract suite, client drift check and integration tests against malformed output, incomplete responses and provider errors | Base suite passed: 131 passed, 8 expected failures. Final offline and targeted mutation checks passed on `3c6e136`. |
 | TC3 | Reverting the integration restores the prior `gpt-4o-mini` Chat Completions path with its previous request and client defaults | Compare the reverted code tree against the pinned base and document rollback | Final Gate 1 inverse-tree check passed on `3c6e136`. |
 | TC4 | The diagnostic collector can still override the answer model without sending Sol's reasoning option to that model | Request-level override regression and targeted mutation | Test and mutation passed. |
-| AC2 | Baseline and integration use the same repeat-3 scorer and cohorts, meet applicable quality and latency checks, and are reviewed in fresh contexts | Baseline demo, Gate 1 and targeted mutations, cold Gate 2, repeat-3 eval/demo before and after owner merge, and authorized sealed aggregates at closure | The candidate passed the answered-rate floor at 0.775. Its 32.215 s p95 and three missing row-GEOID trials leave pre-merge metrics red. The owner waiver `ca50ca7` covers the 25.960 s baseline. |
+| AC2 | Baseline and integration use the same repeat-3 scorer and cohorts, meet applicable quality and latency checks, and are reviewed in fresh contexts | Baseline demo, Gate 1 and targeted mutations, cold Gate 2, repeat-3 eval/demo before and after owner merge, and authorized sealed aggregates at closure | The candidate passed the answered-rate floor at 0.775. The owner accepted the measured p95 and assigned latency follow-up to CC-3. The row-GEOID and non-latency regression checks remain red. |
 | AC3 | Integrated revision, validation outcomes and rollback are recorded | Evidence linked at the integration head, then refreshed for merged `main` | Local integration evidence and rollback are recorded. Full live validation and post-merge evidence are pending. |
 
 The base is at the API line ceiling of 4,890 and the prescriptive documentation ceiling of 1,820 lines. The integration replaces the prior transport and its Chat Completions history formatting within the existing budget. Retrieval, scoring, unrelated infrastructure, structured intent, and final grading retain their ticket ownership.
@@ -44,7 +44,7 @@ A one-question live `POST /ask` check on `3c6e136` returned HTTP 200, one B01003
 
 ## Readiness
 
-Gate 2's mechanical budget prerequisite stopped on the checked-in historical answered rate of 0.683 against the 0.700 floor. The owner waiver covers the baseline completed at `2026-11-20T01:02:40+00:00`. The [dedicated waiver branch](https://github.com/johnhillescobar/census-concierge/tree/cc-138/baseline-p95-waiver) awaits the owner's application to `main` under [.claude/PLAN.md](../../../.claude/PLAN.md).
+Gate 2's initial mechanical budget prerequisite stopped on the checked-in historical answered rate of 0.683 against the 0.700 floor. The subsequent candidate passed that floor. The [dedicated waiver branch](https://github.com/johnhillescobar/census-concierge/tree/cc-138/baseline-p95-waiver) carries the owner-approved p95 waivers separately from the code.
 
 Pre-PR live validation on the [integration branch](https://github.com/johnhillescobar/census-concierge/tree/cc-138/responses-integration) at `653a5ab659358b3adb38028870e8a5d0ae97874a` ran from 02:08:52 to 03:18:20 UTC on 2026-11-20. [Command exits](e2e-pre-commands.txt) record all seven Makefile recipe commands. The [closure manifest](../../closure/CC-138.toml) records the remaining checks.
 
@@ -56,7 +56,7 @@ The pinned candidate completed all 186 repeat-3 trials at `2026-11-20T03:04:38+0
 
 The aggregate records the original Windows snapshot hashes. Git-normalized SHA-256 values are `cf25e2b81982f75fc1dea40c5f78107d520da293f3e9cd6fbdb8c6cf17de68f3` for `evidence/latest.json` and `283bdf3c5c0b40b359b4fecaf72aea3dc1fda254ab1337738f61f101638239a8` for [the grid snapshot](e2e-pre-grid-after.json).
 
-The [resumed Gate 2 budget check](gate2-candidate.txt) stopped on the candidate's 32.215 s p95 against 20 seconds. The owner waiver in `ca50ca7` covers the earlier 25.960 s baseline run.
+The [resumed Gate 2 budget check](gate2-candidate.txt) recorded the candidate's 32.215 s p95 against the 20-second ceiling before the candidate waiver was entered.
 
 | Measure | GPT-4o mini baseline | GPT-6.2 Sol candidate |
 | --- | ---: | ---: |
@@ -80,3 +80,12 @@ The response-contract check flagged missing row GEOIDs in three trials with data
 | Remaining application time | 0.663 s | 0.429 s |
 
 The timing buckets can overlap. On the candidate's ten slowest requests, reranking averaged 21.980 s and model completion averaged 13.939 s. An optimistic simulation that caps all reranking within a request at 3 seconds yields 21.085 s p95. It assumes the removed time was on the critical path and all other behavior stays fixed. [CC-125](https://johnhillescobar.atlassian.net/browse/CC-125) caps individual calls and requires an A/B accuracy check.
+
+## Owner latency decision
+
+On 2026-11-19 the owner clarified that the CC-138 waiver accepts the measured latency of the integration trial, including the increase over the baseline. The open [CC-3 tickets](https://johnhillescobar.atlassian.net/browse/CC-3) carry the p95 follow-up.
+
+- Baseline `2026-11-20T01:02:40+00:00`, 25.960 s p95, recorded in `ca50ca7`.
+- Candidate `2026-11-20T03:04:38+00:00`, 32.215 s p95, recorded in `948c107`.
+
+The budget checker recognized both exact-run waivers when applied to the captured scoreboards. The independent contract and non-latency regression findings remain open in the [closure manifest](../../closure/CC-138.toml).
