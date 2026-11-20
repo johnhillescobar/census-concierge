@@ -1,0 +1,135 @@
+ticket = "CC-104"
+head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+required = ["AC1", "AC2", "AC3", "AC4", "AC5", "TC1", "TC2", "TC3", "TC4", "TC5"]
+# Rows are run at `head`. MET (>=95% on the geography cohort, P vs B/A/L) and INH are tracked by metric_compare and the PR, not by ticket ids;
+# MET waits on the owner's cohort commit and the E2E. Any later change to api/src or api/tests makes every row stale.
+
+[[row]]
+id = "AC1"
+status = "PASS"
+command = "uv run pytest api/tests/test_execution_isolation.py api/tests/test_geography_intent.py -q"
+expected = "structured scope, level, entities and parents decide execution; the question's words are not an input"
+observed = "Run at HEAD: the isolation harness has no expected failure left (0 xfailed). Scripted model, fixed tool calls and fixed report: execution is identical, down to the last response field, under three neutral rewordings and under wordings that look like a statistic, filler, a level word, a comparison, a ZIP, a dataset, a year, an open range and a year span; a changed stated level changes execution; invalid intent is sent back for repair and never parsed. Time and product now come from the model's calls and its split report (dataset, years), not the question: wants_acs1, requested_years, question_years, year_span and their regexes are deleted."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC1.txt", sha256 = "0d465cadda46ef5990bc902d15583b73f7338de0a58fe0d9d9474642d4d79b94" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "AC2"
+status = "PASS"
+command = "uv run python scripts/check_invariants.py --base origin/main"
+expected = "WILDCARD/WITHIN, detect_level, split_comparison, sentence find_state/place_token, finish rescans and English rebuilds are gone; exact lookups stay"
+observed = "Run at HEAD: grep of api/src finds none of WILDCARD/WITHIN, detect_level, split_comparison, find_state, place_token, _LISTING/_BY_COUNTY, _wrong_*, _listing_*, _nation, _HAS_YEAR, the nationwide repair, wants_acs1, requested_years, question_years or year_span (AC2-grep.txt, exit 1); check_invariants exits 0 with regex call sites 55 -> 18 (delta -37); the leakage baseline only shrank. Exact lookups (STATES, GEOID parsing, NAME matching after the model names an entity) stay."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC2.txt", sha256 = "491c7fdcf1adfaa2da816444219f74ca2e0f8216e0fa80692d9cc13f3a030820" }, { path = "evidence/slice-6/cc-104/closure-run/AC2-grep.txt", sha256 = "08e455bd1228aa4c797e3d4216657472f301b29f7bbbaa5af670480fa7dfa6dd" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "AC3"
+status = "PASS"
+command = "uv run pytest api/tests/test_geography_report.py api/tests/test_level_fidelity.py api/tests/test_finish.py -q"
+expected = "main-loop and split reports reach one execution with requested/executed/default/inferred kept apart; CC-114 checks and the response contract preserved"
+observed = "Run at HEAD: the loop's resolve_geography calls and the split report land in ONE object, record.intent (GeoIntent): the loop's group (levels, legs, unmet) and the report's group (level, named, numbered, given, asks_for, county_named, pointing, places, parents, unit, parent_level, dataset, years) are kept apart; adopt() takes the report once and never touches the loop's group; what ran (record.geographies) and what the lookup guessed (geo_status.inferred) stay outside it. plan_split returns the typed report; incomplete() and finish_tools() read record.intent. CC-114 mismatch/unverified checks and the response contract are unchanged. Gate 2 round 1 judged this row weak; fixed in 52662e7 and cleared by Gate 1 gate1-ac3.txt and Gate 2 gate2-ac3.txt."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC3.txt", sha256 = "acc561014515be5ed59e2fcbaee0b3582419ef888e622750483806b01b7654f3" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "AC4"
+status = "PASS"
+command = "uv run pytest api/tests/test_finish.py api/tests/test_geography_intent.py api/tests/test_level_repair.py -q"
+expected = "recovery uses complete validated intent or returns missing fields for repair; no national/latest/total fallback; a missing or late report activates no parser"
+observed = "Run at HEAD: finish resolves nothing when the model reported nothing; the nationwide repair is gone; a listing without a level, a call with no place and no level, mixed parents and places, and unqualified multi-parent lists are refused for bounded repair; a late or missing report leaves the loop's own result and activates no parser. Recovery takes the dataset and years only from the model's report (validated by type and range); with no report it runs the loop's own result and the latest vintage, never a year read from the question."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC4.txt", sha256 = "2d03f5041d6f0b68cc87ea3d6e48024905610c2a8c3388eb138645138831a1fc" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "AC5"
+status = "PASS"
+command = "uv run pytest api/tests/test_geography_completeness.py api/tests/test_geography_intent.py -q"
+expected = "completeness cannot mistake an inferred or hallucinated parent for an explicitly supplied identifier; CC-133 boundary tests pass"
+observed = "Run at HEAD (includes every test in test_geography_completeness.py, the CC-133 boundary tests): an inferred or hallucinated parent cannot satisfy completeness. A digit entry under named must ground itself; a unit identified by its number needs the parents the question states (the model's `given` report), and a state the model supplied does not count (probe: 'tract in Cook County, Illinois' with given=[county] is refused, state+county given is accepted). Listings keep the lenient name rule, guarded by the 4x dominance rule."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC5.txt", sha256 = "94fb7488df95a18910acc9e7e3188d3db086b70d144f210a6368589fcf68e7b1" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "TC1"
+status = "PASS"
+command = "uv run pytest api/tests/test_geography_intent.py -q -k listing"
+expected = "a listing with no historical keyword executes correctly"
+observed = "Run at HEAD (-k listing): a listing built from structured fields alone, with no historical keyword in any input, resolves and executes."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC1.txt", sha256 = "1ae3f0bb785defe170011643b2c59d7d2d7287960540ac5d2d36de1dbd7fef13" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "TC2"
+status = "PASS"
+command = "uv run pytest api/tests/test_execution_isolation.py api/tests/test_geography_intent.py -q"
+expected = "a fixed intent yields identical execution under different or absent outer wording"
+observed = "Run at HEAD: the isolation tests pass with no expected failure: the same stated intent executes identically under different or absent outer wording, including wordings carrying a year, a dataset, a ZIP, an open range and a year span."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC2.txt", sha256 = "6b3b4a3e3a77a08905561a5c475af7528b185dff28cbae246ff401444597d107" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "TC3"
+status = "PASS"
+command = "uv run pytest api/tests/test_execution_isolation.py api/tests/test_geography_intent.py -q"
+expected = "a changed structured level changes execution with unchanged wording"
+observed = "Run at HEAD: test_a_different_stated_intent_changes_execution_under_the_same_wording passes (county vs state under one wording differ, for=county vs for=state), and the listing variants differ by level under one wording."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC3.txt", sha256 = "bafd01870e82b531e129ec782defc51e549439712635a107b6df7d9a4555a974" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "TC4"
+status = "PASS"
+command = "uv run pytest api/tests/test_ask_tools.py api/tests/test_ask_loop.py api/tests/test_geography_completeness.py -q"
+expected = "comparison, wildcard parents, ambiguous names and incomplete numeric chains retain their behavior"
+observed = "Run at HEAD: comparison, wildcard parents, ambiguous names and incomplete numeric chains keep their outcome assertions; the one new assertion is the ambiguity rule for unqualified listing parents (4x dominance)."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC4.txt", sha256 = "912abeb72a9f180a68655488aaf909c4163d079d2cb4849fc3f647fcfa5daf88" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"
+
+[[row]]
+id = "TC5"
+status = "PASS"
+command = "uv run pytest api/tests/test_finish.py api/tests/test_level_repair.py api/tests/test_geography_intent.py -q"
+expected = "a missing model report, an invalid level and finish recovery cannot fall back to prose"
+observed = "Run at HEAD: a missing or late report, an invalid or unknown level and finish recovery resolve no geography, year or product from the question's words; they return missing fields for bounded repair or run the loop unchanged."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC5.txt", sha256 = "7003a70a206869227068c443e329df5f245cf70995d28d5838a37efa2d993e5b" }]
+tested_head = "30e6e6911b08680da4ba2fcfcbb0dadf23bef379"
+affects = ["api/src", "api/tests"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "bdb81e09180a79b32de0cd733dbea45381286eae02dc62a7934ade82df656877" }
+reviewer = "evidence/slice-6/cc-104/gate2-timeprod.txt"

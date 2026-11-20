@@ -11,14 +11,13 @@ from typing import Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
-from src.geo_level import geography_level_mismatch, geography_level_unverified
+from src.geo_level import ZCTA, geography_level_mismatch, geography_level_unverified, intent_of
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
 )
-from src.vintages import period_for, variable_not_in_vintage, year_span
+from src.vintages import period_for, variable_not_in_vintage
 
 _ACS5_SPAN = 5
-_RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
 _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("households", ("households", "household")),
     ("families", ("families", "family")),
@@ -40,8 +39,6 @@ _DERIVED = re.compile(
     r"index(?:es)?|densit(?:y|ies)|per[\s-]?capita)\b",
     re.IGNORECASE,
 )
-_ZIP = re.compile(r"\bzip codes?\b(?!\s+tabulation)|\bzip\b(?!\s+code)", re.IGNORECASE)
-_ZCTA_CODE = re.compile(r"\b(\d{5})\b")
 
 
 class GuardRecord(Protocol):
@@ -51,15 +48,6 @@ class GuardRecord(Protocol):
     geographies: list[GeoSpec]
     rows: list[dict[str, str | None]]
     table_id: str
-
-
-def _acs5_end_years(question: str) -> list[int]:
-    years: list[int] = []
-    for start_text, end_text in _RANGE.findall(question):
-        start, end = int(start_text), int(end_text)
-        if end - start == _ACS5_SPAN - 1:
-            years.append(end)
-    return years
 
 
 def _overlaps(years: list[int]) -> bool:
@@ -140,10 +128,7 @@ def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
 
 
 def overlapping_vintage(record: GuardRecord) -> AskWarning | None:
-    years = _acs5_end_years(record.question)
-    if re.search(r"\bevery year\b", record.question, re.IGNORECASE):
-        years.extend(year_span(record.question))
-    years.extend(year for dataset, year in record.vintages if dataset == "acs5")
+    years = [year for dataset, year in record.vintages if dataset == "acs5"]
     if not _overlaps(years):
         return None
     labeled = ", ".join(str(year) for year in sorted(set(years)))
@@ -172,7 +157,7 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
 
 def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
-    if getattr(record, "tables_only", False):
+    if intent_of(record).tables_only:
         return None  # a table question wants no geography, so none can be unsupported
     if not status or status.get("legal") is not False or status.get("nested") is False:
         return None
@@ -184,10 +169,12 @@ def geography_unsupported(record: GuardRecord) -> AskWarning | None:
 
 
 def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
-    if not _ZIP.search(record.question):
+    """A ZCTA answer: the level resolved or the rows fetched, whatever the user called it."""
+    ids = {str(row.get("GEO_ID") or "") for row in record.rows}
+    zctas = {geoid[-5:] for geoid in ids if geoid.startswith("860")}  # the 860 summary level
+    if not zctas and not any(spec.level == ZCTA for spec in record.geographies):
         return None
-    match = _ZCTA_CODE.search(record.question)
-    code = match.group(1) if match else ""
+    code = next(iter(zctas)) if len(zctas) == 1 else ""
     named = f"ZIP {code} / ZCTA {code}" if code else "ZIP / ZCTA"
     return AskWarning(
         code="zcta_not_zip",

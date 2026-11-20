@@ -1,0 +1,1108 @@
+GATE 1 (tests + mutation check), cycle 3, slice CC-104
+HEAD:   d01e2208ce4a7f3ae25c79814354be8a5c1e0195
+branch: cc-104/structured-geography   (review base origin/main)
+git status --short at start: clean (empty)
+method: each mutation is a minimal edit of ONE api/src file; only the named tests are run
+        (uv run pytest <ids> -q -p no:warnings); then `git checkout -- <file>`. After every
+        restore `git status --short -- api/src` was empty (shown in each block).
+        GOOD = the covering test fails against the broken code. BAD = it still passes.
+        A BAD block is followed by a later GOOD block for the same behaviour after the test was
+        strengthened (tests added are listed in section 1 as ADDED).
+
+======================================================================================
+1. TEST -> BEHAVIOUR -> MUTATION (mutation names are the block names in section 2)
+======================================================================================
+test_geography_intent.py (new in this branch)
+  test_a_listing_is_executed_from_its_fields_with_no_listing_words_anywhere
+      listing resolves from parents/parent_level/level fields : list_ignores_parent_level
+  test_a_changed_parent_level_changes_the_listing_it_resolves
+      geo._list parent_level; a county is not a state          : only_state_accepts_any_entry_in_a_listing_parent
+  test_intent_missing_a_field_is_sent_back_for_repair_not_guessed (3 cases)
+      missing level / no place and no level -> repair, no guess : list_needs_no_level, nation_guess_when_no_place_and_no_level
+  test_the_nation_is_resolved_only_when_the_model_states_it
+      level "us" with no place resolves the nation              : finish_has_no_nation_repair, nation_guess_when_no_place_and_no_level
+  test_the_state_of_an_entry_is_an_exact_lookup (6)
+      state_of exact lookup, part after the last comma          : state_of_scans_words_instead_of_exact_lookup, state_of_ignores_the_part_after_the_last_comma
+  test_a_sentence_or_an_unnamed_state_names_no_state (5)
+      state_of never scans words                                : state_of_scans_words_instead_of_exact_lookup
+  test_the_name_of_an_entry_is_the_part_before_its_first_comma
+      name_token                                                : name_token_takes_the_whole_entry
+  test_a_fixed_listing_executes_identically_under_any_wording
+      wording is not an input to a listing                      : tool_args_pick_a_level_from_a_word_in_the_question
+  test_changing_the_listing_level_changes_execution_under_the_same_wording
+      structured level drives execution                         : tool_args_pin_every_level_to_county
+  test_a_famous_place_named_without_its_state_is_not_refused
+      finish.incomplete: a name with letters gives the state    : incomplete_needs_a_state_in_the_lookup_for_a_name
+  test_a_number_filed_under_named_is_a_code_that_must_ground_itself (3)
+      finish.incomplete: a digit entry must ground itself       : incomplete_lets_a_digit_entry_stand_for_a_state
+  test_a_code_with_its_own_label_grounds_the_state
+      state_of labelled codes ("FIPS 39049", "state 21")        : state_of_drops_labelled_codes
+  test_a_place_parent_named_without_its_state_is_found_by_name_across_states
+      tracts_in_place: place parent without state               : place_search_has_no_state_wildcard_when_unplaced
+  test_a_county_parent_named_without_its_state_is_found_by_name_across_states
+      geo._list state-less parent search across states          : list_has_no_state_less_parent_search, list_ignores_parent_level
+  test_a_nationwide_listing_is_run_only_when_parent_level_is_us
+      parent_level us / state wildcard                          : nationwide_listing_without_parent_level_us, nationwide_listing_without_state_wildcard
+  test_a_city_written_with_its_state_is_the_city_not_the_state_it_shares_a_name_with
+      _only_state; bare state-named entry                       : only_state_accepts_any_entry, bare_state_named_entry_is_not_the_state
+  test_a_blank_level_is_no_level_everywhere
+      geo._place blank level + county fallback flag             : blank_level_is_a_stated_level, county_fallback_not_flagged_inferred, blank_level_not_folded_to_none
+  test_a_listing_mixed_with_places_or_levels_is_refused_for_repair (2)
+      geo._arun parents + other places / levels refused         : parents_with_other_places_are_narrowed_silently, parents_with_levels_are_not_refused
+  test_several_unplaced_county_parents_are_asked_for_with_their_states
+      geo._arun several unplaced parents refused                : several_unplaced_parents_are_each_searched_in_every_state
+  test_the_spellings_a_model_gives_a_level_are_normalised (7 cases after strengthening)
+      geo_level LEVELS aliases                                  : alias_* (census tract(s), census block group(s), zip code(s), zcta5)
+  test_a_level_spelled_census_tract_still_needs_its_state
+      alias reaches finish.incomplete                           : alias_census_tract_dropped
+  test_a_question_about_the_nation_resolves_when_the_model_reports_the_nation
+      finish nation repair                                      : finish_has_no_nation_repair
+  test_places_that_only_repeat_the_parents_are_redundant_not_a_second_request
+      geo._arun repeated names redundant                        : places_repeating_the_parents_are_a_second_request, repeated_names_compared_case_sensitively
+  test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents
+      finish.incomplete: numbered read as the model wrote it    : numbered_entry_read_one_word_only, numbered_entry_read_two_words_only, numbered_entry_not_normalised_to_a_level
+  test_a_labelled_zip_code_is_the_code_and_not_a_nationwide_search
+      geo._place labelled ZIP                                   : labelled_zip_is_searched_instead_of_taken_as_the_code, alias_zcta5_dropped
+  test_a_bare_name_that_is_also_a_state_is_not_taken_for_the_state_as_a_parent
+      geo._list bare state-named parent                         : list_takes_a_bare_name_for_a_state
+  test_a_comparison_that_resolves_no_leg_is_not_looked_up_a_second_time
+      geo._arun comparison with no resolved leg                 : comparison_with_no_resolved_leg_is_looked_up_a_second_time
+  test_a_best_match_dominates_only_when_it_is_several_times_the_next
+      DOMINANCE rule (geo_list.dominant)                        : dominance_always_true, dominance_strict_greater, dominance_missing_population_dominates
+  test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+      geo._list ambiguous result                                : list_picks_the_largest_without_the_dominance_check, ambiguous_list_result_not_marked_ambiguous, ambiguous_candidates_not_capped, dominance_threshold_one
+  test_a_parent_with_its_state_is_never_ambiguous
+      dominance applies only to a state-less parent             : list_holds_back_even_a_state_qualified_parent
+  test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch (2)
+      ask._absorb does not select an ambiguous geography        : absorb_selects_an_ambiguous_geography, list_picks_the_largest_without_the_dominance_check
+  test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest
+      geo_within.tracts_in_place + geo._place dominant          : tracts_in_place_takes_the_largest_when_ambiguous, place_lookup_reports_every_match_dominant
+  test_a_tract_by_number_needs_parents_the_question_states_not_supplied_ones
+      incomplete: given strict rule                             : incomplete_counts_supplied_parents_for_a_numbered_unit
+  test_a_tract_by_number_runs_when_the_question_states_its_parents
+      incomplete: stated parents count                          : incomplete_ignores_the_parents_the_question_states
+  test_a_report_without_given_keeps_the_lenient_rule_rather_than_refusing
+      incomplete: no `given` fails open                         : incomplete_fails_closed_without_given
+  ADDED test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+      state_of label/length rule                                : state_of_takes_any_label_not_just_state_fips_geoid, state_of_state_label_takes_a_longer_code, state_of_drops_the_geoid_label
+  ADDED test_a_place_named_without_its_state_is_searched_in_every_state
+      geo._place unplaced search lists with in=state:*          : place_search_has_no_state_wildcard_when_unplaced
+  ADDED test_a_level_nothing_publishes_is_refused_not_read_as_another
+      geo._stated refuses an unpublished level                  : unknown_level_passes_through_the_published_check
+  (ADDED 4 params to test_the_spellings_a_model_gives_a_level_are_normalised)
+
+test_finish.py (new or materially changed)
+  test_comparison_resolved_apart_is_resolved_together_with_the_models_places : finish_redoes_a_comparison_the_model_split_apart_no_more, finish_never_sends_levels
+  test_listing_of_one_parent_at_the_wrong_level_is_resolved_again          : split_parents_needs_two_parents, split_parents_sends_the_loops_unit_not_the_models
+  test_a_county_parent_is_re_resolved_with_the_level_the_model_gave        : split_parents_forgets_the_parent_level_the_model_gave
+  test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing        : split_parents_drops_the_unsupported_repair_when_loop_resolved_nothing
+  test_model_naming_no_listing_level_leaves_the_resolution_alone (changed) : finish_redoes_every_multi_place_report
+  test_resolved_comparison_with_two_queries_is_not_resolved_again          : finish_redoes_a_resolved_pair_of_queries
+  test_unresolved_pair_of_single_place_queries_is_resolved_together        : finish_never_redoes_an_unresolved_pair_of_queries, finish_never_sends_levels
+  test_finish_never_resolves_the_question_itself                           : finish_resolves_when_nothing_was_reported, finish_replays_the_question_as_a_place
+  test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_question : split_parents_ignores_the_dataset_of_the_loops_listing
+  test_a_listing_at_the_right_level_in_the_wrong_parent_is_resolved_again  : split_parents_ignores_the_parent_state
+  test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation : finish_has_no_nation_repair, finish_sends_levels_beside_a_single_leg
+  test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level : finish_forces_one_level_on_mixed_legs
+  ADDED test_a_listing_at_the_wrong_level_in_the_right_parent_is_resolved_again : split_parents_ignores_the_level_of_the_loops_listing
+  ADDED test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why : split_parents_loses_the_not_nested_explanation
+
+test_ask_loop.py
+  test_a_model_that_reports_no_place_gets_no_guessed_geography, test_a_question_that_is_only_a_place_name_is_not_resolved_unreported
+                                                                           : finish_guesses_the_nation_when_nothing_was_reported
+  ADDED test_a_call_for_the_nation_names_no_place_for_finish_to_replay     : absorb_reads_place_from_a_nation_call (BAD before the test), absorb_reads_a_place_from_a_nation_call (GOOD after)
+  ADDED test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url : ambiguous_listing_selected_in_the_loop, dominance_always_true_in_the_loop, tc4_*_after_strengthening
+
+test_ask_tools.py (argument migrations with identical assertions are ignored)
+  test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse         : blank_parent_is_dropped_not_failed
+  test_parents_with_places_is_refused_for_repair_not_narrowed_silently     : parents_with_other_places_are_narrowed_silently
+  test_washington_dc_is_not_washington_state, test_new_york_city_token_keeps_new_york (state_of / name_token) : state_of_*, name_token_takes_the_whole_entry
+  test_named_zcta_resolves_without_a_parent                                : zcta_code_is_listed_instead_of_taken_as_the_code
+  test_versus_emits_austin_then_texas_as_comparison_legs, test_springfield_versus_texas_keeps_place_alternatives : tc4_comparison_leg_one_only
+
+test_geography_completeness.py / test_geography_report.py
+  test_one_parent_is_a_listing_and_still_a_frame                           : split_report_drops_a_single_parent_listing
+  test_the_split_report_carries_pointing_as_a_flag_and_nothing_else        : split_report_pointing_taken_as_truthy
+  numbered-as-levels cases (answerable / says-what-it-lacks / geoid)       : numbered_entry_read_one_word_only
+  test_entries_past_the_cap_are_not_read[numbered]                         : numbered_units_not_capped
+
+test_level_fidelity.py / test_level_repair.py / test_level_inferred_flow.py (changed)
+  test_a_call_that_names_no_place_and_no_level_resolves_nothing            : nation_guess_when_no_place_and_no_level
+  test_a_stated_level_is_run_for_the_place_named_and_is_not_inferred       : bare_state_named_entry_is_not_the_state, stated_level_dropped_by_the_place_lookup
+  test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none, test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one : finish_guesses_the_nation_when_nothing_was_reported
+  test_a_level_the_code_chose_is_marked_inferred_in_every_result_shape, test_a_null_level_the_code_had_to_infer_is_warned_as_unverified : unnamed_level_not_marked_inferred
+  test_a_wildcard_listing_for_several_parents_is_a_comparison_at_the_stated_level : several_parent_listing_marked_inferred
+  test_levels_beside_a_single_place_are_refused_for_repair                 : levels_beside_one_place_are_accepted
+  test_a_repair_call_never_overwrites_the_level_the_model_stated           : repair_call_overwrites_the_level_the_model_stated
+
+test_execution_isolation.py (params "a level word" and "a comparison" now pass instead of xfail)
+  : finish_reads_a_level_word_from_the_question, finish_adds_a_place_for_a_comparison_word_in_the_question
+
+NOT MUTATION-CHECKED (reported, see section 4)
+  finish.incomplete `p.isascii()` clause (incomplete_lets_a_non_ascii_name_stand_for_a_state is BAD and left so; no test for it)
+
+======================================================================================
+2. MUTATION TRANSCRIPT (GOOD/BAD label above the real pytest count line)
+======================================================================================
+
+GOOD state_of_scans_words_instead_of_exact_lookup
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_sentence_or_an_unnamed_state_names_no_state; test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup; test_ask_tools.py::test_washington_dc_is_not_washington_state
+  FAILED test_geography_intent.py::test_a_sentence_or_an_unnamed_state_names_no_state[population of Texas]
+  FAILED test_geography_intent.py::test_a_sentence_or_an_unnamed_state_names_no_state[all counties in Ohio]
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[Washington County, OR-oregon]
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[West Virginia-west virginia]
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[Washington, D.C.-district of columbia]
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[DC-district of columbia]
+  pytest: 7 failed, 5 passed in 0.39s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD state_of_ignores_the_part_after_the_last_comma
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup; test_ask_tools.py::test_washington_dc_is_not_washington_state
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[Washington County, OR-oregon]
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[Kansas City, Missouri-missouri]
+  FAILED test_geography_intent.py::test_the_state_of_an_entry_is_an_exact_lookup[Washington, D.C.-district of columbia]
+  FAILED test_ask_tools.py::test_washington_dc_is_not_washington_state
+  pytest: 4 failed, 3 passed in 0.35s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD state_of_drops_labelled_codes
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_code_with_its_own_label_grounds_the_state
+  FAILED test_geography_intent.py::test_a_code_with_its_own_label_grounds_the_state
+  pytest: 1 failed in 0.43s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD state_of_takes_any_label_not_just_state_fips_geoid
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_code_with_its_own_label_grounds_the_state
+  pytest: 1 passed in 0.32s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD state_of_state_label_takes_a_longer_code
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_code_with_its_own_label_grounds_the_state
+  pytest: 1 passed in 0.41s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD name_token_takes_the_whole_entry
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_the_name_of_an_entry_is_the_part_before_its_first_comma; test_ask_tools.py::test_new_york_city_token_keeps_new_york
+  FAILED test_geography_intent.py::test_the_name_of_an_entry_is_the_part_before_its_first_comma
+  FAILED test_ask_tools.py::test_new_york_city_token_keeps_new_york
+  pytest: 2 failed in 0.34s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD only_state_accepts_any_entry
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_city_written_with_its_state_is_the_city_not_the_state_it_shares_a_name_with
+  FAILED test_geography_intent.py::test_a_city_written_with_its_state_is_the_city_not_the_state_it_shares_a_name_with
+  pytest: 1 failed in 0.39s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD only_state_accepts_any_entry_in_a_listing_parent
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_changed_parent_level_changes_the_listing_it_resolves
+  FAILED test_geography_intent.py::test_a_changed_parent_level_changes_the_listing_it_resolves
+  pytest: 1 failed in 0.44s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD list_ignores_parent_level
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_listing_is_executed_from_its_fields_with_no_listing_words_anywhere; test_geography_intent.py::test_a_county_parent_named_without_its_state_is_found_by_name_across_states
+  FAILED test_geography_intent.py::test_a_listing_is_executed_from_its_fields_with_no_listing_words_anywhere
+  FAILED test_geography_intent.py::test_a_county_parent_named_without_its_state_is_found_by_name_across_states
+  pytest: 2 failed in 0.42s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD list_has_no_state_less_parent_search
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_county_parent_named_without_its_state_is_found_by_name_across_states; test_geography_intent.py::test_a_place_parent_named_without_its_state_is_found_by_name_across_states
+  FAILED test_geography_intent.py::test_a_county_parent_named_without_its_state_is_found_by_name_across_states
+  pytest: 1 failed, 1 passed in 0.38s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD list_takes_a_bare_name_for_a_state
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_bare_name_that_is_also_a_state_is_not_taken_for_the_state_as_a_parent
+  FAILED test_geography_intent.py::test_a_bare_name_that_is_also_a_state_is_not_taken_for_the_state_as_a_parent
+  pytest: 1 failed in 0.43s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD list_needs_no_level
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed
+  FAILED test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed[args0-level]
+  pytest: 1 failed, 2 passed in 0.37s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD nationwide_listing_without_state_wildcard
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_nationwide_listing_is_run_only_when_parent_level_is_us
+  FAILED test_geography_intent.py::test_a_nationwide_listing_is_run_only_when_parent_level_is_us
+  pytest: 1 failed in 0.41s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD nationwide_listing_without_parent_level_us
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_nationwide_listing_is_run_only_when_parent_level_is_us
+  FAILED test_geography_intent.py::test_a_nationwide_listing_is_run_only_when_parent_level_is_us
+  pytest: 1 failed in 0.36s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD dominance_always_true
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next; test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  FAILED test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next
+  FAILED test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  pytest: 2 failed in 0.42s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD dominance_strict_greater
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next
+  FAILED test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next
+  pytest: 1 failed in 0.29s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD dominance_missing_population_dominates
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next
+  FAILED test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD dominance_threshold_one
+  edit: api/src/geo_list.py   [run 1]
+  tests run: test_geography_intent.py::test_a_best_match_dominates_only_when_it_is_several_times_the_next; test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  FAILED test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  pytest: 1 failed, 1 passed in 0.45s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD list_picks_the_largest_without_the_dominance_check
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick; test_geography_intent.py::test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch
+  FAILED test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  FAILED test_geography_intent.py::test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch[True]
+  FAILED test_geography_intent.py::test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch[False]
+  pytest: 3 failed in 0.84s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD list_holds_back_even_a_state_qualified_parent
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_a_parent_with_its_state_is_never_ambiguous
+  FAILED test_geography_intent.py::test_a_parent_with_its_state_is_never_ambiguous
+  pytest: 1 failed in 0.39s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD ambiguous_list_result_not_marked_ambiguous
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  FAILED test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD ambiguous_candidates_not_capped
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  FAILED test_geography_intent.py::test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+  pytest: 1 failed in 0.35s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD place_lookup_reports_every_match_dominant
+  edit: api/src/geo.py   [run 1]
+  tests run: test_geography_intent.py::test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest; test_geography_intent.py::test_a_place_parent_named_without_its_state_is_found_by_name_across_states
+  FAILED test_geography_intent.py::test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest
+  pytest: 1 failed, 1 passed in 0.43s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tracts_in_place_takes_the_largest_when_ambiguous
+  edit: api/src/geo_within.py   [run 1]
+  tests run: test_geography_intent.py::test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest
+  FAILED test_geography_intent.py::test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest
+  pytest: 1 failed in 0.36s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD absorb_selects_an_ambiguous_geography
+  edit: api/src/ask.py   [run 1]
+  tests run: test_geography_intent.py::test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch
+  FAILED test_geography_intent.py::test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch[True]
+  FAILED test_geography_intent.py::test_an_ambiguous_listing_ships_candidates_and_no_url_to_fetch[False]
+  pytest: 2 failed in 0.69s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_ignores_the_dataset_of_the_loops_listing
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_question
+  FAILED test_finish.py::test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1_question
+  pytest: 1 failed in 0.51s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD split_parents_ignores_the_level_of_the_loops_listing
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py
+  pytest: 42 passed in 3.22s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_ignores_the_parent_state
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_a_listing_at_the_right_level_in_the_wrong_parent_is_resolved_again
+  FAILED test_finish.py::test_a_listing_at_the_right_level_in_the_wrong_parent_is_resolved_again
+  pytest: 1 failed in 0.47s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_drops_the_unsupported_repair_when_loop_resolved_nothing
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing
+  FAILED test_finish.py::test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing
+  pytest: 1 failed in 0.39s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD split_parents_loses_the_not_nested_explanation
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py; test_geography_completeness.py; test_guards.py
+  pytest: 208 passed in 8.97s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_forgets_the_parent_level_the_model_gave
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_a_county_parent_is_re_resolved_with_the_level_the_model_gave; test_finish.py::test_listing_of_one_parent_at_the_wrong_level_is_resolved_again
+  FAILED test_finish.py::test_a_county_parent_is_re_resolved_with_the_level_the_model_gave
+  pytest: 1 failed, 1 passed in 0.49s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_needs_two_parents
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_listing_of_one_parent_at_the_wrong_level_is_resolved_again; test_finish.py::test_a_county_parent_is_re_resolved_with_the_level_the_model_gave
+  FAILED test_finish.py::test_listing_of_one_parent_at_the_wrong_level_is_resolved_again
+  FAILED test_finish.py::test_a_county_parent_is_re_resolved_with_the_level_the_model_gave
+  pytest: 2 failed in 0.49s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_sends_the_loops_unit_not_the_models
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_listing_of_one_parent_at_the_wrong_level_is_resolved_again
+  FAILED test_finish.py::test_listing_of_one_parent_at_the_wrong_level_is_resolved_again
+  pytest: 1 failed in 0.41s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_sends_levels_beside_a_single_leg
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  FAILED test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  pytest: 1 failed in 0.35s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_never_sends_levels
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places; test_finish.py::test_unresolved_pair_of_single_place_queries_is_resolved_together
+  FAILED test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places
+  FAILED test_finish.py::test_unresolved_pair_of_single_place_queries_is_resolved_together
+  pytest: 2 failed in 0.51s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_forces_one_level_on_mixed_legs
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level
+  FAILED test_finish.py::test_a_comparison_of_places_at_different_levels_is_not_forced_to_one_level
+  pytest: 1 failed in 0.35s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_has_no_nation_repair
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation; test_geography_intent.py::test_a_question_about_the_nation_resolves_when_the_model_reports_the_nation
+  FAILED test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  FAILED test_geography_intent.py::test_a_question_about_the_nation_resolves_when_the_model_reports_the_nation
+  pytest: 2 failed in 0.62s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_resolves_when_nothing_was_reported
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_finish_never_resolves_the_question_itself
+  FAILED test_finish.py::test_finish_never_resolves_the_question_itself
+  pytest: 1 failed in 0.44s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_guesses_the_nation_when_nothing_was_reported
+  edit: api/src/finish.py   [run 2]
+  tests run: test_ask_loop.py::test_a_model_that_reports_no_place_gets_no_guessed_geography; test_ask_loop.py::test_a_question_that_is_only_a_place_name_is_not_resolved_unreported; test_level_repair.py::test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one; test_level_fidelity.py::test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none
+  FAILED test_ask_loop.py::test_a_model_that_reports_no_place_gets_no_guessed_geography
+  FAILED test_ask_loop.py::test_a_question_that_is_only_a_place_name_is_not_resolved_unreported
+  FAILED test_level_repair.py::test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one
+  FAILED test_level_fidelity.py::test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none
+  pytest: 4 failed in 0.93s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_redoes_a_comparison_the_model_split_apart_no_more
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places
+  FAILED test_finish.py::test_comparison_resolved_apart_is_resolved_together_with_the_models_places
+  pytest: 1 failed in 0.41s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_redoes_every_multi_place_report
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_model_naming_no_listing_level_leaves_the_resolution_alone
+  FAILED test_finish.py::test_model_naming_no_listing_level_leaves_the_resolution_alone
+  pytest: 1 failed in 0.48s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_never_redoes_an_unresolved_pair_of_queries
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_unresolved_pair_of_single_place_queries_is_resolved_together
+  FAILED test_finish.py::test_unresolved_pair_of_single_place_queries_is_resolved_together
+  pytest: 1 failed in 0.43s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_redoes_a_resolved_pair_of_queries
+  edit: api/src/finish.py   [run 2]
+  tests run: test_finish.py::test_resolved_comparison_with_two_queries_is_not_resolved_again
+  FAILED test_finish.py::test_resolved_comparison_with_two_queries_is_not_resolved_again
+  pytest: 1 failed in 0.47s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD incomplete_needs_a_state_in_the_lookup_for_a_name
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_famous_place_named_without_its_state_is_not_refused
+  FAILED test_geography_intent.py::test_a_famous_place_named_without_its_state_is_not_refused
+  pytest: 1 failed in 0.42s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD incomplete_lets_a_digit_entry_stand_for_a_state
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_number_filed_under_named_is_a_code_that_must_ground_itself
+  FAILED test_geography_intent.py::test_a_number_filed_under_named_is_a_code_that_must_ground_itself[tract 71]
+  FAILED test_geography_intent.py::test_a_number_filed_under_named_is_a_code_that_must_ground_itself[tract 4821]
+  FAILED test_geography_intent.py::test_a_number_filed_under_named_is_a_code_that_must_ground_itself[71]
+  pytest: 3 failed in 0.89s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD incomplete_lets_a_non_ascii_name_stand_for_a_state
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_completeness.py; test_geography_report.py
+  pytest: 142 passed in 12.02s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD incomplete_counts_supplied_parents_for_a_numbered_unit
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_tract_by_number_needs_parents_the_question_states_not_supplied_ones
+  FAILED test_geography_intent.py::test_a_tract_by_number_needs_parents_the_question_states_not_supplied_ones
+  pytest: 1 failed in 0.57s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD incomplete_ignores_the_parents_the_question_states
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_tract_by_number_runs_when_the_question_states_its_parents
+  FAILED test_geography_intent.py::test_a_tract_by_number_runs_when_the_question_states_its_parents
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD incomplete_fails_closed_without_given
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_report_without_given_keeps_the_lenient_rule_rather_than_refusing
+  FAILED test_geography_intent.py::test_a_report_without_given_keeps_the_lenient_rule_rather_than_refusing
+  pytest: 1 failed in 0.45s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD numbered_entry_read_one_word_only
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents; test_geography_completeness.py
+  FAILED test_geography_intent.py::test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents
+  FAILED test_geography_completeness.py::test_a_question_is_answerable_exactly_when_it_carries_what_its_level_needs[Is block group 4 larger than block group 9?-bl
+  FAILED test_geography_completeness.py::test_a_question_is_answerable_exactly_when_it_carries_what_its_level_needs[Is block group 4 larger than block group 9 in
+  FAILED test_geography_completeness.py::test_the_answer_says_what_the_question_needs_what_it_names_and_what_it_lacks[Is block group 4 larger than block group 9?-
+  FAILED test_geography_completeness.py::test_the_answer_says_what_the_question_needs_what_it_names_and_what_it_lacks[Is block group 4 larger than block group 9 i
+  FAILED test_geography_completeness.py::test_a_geoid_supplies_only_what_it_encodes[Population of block group 1 in tract 1400000US5502-frame0-county]
+  pytest: 6 failed, 73 passed in 6.54s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD numbered_entry_read_two_words_only
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents; test_geography_completeness.py
+  FAILED test_geography_intent.py::test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents
+  pytest: 1 failed, 78 passed in 6.43s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD numbered_entry_not_normalised_to_a_level
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_intent.py::test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents
+  FAILED test_geography_intent.py::test_a_numbered_unit_the_model_writes_with_its_number_still_needs_its_parents
+  pytest: 1 failed in 0.59s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD blank_parent_is_dropped_not_failed
+  edit: api/src/geo.py   [run 2]
+  tests run: test_ask_tools.py::test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse
+  FAILED test_ask_tools.py::test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse
+  pytest: 1 failed in 0.42s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD parents_with_other_places_are_narrowed_silently
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_listing_mixed_with_places_or_levels_is_refused_for_repair; test_ask_tools.py::test_parents_with_places_is_refused_for_repair_not_narrowed_silently
+  FAILED test_geography_intent.py::test_a_listing_mixed_with_places_or_levels_is_refused_for_repair[sent0]
+  FAILED test_ask_tools.py::test_parents_with_places_is_refused_for_repair_not_narrowed_silently
+  pytest: 2 failed, 1 passed in 0.45s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD parents_with_levels_are_not_refused
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_listing_mixed_with_places_or_levels_is_refused_for_repair
+  FAILED test_geography_intent.py::test_a_listing_mixed_with_places_or_levels_is_refused_for_repair[sent1]
+  pytest: 1 failed, 1 passed in 0.36s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD places_repeating_the_parents_are_a_second_request
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_places_that_only_repeat_the_parents_are_redundant_not_a_second_request
+  FAILED test_geography_intent.py::test_places_that_only_repeat_the_parents_are_redundant_not_a_second_request
+  pytest: 1 failed in 0.39s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD repeated_names_compared_case_sensitively
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_places_that_only_repeat_the_parents_are_redundant_not_a_second_request
+  FAILED test_geography_intent.py::test_places_that_only_repeat_the_parents_are_redundant_not_a_second_request
+  pytest: 1 failed in 0.33s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD levels_beside_one_place_are_accepted
+  edit: api/src/geo.py   [run 2]
+  tests run: test_level_fidelity.py
+  FAILED test_level_fidelity.py::test_levels_beside_a_single_place_are_refused_for_repair
+  pytest: 1 failed, 51 passed in 2.35s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD several_unplaced_parents_are_each_searched_in_every_state
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_several_unplaced_county_parents_are_asked_for_with_their_states
+  FAILED test_geography_intent.py::test_several_unplaced_county_parents_are_asked_for_with_their_states
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD comparison_with_no_resolved_leg_is_looked_up_a_second_time
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_comparison_that_resolves_no_leg_is_not_looked_up_a_second_time
+  FAILED test_geography_intent.py::test_a_comparison_that_resolves_no_leg_is_not_looked_up_a_second_time
+  pytest: 1 failed in 0.34s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD nation_guess_when_no_place_and_no_level
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed
+  FAILED test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed[args1-nation]
+  FAILED test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed[args2-nation]
+  pytest: 2 failed, 1 passed in 0.45s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD labelled_zip_is_searched_instead_of_taken_as_the_code
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_labelled_zip_code_is_the_code_and_not_a_nationwide_search
+  FAILED test_geography_intent.py::test_a_labelled_zip_code_is_the_code_and_not_a_nationwide_search
+  pytest: 1 failed in 0.42s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD bare_state_named_entry_is_not_the_state
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_city_written_with_its_state_is_the_city_not_the_state_it_shares_a_name_with; test_level_fidelity.py
+  FAILED test_geography_intent.py::test_a_city_written_with_its_state_is_the_city_not_the_state_it_shares_a_name_with
+  FAILED test_level_fidelity.py::test_a_stated_level_is_run_for_the_place_named_and_is_not_inferred
+  pytest: 2 failed, 51 passed in 2.38s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD blank_level_is_a_stated_level
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_blank_level_is_no_level_everywhere
+  FAILED test_geography_intent.py::test_a_blank_level_is_no_level_everywhere
+  pytest: 1 failed in 0.48s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD county_fallback_not_flagged_inferred
+  edit: api/src/geo.py   [run 2]
+  tests run: test_geography_intent.py::test_a_blank_level_is_no_level_everywhere
+  FAILED test_geography_intent.py::test_a_blank_level_is_no_level_everywhere
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD blank_level_not_folded_to_none
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_a_blank_level_is_no_level_everywhere
+  FAILED test_geography_intent.py::test_a_blank_level_is_no_level_everywhere
+  pytest: 1 failed in 0.44s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD place_search_has_no_state_wildcard_when_unplaced
+  edit: api/src/geo.py   [run 2]
+  tests run: test_ask_tools.py
+  pytest: 97 passed in 1.49s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD zcta_code_is_listed_instead_of_taken_as_the_code
+  edit: api/src/geo.py   [run 2]
+  tests run: test_ask_tools.py::test_named_zcta_resolves_without_a_parent; test_ask_tools.py::test_named_zcta_with_a_state_is_not_nested
+  FAILED test_ask_tools.py::test_named_zcta_resolves_without_a_parent
+  pytest: 1 failed, 1 passed in 0.41s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_census_tract_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised; test_geography_intent.py::test_a_level_spelled_census_tract_still_needs_its_state
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[census tract-tract]
+  FAILED test_geography_intent.py::test_a_level_spelled_census_tract_still_needs_its_state
+  pytest: 2 failed, 2 passed in 0.50s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD alias_census_tracts_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  pytest: 3 passed in 0.16s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD alias_census_block_group_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  pytest: 3 passed in 0.18s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_census_block_groups_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[Census Block Groups-block group]
+  pytest: 1 failed, 2 passed in 0.30s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD alias_zip_code_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  pytest: 3 passed in 0.17s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_zip_codes_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[ZIP codes-zcta]
+  pytest: 1 failed, 2 passed in 0.33s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD alias_zcta5_dropped
+  edit: api/src/geo_level.py   [run 2]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised; test_geography_intent.py::test_a_labelled_zip_code_is_the_code_and_not_a_nationwide_search
+  pytest: 4 passed in 0.25s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_report_pointing_taken_as_truthy
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_completeness.py::test_the_split_report_carries_pointing_as_a_flag_and_nothing_else
+  FAILED test_geography_completeness.py::test_the_split_report_carries_pointing_as_a_flag_and_nothing_else
+  pytest: 1 failed in 0.31s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_report_drops_a_single_parent_listing
+  edit: api/src/finish.py   [run 2]
+  tests run: test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  FAILED test_geography_completeness.py::test_one_parent_is_a_listing_and_still_a_frame
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD state_of_takes_any_label_not_just_state_fips_geoid
+  edit: api/src/geo_list.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  FAILED test_geography_intent.py::test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  pytest: 1 failed in 0.43s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD state_of_state_label_takes_a_longer_code
+  edit: api/src/geo_list.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  FAILED test_geography_intent.py::test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  pytest: 1 failed in 0.29s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD state_of_drops_the_geoid_label
+  edit: api/src/geo_list.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  FAILED test_geography_intent.py::test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  pytest: 1 failed in 0.38s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_ignores_the_level_of_the_loops_listing
+  edit: api/src/finish.py   [run 3 (after strengthening)]
+  tests run: test_finish.py::test_a_listing_at_the_wrong_level_in_the_right_parent_is_resolved_again
+  FAILED test_finish.py::test_a_listing_at_the_wrong_level_in_the_right_parent_is_resolved_again
+  pytest: 1 failed in 0.41s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD split_parents_loses_the_not_nested_explanation
+  edit: api/src/finish.py   [run 3 (after strengthening)]
+  tests run: test_finish.py::test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why
+  FAILED test_finish.py::test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why
+  pytest: 1 failed in 0.46s
+  src status after restore: '' (git status --short -- api/src)
+
+VOID split_parents_replaces_the_loops_listing_with_an_unsupported_repair   <- VOID (my edit kept the behaviour it meant to break; discarded)
+  edit: api/src/finish.py   [run 3 (after strengthening)]
+  tests run: test_finish.py::test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why
+  pytest: 1 passed in 0.24s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_census_tracts_dropped
+  edit: api/src/geo_level.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[census tracts-tract]
+  pytest: 1 failed, 6 passed in 0.46s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_census_block_group_dropped
+  edit: api/src/geo_level.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[census block group-block group]
+  pytest: 1 failed, 6 passed in 0.30s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_zip_code_dropped
+  edit: api/src/geo_level.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[zip code-zcta]
+  pytest: 1 failed, 6 passed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD alias_zcta5_dropped
+  edit: api/src/geo_level.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised
+  FAILED test_geography_intent.py::test_the_spellings_a_model_gives_a_level_are_normalised[ZCTA5-zcta]
+  pytest: 1 failed, 6 passed in 0.33s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD place_search_has_no_state_wildcard_when_unplaced
+  edit: api/src/geo.py   [run 3 (after strengthening)]
+  tests run: test_geography_intent.py::test_a_place_named_without_its_state_is_searched_in_every_state
+  FAILED test_geography_intent.py::test_a_place_named_without_its_state_is_searched_in_every_state
+  pytest: 1 failed in 0.40s
+  src status after restore: '' (git status --short -- api/src)
+
+VOID listing_parents_are_replayed_by_finish_as_places   <- VOID (equivalent mutant: a listing is always wildcard, and a wildcard already clears geo_queries; discarded)
+  edit: api/src/ask.py   [run 3 (after strengthening)]
+  tests run: test_level_fidelity.py
+  pytest: 52 passed in 2.10s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD several_parent_listing_marked_inferred
+  edit: api/src/geo.py   [run 3 (after strengthening)]
+  tests run: test_level_fidelity.py
+  FAILED test_level_fidelity.py::test_a_wildcard_listing_for_several_parents_is_a_comparison_at_the_stated_level
+  pytest: 1 failed, 51 passed in 2.27s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD stated_level_dropped_by_the_place_lookup
+  edit: api/src/geo.py   [run 3 (after strengthening)]
+  tests run: test_level_fidelity.py; test_level_stated_run.py
+  FAILED test_level_fidelity.py::test_a_repair_call_never_overwrites_the_level_the_model_stated
+  FAILED test_level_fidelity.py::test_an_unpublished_level_is_refused_with_the_published_names
+  FAILED test_level_fidelity.py::test_a_published_level_with_no_alias_is_run_by_exact_metadata_match
+  FAILED test_level_fidelity.py::test_each_comparison_leg_is_run_at_its_own_stated_level
+  FAILED test_level_fidelity.py::test_a_single_level_stated_for_mixed_legs_is_not_quietly_corrected
+  FAILED test_level_fidelity.py::test_a_loop_whose_model_states_the_level_raises_no_level_warning
+  pytest: 15 failed, 38 passed in 2.28s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD unnamed_level_not_marked_inferred
+  edit: api/src/geo.py   [run 3 (after strengthening)]
+  tests run: test_level_fidelity.py; test_level_inferred_flow.py
+  FAILED test_level_fidelity.py::test_a_level_the_model_did_not_state_is_marked_inferred
+  FAILED test_level_fidelity.py::test_a_level_the_code_chose_is_marked_inferred_in_every_result_shape
+  FAILED test_level_inferred_flow.py::test_a_null_level_the_code_had_to_infer_is_warned_as_unverified
+  pytest: 3 failed, 51 passed in 2.31s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD numbered_units_not_capped
+  edit: api/src/finish.py   [run 3 (after strengthening)]
+  tests run: test_geography_report.py
+  FAILED test_geography_report.py::test_entries_past_the_cap_are_not_read[numbered]
+  pytest: 1 failed, 63 passed in 6.56s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_replays_the_question_as_a_place
+  edit: api/src/finish.py   [run 3 (after strengthening)]
+  tests run: test_execution_isolation.py; test_level_fidelity.py; test_finish.py
+  FAILED test_level_fidelity.py::test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none
+  FAILED test_finish.py::test_finish_never_resolves_the_question_itself
+  FAILED test_finish.py::test_a_question_the_model_reports_as_the_nation_is_resolved_as_the_nation
+  pytest: 3 failed, 106 passed, 5 xfailed in 11.80s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tool_args_pick_a_level_from_a_word_in_the_question
+  edit: api/src/contract.py   [run 4]
+  tests run: test_geography_intent.py::test_a_fixed_listing_executes_identically_under_any_wording; test_execution_isolation.py
+  FAILED test_geography_intent.py::test_a_fixed_listing_executes_identically_under_any_wording
+  pytest: 1 failed, 13 passed, 5 xfailed in 7.68s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tool_args_pin_every_level_to_county
+  edit: api/src/contract.py   [run 4]
+  tests run: test_geography_intent.py::test_changing_the_listing_level_changes_execution_under_the_same_wording; test_execution_isolation.py::test_a_different_stated_intent_changes_execution_under_the_same_wording
+  FAILED test_geography_intent.py::test_changing_the_listing_level_changes_execution_under_the_same_wording
+  FAILED test_execution_isolation.py::test_a_different_stated_intent_changes_execution_under_the_same_wording
+  pytest: 2 failed in 1.10s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_reads_a_level_word_from_the_question
+  edit: api/src/finish.py   [run 4]
+  tests run: test_execution_isolation.py
+  FAILED test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word]
+  FAILED test_execution_isolation.py::test_a_repaired_intent_executes_identically_under_any_wording[a level word]
+  pytest: 2 failed, 11 passed, 5 xfailed in 6.51s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD finish_adds_a_place_for_a_comparison_word_in_the_question
+  edit: api/src/finish.py   [run 4]
+  tests run: test_execution_isolation.py
+  FAILED test_execution_isolation.py::test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison]
+  pytest: 1 failed, 12 passed, 5 xfailed in 6.44s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD repair_call_overwrites_the_level_the_model_stated
+  edit: api/src/geo_level.py   [run 4]
+  tests run: test_level_fidelity.py
+  FAILED test_level_fidelity.py::test_a_repair_call_never_overwrites_the_level_the_model_stated
+  pytest: 1 failed, 51 passed in 2.22s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD absorb_reads_place_from_a_nation_call
+  edit: api/src/ask.py   [run 4]
+  tests run: test_ask_loop.py; test_level_fidelity.py; test_geography_intent.py
+  pytest: 180 passed in 10.30s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD unknown_level_passes_through_the_published_check
+  edit: api/src/geo.py   [run 4]
+  tests run: test_finish.py; test_level_repair.py; test_geography_intent.py; test_level_fidelity.py; test_execution_isolation.py
+  FAILED test_level_fidelity.py::test_an_unpublished_level_is_refused_with_the_published_names
+  FAILED test_level_fidelity.py::test_a_refused_level_stands_and_is_not_re_guessed_from_the_question
+  pytest: 2 failed, 169 passed, 5 xfailed in 15.32s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD tc4_dominance_always_true
+  edit: api/src/geo_list.py   [run 4]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  pytest: 245 passed in 13.09s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc4_list_ignores_parent_level
+  edit: api/src/geo.py   [run 4]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  FAILED test_ask_tools.py::test_tracts_in_wayne_county_are_one_wildcard_not_a_listing
+  FAILED test_ask_tools.py::test_tracts_in_wayne_without_a_state_pick_michigan
+  FAILED test_ask_tools.py::test_all_counties_in_the_us_keeps_the_state_wildcard
+  FAILED test_ask_tools.py::test_all_places_in_a_county_is_rejected_not_broadened
+  FAILED test_ask_loop.py::test_every_tract_listing_replaces_a_county_url
+  FAILED test_ask_loop.py::test_tract_in_county_listing_replaces_a_county_url
+  pytest: 8 failed, 237 passed in 12.18s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc4_comparison_leg_one_only
+  edit: api/src/geo.py   [run 4]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  FAILED test_ask_tools.py::test_versus_emits_austin_then_texas_as_comparison_legs
+  FAILED test_ask_tools.py::test_springfield_versus_texas_keeps_place_alternatives
+  FAILED test_ask_loop.py::test_austin_rent_finishes_when_the_model_stops
+  FAILED test_ask_loop.py::test_texas_only_rent_compare_adds_austin
+  FAILED test_ask_loop.py::test_versus_geography_does_not_warn_ambiguous_place
+  FAILED test_ask_loop.py::test_versus_with_several_places_warns_and_keeps_both_legs
+  pytest: 12 failed, 233 passed in 12.15s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc4_numbered_one_word_only
+  edit: api/src/finish.py   [run 4]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  FAILED test_geography_completeness.py::test_a_question_is_answerable_exactly_when_it_carries_what_its_level_needs[Is block group 4 larger than block group 9?-bl
+  FAILED test_geography_completeness.py::test_a_question_is_answerable_exactly_when_it_carries_what_its_level_needs[Is block group 4 larger than block group 9 in
+  FAILED test_geography_completeness.py::test_the_answer_says_what_the_question_needs_what_it_names_and_what_it_lacks[Is block group 4 larger than block group 9?-
+  FAILED test_geography_completeness.py::test_the_answer_says_what_the_question_needs_what_it_names_and_what_it_lacks[Is block group 4 larger than block group 9 i
+  FAILED test_geography_completeness.py::test_a_geoid_supplies_only_what_it_encodes[Population of block group 1 in tract 1400000US5502-frame0-county]
+  pytest: 5 failed, 240 passed in 12.42s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc4_digit_entry_counts_as_a_name
+  edit: api/src/finish.py   [run 4]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  FAILED test_geography_completeness.py::test_a_number_the_model_files_under_named_is_still_not_a_name
+  FAILED test_geography_completeness.py::test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_named
+  pytest: 2 failed, 243 passed in 12.13s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD tc4_ambiguous_listing_selected
+  edit: api/src/ask.py   [run 4]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  pytest: 245 passed in 11.98s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc5_finish_resolves_when_nothing_reported
+  edit: api/src/finish.py   [run 4]
+  tests run: test_finish.py; test_level_repair.py; test_geography_intent.py
+  FAILED test_finish.py::test_finish_never_resolves_the_question_itself
+  FAILED test_level_repair.py::test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one
+  pytest: 2 failed, 104 passed in 7.13s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc5_nation_guess_when_no_place_and_no_level
+  edit: api/src/geo.py   [run 4]
+  tests run: test_finish.py; test_level_repair.py; test_geography_intent.py
+  FAILED test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed[args1-nation]
+  FAILED test_geography_intent.py::test_intent_missing_a_field_is_sent_back_for_repair_not_guessed[args2-nation]
+  pytest: 2 failed, 104 passed in 7.23s
+  src status after restore: '' (git status --short -- api/src)
+
+BAD tc5_unknown_level_passes_through
+  edit: api/src/geo.py   [run 4]
+  tests run: test_finish.py; test_level_repair.py; test_geography_intent.py
+  pytest: 106 passed in 6.93s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD absorb_reads_a_place_from_a_nation_call
+  edit: api/src/ask.py   [run 5 (after strengthening)]
+  tests run: test_ask_loop.py::test_a_call_for_the_nation_names_no_place_for_finish_to_replay
+  FAILED test_ask_loop.py::test_a_call_for_the_nation_names_no_place_for_finish_to_replay
+  pytest: 1 failed in 0.39s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD ambiguous_listing_selected_in_the_loop
+  edit: api/src/ask.py   [run 5 (after strengthening)]
+  tests run: test_ask_loop.py::test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+  FAILED test_ask_loop.py::test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+  pytest: 1 failed in 0.55s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD dominance_always_true_in_the_loop
+  edit: api/src/geo_list.py   [run 5 (after strengthening)]
+  tests run: test_ask_loop.py::test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+  FAILED test_ask_loop.py::test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+  pytest: 1 failed in 0.64s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD unknown_level_passes_through_the_published_check
+  edit: api/src/geo.py   [run 5 (after strengthening)]
+  tests run: test_geography_intent.py::test_a_level_nothing_publishes_is_refused_not_read_as_another
+  FAILED test_geography_intent.py::test_a_level_nothing_publishes_is_refused_not_read_as_another
+  pytest: 1 failed in 0.36s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc4_dominance_always_true_after_strengthening
+  edit: api/src/geo_list.py   [run 6 (TC command files, after strengthening)]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  FAILED test_ask_loop.py::test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+  pytest: 1 failed, 246 passed in 11.84s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc4_ambiguous_listing_selected_after_strengthening
+  edit: api/src/ask.py   [run 6 (TC command files, after strengthening)]
+  tests run: test_ask_tools.py; test_ask_loop.py; test_geography_completeness.py
+  FAILED test_ask_loop.py::test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+  pytest: 1 failed, 246 passed in 12.22s
+  src status after restore: '' (git status --short -- api/src)
+
+GOOD tc5_unknown_level_passes_through_after_strengthening
+  edit: api/src/geo.py   [run 6 (TC command files, after strengthening)]
+  tests run: test_finish.py; test_level_repair.py; test_geography_intent.py
+  FAILED test_geography_intent.py::test_a_level_nothing_publishes_is_refused_not_read_as_another
+  pytest: 1 failed, 106 passed in 6.84s
+  src status after restore: '' (git status --short -- api/src)
+
+======================================================================================
+3. TESTS ADDED OR STRENGTHENED THIS PASS (working tree, not committed)
+======================================================================================
+api/tests/test_geography_intent.py
+  + test_only_a_state_fips_or_geoid_label_makes_a_code_a_state
+  + test_a_place_named_without_its_state_is_searched_in_every_state
+  + test_a_level_nothing_publishes_is_refused_not_read_as_another
+  ~ test_the_spellings_a_model_gives_a_level_are_normalised: +4 cases (census tracts, census block group, zip code, ZCTA5)
+api/tests/test_finish.py
+  + test_a_listing_at_the_wrong_level_in_the_right_parent_is_resolved_again
+  + test_a_repair_that_cannot_be_nested_keeps_the_loops_listing_and_says_why
+api/tests/test_ask_loop.py
+  + test_a_call_for_the_nation_names_no_place_for_finish_to_replay
+  + test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url
+Each was written because a mutation of the behaviour it covers first passed (BAD blocks above), and
+each now fails against that mutation (the GOOD block with the same behaviour, in later runs).
+
+======================================================================================
+4. FINDINGS THE MUTATION PASS SURFACED (no src was edited)
+======================================================================================
+a) finish.incomplete, `p.isascii() and p.replace(" ", "").isalpha()`: the isascii clause is unobservable
+   (BAD, left). More important, the whole letters-only rule means a bare name with a period, hyphen
+   or accent ("St. Louis", "Winston-Salem", "Dona Ana County" with n-tilde) is not counted as naming
+   a state (state_of is None, isalpha False), so a tract listing for it with no ", ST" would be
+   refused as incomplete. The split prompt tells the model to write "Name, State", so this is a
+   narrow path; flagged for Gate 2, not changed.
+b) check_invariants "new regex" is a per-file ratchet against origin/main. A regex added to a file
+   that has none at base fails (geo_within.py 0 -> 1 FAIL). Files whose base count was higher keep
+   the headroom this branch freed: finish.py base 2 / now 0, geo.py base 11 / now 0, geo_list.py
+   base 18 / now 4. A regex reader re-added there (verified in geo.py and finish.py) passes
+   invariants (exit 0). scripts/ is off limits to this pass; a human decision if it matters.
+c) Equivalent mutant noted (VOID above): ask._absorb deriving the place from `parents` is invisible
+   because every listing is wildcard and a wildcard already clears geo_queries.
+d) Not mutated: "a missing or late report activates no parser" (the fail-open in finish.incomplete /
+   the SPLIT_WAIT timeout); covered by pre-existing tests that this branch did not change.
+
+======================================================================================
+5. AC / TC COVERAGE (evidence/closure/CC-104.toml rows)
+======================================================================================
+Row  Covering tests                                                              Mutations that make them fail (GOOD blocks)
+AC1  test_execution_isolation.py (neutral rewordings, SCANNED incl. "a level      tool_args_pick_a_level_from_a_word_in_the_question;
+     word"/"a comparison", repaired intent); test_geography_intent.py              finish_reads_a_level_word_from_the_question;
+     (fixed listing identical under any wording; level change; missing-field       finish_adds_a_place_for_a_comparison_word_in_the_question;
+     repair)                                                                       finish_replays_the_question_as_a_place;
+                                                                                   state_of_scans_words_instead_of_exact_lookup
+AC2  behavioural: state_of sentence/unnamed tests, test_finish never-resolves,     state_of_scans_words_instead_of_exact_lookup;
+     isolation "level word"/"comparison"; script: check_invariants "new regex"     finish_replays_the_question_as_a_place; finish_reads_a_level_word_*.
+     No pytest asserts that a named function is absent (none added).               PARTIAL: invariants FAIL a regex added to geo_within.py (base 0) but
+                                                                                   PASS one added to geo.py / finish.py (headroom, finding 4b).
+AC3  test_geography_report.py, test_level_fidelity.py, test_finish.py              repair_call_overwrites_the_level_the_model_stated;
+     (requested/executed/inferred kept apart; repair never changes                 unnamed_level_not_marked_inferred; several_parent_listing_marked_inferred;
+     asked_levels; reconcile in finish)                                            stated_level_dropped_by_the_place_lookup; finish_never_sends_levels;
+                                                                                   finish_sends_levels_beside_a_single_leg
+AC4  test_finish.py, test_geography_intent.py, test_level_repair.py                finish_guesses_the_nation_when_nothing_was_reported;
+     (no nation/latest fallback; mixed intent refused for repair; nothing           nation_guess_when_no_place_and_no_level; list_needs_no_level;
+     resolved when nothing reported)                                               parents_with_other_places_are_narrowed_silently;
+                                                                                   levels_beside_one_place_are_accepted; finish_resolves_when_nothing_was_reported;
+                                                                                   several_unplaced_parents_are_each_searched_in_every_state
+AC5  test_geography_completeness.py, test_geography_intent.py                      incomplete_counts_supplied_parents_for_a_numbered_unit;
+     (digit entry grounds itself; given strict rule; CC-133 boundary tests)        incomplete_lets_a_digit_entry_stand_for_a_state;
+                                                                                   incomplete_needs_a_state_in_the_lookup_for_a_name;
+                                                                                   incomplete_fails_closed_without_given; numbered_entry_* ; tc4_numbered_one_word_only
+TC1  `-k listing` set (9 tests) in test_geography_intent.py                        list_ignores_parent_level; nationwide_listing_*;
+                                                                                   tool_args_pick_a_level_from_a_word_in_the_question;
+                                                                                   list_picks_the_largest_without_the_dominance_check
+TC2  test_a_fixed_listing_executes_identically_under_any_wording;                  tool_args_pick_a_level_from_a_word_in_the_question;
+     test_execution_isolation.py                                                   finish_reads_a_level_word_*; finish_adds_a_place_*
+TC3  test_changing_the_listing_level_changes_execution_under_the_same_wording;     tool_args_pin_every_level_to_county (both tests fail)
+     test_a_different_stated_intent_changes_execution_under_the_same_wording
+TC4  command files (test_ask_tools, test_ask_loop, test_geography_completeness).    tc4_list_ignores_parent_level (8 failed); tc4_comparison_leg_one_only (12);
+     Ambiguity was covered only by test_geography_intent.py, which is NOT in       tc4_numbered_one_word_only (5); tc4_digit_entry_counts_as_a_name (2).
+     the row's command: tc4_dominance_always_true and tc4_ambiguous_listing_       BAD then GOOD: tc4_dominance_always_true / tc4_ambiguous_listing_selected
+     selected passed all 245 tests. ADDED test_ask_loop.py::                       passed against the row's files; after the added loop test both
+     test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url     fail (run 6, "after_strengthening").
+TC5  command files (test_finish, test_level_repair, test_geography_intent).         tc5_finish_resolves_when_nothing_reported (2 failed);
+     Invalid-level tests lived only in test_level_fidelity/test_execution_          tc5_nation_guess_when_no_place_and_no_level (2 failed).
+     isolation, not in the row's command: tc5_unknown_level_passes_through         BAD then GOOD: tc5_unknown_level_passes_through passed 106 tests; after
+     passed. ADDED test_geography_intent.py::                                      the added test it fails (run 6).
+     test_a_level_nothing_publishes_is_refused_not_read_as_another
+No row is left without a covering test. Two rows (TC4, TC5) have a command that omits a file where part
+of their coverage lives; the closure file was not edited (off limits), so the added tests sit in files
+the commands already run.
+
+======================================================================================
+6. SUITE
+======================================================================================
+uv run pytest api/tests -q -p no:warnings  ->  1426 passed, 34 skipped, 5 xfailed in 107.23s
+   (the 5 xfailed are the strict xfails in test_execution_isolation.py: 4 time/product, 1 ZIP)
+uv run ruff check api            ->  All checks passed!
+uv run ruff format --check api   ->  80 files already formatted
+final: HEAD d01e2208ce4a7f3ae25c79814354be8a5c1e0195, git status --short shows only
+   M api/tests/test_ask_loop.py
+   M api/tests/test_finish.py
+   M api/tests/test_geography_intent.py
+   (and the new evidence/slice-6/cc-104/gate1-c3.txt); no api/src change remains.
+
+Counts: 117 mutation blocks: 101 GOOD, 14 BAD on first run (13 strengthened to GOOD afterwards, the
+isascii clause left BAD and reported), 2 VOID (discarded mutants).

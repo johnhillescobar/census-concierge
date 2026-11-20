@@ -1,0 +1,51 @@
+CC-104 Gate 2, round 2 (the one allowed re-run, on the fix commit)
+branch cc-104/structured-geography
+re-run of /code-review high origin/main on HEAD 23c2fc7 (the Gate 2 round 1 fixes d8f0fbe + mutation transcript)
+Round 1 (gate2.txt) verdict was NOT YET with F1-F8; this round reviewed the fixes. Per run-slice.md: stop after this
+re-run; still fix what it finds. Fixes: fb4b964 and the numbered-unit test fix; mutation transcript gate1-rerun-fixes.txt.
+
+FINDING                                                                                      DISPOSITION
+R1 finish.py incomplete(): a digit-free name (e.g. "Cook County") gives the state, so       NOT CHANGED, owner decision.
+   "tract 12 in Cook County" is not refused and the largest Cook County is used.            The old rule (CC-102) was the same:
+                                                                                            any named place gave the state; the
+                                                                                            owner asked (2026-11-11) that a
+                                                                                            famous place need no state. A
+                                                                                            dominance rule (see PR body) would
+                                                                                            separate Los Angeles from Springfield.
+R2 finish.py repair: one frame level applied to every leg breaks mixed-level comparisons    FIXED. One level only when there is
+   ("Cook County, IL vs Texas"); the leg for Texas matched nothing.                         one leg; otherwise none (each leg is
+                                                                                            inferred and flagged, as before).
+                                                                                            test + mutation: GOOD.
+R3 geo.py: when not every comparison leg resolves the first legal leg is returned and       FIXED the repeated lookup (reuse the
+   the others dropped; if none resolve, _place(legs[0]) repeats the failed lookup.          first leg's own answer). The partial
+                                                                                            comparison returning one leg is the
+                                                                                            old behaviour and is reported as a
+                                                                                            follow-up, not changed here.
+                                                                                            test + mutation: GOOD.
+R4 finish.py: numbered must be bare levels; "tract 12" was dropped, so the county+state     FIXED. A numbered entry is read as the
+   requirement was never applied.                                                           model wrote it ("tract 12" -> tract).
+                                                                                            test + mutation: GOOD (the first test
+                                                                                            was BAD and was strengthened).
+R5 geo.py: "ZIP 90210"/"ZCTA5 90210" fell through to a nationwide ZCTA listing.             FIXED: the 5-digit code in the entry is
+                                                                                            the code. test + mutation: GOOD.
+R6 geo_list.py: a comma-less entry equal to a state name was read as that state for         FIXED: a comma-less entry is a state
+   place/county parents ("Washington", "Indiana").                                          only when the level says state or is
+                                                                                            null. test + mutation: GOOD.
+R7 finish.py: one-use helper _a_name; stale incomplete() docstring; frame["named"]          FIXED helper and docstring. The
+   repeats the parents.                                                                     repeated parents in "named" predate
+                                                                                            this change and are harmless.
+R8 finish.py: _split_parents calls wants_acs1(question), a wording read, to decide          PARTLY FIXED. The survey flag is now
+   whether the loop was right.                                                              evaluated once in finish_tools and
+                                                                                            passed down; it is still read from
+                                                                                            words, which is the time/product
+                                                                                            story's job (CC-129). Listed as a
+                                                                                            follow-up.
+
+Owner-visible decisions made while fixing (revertible):
+ - Places that merely repeat the parents (same names) are redundant and the listing runs; any other mix of places/levels
+   with parents is refused for repair (Round 1 F6 had refused every mix).
+ - Several county/place parents must each carry their state (Round 1 F8): one nationwide search per parent is not run.
+
+State after the fixes: pytest -m "not integration" 1406 passed, 34 skipped, 5 xfailed (4 CC-129, 1 ZIP); ruff, format, mypy
+clean; check_invariants exit 0 (regex call sites 28, delta -27); check_budgets: api LOC 4730/4890, prompt tokens
+1033/1200, doc lines 1806/1820, p95 row "waive" (2026-11-09 run only), answered_rate 0.683 FAIL (inherited from main).

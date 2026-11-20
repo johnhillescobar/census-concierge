@@ -33,7 +33,7 @@ Q24 = "Median household income for ZCTA 90210"
 
 def _stated(record: ExecutionRecord) -> ExecutionRecord:
     """A hand-built record stands for a loop whose model stated each geography's own level."""
-    record.asked_levels = [spec.level for spec in record.geographies[:1]]
+    record.intent.levels = [spec.level for spec in record.geographies[:1]]
     return record
 
 
@@ -46,7 +46,7 @@ def test_empty_record_emits_no_warnings() -> None:
 
 
 def test_overlapping_acs5_ranges_warn_without_a_second_fetch() -> None:
-    record = ExecutionRecord(question=T01)
+    record = ExecutionRecord(question=T01, vintages=[("acs5", 2019), ("acs5", 2022)])
     assert _codes(record) == ["overlapping_vintage"]
     response = assemble("answer still ships", _stated(record))
     assert response.answer == "answer still ships"
@@ -67,9 +67,10 @@ def test_non_overlapping_acs5_end_years_do_not_warn() -> None:
     assert _codes(record) == []
 
 
-def test_from_to_consecutive_acs5_years_overlap() -> None:
+def test_consecutive_acs5_vintages_overlap() -> None:
     record = ExecutionRecord(
-        question="Plot median household income for Cuyahoga County every year from 2017 to 2023"
+        question="Plot median household income for Cuyahoga County",
+        vintages=[("acs5", year) for year in range(2017, 2024)],
     )
     assert _codes(record) == ["overlapping_vintage"]
 
@@ -528,7 +529,7 @@ async def test_block_group_wildcard_in_a_state_is_illegal() -> None:
     tool = _geo_tool(table=entries)
     await dispatch(
         tool,
-        {"id": "bg1", "args": {"level": None, "query": "every block group in Wyoming"}},
+        {"id": "bg1", "args": {"level": "block group", "parents": ["Wyoming"]}},
         record,
     )
     assert record.geo_status is not None
@@ -546,7 +547,7 @@ async def test_unknown_place_is_not_unsupported_geography() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": None, "query": "Atlantis, Texas"}},
+        {"id": "2", "args": {"level": "place", "places": ["Atlantis, Texas"]}},
         record,
     )
     assert record.geo_status is not None
@@ -561,7 +562,7 @@ async def test_new_geography_clears_current_fetch_but_keeps_the_url() -> None:
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": "county", "query": "Harris County, Texas"}},
+        {"id": "1", "args": {"level": "county", "places": ["Harris County, Texas"]}},
         record,
     )
     await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
@@ -569,7 +570,7 @@ async def test_new_geography_clears_current_fetch_but_keeps_the_url() -> None:
     assert record.rows
     await dispatch(
         tools["resolve_geography"],
-        {"id": "4", "args": {"level": "county", "query": "Cook County"}},
+        {"id": "4", "args": {"level": "county", "places": ["Cook County"]}},
         record,
     )
     assert record.url is None
@@ -590,7 +591,7 @@ async def test_same_geography_keeps_the_fetch() -> None:
     record.pool = [{"table_id": "B01003", "universe": "Total population", "members": []}]
     await dispatch(
         tools["resolve_geography"],
-        {"id": "1", "args": {"level": "county", "query": "Harris County, Texas"}},
+        {"id": "1", "args": {"level": "county", "places": ["Harris County, Texas"]}},
         record,
     )
     await dispatch(tools["build_url"], {"id": "2", "args": {"table_id": "B01003"}}, record)
@@ -598,7 +599,7 @@ async def test_same_geography_keeps_the_fetch() -> None:
     rows = list(record.rows)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "4", "args": {"level": "county", "query": "Harris County, Texas"}},
+        {"id": "4", "args": {"level": "county", "places": ["Harris County, Texas"]}},
         record,
     )
     assert record.rows == rows
@@ -610,7 +611,7 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     tools = _tools(record)
     await dispatch(
         tools["resolve_geography"],
-        {"id": "2", "args": {"level": "county", "query": "Cook County"}},
+        {"id": "2", "args": {"level": "county", "places": ["Cook County"]}},
         record,
     )
     response = assemble("three Cook Counties", record)
@@ -957,7 +958,7 @@ def test_zip_language_warns_without_blocking_a_zcta_row() -> None:
     assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US10001"]
 
 
-def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
+def test_a_zcta_answer_warns_whatever_the_user_called_it() -> None:
     record = ExecutionRecord(question=Q24)
     record.geographies = [
         GeoSpec(
@@ -969,7 +970,8 @@ def test_zcta_wording_does_not_emit_zcta_not_zip() -> None:
     record.geography = record.geographies[0]
     record.rows = [{"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"}]
     response = assemble("single vintage", _stated(record))
-    assert response.warnings == []
+    assert [item.code for item in response.warnings] == ["zcta_not_zip"]
+    assert "90210" in response.warnings[0].detail
     assert response.geoid == "860Z200US90210"
     assert [row.get("GEO_ID") for row in response.rows] == ["860Z200US90210"]
 
@@ -978,7 +980,12 @@ async def test_tract_within_a_place_does_not_invent_a_fetch() -> None:
     record = ExecutionRecord(question=T16)
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": T16}}, record
+        tools["resolve_geography"],
+        {
+            "id": "2",
+            "args": {"level": "tract", "parents": ["Denver, CO"], "parent_level": "place"},
+        },
+        record,
     )
     assert record.geo_status is not None
     assert record.geo_status["legal"] is False
@@ -996,16 +1003,17 @@ async def test_tract_within_a_place_does_not_invent_a_fetch() -> None:
 
 
 async def test_zctas_in_a_state_warn_as_not_nested() -> None:
-    for query in ("all ZCTAs in Oregon", "ZCTAs within Oregon"):
-        record = ExecutionRecord(question=query)
-        tools = _tools(record)
-        await dispatch(
-            tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": query}}, record
-        )
-        response = assemble("ZCTAs nest in nothing", _stated(record))
-        assert record.geographies == []
-        assert [item.code for item in response.warnings] == ["geography_not_nested"], query
-        assert response.urls == []
+    record = ExecutionRecord(question="all ZCTAs in Oregon")
+    tools = _tools(record)
+    await dispatch(
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": "zcta", "parents": ["Oregon"]}},
+        record,
+    )
+    response = assemble("ZCTAs nest in nothing", _stated(record))
+    assert record.geographies == []
+    assert [item.code for item in response.warnings] == ["geography_not_nested"]
+    assert response.urls == []
 
 
 async def test_named_zcta_with_a_state_warns_as_not_nested() -> None:
@@ -1013,7 +1021,9 @@ async def test_named_zcta_with_a_state_warns_as_not_nested() -> None:
     record = ExecutionRecord(question=query)
     tools = _tools(record)
     await dispatch(
-        tools["resolve_geography"], {"id": "2", "args": {"level": None, "query": query}}, record
+        tools["resolve_geography"],
+        {"id": "2", "args": {"level": "zcta", "places": ["90210, OR"]}},
+        record,
     )
     response = assemble("ZCTAs nest in nothing", _stated(record))
     assert record.geographies == []
@@ -1028,7 +1038,11 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
         tools["resolve_geography"],
         {
             "id": "2",
-            "args": {"level": "zip code tabulation area", "query": "all zctas in Harris County"},
+            "args": {
+                "level": "zcta",
+                "parents": ["Harris County, TX"],
+                "parent_level": "county",
+            },
         },
         record,
     )
@@ -1039,36 +1053,19 @@ async def test_zcta_inside_a_county_is_not_nested() -> None:
 
 async def test_zcta_inside_a_place_is_not_a_national_wildcard() -> None:
     tool = _geo_tool()
-    for query in (
-        "zctas inside Denver",
-        "zip codes inside Denver",
-        "census tract within Denver",
-        "places inside Denver",
-        "cities inside Denver",
-        "all zip codes in Denver",
-        "every zcta in Denver",
-        "all places in Denver",
-        "all counties in Denver",
-        "cities inside Denver, Colorado",
-        "places inside Denver, CO",
-        "counties inside Denver, Colorado",
-        "the part of ZIP 80202 inside Denver",
-        "ZCTA 80202 inside Denver",
-        "ZIP 80202 inside Denver",
-        "ZIP 80202 in Denver",
-        "ZCTA 80202 in Denver",
-    ):
-        message = await tool.ainvoke(
-            {
-                "type": "tool_call",
-                "name": "resolve_geography",
-                "args": {"level": None, "query": query},
-                "id": "c1",
-            }
-        )
-        assert message.artifact.specs == [], query
-        assert message.artifact.legal is False, query
-        assert message.artifact.nested is False, query
+    for level in ("zcta", "tract", "place", "county"):
+        for parent in ("Denver", "Denver, CO"):
+            message = await tool.ainvoke(
+                {
+                    "type": "tool_call",
+                    "name": "resolve_geography",
+                    "args": {"level": level, "parents": [parent], "parent_level": "place"},
+                    "id": "c1",
+                }
+            )
+            assert message.artifact.specs == [], (level, parent)
+            assert message.artifact.legal is False, (level, parent)
+            assert message.artifact.nested is False, (level, parent)
 
 
 def test_dict_geo_artifact_preserves_nested_false() -> None:
@@ -1103,7 +1100,11 @@ async def test_tract_within_a_county_is_not_a_nesting_warning() -> None:
         tools["resolve_geography"],
         {
             "id": "2",
-            "args": {"level": "tract", "query": "poverty by census tract within Wayne County"},
+            "args": {
+                "level": "tract",
+                "parents": ["Wayne County, MI"],
+                "parent_level": "county",
+            },
         },
         record,
     )
@@ -1374,6 +1375,7 @@ def test_redefined_universe_is_named_from_fetch_omissions() -> None:
 def test_overlapping_vintage_still_ships_the_url() -> None:
     record = ExecutionRecord(
         question=T01,
+        vintages=[("acs5", 2019), ("acs5", 2022)],
         url=CensusURL(
             "https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19013_001E,B19013_001M"
             "&for=us:1"
@@ -1412,7 +1414,9 @@ _RETAINED = (
 
 def test_warning_only_keeps_url_after_series_clear() -> None:
     built = CensusURL(_RETAINED.replace("B17001", "B19013"))
-    record = ExecutionRecord(question=T01, url=built, table_id="B19013")
+    record = ExecutionRecord(
+        question=T01, url=built, table_id="B19013", vintages=[("acs5", 2019), ("acs5", 2022)]
+    )
     clear_series(record)
     response = assemble("warning only", _stated(record))
     assert [item.code for item in response.warnings] == ["overlapping_vintage"]
@@ -1488,3 +1492,61 @@ def test_series_clear_without_a_built_url_stays_empty() -> None:
     record = ExecutionRecord()
     clear_series(record)
     assert assemble("never built", _stated(record)).urls == []
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        T01,
+        "Compare median household income between 2015-2019 and 2018-2022",
+        "Plot median household income for Cuyahoga County every year from 2017 to 2023",
+        "Median household income in 2018, 2019, 2020, 2021 and 2022",
+    ],
+)
+def test_overlap_is_judged_from_the_vintages_fetched_never_the_wording(question: str) -> None:
+    record = ExecutionRecord(question=question, vintages=[("acs5", 2022)])
+    assert _codes(record) == []
+    assert _codes(ExecutionRecord(question=question)) == []
+
+
+def test_only_acs5_vintages_can_overlap() -> None:
+    record = ExecutionRecord(vintages=[("acs1", 2021), ("acs1", 2022), ("acs5", 2022)])
+    assert _codes(record) == []
+
+
+def _zcta_spec() -> GeoSpec:
+    return GeoSpec(
+        name="ZCTA5 90210",
+        level="zip code tabulation area",
+        for_spec="zip code tabulation area:90210",
+    )
+
+
+def test_a_resolved_zcta_warns_before_any_row_is_fetched() -> None:
+    record = ExecutionRecord(question="Median household income for 90210")
+    record.geographies = [_zcta_spec()]
+    record.geography = record.geographies[0]
+    assert _codes(record) == ["zcta_not_zip"]
+
+
+def test_the_word_zip_alone_does_not_warn_when_no_zcta_is_involved() -> None:
+    record = ExecutionRecord(question="Median household income by zip code 10001")
+    record.rows = [{"GEO_ID": "0500000US48201", "B19013_001E": "100", "B19013_001M": "10"}]
+    assert _codes(record) == []
+
+
+def test_the_zcta_named_is_the_one_returned_not_a_number_in_the_question() -> None:
+    record = ExecutionRecord(question="Median household income for ZIP 11111")
+    record.rows = [{"GEO_ID": "860Z200US10001", "B19013_001E": "100", "B19013_001M": "10"}]
+    detail = assemble("x", _stated(record)).warnings[0].detail
+    assert "10001" in detail and "11111" not in detail
+
+
+def test_several_zctas_returned_are_not_collapsed_into_naming_one() -> None:
+    record = ExecutionRecord(question="Median household income for ZCTAs")
+    record.rows = [
+        {"GEO_ID": "860Z200US10001", "B19013_001E": "100", "B19013_001M": "10"},
+        {"GEO_ID": "860Z200US90210", "B19013_001E": "100", "B19013_001M": "10"},
+    ]
+    detail = assemble("x", _stated(record)).warnings[0].detail
+    assert "10001" not in detail and "90210" not in detail

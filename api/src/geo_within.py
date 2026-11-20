@@ -11,6 +11,7 @@ from typing import Any
 
 from src.contract import GeoSpec, clause_codes
 from src.geo_level import ResolveGeographyResult, level_name
+from src.geo_list import MAX_CANDIDATES
 
 COUNTY_PART = "county (or part)"
 
@@ -35,9 +36,15 @@ async def tracts_in_place(
     step = any(e.name == COUNTY_PART and set(e.requires) == {"state", "place"} for e in entries)
     if ordinary[1].legal or len(names) != 1 or level_name(level) != "tract" or not step:
         return ordinary
-    _detail, hit = await tool._resolve(names[0], "place", dataset, year, entries)
+    _detail, hit = await tool._place(names[0], "place", dataset, year, entries)
     if not (hit.legal and hit.specs):
         return ordinary
+    if not hit.dominant and "," not in names[0]:  # no state given: candidates, not the largest
+        found = hit.specs[:MAX_CANDIDATES]
+        detail = f"{names[0]!r} matches {len(hit.specs)} places; name its state"
+        return detail, ResolveGeographyResult(
+            specs=found, wildcard=False, legal=True, detail=detail, ambiguous=True
+        )
     place, state = hit.specs[0], clause_codes(hit.specs[0].in_spec).get("state", "")
     parts = {"state": state, "place": place.for_spec.split(":")[-1]}
     rows = await asyncio.to_thread(

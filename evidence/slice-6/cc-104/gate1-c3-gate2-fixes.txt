@@ -1,0 +1,24 @@
+CC-104 mutation checks for the Gate 2 cycle 3 fixes (C1-C9; C10 is the manifest head)
+tests committed before mutating (9b40bd3); each mutation restored with git checkout
+
+GOOD C1 a labelled county or tract code is read as its state
+2 failed in 0.34s
+GOOD C1 a labelled FIPS code grounds no state for completeness
+1 failed in 0.34s
+GOOD C2 the multi-parent guard accepts a comma-less state name
+1 failed in 0.39s
+GOOD C3 dominance applies to a state-qualified place
+1 failed in 0.22s
+GOOD C4 a numbered entry is read only from its first words
+2 failed, 1 passed in 0.68s
+GOOD C5 given is compared verbatim
+1 failed in 0.27s
+GOOD C6 level us swallows a named state
+1 failed in 0.27s
+GOOD C8 two empty places dominate
+1 failed in 0.31s
+GOOD C8 the best match is compared only with the second ranked
+1 failed in 0.24s
+GOOD C9 the listing repair ignores the dataset the model built
+1 failed in 0.24s
+tree after: clean

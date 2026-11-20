@@ -49,7 +49,7 @@ api/src/vintages.py          ACS1 vs non-overlapping ACS5
 api/src/tools.py             search_tables, build_url
 api/src/fetch.py             fetch_data; year/geo fan-out, cap 5
 api/src/figures.py           the figure sentences in an answer, and the digits-only check on the model's text
-api/src/geo.py               resolve_geography → GeoSpec list
+api/src/geo.py               resolve_geography → GeoSpec list from the model's structured places/parents/level; exact state lookup on its entries, no sentence parsing (CC-104)
 api/src/geo_level.py         the level the model stated per resolve_geography call (required; null = none named), kept on the record; guards `geography_level_mismatch` (URL level ≠ stated) and `geography_level_unverified` (none stated, or code inferred one) (CC-114)
 api/src/geo_within.py        tracts inside one named place: the place's counties come from Census (`county (or part)`, ACS5), their tracts are fetched county-wide with `geography_not_nested` naming the counties (CC-114)
 api/src/geo_list.py          state FIPS + NAME listings

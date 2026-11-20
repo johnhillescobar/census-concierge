@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any
@@ -12,106 +11,47 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from src.contract import clauses_from_geoid
-from src.geo import detect_level, split_comparison
-from src.guards import universe_mismatch
-from src.vintages import latest_vintages, requested_years, wants_acs1
+from src.geo_level import GeoIntent, intent_of, level_name
+from src.geo_list import fips_state, state_of
 
 Dispatch = Callable[..., Awaitable[str]]
 Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
 
 _SPLIT_PARENTS = (
-    'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "level": ..., '
-    '"named": [...], "county_named": bool, "numbered": [...], "asks_for": ..., '
-    '"pointing": [...]}. parents are the '
-    "places the user names, one entry each, whatever word connects them. A place and its own "
-    "state are one parent: write any place smaller than a state as 'Name, State' with the state "
-    "from your own knowledge (such as 'Lancaster County, Nebraska'), never as two entries and "
-    "never without its state. "
-    "Name a state alone. unit is county, tract, block group, zcta or place: the kind of row "
-    "the user wants. listing is true when they want a row for every unit inside the parents, "
-    "false when they want the parents themselves. "
-    "level is the geography level the question asks about (state, county, place, tract, block "
-    "group, zcta), or null when it asks about none; a question about a tract, block group or "
-    "county by number asks about that level. named lists every place the question identifies by "
-    "its own name or code: a state, county, city, ZIP code or other place, such as 'Lancaster "
-    "County, Nebraska' or 'state 39'. A place given by a code that identifies it on its own, "
-    "such as 'FIPS 39049', 'GEOID 06037' or a ZIP code, goes in named as the user wrote the "
-    "code; never replace a code with a name. A tract, block group or county number alone is not "
-    "such a code. 'my county' or 'the city' names no place, so leave it out. "
-    "numbered lists every place the question identifies only by "
-    "a number inside some other place, such as 'tract 12', 'block group 3' or 'county 5': those "
-    "numbers repeat in many places, so they never go in named, wherever they sit in the "
-    "sentence, even as its first words. Copy both exactly as the user "
-    "wrote them. Use an empty list when there are none. "
-    "A state, ZIP code or GEOID is never numbered. asks_for is 'tables' when the question asks "
-    "which table or variable holds something or where to find it, and 'data' when it asks for "
-    "figures. pointing lists, copied exactly as written, each phrase that stands in for a place "
-    "by pointing at it, as in 'my county' or 'where I live'; a number such as 'tract 12' is not "
-    "pointing, and the list is empty when no phrase points; such a phrase is never a parent. "
-    "county_named is true when the question names a specific county, by its name or by a "
-    "five-digit FIPS code (state and county)."
+    'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "parent_level": ..., '
+    '"level": ..., "named": [...], "numbered": [...], "given": [...], "asks_for": ..., '
+    '"pointing": bool, "county_named": bool, "dataset": ..., "years": [...]}. parents are the '
+    "places the user names, one entry "
+    "each, whatever word connects them. Write a place smaller than a state as 'Name, State' "
+    "with the state from your "
+    "own knowledge (such as 'Lancaster County, Nebraska'), never as two entries; name a state "
+    "alone. unit is county, tract, block group, zcta or place: the kind of row the user wants. "
+    "listing is true when they want a row for every unit inside the parents, false when they want "
+    "the parents themselves. parent_level is the level the parents are (county or place), null "
+    "for states. level is the geography level the question asks about (state, county, place, "
+    "tract, block group, zcta, or us for the whole nation or when no place is named), or null "
+    "when it asks about none; a "
+    "tract, block group or county "
+    "identified by number asks about that level. named lists each code that identifies a place "
+    "on its own, as the user wrote it ('FIPS 39049', 'GEOID 06037', a ZIP code); never replace a "
+    "code with a name. given lists which of state, county and tract the question itself states, "
+    "by name or code; one you supplied from your own knowledge is not given. numbered lists the "
+    "level (tract, block group or county) of each place the question identifies only by a "
+    "number inside another place, such as 'tract 12'; a state, ZIP "
+    "code or GEOID is never numbered. asks_for is 'tables' when the question asks which table or "
+    "variable holds something or where to find it, and 'data' when it asks for figures. pointing "
+    "is true when a phrase stands in for a place by pointing at it ('my county', 'where I "
+    "live'). county_named is true when the question names a specific county, by name or by a "
+    "five-digit FIPS code. dataset is acs1 when the question asks for the 1-year product, else "
+    "acs5. years lists the end year of every vintage the question asks for: a period such as "
+    "2015-2019 is the vintage ending 2019, a span of years lists each year in it, and an "
+    "open-ended period lists each year through {latest}; empty when it names none."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
+_PRODUCTS = ("acs1", "acs5")  # a tuple: a model can send a list, and a set would need it hashable
 SPLIT_WAIT_SECONDS = 6.0  # the call normally finishes beside the loop; never delay an answer more
 FRAME_WAIT_SECONDS = 3.0  # before the first tool runs; past it the question is treated as complete
-
-_LISTING = re.compile(
-    r"\b(?:all|every|each)\s+(?:census\s+)?(block groups?|tracts?)\b|"
-    r"\b(?:census\s+)?(block groups?|tracts?)\s+(?:within|inside)\b",
-    re.I,
-)
-_BY_COUNTY = re.compile(
-    r"\bby\s+(?:census\s+)?(block groups?|tracts?)\s+in\s+"
-    r"((?:(?!(?:19|20)\d{2}).)*?\bcount(?:y|ies)\b"
-    r"(?:\s*,\s*(?!(?:19|20)\d{2})[A-Za-z][A-Za-z.' -]*?)?)"
-    r"(?=\s*,\s*(?:19|20)\d{2}|\s*$|[.?!])",
-    re.I,
-)
-
-
-def _latest(record: Any) -> int:
-    getter = getattr(record, "published_vintages", None)
-    if callable(getter):
-        years = getter("acs5")
-        if years:
-            return max(int(year) for year in years)
-    acs5, _acs1 = latest_vintages()
-    return acs5
-
-
-def _listing_level(question: str) -> str | None:
-    match = _LISTING.search(question) or _BY_COUNTY.search(question)
-    if not match:
-        return None
-    raw = next((group for group in match.groups() if group), "")
-    return "block group" if raw.casefold().startswith("block") else "tract"
-
-
-def _listing_query(question: str) -> str:
-    match = _BY_COUNTY.search(question)
-    if not match:
-        return question
-    return f"every {match.group(1)} in {match.group(2).strip()}"
-
-
-def _wrong_listing(record: Any, question: str) -> bool:
-    wanted = _listing_level(question)
-    geos = list(getattr(record, "geographies", []) or [])
-    if wanted is None:
-        return False
-    return not geos or geos[0].level != wanted
-
-
-def _wrong_comparison(record: Any, question: str) -> bool:
-    status = getattr(record, "geo_status", None) or {}
-    queries = list(getattr(record, "geo_queries", None) or [])
-    if len(queries) >= 2 and not status.get("compare"):
-        return True
-    sides = split_comparison(question)
-    if sides is None:
-        return False
-    return int(status.get("compare_count", 0) or 0) < len(sides)
 
 
 def degraded_answer(record: Any) -> str:
@@ -124,7 +64,7 @@ def _all_wild(geos: list[Any]) -> bool:
     return bool(geos) and all(g.for_spec.endswith(":*") for g in geos)
 
 
-_SNAPSHOT = ("geographies", "geo_status", "geography", "geo_queries", "url", "rows") + (
+_SNAPSHOT = ("geographies", "geo_status", "geography", "url", "rows") + (
     "fetch",
     "table_id",
     "universe",
@@ -133,8 +73,10 @@ _SNAPSHOT = ("geographies", "geo_status", "geography", "geo_queries", "url", "ro
 )
 
 
-async def plan_split(question: str, complete: Complete | None) -> dict[str, Any] | None:
-    """Ask the model to split the question's parents; return validated parts or None.
+async def plan_split(
+    question: str, complete: Complete | None, latest: int | None = None
+) -> GeoIntent | None:
+    """Ask the model to split the question's parents; return its validated report or None.
 
     Needs only the question, so run_ask starts it beside the loop as a task.
     """
@@ -142,7 +84,15 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         return None
     try:
         turn = await complete(
-            [{"role": "system", "content": _SPLIT_PARENTS}, {"role": "user", "content": question}],
+            [
+                {
+                    "role": "system",
+                    "content": _SPLIT_PARENTS.replace(
+                        "{latest}", str(latest or "the latest published year")
+                    ),
+                },
+                {"role": "user", "content": question},
+            ],
             [],
         )
         raw = str(turn.get("content") or "")
@@ -152,41 +102,50 @@ async def plan_split(question: str, complete: Complete | None) -> dict[str, Any]
         return None
     named, numbered = found.get("named"), found.get("numbered")
     names = names if isinstance(names, list) else []  # a model can send anything; use only lists
-    frame = {
-        "level": found.get("level"),
-        "named": [*(named if isinstance(named, list) else []), *names],
-        "numbered": numbered if isinstance(numbered, list) else [],
-        "asks_for": found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
-        "county_named": found.get("county_named") is True,
-        "pointing": found["pointing"] if isinstance(found.get("pointing"), list) else [],
-    }
-    if not (found.get("listing") and unit in _SPLIT_UNITS):
-        return {"frame": frame}
-    parents = [name.strip() for name in names if isinstance(name, str) and name.strip()]
-    parents = list({name.casefold(): name for name in parents}.values())
-    return (
-        {"parents": parents, "unit": unit, "frame": frame}
-        if len(parents) >= 2
-        else {"frame": frame}
+    names = list(
+        {
+            n.strip().casefold(): n.strip() for n in names if isinstance(n, str) and n.strip()
+        }.values()
+    )
+    wants_rows = found.get("listing") is True  # a string or a number is not the model saying yes
+    listing = bool(names) and wants_rows and unit in _SPLIT_UNITS
+    up, years = found.get("parent_level"), found.get("years")
+    return GeoIntent(
+        reported=True,
+        dataset=found["dataset"] if found.get("dataset") in _PRODUCTS else None,
+        years=[y for y in years if type(y) is int and 2000 <= y <= 2100]
+        if isinstance(years, list)
+        else [],
+        level=found.get("level"),
+        named=[*(named if isinstance(named, list) else []), *names],
+        numbered=numbered if isinstance(numbered, list) else [],
+        given=found["given"] if isinstance(found.get("given"), list) else None,
+        asks_for=found.get("asks_for") if isinstance(found.get("asks_for"), str) else None,
+        county_named=found.get("county_named") is True,
+        pointing=found.get("pointing") is True,
+        places=names if names and not wants_rows else [],
+        parents=names if listing else [],
+        unit=unit if listing else None,
+        parent_level=up if listing and isinstance(up, str) else None,
     )
 
 
 @asynccontextmanager
 async def split_beside(
-    question: str, complete: Complete | None, enabled: bool
-) -> AsyncIterator[asyncio.Task[dict[str, Any] | None] | None]:
+    question: str, complete: Complete | None, enabled: bool, latest: int | None = None
+) -> AsyncIterator[asyncio.Task[GeoIntent | None] | None]:
     """Run plan_split beside the caller's work; always cancel and reap it on exit."""
-    task = asyncio.create_task(plan_split(question, complete)) if enabled and complete else None
+    task = (
+        asyncio.create_task(plan_split(question, complete, latest))
+        if enabled and complete
+        else None
+    )
     try:
         yield task
     finally:
         if task is not None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
-
-
-def _key(text: str) -> str:
-    return " ".join("".join(ch if ch.isalnum() else " " for ch in text.casefold()).split())
 
 
 MAX_REPORTED = 25  # a question names a handful of places; a longer report is not read past this
@@ -210,16 +169,30 @@ _NEEDS: dict[tuple[str, bool], tuple[str, ...]] = {
 _ORDER = ("state", "county", "place", "tract", "block group")
 
 
+def _unit(entry: Any) -> str | None:
+    """The level an entry of `numbered` states: "tract", or "tract 12" as the model wrote it."""
+    words = entry.split() if isinstance(entry, str) else []
+    hits = [
+        (i + n, n, lv)  # the level word that ends last is the one its number follows
+        for n in (3, 2, 1)
+        for i in range(len(words) - n + 1)
+        if (lv := level_name(" ".join(words[i : i + n]))) in _ORDER
+    ]
+    return max(hits)[2] if hits else None
+
+
 def _join(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
 
 
-async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | None) -> str | None:
+async def incomplete(record: Any, split: asyncio.Task[GeoIntent | None] | None) -> str | None:
     """The answer to return at once when a question lacks what its geography level needs.
 
-    The model reports the level, the places the question names (each written with its state), the
-    places it identifies only by a number inside another, whether a county is named, and whether
-    it asks for tables (the split call, beside the loop). Code compares that with `_NEEDS` for the
+    The model reports the level, the places and codes the question names, the levels of the places
+    it identifies only by a number inside another, whether a county is named, whether a phrase
+    points at a place, and whether it asks for tables (the split call, beside the loop). A place
+    name gives the state (the lookup finds it); a code with a digit must ground itself. Code
+    compares that with `_NEEDS` for the
     kind of question asked: every tract needs the state, one tract by its number needs state and
     county, and so on. It does not second-guess a name against the question's words: measured
     live, that refused 38 of 60 valid questions that wrote a state as "Calif.", "Penn" or "tx". A
@@ -233,46 +206,37 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
         found = await asyncio.wait_for(asyncio.shield(split), FRAME_WAIT_SECONDS)
     except Exception:  # noqa: BLE001 - a failed check must never fail the answer
         return None
-    frame = (found or {}).get("frame") or {}
-    if str(frame.get("asks_for") or "").strip().casefold() == "tables":
-        record.tables_only = True  # no geography is wanted, so none is flagged later
+    intent = intent_of(record)
+    intent.adopt(found)
+    if intent.tables_only:
         return None  # which table holds something is not a search by geography
-    question = str(getattr(record, "question", "") or "")
-    padded = f" {_key(question)} "
-    pointing = [p for p in frame.get("pointing") or [] if isinstance(p, str)][:MAX_REPORTED]
-    if any(_key(p) and f" {_key(p)} " in padded for p in pointing):
+    if intent.pointing:
         record.geo_status = {"legal": False, "detail": "a place is not named", "nested": True}
         return (
             "This question is incomplete and cannot be searched: it is about a place it does "
             "not name. Name the place, with its state, and ask again."
         )
-    numbered = [n for n in frame.get("numbered") or [] if isinstance(n, str)][:MAX_REPORTED]
-    reported = [n for n in frame.get("named") or [] if isinstance(n, str)][:MAX_REPORTED]
-    skip, parts, written = set(), [], []
-    for entry in numbered:
-        # "Census Tract 9501, Dane County": the number is skipped, its parents are named. A number
-        # can make a question incomplete (a refusal), so it must be one the user wrote.
-        first, *parents = entry.split(",")
-        skip.add(_key(first))
-        if _key(first) and f" {_key(first)} " in padded:
-            written.append(detect_level(first))
-        parts.extend(parents)
-    parts.extend(part for entry in reported for part in entry.split(","))
-    named = [part for part in parts if _key(part) and _key(part) not in skip]
-    units = [lv for lv in written if lv]  # each number is judged at its own unit's level
-    # A tract or block group given by its number says its own level when the model gave none.
-    level = detect_level(str(frame.get("level") or "")) or next(iter(units), None)
+    reported = [n for n in intent.named if isinstance(n, str)][:MAX_REPORTED]
+    units = [lv for n in intent.numbered if (lv := _unit(n)) in _ORDER][:MAX_REPORTED]
+    level = level_name(intent.level) or next(iter(units), None)
     need = _NEEDS.get((level or "", False), ())
-    if units:
+    if units:  # each number is judged at its own unit's level
         need = tuple(p for p in _ORDER if any(p in _NEEDS.get((lv, True), ()) for lv in units))
-    # Every place the model names is written with its state ("Name, State"), so any name gives the
-    # state; the county and tract are what the model reports apart.
-    have = {"state"} if named else set()
-    if frame.get("county_named") is True or "county" in written:
+    # A place the model names gives the state, with or without it written ("Los Angeles"): the
+    # lookup finds it. An entry with a digit is a code, so it must ground itself (a number filed
+    # under named is not a place). The county and tract are what the model reports apart.
+    words = [p for p in reported if any(c.isalpha() for c in p) and not any(c.isdigit() for c in p)]
+    named = [p for p in reported if state_of(p) or fips_state(p) or p in words]
+    given = intent.given
+    if units and isinstance(given, list):  # a number needs parents the question itself states
+        have = {lv for g in given if (lv := level_name(g)) in _ORDER}
+    else:
+        have = {"state"} if named else set()
+    if intent.county_named or "county" in units:
         have.add("county")
-    if "tract" in written:
+    if "tract" in units:
         have.add("tract")
-    for part in named:  # a GEOID in the report carries the hierarchy it encodes (parsing only)
+    for part in reported:  # a GEOID in the report carries the hierarchy it encodes (parsing only)
         coded = clauses_from_geoid(part)
         if coded:
             have |= {coded[0], *(clause.split(":")[0] for clause in coded[2].split("+") if clause)}
@@ -294,23 +258,32 @@ async def incomplete(record: Any, split: asyncio.Task[dict[str, Any] | None] | N
 
 
 async def _split_parents(
-    dispatch: Dispatch, geo: BaseTool | None, record: Any, question: str, found: Any
+    dispatch: Dispatch, geo: BaseTool | None, record: Any, intent: GeoIntent, acs1: bool
 ) -> bool:
-    """Re-resolve a multi-parent listing the loop got wrong with the model's parents."""
+    """Re-resolve a listing the loop got wrong, with the parents and unit the model reported."""
     geos = list(getattr(record, "geographies", []) or [])
-    if not (found and found.get("parents") and geo):
+    if not (intent.parents and geo):
         return False
-    parents, unit = found["parents"], found["unit"]
-    if _all_wild(geos) and len(parents) <= len(geos):
+    parents, unit = intent.parents, intent.unit
+    built = getattr(getattr(record, "url", None), "dataset", None)  # what the model itself built
+    right = [
+        g.level == level_name(unit) and built in {None, g.dataset} for g in geos[: len(parents)]
+    ]
+    want = {s[1] for p in parents if (s := state_of(p))}  # the states the model says it lies in
+    inside = want <= {g.codes.get("state") for g in geos}
+    stood = len(parents) < 2 and geos and any(intent.levels) and not intent.unmet
+    if stood and inside and intent.parent_level in {None, "state"}:
+        return False  # the state the loop asked for and got stands over a lone report's listing
+    if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside:
         return False
     before = {name: getattr(record, name) for name in _SNAPSHOT}
-    before["geo_queries"] = list(record.geo_queries)
+    legs = list(intent.legs)
     args: dict[str, Any] = {
-        "query": f"every {unit} in {', '.join(parents)}",
         "parents": parents,
+        "parent_level": intent.parent_level,
         "level": unit,  # the model's own unit from the split call
     }
-    if wants_acs1(question):
+    if acs1:
         args["dataset"] = "acs1"
     try:
         await dispatch(geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record)
@@ -318,13 +291,17 @@ async def _split_parents(
         record.geographies = []
     record.consecutive_failures.pop("resolve_geography", None)
     after = getattr(record, "geo_status", None) or {}
-    legal = after.get("legal") is not False and after.get("nested") is not False
+    nested = after.get("nested") is not False  # an unsupported candidate is still what was asked
     chosen = record.geographies[: len(parents)]  # the rest are ambiguity candidates
-    if legal and len(chosen) == len(parents) and _all_wild(chosen):
+    if nested and len(chosen) == len(parents) and _all_wild(chosen):
         record.url, record.rows, record.fetch = None, [], None  # never show the old parent's data
         return True
+    if not before["geographies"]:  # the loop had nothing to protect: keep what the repair found
+        return False  # and why it failed; the normal checks and resolve step still apply
     for name, value in before.items():
-        setattr(record, name, value)
+        if name != "geo_status" or nested:  # keep why it cannot be nested: it is the warning
+            setattr(record, name, value)
+    intent.legs = legs
     return False
 
 
@@ -332,12 +309,15 @@ async def finish_tools(
     dispatch: Dispatch,
     tools: dict[str, BaseTool],
     record: Any,
-    split: Awaitable[dict[str, Any] | None] | None = None,
+    split: Awaitable[GeoIntent | None] | None = None,
 ) -> None:
-    """Search, resolve, build, and fetch when the loop stopped without a URL."""
+    """Search, resolve, build, and fetch when the loop stopped without a URL.
+
+    Geography comes only from what the model reported (the loop's own calls and the split call);
+    a question the model reported nothing for gets no guessed place.
+    """
     question = str(getattr(record, "question", "") or "")
     record.consecutive_failures.clear()
-    year = _latest(record)
     geo = tools.get("resolve_geography")
     url = getattr(record, "url", None)
     plan = getattr(record, "override", None)
@@ -346,41 +326,37 @@ async def finish_tools(
         found = await asyncio.wait_for(split, SPLIT_WAIT_SECONDS) if split is not None else None
     except TimeoutError:
         found = None
-    redone = plan is None and await _split_parents(dispatch, geo, record, question, found)
-    redo = redone or _wrong_listing(record, question) or _wrong_comparison(record, question)
-    redo = redo or bool(wants_acs1(question) and (url is None or "/acs/acs1" not in str(url)))
+    intent = intent_of(record)
+    intent.adopt(found)
+    acs1 = intent.dataset == "acs1"  # the model's report; the question's words are never read
+    redone = plan is None and await _split_parents(dispatch, geo, record, intent, acs1)
+    status = getattr(record, "geo_status", None) or {}
+    queries = list(intent.legs)
+    places = list(intent.places)
+    short = len(places) >= 2 and int(status.get("compare_count", 0) or 0) < len(places)
+    redo = redone or short or (len(queries) >= 2 and not status.get("compare"))
+    redo = redo or bool(acs1 and (url is None or "/acs/acs1" not in str(url)))
     if plan is not None and plan.geographies:
         redo = False
     if not url or redo:
         search = tools.get("search_tables")
         if search is not None and not record.pool:
-            asked = {"question": question, "dataset": "acs1" if wants_acs1(question) else "acs5"}
+            asked = {"question": question, "dataset": "acs1" if acs1 else "acs5"}
             await dispatch(search, {"id": "search_tables", "args": asked}, record)
         if geo is not None and not redone and not refused and (redo or not record.geographies):
-            status = getattr(record, "geo_status", None) or {}
-            queries = list(getattr(record, "geo_queries", None) or [])
-            stated = list(getattr(record, "asked_levels", None) or [])
-            stated = stated if len(stated) == len(queries) else []  # the model's own, if any
-            args: dict[str, Any] = (
-                {"places": queries, "level": (stated or [None])[0], "levels": stated}
-                if len(queries) >= 2 and not status.get("compare")
-                else {"query": _listing_query(question), "level": None}  # read from words: inferred
-            )
-            if wants_acs1(question):
+            legs = places or queries
+            stated = list(intent.levels)
+            stated = stated if len(stated) == len(legs) else []  # the model's own, if any
+            level = (stated or [intent.level if len(legs) < 2 else None])[0]  # legs differ: none
+            args: dict[str, Any] = {"places": legs, "level": level}
+            if len(legs) >= 2:
+                args["levels"] = stated
+            if acs1:
                 args["dataset"] = "acs1"
-            await dispatch(
-                geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record
-            )
-        if geo and not refused and not record.geographies and universe_mismatch(record) is not None:
-            await dispatch(
-                geo,
-                {
-                    "id": "resolve_geography",
-                    "origin": "repair",
-                    "args": {"query": "nationwide", "level": None},
-                },
-                record,
-            )
+            if legs or level_name(level) == "us":  # nothing reported means nothing to resolve
+                await dispatch(
+                    geo, {"id": "resolve_geography", "origin": "repair", "args": args}, record
+                )
         status = getattr(record, "geo_status", None) or {}
         table = (plan.table_id if plan is not None else "") or (
             str(record.pool[0]["table_id"]) if record.pool else ""
@@ -394,11 +370,10 @@ async def finish_tools(
             and status.get("nested") is not False
         ):
             args = {"table_id": table}
-            if wants_acs1(question):
+            if acs1:
                 args["dataset"] = "acs1"
             await dispatch(build, {"id": "build_url", "args": args}, record)
     fetch = tools.get("fetch_data")
     fetch_failed = record.fetch is not None and not record.fetch.ok
     if fetch is not None and record.url is not None and (record.fetch is None or fetch_failed):
-        years = requested_years(question, year)
-        await dispatch(fetch, {"id": "fetch_data", "args": {"years": years}}, record)
+        await dispatch(fetch, {"id": "fetch_data", "args": {"years": intent.years}}, record)

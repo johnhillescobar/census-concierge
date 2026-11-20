@@ -1,0 +1,58 @@
+CC-104 Gate 2, round 1
+branch cc-104/structured-geography
+reviewed HEAD 8c54f04 against origin/main
+passes: (1) /code-review high origin/main  (2) review-pr (docs/playbooks/review-pr.md)
+
+=== MACHINES (review-pr, run first) ===
+check_budgets.py          exit 1: only FAIL is answered_rate 0.683 >= 0.7. The same value is on main (inherited from the
+                          CC-114 close). p95 row prints "waive" (owner waiver #130, run 2026-11-09 only).
+                          api LOC 4702/4890, files 29/40, largest file 408/410, prompt tokens 1033/1200, doc lines 1805/1820.
+check_invariants.py       exit 0. api/src regex call sites 28 (base 55, delta -27).
+ruff check . / format     exit 0 (259 files formatted).
+mypy api/src              Success: no issues found in 29 source files.
+pytest -m "not integration"   1387 passed, 34 skipped, 5 xfailed (4 time/product CC-129, 1 ZIP CC-135).
+
+=== PASS 1: /code-review (7 findings, verbatim summaries) ===
+F1 finish.py:319  The finish-time repair cannot resolve a national question: the old nationwide fallback is deleted and the
+                  split report has no 'us' level, so "population of the United States" yields no URL.
+F2 finish.py:301  An ACS1 request on a LISTING no longer re-resolves geography: places and queries are empty, so the
+                  `if legs:` guard skips the resolve; build_url then builds an acs1 tract URL from an acs5 spec.
+F3 finish.py:201  level_name maps exact aliases only: 'census tract', 'zip code', 'ZCTA5', 'block-group' match nothing in
+                  _NEEDS, so the completeness refusal silently fails open.
+F4 geo.py:290     _only_state treats "New York, NY" (name equals the state name) as the state: with a null level the
+                  answer is state:36 and not New York city. Silent wrong answer.
+F5 geo.py:336     The county fallback is gated on raw `level is None`; a blank level skips it though for_level defaulted.
+F6 geo.py:152     parents (or parent_level us) together with places silently drops the places (and levels) with no error.
+F7 finish.py:242  _split_parents now runs for single-parent listings but only compares geography LEVEL, not which parent:
+                  a wrong-parent all-wildcard spec at the right level is kept.
+F8 geo.py:233     A state-less place parent is searched nationwide (about 30k rows) once per parent in a gather:
+                  latency exposure on a tightly budgeted path.
+
+=== PASS 2: review-pr (invariants) ===
+Claim:      Honest sentence: this is a migration. A user's question gets the same kind of answer as before; what changes is
+            that the geography run is a function of the model's structured fields and not of the question's wording.
+            It is not a new feature.
+Evidence:   NONE yet. No make demo / make eval scoreboard, no sealed gap, no MET numbers, no closure manifest. The owner
+            has not yet committed [cohorts.geography]. Gate 1 (gate1.txt) is evidence of tests only.
+Scope:      30 files vs "under ~15": test migration (16 test files) + docs + prompt; every file is geography execution or
+            its tests. One addition outside the ticket's letter: state_of grounds labelled codes (state NN, FIPS, GEOID).
+            compare.py:107 (_COMPARE on the question) is a remaining question read, listed as a follow-up finding (warning
+            trigger, not execution).
+Silent wrong answer:
+            F4 is a silent wrong answer (state returned for a city, no warning). F1 is a missing URL for a national
+            question (the URL is the product). F7 can keep a wrong-parent URL. F2 can build an acs1 URL for a level ACS1
+            does not publish (the fetch-level acs1_geography_ineligible fallback limits the damage). All four BLOCK.
+            Redaction: no URL is formatted outside CensusURL in this diff. Numbers: unchanged. Blocking questions: none
+            added. Silent repair: the county fallback stays flagged inferred; F5 weakens that path.
+Shape:      No new tool, route, model or node. docs/ARCHITECTURE.md and docs/ask-path.md updated in the same change.
+Tests:      Behaviour tests, none on prompt wording. Gate 1 found 8 uncaught mutations and fixed each; four finish.py tests
+            the migration had deleted while the behaviour stayed were restored. Two tests (the Detroit across-states test
+            and the table-question warning test) pass against their mutation; their strengthened companions cover them.
+            The migration deleted ~15 tests of removed prose readers; judged correct.
+AC3 / AC5:  AC3 is weak (two reports, loop and split call, reconciled in finish.py; not one object). AC5 is partial (a
+            made-up name made of letters still gives the state; only digit entries must ground).
+
+VERDICT: NOT YET.
+Single most important reason: F4 and F1 are silent-wrong-answer findings (a city answered as its state with no warning; a
+national question with no URL), and the correctness fixes F1-F8 are new code that need tests, a mutation check and one
+Gate 2 re-run. Behind them: no E2E / MET evidence, no closure manifest, and answered_rate 0.683 is inherited red.

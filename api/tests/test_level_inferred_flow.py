@@ -10,11 +10,13 @@ from src.guards import evaluate
 async def _resolved(level: str | None) -> list[str]:
     record = ExecutionRecord(question="Cook County")
     geo = _tools(record)["resolve_geography"]
-    await dispatch(geo, {"id": "1", "args": {"level": level, "query": "Cook County"}}, record)
+    await dispatch(
+        geo, {"id": "1", "args": {"level": level, "places": ["Cook County, Illinois"]}}, record
+    )
     return [warning.code for warning in evaluate(record)]
 
 
-async def test_a_null_level_the_code_inferred_from_the_query_is_warned_as_unverified() -> None:
+async def test_a_null_level_the_code_had_to_infer_is_warned_as_unverified() -> None:
     assert "geography_level_unverified" in await _resolved(None)
 
 
