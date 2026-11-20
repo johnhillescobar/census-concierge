@@ -7,7 +7,6 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
-import openai
 import pytest
 from ask_fixtures import _tools
 from fastapi.testclient import TestClient
@@ -41,7 +40,7 @@ def message(text: str) -> dict[str, Any]:
 
 def install_transport(
     monkeypatch: pytest.MonkeyPatch,
-    reply: Callable[[dict[str, Any]], dict[str, Any]],
+    reply: Callable[[dict[str, Any]], dict[str, Any] | httpx.Response],
 ) -> list[dict[str, Any]]:
     requests: list[dict[str, Any]] = []
 
@@ -52,7 +51,10 @@ def install_transport(
         requests.append(payload)
         result = {"id": "resp_fixture", "object": "response", "model": "gpt-6.2-sol"}
         if payload["tools"]:
-            result.update(reply(payload))
+            turn = reply(payload)
+            if isinstance(turn, httpx.Response):
+                return turn
+            result.update(turn)
         else:
             result.update(status="completed", output=[message('{"asks_for":"data"}')])
         return httpx.Response(200, json=result)
@@ -63,7 +65,7 @@ def install_transport(
         return AsyncOpenAI(http_client=httpx.AsyncClient(transport=transport), **kwargs)
 
     monkeypatch.setenv("OPENAI_API_KEY", "mock-openai-key")
-    monkeypatch.setattr(openai, "AsyncOpenAI", client)
+    monkeypatch.setattr(ask, "AsyncOpenAI", client)
     return requests
 
 
@@ -144,7 +146,7 @@ async def test_malformed_function_arguments_use_the_existing_tool_validation(
 ) -> None:
     calls = 0
 
-    async def lookup(value: str) -> str:
+    async def lookup(value: str = "default") -> str:
         nonlocal calls
         calls += 1
         return value
@@ -169,7 +171,7 @@ async def test_malformed_function_arguments_use_the_existing_tool_validation(
     assert second[: len(first)] == first
     assert second[-2] == bad
     assert second[-1]["call_id"] == bad["call_id"]
-    assert "lookup failed:" in second[-1]["output"]
+    assert second[-1]["output"] == "lookup failed: Tool arguments must be a JSON object."
     assert third[-1] == {"type": "function_call_output", "call_id": "call_retry", "output": "blue"}
 
 
@@ -192,8 +194,46 @@ async def test_incomplete_response_does_not_execute_a_partial_call(
     response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
 
     assert len([request for request in requests if request["tools"]]) == 1
+    assert response.answer == "The model did not complete its response."
     assert response.urls == []
     assert response.rows == []
+
+
+async def test_provider_failure_keeps_fetched_data_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Find the ACS total population for {place}."
+    replies = iter(
+        [
+            {
+                "status": "completed",
+                "output": [
+                    function_call("search_tables", json.dumps({"question": question})),
+                    function_call(
+                        "resolve_geography", json.dumps({"query": place, "level": "county"})
+                    ),
+                ],
+            },
+            {
+                "status": "completed",
+                "output": [function_call("build_url", '{"table_id":"B01003"}')],
+            },
+            {"status": "completed", "output": [function_call("fetch_data")]},
+            httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
+        ]
+    )
+    requests = install_transport(monkeypatch, lambda _: next(replies))
+    record = ask.ExecutionRecord()
+
+    response = await ask.run_ask(question, tools=_tools(record), record=record)
+
+    assert len([request for request in requests if request["tools"]]) == 4
+    assert "The model request failed." in response.answer
+    assert response.urls
+    assert response.rows[0]["B01003_001E"] == "4838303"
+    assert response.moe[0]["B01003_001M"] == "123"
+    assert response.geoid == "0500000US48201"
 
 
 async def test_answer_model_override_does_not_send_sol_reasoning_options(

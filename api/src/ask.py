@@ -13,6 +13,8 @@ from typing import Any, cast
 
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
+from openai import APIError, AsyncOpenAI, omit
+from openai.types.responses import ResponseInputParam, ToolParam
 
 from src.census_url import CensusURL, redact_text
 from src.contract import (
@@ -257,10 +259,10 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
 async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord) -> str:
     name = tool.name
     started = time.perf_counter()
-    ok = False
-    content = ""
     try:
-        args = pin_tool_args(name, call.get("args") or {}, record.override, record.question)
+        if (provided := call.get("args", {})) is None:
+            raise ValueError("Tool arguments must be a JSON object.")
+        args = pin_tool_args(name, provided, record.override, record.question)
         if name == "resolve_geography" and record.override and record.override.geographies:
             content, ok = "override geography", True
         else:
@@ -288,39 +290,36 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
 async def _openai_complete(
     messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    from openai import AsyncOpenAI, omit
-    from openai.types.responses import ResponseInputParam, ToolParam
-
     if not os.environ.get("OPENAI_API_KEY"):
         raise ValueError("missing OPENAI_API_KEY")
     tools = [{"type": "function", **tool["function"], "strict": False} for tool in openai_tools]
-    async with AsyncOpenAI(timeout=60.0, max_retries=0) as client:
-        response = await client.responses.create(
-            model=MODEL,
-            input=cast("ResponseInputParam", messages),
-            tools=cast("list[ToolParam]", tools),
-            reasoning={"effort": "low"} if MODEL == "gpt-6.2-sol" else omit,
-            max_output_tokens=4096,
-            service_tier="default",
-            store=False,
-            parallel_tool_calls=True,
-        )
+    try:
+        async with AsyncOpenAI(timeout=60.0, max_retries=0) as client:
+            response = await client.responses.create(
+                model=MODEL,
+                input=cast("ResponseInputParam", messages),
+                tools=cast("list[ToolParam]", tools),
+                reasoning={"effort": "low"} if MODEL == "gpt-6.2-sol" else omit,
+                max_output_tokens=4096,
+                service_tier="default",
+                store=False,
+                parallel_tool_calls=True,
+            )
+    except APIError:
+        return {"content": "The model request failed.", "tool_calls": []}
     if response.status != "completed":
-        return {"content": "", "tool_calls": []}
+        return {"content": "The model did not complete its response.", "tool_calls": []}
     calls: list[dict[str, Any]] = []
     for item in response.output:
         if item.type == "function_call":
             try:
-                parsed = json.loads(item.arguments or "{}")
+                parsed = json.loads(item.arguments)
             except json.JSONDecodeError:
-                parsed = {}
-            args = parsed if isinstance(parsed, dict) else {}
+                parsed = None
+            args = parsed if isinstance(parsed, dict) else None
             calls.append({"id": item.call_id, "name": item.name, "args": args})
-    return {
-        "content": response.output_text,
-        "tool_calls": calls,
-        "output": [item.model_dump(mode="json", exclude_none=True) for item in response.output],
-    }
+    output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
+    return {"content": response.output_text, "tool_calls": calls, "output": output}
 
 
 def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
