@@ -1,0 +1,1111 @@
+CC-138 Gate 1 follow-up | Slice 6 | 2026-11-19
+
+Checkout C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc138-transport-draft
+Detached HEAD 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+Prior Gate 1 and initial cold-review head 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+Pinned integration base and origin/main 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Recorded from a fresh Gate 1 context. The tracked checkout was clean at entry.
+The untracked CC-138 evidence directory held gate1.txt and gate2.txt at entry.
+
+Scope: malformed arguments for tools with defaults, incomplete provider
+responses, and preservation of fetched artifacts after a single-attempt
+provider failure. The prior gate1.txt retains 16 mutations at 9b11140. This
+rerun verifies the review fixes and reruns the complete offline test suites.
+The existing web node_modules installation was reused from the preceding gate.
+No dependency manifests changed. make is unavailable, so these are the
+underlying check commands using the shared pinned environment.
+
+Adversarial checks
+- Valid empty-object input still dispatches fetch_data in the standard tool
+  chain. Invalid JSON, empty input and non-object input must return a bounded
+  failure on the original call ID before invoking an all-optional tool.
+- An incomplete response must provide a failure answer and ignore partial
+  tool calls. A 503 after a successful fetch must preserve its URL, rows,
+  margin of error and GEOID, with a failure answer and no SDK retry.
+- The scope changes neither retrieval nor scoring, so the index-specific
+  matrix cases have no changed behavior. The pinned process checks run as
+  part of the full Python suite.
+
+Offline checks
+
+Checkout, diff and baseline input parity
+$ git status --short --branch; git rev-parse HEAD origin/main; git diff --check 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; git diff --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD -- evidence/latest.json budgets.toml
+## HEAD (no branch)
+?? evidence/slice-6/cc-138/
+57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Exit code 0
+
+Ruff lint
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe check .
+All checks passed!
+Exit code 0
+
+Ruff format
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe format --check .
+259 files already formatted
+Exit code 0
+
+Python types
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/mypy.exe api/src
+Success: no issues found in 29 source files
+Exit code 0
+
+Focused Responses and ask tests
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py api/tests/test_ask_loop.py api/tests/test_ask_route.py
+........................................................................ [ 80%]
+.................                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+89 passed, 1 warning in 25.43s
+Exit code 0
+
+Repository invariants
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+Exit code 0
+
+Web tests (outside sandbox)
+$ npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc138-transport-draft/web
+
+ ✓ src/plan.test.ts (7 tests) 51ms
+ ✓ src/csv.test.ts (4 tests) 45ms
+ ✓ src/ask.test.ts (7 tests) 61ms
+ ✓ src/display.test.ts (26 tests) 89ms
+ ✓ src/chart.test.tsx (10 tests) 314ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 1580ms
+   ✓ PlanStrip > renders the returned plan, not answer prose  382ms
+   ✓ PlanStrip > enters edit mode, restores the draft on cancel, and returns focus to the strip  435ms
+ ✓ src/restore.test.tsx (14 tests) 1614ms
+   ✓ restore in App > renders a stored turn with the same elements as a freshly asked one  943ms
+   ✓ restore in App > ignores a restore that settles after an ask (resolves: true)  322ms
+ ✓ src/App.plan.test.tsx (10 tests) 4961ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  1223ms
+   ✓ plan refinement > posts a geography pick from returned candidates  547ms
+   ✓ plan refinement > posts dataset, year list, and overlapping-ACS5 together  521ms
+   ✓ plan refinement > keeps the prior result when the override is rejected and shows the field error  403ms
+   ✓ plan refinement > does not send a plan when the editor is cancelled  348ms
+   ✓ plan refinement > uses the original question even if the chat input changed  527ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  623ms
+ ✓ src/App.test.tsx (25 tests) 7541ms
+   ✓ App pane states > shows a loading state distinct from idle while the request is in flight  532ms
+   ✓ App result > renders URL, estimate with MOE, GEOID, universe, and an alternative  478ms
+   ✓ App result > replaces every previous table row when a new result arrives  618ms
+   ✓ App workspace > keeps the prior result visible while a later question is loading  605ms
+   ✓ App workspace > replaces the active result only after a successful response  466ms
+   ✓ App workspace > keeps the prior result and shows a later failure separately  566ms
+   ✓ App workspace > moves keyboard focus to canvas status after submit and to the alert after an error  668ms
+
+ Test Files  9 passed (9)
+      Tests  110 passed (110)
+   Start at  18:25:57
+   Duration  16.81s (transform 1.58s, setup 11.57s, collect 8.17s, tests 16.25s, environment 28.27s, prepare 2.97s)
+Exit code 0
+
+Web typecheck
+$ npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+Exit code 0
+
+Client drift (outside sandbox)
+$ & '../../.venv/Scripts/python.exe' scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpz612y938\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpz612y938\schema.d.ts [98ms]
+packages/client is up to date.
+Exit code 0
+
+Structural budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+Exit code 0
+
+Repository budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  waive p95 latency (s)         25.472 <= 20
+        run 2026-11-09T17:53:49+00:00; slowest trial 35.774s (p95 leaves out the top 5%)
+        waived by owner: CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  FAIL  answered_rate            0.683 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - answered_rate: 0.683 (limit 0.7)
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+Exit code 1
+
+The full budget check uses the historical scoreboard shared byte-for-byte by
+base and head. Its 0.683 answered rate is below the 0.700 floor. The recorded
+25.472-second p95 waiver is specific to that earlier run.
+
+
+Additional SDK boundary probe on the pristine head
+
+A completed HTTP 200 function-call item with a JSON null in the wire arguments
+field reaches the SDK model as Python None. The Responses contract calls for a
+string there. The current parser raises TypeError before dispatch, and run_ask
+does not reach result assembly. This field-level null is distinct from the
+JSON string "null", which the normal parser can reject as a non-object. This
+reproducer reuses the malformed-arguments regression with None as its fixture
+input. A follow-up correction and mutation check are required for this case.
+
+$ $env:PYTHONPATH = ((Resolve-Path -LiteralPath api).Path + ';' + (Resolve-Path -LiteralPath api/tests).Path); $env:PYTHONIOENCODING = 'utf-8'; $probe = @'
+import asyncio
+from pytest import MonkeyPatch
+from test_ask_responses import test_malformed_function_arguments_use_the_existing_tool_validation as check
+
+with MonkeyPatch.context() as monkeypatch:
+    asyncio.run(check(monkeypatch, None))
+'@
+& ../../.venv/Scripts/python.exe -c $probe
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\api\tests\test_ask_responses.py", line 166, in test_malformed_function_arguments_use_the_existing_tool_validation
+    response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\api\src\ask.py", line 426, in run_ask
+    turn = await complete(messages, openai_tools)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\api\src\ask.py", line 316, in _openai_complete
+    parsed = json.loads(item.arguments)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py", line 339, in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+TypeError: the JSON object must be str, bytes or bytearray, not NoneType
+Exit code 1
+
+Full offline Python suite (outside sandbox)
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -m 'not integration'
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+....................................................................ssss [ 29%]
+sssssssssssss..sss...................................................... [ 34%]
+........xxxxxxx...x..................................................... [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+........................................................................ [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+....................sssssssssss..s.ss................................... [ 94%]
+........................................................................ [ 99%]
+.....                                                                    [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1403 passed, 34 skipped, 8 xfailed, 1 warning in 201.68s (0:03:21)
+Exit code 0
+
+The first rollback runner invocation hit Windows permission errors creating and
+cleaning its temporary Git index directory. The exact runner was retried
+outside the sandbox.
+
+
+$ & ../../.venv/Scripts/python.exe .gate1_cc138_fix_runner.py
+Targeted GOOD/BAD single-behavior checks and rollback
+The empty-string probe runs the existing malformed-arguments test with an
+additional input in a temporary test module. It is removed at the end.
+The retry mutation changes the option at the request itself, leaving the
+mock client's constructor assertion intact.
+
+$ git diff --exit-code HEAD --
+Exit code 0
+
+$ git diff --binary 27d4d4711f577cf91bb78890b1dd32ff82c766ed 57ac1f4cf240372aafc5dce15f1f4479bd22be3d --  [fed to git apply below]
+$ git read-tree 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+Exit code 0
+
+$ git apply --cached --reverse --whitespace=nowarn -
+Exit code 0
+
+$ git diff-index --cached --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed --
+Exit code 0
+
+TC3 PASS. The complete inverse diff reproduces the pinned base tree.
+
+GOOD api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{] on 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 2.50s
+Exit code 0
+
+BAD default invalid JSON to an empty object for api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_malformed_function_arguments_use_the_existing_tool_validation[{] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000280CFA0AC60>
+arguments = '{'
+
+    @pytest.mark.parametrize("arguments", ["{", '[["value","incorrectly accepted"]]'])
+    async def test_malformed_function_arguments_use_the_existing_tool_validation(
+        monkeypatch: pytest.MonkeyPatch, arguments: str
+    ) -> None:
+        calls = 0
+    
+        async def lookup(value: str = "default") -> str:
+            nonlocal calls
+            calls += 1
+            return value
+    
+        tool = StructuredTool.from_function(coroutine=lookup, description="Look up a fixture value")
+        bad = function_call("lookup", arguments)
+        good = {
+            **function_call("lookup", '{"value":"blue"}'),
+            "id": "fc_retry",
+            "call_id": "call_retry",
+        }
+        replies = iter([[bad], [good], [message("Found the fixture.")]])
+        requests = install_transport(
+            monkeypatch, lambda _: {"status": "completed", "output": next(replies)}
+        )
+    
+        response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+    
+        assert response.answer == "Found the fixture."
+>       assert calls == 1
+E       assert 2 == 1
+
+api\tests\test_ask_responses.py:169: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+1 failed, 1 warning in 2.72s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+GOOD api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation on 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.83s
+Exit code 0
+
+BAD default an empty argument string to an empty object for api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______________ test_empty_argument_string_uses_tool_validation _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D2064EA210>
+
+    async def test_empty_argument_string_uses_tool_validation(monkeypatch: pytest.MonkeyPatch) -> None:
+>       await validate(monkeypatch, "")
+
+api\tests\_gate1_cc138_fix_probe.py:9: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D2064EA210>
+arguments = ''
+
+    @pytest.mark.parametrize("arguments", ["{", '[["value","incorrectly accepted"]]'])
+    async def test_malformed_function_arguments_use_the_existing_tool_validation(
+        monkeypatch: pytest.MonkeyPatch, arguments: str
+    ) -> None:
+        calls = 0
+    
+        async def lookup(value: str = "default") -> str:
+            nonlocal calls
+            calls += 1
+            return value
+    
+        tool = StructuredTool.from_function(coroutine=lookup, description="Look up a fixture value")
+        bad = function_call("lookup", arguments)
+        good = {
+            **function_call("lookup", '{"value":"blue"}'),
+            "id": "fc_retry",
+            "call_id": "call_retry",
+        }
+        replies = iter([[bad], [good], [message("Found the fixture.")]])
+        requests = install_transport(
+            monkeypatch, lambda _: {"status": "completed", "output": next(replies)}
+        )
+    
+        response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+    
+        assert response.answer == "Found the fixture."
+>       assert calls == 1
+E       assert 2 == 1
+
+api\tests\test_ask_responses.py:169: AssertionError
+============================== warnings summary ===============================
+api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/_gate1_cc138_fix_probe.py::test_empty_argument_string_uses_tool_validation
+1 failed, 1 warning in 5.73s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+GOOD api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]] on 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider "api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[[\"value\",\"incorrectly accepted\"]]]"
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 2.43s
+Exit code 0
+
+BAD default a parsed non-object to an empty object for api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider "api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[[\"value\",\"incorrectly accepted\"]]]"
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]] _
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001DD3569E1E0>
+arguments = '[["value","incorrectly accepted"]]'
+
+    @pytest.mark.parametrize("arguments", ["{", '[["value","incorrectly accepted"]]'])
+    async def test_malformed_function_arguments_use_the_existing_tool_validation(
+        monkeypatch: pytest.MonkeyPatch, arguments: str
+    ) -> None:
+        calls = 0
+    
+        async def lookup(value: str = "default") -> str:
+            nonlocal calls
+            calls += 1
+            return value
+    
+        tool = StructuredTool.from_function(coroutine=lookup, description="Look up a fixture value")
+        bad = function_call("lookup", arguments)
+        good = {
+            **function_call("lookup", '{"value":"blue"}'),
+            "id": "fc_retry",
+            "call_id": "call_retry",
+        }
+        replies = iter([[bad], [good], [message("Found the fixture.")]])
+        requests = install_transport(
+            monkeypatch, lambda _: {"status": "completed", "output": next(replies)}
+        )
+    
+        response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+    
+        assert response.answer == "Found the fixture."
+>       assert calls == 1
+E       assert 2 == 1
+
+api\tests\test_ask_responses.py:169: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+1 failed, 1 warning in 4.85s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+BAD dispatch the invalid-arguments sentinel with default arguments for api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_malformed_function_arguments_use_the_existing_tool_validation[{] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000161291DAA20>
+arguments = '{'
+
+    @pytest.mark.parametrize("arguments", ["{", '[["value","incorrectly accepted"]]'])
+    async def test_malformed_function_arguments_use_the_existing_tool_validation(
+        monkeypatch: pytest.MonkeyPatch, arguments: str
+    ) -> None:
+        calls = 0
+    
+        async def lookup(value: str = "default") -> str:
+            nonlocal calls
+            calls += 1
+            return value
+    
+        tool = StructuredTool.from_function(coroutine=lookup, description="Look up a fixture value")
+        bad = function_call("lookup", arguments)
+        good = {
+            **function_call("lookup", '{"value":"blue"}'),
+            "id": "fc_retry",
+            "call_id": "call_retry",
+        }
+        replies = iter([[bad], [good], [message("Found the fixture.")]])
+        requests = install_transport(
+            monkeypatch, lambda _: {"status": "completed", "output": next(replies)}
+        )
+    
+        response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+    
+        assert response.answer == "Found the fixture."
+>       assert calls == 1
+E       assert 2 == 1
+
+api\tests\test_ask_responses.py:169: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+1 failed, 1 warning in 4.17s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+GOOD api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call on 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.69s
+Exit code 0
+
+BAD return an empty answer after an incomplete provider response for api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_incomplete_response_does_not_execute_a_partial_call ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000288FF99AB10>
+
+    async def test_incomplete_response_does_not_execute_a_partial_call(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def lookup() -> str:
+            pytest.fail("An incomplete response must not dispatch its function call")
+    
+        tool = StructuredTool.from_function(coroutine=lookup, description="Look up a fixture value")
+        requests = install_transport(
+            monkeypatch,
+            lambda _: {
+                "status": "incomplete",
+                "incomplete_details": {"reason": "max_output_tokens"},
+                "output": [{**function_call("lookup"), "status": "incomplete"}],
+            },
+        )
+    
+        response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+    
+        assert len([request for request in requests if request["tools"]]) == 1
+>       assert response.answer == "The model did not complete its response."
+E       AssertionError: assert '' == 'The model di...its response.'
+E         
+E         - The model did not complete its response.
+
+api\tests\test_ask_responses.py:197: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+1 failed, 1 warning in 2.73s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+BAD accept function calls from an incomplete provider response for api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_incomplete_response_does_not_execute_a_partial_call ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001914559E8D0>
+
+    async def test_incomplete_response_does_not_execute_a_partial_call(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def lookup() -> str:
+            pytest.fail("An incomplete response must not dispatch its function call")
+    
+        tool = StructuredTool.from_function(coroutine=lookup, description="Look up a fixture value")
+        requests = install_transport(
+            monkeypatch,
+            lambda _: {
+                "status": "incomplete",
+                "incomplete_details": {"reason": "max_output_tokens"},
+                "output": [{**function_call("lookup"), "status": "incomplete"}],
+            },
+        )
+    
+>       response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_ask_responses.py:194: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+api\src\ask.py:442: in run_ask
+    out = await dispatch(tool, call, record)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:269: in dispatch
+    message = await tool.ainvoke(
+..\..\.venv\Lib\site-packages\langchain_core\tools\structured.py:70: in ainvoke
+    return await super().ainvoke(input, config, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\langchain_core\tools\structured.py:124: in _arun
+    return await self.coroutine(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    async def lookup() -> str:
+>       pytest.fail("An incomplete response must not dispatch its function call")
+E       Failed: An incomplete response must not dispatch its function call
+
+api\tests\test_ask_responses.py:182: Failed
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+1 failed, 1 warning in 3.52s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+GOOD api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry on 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.75s
+Exit code 0
+
+BAD let a provider API error escape the model call for api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_provider_failure_keeps_fetched_data_without_retry ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001777DCFAB70>
+
+    async def test_provider_failure_keeps_fetched_data_without_retry(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        place = "Harris County, Texas"
+        question = f"Find the ACS total population for {place}."
+        replies = iter(
+            [
+                {
+                    "status": "completed",
+                    "output": [
+                        function_call("search_tables", json.dumps({"question": question})),
+                        function_call(
+                            "resolve_geography", json.dumps({"query": place, "level": "county"})
+                        ),
+                    ],
+                },
+                {
+                    "status": "completed",
+                    "output": [function_call("build_url", '{"table_id":"B01003"}')],
+                },
+                {"status": "completed", "output": [function_call("fetch_data")]},
+                httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
+            ]
+        )
+        requests = install_transport(monkeypatch, lambda _: next(replies))
+        record = ask.ExecutionRecord()
+    
+>       response = await ask.run_ask(question, tools=_tools(record), record=record)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_ask_responses.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+api\src\ask.py:426: in run_ask
+    turn = await complete(messages, openai_tools)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:298: in _openai_complete
+    response = await client.responses.create(
+..\..\.venv\Lib\site-packages\openai\resources\responses\responses.py:2869: in create
+    return await self._post(
+..\..\.venv\Lib\site-packages\openai\_base_client.py:1996: in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <openai.AsyncOpenAI object at 0x00000177009EB920>
+cast_to = <class 'openai.types.responses.response.Response'>
+options = FinalRequestOptions(method='post', url='/responses', params={}, headers=NOT_GIVEN, max_retries=NOT_GIVEN, timeout=NOT_...are omitted.', 'items': {'type': 'integer'}, 'type': 'array'}}, 'type': 'object'}, 'strict': False}]}, extra_json=None)
+stream = False
+stream_cls = openai.AsyncStream[typing.Annotated[typing.Union[openai.types.responses.response_audio_delta_event.ResponseAudioDeltaE...eCustomToolCallInputDoneEvent], PropertyInfo(alias='None', format=None, format_template='None', discriminator='type')]]
+
+    async def request(
+        self,
+        cast_to: Type[ResponseT],
+        options: FinalRequestOptions,
+        *,
+        stream: bool = False,
+        stream_cls: type[_AsyncStreamT] | None = None,
+    ) -> ResponseT | _AsyncStreamT:
+        if self._platform is None:
+            # `get_platform` can make blocking IO calls so we
+            # execute it earlier while we are in an async context
+            self._platform = await asyncify(get_platform)()
+    
+        cast_to = self._maybe_override_cast_to(cast_to, options)
+    
+        # create a copy of the options we were given so that if the
+        # options are mutated later & we then retry, the retries are
+        # given the original options
+        input_options = model_copy(options)
+        if input_options.idempotency_key is None and input_options.method.lower() != "get":
+            # ensure the idempotency key is reused between requests
+            input_options.idempotency_key = self._idempotency_key()
+    
+        response: httpx2.Response | None = None
+        max_retries = input_options.get_max_retries(self.max_retries)
+    
+        retries_taken = 0
+        for retries_taken in range(max_retries + 1):
+            options = model_copy(input_options)
+            options = await self._prepare_options(options)
+    
+            remaining_retries = max_retries - retries_taken
+            request = self._build_request(options, retries_taken=retries_taken)
+            await self._prepare_request(request)
+    
+            kwargs: HttpxSendArgs = {}
+            if self.custom_auth is not None:
+                kwargs["auth"] = (
+                    normalize_httpx2_auth(self.custom_auth)
+                    if is_httpx2_async_client(self._client)
+                    else normalize_legacy_httpx_auth(self.custom_auth)
+                )
+    
+            if options.follow_redirects is not None:
+                kwargs["follow_redirects"] = options.follow_redirects
+    
+            log.debug("Sending HTTP Request: %s %s", request.method, request.url)
+    
+            response = None
+            try:
+                response = await self._send_request(
+                    request,
+                    stream=stream or self._should_stream_response_body(request=request),
+                    **kwargs,
+                )
+            except timeout_exceptions() as err:
+                log.debug("Encountered a timeout exception", exc_info=True)
+    
+                if remaining_retries > 0:
+                    await self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=None,
+                    )
+                    continue
+    
+                log.debug("Raising timeout error")
+                raise APITimeoutError(request=request) from err
+            except OpenAIError as err:
+                # Propagate OpenAIErrors as-is, without retrying or wrapping in APIConnectionError
+                raise err
+            except Exception as err:
+                log.debug("Encountered Exception", exc_info=True)
+    
+                if remaining_retries > 0:
+                    await self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=None,
+                    )
+                    continue
+    
+                log.debug("Raising connection error")
+                raise APIConnectionError(request=request) from err
+    
+            log.debug(
+                'HTTP Response: %s %s "%i %s" %s',
+                request.method,
+                request.url,
+                response.status_code,
+                response.reason_phrase,
+                response.headers,
+            )
+            log.debug("request_id: %s", response.headers.get("x-request-id"))
+    
+            try:
+                response.raise_for_status()
+            except status_exceptions() as err:  # thrown on 4xx and 5xx status code
+                log.debug("Encountered an HTTP status error", exc_info=True)
+    
+                if remaining_retries > 0 and self._should_retry(err.response):
+                    await err.response.aclose()
+                    await self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=response,
+                    )
+                    continue
+    
+                # If the response is streamed then we need to explicitly read the response
+                # to completion before attempting to access the response text.
+                if not err.response.is_closed:
+                    await err.response.aread()
+    
+                log.debug("Re-raising status error")
+>               raise self._make_status_error_from_response(err.response) from None
+E               openai.InternalServerError: Error code: 503 - {'error': {'message': 'Provider unavailable'}}
+
+..\..\.venv\Lib\site-packages\openai\_base_client.py:1781: InternalServerError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+1 failed, 1 warning in 3.36s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+BAD omit the failure message after a provider API error for api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_provider_failure_keeps_fetched_data_without_retry ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000015E0093A9C0>
+
+    async def test_provider_failure_keeps_fetched_data_without_retry(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        place = "Harris County, Texas"
+        question = f"Find the ACS total population for {place}."
+        replies = iter(
+            [
+                {
+                    "status": "completed",
+                    "output": [
+                        function_call("search_tables", json.dumps({"question": question})),
+                        function_call(
+                            "resolve_geography", json.dumps({"query": place, "level": "county"})
+                        ),
+                    ],
+                },
+                {
+                    "status": "completed",
+                    "output": [function_call("build_url", '{"table_id":"B01003"}')],
+                },
+                {"status": "completed", "output": [function_call("fetch_data")]},
+                httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
+            ]
+        )
+        requests = install_transport(monkeypatch, lambda _: next(replies))
+        record = ask.ExecutionRecord()
+    
+        response = await ask.run_ask(question, tools=_tools(record), record=record)
+    
+        assert len([request for request in requests if request["tools"]]) == 4
+>       assert "The model request failed." in response.answer
+E       AssertionError: assert 'The model request failed.' in 'B01003_001E: 4,838,303 (margin of error 123), Harris County, Texas (0500000US48201), acs5 2024.\nUniverse: Total population'
+E        +  where 'B01003_001E: 4,838,303 (margin of error 123), Harris County, Texas (0500000US48201), acs5 2024.\nUniverse: Total population' = AskResponse(answer='B01003_001E: 4,838,303 (margin of error 123), Harris County, Texas (0500000US48201), acs5 2024.\nU...age=2024, codes={'state': '48', 'county': '201'})], allow_overlapping_acs5=False), chart=None, chart_unavailable=False).answer
+
+api\tests\test_ask_responses.py:232: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+1 failed, 1 warning in 3.45s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+BAD retry an actual failing SDK request once for api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_provider_failure_keeps_fetched_data_without_retry ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CCA9F4AB40>
+
+    async def test_provider_failure_keeps_fetched_data_without_retry(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        place = "Harris County, Texas"
+        question = f"Find the ACS total population for {place}."
+        replies = iter(
+            [
+                {
+                    "status": "completed",
+                    "output": [
+                        function_call("search_tables", json.dumps({"question": question})),
+                        function_call(
+                            "resolve_geography", json.dumps({"query": place, "level": "county"})
+                        ),
+                    ],
+                },
+                {
+                    "status": "completed",
+                    "output": [function_call("build_url", '{"table_id":"B01003"}')],
+                },
+                {"status": "completed", "output": [function_call("fetch_data")]},
+                httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
+            ]
+        )
+        requests = install_transport(monkeypatch, lambda _: next(replies))
+        record = ask.ExecutionRecord()
+    
+        response = await ask.run_ask(question, tools=_tools(record), record=record)
+    
+>       assert len([request for request in requests if request["tools"]]) == 4
+E       AssertionError: assert 5 == 4
+E        +  where 5 = len([{'input': [{'role': 'system', 'content': 'You are a Census report concierge for GIS and nonprofit researchers. Find r...phy: county:201 state:48'}, ...], 'max_output_tokens': 4096, 'model': 'gpt-6.2-sol', 'parallel_tool_calls': True, ...}])
+
+api\tests\test_ask_responses.py:231: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+1 failed, 1 warning in 3.93s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+BAD discard already fetched rows when surfacing a provider API error for api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+F                                                                        [100%]
+================================== FAILURES ===================================
+___________ test_provider_failure_keeps_fetched_data_without_retry ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002166D89AAE0>
+
+    async def test_provider_failure_keeps_fetched_data_without_retry(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        place = "Harris County, Texas"
+        question = f"Find the ACS total population for {place}."
+        replies = iter(
+            [
+                {
+                    "status": "completed",
+                    "output": [
+                        function_call("search_tables", json.dumps({"question": question})),
+                        function_call(
+                            "resolve_geography", json.dumps({"query": place, "level": "county"})
+                        ),
+                    ],
+                },
+                {
+                    "status": "completed",
+                    "output": [function_call("build_url", '{"table_id":"B01003"}')],
+                },
+                {"status": "completed", "output": [function_call("fetch_data")]},
+                httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
+            ]
+        )
+        requests = install_transport(monkeypatch, lambda _: next(replies))
+        record = ask.ExecutionRecord()
+    
+        response = await ask.run_ask(question, tools=_tools(record), record=record)
+    
+        assert len([request for request in requests if request["tools"]]) == 4
+        assert "The model request failed." in response.answer
+>       assert response.urls
+E       AssertionError: assert []
+E        +  where [] = AskResponse(answer='The model request failed.', urls=[], requested_years=[], attempted_years=[], succeeded_years=[], f...cs5', years=[], requested_years=[], geographies=[], allow_overlapping_acs5=False), chart=None, chart_unavailable=False).urls
+
+api\tests\test_ask_responses.py:233: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_provider_failure_keeps_fetched_data_without_retry
+1 failed, 1 warning in 3.73s
+Exit code 1
+
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+
+Mutation outcomes
+  REJECTED: default invalid JSON to an empty object
+  REJECTED: default an empty argument string to an empty object
+  REJECTED: default a parsed non-object to an empty object
+  REJECTED: dispatch the invalid-arguments sentinel with default arguments
+  REJECTED: return an empty answer after an incomplete provider response
+  REJECTED: accept function calls from an incomplete provider response
+  REJECTED: let a provider API error escape the model call
+  REJECTED: omit the failure message after a provider API error
+  REJECTED: retry an actual failing SDK request once
+  REJECTED: discard already fetched rows when surfacing a provider API error
+10/10 rejected
+
+Exit code 0
+
+Final tracked checkout and remaining untracked evidence
+$ git diff --exit-code HEAD --; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; git status --short --untracked-files=all
+?? evidence/slice-6/cc-138/gate1-fixes.txt
+?? evidence/slice-6/cc-138/gate1.txt
+?? evidence/slice-6/cc-138/gate2.txt
+Exit code 0
+
+Gate 1 follow-up verdict at 57ac1f4. The focused and full offline tests, lint,
+formatting, typing, repository invariants, client drift, structural budgets and
+complete inverse-tree rollback passed. Five pristine test selectors, including
+the temporary empty-string probe, rejected all ten targeted mutations. The SDK
+retry mutation produced five main turns against the expected four. A separate
+wire-null probe exposed an uncaught TypeError and needs follow-up. The full
+budget check remains red on the inherited 0.683 answered rate versus the 0.700
+floor. Release readiness remains open.

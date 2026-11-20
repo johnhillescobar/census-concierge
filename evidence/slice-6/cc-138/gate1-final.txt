@@ -1,0 +1,296 @@
+CC-138 Gate 1 final follow-up | Slice 6 | 2026-11-19
+
+Checkout C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc138-transport-draft
+Detached HEAD 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5
+Prior follow-up head 57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+Pinned integration base and origin/main 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Tracked checkout clean at entry. Prior gate1.txt and gate1-fixes.txt remain the
+evidence for 16 initial and 10 follow-up mutations, respectively.
+
+The final delta changes only api/src/ask.py and api/tests/test_ask_responses.py.
+The HTTP fixture supplies a function call with null arguments. The real SDK
+decodes it, the loop returns the existing malformed-argument output on its call
+ID, and a valid retry invokes the tool exactly once. The test also verifies the
+SDK's serialization of the call history. The targeted probe exercises the
+model-transport boundary. The full Python suite includes the pinned process
+checks.
+
+Pin reviewed commits
+$ git rev-parse HEAD HEAD^ origin/main
+0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5
+57ac1f4cf240372aafc5dce15f1f4479bd22be3d
+27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Exit code 0
+
+Patch whitespace
+$ git diff --check 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD
+
+Exit code 0
+
+Web, client inputs, dependency and metric input parity with prior gate
+$ git diff --exit-code HEAD^ HEAD -- web packages/client api/src/schemas.py api/src/main.py scripts/generate_client.py pyproject.toml uv.lock budgets.toml evidence/latest.json
+
+Exit code 0
+
+Web evidence carried forward from gate1-fixes.txt on 57ac1f4. The identical
+web and client inputs passed 110 web tests and the web typecheck. Client drift
+was verified again on this head.
+
+Metric artifact and budget input parity with integration base
+$ git diff --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD -- budgets.toml evidence/latest.json
+
+Exit code 0
+
+Ruff lint
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe check .
+All checks passed!
+Exit code 0
+
+Ruff formatting
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe format --check .
+259 files already formatted
+Exit code 0
+
+Python types
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/mypy.exe api/src
+Success: no issues found in 29 source files
+Exit code 0
+
+Focused Responses, ask loop and ask route tests
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py api/tests/test_ask_loop.py api/tests/test_ask_route.py
+........................................................................ [ 80%]
+..................                                                       [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+90 passed, 1 warning in 18.10s
+Exit code 0
+
+Repository invariants
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+Exit code 0
+
+Client drift
+$ & '../../.venv/Scripts/python.exe' scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpophxa4qp\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpophxa4qp\schema.d.ts [73.7ms]
+packages/client is up to date.
+Exit code 0
+
+Structural budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+Exit code 0
+
+Full repository budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  waive p95 latency (s)         25.472 <= 20
+        run 2026-11-09T17:53:49+00:00; slowest trial 35.774s (p95 leaves out the top 5%)
+        waived by owner: CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  FAIL  answered_rate            0.683 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - answered_rate: 0.683 (limit 0.7)
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+Exit code 1
+
+The full budget check still fails on the inherited answered_rate of 0.683
+versus the 0.700 floor. The budget and scoreboard inputs match the
+integration base.
+
+Targeted null-argument mutation
+The BAD run replaced only the exception handler in api/src/ask.py with the
+preceding head's handler. The original bytes were restored in a finally block.
+GOOD: handle a wire-level null with the tool validation path
+$ & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.60s
+Exit code 0
+BAD: let TypeError escape JSON decoding for a wire-level null
+$ & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+F                                                                        [100%]
+================================== FAILURES ===================================
+__ test_malformed_function_arguments_use_the_existing_tool_validation[None] ___
+api\tests\test_ask_responses.py:166: in test_malformed_function_arguments_use_the_existing_tool_validation
+    response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:426: in run_ask
+    turn = await complete(messages, openai_tools)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:316: in _openai_complete
+    parsed = json.loads(item.arguments)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py:339: in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+E   TypeError: the JSON object must be str, bytes or bytearray, not NoneType
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+1 failed, 1 warning in 2.21s
+Exit code 1
+$ git diff --exit-code HEAD -- api/src/ask.py
+Exit code 0
+GOOD: restored production source
+$ & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.92s
+Exit code 0
+
+Mutation rejected with an uncaught TypeError at json.loads(item.arguments).
+The restored source matched HEAD and passed the same selector.
+
+Complete inverse-tree rollback
+The first attempt failed while Windows sandbox permissions prevented access
+to the isolated temporary directory. The retry used an isolated temporary Git
+index and object store, with the repository object store as an alternate.
+Standard output from git diff --binary fed directly into git apply.
+Removed the empty temporary directory from the sandboxed rollback attempt.
+$ git diff --binary 27d4d4711f577cf91bb78890b1dd32ff82c766ed 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5 --
+Exit code 0
+$ git read-tree 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5
+Exit code 0
+$ git apply --cached --reverse --whitespace=nowarn -
+Exit code 0
+$ git diff-index --cached --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed --
+Exit code 0
+$ git diff --exit-code 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5 --
+Exit code 0
+
+TC3 PASS. The complete inverse diff reproduces the pinned integration base.
+
+Full offline Python suite
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -m 'not integration'
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+.....................................................................sss [ 29%]
+ssssssssssssss..sss..................................................... [ 34%]
+.........xxxxxxx...x.................................................... [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+........................................................................ [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+.....................sssssssssss..s.ss.................................. [ 94%]
+........................................................................ [ 99%]
+......                                                                   [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1404 passed, 34 skipped, 8 xfailed, 1 warning in 242.66s (0:04:02)
+Exit code 0
+
+Tracked checkout and evidence paths before this transcript was written
+$ git diff --exit-code HEAD --; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; git status --short --branch --untracked-files=all
+## HEAD (no branch)
+?? evidence/slice-6/cc-138/gate1-fixes.txt
+?? evidence/slice-6/cc-138/gate1.txt
+?? evidence/slice-6/cc-138/gate2.txt
+Exit code 0
+
+Final Gate 1 verdict for 0ebfb31. The wire-null regression passed before and
+after mutation and rejected the prior handler. Focused tests, the full
+offline Python suite, lint, formatting, types, invariants, client drift,
+structural budgets and the full rollback passed. The full repository budget
+check remains red on the inherited answered-rate floor. Release readiness
+remains open.
