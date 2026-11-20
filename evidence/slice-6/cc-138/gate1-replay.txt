@@ -1,0 +1,287 @@
+CC-138 Gate 1 replay repair | Slice 6 | 2026-11-19
+
+Checkout C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc138-transport-draft
+Branch cc-138/responses-integration
+Pinned head 3c6e136ac65a88a2f73c7fd01ce3e94f61150349
+Preceding reviewed head 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5
+Pinned integration base 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+No tracked changes at entry. Prior Gate 1 records are gate1.txt,
+gate1-fixes.txt and gate1-final.txt in this directory.
+
+The transport fixture intercepts the real OpenAI SDK HTTP request. It checks
+that wire null, invalid JSON and non-object JSON each receive the existing
+validation output on the original call ID. The next request carries the same
+function call with the required serialized arguments field set to "{}".
+Only the later valid call invokes the tool.
+
+Pinned commits and entry status
+$ git rev-parse HEAD HEAD^ origin/main; git status --short --branch --untracked-files=all
+3c6e136ac65a88a2f73c7fd01ce3e94f61150349
+0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5
+27d4d4711f577cf91bb78890b1dd32ff82c766ed
+## cc-138/responses-integration
+?? evidence/slice-6/cc-138/gate1-final.txt
+?? evidence/slice-6/cc-138/gate1-fixes.txt
+?? evidence/slice-6/cc-138/gate1.txt
+?? evidence/slice-6/cc-138/gate2-final.txt
+?? evidence/slice-6/cc-138/gate2.txt
+Exit code 0
+
+Patch whitespace
+$ git diff --check 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD
+
+Exit code 0
+
+Web, generated client, API contract, dependency and metric input parity with the preceding head
+$ git diff --exit-code HEAD^ HEAD -- web packages/client api/src/schemas.py api/src/main.py scripts/generate_client.py pyproject.toml uv.lock budgets.toml evidence/latest.json
+
+Exit code 0
+
+The preceding check in gate1-final.txt verified generated client drift at
+0ebfb31 and carried forward the 110 web tests and web typecheck from
+gate1-fixes.txt at 57ac1f4. The current repair changes the internal Responses
+loop and its tests. The parity check above supports carrying those results
+forward.
+
+Metric artifact and budget input parity with the integration base
+$ git diff --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD -- budgets.toml evidence/latest.json
+
+Exit code 0
+
+Ruff lint
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe check .
+All checks passed!
+Exit code 0
+
+Ruff formatting
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe format --check .
+259 files already formatted
+Exit code 0
+
+Python types
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/mypy.exe api/src
+Success: no issues found in 29 source files
+Exit code 0
+
+Focused Responses, ask loop and ask route tests
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py api/tests/test_ask_loop.py api/tests/test_ask_route.py
+........................................................................ [ 80%]
+..................                                                       [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+90 passed, 1 warning in 26.40s
+Exit code 0
+
+Repository invariants
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_invariants.py --base 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+Exit code 0
+
+Structural budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+Exit code 0
+
+Full budget check retained from gate1-final.txt
+The preceding full check failed on the inherited answered_rate of 0.683
+against the 0.700 floor. budgets.toml and evidence/latest.json match the
+preceding head and pinned integration base. No new metric run was made in
+this Gate 1.
+
+Full offline Python suite
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -m 'not integration'
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+.....................................................................sss [ 29%]
+ssssssssssssss..sss..................................................... [ 34%]
+.........xxxxxxx...x.................................................... [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+........................................................................ [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+.....................sssssssssss..s.ss.................................. [ 94%]
+........................................................................ [ 99%]
+......                                                                   [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1404 passed, 34 skipped, 8 xfailed, 1 warning in 244.77s (0:04:04)
+Exit code 0
+
+Replay argument mutation
+Removed only the assignment that normalizes rejected calls' serialized
+arguments in api/src/ask.py. The same three parameter cases ran before the
+mutation, with the mutation, and after a finally block restored the original
+bytes. The BAD run required pytest exit code 1 and asserted that all three
+cases failed at the serialized replay check.
+
+GOOD: replay a JSON object string for every rejected call
+$ & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation
+...                                                                      [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 1 warning in 5.38s
+Exit code 0
+BAD: omit the serialized argument repair for rejected calls
+$ & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+__ test_malformed_function_arguments_use_the_existing_tool_validation[None] ___
+api\tests\test_ask_responses.py:172: in test_malformed_function_arguments_use_the_existing_tool_validation
+    assert second[-2] == {**bad, "arguments": "{}"}
+E   AssertionError: assert {'call_id': '..._lookup', ...} == {'type': 'fun..._lookup', ...}
+E     
+E     Omitting 5 identical items, use -vv to show
+E     Right contains 1 more item:
+E     {'arguments': '{}'}
+E     Use -v to get more diff
+____ test_malformed_function_arguments_use_the_existing_tool_validation[{] ____
+api\tests\test_ask_responses.py:172: in test_malformed_function_arguments_use_the_existing_tool_validation
+    assert second[-2] == {**bad, "arguments": "{}"}
+E   AssertionError: assert {'arguments':...on_call', ...} == {'type': 'fun..._lookup', ...}
+E     
+E     Omitting 5 identical items, use -vv to show
+E     Differing items:
+E     {'arguments': '{'} != {'arguments': '{}'}
+E     Use -v to get more diff
+_ test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]] _
+api\tests\test_ask_responses.py:172: in test_malformed_function_arguments_use_the_existing_tool_validation
+    assert second[-2] == {**bad, "arguments": "{}"}
+E   assert {'arguments':...on_call', ...} == {'type': 'fun..._lookup', ...}
+E     
+E     Omitting 5 identical items, use -vv to show
+E     Differing items:
+E     {'arguments': '[["value","incorrectly accepted"]]'} != {'arguments': '{}'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+3 failed, 1 warning in 6.08s
+Exit code 1
+$ git diff --exit-code 3c6e136ac65a88a2f73c7fd01ce3e94f61150349 -- api/src/ask.py
+Exit code 0
+GOOD: replay repair restored
+$ & ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation
+...                                                                      [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[None]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 1 warning in 3.87s
+Exit code 0
+
+The null history omitted arguments, the malformed JSON retained "{", and
+the non-object JSON retained the array string. All three cases rejected the
+mutation and passed again after restoration.
+
+Complete inverse-tree rollback
+The first attempt exited 1 when Windows denied access to its temporary
+directory. Retried with an isolated temporary Git index and object store and
+the repository object store as an alternate. The retry passed the binary diff
+directly to Git's reverse apply and compared tree IDs. The empty directory left
+by the sandboxed attempt was verified and removed.
+
+$ git rev-parse --path-format=absolute --git-common-dir
+Exit code 0
+$ git diff --binary 27d4d4711f577cf91bb78890b1dd32ff82c766ed 3c6e136ac65a88a2f73c7fd01ce3e94f61150349 --
+Exit code 0
+$ git read-tree 3c6e136ac65a88a2f73c7fd01ce3e94f61150349
+Exit code 0
+$ git apply --cached --reverse --whitespace=nowarn -
+Exit code 0
+$ git diff-index --cached --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed --
+Exit code 0
+$ git write-tree
+Exit code 0
+$ git rev-parse 27d4d4711f577cf91bb78890b1dd32ff82c766ed^{tree}
+Exit code 0
+Restored tree fb5f6ac24a183ad9edfe20212a221136c9c5aa70
+Base tree     fb5f6ac24a183ad9edfe20212a221136c9c5aa70
+$ git diff --exit-code 3c6e136ac65a88a2f73c7fd01ce3e94f61150349 --
+Exit code 0
+
+TC3 PASS. The complete inverse diff reproduces the pinned integration base.
+
+Tracked checkout and evidence paths before this transcript was written
+$ git diff --exit-code HEAD --; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; git status --short --branch --untracked-files=all
+## cc-138/responses-integration
+?? evidence/slice-6/cc-138/gate1-final.txt
+?? evidence/slice-6/cc-138/gate1-fixes.txt
+?? evidence/slice-6/cc-138/gate1.txt
+?? evidence/slice-6/cc-138/gate2-final.txt
+?? evidence/slice-6/cc-138/gate2.txt
+Exit code 0
+
+Gate 1 verdict for 3c6e136. The focused suite, full offline Python suite,
+replay mutation, lint, format, types, invariants, structural budgets and
+inverse-tree rollback passed. The inherited full budget failure remains open.

@@ -9,10 +9,12 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
+from openai import APIError, AsyncOpenAI, omit
+from openai.types.responses import ResponseInputParam, ToolParam
 
 from src.census_url import CensusURL, redact_text
 from src.contract import (
@@ -40,7 +42,7 @@ from src.vintages import latest_vintages, moe_rows, requested_years, stamp_prove
 
 MAX_TURNS = 8
 MAX_TOOL_CALLS = 12
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-6.2-sol"
 
 CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict[str, Any]]]
 
@@ -257,10 +259,10 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
 async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord) -> str:
     name = tool.name
     started = time.perf_counter()
-    ok = False
-    content = ""
     try:
-        args = pin_tool_args(name, call.get("args") or {}, record.override, record.question)
+        if (provided := call.get("args", {})) is None:
+            raise ValueError("Tool arguments must be a JSON object.")
+        args = pin_tool_args(name, provided, record.override, record.question)
         if name == "resolve_geography" and record.override and record.override.geographies:
             content, ok = "override geography", True
         else:
@@ -288,27 +290,38 @@ async def dispatch(tool: BaseTool, call: dict[str, Any], record: ExecutionRecord
 async def _openai_complete(
     messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    from openai import AsyncOpenAI
-
     if not os.environ.get("OPENAI_API_KEY"):
         raise ValueError("missing OPENAI_API_KEY")
-    response = await AsyncOpenAI().chat.completions.create(
-        model=MODEL,
-        messages=messages,  # type: ignore[arg-type]
-        tools=openai_tools or None,  # type: ignore[arg-type]
-    )
-    choice = response.choices[0].message
+    tools = [{"type": "function", **tool["function"], "strict": False} for tool in openai_tools]
+    try:
+        async with AsyncOpenAI(timeout=60.0, max_retries=0) as client:
+            response = await client.responses.create(
+                model=MODEL,
+                input=cast("ResponseInputParam", messages),
+                tools=cast("list[ToolParam]", tools),
+                reasoning={"effort": "low"} if MODEL == "gpt-6.2-sol" else omit,
+                max_output_tokens=4096,
+                service_tier="default",
+                store=False,
+                parallel_tool_calls=True,
+            )
+    except APIError:
+        return {"content": "The model request failed.", "tool_calls": []}
+    if response.status != "completed":
+        return {"content": "The model did not complete its response.", "tool_calls": []}
     calls: list[dict[str, Any]] = []
-    for tool_call in choice.tool_calls or []:
-        function = getattr(tool_call, "function", None)
-        if function is None:
-            continue
-        try:
-            args = json.loads(function.arguments or "{}")
-        except json.JSONDecodeError:
-            args = {}
-        calls.append({"id": tool_call.id, "name": function.name, "args": args})
-    return {"content": choice.content or "", "tool_calls": calls}
+    output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
+    for item in output:
+        if item["type"] == "function_call":
+            try:
+                parsed = json.loads(item.get("arguments", ""))
+            except (json.JSONDecodeError, TypeError):
+                parsed = None
+            args = parsed if isinstance(parsed, dict) else None
+            # The service needs a valid history item even when dispatch rejects the call.
+            item["arguments"] = "{}" if args is None else item["arguments"]
+            calls.append({"id": item["call_id"], "name": item["name"], "args": args})
+    return {"content": response.output_text, "tool_calls": calls, "output": output}
 
 
 def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
@@ -416,24 +429,10 @@ async def run_ask(
                 if not turn_no and (stop := await incomplete(record, split)):
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
-                pending = list(turn.get("tool_calls") or [])
-                if not pending:
+                if not (pending := list(turn.get("tool_calls") or [])):
                     break
-                assistant_tools = []
-                for call in pending:
-                    assistant_tools.append(
-                        {
-                            "id": call["id"],
-                            "type": "function",
-                            "function": {
-                                "name": call["name"],
-                                "arguments": json.dumps(call.get("args") or {}),
-                            },
-                        }
-                    )
-                messages.append(
-                    {"role": "assistant", "content": answer or None, "tool_calls": assistant_tools}
-                )
+                # Replay provider items before the corresponding tool results with store=False.
+                messages.extend(turn.get("output", []))
                 for call in pending:
                     if calls_used >= MAX_TOOL_CALLS:
                         break
@@ -443,7 +442,9 @@ async def run_ask(
                     else:
                         out = await dispatch(tool, call, record)
                         calls_used += 1
-                    messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
+                    messages.append(
+                        {"type": "function_call_output", "call_id": call["id"], "output": out}
+                    )
                 else:
                     continue
                 break

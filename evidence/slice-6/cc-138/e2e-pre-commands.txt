@@ -1,0 +1,22 @@
+﻿Started UTC: 2026-11-20T02:08:52.7370112+00:00
+Checkout: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft
+Branch: cc-138/responses-integration
+HEAD: 653a5ab659358b3adb38028870e8a5d0ae97874a
+Review base: 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Initial git status: clean
+Original latest.json SHA256: 782D5B39EC8E5D499FAE94E750D40530ED495B61C4B7F21B0842B018510A1872
+Recipe: Makefile eval then demo
+2026-11-20T02:08:52.7667011+00:00 START python scripts/eval_retrieval.py --verbose
+2026-11-20T02:09:18.3753134+00:00 EXIT 0 python scripts/eval_retrieval.py --verbose
+2026-11-20T02:09:18.3772572+00:00 START python scripts/eval_retrieval.py --tier long_tail --rerank
+2026-11-20T02:11:38.6473622+00:00 EXIT 0 python scripts/eval_retrieval.py --tier long_tail --rerank
+2026-11-20T02:11:38.6497093+00:00 START python scripts/score_synthetic.py
+2026-11-20T02:11:44.3339158+00:00 EXIT 0 python scripts/score_synthetic.py
+2026-11-20T02:11:44.3356403+00:00 START npm --prefix web ci
+2026-11-20T02:12:00.6962782+00:00 EXIT 0 npm --prefix web ci
+2026-11-20T02:12:00.7158244+00:00 START npm --prefix web run build
+2026-11-20T02:12:12.3601077+00:00 EXIT 0 npm --prefix web run build
+2026-11-20T02:12:12.3621021+00:00 START python scripts/run_demo.py --repeat 3
+2026-11-20T03:04:38.8334973+00:00 EXIT 1 python scripts/run_demo.py --repeat 3
+2026-11-20T03:04:38.8414958+00:00 START python scripts/run_grid.py --repeat 3
+2026-11-20T03:18:20.8855229+00:00 EXIT 0 python scripts/run_grid.py --repeat 3

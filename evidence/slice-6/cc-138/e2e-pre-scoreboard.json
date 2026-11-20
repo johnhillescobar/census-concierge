@@ -1,0 +1,151 @@
+{
+  "head": "653a5ab659358b3adb38028870e8a5d0ae97874a",
+  "review_base": "27d4d4711f577cf91bb78890b1dd32ff82c766ed",
+  "started_utc": "2026-11-20T02:08:52.737011+00:00",
+  "commands": {
+    "python scripts/eval_retrieval.py --verbose": {
+      "exit": 0,
+      "finished_utc": "2026-11-20T02:09:18.3753134+00:00"
+    },
+    "python scripts/eval_retrieval.py --tier long_tail --rerank": {
+      "exit": 0,
+      "finished_utc": "2026-11-20T02:11:38.6473622+00:00"
+    },
+    "python scripts/score_synthetic.py": {
+      "exit": 0,
+      "finished_utc": "2026-11-20T02:11:44.3339158+00:00"
+    },
+    "npm --prefix web ci": {
+      "exit": 0,
+      "finished_utc": "2026-11-20T02:12:00.6962782+00:00"
+    },
+    "npm --prefix web run build": {
+      "exit": 0,
+      "finished_utc": "2026-11-20T02:12:12.3601077+00:00"
+    },
+    "python scripts/run_demo.py --repeat 3": {
+      "exit": 1,
+      "finished_utc": "2026-11-20T03:04:38.8334973+00:00"
+    },
+    "python scripts/run_grid.py --repeat 3": {
+      "exit": 0,
+      "finished_utc": "2026-11-20T03:18:20.8855229+00:00"
+    }
+  },
+  "runtime_assets": {
+    "index_hash": "377cd59fe62a",
+    "availability_sha256": "cca2cc4b4f9541f409116f7c76de888a8ddc0b92040ab41cbae6840f81d250d6",
+    "metadata_files": 95,
+    "metadata_manifest_sha256": "fa760dfb8c7d95234d84b427dc3ead6cf08c07028022045b81eef4dd9d8fefcb",
+    "frontend_files": 4,
+    "frontend_manifest_sha256": "17a909a66cbb00dbd11125545dde096fb55eeb3ef8ef95dd8b6bf8445b95805b"
+  },
+  "retrieval_at_10": 0.9,
+  "selector_at_1": 0.825,
+  "synthetic_alignment": 0.544,
+  "demo": {
+    "generated_at": "2026-11-20T03:04:38+00:00",
+    "repeat": 3,
+    "n": 186,
+    "answered_rate": 0.775,
+    "overall_answered_rate": 0.839,
+    "p95_latency_seconds": 32.215,
+    "t_llm": 10.359,
+    "t_census_api": 2.21,
+    "t_ours": 0.197,
+    "prompt_hash": "79910a5885fc",
+    "index_hash": "377cd59fe62a",
+    "by_tier": {
+      "core": {
+        "n": 12,
+        "answered_rate": 0.917,
+        "http_ok_rate": 1.0
+      },
+      "long_tail": {
+        "n": 120,
+        "answered_rate": 0.775,
+        "http_ok_rate": 1.0
+      },
+      "trap": {
+        "n": 54,
+        "answered_rate": 0.963,
+        "http_ok_rate": 1.0
+      }
+    },
+    "provenance": {
+      "head": "653a5ab659358b3adb38028870e8a5d0ae97874a",
+      "scorer": "6054312479188110",
+      "cohorts": {
+        "long_tail": "3357c07b051d8f28",
+        "trap": "86599fef7d3afc08",
+        "core": "3f0faaf0e5df706b"
+      },
+      "protocol": "8239289b06c79e1f",
+      "dirty": false
+    },
+    "misses_count": 30,
+    "misses_by_question": {
+      "q03": 1,
+      "q08": 1,
+      "q10": 3,
+      "q11": 2,
+      "q14": 3,
+      "q15": 3,
+      "q17": 3,
+      "q20": 3,
+      "q21": 3,
+      "q23": 3,
+      "q26": 3,
+      "t14": 2
+    }
+  },
+  "grid": {
+    "cells": 70,
+    "repeat": 3,
+    "trials": 210,
+    "expected_trials": 210,
+    "complete": true,
+    "pass_rate": 1.0,
+    "by_dimension": {
+      "connector=and": 1.0,
+      "connector=comma-and": 1.0,
+      "connector=plus": 1.0,
+      "level=county": 1.0,
+      "level=tract": 1.0,
+      "parent_count=2": 1.0,
+      "parent_count=3": 1.0,
+      "parent_count=4": 1.0,
+      "verb=across": 1.0,
+      "verb=all": 1.0,
+      "verb=each": 1.0,
+      "verb=every": 1.0,
+      "verb=list": 1.0,
+      "verb=within": 1.0
+    }
+  },
+  "metric_gates": {
+    "retrieval_at_10": {
+      "floor": 0.9,
+      "status": "PASS"
+    },
+    "selector_at_1": {
+      "floor": 0.7,
+      "status": "PASS"
+    },
+    "synthetic_alignment": {
+      "floor": 0.5,
+      "status": "PASS"
+    },
+    "demo.answered_rate": {
+      "floor": 0.7,
+      "status": "PASS"
+    },
+    "demo.p95_latency_seconds": {
+      "ceiling": 20.0,
+      "status": "FAIL"
+    }
+  },
+  "candidate_verdict": "FAIL",
+  "latest_after_sha256": "ab8386eeb389cb13a48a141ef006fd0c3998c7a5cf06ccadd49da61997ca3b3c",
+  "grid_after_sha256": "aeae903f02a55f7bfa08f358885e16a45f15e396d323faacd30fea6fc42f6419"
+}

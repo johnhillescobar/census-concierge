@@ -1,0 +1,115 @@
+CC-138 Gate 2, slice 6
+Base 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Head 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+Checkout .worktrees/cc138-transport-draft, detached HEAD at the reviewed commit
+Tracked worktree diff against HEAD empty. Untracked CC-138 evidence directory was present.
+No source edits. Reviewed code and shared rules in a fresh session. Findings below
+were written before opening the slice plan, implementation notes, or Jira.
+
+PASS 1 — GENERIC BUG REVIEW
+
+[P2] Reject malformed tool arguments before invoking an all-optional tool
+(api/src/ask.py:312–318, api/src/ask.py:439–446).
+Both invalid JSON and valid non-object JSON are treated as {}. Default
+fetch_data accepts {} (api/src/fetch.py:34–41), so a completed provider turn
+with malformed arguments can fetch the current URL or default vintage
+rather than returning a validation error for the model to repair. The
+new behavior includes converting non-object JSON to {}; invalid JSON
+was already converted on the base. The added test uses a required
+argument, so it observes validation even though an all-optional schema
+would dispatch. Confirmed with the real SDK and a MockTransport response
+containing arguments "{" for an all-optional year tool. It executed with
+the default year 2024. Preserve the distinction between invalid and
+intentional {} and send a failure output for the original call ID.
+
+[P2] Handle transient provider errors at the model-call boundary
+(api/src/ask.py:297, api/src/ask.py:451–453).
+The base SDK client retries temporary 429/5xx errors (SDK 3.0.0 defaults
+to two retries). This client takes one attempt. Provider API errors escape
+the loop's RuntimeError handler, skip finish_tools, and cause /ask to
+return a server error before it can assemble earlier tool results. A
+MockTransport 503 on the first main request reproduced InternalServerError
+after one attempt, though the mock could succeed on a later attempt. A
+bounded recovery or degraded response is needed if the single-attempt
+limit is retained.
+
+[P2] Surface incomplete output instead of returning an empty success
+(api/src/ask.py:308–309, api/src/ask.py:430–433).
+The API's incomplete status (for example, a turn reaching the new
+max_output_tokens ceiling) becomes indistinguishable from a normal
+empty completion. Earlier answer text is replaced with an empty string.
+The existing finish path can recover some data, but a no-data path can
+return HTTP 200 with an empty answer and no warning. Confirmed by a mock
+max_output_tokens response: answer '' and warnings []. Stop executing
+partial tool calls and give the caller a meaningful failure or partial
+result.
+
+Open provider contract question (api/src/ask.py:298–307, 434–435).
+With store=False, Responses documents include=["reasoning.encrypted_content"]
+for stateless reasoning continuity. This request does not set include
+and the fixture's replayed reasoning item contains no encrypted state.
+The installed SDK also describes that field as populated by default
+on returned reasoning items. The offline probe confirms the missing
+request field and placeholder replay, but does not establish live
+server behavior. Verify whether encrypted state is returned by default
+and survives a Sol tool continuation; make the include explicit if needed.
+
+Checks run on pinned head:
+- git diff --check <base> <head>: exit 0.
+- pytest -q -p no:cacheprovider api/tests/test_ask_responses.py:
+  5 passed, 1 pre-existing pytest-asyncio event-loop-policy deprecation.
+- Offline SDK probes described above use httpx.MockTransport and no keys,
+  network or Census calls.
+
+
+PASS 2 — PROJECT INVARIANTS
+
+Not yet. The first mechanical prerequisite exits 1 because the checked-in
+answered_rate is 0.683 against the 0.700 floor. The exact base and head
+have identical evidence/latest.json and budgets.toml. Both files also match
+HEAD in the worktree. This is an inherited gate failure; it does not measure
+the reviewed transport. The review-pr playbook ends the invariants review
+on a non-zero mechanical check. The remaining review-pr checks, plan/AC/TC
+review, and closure verification were not run in this pass.
+
+Command: ../../.venv/Scripts/python.exe scripts/check_budgets.py
+Exit: 1
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  waive p95 latency (s)         25.472 <= 20
+        run 2026-11-09T17:53:49+00:00; slowest trial 35.774s (p95 leaves out the top 5%)
+        waived by owner: CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  FAIL  answered_rate            0.683 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - answered_rate: 0.683 (limit 0.7)
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+Base-to-head aggregate and budgets diff exit 0.
+Worktree aggregate and budgets diff against head exit 0.

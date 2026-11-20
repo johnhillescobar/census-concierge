@@ -1,0 +1,148 @@
+CC-138 slice 6 repeat Gate 2
+Base 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+HEAD 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5 (detached)
+Scope: complete pinned three-file diff; no tracked worktree changes. Existing untracked CC-138 evidence directory.
+Code-only pass recorded before slice plans, Jira, or any prior evidence. Reviewed all three changed files, affected consumers and installed SDK types.
+
+[P1] Stateless continuations omit encrypted reasoning (api/src/ask.py:302-306).
+The client uses store=False and manual replay with no prior response ID. It does not request include=["reasoning.encrypted_content"]. The installed SDK's ResponseCreateParamsBase.include documents that this option enables reusing reasoning items in stateless multi-turn conversations. Replaying item IDs and summaries alone cannot carry the original reasoning across tool calls. The normal request requires multiple calls for search, resolve, build and fetch. Require stateless replay with the encrypted content for the reasoning model, and make the wire test assert that it is requested and propagated. The test currently sends an empty-summary reasoning item and accepts it on follow-up regardless of whether it can be replayed at the actual provider.
+
+[P2] Null tool arguments still produce an invalid Responses continuation (api/src/ask.py:315-322).
+Dispatch now rejects null and emits a tool validation result, but exclude_none removes arguments from the replayed function_call. The installed SDK's ResponseFunctionToolCallParam requires arguments to be a string. The next HTTP request therefore has a function_call missing a required field and can be rejected before the model receives the validation result. The null-wire fixture expressly accepts completion with that field missing (api/tests/test_ask_responses.py:172). Keep rejection of malformed input local, but construct a schema-valid continuation and check the actual follow-up payload against the provider input shape.
+
+Machine checks
+Shared ../../.venv, PowerShell equivalents of the review-pr.md recipes.
+
+$ & '../../.venv/Scripts/python.exe' scripts/check_budgets.py
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  waive p95 latency (s)         25.472 <= 20
+        run 2026-11-09T17:53:49+00:00; slowest trial 35.774s (p95 leaves out the top 5%)
+        waived by owner: CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  FAIL  answered_rate            0.683 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - answered_rate: 0.683 (limit 0.7)
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+Exit code 1
+
+$ & '../../.venv/Scripts/python.exe' scripts/check_invariants.py --base origin/main
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+Exit code 0
+
+$ & '../../.venv/Scripts/ruff.exe' check .
+All checks passed!
+Exit code 0
+
+$ & '../../.venv/Scripts/ruff.exe' format --check .
+259 files already formatted
+Exit code 0
+
+$ & '../../.venv/Scripts/python.exe' -m mypy api/src
+Success: no issues found in 29 source files
+Exit code 0
+
+$ git rev-parse origin/main
+27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Exit code 0
+
+The answers and budget inputs match the base. Git reported no changed paths for evidence/latest.json and budgets.toml; both scoreboard blob hashes are 7c73188f304842aaca7940985877ed32e7c59292. The latency waiver in the command output applies only to the historical CC-114 run. git diff --check origin/main HEAD exited 0.
+
+Cold finding disposition after recording the review
+The CC-138 plan in the sibling cc138-model-integration worktree, at evidence/slice-6/cc-138/plan.md, records a live two-call pre-flight on these request settings. GPT-6.2 Sol returned encrypted reasoning without explicit include and accepted that output item on the next request with the tool result. The SDK code copies that optional field when present. The observed provider behavior resolves the first concern for this exact model and protocol. The null replay finding remains open. The SDK wire test proves the invalid shape locally and does not perform provider validation.
+
+Offline pytest
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & '../../.venv/Scripts/python.exe' -m pytest -q -m 'not integration'
+Initial sandbox invocation could not use pytest's Windows temporary directory. Representative fixture error and final summary:
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Users\\johnh\\AppData\\Local\\Temp\\pytest-of-johnh'
+1129 passed, 34 skipped, 8 xfailed, 3 warnings, 275 errors in 177.20s (0:02:57)
+Exit code 1
+A fail-fast repeat isolated the same tmp_path failure after 211 passing tests.
+The identical mandatory command was rerun with the existing approval for temporary-directory access.
+
+Approved rerun output
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+.....................................................................sss [ 29%]
+ssssssssssssss..sss..................................................... [ 34%]
+.........xxxxxxx...x.................................................... [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+........................................................................ [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+.....................sssssssssss..s.ss.................................. [ 94%]
+........................................................................ [ 99%]
+......                                                                   [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1404 passed, 34 skipped, 8 xfailed, 1 warning in 180.80s (0:03:00)
+Exit code 0
+
+Verdict: Not yet.
+The mandatory budget check exits 1 because the checked-in long-tail answered rate is 0.683 against the 0.700 floor. Both the input scoreboard and the budget match the base. This inherited result blocks the manual invariants and AC/TC readiness pass under the review-pr playbook. No current-head live scoreboard or release readiness is certified by this review.
+
+The actionable cold finding is the malformed continuation after a provider function_call with null arguments. The app rejects the tool invocation locally, but replay drops the required arguments field. The live pre-flight evidence resolves the separate encrypted-reasoning concern on the pinned settings.
+
+Scope and checkout verified after testing. HEAD remained 0ebfb316b93bd91391b3d93ef9097bf8a2f66cf5. No tracked changes. No source, assets, commits, or external destinations were modified. No sealed eval sets or E2E transcripts were read.

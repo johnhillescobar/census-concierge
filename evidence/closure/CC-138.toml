@@ -1,0 +1,57 @@
+ticket = "CC-138"
+head = "653a5ab659358b3adb38028870e8a5d0ae97874a"
+required = ["AC1", "AC2", "AC3", "TC1", "TC2", "TC3", "TC4"]
+
+[[row]]
+id = "AC1"
+status = "UNKNOWN"
+expected = "The application uses the exact GPT-6.2 Sol Responses settings from CC-137."
+observed = "The request regression and live /ask smoke passed. Six calls resolved as gpt-6.2-sol. Gate 2 acceptance verification is pending."
+tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
+affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "uv.lock"]
+
+[[row]]
+id = "AC2"
+status = "FAIL"
+expected = "Current integration evidence clears the applicable contract, quality, latency and review gates at repeat 3."
+observed = "The candidate answered 0.775 against a 0.700 floor and passed 210 of 210 geography-grid trials. The owner accepted the measured 25.960 s baseline and 32.215 s candidate p95 in ca50ca7 and 948c107. CC-3 owns the latency follow-up. The same three missing row-GEOID trials and the non-latency regression checks remain open."
+tested_head = "653a5ab659358b3adb38028870e8a5d0ae97874a"
+affects = ["api/src", "scripts/run_demo.py", "scripts/run_grid.py", "evals", "uv.lock"]
+
+[[row]]
+id = "AC3"
+status = "NOT RUN"
+expected = "The integrated revision, validation findings, exact rollback, and merged-main evidence are recorded."
+observed = "The integrated revision, exact rollback and all pre-PR end-to-end results are recorded in evidence/slice-6/cc-138. Merged-main validation remains open."
+
+[[row]]
+id = "TC1"
+status = "UNKNOWN"
+expected = "Stateless continuation preserves provider item order and the IDs linking calls to tool results."
+observed = "The SDK integration test, targeted mutations and live encrypted-reasoning replay passed. Gate 2 acceptance verification is pending."
+tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
+affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "uv.lock"]
+
+[[row]]
+id = "TC2"
+status = "UNKNOWN"
+expected = "Request and response shapes, deterministic validation and bounded failure or repair remain supported."
+observed = "The offline suite and targeted malformed, incomplete and provider-failure mutations passed. The OpenAPI client matches. Gate 2 acceptance verification is pending."
+tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
+affects = ["api/src", "api/tests", "packages/client", "uv.lock"]
+
+[[row]]
+id = "TC3"
+status = "UNKNOWN"
+expected = "Reverting the integration restores the exact pre-integration application and model settings."
+observed = "Gate 1 verified the inverse code diff reproduces the pinned base tree. Gate 2 acceptance verification is pending."
+tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
+affects = ["api/src", "api/tests", "docs/ARCHITECTURE.md"]
+
+[[row]]
+id = "TC4"
+status = "UNKNOWN"
+expected = "The diagnostic collector can still override its answer model."
+observed = "The SDK wire test selected the alternate model and omitted the Sol-only reasoning setting. The mutation failed as expected. Gate 2 acceptance verification is pending."
+tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
+affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "scripts/judge_figures.py", "uv.lock"]

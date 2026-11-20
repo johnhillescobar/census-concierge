@@ -1,0 +1,75 @@
+CC-138 / PR #134 - Gate 1 for encrypted reasoning replay
+Branch: cc-138/responses-integration
+Review base: 5d272a17b4c4ac591d764a4e757ba6053b5b8238
+Measured HEAD: 32aabfe9a8691f445fff25a464f5886e62ac4902
+Mutation checkout: cc138-encrypted-replay-gate1 (detached HEAD, initially clean)
+Initial api/src/ask.py SHA-256: b7b0dcdfc481d080022a4f7464401192a28e2d1e163d5dd8c8b99b30b6424f7e
+The SDK tests use httpx.MockTransport with synthetic data.
+Environment: PYTHONPATH=<checkout>/api, PYTHONIOENCODING=utf-8, PYTHONDONTWRITEBYTECODE=1
+
+GOOD - original reasoning serialization
+$ ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 3.80s
+Exit code: 0
+
+Mutation - omit encrypted_content only from serialized reasoning items
+$ git diff -- api/src/ask.py
+diff --git a/api/src/ask.py b/api/src/ask.py
+index 97100b2..6107ffd 100644
+--- a/api/src/ask.py
++++ b/api/src/ask.py
+@@ -312,6 +312,8 @@ async def _openai_complete(
+     calls: list[dict[str, Any]] = []
+     output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
+     for item in output:
++        if item["type"] == "reasoning":
++            item.pop("encrypted_content", None)
+         if item["type"] == "function_call":
+             try:
+                 parsed = json.loads(item.get("arguments", ""))
+
+BAD - encrypted reasoning omitted
+$ ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:136: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert continuation[2:5] == [reasoning, search, geography]
+E   AssertionError: assert [{'id': 'rs_f...n_call', ...}] == [{'type': 're...graphy', ...}]
+E     
+E     At index 0 diff: {'id': 'rs_fixture', 'summary': [], 'type': 'reasoning'} != {'type': 'reasoning', 'id': 'rs_fixture', 'summary': [], 'encrypted_content': 'opaque-encrypted-reasoning-fixture'}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 1 warning in 4.88s
+Exit code: 1
+
+RESTORED - focused transport module
+$ ../../.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py
+.......                                                                  [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 1 warning in 2.97s
+Exit code: 0
+
+Restored api/src/ask.py SHA-256: b7b0dcdfc481d080022a4f7464401192a28e2d1e163d5dd8c8b99b30b6424f7e
+$ git status --porcelain=v1 --untracked-files=all
+(empty)
+Original PR worktree api/src/ask.py bytes verified unchanged (SHA-256 ce8e96c9defcbfa79c3be39112d83288ab80cc569b01d6398f9172ec9f631cb0).

@@ -1,0 +1,1071 @@
+CC-138 Gate 1 | Slice 6 | 2026-11-19
+
+Checkout C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc138-transport-draft
+Detached HEAD 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+Review base and origin/main 27d4d4711f577cf91bb78890b1dd32ff82c766ed
+Initial working tree clean. Offline checks and targeted mutations ran in this checkout.
+
+Checkout state
+$ git status --short --branch
+## HEAD (no branch)
+Exit code 0
+
+Changed paths
+$ git diff --stat 27d4d4711f577cf91bb78890b1dd32ff82c766ed HEAD
+ api/src/ask.py                  |  71 +++++++-------
+ api/tests/test_ask_responses.py | 209 ++++++++++++++++++++++++++++++++++++++++
+ docs/ARCHITECTURE.md            |   2 +-
+ 3 files changed, 246 insertions(+), 36 deletions(-)
+Exit code 0
+
+Offline check runtime
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -c 'import sys, openai; print(sys.version); print(openai.__version__)'
+3.12.12 (main, Jan 27 2026, 23:45:36) [MSC v.1944 64 bit (AMD64)]
+3.0.0
+Exit code 0
+
+make was unavailable. The check recipe used the existing repository virtual environment with PYTHONPATH set to this checkout's api directory. The first Python suite run hit Windows sandbox temporary directory errors. The first npm install and web suite runs hit sandbox subprocess errors. The initial client drift check ran before npm setup; its sandbox retry hit a temporary directory error. The commands were retried outside the sandbox where needed.
+
+ruff lint
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe check .
+All checks passed!
+Exit code 0
+
+ruff format
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/ruff.exe format --check .
+259 files already formatted
+Exit code 0
+
+mypy
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/mypy.exe api/src
+Success: no issues found in 29 source files
+Exit code 0
+
+Python suite (outside sandbox)
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe -m pytest -q -m 'not integration'
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+...................................................................sssss [ 29%]
+ssssssssssss..sss....................................................... [ 34%]
+.......xxxxxxx...x...................................................... [ 39%]
+........................................................................ [ 44%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 59%]
+........................................................................ [ 64%]
+........................................................................ [ 69%]
+........................................................................ [ 74%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+........................................................................ [ 89%]
+...................sssssssssss..s.ss.................................... [ 94%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1402 passed, 34 skipped, 8 xfailed, 1 warning in 137.07s (0:02:17)
+Exit code 0
+
+Repository invariants
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+Exit code 0
+
+Install pinned web dependencies (outside sandbox)
+$ npm --prefix web ci
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 258 packages, and audited 259 packages in 14s
+
+44 packages are looking for funding
+  run `npm fund` for details
+
+6 vulnerabilities (1 moderate, 3 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+Exit code 0
+
+Web tests (outside sandbox)
+$ npm --prefix web test
+
+> test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc138-transport-draft/web
+
+ ✓ src/plan.test.ts (7 tests) 11ms
+ ✓ src/csv.test.ts (4 tests) 17ms
+ ✓ src/ask.test.ts (7 tests) 19ms
+ ✓ src/display.test.ts (26 tests) 35ms
+ ✓ src/chart.test.tsx (10 tests) 91ms
+ ✓ src/PlanStrip.test.tsx (7 tests) 659ms
+ ✓ src/restore.test.tsx (14 tests) 633ms
+   ✓ restore in App > renders a stored turn with the same elements as a freshly asked one  360ms
+ ✓ src/App.plan.test.tsx (10 tests) 2332ms
+   ✓ plan refinement > posts a table edit with the original question, not rewritten prompt text  507ms
+   ✓ plan refinement > uses the original question even if the chat input changed  372ms
+   ✓ plan refinement > clears a chat error after a successful plan apply  311ms
+ ✓ src/App.test.tsx (25 tests) 3278ms
+   ✓ App result > replaces every previous table row when a new result arrives  379ms
+
+ Test Files  9 passed (9)
+      Tests  110 passed (110)
+   Start at  18:13:18
+   Duration  9.70s (transform 885ms, setup 5.48s, collect 5.23s, tests 7.07s, environment 20.14s, prepare 2.68s)
+Exit code 0
+
+Web typecheck
+$ npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+Exit code 0
+
+Generated client drift (outside sandbox)
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmpbtem1myd\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmpbtem1myd\schema.d.ts [54.9ms]
+packages/client is up to date.
+Exit code 0
+
+Repository budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  waive p95 latency (s)         25.472 <= 20
+        run 2026-11-09T17:53:49+00:00; slowest trial 35.774s (p95 leaves out the top 5%)
+        waived by owner: CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  FAIL  answered_rate            0.683 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - answered_rate: 0.683 (limit 0.7)
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+Exit code 1
+
+Compare the budget configuration and committed scoreboard at base and HEAD
+$ git diff --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed 9b11140865b3bd8210f6fc2a92af15c624b36ad1 -- budgets.toml evidence/latest.json
+
+Exit code 0
+
+Collect the new Responses test case IDs
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; & ../../.venv/Scripts/python.exe -m pytest --collect-only -q api/tests/test_ask_responses.py
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+
+5 tests collected in 2.73s
+Exit code 0
+
+$ & ../../.venv/Scripts/python.exe .gate1_cc138_runner.py rollback .gate1_cc138_rollback-retry.log
+$ git diff --exit-code HEAD -- api docs
+Exit code 0
+
+TC3 exact rollback using a temporary Git index
+$ git diff --binary 27d4d4711f577cf91bb78890b1dd32ff82c766ed 9b11140865b3bd8210f6fc2a92af15c624b36ad1 --  [piped to git apply below]
+$ git read-tree 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+Exit code 0
+
+$ git apply --cached --reverse --whitespace=nowarn -
+Exit code 0
+
+$ git diff-index --cached --exit-code 27d4d4711f577cf91bb78890b1dd32ff82c766ed --
+Exit code 0
+
+TC3 PASS. Reversing the complete integration diff yields the pinned base tree.
+
+Targeted mutations. Each BAD run changed one behavior in api/src/ask.py and ran the selected case. The original file was restored immediately after each run.
+
+$ git diff --exit-code HEAD -- api docs
+Exit code 0
+
+GOOD api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings on 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 1.60s
+Exit code 0
+
+BAD use the previous default answer model for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:112: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\tests\test_ask_responses.py:112: in <genexpr>
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+                     ^^^^^^^^^^^^
+E   KeyError: 'reasoning'
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.58s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD send medium reasoning for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:112: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+E   assert False
+E    +  where False = all(<generator object test_ask_replays_parallel_calls_with_exact_model_settings.<locals>.<genexpr> at 0x000001DCE1FD2340>)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.18s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD lower the response output-token cap for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:112: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+E   assert False
+E    +  where False = all(<generator object test_ask_replays_parallel_calls_with_exact_model_settings.<locals>.<genexpr> at 0x0000020EAFD02340>)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.81s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD send the priority service tier for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:112: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+E   assert False
+E    +  where False = all(<generator object test_ask_replays_parallel_calls_with_exact_model_settings.<locals>.<genexpr> at 0x0000018577782340>)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 4.65s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD store server-side responses for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:112: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+E   assert False
+E    +  where False = all(<generator object test_ask_replays_parallel_calls_with_exact_model_settings.<locals>.<genexpr> at 0x00000220E1212340>)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.77s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD disable parallel function calls for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:112: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all({key: request[key] for key in settings} == settings for request in requests)
+E   assert False
+E    +  where False = all(<generator object test_ask_replays_parallel_calls_with_exact_model_settings.<locals>.<genexpr> at 0x000001F944BF2340>)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.34s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD require strict function schemas for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:122: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert all(
+E   assert False
+E    +  where False = all(<generator object test_ask_replays_parallel_calls_with_exact_model_settings.<locals>.<genexpr> at 0x0000026EDBCE5E50>)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.52s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD change the SDK request timeout for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:91: in test_ask_replays_parallel_calls_with_exact_model_settings
+    response = TestClient(app).post("/ask", json={"question": question})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1211: in post
+    return self.request(
+..\..\.venv\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:804: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\httpx2\_client.py:987: in send
+    response = self._send_handling_auth(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1015: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1050: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1083: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\..\.venv\Lib\site-packages\anyio\from_thread.py:338: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\..\.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+..\..\.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+..\..\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:1281: in handle
+    await super().handle(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\routing.py:280: in handle
+    await self.app(scope, receive, send)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\fastapi\routing.py:706: in app
+    raw_response = await run_endpoint_function(
+..\..\.venv\Lib\site-packages\fastapi\routing.py:352: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\main.py:104: in post_ask
+    return await answer(body)
+           ^^^^^^^^^^^^^^^^^^
+api\src\main.py:81: in answer
+    return await run_ask(body.question, override=body.plan)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:427: in run_ask
+    turn = await complete(messages, openai_tools)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:297: in _openai_complete
+    async with AsyncOpenAI(timeout=5.0, max_retries=0) as client:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\tests\test_ask_responses.py:61: in client
+    assert kwargs == {"timeout": 60.0, "max_retries": 0}
+E   AssertionError: assert {'timeout': 5...x_retries': 0} == {'timeout': 6...x_retries': 0}
+E     
+E     Omitting 1 identical items, use -vv to show
+E     Differing items:
+E     {'timeout': 5.0} != {'timeout': 60.0}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.11s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD enable SDK retries for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:91: in test_ask_replays_parallel_calls_with_exact_model_settings
+    response = TestClient(app).post("/ask", json={"question": question})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\starlette\testclient.py:556: in post
+    return super().post(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1211: in post
+    return self.request(
+..\..\.venv\Lib\site-packages\starlette\testclient.py:455: in request
+    return super().request(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:804: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\httpx2\_client.py:987: in send
+    response = self._send_handling_auth(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1015: in _send_handling_auth
+    response = self._send_handling_redirects(
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1050: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\httpx2\_client.py:1083: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\starlette\testclient.py:354: in handle_request
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+..\..\.venv\Lib\site-packages\anyio\from_thread.py:338: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\_base.py:401: in __get_result
+    raise self._exception
+..\..\.venv\Lib\site-packages\anyio\from_thread.py:263: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\fastapi\applications.py:1163: in __call__
+    await super().__call__(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\applications.py:96: in __call__
+    await self.middleware_stack(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\middleware\errors.py:186: in __call__
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\middleware\errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+..\..\.venv\Lib\site-packages\starlette\middleware\exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+..\..\.venv\Lib\site-packages\fastapi\middleware\asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\routing.py:670: in __call__
+    await self.middleware_stack(scope, receive, send)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:2734: in app
+    await route.handle(scope, receive, send)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:1281: in handle
+    await super().handle(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\routing.py:280: in handle
+    await self.app(scope, receive, send)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:158: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:53: in wrapped_app
+    raise exc
+..\..\.venv\Lib\site-packages\starlette\_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+..\..\.venv\Lib\site-packages\fastapi\routing.py:144: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\fastapi\routing.py:706: in app
+    raw_response = await run_endpoint_function(
+..\..\.venv\Lib\site-packages\fastapi\routing.py:352: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\main.py:104: in post_ask
+    return await answer(body)
+           ^^^^^^^^^^^^^^^^^^
+api\src\main.py:81: in answer
+    return await run_ask(body.question, override=body.plan)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:427: in run_ask
+    turn = await complete(messages, openai_tools)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:297: in _openai_complete
+    async with AsyncOpenAI(timeout=60.0, max_retries=2) as client:
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\tests\test_ask_responses.py:61: in client
+    assert kwargs == {"timeout": 60.0, "max_retries": 0}
+E   AssertionError: assert {'timeout': 6...x_retries': 2} == {'timeout': 6...x_retries': 0}
+E     
+E     Omitting 1 identical items, use -vv to show
+E     Differing items:
+E     {'max_retries': 2} != {'max_retries': 0}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.18s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD drop the model reasoning items from continuation for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:129: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert continuation[2:5] == [reasoning, search, geography]
+E   assert [{'arguments'...population)'}] == [{'type': 're...graphy', ...}]
+E     
+E     At index 0 diff: {'arguments': '{"question": "Find the ACS total population for Harris County, Texas."}', 'call_id': 'call_search_tables', 'name': 'search_tables', 'type': 'function_call', 'id': 'fc_search_tables', 'status': 'completed'} != {'type': 'reasoning', 'id': 'rs_fixture', 'summary': []}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.51s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD reverse provider output order during continuation for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:129: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert continuation[2:5] == [reasoning, search, geography]
+E   assert [{'arguments'... 'reasoning'}] == [{'type': 're...graphy', ...}]
+E     
+E     At index 0 diff: {'arguments': '{"query": "Harris County, Texas", "level": "county"}', 'call_id': 'call_resolve_geography', 'name': 'resolve_geography', 'type': 'function_call', 'id': 'fc_resolve_geography', 'status': 'completed'} != {'type': 'reasoning', 'id': 'rs_fixture', 'summary': []}
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.48s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+BAD use output-item IDs for tool result association for api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_ask_replays_parallel_calls_with_exact_model_settings __________
+api\tests\test_ask_responses.py:131: in test_ask_replays_parallel_calls_with_exact_model_settings
+    assert [item["call_id"] for item in continuation[5:]] == [
+E   AssertionError: assert ['fc_search_t...ve_geography'] == ['call_search...ve_geography']
+E     
+E     At index 0 diff: 'fc_search_tables' != 'call_search_tables'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+1 failed, 3 warnings in 2.21s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+GOOD api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{] on 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 1.99s
+Exit code 0
+
+BAD propagate malformed JSON instead of bounded tool repair for api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+F                                                                        [100%]
+================================== FAILURES ===================================
+____ test_malformed_function_arguments_use_the_existing_tool_validation[{] ____
+api\tests\test_ask_responses.py:164: in test_malformed_function_arguments_use_the_existing_tool_validation
+    response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:427: in run_ask
+    turn = await complete(messages, openai_tools)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:314: in _openai_complete
+    parsed = json.loads(item.arguments or "{}")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\json\__init__.py:346: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py:338: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\json\decoder.py:354: in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ^^^^^^^^^^^^^^^^^^^^^^
+E   json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[{]
+1 failed, 3 warnings in 2.15s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+GOOD api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]] on 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short "api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[[\"value\",\"incorrectly accepted\"]]]"
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 2.74s
+Exit code 0
+
+BAD coerce an array of pairs into function keyword arguments for api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short "api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[[\"value\",\"incorrectly accepted\"]]]"
+F                                                                        [100%]
+================================== FAILURES ===================================
+_ test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]] _
+api\tests\test_ask_responses.py:167: in test_malformed_function_arguments_use_the_existing_tool_validation
+    assert calls == 1
+E   assert 2 == 1
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+1 failed, 3 warnings in 2.19s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+GOOD api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call on 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 2.06s
+Exit code 0
+
+BAD accept partial tool calls from an incomplete response for api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________ test_incomplete_response_does_not_execute_a_partial_call ___________
+api\tests\test_ask_responses.py:192: in test_incomplete_response_does_not_execute_a_partial_call
+    response = await ask.run_ask("Look up a fixture value.", tools={tool.name: tool})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:443: in run_ask
+    out = await dispatch(tool, call, record)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\ask.py:267: in dispatch
+    message = await tool.ainvoke(
+..\..\.venv\Lib\site-packages\langchain_core\tools\structured.py:70: in ainvoke
+    return await super().ainvoke(input, config, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\.venv\Lib\site-packages\langchain_core\tools\structured.py:124: in _arun
+    return await self.coroutine(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\tests\test_ask_responses.py:180: in lookup
+    pytest.fail("An incomplete response must not dispatch its function call")
+E   Failed: An incomplete response must not dispatch its function call
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_incomplete_response_does_not_execute_a_partial_call
+1 failed, 3 warnings in 2.94s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+GOOD api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options on 9b11140865b3bd8210f6fc2a92af15c624b36ad1
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 2.28s
+Exit code 0
+
+BAD send Sol reasoning settings to an overridden model for api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_answer_model_override_does_not_send_sol_reasoning_options ________
+api\tests\test_ask_responses.py:209: in test_answer_model_override_does_not_send_sol_reasoning_options
+    assert "reasoning" not in request
+E   AssertionError: assert 'reasoning' not in {'input': [{'role': 'user', 'content': 'Return a fixture value.'}], 'max_output_tokens': 4096, 'model': 'gpt-4.1', 'parallel_tool_calls': True, ...}
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:423
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:423: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\lastfailed: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/lastfailed", self.lastfailed)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_ask_responses.py::test_answer_model_override_does_not_send_sol_reasoning_options
+1 failed, 3 warnings in 1.88s
+Exit code 1
+
+Mutation killed. Original file restored.
+
+Pristine check after mutations
+$ C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Scripts\python.exe -m pytest -q -m "not integration" --tb=short api/tests/test_ask_responses.py
+.....                                                                    [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_responses.py::test_ask_replays_parallel_calls_with_exact_model_settings
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+..\..\.venv\Lib\site-packages\_pytest\cacheprovider.py:469
+  C:\Users\johnh\Dropbox\Python\census-concierge\.venv\Lib\site-packages\_pytest\cacheprovider.py:469: PytestCacheWarning: could not create cache path C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc138-transport-draft\.pytest_cache\v\cache\nodeids: [WinError 5] Access is denied: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc138-transport-draft\\.pytest_cache\\v\\cache'
+    config.cache.set("cache/nodeids", sorted(self.cached_nodeids))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 passed, 2 warnings in 1.57s
+Exit code 0
+
+$ git diff --exit-code HEAD -- api docs
+Exit code 0
+
+Structural budgets
+$ $env:PYTHONPATH = (Resolve-Path -LiteralPath api).Path; $env:PYTHONIOENCODING = 'utf-8'; & ../../.venv/Scripts/python.exe scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               4890 <= 4890
+  ok    api src files               29 <= 40
+  ok    largest file LOC           408 <= 410
+  ok    web src LOC               3349 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+Exit code 0
+
+Gate 1 verdict. All 5 new cases passed at the pinned head and rejected all 16 targeted mutations. The offline Python and web suites, lint, formatting, type checks, invariants, client drift, structural budgets, and exact rollback passed. The full budget check failed on the inherited committed answered rate of 0.683 against the 0.700 floor. The baseline and integration live scoreboards are outside this Gate 1 run.
