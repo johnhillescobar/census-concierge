@@ -17,7 +17,7 @@ from src.main import app
 from test_ask_route import CONTRACT_FIELDS
 
 
-def function_call(name: str, arguments: str = "{}") -> dict[str, Any]:
+def function_call(name: str, arguments: str | None = "{}") -> dict[str, Any]:
     return {
         "type": "function_call",
         "status": "completed",
@@ -140,9 +140,9 @@ def test_ask_replays_parallel_calls_with_exact_model_settings(
     assert main_turns[3]["input"][-1]["call_id"] == "call_fetch_data"
 
 
-@pytest.mark.parametrize("arguments", ["{", '[["value","incorrectly accepted"]]'])
+@pytest.mark.parametrize("arguments", [None, "{", '[["value","incorrectly accepted"]]'])
 async def test_malformed_function_arguments_use_the_existing_tool_validation(
-    monkeypatch: pytest.MonkeyPatch, arguments: str
+    monkeypatch: pytest.MonkeyPatch, arguments: str | None
 ) -> None:
     calls = 0
 
@@ -169,7 +169,7 @@ async def test_malformed_function_arguments_use_the_existing_tool_validation(
     assert calls == 1
     first, second, third = [request["input"] for request in requests if request["tools"]]
     assert second[: len(first)] == first
-    assert second[-2] == bad
+    assert second[-2] == {key: value for key, value in bad.items() if value is not None}
     assert second[-1]["call_id"] == bad["call_id"]
     assert second[-1]["output"] == "lookup failed: Tool arguments must be a JSON object."
     assert third[-1] == {"type": "function_call_output", "call_id": "call_retry", "output": "blue"}

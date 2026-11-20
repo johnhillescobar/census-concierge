@@ -314,7 +314,7 @@ async def _openai_complete(
         if item.type == "function_call":
             try:
                 parsed = json.loads(item.arguments)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, TypeError):
                 parsed = None
             args = parsed if isinstance(parsed, dict) else None
             calls.append({"id": item.call_id, "name": item.name, "args": args})
