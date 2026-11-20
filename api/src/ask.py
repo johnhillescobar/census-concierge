@@ -310,15 +310,17 @@ async def _openai_complete(
     if response.status != "completed":
         return {"content": "The model did not complete its response.", "tool_calls": []}
     calls: list[dict[str, Any]] = []
-    for item in response.output:
-        if item.type == "function_call":
+    output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
+    for item in output:
+        if item["type"] == "function_call":
             try:
-                parsed = json.loads(item.arguments)
+                parsed = json.loads(item.get("arguments", ""))
             except (json.JSONDecodeError, TypeError):
                 parsed = None
             args = parsed if isinstance(parsed, dict) else None
-            calls.append({"id": item.call_id, "name": item.name, "args": args})
-    output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
+            # The service needs a valid history item even when dispatch rejects the call.
+            item["arguments"] = "{}" if args is None else item["arguments"]
+            calls.append({"id": item["call_id"], "name": item["name"], "args": args})
     return {"content": response.output_text, "tool_calls": calls, "output": output}
 
 
@@ -427,8 +429,7 @@ async def run_ask(
                 if not turn_no and (stop := await incomplete(record, split)):
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
-                pending = list(turn.get("tool_calls") or [])
-                if not pending:
+                if not (pending := list(turn.get("tool_calls") or [])):
                     break
                 # Replay provider items before the corresponding tool results with store=False.
                 messages.extend(turn.get("output", []))

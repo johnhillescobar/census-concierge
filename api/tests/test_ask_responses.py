@@ -169,7 +169,7 @@ async def test_malformed_function_arguments_use_the_existing_tool_validation(
     assert calls == 1
     first, second, third = [request["input"] for request in requests if request["tools"]]
     assert second[: len(first)] == first
-    assert second[-2] == {key: value for key, value in bad.items() if value is not None}
+    assert second[-2] == {**bad, "arguments": "{}"}
     assert second[-1]["call_id"] == bad["call_id"]
     assert second[-1]["output"] == "lookup failed: Tool arguments must be a JSON object."
     assert third[-1] == {"type": "function_call_output", "call_id": "call_retry", "output": "blue"}
