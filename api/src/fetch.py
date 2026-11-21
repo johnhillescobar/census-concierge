@@ -68,8 +68,9 @@ def _kept_urls(record: Any) -> list[str]:
     artifact = getattr(record, "fetch", None)
     built = str(getattr(record, "url", None) or "")
     urls = [*record.retained_urls, *getattr(artifact, "urls", []), built]
-    record.retained_urls = list(dict.fromkeys(str(CensusURL(url)) for url in urls if url))
-    return record.retained_urls
+    kept = list(dict.fromkeys(str(CensusURL(url)) for url in urls if url))
+    record.retained_urls = kept
+    return kept
 
 
 def clear_series(record: Any) -> None:
@@ -103,6 +104,8 @@ def series_from_record(record: Any) -> dict[str, Any]:
         years = {key: list(getattr(artifact, key)) for key in _SERIES}
     if record.retained_legs:
         urls = [leg.url for leg in record.retained_legs]
+        if built and not years["legs"] and str(built) not in urls:
+            urls.append(str(built))
         years["legs"] = list(record.retained_legs)
     return {"urls": [str(CensusURL(url)) for url in urls if url], **years}
 

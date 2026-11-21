@@ -51,6 +51,7 @@ CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[di
 @dataclass
 class ExecutionRecord:
     pool: list[dict[str, Any]] = field(default_factory=list)
+    built_table: str = ""
     built_pool: list[dict[str, Any]] = field(default_factory=list)
     geography: GeoSpec | None = None
     geographies: list[GeoSpec] = field(default_factory=list)
@@ -117,8 +118,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
             record.geo_queries = track_geo_query(record.geo_queries, query)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
-        if artifact.ok and artifact.table_id != record.table_id:
-            record.built_pool = []
+        if artifact.ok and artifact.table_id != record.built_table:
+            record.built_table, record.built_pool = artifact.table_id, []
         clear_series(record)
         if artifact.ok:
             record.consecutive_failures.pop("fetch_data", None)
@@ -322,8 +323,7 @@ async def _openai_complete(
 
 
 def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
-    key = os.environ.get("CENSUS_API_KEY")
-    if not key:
+    if not (key := os.environ.get("CENSUS_API_KEY")):
         raise ValueError("missing CENSUS_API_KEY")
     from src.retrieval import availability, index, metadata
 

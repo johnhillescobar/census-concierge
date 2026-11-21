@@ -392,15 +392,15 @@ async def test_provider_failure_preserves_a_prior_fetch_without_retry(
 
 
 @pytest.mark.parametrize(
-    ("dataset", "acs1_status"),
-    [("acs5", None), ("acs1", 204), ("acs1", 404)],
-    ids=["new-build", "empty-acs1", "missing-acs1"],
+    "scenario", ["new-build", "unattempted-new-build", "empty-acs1", "missing-acs1"]
 )
 def test_provider_failure_fetches_only_the_current_accepted_plan(
-    monkeypatch: pytest.MonkeyPatch, dataset: str, acs1_status: int | None
+    monkeypatch: pytest.MonkeyPatch, scenario: str
 ) -> None:
     place = "Harris County, Texas"
     question = f"Find the ACS total population for {place}."
+    acs1_status = {"empty-acs1": 204, "missing-acs1": 404}.get(scenario)
+    dataset = "acs1" if acs1_status is not None else "acs5"
     fetched: list[str] = []
 
     def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
@@ -433,6 +433,10 @@ def test_provider_failure_fetches_only_the_current_accepted_plan(
         turns.extend([[previous], [function_call("fetch_data")]])
     build = json.dumps({"table_id": "B01003", "dataset": dataset, "vintage": 2024})
     turns.append([function_call("build_url", build)])
+    if scenario == "unattempted-new-build":
+        unavailable = function_call("fetch_data", '{"years":[2050]}')
+        unavailable.update(id="fc_future_fetch", call_id="call_future_fetch")
+        turns.append([unavailable])
     failure = httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
     replies = iter([*({"status": "completed", "output": items} for items in turns), failure])
     install_transport(monkeypatch, lambda _: next(replies))
@@ -442,8 +446,19 @@ def test_provider_failure_fetches_only_the_current_accepted_plan(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["urls"] == [leg["url"] for leg in body["legs"]]
     assert all("key=" not in url for url in body["urls"])
+    if scenario == "unattempted-new-build":
+        (leg,) = body["legs"]
+        assert fetched == ["/data/2019/acs/acs5"]
+        assert leg["status_code"] == 503 and leg["url"] == body["urls"][0]
+        assert [urlsplit(url).path for url in body["urls"]] == [
+            "/data/2019/acs/acs5",
+            "/data/2024/acs/acs5",
+        ]
+        assert body["rows"] == body["attempted_years"] == body["plan"]["years"] == []
+        assert body["requested_years"] == body["plan"]["requested_years"] == [2050]
+        return
+    assert body["urls"] == [leg["url"] for leg in body["legs"]]
     assert [urlsplit(url).path for url in body["urls"]] == fetched
     assert body["requested_years"] == body["attempted_years"] == body["plan"]["years"] == [2024]
     if dataset == "acs5":

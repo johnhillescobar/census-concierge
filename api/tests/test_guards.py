@@ -711,6 +711,7 @@ def test_bracket_alternative_is_not_duplicated() -> None:
         "pinned-then-empty",
         "rebuilt-after-empty",
         "rebuilt-after-unrelated",
+        "rebuilt-after-geography",
         "different-table",
     ],
 )
@@ -738,10 +739,18 @@ def test_later_search_cannot_turn_validated_medians_into_a_total(scenario: str) 
     )
     _absorb(record, "build_url", built, {})
     _absorb(record, "search_tables", SearchTablesResult(hits=[median] if pinned else []), {})
-    if scenario in {"pinned-then-empty", "rebuilt-after-empty", "different-table"}:
+    if scenario in {
+        "pinned-then-empty",
+        "rebuilt-after-empty",
+        "rebuilt-after-geography",
+        "different-table",
+    }:
         _absorb(record, "search_tables", SearchTablesResult(hits=[]), {})
     if scenario == "rebuilt-after-unrelated":
         _absorb(record, "search_tables", SearchTablesResult(hits=[{"table_id": "B01003"}]), {})
+    if scenario == "rebuilt-after-geography":
+        _absorb(record, "resolve_geography", {"specs": [_harris()]}, {})
+        assert record.url is None
     if scenario.startswith("rebuilt"):
         _absorb(record, "build_url", built, {})
     if scenario == "different-table":

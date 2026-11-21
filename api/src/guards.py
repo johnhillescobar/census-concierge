@@ -72,7 +72,7 @@ def acs1_geography_ineligible(record: GuardRecord) -> AskWarning | None:
     if not getattr(artifact, "acs1_ineligible", False):
         return None
     detail = "ACS1 is not published for this geography, or not for every member of this listing."
-    if artifact.dataset == "acs5" and artifact.rows:
+    if getattr(artifact, "dataset", "") == "acs5" and getattr(artifact, "rows", None):
         detail += " ACS5 data was returned instead."
     return AskWarning(code="acs1_geography_ineligible", detail=detail)
 

@@ -73,7 +73,7 @@ export function formatCensusNumber(raw: string | null | undefined): string {
 }
 
 export function censusUrls(response: AskResponse): string[] {
-  return response.urls.map(redactCensusUrl).filter(Boolean);
+  return [...new Set(response.urls.map(redactCensusUrl).filter(Boolean))];
 }
 
 export function censusFetchFailed(response: AskResponse): boolean {

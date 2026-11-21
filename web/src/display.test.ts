@@ -4,6 +4,7 @@ import { rowsToCsv } from "./csv";
 import {
   censusFetchFailed,
   censusRaw,
+  censusUrls,
   censusYearsIncomplete,
   formatCensusNumber,
   formatCensusValue,
@@ -141,10 +142,9 @@ describe("censusYearsIncomplete", () => {
 });
 
 describe("redactCensusUrl", () => {
-  it("strips key= from a Census URL", () => {
-    const raw = `${harris.urls[0]}&key=secret`;
-    expect(redactCensusUrl(raw)).not.toContain("key=");
-    expect(redactCensusUrl(raw)).toContain("get=NAME");
+  it("strips the key and shows one link for repeated Census URLs", () => {
+    const [url] = harris.urls;
+    expect(censusUrls({ ...harris, urls: [url, `${url}&key=secret`] })).toEqual([url]);
   });
 
   it("strips a first-parameter key and an uppercase KEY", () => {
