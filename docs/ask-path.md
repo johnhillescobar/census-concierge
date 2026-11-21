@@ -22,7 +22,7 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 
 ## Finish path
 
-Model failure returns collected artifacts and fetches an accepted Census URL if still unattempted.
+Model failure returns collected artifacts and fetches an unattempted accepted plan, preserving its URLs and statuses.
 `finish_tools()` in `api/src/finish.py` handles a missing URL, the wrong listing
 level, an incomplete comparison, or an ACS1 request that never built `/acs/acs1`.
 It retries search (only if the pool is empty), then resolves geography

@@ -391,6 +391,65 @@ async def test_provider_failure_preserves_a_prior_fetch_without_retry(
         assert [leg.status_code for leg in response.legs] == [503]
 
 
+@pytest.mark.parametrize("dataset", ["acs5", "acs1"], ids=["new-build", "unavailable-acs1"])
+def test_provider_failure_fetches_only_the_current_accepted_plan(
+    monkeypatch: pytest.MonkeyPatch, dataset: str
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Find the ACS total population for {place}."
+    fetched: list[str] = []
+
+    def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        found = _tools(record)
+        success = found["fetch_data"].http_get
+
+        def census(url: str) -> tuple[int, Any]:
+            path = urlsplit(url).path
+            fetched.append(path)
+            if path.endswith("/acs1"):
+                return 404, []
+            return (503, []) if "/2019/" in path else success(url)
+
+        found["fetch_data"].http_get = census
+        return found
+
+    turns = [
+        [
+            function_call("search_tables", json.dumps({"question": question, "dataset": dataset})),
+            function_call(
+                "resolve_geography",
+                json.dumps({"query": place, "level": "county", "dataset": dataset}),
+            ),
+        ],
+    ]
+    if dataset == "acs5":
+        previous = function_call("build_url", '{"table_id":"B01003","vintage":2019}')
+        previous.update(id="fc_previous_build", call_id="call_previous_build")
+        turns.extend([[previous], [function_call("fetch_data")]])
+    build = json.dumps({"table_id": "B01003", "dataset": dataset, "vintage": 2024})
+    turns.append([function_call("build_url", build)])
+    failure = httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+    replies = iter([*({"status": "completed", "output": items} for items in turns), failure])
+    install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    (leg,) = body["legs"]
+    assert body["urls"] == [leg["url"]]
+    if dataset == "acs5":
+        assert fetched == ["/data/2019/acs/acs5", "/data/2024/acs/acs5"]
+        assert leg["year"] == 2024 and leg["status_code"] == 200
+        assert body["rows"][0]["GEO_ID"] == "0500000US48201"
+    else:
+        assert fetched == ["/data/2024/acs/acs1"]
+        assert urlsplit(leg["url"]).path == fetched[0]
+        assert leg["status_code"] == 404 and body["rows"] == []
+        assert "acs1_geography_ineligible" in {warning["code"] for warning in body["warnings"]}
+
+
 @pytest.mark.parametrize("later_topic", [None, "empty", "singleton"])
 def test_ask_keeps_published_alternatives_for_the_validated_table(
     monkeypatch: pytest.MonkeyPatch, later_topic: str | None

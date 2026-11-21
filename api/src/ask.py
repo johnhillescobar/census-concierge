@@ -117,6 +117,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         record.vintages.append((artifact.dataset, artifact.vintage))
         clear_series(record)
         if artifact.ok:
+            record.consecutive_failures.pop("fetch_data", None)
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
             record.universe = artifact.universe
@@ -425,7 +426,7 @@ async def run_ask(
                     tool = tools.get("fetch_data")
                     attempted = record.fetch or record.consecutive_failures.get("fetch_data")
                     if record.url and not attempted and isinstance(tool, FetchDataTool):
-                        await dispatch(tool.model_copy(update={"question_years": None}), {}, record)
+                        await dispatch(tool.model_copy(update={"recovery": True}), {}, record)
                     return assemble(answer, record)
                 if not (pending := list(turn.get("tool_calls") or [])):
                     break
