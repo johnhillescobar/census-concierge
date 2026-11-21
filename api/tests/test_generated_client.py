@@ -35,6 +35,7 @@ CONTRACT_FIELDS = (
     "comparisons",
     "warnings",
     "plan",
+    "combined_rows",
     "chart",
     "chart_unavailable",
 )
@@ -55,7 +56,7 @@ def test_generated_schema_declares_every_contract_field() -> None:
     end = text.index("AskWarning:", start)
     body = text[start:end]
     for field in CONTRACT_FIELDS:
-        needle = f"{field}?:" if field == "chart" else f"{field}:"
+        needle = f"{field}?:" if field in {"chart", "combined_rows"} else f"{field}:"
         assert needle in body, field
 
 

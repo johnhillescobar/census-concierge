@@ -34,10 +34,11 @@ CONTRACT_FIELDS = (
     "comparisons",
     "warnings",
     "plan",
+    "combined_rows",
     "chart",
     "chart_unavailable",
 )
-REQUIRED_FIELDS = CONTRACT_FIELDS[:-2]
+REQUIRED_FIELDS = CONTRACT_FIELDS[:-3]
 
 
 def test_openapi_documents_post_ask() -> None:
@@ -168,6 +169,7 @@ EMPTY_CONTRACT = {
     "comparisons": [],
     "warnings": [],
     "plan": EMPTY_PLAN,
+    "combined_rows": [],
     "chart": None,
     "chart_unavailable": False,
 }

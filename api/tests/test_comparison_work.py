@@ -93,9 +93,9 @@ def test_work_over_the_bound_is_refused_before_any_pair_is_built(
     warning = comparison_too_large(record, rows)
     assert warning is not None and warning.code == "comparison_too_large"
     assert f"{work:,}" in warning.detail and f"{MAX_COMPARISON_WORK:,}" in warning.detail
-    warnings, kept, _extra, compared = finish_aggregation(record, rows, set())
+    warnings, combined, _extra, compared = finish_aggregation(record, rows, set())
     assert [item.code for item in warnings] == ["comparison_too_large"]
-    assert compared == [] and kept == rows  # every row still ships
+    assert compared == [] and combined == []
     assert no_pair_may_be_built == []
 
 
@@ -133,9 +133,9 @@ def test_the_largest_legitimate_fan_out_is_still_compared(pairs_built: list[int]
     record = _record(rows=rows)
     estimates = [key for key in rows[0] if key.endswith("E") and "_" in key]
     assert comparison_work(rows, estimates) == 44_250
-    warnings, kept, _extra, compared = finish_aggregation(record, rows, set())
+    warnings, combined, _extra, compared = finish_aggregation(record, rows, set())
     assert "comparison_too_large" not in {item.code for item in warnings}
-    assert kept == rows
+    assert combined == []
     # one geography against another in the same year: 10 pairs x 12 years x 25 columns
     assert len(compared) == 10 * 12 * 25
     pair = compared[0]
@@ -172,8 +172,8 @@ def test_nothing_is_warned_when_no_comparison_was_asked(
     rows = _rows(400, 2)
     record = _record(ASKS_FOR_NO_COMPARISON, rows)
     assert comparison_too_large(record, rows) is None
-    warnings, kept, _extra, compared = finish_aggregation(record, rows, set())
-    assert warnings == [] and compared == [] and kept == rows
+    warnings, combined, _extra, compared = finish_aggregation(record, rows, set())
+    assert warnings == [] and compared == [] and combined == []
     assert no_pair_may_be_built == []
 
 
@@ -183,7 +183,7 @@ def test_overlapping_vintages_are_warned_once_and_not_as_too_large(
     rows = _rows(400, 2)
     record = _record(rows=rows)
     record.vintages = [("acs5", 2019), ("acs5", 2022)]
-    warnings, _kept, _extra, compared = finish_aggregation(record, rows, set())
+    warnings, _combined, _extra, compared = finish_aggregation(record, rows, set())
     assert [item.code for item in warnings] == ["overlapping_vintage"]
     assert compared == []
     assert no_pair_may_be_built == []
@@ -193,7 +193,7 @@ def test_the_same_rows_with_distinct_vintages_are_warned_as_too_large() -> None:
     rows = _rows(400, 2)
     record = _record(rows=rows)
     record.vintages = [("acs5", 2017), ("acs5", 2022)]
-    warnings, _kept, _extra, _compared = finish_aggregation(record, rows, set())
+    warnings, _combined, _extra, _compared = finish_aggregation(record, rows, set())
     assert [item.code for item in warnings] == ["comparison_too_large"]
 
 

@@ -386,6 +386,7 @@ class AskResponse(BaseModel):
     comparisons: list[Comparison] = Field(description="Paired estimates with MOE_diff.")
     warnings: list[AskWarning] = Field(description="Non-blocking guards (docs/requirements.md).")
     plan: ResultPlan = Field(description="Executed table, years, and geographies for this answer.")
+    combined_rows: list[dict[str, str | None]] = Field(default_factory=list)
     chart: ChartSpec | None = Field(default=None, description="Validated chart roles, or null.")
     chart_unavailable: bool = Field(default=False, description="Model chart failed validation.")
 

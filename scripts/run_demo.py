@@ -119,13 +119,19 @@ def level_problems(entry: dict[str, Any], body: dict[str, Any]) -> tuple[list[st
     return sorted(fetched - legs), sorted(legs - fetched if isinstance(expected, list) else [])
 
 
-def has_moe(body: dict[str, Any]) -> bool:
-    """Every returned estimate in every row had its M variable fetched. The contract is to fetch M
-    with each E, so a fetched M that Census suppressed (null or a sentinel) still counts, while one
-    M beside two Es, or an E with no M column at all, does not. A row with no estimate column (a
-    decennial count) owes none."""
+def _delivered_rows(body: dict[str, Any]) -> list[Any]:
     rows = body.get("rows")
+    combined = body.get("combined_rows")
     rows = rows if isinstance(rows, list) else []
+    return [*rows, *combined] if isinstance(combined, list) else rows
+
+
+def has_moe(body: dict[str, Any]) -> bool:
+    """Each estimate has an M column in the fetched or calculated row.
+
+    An M that Census suppressed still counts. Decennial counts owe no M.
+    """
+    rows = _delivered_rows(body)
     return bool(rows) and all(
         isinstance(row, dict) and all(f"{key[:-1]}M" in row for key in row if _is_estimate(key))
         for row in rows
@@ -501,7 +507,7 @@ def _ask(client: Any, clock: Clock, entry: dict[str, Any], repeat: int) -> Trial
         t_census_api=t_census,
         t_ours=t_ours,
         detail=detail,
-        rows=len(body.get("rows") or []),
+        rows=len(_delivered_rows(body)),
         t_rerank=clock.seconds("rerank"),
         t_embed=clock.seconds("embed"),
         has_moe=has_moe(body),

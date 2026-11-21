@@ -409,13 +409,10 @@ def finish_aggregation(
                     reason="distribution versus median",
                 )
             )
-        return warnings, rows, extra, compared
+        return warnings, [], extra, compared
     if not _wants_combination(record.question) or not _additive_measure(record):
-        return warnings, rows, extra, compared
-    _count, combined_rows = combine_additive(rows)
-    if not combined_rows:
-        return warnings, rows, extra, compared
-    return warnings, [*rows, *combined_rows], extra, compared
+        return warnings, [], extra, compared
+    return warnings, combine_additive(rows)[1], extra, compared
 
 
 def evaluate(record: GuardRecord) -> list[AskWarning]:

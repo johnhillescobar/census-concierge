@@ -134,6 +134,10 @@ export interface components {
              * @default false
              */
             chart_unavailable: boolean;
+            /** Combined Rows */
+            combined_rows?: {
+                [key: string]: string | null;
+            }[];
             /**
              * Comparisons
              * @description Paired estimates with MOE_diff.

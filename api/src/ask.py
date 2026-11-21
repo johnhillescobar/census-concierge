@@ -230,23 +230,25 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
             )
     fallback = record.geography.geoid if record.geography else ""
     rows = rows_with_geoid(record.rows, fallback)
-    warnings, rows, extra, compared = finish_aggregation(
+    warnings, combined, extra, compared = finish_aggregation(
         record, rows, {item.table_id for item in alternatives}
     )
     alternatives.extend(extra)
-    dataset = str(getattr(record.fetch, "dataset", "") or "")
-    dataset = dataset or (record.url.dataset if record.url else "")
+    dataset = str(getattr(record.fetch, "dataset", "") or getattr(record.url, "dataset", ""))
     dataset = dataset or (record.vintages[0][0] if record.vintages else "acs5")
     year = record.vintages[-1][1] if record.vintages else None
-    rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
+    table_id = record.table_id
+    rows = stamp_provenance(rows, dataset=dataset, table_id=table_id, fallback_year=year)
+    combined = stamp_provenance(combined, dataset=dataset, table_id=table_id, fallback_year=year)
     return AskResponse(
-        **take_chart(answer, rows, warnings, record),
+        **take_chart(answer, [*rows, *combined], warnings, record),
         **series_from_record(record),
         rows=rows,
+        combined_rows=combined,
         moe=moe_rows(rows),
         geoid=response_geoid(rows, fallback),
         universe=selected_universe,
-        table_id=record.table_id,
+        table_id=table_id,
         plan=plan_from_record(record),
         alternatives=alternatives,
         comparisons=compared,

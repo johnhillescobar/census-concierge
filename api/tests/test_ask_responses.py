@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
@@ -259,6 +260,62 @@ def test_ask_returns_collected_artifacts_after_model_failure(
         assert body["urls"] == []
     candidates = {item["table_id"] for item in body["alternatives"]}
     assert ("B19013" in candidates) == (stage != "initial")
+
+
+@pytest.mark.parametrize("provider_fails", [False, True], ids=["complete", "late-503"])
+def test_ask_keeps_calculated_totals_separate_from_geocoded_rows(
+    monkeypatch: pytest.MonkeyPatch, provider_fails: bool
+) -> None:
+    places = ["Detroit city, Michigan", "Phoenix city, Arizona"]
+    question = f"What is the total population of {places[0]} and {places[1]} combined?"
+    census_rows = {
+        "state:26": [places[0], "120", "3", "1600000US2622000"],
+        "state:04": [places[1], "80", "4", "1600000US0455000"],
+    }
+
+    def census_get(url: str) -> tuple[int, list[list[str]]]:
+        state = parse_qs(urlsplit(url).query)["in"][0]
+        return 200, [["NAME", "B01003_001E", "B01003_001M", "GEO_ID"], census_rows[state]]
+
+    def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        found = _tools(record)
+        found["fetch_data"].http_get = census_get
+        return found
+
+    turns = [
+        [
+            function_call("search_tables", json.dumps({"question": question})),
+            function_call("resolve_geography", json.dumps({"places": places, "level": "place"})),
+        ],
+        [function_call("build_url", '{"table_id":"B01003"}')],
+        [function_call("fetch_data", '{"years":[2024]}')],
+    ]
+    final = (
+        httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+        if provider_fails
+        else {"status": "completed", "output": [message("The fetch completed.")]}
+    )
+    replies = iter([*({"status": "completed", "output": items} for items in turns), final])
+    install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [row["GEO_ID"] for row in body["rows"]] == [row[-1] for row in census_rows.values()]
+    assert [row["B01003_001M"] for row in body["moe"]] == ["3", "4"]
+    assert len(body["urls"]) == len(body["legs"]) == 2
+    assert {parse_qs(urlsplit(url).query)["in"][0] for url in body["urls"]} == census_rows.keys()
+    (total,) = body["combined_rows"]
+    assert not total.get("GEO_ID")
+    assert (total["B01003_001E"], total["B01003_001M"], total["component_count"]) == (
+        "200",
+        "5",
+        "2",
+    )
+    assert total["year"] == "2024"
+    assert total["NAME"] in body["answer"]
 
 
 async def test_provider_failure_keeps_fetched_data_without_retry(

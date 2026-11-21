@@ -106,8 +106,8 @@ export function matchingMoe(
 
 export function normalizeActiveDataset(response: AskResponse): DatasetRow[] {
   const dataset: DatasetRow[] = [];
-  response.rows.forEach((row, index) => {
-    const margins = response.moe[index];
+  response.rows.concat(response.combined_rows ?? []).forEach((row, index) => {
+    const margins = index < response.rows.length ? response.moe[index] : row;
     for (const variable of estimateVariables(row)) {
       dataset.push({
         dataset: row.dataset || "",

@@ -155,9 +155,9 @@ the loop stopped before `build_url`, or the question was refused as incomplete.
 `comparisons[]` carries both estimates, both MOEs, `MOE_diff`, and the 90%
 conclusion. Pairing is skipped before any pair is built when row pairs x estimate columns
 exceeds `MAX_COMPARISON_WORK` (`comparison_too_large`); rows, URL and MOE still return.
-Place-vs-parent emits `shared_sample`. Additive areas combine via
-`sqrt(Σ MOEᵢ²)` and warn past five (`moe_aggregation_degraded`). Combining
-published medians is declined (`median_not_aggregatable`).
+Place-vs-parent emits `shared_sample`. `combined_rows[]` carries calculated totals and their
+`sqrt(Σ MOEᵢ²)` margins. The approximation warns past five areas (`moe_aggregation_degraded`).
+Published medians cannot be combined (`median_not_aggregatable`).
 
 ## UI
 
