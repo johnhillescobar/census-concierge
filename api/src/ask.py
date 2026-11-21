@@ -34,7 +34,7 @@ from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_level import geo_status, note_intent
 from src.geo_list import list_census_names
-from src.guards import finish_aggregation
+from src.guards import finish_aggregation, response_pool, selected_hit
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import BuildUrlResult, BuildUrlTool, SearchTablesResult, SearchTablesTool
@@ -185,20 +185,11 @@ def _how_differs(
     return "related table"
 
 
-def _selected_hit(pool: list[dict[str, Any]], selected: str) -> dict[str, Any]:
-    if not selected:
-        return {}
-    for hit in pool:
-        if str(hit["table_id"]) == selected:
-            return hit
-    return next((hit for hit in pool if selected in map(str, hit.get("members") or [])), {})
-
-
 def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
-    pool = record.built_pool if record.url and record.built_pool else record.pool
-    selected_hit = _selected_hit(pool, record.table_id)
-    selected_universe = record.universe or str(selected_hit.get("universe") or "")
-    selected_title = str(selected_hit.get("title") or "")
+    pool = response_pool(record)
+    selected = selected_hit(pool, record.table_id)
+    selected_universe = record.universe or str(selected.get("universe") or "")
+    selected_title = str(selected.get("title") or "")
     alternatives: list[Alternative] = []
     for hit in pool:
         table_id = str(hit["table_id"])

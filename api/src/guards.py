@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Protocol
+from typing import Any, Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
@@ -253,18 +253,23 @@ def _wants_combination(question: str) -> bool:
     return _COMBINE.search(question) is not None
 
 
+def response_pool(record: GuardRecord) -> list[dict[str, Any]]:
+    built = getattr(record, "built_pool", None) if getattr(record, "url", None) else None
+    return [hit for hit in (built or getattr(record, "pool", None) or []) if isinstance(hit, dict)]
+
+
+def selected_hit(pool: list[dict[str, Any]], selected: str) -> dict[str, Any]:
+    if not selected:
+        return {}
+    for hit in pool:
+        if str(hit.get("table_id") or "") == selected:
+            return hit
+    return next((hit for hit in pool if selected in map(str, hit.get("members") or [])), {})
+
+
 def _selected_title(record: GuardRecord) -> str:
-    table_id = getattr(record, "table_id", "") or ""
-    member_title = ""
-    for hit in getattr(record, "pool", []) or []:
-        if not isinstance(hit, dict):
-            continue
-        title = str(hit.get("title") or "")
-        if str(hit.get("table_id") or "") == table_id:
-            return title
-        if table_id in {str(member) for member in (hit.get("members") or [])}:
-            member_title = title
-    return member_title
+    hit = selected_hit(response_pool(record), getattr(record, "table_id", "") or "")
+    return str(hit.get("title") or "")
 
 
 def _median_measure(record: GuardRecord) -> bool:

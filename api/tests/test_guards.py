@@ -702,6 +702,26 @@ def test_bracket_alternative_is_not_duplicated() -> None:
     assert [item.table_id for item in response.alternatives].count("B19001") == 1
 
 
+def test_empty_followup_search_cannot_turn_validated_medians_into_a_total() -> None:
+    rows = [
+        {"GEO_ID": "0500000US17031", "B19013_001E": "50000", "B19013_001M": "1000"},
+        {"GEO_ID": "0500000US17097", "B19013_001E": "60000", "B19013_001M": "2000"},
+    ]
+    record = ExecutionRecord(
+        question="Combine typical household incomes for Cook and Lake counties.",
+        table_id="B19013",
+        built_pool=[{"table_id": "B19013", "title": "Median Household Income"}],
+        url=CensusURL(f"{CENSUS_API}/2024/acs/acs5?get=B19013_001E&for=county:031&in=state:17"),
+        rows=rows,
+    )
+
+    response = assemble("Fetched both counties.", record)
+
+    assert "median_not_aggregatable" in {warning.code for warning in response.warnings}
+    assert response.combined_rows == []
+    assert [row["B19013_001E"] for row in response.rows] == ["50000", "60000"]
+
+
 def test_combined_margin_is_rss_not_linear() -> None:
     record = ExecutionRecord(question=T18, table_id="B27001")
     record.rows = [
