@@ -47,7 +47,7 @@ id = "AC3"
 status = "PASS"
 command = "Verify candidate revision and acceptance evidence; reverse the runtime diff in temporary Git archives"
 expected = "The integrated revision, validation findings, exact rollback, and merged-main evidence are recorded."
-observed = "Candidate revision, scoped verification results and exact rollback are recorded. The required merged-main rerun remains pending in the separate post_merge block."
+observed = "Candidate revision, scoped verification results and exact rollback are recorded. The post_merge block records the passing scoped rerun on merged main."
 tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
 reviewer = "Codex (rollback and evidence verification)"
 evidence = [{ path = "evidence/slice-6/cc-138/plan.md", sha256 = "975c68ae3f5a83b4a5d6e882aee52d40f3ad6bc0eac3fe9cbf176fc4db4cf478" }, { path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
@@ -96,3 +96,7 @@ tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
 reviewer = "Codex (fresh scoped Gate 2)"
 evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
 affects = ["api/src/ask.py","api/tests/test_ask_responses.py","scripts/judge_figures.py","uv.lock"]
+
+[post_merge]
+main_head = "8f95001a08c21f479bac316cc8bac59eeb81ab27"
+e2e = { path = "evidence/slice-6/cc-138/e2e-post-pr135.txt", sha256 = "0e785dbc51b189182582d309eab1278d2fbd0a043bcdced19482c90e0a65f124" }
