@@ -355,6 +355,69 @@ async def test_provider_failure_keeps_fetched_data_without_retry(
     assert response.geoid == "0500000US48201"
 
 
+@pytest.mark.parametrize("later_topic", [None, "empty", "singleton"])
+def test_ask_keeps_published_alternatives_for_the_validated_table(
+    monkeypatch: pytest.MonkeyPatch, later_topic: str | None
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Get ACS total population for {place}."
+    pools = {
+        "population": ["B01003", "B02008", "B01001"],
+        "empty": [],
+        "singleton": ["B01003"],
+    }
+    titles = {"B01003": "Total Population", "B02008": "Unpublished", "B01001": "Sex by Age"}
+    request_tools: dict[str, Any] = {}
+
+    def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        request_tools.update(_tools(record))
+        search = request_tools["search_tables"]
+        search.search = lambda topic, k: pools[topic][:k]
+        search.describe = lambda table: {"title": titles[table], "universe": "Total population"}
+        search.published = lambda _, table: table != "B02008"
+        search.select = lambda _, hits: hits[0]["table_id"]
+        return request_tools
+
+    search_args = {"question": question, "topic": "population", "k": 2 if later_topic else 1}
+    turns = [
+        [
+            function_call("search_tables", json.dumps(search_args)),
+            function_call("resolve_geography", json.dumps({"query": place, "level": "county"})),
+        ],
+        [function_call("build_url", '{"table_id":"B01003"}')],
+        [function_call("fetch_data")],
+    ]
+    if later_topic:
+        turns.append(
+            [
+                {
+                    **function_call("search_tables", json.dumps({"topic": later_topic})),
+                    "id": "fc_later_search",
+                    "call_id": "call_later_search",
+                }
+            ]
+        )
+    final = (
+        httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+        if later_topic
+        else {"status": "completed", "output": [message("The fetch completed.")]}
+    )
+    replies = iter([*({"status": "completed", "output": items} for items in turns), final])
+    install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["table_id"] == "B01003"
+    assert len(body["urls"]) == len(body["rows"]) == 1
+    assert body["rows"][0]["GEO_ID"] == "0500000US48201"
+    assert [item["table_id"] for item in body["alternatives"]] == ["B01001"]
+    if later_topic:
+        assert request_tools["build_url"].allowed_tables() == set(pools[later_topic])
+
+
 async def test_answer_model_override_does_not_send_sol_reasoning_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

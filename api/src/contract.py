@@ -281,8 +281,10 @@ def pin_tool_args(
     name: str, args: dict[str, Any], plan: ResultPlan | None, question: str = ""
 ) -> dict[str, Any]:
     out = dict(args)
-    if name == "search_tables" and question:
-        out["question"] = question  # the selector reads the user's words, not the model's copy
+    if name == "search_tables":
+        out.pop("k", None)  # the application owns the search depth
+        if question:
+            out["question"] = question  # the selector reads the user's words, not the model's copy
     if plan is None:
         return out
     if name == "search_tables":

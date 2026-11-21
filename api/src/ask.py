@@ -50,6 +50,7 @@ CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[di
 @dataclass
 class ExecutionRecord:
     pool: list[dict[str, Any]] = field(default_factory=list)
+    built_pool: list[dict[str, Any]] = field(default_factory=list)
     geography: GeoSpec | None = None
     geographies: list[GeoSpec] = field(default_factory=list)
     url: CensusURL | None = None
@@ -89,10 +90,9 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
     if artifact is None:
         return
     if name == "search_tables":
-        hits = (
+        record.pool = list(
             artifact.hits if isinstance(artifact, SearchTablesResult) else artifact.get("hits", [])
         )
-        record.pool = list(hits)
     elif name == "resolve_geography":
         if record.override and record.override.geographies:
             return
@@ -118,6 +118,7 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
             record.universe = artifact.universe
+            record.built_pool = record.pool.copy()
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
         record.rows = artifact.rows
         record.fetch = artifact
@@ -184,26 +185,22 @@ def _how_differs(
     return "related table"
 
 
-def _selected_hit(record: ExecutionRecord) -> dict[str, Any]:
-    selected = record.table_id
+def _selected_hit(pool: list[dict[str, Any]], selected: str) -> dict[str, Any]:
     if not selected:
         return {}
-    for hit in record.pool:
+    for hit in pool:
         if str(hit["table_id"]) == selected:
             return hit
-    for hit in record.pool:
-        members = {str(member) for member in (hit.get("members") or [])}
-        if selected in members:
-            return hit
-    return {}
+    return next((hit for hit in pool if selected in map(str, hit.get("members") or [])), {})
 
 
 def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
-    selected_hit = _selected_hit(record)
+    pool = record.built_pool if record.url and record.built_pool else record.pool
+    selected_hit = _selected_hit(pool, record.table_id)
     selected_universe = record.universe or str(selected_hit.get("universe") or "")
     selected_title = str(selected_hit.get("title") or "")
     alternatives: list[Alternative] = []
-    for hit in record.pool:
+    for hit in pool:
         table_id = str(hit["table_id"])
         members = [str(member) for member in (hit.get("members") or [])]
         title, universe = str(hit.get("title") or ""), str(hit.get("universe") or "")
