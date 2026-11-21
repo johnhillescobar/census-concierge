@@ -93,6 +93,8 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
         record.pool = list(
             artifact.hits if isinstance(artifact, SearchTablesResult) else artifact.get("hits", [])
         )
+        if record.url and not record.built_pool and selected_hit(record.pool, record.table_id):
+            record.built_pool = record.pool.copy()
     elif name == "resolve_geography":
         if record.override and record.override.geographies:
             return
@@ -118,7 +120,9 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
             record.universe = artifact.universe
-            record.built_pool = record.pool.copy()
+            record.built_pool = (
+                record.pool.copy() if selected_hit(record.pool, artifact.table_id) else []
+            )
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
         record.rows = artifact.rows
         record.fetch = artifact

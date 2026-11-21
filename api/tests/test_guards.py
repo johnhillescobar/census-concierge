@@ -9,11 +9,11 @@ import pytest
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.census_url import CENSUS_API, CensusURL
-from src.contract import GeoSpec
+from src.contract import GeoSpec, ResultPlan
 from src.fetch import FetchDataResult, clear_series
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
-from src.tools import BuildUrlResult
+from src.tools import BuildUrlResult, SearchTablesResult
 from src.vintages import moe_rows, period_for
 
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
@@ -702,18 +702,38 @@ def test_bracket_alternative_is_not_duplicated() -> None:
     assert [item.table_id for item in response.alternatives].count("B19001") == 1
 
 
-def test_empty_followup_search_cannot_turn_validated_medians_into_a_total() -> None:
+@pytest.mark.parametrize("scenario", ["retrieved", "pinned", "pinned-then-empty"])
+def test_later_search_cannot_turn_validated_medians_into_a_total(scenario: str) -> None:
+    pinned = scenario != "retrieved"
     rows = [
         {"GEO_ID": "0500000US17031", "B19013_001E": "50000", "B19013_001M": "1000"},
         {"GEO_ID": "0500000US17097", "B19013_001E": "60000", "B19013_001M": "2000"},
     ]
+    median = {"table_id": "B19013", "title": "Median Household Income"}
     record = ExecutionRecord(
         question="Combine typical household incomes for Cook and Lake counties.",
-        table_id="B19013",
-        built_pool=[{"table_id": "B19013", "title": "Median Household Income"}],
-        url=CensusURL(f"{CENSUS_API}/2024/acs/acs5?get=B19013_001E&for=county:031&in=state:17"),
-        rows=rows,
+        pool=[{"table_id": "B01003", "title": "Total Population"}] if pinned else [median],
+        override=ResultPlan(table_id="B19013") if pinned else None,
     )
+    _absorb(
+        record,
+        "build_url",
+        BuildUrlResult(
+            ok=True,
+            url=f"{CENSUS_API}/2024/acs/acs5?get=B19013_001E&for=county:031&in=state:17",
+            table_id="B19013",
+            variables=["B19013_001E", "B19013_001M"],
+            dataset="acs5",
+            vintage=2024,
+            detail="",
+            universe="Households",
+        ),
+        {},
+    )
+    record.rows = rows
+    _absorb(record, "search_tables", SearchTablesResult(hits=[median] if pinned else []), {})
+    if scenario == "pinned-then-empty":
+        _absorb(record, "search_tables", SearchTablesResult(hits=[]), {})
 
     response = assemble("Fetched both counties.", record)
 

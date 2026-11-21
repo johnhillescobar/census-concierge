@@ -12,7 +12,7 @@ Four tools:
 
 | tool | module | does |
 |---|---|---|
-| `search_tables` | `tools.py` | The app sets `POOL_DEPTH` (30) for `index.search` on the model's `topic` (the question if none). The tool filters by publication and uses `rerank.choose` over the full question, keeping the pick and up to nine other hits. A successful URL build retains that pool for display. The latest search governs permission to build another URL. |
+| `search_tables` | `tools.py` | The app sets `POOL_DEPTH` (30) for `index.search` on the model's `topic` (the question if none). The tool filters by publication and uses `rerank.choose` over the full question, keeping the pick and up to nine other hits. An accepted URL retains the first pool containing its table for display and measure guards. The latest search governs permission to build another URL. |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |

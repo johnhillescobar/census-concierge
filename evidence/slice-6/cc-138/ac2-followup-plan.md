@@ -19,3 +19,5 @@ Before the repairs, all six new cases failed for the expected reasons. The three
 Remaining acceptance work includes the A0 bridge or explicit applicability decision, the first eligible L disposition, the undersized core/trap cohorts, and a predeclared same-window B/P comparison. Wrong-table, geography and coverage issues need independent development evidence before changing execution. P95 scope and delivery remain separate from these checks.
 
 The first cold review reproduced a false total of 110,000 from two county medians after a later search emptied the working pool. Display and aggregation now resolve the same validated candidate metadata. The regression test failed on the old code because the median warning was absent.
+
+The cold rerun reproduced the same false total for a pinned table outside the build's search pool. A result now retains the first pool containing its accepted table, including a matching search that arrives after the build. An unrelated pool cannot suppress that search. Tests cover standard selection, a pinned result with a late matching search, and a subsequent empty search after the match.
