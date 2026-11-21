@@ -422,6 +422,9 @@ async def run_ask(
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
                 if turn.get("model_failed"):
+                    tool = tools.get("fetch_data")
+                    if record.url and record.fetch is None and isinstance(tool, FetchDataTool):
+                        await dispatch(tool.model_copy(update={"question_years": None}), {}, record)
                     return assemble(answer, record)
                 if not (pending := list(turn.get("tool_calls") or [])):
                     break

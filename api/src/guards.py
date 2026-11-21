@@ -279,11 +279,12 @@ def _median_measure(record: GuardRecord) -> bool:
 
 
 def _additive_measure(record: GuardRecord) -> bool:
-    if _median_measure(record):
-        return False
-    if _DERIVED.search(record.question):
-        return False
-    return _DERIVED.search(_selected_title(record)) is None
+    title = _selected_title(record).casefold()
+    if record.table_id.startswith(("B", "C")):
+        # These detailed poverty-ratio tables count people or families in each bracket.
+        title = title.replace("ratio of income to poverty level", "")
+    derived = _DERIVED.search(record.question) or _DERIVED.search(title)
+    return not (derived or _median_measure(record))
 
 
 def _format_number(value: float) -> str:

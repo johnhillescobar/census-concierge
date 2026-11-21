@@ -911,6 +911,25 @@ def test_derived_measures_are_not_summed_across_areas() -> None:
         assert response.combined_rows == [], question
 
 
+def test_poverty_ratio_bracket_counts_combine_with_retained_title() -> None:
+    record = ExecutionRecord(
+        question="Combine the number of people below half the poverty line in these counties.",
+        table_id="C17002",
+        url=CensusURL(f"{CENSUS_API}/2024/acs/acs5?get=C17002_002E&for=county:031&in=state:17"),
+        built_pool=[{"table_id": "C17002", "title": "Ratio of Income to Poverty Level"}],
+        rows=[
+            {"GEO_ID": "0500000US17031", "C17002_002E": "100", "C17002_002M": "3"},
+            {"GEO_ID": "0500000US17097", "C17002_002E": "200", "C17002_002M": "4"},
+        ],
+    )
+
+    response = assemble("Fetched two counties.", record)
+
+    assert [row["GEO_ID"] for row in response.rows] == [row["GEO_ID"] for row in record.rows]
+    (combined,) = response.combined_rows
+    assert (combined["C17002_002E"], combined["C17002_002M"]) == ("300", "5")
+
+
 def test_combine_wording_sums_additive_counts() -> None:
     for question in (
         "combine these counties",
