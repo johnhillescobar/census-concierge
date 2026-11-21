@@ -1,0 +1,42 @@
+CC-138 Gate 2 cold code review
+Branch: cc-138/coverage-recovery
+Base: 577f6abfafbbbd146f3bf9e74de2287759e3a17d
+Head: 8d56f69aed523601f8944aacf5f4a47f9db8ad74
+
+Reviewed committed product and caller objects only. Gate 1 was mutating shared
+working files, including api/src/fetch.py and api/src/guards.py during this
+pass. Those working versions and the unrelated working changes to
+.vscode/launch.json and evidence/latest.json were excluded. The code-only pass
+deferred PLAN and implementation notes. No sealed material or E2E transcript
+was accessed.
+
+P1 (blocks): The newest accepted Census URL disappears when a superseded plan
+has a recorded leg and the current accepted plan had zero HTTP attempts.
+api/src/fetch.py:104-107 replaces every assembled URL with retained leg URLs
+even when the active artifact furnished no legs. Reproduction: fetch from a
+2019 accepted plan, accept a new 2024 build, request only an unpublished year
+(e.g. 2050, with no explicit year in the question), then return a provider
+failure. The current artifact has zero legs, and api/src/ask.py:425-430 returns
+it without another fetch; response.urls contains just the older URL. The UI
+displays only that older URL for the active answer. An isolated Python check
+of the exact committed series assemblers confirmed that the base exposed the
+2024 built URL and the candidate exposes only the 2019 URL, with
+attempted_years=[] in both cases. Preserve the active built URL when no active
+leg is available, while continuing to report the real historical legs.
+
+P2: Retrying the exact same URL now produces duplicate React sibling keys and
+duplicate copied URL text. Trigger an initial 503 and then a successful retry
+of the same built URL, for example via the automatic finish_tools retry.
+api/src/fetch.py:104-106 now returns both URLs, as required for the wire
+history. web/src/App.tsx:132-135 uses the URL itself as the sibling key and
+web/src/App.tsx:239-245 joins the duplicate strings verbatim. Keep the distinct
+wire outcomes and deduplicate displayed/copied URLs or give the displayed
+attempts distinct keys and meanings.
+
+The active year arrays, rows and ResultPlan still derive from the current fetch.
+Stock tool legs carry key-redacted URLs and redacted failure details. The new
+ACS1 warning claims an ACS5 substitute only when the current ACS5 artifact
+actually furnished rows. No other blocking regression was identified.
+
+Cold-pass result: Not yet. Machine checks and project-invariant reconciliation
+are a separate pass.
