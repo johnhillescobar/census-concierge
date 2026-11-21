@@ -204,6 +204,63 @@ async def test_incomplete_response_does_not_execute_a_partial_call(
     assert response.rows == []
 
 
+@pytest.mark.parametrize("failure", ["unavailable", "incomplete"])
+@pytest.mark.parametrize("stage", ["initial", "ranked", "built"])
+def test_ask_returns_collected_artifacts_after_model_failure(
+    monkeypatch: pytest.MonkeyPatch, failure: str, stage: str
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Get ACS total population for {place}."
+
+    def ranked_tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        tools = _tools(record)
+        search = tools["search_tables"].search
+        tools["search_tables"].search = lambda query, k: (
+            ["B19013", "B01003"][:k] if query == question else search(query, k)
+        )
+        return tools
+
+    search = function_call("search_tables", json.dumps({"question": question}))
+    geography = function_call("resolve_geography", json.dumps({"query": place, "level": "county"}))
+    build = function_call("build_url", '{"table_id":"B01003"}')
+    failure_reply = (
+        httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+        if failure == "unavailable"
+        else {
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "output": [search],
+        }
+    )
+    turns = {
+        "initial": [],
+        "ranked": [[search, geography]],
+        "built": [[search, geography], [build]],
+    }
+    replies = iter(
+        [*({"status": "completed", "output": items} for items in turns[stage]), failure_reply]
+    )
+    requests = install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", ranked_tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert tuple(body) == CONTRACT_FIELDS
+    assert body["rows"] == []
+    assert len([request for request in requests if request["tools"]]) == len(turns[stage]) + 1
+    if stage == "built":
+        assert body["table_id"] == "B01003"
+        assert len(body["urls"]) == 1
+        assert "B01003_001E" in body["urls"][0] and "for=county:201" in body["urls"][0]
+    else:
+        assert not body["table_id"]
+        assert body["urls"] == []
+    candidates = {item["table_id"] for item in body["alternatives"]}
+    assert ("B19013" in candidates) == (stage != "initial")
+
+
 async def test_provider_failure_keeps_fetched_data_without_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

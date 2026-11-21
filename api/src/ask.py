@@ -81,8 +81,6 @@ class ExecutionRecord:
 
 
 def _artifact_ok(artifact: Any) -> bool:
-    if artifact is None:
-        return True
     ok = artifact.get("ok") if isinstance(artifact, dict) else getattr(artifact, "ok", None)
     return ok is not False
 
@@ -306,9 +304,9 @@ async def _openai_complete(
                 parallel_tool_calls=True,
             )
     except APIError:
-        return {"content": "The model request failed.", "tool_calls": []}
+        return {"content": "The model request failed.", "model_failed": True}
     if response.status != "completed":
-        return {"content": "The model did not complete its response.", "tool_calls": []}
+        return {"content": "The model did not complete its response.", "model_failed": True}
     calls: list[dict[str, Any]] = []
     output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
     for item in output:
@@ -429,6 +427,8 @@ async def run_ask(
                 if not turn_no and (stop := await incomplete(record, split)):
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
+                if turn.get("model_failed"):
+                    return assemble(answer, record)
                 if not (pending := list(turn.get("tool_calls") or [])):
                     break
                 # Replay provider items before the corresponding tool results with store=False.
