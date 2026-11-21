@@ -77,6 +77,7 @@ export function censusUrls(response: AskResponse): string[] {
 }
 
 export function censusFetchFailed(response: AskResponse): boolean {
+  if (response.attempted_years.length === 0) return false;
   return censusUrls(response).length > 0 && response.rows.length === 0;
 }
 

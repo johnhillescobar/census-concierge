@@ -92,6 +92,11 @@ describe("censusFetchFailed", () => {
     expect(censusFetchFailed(harris)).toBe(false);
   });
 
+  it("keeps a built URL distinct from a failed Census request", () => {
+    const built = { ...harris, attempted_years: [], succeeded_years: [], rows: [], moe: [] };
+    expect(censusFetchFailed(built)).toBe(false);
+  });
+
   it("is false when some years succeeded and others failed", () => {
     expect(
       censusFetchFailed({
