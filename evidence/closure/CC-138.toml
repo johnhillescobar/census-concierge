@@ -1,5 +1,5 @@
 ticket = "CC-138"
-head = "653a5ab659358b3adb38028870e8a5d0ae97874a"
+head = "7230143564dc56196f70976c97f0253ac85a3d3d"
 required = ["AC1", "AC2", "AC3", "TC1", "TC2", "TC3", "TC4"]
 
 [[row]]
@@ -14,8 +14,9 @@ affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "uv.lock"]
 id = "AC2"
 status = "FAIL"
 expected = "Current integration evidence clears the applicable contract, quality, latency and review gates at repeat 3."
-observed = "The candidate answered 0.775 against a 0.700 floor and passed 210 of 210 geography-grid trials. The owner accepted the measured 25.960 s baseline and 32.215 s candidate p95 in ca50ca7 and 948c107. CC-3 owns the latency follow-up. The same three missing row-GEOID trials and the non-latency regression checks remain open."
-tested_head = "653a5ab659358b3adb38028870e8a5d0ae97874a"
+observed = "The repair's four-block repeat-3 comparison failed both pairs on non-latency quality. P1 answered 91 versus 92 of 120 long-tail trials and returned fewer rows in three long-tail families. P2 answered 83 versus 84 of 90 core trials and scored 32 versus 33 of 40 on the standalone selector. Both candidate blocks returned more empty long-tail answers and fewer rows in some families against the anchors. All 573 candidate trials with rows passed the response contract and P2 passed all 210 geography-grid trials. P95 is tracked in CC-3 and excluded from this quality verdict."
+tested_head = "7230143564dc56196f70976c97f0253ac85a3d3d"
+evidence = [{ path = "evidence/slice-6/cc-138/repair-window-comparison.txt", sha256 = "6f3e4572948a3bc6e077875d1cd7822ccd69600ce1dfe20d9cdd14aaba7cdd97" }]
 affects = ["api/src", "scripts/run_demo.py", "scripts/run_grid.py", "evals", "uv.lock"]
 
 [[row]]
