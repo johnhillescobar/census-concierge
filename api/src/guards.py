@@ -71,13 +71,10 @@ def acs1_geography_ineligible(record: GuardRecord) -> AskWarning | None:
     artifact = getattr(record, "fetch", None)
     if not getattr(artifact, "acs1_ineligible", False):
         return None
-    return AskWarning(
-        code="acs1_geography_ineligible",
-        detail=(
-            "ACS1 is not published for this geography, or not for every member "
-            "of this listing; non-overlapping ACS5 end years are returned instead"
-        ),
-    )
+    detail = "ACS1 is not published for this geography, or not for every member of this listing."
+    if artifact.dataset == "acs5" and artifact.rows:
+        detail += " ACS5 data was returned instead."
+    return AskWarning(code="acs1_geography_ineligible", detail=detail)
 
 
 def vintage_gap_2020(record: GuardRecord) -> AskWarning | None:

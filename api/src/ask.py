@@ -21,6 +21,7 @@ from src.contract import (
     Alternative,
     AskResponse,
     GeoSpec,
+    RequestLeg,
     apply_override,
     override_years,
     pin_tool_args,
@@ -72,6 +73,7 @@ class ExecutionRecord:
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
+    retained_legs: list[RequestLeg] = field(default_factory=list)
     # Single-place resolve_geography queries, most recent last. finish_tools
     # replays these as one `places` call when the model resolved legs of a
     # comparison one at a time instead of together -- mechanical bookkeeping
@@ -115,16 +117,18 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
             record.geo_queries = track_geo_query(record.geo_queries, query)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
+        if artifact.ok and artifact.table_id != record.table_id:
+            record.built_pool = []
         clear_series(record)
         if artifact.ok:
             record.consecutive_failures.pop("fetch_data", None)
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
             record.universe = artifact.universe
-            record.built_pool = (
-                record.pool.copy() if selected_hit(record.pool, artifact.table_id) else []
-            )
+            if selected_hit(record.pool, artifact.table_id):
+                record.built_pool = record.pool.copy()
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
+        record.retained_legs.extend(artifact.legs)
         record.rows = artifact.rows
         record.fetch = artifact
         dataset = artifact.dataset or (record.url.dataset if record.url else "acs5")
@@ -324,16 +328,13 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
     from src.retrieval import availability, index, metadata
 
     idx = index.load()
+    search = index.search
     matrix = availability.load()
     acs5, _acs1 = latest_vintages(matrix)
     by_id = {table_id: i for i, table_id in enumerate(idx.tables)}
 
-    def search(question: str, k: int) -> list[str]:
-        return index.search(question, k)
-
     def describe(table_id: str) -> dict[str, Any] | None:
-        position = by_id.get(table_id)
-        if position is None:
+        if (position := by_id.get(table_id)) is None:
             return None
         return {
             "title": idx.titles[position],
@@ -342,8 +343,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         }
 
     def latest(dataset: str) -> int:
-        years = [int(year) for year in matrix["datasets"].get(dataset, {})]
-        return max(years) if years else acs5
+        return max((int(year) for year in matrix["datasets"].get(dataset, {})), default=acs5)
 
     def facts(dataset: str, year: int, table_id: str) -> dict[str, Any] | None:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)

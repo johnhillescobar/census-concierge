@@ -391,9 +391,13 @@ async def test_provider_failure_preserves_a_prior_fetch_without_retry(
         assert [leg.status_code for leg in response.legs] == [503]
 
 
-@pytest.mark.parametrize("dataset", ["acs5", "acs1"], ids=["new-build", "unavailable-acs1"])
+@pytest.mark.parametrize(
+    ("dataset", "acs1_status"),
+    [("acs5", None), ("acs1", 204), ("acs1", 404)],
+    ids=["new-build", "empty-acs1", "missing-acs1"],
+)
 def test_provider_failure_fetches_only_the_current_accepted_plan(
-    monkeypatch: pytest.MonkeyPatch, dataset: str
+    monkeypatch: pytest.MonkeyPatch, dataset: str, acs1_status: int | None
 ) -> None:
     place = "Harris County, Texas"
     question = f"Find the ACS total population for {place}."
@@ -407,7 +411,8 @@ def test_provider_failure_fetches_only_the_current_accepted_plan(
             path = urlsplit(url).path
             fetched.append(path)
             if path.endswith("/acs1"):
-                return 404, []
+                assert acs1_status is not None
+                return acs1_status, []
             return (503, []) if "/2019/" in path else success(url)
 
         found["fetch_data"].http_get = census
@@ -437,17 +442,26 @@ def test_provider_failure_fetches_only_the_current_accepted_plan(
 
     assert response.status_code == 200
     body = response.json()
-    (leg,) = body["legs"]
-    assert body["urls"] == [leg["url"]]
+    assert body["urls"] == [leg["url"] for leg in body["legs"]]
+    assert all("key=" not in url for url in body["urls"])
+    assert [urlsplit(url).path for url in body["urls"]] == fetched
+    assert body["requested_years"] == body["attempted_years"] == body["plan"]["years"] == [2024]
     if dataset == "acs5":
         assert fetched == ["/data/2019/acs/acs5", "/data/2024/acs/acs5"]
-        assert leg["year"] == 2024 and leg["status_code"] == 200
+        assert [(leg["year"], leg["status_code"]) for leg in body["legs"]] == [
+            (2019, 503),
+            (2024, 200),
+        ]
+        assert body["failed_years"] == [] and body["succeeded_years"] == [2024]
         assert body["rows"][0]["GEO_ID"] == "0500000US48201"
     else:
         assert fetched == ["/data/2024/acs/acs1"]
-        assert urlsplit(leg["url"]).path == fetched[0]
-        assert leg["status_code"] == 404 and body["rows"] == []
-        assert "acs1_geography_ineligible" in {warning["code"] for warning in body["warnings"]}
+        (leg,) = body["legs"]
+        assert leg["status_code"] == acs1_status and body["rows"] == []
+        warnings = {warning["code"]: warning["detail"] for warning in body["warnings"]}
+        detail = warnings["acs1_geography_ineligible"]
+        assert "ACS1 is not published" in detail
+        assert "returned instead" not in detail
 
 
 @pytest.mark.parametrize("later_topic", [None, "empty", "singleton"])

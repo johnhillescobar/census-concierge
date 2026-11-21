@@ -65,17 +65,11 @@ def unique_years(years: list[int]) -> list[int]:
 
 
 def _kept_urls(record: Any) -> list[str]:
-    kept = [url for url in list(getattr(record, "retained_urls", None) or []) if url]
-    extra = list(getattr(getattr(record, "fetch", None), "urls", None) or [])
-    built = getattr(record, "url", None)
-    if built:
-        extra.append(str(built))
-    for url in extra:
-        redacted = str(CensusURL(url)) if url else ""
-        if redacted and redacted not in kept:
-            kept.append(redacted)
-    record.retained_urls = kept
-    return kept
+    artifact = getattr(record, "fetch", None)
+    built = str(getattr(record, "url", None) or "")
+    urls = [*record.retained_urls, *getattr(artifact, "urls", []), built]
+    record.retained_urls = list(dict.fromkeys(str(CensusURL(url)) for url in urls if url))
+    return record.retained_urls
 
 
 def clear_series(record: Any) -> None:
@@ -107,6 +101,9 @@ def series_from_record(record: Any) -> dict[str, Any]:
     if isinstance(artifact, FetchDataResult):
         urls = list(artifact.urls) or urls
         years = {key: list(getattr(artifact, key)) for key in _SERIES}
+    if record.retained_legs:
+        urls = [leg.url for leg in record.retained_legs]
+        years["legs"] = list(record.retained_legs)
     return {"urls": [str(CensusURL(url)) for url in urls if url], **years}
 
 

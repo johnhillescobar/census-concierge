@@ -149,6 +149,7 @@ def test_acs1_fallback_year_warns_ineligible_geography() -> None:
     response = assemble("ACS5 still ships", _stated(record))
     assert response.warnings[0].code == "acs1_geography_ineligible"
     assert response.urls == list(record.fetch.urls)
+    assert "ACS5 data was returned instead" in response.warnings[0].detail
     assert response.table_id == "B01003"
     assert response.universe == "total population"
     assert response.rows[0]["dataset"] == "acs5"
@@ -702,7 +703,17 @@ def test_bracket_alternative_is_not_duplicated() -> None:
     assert [item.table_id for item in response.alternatives].count("B19001") == 1
 
 
-@pytest.mark.parametrize("scenario", ["retrieved", "pinned", "pinned-then-empty"])
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "retrieved",
+        "pinned",
+        "pinned-then-empty",
+        "rebuilt-after-empty",
+        "rebuilt-after-unrelated",
+        "different-table",
+    ],
+)
 def test_later_search_cannot_turn_validated_medians_into_a_total(scenario: str) -> None:
     pinned = scenario != "retrieved"
     rows = [
@@ -715,25 +726,39 @@ def test_later_search_cannot_turn_validated_medians_into_a_total(scenario: str) 
         pool=[{"table_id": "B01003", "title": "Total Population"}] if pinned else [median],
         override=ResultPlan(table_id="B19013") if pinned else None,
     )
-    _absorb(
-        record,
-        "build_url",
-        BuildUrlResult(
-            ok=True,
-            url=f"{CENSUS_API}/2024/acs/acs5?get=B19013_001E&for=county:031&in=state:17",
-            table_id="B19013",
-            variables=["B19013_001E", "B19013_001M"],
-            dataset="acs5",
-            vintage=2024,
-            detail="",
-            universe="Households",
-        ),
-        {},
+    built = BuildUrlResult(
+        ok=True,
+        url=f"{CENSUS_API}/2024/acs/acs5?get=B19013_001E&for=county:031&in=state:17",
+        table_id="B19013",
+        variables=["B19013_001E", "B19013_001M"],
+        dataset="acs5",
+        vintage=2024,
+        detail="",
+        universe="Households",
     )
-    record.rows = rows
+    _absorb(record, "build_url", built, {})
     _absorb(record, "search_tables", SearchTablesResult(hits=[median] if pinned else []), {})
-    if scenario == "pinned-then-empty":
+    if scenario in {"pinned-then-empty", "rebuilt-after-empty", "different-table"}:
         _absorb(record, "search_tables", SearchTablesResult(hits=[]), {})
+    if scenario == "rebuilt-after-unrelated":
+        _absorb(record, "search_tables", SearchTablesResult(hits=[{"table_id": "B01003"}]), {})
+    if scenario.startswith("rebuilt"):
+        _absorb(record, "build_url", built, {})
+    if scenario == "different-table":
+        next_build = built.model_copy(
+            update={
+                "table_id": "B01003",
+                "url": built.url.replace("B19013", "B01003"),
+                "variables": ["B01003_001E", "B01003_001M"],
+                "universe": "Total population",
+            }
+        )
+        _absorb(record, "build_url", next_build, {})
+        response = assemble("Population query.", record)
+        assert response.table_id == "B01003"
+        assert response.alternatives == []
+        return
+    record.rows = rows
 
     response = assemble("Fetched both counties.", record)
 

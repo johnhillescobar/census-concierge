@@ -1,6 +1,13 @@
 ticket = "CC-138"
 head = "7230143564dc56196f70976c97f0253ac85a3d3d"
-required = ["AC1", "AC2", "AC3", "TC1", "TC2", "TC3", "TC4"]
+required = ["AC1", "AC2", "AC2.1", "AC3", "TC1", "TC2", "TC3", "TC4"]
+
+[[amendment]]
+id = "AC2"
+date = "2026-11-21"
+owner = "John Hill Escobar"
+reason = "Freeze model/API integration readiness to the pinned contract so later CC-3 scope and stochastic quality progression do not govern the installation handoff. Preserve the failed four-block result and require the retained integration verification in AC2.1."
+destination = "CC-3 (application quality and scoring under CC-104/105/129/130/131, CC-133 measurement contract and CC-132 certification), CC-125/126 (p95). Jira: https://johnhillescobar.atlassian.net/browse/CC-138"
 
 [[row]]
 id = "AC1"
@@ -12,12 +19,19 @@ affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "uv.lock"]
 
 [[row]]
 id = "AC2"
-status = "FAIL"
+status = "AMENDED"
 expected = "Current integration evidence clears the applicable contract, quality, latency and review gates at repeat 3."
 observed = "The repair's four-block repeat-3 comparison failed both pairs on non-latency quality. P1 answered 91 versus 92 of 120 long-tail trials and returned fewer rows in three long-tail families. P2 answered 83 versus 84 of 90 core trials and scored 32 versus 33 of 40 on the standalone selector. Both candidate blocks returned more empty long-tail answers and fewer rows in some families against the anchors. All 573 candidate trials with rows passed the response contract and P2 passed all 210 geography-grid trials. P95 is tracked in CC-3 and excluded from this quality verdict."
 tested_head = "7230143564dc56196f70976c97f0253ac85a3d3d"
 evidence = [{ path = "evidence/slice-6/cc-138/repair-window-comparison.txt", sha256 = "6f3e4572948a3bc6e077875d1cd7822ccd69600ce1dfe20d9cdd14aaba7cdd97" }]
 affects = ["api/src", "scripts/run_demo.py", "scripts/run_grid.py", "evals", "uv.lock"]
+
+[[row]]
+id = "AC2.1"
+status = "NOT RUN"
+expected = "Exact candidate verifies the pinned GPT-6.2 Sol Responses settings and replay, bounded recovery, Census response contract and attempted-request provenance, affected Gate 1 tests and mutations, and fresh focused Gate 2 before promotion. Verify the scoped contract on merged main before closure."
+observed = "Pending verification of the Copilot repair."
+affects = ["api/src", "api/tests", "packages/client", "uv.lock"]
 
 [[row]]
 id = "AC3"
