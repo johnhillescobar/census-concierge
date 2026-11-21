@@ -1,0 +1,53 @@
+CC-138 slice 6 post-merge verification for PR #135
+Verdict: PASS for the scoped integration contract under the 2026-11-21 owner amendment.
+Verification completed 2026-11-21 UTC in detached worktree cc138-pr135-post-merge.
+Merged main tested: 8f95001a08c21f479bac316cc8bac59eeb81ab27 (origin/main).
+PR comparison base: 84c3c80ae38d661028fd35c31c9feb44d67370ca (merge parent 1).
+Scoped pre-merge candidate: 89396f497621430738d4062d5c1022f6a7c2a594.
+The worktree was clean before the checks, and no tracked inputs were modified.
+
+Checks rerun on merged main
+
+With Python 3.12 from the repository environment and PYTHONPATH=api:
+
+  python -m pytest -q -p no:cacheprovider --tb=short api/tests/test_ask_responses.py api/tests/test_ask_route.py api/tests/test_guards.py api/tests/test_finish.py api/tests/test_fetch_years.py api/tests/test_ask_loop.py api/tests/test_ask_one.py api/tests/test_comparison_work.py api/tests/test_generated_client.py api/tests/test_static_frontend.py
+  Exit 0: 312 passed in 8.01 seconds. One pytest-asyncio fixture deprecation warning.
+
+  python scripts/generate_client.py --check
+  Exit 0: the committed OpenAPI client matches the generated client.
+
+  python scripts/check_invariants.py --base 84c3c80ae38d661028fd35c31c9feb44d67370ca
+  Exit 0: all invariants held. API regex call sites: 55 (base 55, delta +0).
+
+  python scripts/check_budgets.py --structural-only
+  Exit 0: all structural budgets met. API LOC 4886/4890; largest file 410/410; web LOC 3350/3350; doc lines 1820/1820.
+
+  npm --prefix web test
+  Exit 0: 112 passed in nine files in 22.33 seconds. The display suite passed all 28 tests.
+
+  npm --prefix web run typecheck
+  Exit 0: tsc --noEmit.
+
+  git diff --check 84c3c80ae38d661028fd35c31c9feb44d67370ca HEAD
+  Exit 0.
+
+The Python tests used SDK wire and Census/route fixtures. They verified the pinned GPT-6.2 Sol Responses settings, continuation in provider item order, encrypted reasoning replay, matching tool call/result IDs, and the diagnostic alternate-model option. They also verified malformed and incomplete provider responses, bounded recovery from the current accepted plan, historical request URLs and statuses, current rows and year buckets, Census fields including GEOID and associated MOE, separate calculated totals, and ACS1/ACS5 warning accuracy. Web tests verified visible and copyable key-redacted request links and deduplication when a request URL repeats. Windows sandbox restrictions on temporary-directory access and esbuild process startup were resolved with approved retries.
+
+Commit-specific evidence carried forward
+
+  git merge-base --is-ancestor 89396f497621430738d4062d5c1022f6a7c2a594 HEAD
+  git diff --quiet 89396f497621430738d4062d5c1022f6a7c2a594 HEAD -- . ':(exclude)evidence/**'
+  Both exited 0. Differences from the candidate are confined to the closure manifest, plan, and Gate 1 and Gate 2 evidence files. The implementation, test fixtures, generated client, scripts, dependency locks, and evaluation inputs are identical.
+
+  git diff --exit-code 1ab3c729c1693791ae59d2f1be97de476e4909a6 HEAD -- api/src uv.lock
+  Exit 0. The verified reverse patch from 1ab3c72 to 27d4d47 applies to the identical runtime and lockfile tree on merged main. The pre-merge rollback check matched all 30 pre-integration files.
+
+  git rev-parse HEAD:web/src/display.test.ts
+  Blob 208102e5bcbe6f8aafaae96e5fe6e76a9b4fd996 matches the fixture that passed Gate 1.
+
+The pinned final Gate 1 records 1,435 offline Python tests passed, with 34 skipped and 8 xfailed, plus 13 Python mutations and one web mutation rejected. The pinned final Gate 2 cleared the scoped cold review and invariants pass. Git parity supports reusing the earlier broad offline count, mutation results, and review for the merged implementation. Both evidence file hashes match the closure manifest:
+
+  evidence/slice-6/cc-138/copilot-gate1-final.txt  9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c
+  evidence/slice-6/cc-138/copilot-gate2-final.txt  d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0
+
+The owner amendment retains AC1, AC2.1, AC3, and TC1-TC4. This run verifies the retained exact-merge contract and carries forward the exact rollback evidence. The live repeat-3 quality comparison remains failed and transfers to CC-3. The historical committed full-demo p95 is 32.215 seconds against the 20-second ceiling and remains tracked by CC-125 and CC-126. These are prior measurements, and the scoped verification did not generate a new live scoreboard. No broad live or sealed suite was run for this phase.
