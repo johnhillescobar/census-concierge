@@ -9,7 +9,7 @@
 # "what's the population of New York City?" in under 75 seconds.
 
 [size]
-api_src_loc          = 4890   # non-blank, non-comment lines under api/src
+api_src_loc          = 5100   # non-blank, non-comment lines under api/src
 api_src_files        = 40
 max_file_loc         = 410    # any single file
 web_src_loc          = 3350
@@ -102,3 +102,4 @@ synthetic_alignment_min = 0.50
 # 2026-11-08  [size] api_src_loc 4820 -> 4890  CC-114 (slice 6): tracts asked for inside a named place were answered at place on every trial (q04), because Census has no tract-inside-place row. geo_within.py (55 counted lines) derives the place's counties from Census (county (or part), ACS 5-year) and returns their tracts as a county-wide candidate with a warning; verified live for Detroit (Wayne County, 627 tracts). The rest of the raise is the Gate 2 fixes that keep the stated level honest (per-leg levels, unserved levels, inferred flags). Measured 4876 after ruff format against 4820; the extra 14 lines are headroom; owner approved
 
 # 2026-11-11  [waiver] p95_latency_seconds 2026-11-09T17:53:49+00:00 25.472 CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
+# 2026-11-21  [size] api_src_loc 4890 -> 5100  CC-125: the client-side 3s Gemini rerank wait does not fit in 4 lines of headroom (measured 4886/4890 on 8f95001). Owner set the cap at 5100 so that wait can land in a later commit.
