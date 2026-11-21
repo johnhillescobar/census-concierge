@@ -73,10 +73,11 @@ export function formatCensusNumber(raw: string | null | undefined): string {
 }
 
 export function censusUrls(response: AskResponse): string[] {
-  return response.urls.map(redactCensusUrl).filter(Boolean);
+  return [...new Set(response.urls.map(redactCensusUrl).filter(Boolean))];
 }
 
 export function censusFetchFailed(response: AskResponse): boolean {
+  if (response.attempted_years.length === 0) return false;
   return censusUrls(response).length > 0 && response.rows.length === 0;
 }
 
@@ -106,8 +107,8 @@ export function matchingMoe(
 
 export function normalizeActiveDataset(response: AskResponse): DatasetRow[] {
   const dataset: DatasetRow[] = [];
-  response.rows.forEach((row, index) => {
-    const margins = response.moe[index];
+  response.rows.concat(response.combined_rows ?? []).forEach((row, index) => {
+    const margins = index < response.rows.length ? response.moe[index] : row;
     for (const variable of estimateVariables(row)) {
       dataset.push({
         dataset: row.dataset || "",

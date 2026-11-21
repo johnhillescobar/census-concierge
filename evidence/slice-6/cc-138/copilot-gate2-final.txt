@@ -1,0 +1,104 @@
+CC-138 Gate 2 review of revised fix
+Branch: cc-138/coverage-recovery
+First cold-pass head: 8d56f69aed523601f8944aacf5f4a47f9db8ad74
+Fix review base: 577f6abfafbbbd146f3bf9e74de2287759e3a17d
+Slice review base: 84c3c80ae38d661028fd35c31c9feb44d67370ca
+Revised head: 1ab3c729c1693791ae59d2f1be97de476e4909a6
+Final candidate: 89396f497621430738d4062d5c1022f6a7c2a594
+
+Cold re-review (committed objects only)
+
+The earlier P1 is resolved. Historical legs remain in request order, and a
+current built URL is included when the current fetch has no legs. The added
+provider failure case verifies the 2019 historical leg and the 2024 built URL,
+empty active rows and attempted years, and the active requested year of 2050.
+
+The earlier P2 is resolved. The API still reports both attempts, while the
+shared display/copy caller deduplicates normalized, redacted URLs. This
+removes duplicate React sibling keys and repeated copied URL strings.
+
+The same-table metadata survives an intervening geography reset. An accepted
+different table drops the old metadata; a rejected build changes neither the
+last accepted table marker nor its metadata. Active rows, plan and year arrays
+follow the current fetch. An ACS5 fallback warning claims a substitute only
+when the active ACS5 fetch returned rows.
+
+No new blocking correctness finding in the revised committed diff. The cold
+finding record precedes loading the project plan and implementation intent.
+
+Focused invariants and machine checks
+
+The 2026-11-21 owner amendment in plan.md and evidence/closure/CC-138.toml
+keeps AC1, AC3, TC1-TC4 and scopes AC2.1 to the integration configuration,
+replay, bounded recovery, response contract and attempted-request evidence.
+The historical quality and p95 work remains under CC-3 and CC-125/CC-126.
+The amendment grants no exact-run waiver and changes no budget.
+
+check_budgets.py --structural-only (exit 0):
+  API LOC 4886/4890, files 29/40, largest file 410/410, frontend LOC 3350/3350,
+  system prompt 1095/1200, doc lines 1820/1820, graph nodes 0/8, agent tools 4/6,
+  API routes 4/10, tool schemas 8/12, domain models 11/15, dependencies 8/25.
+  All budgets met.
+
+check_budgets.py (exit 1, existing worktree scoreboard):
+  p95 21.503 <= 20 FAIL, generated 2026-11-21T17:07:50+00:00.
+  Slowest trial 72.571 seconds. Other metric floors and structural budgets met.
+  This scoreboard was an existing uncommitted evidence/latest.json.
+
+check_budgets.py (exit 1, exact committed scoreboard):
+  p95 32.215 <= 20 FAIL, generated 2026-11-20T03:04:38+00:00.
+  Slowest trial 55.202 seconds. Other floors met: retrieval@10 0.900/0.900,
+  selector@1 0.825/0.700, answered rate 0.775/0.700, alignment 0.544/0.500.
+  Ran the same checker with only the evidence/latest.json read supplied from
+  the exact committed git object, without replacing the worktree file.
+
+check_invariants.py --base origin/main (exit 0):
+  All invariants held. origin/main resolved to the pinned 84c3c80 slice base.
+  API regex call sites: 55 (base 55, delta +0). Budget increases, new exemptions,
+  weakened protocol, rewritten metric records, eval wording and key handling
+  checks all passed. git diff --check 577f6ab..1ab3c72 also exited 0.
+
+Repository-wide Ruff lint and format initially walked generated Pytest scratch
+trees from previous gates. The sandboxed lint emitted access-denied warnings
+and format panicked. The unrestricted versions exposed 63 lint diagnostics
+and 16 unformatted files, all in those untracked scratch trees. Both checks
+passed when rerun over all 126 tracked Python files with the same Ruff
+configuration: "All checks passed!" and "126 files already formatted".
+
+Mypy (exit 0): Success: no issues found in 29 source files.
+Generated client (exit 0): packages/client is up to date.
+Web tsc --noEmit exited 0. Vitest passed 112 tests in nine files on the
+unchanged 1ab3c72 runtime with the corrected retry fixture. That fixture was
+committed in 89396f497621430738d4062d5c1022f6a7c2a594. Git identified exactly
+one changed file between those commits, web/src/display.test.ts, with fixture
+blob 208102e5bcbe6f8aafaae96e5fe6e76a9b4fd996. The fixture-only diff passes
+git diff --check. Its repeated raw URL matches repeat attempts on the wire.
+
+The sandboxed offline Pytest invocation failed with a WinError 5 while
+walking its temporary directory. The independent Gate 1 offline run on the
+same Python tree passed: 1,435 passed, 34 skipped, 8 xfailed. The separate
+unrestricted reviewer rerun was still running at handoff.
+
+Manual review matched the requirements, /ask catalog, shell results and
+accepted scope. The model identifier, Responses configuration and replay
+implementation remain stable across the repair apart from the explicit
+failure marker. Provider failure can recover once from the current accepted
+build and bypasses unrelated finish work. Current fetch data, year arrays,
+validated chart fields and editable plan stay together. Historical tool
+attempt URLs and per-request outcomes survive replacement and are emitted
+through the key-redacted CensusURL path. Fetched rows keep AFFGEOIDs and
+margins. Calculated combined rows use their separate contract field; they do
+not supply a synthetic Census GEOID. No new shape, prompt or budget breach
+identified. The existing ordinary ACS1-to-ACS5 fallback's internal first
+fan-out remains outside the changed tool-artifact retention path.
+
+Pre-merge closure check on the current committed manifest (exit 1):
+  AC1 and TC1-TC4 are UNKNOWN; AC2.1 and AC3 are NOT RUN.
+  CLOSURE BLOCKED: 7 problem(s). This review does not certify closure or
+  substitute for the exact post-merge checks required by the amendment.
+
+Verdict: The focused Gate 2 review clears the amended integration scope at
+89396f497621430738d4062d5c1022f6a7c2a594. No blocking code finding remains.
+General full-budget and ticket-closure verdict: Not yet. The historical p95
+checks are red and the exact-head acceptance and post-merge evidence must
+still be recorded.

@@ -73,7 +73,7 @@ async def collect(label: str, repeat: int, limit: int, workers: int, answer_mode
                 return {"id": q["id"], "repeat": r, "error": type(exc).__name__}
         rows = [
             {k: v for k, v in row.items() if k in KEEP or k[-1] in "EM" and "_" in k}
-            for row in got.rows
+            for row in [*got.rows, *got.combined_rows]
         ]
         notes = [w.detail for w in got.warnings]
         seconds = round(time.perf_counter() - started, 2)

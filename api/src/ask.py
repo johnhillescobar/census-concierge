@@ -21,6 +21,7 @@ from src.contract import (
     Alternative,
     AskResponse,
     GeoSpec,
+    RequestLeg,
     apply_override,
     override_years,
     pin_tool_args,
@@ -34,7 +35,7 @@ from src.finish import degraded_answer, finish_tools, incomplete, split_beside
 from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_level import geo_status, note_intent
 from src.geo_list import list_census_names
-from src.guards import finish_aggregation
+from src.guards import finish_aggregation, response_pool, selected_hit
 from src.prompts import system_prompt
 from src.retrieval.metadata import family_id
 from src.tools import BuildUrlResult, BuildUrlTool, SearchTablesResult, SearchTablesTool
@@ -50,6 +51,8 @@ CompleteFn = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[di
 @dataclass
 class ExecutionRecord:
     pool: list[dict[str, Any]] = field(default_factory=list)
+    built_table: str = ""
+    built_pool: list[dict[str, Any]] = field(default_factory=list)
     geography: GeoSpec | None = None
     geographies: list[GeoSpec] = field(default_factory=list)
     url: CensusURL | None = None
@@ -71,6 +74,7 @@ class ExecutionRecord:
     table_facts: Any = None
     published_vintages: Any = None
     retained_urls: list[str] = field(default_factory=list)
+    retained_legs: list[RequestLeg] = field(default_factory=list)
     # Single-place resolve_geography queries, most recent last. finish_tools
     # replays these as one `places` call when the model resolved legs of a
     # comparison one at a time instead of together -- mechanical bookkeeping
@@ -81,8 +85,6 @@ class ExecutionRecord:
 
 
 def _artifact_ok(artifact: Any) -> bool:
-    if artifact is None:
-        return True
     ok = artifact.get("ok") if isinstance(artifact, dict) else getattr(artifact, "ok", None)
     return ok is not False
 
@@ -91,10 +93,11 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
     if artifact is None:
         return
     if name == "search_tables":
-        hits = (
+        record.pool = list(
             artifact.hits if isinstance(artifact, SearchTablesResult) else artifact.get("hits", [])
         )
-        record.pool = list(hits)
+        if record.url and not record.built_pool and selected_hit(record.pool, record.table_id):
+            record.built_pool = record.pool.copy()
     elif name == "resolve_geography":
         if record.override and record.override.geographies:
             return
@@ -115,12 +118,18 @@ def _absorb(record: ExecutionRecord, name: str, artifact: Any, args: dict[str, A
             record.geo_queries = track_geo_query(record.geo_queries, query)
     elif name == "build_url" and isinstance(artifact, BuildUrlResult):
         record.vintages.append((artifact.dataset, artifact.vintage))
+        if artifact.ok and artifact.table_id != record.built_table:
+            record.built_table, record.built_pool = artifact.table_id, []
         clear_series(record)
         if artifact.ok:
+            record.consecutive_failures.pop("fetch_data", None)
             record.url = CensusURL(artifact.url)
             record.table_id = artifact.table_id
             record.universe = artifact.universe
+            if selected_hit(record.pool, artifact.table_id):
+                record.built_pool = record.pool.copy()
     elif name == "fetch_data" and isinstance(artifact, FetchDataResult):
+        record.retained_legs.extend(artifact.legs)
         record.rows = artifact.rows
         record.fetch = artifact
         dataset = artifact.dataset or (record.url.dataset if record.url else "acs5")
@@ -186,26 +195,13 @@ def _how_differs(
     return "related table"
 
 
-def _selected_hit(record: ExecutionRecord) -> dict[str, Any]:
-    selected = record.table_id
-    if not selected:
-        return {}
-    for hit in record.pool:
-        if str(hit["table_id"]) == selected:
-            return hit
-    for hit in record.pool:
-        members = {str(member) for member in (hit.get("members") or [])}
-        if selected in members:
-            return hit
-    return {}
-
-
 def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
-    selected_hit = _selected_hit(record)
-    selected_universe = record.universe or str(selected_hit.get("universe") or "")
-    selected_title = str(selected_hit.get("title") or "")
+    pool = response_pool(record)
+    selected = selected_hit(pool, record.table_id)
+    selected_universe = record.universe or str(selected.get("universe") or "")
+    selected_title = str(selected.get("title") or "")
     alternatives: list[Alternative] = []
-    for hit in record.pool:
+    for hit in pool:
         table_id = str(hit["table_id"])
         members = [str(member) for member in (hit.get("members") or [])]
         title, universe = str(hit.get("title") or ""), str(hit.get("universe") or "")
@@ -232,23 +228,25 @@ def assemble(answer: str, record: ExecutionRecord) -> AskResponse:
             )
     fallback = record.geography.geoid if record.geography else ""
     rows = rows_with_geoid(record.rows, fallback)
-    warnings, rows, extra, compared = finish_aggregation(
+    warnings, combined, extra, compared = finish_aggregation(
         record, rows, {item.table_id for item in alternatives}
     )
     alternatives.extend(extra)
-    dataset = str(getattr(record.fetch, "dataset", "") or "")
-    dataset = dataset or (record.url.dataset if record.url else "")
+    dataset = str(getattr(record.fetch, "dataset", "") or getattr(record.url, "dataset", ""))
     dataset = dataset or (record.vintages[0][0] if record.vintages else "acs5")
     year = record.vintages[-1][1] if record.vintages else None
-    rows = stamp_provenance(rows, dataset=dataset, table_id=record.table_id, fallback_year=year)
+    table_id = record.table_id
+    rows = stamp_provenance(rows, dataset=dataset, table_id=table_id, fallback_year=year)
+    combined = stamp_provenance(combined, dataset=dataset, table_id=table_id, fallback_year=year)
     return AskResponse(
-        **take_chart(answer, rows, warnings, record),
+        **take_chart(answer, [*rows, *combined], warnings, record),
         **series_from_record(record),
         rows=rows,
+        combined_rows=combined,
         moe=moe_rows(rows),
         geoid=response_geoid(rows, fallback),
         universe=selected_universe,
-        table_id=record.table_id,
+        table_id=table_id,
         plan=plan_from_record(record),
         alternatives=alternatives,
         comparisons=compared,
@@ -306,9 +304,9 @@ async def _openai_complete(
                 parallel_tool_calls=True,
             )
     except APIError:
-        return {"content": "The model request failed.", "tool_calls": []}
+        return {"content": "The model request failed.", "model_failed": True}
     if response.status != "completed":
-        return {"content": "The model did not complete its response.", "tool_calls": []}
+        return {"content": "The model did not complete its response.", "model_failed": True}
     calls: list[dict[str, Any]] = []
     output = [item.model_dump(mode="json", exclude_none=True) for item in response.output]
     for item in output:
@@ -325,22 +323,18 @@ async def _openai_complete(
 
 
 def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
-    key = os.environ.get("CENSUS_API_KEY")
-    if not key:
+    if not (key := os.environ.get("CENSUS_API_KEY")):
         raise ValueError("missing CENSUS_API_KEY")
     from src.retrieval import availability, index, metadata
 
     idx = index.load()
+    search = index.search
     matrix = availability.load()
     acs5, _acs1 = latest_vintages(matrix)
     by_id = {table_id: i for i, table_id in enumerate(idx.tables)}
 
-    def search(question: str, k: int) -> list[str]:
-        return index.search(question, k)
-
     def describe(table_id: str) -> dict[str, Any] | None:
-        position = by_id.get(table_id)
-        if position is None:
+        if (position := by_id.get(table_id)) is None:
             return None
         return {
             "title": idx.titles[position],
@@ -349,8 +343,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
         }
 
     def latest(dataset: str) -> int:
-        years = [int(year) for year in matrix["datasets"].get(dataset, {})]
-        return max(years) if years else acs5
+        return max((int(year) for year in matrix["datasets"].get(dataset, {})), default=acs5)
 
     def facts(dataset: str, year: int, table_id: str) -> dict[str, Any] | None:
         table = matrix["datasets"].get(dataset, {}).get(str(year), {}).get(table_id)
@@ -429,6 +422,12 @@ async def run_ask(
                 if not turn_no and (stop := await incomplete(record, split)):
                     return assemble(stop, record)
                 answer = str(turn.get("content") or "")
+                if turn.get("model_failed"):
+                    tool = tools.get("fetch_data")
+                    attempted = record.fetch or record.consecutive_failures.get("fetch_data")
+                    if record.url and not attempted and isinstance(tool, FetchDataTool):
+                        await dispatch(tool.model_copy(update={"recovery": True}), {}, record)
+                    return assemble(answer, record)
                 if not (pending := list(turn.get("tool_calls") or [])):
                     break
                 # Replay provider items before the corresponding tool results with store=False.

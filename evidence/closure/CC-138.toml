@@ -1,57 +1,98 @@
 ticket = "CC-138"
-head = "653a5ab659358b3adb38028870e8a5d0ae97874a"
-required = ["AC1", "AC2", "AC3", "TC1", "TC2", "TC3", "TC4"]
+head = "89396f497621430738d4062d5c1022f6a7c2a594"
+required = ["AC1", "AC2", "AC2.1", "AC3", "TC1", "TC2", "TC3", "TC4"]
+
+[[amendment]]
+id = "AC2"
+date = "2026-11-21"
+owner = "John Hill Escobar"
+reason = "Freeze model/API integration readiness to the pinned contract so later CC-3 scope and stochastic quality progression do not govern the installation handoff. Preserve the failed four-block result and require the retained integration verification in AC2.1."
+destination = "CC-3 (application quality and scoring under CC-104/105/129/130/131, CC-133 measurement contract and CC-132 certification), CC-125/126 (p95). Jira: https://johnhillescobar.atlassian.net/browse/CC-138"
 
 [[row]]
 id = "AC1"
-status = "UNKNOWN"
+status = "PASS"
+command = "pytest api/tests/test_ask_responses.py -k exact_model_settings"
 expected = "The application uses the exact GPT-6.2 Sol Responses settings from CC-137."
-observed = "The request regression and live /ask smoke passed. Six calls resolved as gpt-6.2-sol. Gate 2 acceptance verification is pending."
-tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
-affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "uv.lock"]
+observed = "Exact request configuration verified through the SDK wire fixture. The model configuration and API match the previously pinned live smoke; the repair retains those settings."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (fresh scoped Gate 2)"
+evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+affects = ["api/src/ask.py","api/tests/test_ask_responses.py","uv.lock"]
 
 [[row]]
 id = "AC2"
-status = "FAIL"
+status = "AMENDED"
 expected = "Current integration evidence clears the applicable contract, quality, latency and review gates at repeat 3."
-observed = "The candidate answered 0.775 against a 0.700 floor and passed 210 of 210 geography-grid trials. The owner accepted the measured 25.960 s baseline and 32.215 s candidate p95 in ca50ca7 and 948c107. CC-3 owns the latency follow-up. The same three missing row-GEOID trials and the non-latency regression checks remain open."
-tested_head = "653a5ab659358b3adb38028870e8a5d0ae97874a"
+observed = "The repair's four-block repeat-3 comparison failed both pairs on non-latency quality. P1 answered 91 versus 92 of 120 long-tail trials and returned fewer rows in three long-tail families. P2 answered 83 versus 84 of 90 core trials and scored 32 versus 33 of 40 on the standalone selector. Both candidate blocks returned more empty long-tail answers and fewer rows in some families against the anchors. All 573 candidate trials with rows passed the response contract and P2 passed all 210 geography-grid trials. P95 is tracked in CC-3 and excluded from this quality verdict."
+tested_head = "7230143564dc56196f70976c97f0253ac85a3d3d"
+evidence = [{ path = "evidence/slice-6/cc-138/repair-window-comparison.txt", sha256 = "6f3e4572948a3bc6e077875d1cd7822ccd69600ce1dfe20d9cdd14aaba7cdd97" }]
 affects = ["api/src", "scripts/run_demo.py", "scripts/run_grid.py", "evals", "uv.lock"]
 
 [[row]]
+id = "AC2.1"
+status = "PASS"
+command = "Scoped Gate 1 and independent Gate 2 on the integrated candidate"
+expected = "Exact candidate verifies the pinned GPT-6.2 Sol Responses settings and replay, bounded recovery, Census response contract and attempted-request provenance, affected Gate 1 tests and mutations, and fresh focused Gate 2 before promotion. Verify the scoped contract on merged main before closure."
+observed = "1,435 offline Python tests and 112 web tests passed. Thirteen Python mutations and one web mutation each failed as expected. Scoped cold and invariants review passed. The standalone full scoreboard remains above the 20-second p95 ceiling and is tracked under CC-125/126."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (fresh scoped Gate 2)"
+evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+affects = ["api/src","api/tests","web/src","packages/client","uv.lock"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }
+
+[[row]]
 id = "AC3"
-status = "NOT RUN"
+status = "PASS"
+command = "Verify candidate revision and acceptance evidence; reverse the runtime diff in temporary Git archives"
 expected = "The integrated revision, validation findings, exact rollback, and merged-main evidence are recorded."
-observed = "The integrated revision, exact rollback and all pre-PR end-to-end results are recorded in evidence/slice-6/cc-138. Merged-main validation remains open."
+observed = "Candidate revision, scoped verification results and exact rollback are recorded. The required merged-main rerun remains pending in the separate post_merge block."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (rollback and evidence verification)"
+evidence = [{ path = "evidence/slice-6/cc-138/plan.md", sha256 = "975c68ae3f5a83b4a5d6e882aee52d40f3ad6bc0eac3fe9cbf176fc4db4cf478" }, { path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+affects = ["api/src","uv.lock"]
 
 [[row]]
 id = "TC1"
-status = "UNKNOWN"
+status = "PASS"
+command = "pytest api/tests/test_ask_responses.py -k exact_model_settings"
 expected = "Stateless continuation preserves provider item order and the IDs linking calls to tool results."
-observed = "The SDK integration test, targeted mutations and live encrypted-reasoning replay passed. Gate 2 acceptance verification is pending."
-tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
-affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "uv.lock"]
+observed = "The SDK wire fixture preserved provider item order, encrypted reasoning and the original call/result IDs."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (fresh scoped Gate 2)"
+evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+affects = ["api/src/ask.py","api/tests/test_ask_responses.py","uv.lock"]
 
 [[row]]
 id = "TC2"
-status = "UNKNOWN"
+status = "PASS"
+command = "pytest api/tests/test_ask_responses.py api/tests/test_ask_route.py api/tests/test_guards.py api/tests/test_finish.py api/tests/test_fetch_years.py; generate_client.py --check"
 expected = "Request and response shapes, deterministic validation and bounded failure or repair remain supported."
-observed = "The offline suite and targeted malformed, incomplete and provider-failure mutations passed. The OpenAPI client matches. Gate 2 acceptance verification is pending."
-tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
-affects = ["api/src", "api/tests", "packages/client", "uv.lock"]
+observed = "Scoped response and recovery checks passed, including malformed and incomplete provider responses, a bounded fetch of the accepted plan, retained attempted URLs and statuses, ACS1 warning outcomes and required Census fields. Generated client matches."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (fresh scoped Gate 2)"
+evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+affects = ["api/src","api/tests","packages/client","uv.lock"]
 
 [[row]]
 id = "TC3"
-status = "UNKNOWN"
+status = "PASS"
+command = "git diff --binary 27d4d47 1ab3c72 -- api/src uv.lock; git apply -R on a temporary candidate archive"
 expected = "Reverting the integration restores the exact pre-integration application and model settings."
-observed = "Gate 1 verified the inverse code diff reproduces the pinned base tree. Gate 2 acceptance verification is pending."
-tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
-affects = ["api/src", "api/tests", "docs/ARCHITECTURE.md"]
+observed = "The inverse diff restored all 30 runtime and lockfile files to Git-normalized content at 27d4d47."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (rollback and evidence verification)"
+evidence = [{ path = "evidence/slice-6/cc-138/plan.md", sha256 = "975c68ae3f5a83b4a5d6e882aee52d40f3ad6bc0eac3fe9cbf176fc4db4cf478" }]
+affects = ["api/src","uv.lock"]
 
 [[row]]
 id = "TC4"
-status = "UNKNOWN"
+status = "PASS"
+command = "pytest api/tests/test_ask_responses.py -k answer_model_override"
 expected = "The diagnostic collector can still override its answer model."
-observed = "The SDK wire test selected the alternate model and omitted the Sol-only reasoning setting. The mutation failed as expected. Gate 2 acceptance verification is pending."
-tested_head = "3c6e136ac65a88a2f73c7fd01ce3e94f61150349"
-affects = ["api/src/ask.py", "api/tests/test_ask_responses.py", "scripts/judge_figures.py", "uv.lock"]
+observed = "The diagnostic collector override request selected the alternate model and omitted Sol-only reasoning settings."
+tested_head = "89396f497621430738d4062d5c1022f6a7c2a594"
+reviewer = "Codex (fresh scoped Gate 2)"
+evidence = [{ path = "evidence/slice-6/cc-138/copilot-gate1-final.txt", sha256 = "9fc2e4843dead18a2bc57b6c06da4d7e30d0d1422d57727e963a8404794b512c" }, { path = "evidence/slice-6/cc-138/copilot-gate2-final.txt", sha256 = "d964966315f5b1a44fc4b18d1193e7f9b6295ef0aedf8d27c1c85b682df145e0" }]
+affects = ["api/src/ask.py","api/tests/test_ask_responses.py","scripts/judge_figures.py","uv.lock"]

@@ -565,6 +565,22 @@ def test_no_rows_is_not_a_geoid() -> None:
     assert _contract(rows=[], geoid="x")[1] is False
 
 
+@pytest.mark.parametrize("complete_margins", [False, True])
+def test_displayed_totals_keep_their_row_and_margin_checks(complete_margins: bool) -> None:
+    rows = [{"GEO_ID": "0500000US48201", "B01003_001E": "1", "B01003_001M": "3"}]
+    combined = {"NAME": "combined (2 areas)", "B01003_001E": "3"}
+    if complete_margins:
+        combined["B01003_001M"] = "5"
+    entry = {"id": "fixture", "text": "t", "tier": "long_tail", "expect_table": "B01003"}
+    legacy = _Client(_body(rows=[*rows, combined]))
+    separated = _Client(_body(rows=rows, combined_rows=[combined]))
+    before = run_demo._ask(legacy, run_demo.Clock(), entry, 1)
+    after = run_demo._ask(separated, run_demo.Clock(), entry, 1)
+    assert after.rows == before.rows == 2
+    assert after.has_moe == before.has_moe == complete_margins
+    assert after.has_geoid is True and before.has_geoid is False
+
+
 def test_a_margin_of_error_counts_when_its_column_was_fetched_even_if_suppressed() -> None:
     from src.vintages import moe_rows
 

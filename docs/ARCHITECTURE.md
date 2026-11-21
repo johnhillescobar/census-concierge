@@ -94,8 +94,8 @@ four-tool loop still runs, and model args cannot undo the pin.
 
 ### Answer figures (CC-121)
 
-The model writes framing only; the prompt bars every figure. `figures.py` renders one sentence per
-fetched estimate (the first 20, then "k of n shown"): label, `E` and `M`, place, GEOID, dataset and
+The model writes framing only; the prompt bars every figure. `figures.py` reads `rows` and `combined_rows`
+to render each estimate (first 20, then "k of n shown"): label, `E` and `M`, place, GEOID, dataset and
 vintage, a sentinel estimate as "not available" (a sentinel margin as "not published"), then each vintage's table title and universe. They follow the
 framing in `answer`. `fetch_data` looks the labels up (one thread per vintage, a read of the variables
 metadata) and keeps them on its artifact.

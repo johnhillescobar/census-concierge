@@ -93,3 +93,17 @@ The budget checker recognized both exact-run waivers when applied to the capture
 ## Encrypted replay review
 
 Commit `32aabfe` adds opaque encrypted content to the reasoning fixture. The SDK test checks that the exact value survives in the next request. Removing the field during serialization failed that assertion, and all seven transport tests passed after restoration. The fixture-only change reuses the existing live evidence based on runtime and evaluation input parity. [Mutation evidence](gate1-encrypted-replay.txt)
+
+## Owner amendment to AC2 — 2026-11-21
+
+John Hill Escobar authorized a fixed integration acceptance scope so CC-3 can proceed on the GPT-6.2 Sol Responses API baseline merged in PR #134 (`84c3c80`). The integration repair in PR #135 must pass request configuration and replay, bounded recovery against the accepted plan, response-contract and source-attempt checks, the affected Gate 1 tests and mutations, and a fresh focused Gate 2. Reuse prior pinned evidence where affected inputs are identical. Verify the scoped contract on the exact repair candidate before promotion and on merged main before closure. AC1, AC3 and TC1–TC4 remain required.
+
+The four-block repeat-3 comparison at `7230143` remains a failed non-latency result. The broader answer, table, row-coverage and scoring progression moves to CC-3, with structured execution in CC-104/105/129/130/131, measurement under the CC-133 contract and cumulative certification in CC-132. CC-125 and CC-126 own the clean-window and hang-window latency work. CC-127 owns demo and metadata memory. CC-3's quality floors and 20-second p95 gate remain in force. Any exact-run budget waiver is a separate owner decision.
+
+This batch records implementation and gate evidence on the PR #135 branch, updates the CC-138 AC2 description, and adds handoff comments to CC-125, CC-126 and CC-127. After the tested fix is pushed, reply to and resolve the three Copilot threads on PR #135. The repository owner performs the merge.
+
+### Repair candidate and rollback
+
+Candidate `89396f497621430738d4062d5c1022f6a7c2a594` contains runtime head `1ab3c72` and the exact web test fixture exercised by Gate 1. The scoped verifier covers the HTTP request settings and replay, bounded failure, current plan versus historical fetch attempts, accidental median sums, ACS1/ACS5 warning truthfulness and request-link rendering. The release scoreboard continues to report 32.215 seconds p95 on its historical committed input. The amendment keeps that number visible and transfers p95 work to CC-125/126. The ordinary ACS1-to-ACS5 fallback inside one fetch still retains only the replacement batch. The repair preserves the attempts across replaced tool results and recovery.
+
+Restore the original integration by reverting the owner merge of PR #135 first, then reverting PR #134's merge commit `84c3c80` using parent 1. If the owner uses a squash merge for #135, revert the resulting squash commit first. To verify the runtime inverse, extract Git archives of `api/src` and `uv.lock` for `1ab3c72` and the pre-integration base `27d4d47` into a temporary directory, then apply `git diff --binary 27d4d47 1ab3c72 -- api/src uv.lock` in reverse to the candidate copy. All 30 files matched the pre-integration Git-normalized contents. Compare on merged main after owner promotion and record the required exact-revision verification before CC-138 closure.

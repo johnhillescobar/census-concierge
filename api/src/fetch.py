@@ -65,15 +65,10 @@ def unique_years(years: list[int]) -> list[int]:
 
 
 def _kept_urls(record: Any) -> list[str]:
-    kept = [url for url in list(getattr(record, "retained_urls", None) or []) if url]
-    extra = list(getattr(getattr(record, "fetch", None), "urls", None) or [])
-    built = getattr(record, "url", None)
-    if built:
-        extra.append(str(built))
-    for url in extra:
-        redacted = str(CensusURL(url)) if url else ""
-        if redacted and redacted not in kept:
-            kept.append(redacted)
+    artifact = getattr(record, "fetch", None)
+    built = str(getattr(record, "url", None) or "")
+    urls = [*record.retained_urls, *getattr(artifact, "urls", []), built]
+    kept = list(dict.fromkeys(str(CensusURL(url)) for url in urls if url))
     record.retained_urls = kept
     return kept
 
@@ -107,6 +102,11 @@ def series_from_record(record: Any) -> dict[str, Any]:
     if isinstance(artifact, FetchDataResult):
         urls = list(artifact.urls) or urls
         years = {key: list(getattr(artifact, key)) for key in _SERIES}
+    if record.retained_legs:
+        urls = [leg.url for leg in record.retained_legs]
+        if built and not years["legs"] and str(built) not in urls:
+            urls.append(str(built))
+        years["legs"] = list(record.retained_legs)
     return {"urls": [str(CensusURL(url)) for url in urls if url], **years}
 
 
@@ -225,6 +225,7 @@ class FetchDataTool(BaseTool):
     table_facts: Callable[[str, int, str], dict[str, Any] | None] | None = None
     question_years: QuestionYears | None = None
     allow_overlapping_acs5: bool = False
+    recovery: bool = False
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("fetch_data is async-only")
@@ -301,7 +302,8 @@ class FetchDataTool(BaseTool):
                 detail="call build_url before fetch_data",
             )
             return result.detail, result
-        asked = unique_years(self.question_years() if self.question_years is not None else [])
+        suggested = [] if self.recovery or self.question_years is None else self.question_years()
+        asked = unique_years(suggested)
         if not requested:
             year = built.year
             requested = asked or ([year] if year is not None else [])
@@ -360,8 +362,6 @@ class FetchDataTool(BaseTool):
                     clause = spec.for_spec if spec is not None else ""
                     return await asyncio.to_thread(self._fetch_one, url, year, clause)
 
-            if not planned.attempted:
-                return []
             return list(
                 await asyncio.gather(
                     *(one(year, spec) for spec in geos for year in planned.attempted)
@@ -369,10 +369,10 @@ class FetchDataTool(BaseTool):
             )
 
         gathered = await fanout(plan)
-        unpublished = {204, 404}
-        if plan.dataset == "acs1" and any(
-            (not leg.ok) and leg.status_code in unpublished for leg, _rows in gathered
-        ):
+        unavailable_acs1 = plan.dataset == "acs1" and any(
+            not leg.ok and leg.status_code in {204, 404} for leg, _rows in gathered
+        )
+        if unavailable_acs1 and not self.recovery:
             plan = apply_variable_plan(
                 plan_years(
                     dataset="acs5",
@@ -389,10 +389,7 @@ class FetchDataTool(BaseTool):
             )
             gathered = await fanout(plan)
         legs = [item[0] for item in gathered]
-        rows: list[dict[str, str | None]] = []
-        for leg, part in gathered:
-            if leg.ok:
-                rows.extend(part)
+        rows = [row for leg, part in gathered if leg.ok for row in part]
         ok = any(leg.ok for leg in legs)
         detail = next((leg.detail for leg in legs if not leg.ok), "")
         result = _pack(
@@ -404,7 +401,7 @@ class FetchDataTool(BaseTool):
             reasons=plan.reasons,
             detail=detail,
             dataset=plan.dataset,
-            acs1_ineligible=plan.acs1_ineligible,
+            acs1_ineligible=plan.acs1_ineligible or (self.recovery and unavailable_acs1),
         )
         result.labels = await figures.labels_for(rows, plan.dataset)
         return _tool_content(result), result

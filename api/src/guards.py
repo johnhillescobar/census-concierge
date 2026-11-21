@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Protocol
+from typing import Any, Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
@@ -71,13 +71,10 @@ def acs1_geography_ineligible(record: GuardRecord) -> AskWarning | None:
     artifact = getattr(record, "fetch", None)
     if not getattr(artifact, "acs1_ineligible", False):
         return None
-    return AskWarning(
-        code="acs1_geography_ineligible",
-        detail=(
-            "ACS1 is not published for this geography, or not for every member "
-            "of this listing; non-overlapping ACS5 end years are returned instead"
-        ),
-    )
+    detail = "ACS1 is not published for this geography, or not for every member of this listing."
+    if getattr(artifact, "dataset", "") == "acs5" and getattr(artifact, "rows", None):
+        detail += " ACS5 data was returned instead."
+    return AskWarning(code="acs1_geography_ineligible", detail=detail)
 
 
 def vintage_gap_2020(record: GuardRecord) -> AskWarning | None:
@@ -253,18 +250,22 @@ def _wants_combination(question: str) -> bool:
     return _COMBINE.search(question) is not None
 
 
+def response_pool(record: GuardRecord) -> list[dict[str, Any]]:
+    built = getattr(record, "built_pool", None) if getattr(record, "url", None) else None
+    return [hit for hit in (built or getattr(record, "pool", None) or []) if isinstance(hit, dict)]
+
+
+def selected_hit(pool: list[dict[str, Any]], selected: str) -> dict[str, Any]:
+    if not selected:
+        return {}
+    for hit in pool:
+        if str(hit.get("table_id") or "") == selected:
+            return hit
+    return next((hit for hit in pool if selected in map(str, hit.get("members") or [])), {})
+
+
 def _selected_title(record: GuardRecord) -> str:
-    table_id = getattr(record, "table_id", "") or ""
-    member_title = ""
-    for hit in getattr(record, "pool", []) or []:
-        if not isinstance(hit, dict):
-            continue
-        title = str(hit.get("title") or "")
-        if str(hit.get("table_id") or "") == table_id:
-            return title
-        if table_id in {str(member) for member in (hit.get("members") or [])}:
-            member_title = title
-    return member_title
+    return str(selected_hit(response_pool(record), record.table_id or "").get("title") or "")
 
 
 def _median_measure(record: GuardRecord) -> bool:
@@ -274,11 +275,12 @@ def _median_measure(record: GuardRecord) -> bool:
 
 
 def _additive_measure(record: GuardRecord) -> bool:
-    if _median_measure(record):
-        return False
-    if _DERIVED.search(record.question):
-        return False
-    return _DERIVED.search(_selected_title(record)) is None
+    title = _selected_title(record).casefold()
+    if record.table_id.startswith(("B", "C")):
+        # These detailed poverty-ratio tables count people or families in each bracket.
+        title = title.replace("ratio of income to poverty level", "")
+    derived = _DERIVED.search(record.question) or _DERIVED.search(title)
+    return not (derived or _median_measure(record))
 
 
 def _format_number(value: float) -> str:
@@ -409,13 +411,10 @@ def finish_aggregation(
                     reason="distribution versus median",
                 )
             )
-        return warnings, rows, extra, compared
+        return warnings, [], extra, compared
     if not _wants_combination(record.question) or not _additive_measure(record):
-        return warnings, rows, extra, compared
-    _count, combined_rows = combine_additive(rows)
-    if not combined_rows:
-        return warnings, rows, extra, compared
-    return warnings, [*rows, *combined_rows], extra, compared
+        return warnings, [], extra, compared
+    return warnings, combine_additive(rows)[1], extra, compared
 
 
 def evaluate(record: GuardRecord) -> list[AskWarning]:

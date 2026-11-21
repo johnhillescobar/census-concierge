@@ -9,11 +9,11 @@ import pytest
 from ask_fixtures import ENTRIES, _geo_tool, _harris, _tools
 from src.ask import ExecutionRecord, _absorb, assemble, dispatch
 from src.census_url import CENSUS_API, CensusURL
-from src.contract import GeoSpec
+from src.contract import GeoSpec, ResultPlan
 from src.fetch import FetchDataResult, clear_series
 from src.guards import MOE_COMBINE_FORMULA, evaluate
 from src.retrieval.metadata import GeoLevel
-from src.tools import BuildUrlResult
+from src.tools import BuildUrlResult, SearchTablesResult
 from src.vintages import moe_rows, period_for
 
 T01 = "Compare median household income between 2015-2019 and 2018-2022"
@@ -149,6 +149,7 @@ def test_acs1_fallback_year_warns_ineligible_geography() -> None:
     response = assemble("ACS5 still ships", _stated(record))
     assert response.warnings[0].code == "acs1_geography_ineligible"
     assert response.urls == list(record.fetch.urls)
+    assert "ACS5 data was returned instead" in response.warnings[0].detail
     assert response.table_id == "B01003"
     assert response.universe == "total population"
     assert response.rows[0]["dataset"] == "acs5"
@@ -702,6 +703,79 @@ def test_bracket_alternative_is_not_duplicated() -> None:
     assert [item.table_id for item in response.alternatives].count("B19001") == 1
 
 
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "retrieved",
+        "pinned",
+        "pinned-then-empty",
+        "rebuilt-after-empty",
+        "rebuilt-after-unrelated",
+        "rebuilt-after-geography",
+        "different-table",
+    ],
+)
+def test_later_search_cannot_turn_validated_medians_into_a_total(scenario: str) -> None:
+    pinned = scenario != "retrieved"
+    rows = [
+        {"GEO_ID": "0500000US17031", "B19013_001E": "50000", "B19013_001M": "1000"},
+        {"GEO_ID": "0500000US17097", "B19013_001E": "60000", "B19013_001M": "2000"},
+    ]
+    median = {"table_id": "B19013", "title": "Median Household Income"}
+    record = ExecutionRecord(
+        question="Combine typical household incomes for Cook and Lake counties.",
+        pool=[{"table_id": "B01003", "title": "Total Population"}] if pinned else [median],
+        override=ResultPlan(table_id="B19013") if pinned else None,
+    )
+    built = BuildUrlResult(
+        ok=True,
+        url=f"{CENSUS_API}/2024/acs/acs5?get=B19013_001E&for=county:031&in=state:17",
+        table_id="B19013",
+        variables=["B19013_001E", "B19013_001M"],
+        dataset="acs5",
+        vintage=2024,
+        detail="",
+        universe="Households",
+    )
+    _absorb(record, "build_url", built, {})
+    _absorb(record, "search_tables", SearchTablesResult(hits=[median] if pinned else []), {})
+    if scenario in {
+        "pinned-then-empty",
+        "rebuilt-after-empty",
+        "rebuilt-after-geography",
+        "different-table",
+    }:
+        _absorb(record, "search_tables", SearchTablesResult(hits=[]), {})
+    if scenario == "rebuilt-after-unrelated":
+        _absorb(record, "search_tables", SearchTablesResult(hits=[{"table_id": "B01003"}]), {})
+    if scenario == "rebuilt-after-geography":
+        _absorb(record, "resolve_geography", {"specs": [_harris()]}, {})
+        assert record.url is None
+    if scenario.startswith("rebuilt"):
+        _absorb(record, "build_url", built, {})
+    if scenario == "different-table":
+        next_build = built.model_copy(
+            update={
+                "table_id": "B01003",
+                "url": built.url.replace("B19013", "B01003"),
+                "variables": ["B01003_001E", "B01003_001M"],
+                "universe": "Total population",
+            }
+        )
+        _absorb(record, "build_url", next_build, {})
+        response = assemble("Population query.", record)
+        assert response.table_id == "B01003"
+        assert response.alternatives == []
+        return
+    record.rows = rows
+
+    response = assemble("Fetched both counties.", record)
+
+    assert "median_not_aggregatable" in {warning.code for warning in response.warnings}
+    assert response.combined_rows == []
+    assert [row["B19013_001E"] for row in response.rows] == ["50000", "60000"]
+
+
 def test_combined_margin_is_rss_not_linear() -> None:
     record = ExecutionRecord(question=T18, table_id="B27001")
     record.rows = [
@@ -711,13 +785,13 @@ def test_combined_margin_is_rss_not_linear() -> None:
     ]
     response = assemble("summed", record)
     assert response.warnings == []
-    combined = response.rows[-1]
+    (combined,) = response.combined_rows
     assert combined["B27001_001E"] == "60"
     assert combined["B27001_001M"] == "13"
     assert combined["MOE_formula"] == MOE_COMBINE_FORMULA
     assert combined["component_count"] == "3"
     assert combined["GEO_ID"] == ""
-    assert response.moe[-1]["B27001_001M"] == "13"
+    assert [row["B27001_001M"] for row in response.moe] == ["3", "4", "12"]
 
 
 def test_five_areas_combine_without_degraded_warning() -> None:
@@ -725,7 +799,7 @@ def test_five_areas_combine_without_degraded_warning() -> None:
     record.rows = _count_rows(5)
     response = assemble("summed", record)
     assert response.warnings == []
-    combined = response.rows[-1]
+    (combined,) = response.combined_rows
     assert combined["B01003_001E"] == "50"
     assert combined["B01003_001M"] == "13"
     assert combined["component_count"] == "5"
@@ -738,10 +812,10 @@ def test_six_areas_warn_and_keep_the_rss_total() -> None:
     assert [item.code for item in response.warnings] == ["moe_aggregation_degraded"]
     assert "6" in response.warnings[0].detail
     assert MOE_COMBINE_FORMULA in response.warnings[0].detail
-    combined = response.rows[-1]
+    (combined,) = response.combined_rows
     assert combined["B01003_001E"] == "60"
     assert combined["B01003_001M"] == "13"
-    assert len(response.rows) == 7
+    assert len(response.rows) == 6
 
 
 def test_sentinel_area_is_dropped_not_zeroed() -> None:
@@ -752,7 +826,7 @@ def test_sentinel_area_is_dropped_not_zeroed() -> None:
     record.rows = rows
     response = assemble("summed", record)
     assert response.warnings == []
-    combined = response.rows[-1]
+    (combined,) = response.combined_rows
     assert combined["B01003_001E"] == "50"
     assert combined["B01003_001M"] == "13"
     assert combined["component_count"] == "5"
@@ -764,7 +838,7 @@ def test_area_without_a_margin_is_not_a_component() -> None:
     rows[2]["B01003_001M"] = "-555555555"
     record.rows = rows
     response = assemble("summed", record)
-    combined = response.rows[-1]
+    (combined,) = response.combined_rows
     assert combined["B01003_001E"] == "20"
     assert combined["B01003_001M"] == "5"
     assert combined["component_count"] == "2"
@@ -779,6 +853,7 @@ def test_all_sentinel_inputs_produce_no_combined_row() -> None:
     response = assemble("nothing to add", record)
     assert response.warnings == []
     assert [row.get("GEO_ID") for row in response.rows] == ["a", "b"]
+    assert response.combined_rows == []
 
 
 def test_wildcard_listing_is_not_combined() -> None:
@@ -789,6 +864,7 @@ def test_wildcard_listing_is_not_combined() -> None:
     response = assemble("listed", record)
     assert response.warnings == []
     assert len(response.rows) == 6
+    assert response.combined_rows == []
 
 
 def test_year_tagged_rows_combine_within_vintage_not_across() -> None:
@@ -807,7 +883,7 @@ def test_year_tagged_rows_combine_within_vintage_not_across() -> None:
     record.rows = rows
     response = assemble("summed", record)
     assert response.warnings == []
-    combined = [row for row in response.rows if row.get("component_count")]
+    combined = response.combined_rows
     assert len(combined) == 2
     assert {row.get("year") for row in combined} == {"2019", "2022"}
     for row in combined:
@@ -826,6 +902,7 @@ def test_combined_statistical_area_is_not_a_sum() -> None:
     response = assemble("listed", record)
     assert response.warnings == []
     assert len(response.rows) == 6
+    assert response.combined_rows == []
 
 
 def test_rent_median_combine_does_not_offer_income_brackets() -> None:
@@ -865,7 +942,26 @@ def test_derived_measures_are_not_summed_across_areas() -> None:
         record.rows = _count_rows(3)
         response = assemble("listed", record)
         assert [row.get("GEO_ID") for row in response.rows] == ["g0", "g1", "g2"], question
-        assert all(not row.get("component_count") for row in response.rows), question
+        assert response.combined_rows == [], question
+
+
+def test_poverty_ratio_bracket_counts_combine_with_retained_title() -> None:
+    record = ExecutionRecord(
+        question="Combine the number of people below half the poverty line in these counties.",
+        table_id="C17002",
+        url=CensusURL(f"{CENSUS_API}/2024/acs/acs5?get=C17002_002E&for=county:031&in=state:17"),
+        built_pool=[{"table_id": "C17002", "title": "Ratio of Income to Poverty Level"}],
+        rows=[
+            {"GEO_ID": "0500000US17031", "C17002_002E": "100", "C17002_002M": "3"},
+            {"GEO_ID": "0500000US17097", "C17002_002E": "200", "C17002_002M": "4"},
+        ],
+    )
+
+    response = assemble("Fetched two counties.", record)
+
+    assert [row["GEO_ID"] for row in response.rows] == [row["GEO_ID"] for row in record.rows]
+    (combined,) = response.combined_rows
+    assert (combined["C17002_002E"], combined["C17002_002M"]) == ("300", "5")
 
 
 def test_combine_wording_sums_additive_counts() -> None:
@@ -876,7 +972,7 @@ def test_combine_wording_sums_additive_counts() -> None:
         record = ExecutionRecord(question=question, table_id="B01003")
         record.rows = _count_rows(3)
         response = assemble("summed", record)
-        combined = response.rows[-1]
+        (combined,) = response.combined_rows
         assert combined["B01003_001E"] == "30", question
         assert combined["component_count"] == "3", question
 
@@ -933,7 +1029,7 @@ def test_combined_row_requires_the_same_areas_per_variable() -> None:
     ]
     response = assemble("listed", record)
     assert [row.get("GEO_ID") for row in response.rows] == ["a", "b", "c"]
-    assert all(not row.get("component_count") for row in response.rows)
+    assert response.combined_rows == []
 
 
 def test_zip_language_warns_without_blocking_a_zcta_row() -> None:

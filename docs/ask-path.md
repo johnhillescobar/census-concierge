@@ -12,7 +12,7 @@ Four tools:
 
 | tool | module | does |
 |---|---|---|
-| `search_tables` | `tools.py` | `index.search` top-30 (`POOL_DEPTH`) on the model's `topic` (the question if none), keeping only tables the dataset's latest vintage publishes, then `rerank.choose` over the full question; the answer lists the pick plus the best 9; no wording pin picks or adds a table |
+| `search_tables` | `tools.py` | The app sets `POOL_DEPTH` (30) for `index.search` on the model's `topic` (the question if none). The tool filters by publication and uses `rerank.choose` over the full question, keeping the pick and up to nine other hits. An accepted URL retains the first pool containing its table for display and measure guards. The latest search governs permission to build another URL. |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
 | `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
@@ -22,10 +22,10 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 
 ## Finish path
 
-`finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
-stops without a URL, or with the wrong listing level, an incomplete comparison,
-or an ACS1 request that never built `/acs/acs1`, it
-retries: search (only if the pool is empty); resolve
+Model failure returns collected artifacts and fetches an unattempted accepted plan, preserving its URLs and statuses.
+`finish_tools()` in `api/src/finish.py` handles a missing URL, the wrong listing
+level, an incomplete comparison, or an ACS1 request that never built `/acs/acs1`.
+It retries search (only if the pool is empty), then resolves geography
 (listing rewrite; ACS1 dataset; nationwide fallback on universe mismatch);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
@@ -155,9 +155,9 @@ the loop stopped before `build_url`, or the question was refused as incomplete.
 `comparisons[]` carries both estimates, both MOEs, `MOE_diff`, and the 90%
 conclusion. Pairing is skipped before any pair is built when row pairs x estimate columns
 exceeds `MAX_COMPARISON_WORK` (`comparison_too_large`); rows, URL and MOE still return.
-Place-vs-parent emits `shared_sample`. Additive areas combine via
-`sqrt(Σ MOEᵢ²)` and warn past five (`moe_aggregation_degraded`). Combining
-published medians is declined (`median_not_aggregatable`).
+Place-vs-parent emits `shared_sample`. `combined_rows[]` carries calculated totals and their
+`sqrt(Σ MOEᵢ²)` margins. The approximation warns past five areas (`moe_aggregation_degraded`).
+Published medians cannot be combined (`median_not_aggregatable`).
 
 ## UI
 

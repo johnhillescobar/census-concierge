@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import pytest
@@ -204,11 +205,144 @@ async def test_incomplete_response_does_not_execute_a_partial_call(
     assert response.rows == []
 
 
-async def test_provider_failure_keeps_fetched_data_without_retry(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("failure", ["unavailable", "incomplete"])
+@pytest.mark.parametrize("stage", ["initial", "ranked", "built"])
+def test_ask_returns_collected_artifacts_after_model_failure(
+    monkeypatch: pytest.MonkeyPatch, failure: str, stage: str
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Get ACS total population for {place}."
+    fetched: list[str] = []
+
+    def census_get(url: str) -> tuple[int, list[list[str]]]:
+        fetched.append(urlsplit(url).path)
+        return 200, [
+            ["NAME", "B01003_001E", "B01003_001M", "GEO_ID"],
+            [place, "120", "3", "0500000US48201"],
+        ]
+
+    def ranked_tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        tools = _tools(record)
+        search = tools["search_tables"].search
+        tools["search_tables"].search = lambda query, k: (
+            ["B19013", "B01003"][:k] if query == question else search(query, k)
+        )
+        tools["fetch_data"].http_get = census_get
+        tools["fetch_data"].question_years = lambda: [2014, 2019, 2024]
+        return tools
+
+    search = function_call("search_tables", json.dumps({"question": question}))
+    geography = function_call("resolve_geography", json.dumps({"query": place, "level": "county"}))
+    build = function_call("build_url", '{"table_id":"B01003","vintage":2024}')
+    failure_reply = (
+        httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+        if failure == "unavailable"
+        else {
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "output": [search],
+        }
+    )
+    turns = {
+        "initial": [],
+        "ranked": [[search, geography]],
+        "built": [[search, geography], [build]],
+    }
+    replies = iter(
+        [*({"status": "completed", "output": items} for items in turns[stage]), failure_reply]
+    )
+    requests = install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", ranked_tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert tuple(body) == CONTRACT_FIELDS
+    assert len([request for request in requests if request["tools"]]) == len(turns[stage]) + 1
+    if stage == "built":
+        assert body["table_id"] == "B01003"
+        assert len(body["urls"]) == 1
+        assert "B01003_001E" in body["urls"][0] and "for=county:201" in body["urls"][0]
+        assert body["attempted_years"] == [2024]
+        assert len(fetched) == 1
+        assert body["rows"][0]["GEO_ID"] == "0500000US48201"
+        assert body["moe"][0]["B01003_001M"] == "3"
+    else:
+        assert fetched == body["rows"] == []
+        assert not body["table_id"]
+        assert body["urls"] == []
+    candidates = {item["table_id"] for item in body["alternatives"]}
+    assert ("B19013" in candidates) == (stage != "initial")
+
+
+@pytest.mark.parametrize("failure_stage", ["none", "after-fetch", "before-fetch"])
+def test_ask_keeps_calculated_totals_separate_from_geocoded_rows(
+    monkeypatch: pytest.MonkeyPatch, failure_stage: str
+) -> None:
+    places = ["Detroit city, Michigan", "Phoenix city, Arizona"]
+    question = f"What is the total population of {places[0]} and {places[1]} combined?"
+    census_rows = {
+        "state:26": [places[0], "120", "3", "1600000US2622000"],
+        "state:04": [places[1], "80", "4", "1600000US0455000"],
+    }
+    fetched: list[str] = []
+
+    def census_get(url: str) -> tuple[int, list[list[str]]]:
+        state = parse_qs(urlsplit(url).query)["in"][0]
+        fetched.append(state)
+        return 200, [["NAME", "B01003_001E", "B01003_001M", "GEO_ID"], census_rows[state]]
+
+    def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        found = _tools(record)
+        found["fetch_data"].http_get = census_get
+        return found
+
+    turns = [
+        [
+            function_call("search_tables", json.dumps({"question": question})),
+            function_call("resolve_geography", json.dumps({"places": places, "level": "place"})),
+        ],
+        [function_call("build_url", '{"table_id":"B01003"}')],
+    ]
+    if failure_stage != "before-fetch":
+        turns.append([function_call("fetch_data", '{"years":[2024]}')])
+    final = (
+        httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+        if failure_stage != "none"
+        else {"status": "completed", "output": [message("The fetch completed.")]}
+    )
+    replies = iter([*({"status": "completed", "output": items} for items in turns), final])
+    install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert sorted(fetched) == sorted(census_rows)
+    assert [row["GEO_ID"] for row in body["rows"]] == [row[-1] for row in census_rows.values()]
+    assert [row["B01003_001M"] for row in body["moe"]] == ["3", "4"]
+    assert len(body["urls"]) == len(body["legs"]) == 2
+    assert {parse_qs(urlsplit(url).query)["in"][0] for url in body["urls"]} == census_rows.keys()
+    (total,) = body["combined_rows"]
+    assert not total.get("GEO_ID")
+    assert (total["B01003_001E"], total["B01003_001M"], total["component_count"]) == (
+        "200",
+        "5",
+        "2",
+    )
+    assert total["year"] == "2024"
+    assert total["NAME"] in body["answer"]
+
+
+@pytest.mark.parametrize("prior_fetch", ["rows", "failed-fetch", "invalid-arguments"])
+async def test_provider_failure_preserves_a_prior_fetch_without_retry(
+    monkeypatch: pytest.MonkeyPatch, prior_fetch: str
 ) -> None:
     place = "Harris County, Texas"
     question = f"Find the ACS total population for {place}."
+    fetch_args = None if prior_fetch == "invalid-arguments" else "{}"
     replies = iter(
         [
             {
@@ -224,21 +358,188 @@ async def test_provider_failure_keeps_fetched_data_without_retry(
                 "status": "completed",
                 "output": [function_call("build_url", '{"table_id":"B01003"}')],
             },
-            {"status": "completed", "output": [function_call("fetch_data")]},
+            {"status": "completed", "output": [function_call("fetch_data", fetch_args)]},
             httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
         ]
     )
     requests = install_transport(monkeypatch, lambda _: next(replies))
     record = ask.ExecutionRecord()
+    tools = _tools(record)
+    census_get = tools["fetch_data"].http_get
+    fetched: list[str] = []
 
-    response = await ask.run_ask(question, tools=_tools(record), record=record)
+    def census(url: str) -> tuple[int, Any]:
+        fetched.append(urlsplit(url).path)
+        return census_get(url) if prior_fetch == "rows" else (503, [])
+
+    tools["fetch_data"].http_get = census
+    response = await ask.run_ask(question, tools=tools, record=record)
 
     assert len([request for request in requests if request["tools"]]) == 4
     assert "The model request failed." in response.answer
-    assert response.urls
-    assert response.rows[0]["B01003_001E"] == "4838303"
-    assert response.moe[0]["B01003_001M"] == "123"
-    assert response.geoid == "0500000US48201"
+    assert len(response.urls) == 1
+    if prior_fetch == "invalid-arguments":
+        assert fetched == response.legs == response.rows == []
+    elif prior_fetch == "rows":
+        assert len(fetched) == 1
+        assert response.rows[0]["B01003_001E"] == "4838303"
+        assert response.moe[0]["B01003_001M"] == "123"
+        assert response.geoid == "0500000US48201"
+    else:
+        assert len(fetched) == 1
+        assert response.rows == []
+        assert [leg.status_code for leg in response.legs] == [503]
+
+
+@pytest.mark.parametrize(
+    "scenario", ["new-build", "unattempted-new-build", "empty-acs1", "missing-acs1"]
+)
+def test_provider_failure_fetches_only_the_current_accepted_plan(
+    monkeypatch: pytest.MonkeyPatch, scenario: str
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Find the ACS total population for {place}."
+    acs1_status = {"empty-acs1": 204, "missing-acs1": 404}.get(scenario)
+    dataset = "acs1" if acs1_status is not None else "acs5"
+    fetched: list[str] = []
+
+    def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        found = _tools(record)
+        success = found["fetch_data"].http_get
+
+        def census(url: str) -> tuple[int, Any]:
+            path = urlsplit(url).path
+            fetched.append(path)
+            if path.endswith("/acs1"):
+                assert acs1_status is not None
+                return acs1_status, []
+            return (503, []) if "/2019/" in path else success(url)
+
+        found["fetch_data"].http_get = census
+        return found
+
+    turns = [
+        [
+            function_call("search_tables", json.dumps({"question": question, "dataset": dataset})),
+            function_call(
+                "resolve_geography",
+                json.dumps({"query": place, "level": "county", "dataset": dataset}),
+            ),
+        ],
+    ]
+    if dataset == "acs5":
+        previous = function_call("build_url", '{"table_id":"B01003","vintage":2019}')
+        previous.update(id="fc_previous_build", call_id="call_previous_build")
+        turns.extend([[previous], [function_call("fetch_data")]])
+    build = json.dumps({"table_id": "B01003", "dataset": dataset, "vintage": 2024})
+    turns.append([function_call("build_url", build)])
+    if scenario == "unattempted-new-build":
+        unavailable = function_call("fetch_data", '{"years":[2050]}')
+        unavailable.update(id="fc_future_fetch", call_id="call_future_fetch")
+        turns.append([unavailable])
+    failure = httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+    replies = iter([*({"status": "completed", "output": items} for items in turns), failure])
+    install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert all("key=" not in url for url in body["urls"])
+    if scenario == "unattempted-new-build":
+        (leg,) = body["legs"]
+        assert fetched == ["/data/2019/acs/acs5"]
+        assert leg["status_code"] == 503 and leg["url"] == body["urls"][0]
+        assert [urlsplit(url).path for url in body["urls"]] == [
+            "/data/2019/acs/acs5",
+            "/data/2024/acs/acs5",
+        ]
+        assert body["rows"] == body["attempted_years"] == body["plan"]["years"] == []
+        assert body["requested_years"] == body["plan"]["requested_years"] == [2050]
+        return
+    assert body["urls"] == [leg["url"] for leg in body["legs"]]
+    assert [urlsplit(url).path for url in body["urls"]] == fetched
+    assert body["requested_years"] == body["attempted_years"] == body["plan"]["years"] == [2024]
+    if dataset == "acs5":
+        assert fetched == ["/data/2019/acs/acs5", "/data/2024/acs/acs5"]
+        assert [(leg["year"], leg["status_code"]) for leg in body["legs"]] == [
+            (2019, 503),
+            (2024, 200),
+        ]
+        assert body["failed_years"] == [] and body["succeeded_years"] == [2024]
+        assert body["rows"][0]["GEO_ID"] == "0500000US48201"
+    else:
+        assert fetched == ["/data/2024/acs/acs1"]
+        (leg,) = body["legs"]
+        assert leg["status_code"] == acs1_status and body["rows"] == []
+        warnings = {warning["code"]: warning["detail"] for warning in body["warnings"]}
+        detail = warnings["acs1_geography_ineligible"]
+        assert "ACS1 is not published" in detail
+        assert "returned instead" not in detail
+
+
+@pytest.mark.parametrize("later_topic", [None, "empty", "singleton"])
+def test_ask_keeps_published_alternatives_for_the_validated_table(
+    monkeypatch: pytest.MonkeyPatch, later_topic: str | None
+) -> None:
+    place = "Harris County, Texas"
+    question = f"Get ACS total population for {place}."
+    pools = {
+        "population": ["B01003", "B02008", "B01001"],
+        "empty": [],
+        "singleton": ["B01003"],
+    }
+    titles = {"B01003": "Total Population", "B02008": "Unpublished", "B01001": "Sex by Age"}
+    request_tools: dict[str, Any] = {}
+
+    def tools(record: ask.ExecutionRecord) -> dict[str, Any]:
+        request_tools.update(_tools(record))
+        search = request_tools["search_tables"]
+        search.search = lambda topic, k: pools[topic][:k]
+        search.describe = lambda table: {"title": titles[table], "universe": "Total population"}
+        search.published = lambda _, table: table != "B02008"
+        search.select = lambda _, hits: hits[0]["table_id"]
+        return request_tools
+
+    search_args = {"question": question, "topic": "population", "k": 2 if later_topic else 1}
+    turns = [
+        [
+            function_call("search_tables", json.dumps(search_args)),
+            function_call("resolve_geography", json.dumps({"query": place, "level": "county"})),
+        ],
+        [function_call("build_url", '{"table_id":"B01003"}')],
+        [function_call("fetch_data")],
+    ]
+    if later_topic:
+        turns.append(
+            [
+                {
+                    **function_call("search_tables", json.dumps({"topic": later_topic})),
+                    "id": "fc_later_search",
+                    "call_id": "call_later_search",
+                }
+            ]
+        )
+    final = (
+        httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
+        if later_topic
+        else {"status": "completed", "output": [message("The fetch completed.")]}
+    )
+    replies = iter([*({"status": "completed", "output": items} for items in turns), final])
+    install_transport(monkeypatch, lambda _: next(replies))
+    monkeypatch.setattr(ask, "default_tools", tools)
+
+    response = TestClient(app).post("/ask", json={"question": question})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["table_id"] == "B01003"
+    assert len(body["urls"]) == len(body["rows"]) == 1
+    assert body["rows"][0]["GEO_ID"] == "0500000US48201"
+    assert [item["table_id"] for item in body["alternatives"]] == ["B01001"]
+    if later_topic:
+        assert request_tools["build_url"].allowed_tables() == set(pools[later_topic])
 
 
 async def test_answer_model_override_does_not_send_sol_reasoning_options(

@@ -86,6 +86,14 @@ def losing(tier: str, ids: list[str]) -> Failing:
     return {(tier, family, repeat) for family in ids for repeat in (1, 2, 3)}
 
 
+def _long_tail_misses(families: list[str], counts: list[int]) -> Failing:
+    return {
+        ("long_tail", family, repeat)
+        for family, count in zip(families, counts, strict=True)
+        for repeat in range(1, count + 1)
+    }
+
+
 def status(checks: list[mc.Check], name: str) -> str:
     return next(c.status for c in checks if c.name == name)
 
@@ -96,6 +104,24 @@ def test_a_run_compared_with_itself_has_no_failure(protocol: dict[str, Any]) -> 
     assert mc.verdict(checks) != "FAIL"
     assert status(checks, "long_tail trial rate") == "PASS"
     assert status(checks, "long_tail case rate") == "PASS"
+
+
+def test_equal_trial_counts_keep_their_uncertainty_without_a_decline(
+    protocol: dict[str, Any],
+) -> None:
+    ids = sorted(families_of(protocol, "long_tail", 40))[:3]
+    reference = run(protocol, _long_tail_misses(ids, [0, 1, 3]))
+    candidate = run(protocol, _long_tail_misses(ids, [2, 0, 2]))
+    checks = mc.evaluate(candidate, reference, "A", protocol)
+    assert status(checks, "long_tail trial rate") == "INCONCLUSIVE"
+
+
+def test_equal_empty_counts_do_not_fail_coverage(protocol: dict[str, Any]) -> None:
+    ids = sorted(families_of(protocol, "long_tail", 40))[:3]
+    reference = run(protocol, _long_tail_misses(ids, [2, 2, 3]))
+    candidate = run(protocol, _long_tail_misses(ids, [1, 3, 3]))
+    checks = mc.evaluate(candidate, reference, "A", protocol)
+    assert status(checks, "empty answers (long_tail)") == "PASS"
 
 
 def test_a_candidate_better_in_one_cohort_and_worse_in_another_is_rejected(
@@ -365,6 +391,14 @@ def test_meeting_a_target_from_below_needs_a_proven_paired_gain(protocol: dict[s
     assert status(proven, "long_tail case") == "PASS"
 
 
+def test_a_zero_lower_bound_does_not_prove_a_gain(protocol: dict[str, Any]) -> None:
+    ids = sorted(families_of(protocol, "long_tail", 40))[:6]
+    reference = run(protocol, _long_tail_misses(ids, [1, 1, 1, 1, 1, 1]))
+    candidate = run(protocol, _long_tail_misses(ids, [0, 0, 0, 0, 0, 2]))
+    checks = mc.target_check(candidate, reference, protocol, "long_tail", 0.97)
+    assert status(checks, "long_tail trial") == "INCONCLUSIVE"
+
+
 def test_missing_the_target_fails_whatever_the_gain(protocol: dict[str, Any]) -> None:
     ids = families_of(protocol, "long_tail", 40)
     base = run(protocol, losing("long_tail", ids[:20]))
@@ -503,9 +537,9 @@ def test_a_case_passes_only_if_every_repeat_answered(protocol: dict[str, Any]) -
     partial = {("long_tail", ids[0], 3)}  # one repeat of three
     tier = protocol["cohorts"]["long_tail"]["tier"]
     grouped = mc.families(run(protocol, partial), ids, tier, 3)
-    rates = mc.family_rates(grouped)[ids[0]]
-    assert rates["case"] == 0.0
-    assert round(rates["trial"], 3) == 0.667
+    counts = mc.family_counts(grouped)[ids[0]]
+    assert counts["case"] == 0
+    assert counts["trial"] == 2
 
 
 def test_a_family_outside_the_frozen_cohort_is_a_plan_error(protocol: dict[str, Any]) -> None:

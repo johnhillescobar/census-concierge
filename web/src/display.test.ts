@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AskResponse } from "./ask";
+import { rowsToCsv } from "./csv";
 import {
   censusFetchFailed,
   censusRaw,
+  censusUrls,
   censusYearsIncomplete,
   formatCensusNumber,
   formatCensusValue,
@@ -91,6 +93,11 @@ describe("censusFetchFailed", () => {
     expect(censusFetchFailed(harris)).toBe(false);
   });
 
+  it("keeps a built URL distinct from a failed Census request", () => {
+    const built = { ...harris, attempted_years: [], succeeded_years: [], rows: [], moe: [] };
+    expect(censusFetchFailed(built)).toBe(false);
+  });
+
   it("is false when some years succeeded and others failed", () => {
     expect(
       censusFetchFailed({
@@ -135,10 +142,9 @@ describe("censusYearsIncomplete", () => {
 });
 
 describe("redactCensusUrl", () => {
-  it("strips key= from a Census URL", () => {
+  it("strips the key and shows one link for repeated Census URLs", () => {
     const raw = `${harris.urls[0]}&key=secret`;
-    expect(redactCensusUrl(raw)).not.toContain("key=");
-    expect(redactCensusUrl(raw)).toContain("get=NAME");
+    expect(censusUrls({ ...harris, urls: [raw, raw] })).toEqual([expect.not.stringContaining("key=")]);
   });
 
   it("strips a first-parameter key and an uppercase KEY", () => {
@@ -184,6 +190,16 @@ describe("formatCensusNumber", () => {
 });
 
 describe("normalizeActiveDataset", () => {
+  it("preserves calculated figures and their margins in the dataset and CSV", () => {
+    const total = { NAME: "combined (2 areas)", B01003_001E: "200", B01003_001M: "5" };
+    const legacy = normalizeActiveDataset({ ...harris, rows: [...harris.rows, total], moe: [...harris.moe, total] });
+    const separated = normalizeActiveDataset({ ...harris, combined_rows: [total] });
+
+    expect(separated).toEqual(legacy);
+    expect(separated.at(-1)).toMatchObject({ name: total.NAME, estimate: "200", moe: "5", geoid: "" });
+    expect(rowsToCsv(separated)).toBe(rowsToCsv(legacy));
+  });
+
   it("emits one table row for a one-row scalar using the same model as a series", () => {
     expect(normalizeActiveDataset(harris)).toEqual([
       {
@@ -275,25 +291,12 @@ describe("normalizeActiveDataset", () => {
   });
 
   it("keeps dataset, period, and table on each series point from that row", () => {
+    const baseRow = { ...harris.rows[0], dataset: "acs5", table_id: "B01003" };
     const series: AskResponse = {
       ...harris,
       rows: [
-        {
-          ...harris.rows[0],
-          year: "2018",
-          vintage: "2018",
-          dataset: "acs5",
-          period: "2014-2018",
-          table_id: "B01003",
-        },
-        {
-          ...harris.rows[0],
-          year: "2022",
-          vintage: "2022",
-          dataset: "acs5",
-          period: "2018-2022",
-          table_id: "B01003",
-        },
+        { ...baseRow, year: "2018", vintage: "2018", period: "2014-2018" },
+        { ...baseRow, year: "2022", vintage: "2022", period: "2018-2022" },
       ],
       moe: [harris.moe[0], harris.moe[0]],
     };

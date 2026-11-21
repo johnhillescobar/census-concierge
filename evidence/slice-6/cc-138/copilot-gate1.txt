@@ -1,0 +1,59 @@
+CC-138 Gate 1, original Copilot repair
+Branch cc-138/coverage-recovery; tested in detached worktree cc138-copilot-gate1-original.
+Base 577f6abfafbbbd146f3bf9e74de2287759e3a17d
+Head 8d56f69aed523601f8944aacf5f4a47f9db8ad74
+Verdict FAIL. Three mypy errors and two reproduced response defects. See the follow-up Gate 1 for a revised head.
+
+Commands below use the repository's existing Python 3.12 environment and PYTHONPATH=api.
+GOOD python -m pytest -q -m 'not integration' -p no:cacheprovider --basetemp .copilot-gate1-pytest-escalated --tb=short
+1433 passed, 34 skipped, 8 xfailed, 1 warning in 159.32s (0:02:39)
+GOOD python -m pytest -q -p no:cacheprovider api/tests/test_ask_responses.py api/tests/test_guards.py api/tests/test_fetch_years.py api/tests/test_ask_route.py api/tests/test_ask_loop.py api/tests/test_ask_one.py --tb=short
+246 passed, 1 warning in 11.33s
+GOOD ruff check .; ruff format --check .: All checks passed; 266 files already formatted.
+BAD mypy api/src: Found 3 errors in 2 files (checked 29 source files).
+  guards.py:75: Item "None" of "Any | None" has no attribute "dataset" [union-attr]
+  guards.py:75: Item "None" of "Any | None" has no attribute "rows" [union-attr]
+  fetch.py:72: Returning Any from function declared to return "list[str]" [no-any-return]
+GOOD python scripts/check_invariants.py --base origin/main: All invariants held; regex sites 55 (base 55, delta +0).
+GOOD python scripts/generate_client.py --check: packages/client is up to date.
+GOOD python scripts/check_budgets.py --structural-only: All budgets met; API 4883/4890, largest file 410/410, web 3350/3350, docs 1820/1820.
+
+The original retry of broad pytest and the client drift check used an approved unsandboxed run because Windows denied Python's temporary directories in the sandbox. Database-backed tests can skip in this local environment. No live or sealed runs were performed for this gate.
+
+For each mutation, the Python loader applied one substitution to one module in one pytest subprocess. No product source or test files were edited. Each node ran via `pytest -q -p no:cacheprovider --tb=short <node>`. Test names below use these paths:
+  provider = api/tests/test_ask_responses.py::test_provider_failure_fetches_only_the_current_accepted_plan
+  fallback = api/tests/test_guards.py::test_acs1_fallback_year_warns_ineligible_geography
+  median = api/tests/test_guards.py::test_later_search_cannot_turn_validated_medians_into_a_total
+
+GOOD Unmodified product, all 10 changed test cases.
+10 passed, 1 warning in 5.54s
+BAD Do not append fetch artifact legs in _absorb; provider[new-build] lost the old 2019 URL and status.
+1 failed, 1 warning in 5.01s
+BAD Claim ACS5 replacement unconditionally; provider[empty-acs1] rejected the assertion after HTTP 204.
+1 failed, 1 warning in 2.97s
+BAD Claim ACS5 replacement unconditionally; provider[missing-acs1] rejected the assertion after HTTP 404.
+1 failed, 1 warning in 3.24s
+BAD Suppress ACS5 replacement in the warning; fallback required it when ACS5 rows existed.
+1 failed, 1 warning in 1.61s
+BAD Do not snapshot the selected hit at build; median[retrieved] lost the median warning.
+1 failed, 1 warning in 2.33s
+BAD Do not snapshot hits at search; median[pinned] can still use the latest matching hit.
+1 passed, 1 warning in 2.45s (exploratory mutation; the following test-specific mutation exercises the pin's metadata requirement)
+BAD Suppress selected-title lookup for pinned plans; median[pinned] lost the median warning.
+1 failed, 1 warning in 1.54s
+BAD Do not snapshot hits at search; median[pinned-then-empty] lost the median warning.
+1 failed, 1 warning in 3.22s
+BAD Drop the built pool on a same-table rebuild after an empty search; median[rebuilt-after-empty] lost the median warning.
+1 failed, 1 warning in 2.53s
+BAD Drop the built pool on a same-table rebuild after unrelated hits; median[rebuilt-after-unrelated] lost the median warning.
+1 failed, 1 warning in 2.20s
+BAD Keep the built pool on a different-table build; median[different-table] leaked B19013 into the B01003 alternatives.
+1 failed, 1 warning in 2.47s
+BAD Fill current failed_years from all retained legs; provider[new-build] exposed [2019] in current failed_years.
+1 failed, 1 warning in 3.37s
+
+Adversarial probes on the untouched head:
+BAD Accept pinned B19013 with a published alternative, absorb an empty search, resolve a new county, then accept a same-table rebuild. The pin still permits the build; response alternatives are [] instead of preserving B19001.
+BAD Attempt one 503 request, accept a new unattempted URL, then assemble. Only the prior request URL is in the response and the accepted new URL is missing.
+
+git diff --exit-code HEAD -- api web returned 0 in the detached test checkout.

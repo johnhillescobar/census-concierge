@@ -1,0 +1,136 @@
+Block       Tier        Answered trials  All repeats  Trials with rows  p95 (full run)
+A-expanded  core        78/90            24/30        89/90             22.325s
+A-expanded  trap        92/102           29/34        90/102            22.325s
+A-expanded  long_tail   84/120           26/40        119/120           22.325s
+A-expanded missing contract fields among 298 trials with rows: moe=0, geoid=3, universe=0, alternatives=0
+B1          core        84/90            28/30        87/90             22.759s
+B1          trap        90/102           29/34        87/102            22.759s
+B1          long_tail   92/120           30/40        114/120           22.759s
+B1 missing contract fields among 288 trials with rows: moe=0, geoid=3, universe=0, alternatives=0
+P1          core        84/90            27/30        85/90             22.924s
+P1          trap        92/102           30/34        87/102            22.924s
+P1          long_tail   91/120           30/40        111/120           22.924s
+P1 missing contract fields among 283 trials with rows: moe=0, geoid=0, universe=0, alternatives=0
+P2          core        83/90            26/30        87/90             21.503s
+P2          trap        92/102           30/34        87/102            21.503s
+P2          long_tail   93/120           30/40        116/120           21.503s
+P2 missing contract fields among 290 trials with rows: moe=0, geoid=0, universe=0, alternatives=0
+B2          core        84/90            28/30        87/90             23.537s
+B2          trap        92/102           30/34        87/102            23.537s
+B2          long_tail   91/120           29/40        112/120           23.537s
+B2 missing contract fields among 286 trials with rows: moe=0, geoid=3, universe=0, alternatives=0
+registered A-expanded at f5a6ef0: {'long_tail_trial_rate': 0.7, 'p95': 22.325, 'retrieval_at_10': 0.9, 'selector_at_1': 0.825, 'answered_rate': 0.7}; blockers: ['p95 22.325 > 20.0']
+registered B1 at 35e5f5d: {'long_tail_trial_rate': 0.767, 'p95': 22.759, 'retrieval_at_10': 0.9, 'selector_at_1': 0.8, 'answered_rate': 0.767}; blockers: ['p95 22.759 > 20.0']
+registered B2 at 35e5f5d: {'long_tail_trial_rate': 0.758, 'p95': 23.537, 'retrieval_at_10': 0.9, 'selector_at_1': 0.825, 'answered_rate': 0.758}; blockers: ['p95 23.537 > 20.0']
+Candidate eval and grid checks
+  PASS         P2         api src LOC                  4888 vs 4890
+  PASS         P2         api src files                29 vs 40
+  PASS         P2         largest file LOC             409 vs 410
+  PASS         P2         web src LOC                  3350 vs 3350
+  PASS         P2         system prompt tokens         1095 vs 1200
+  PASS         P2         doc lines                    1820 vs 1820
+  PASS         P2         graph nodes                  0 vs 8
+  PASS         P2         agent tools                  4 vs 6
+  PASS         P2         api routes                   4 vs 10
+  PASS         P2         tool schemas                 8 vs 12
+  PASS         P2         domain models                11 vs 15
+  PASS         P2         direct dependencies          8 vs 25
+  PASS         P2         retrieval_at_10              0.9 vs 0.9
+  PASS         P2         selector_at_1                0.8 vs 0.7
+  PASS         P2         answered_rate                0.775 vs 0.7
+  PASS         P2         synthetic_alignment          0.544 vs 0.5
+  PASS         P2         geography grid               210/210 trials, 100.0% passed
+
+P1 paired with B1
+  PASS         floor   answered_rate                 0.758 vs floor 0.7
+  PASS         floor   retrieval_at_10               0.9 vs floor 0.9
+  PASS         floor   selector_at_1                 0.825 vs floor 0.7
+  PASS         floor   answered_rate matches trials  0.758 from trials vs reported 0.758
+  PASS         floor   p95 matches trials            22.924 vs reported 22.924
+  FAIL         floor   p95 ceiling                   22.924s vs 20s
+  PASS         floor   response contract             0 of 283 trials that returned rows lack a contract field
+  FAIL         B1      long_tail trial rate          observed decrease (-0.008 over 40 families)
+  PASS         B1      long_tail case rate           diff +0.000, lower +0.000
+  PASS         B1      trap trial rate               diff +0.020, lower +0.000
+  PASS         B1      trap case rate                diff +0.029, lower +0.000
+  INCONCLUSIVE B1      core trial rate               cannot rule out a drop over 2% (diff +0.000, lower -0.067)
+  FAIL         B1      core case rate                observed decrease (-0.033 over 30 families)
+  FAIL         B1      rows per family               3 families returned fewer rows
+  FAIL         B1      empty answers (long_tail)     +0.025 per family
+  PASS         B1      retrieval_at_10               0.9 vs 0.9
+  PASS         B1      selector_at_1                 0.825 vs 0.8
+  FAIL         B1      p95 vs reference              22.924s vs 22.759s
+  PASS         B1      reference label               CC-138 B1
+  INCONCLUSIVE A-expanded long_tail trial rate          cannot rule out a drop over 2% (diff +0.058, lower -0.042)
+  PASS         A-expanded long_tail case rate           diff +0.100, lower +0.000
+  INCONCLUSIVE A-expanded trap trial rate               cannot rule out a drop over 2% (diff +0.000, lower -0.029)
+  PASS         A-expanded trap case rate                diff +0.029, lower +0.000
+  PASS         A-expanded core trial rate               diff +0.067, lower -0.011
+  INCONCLUSIVE A-expanded core case rate                cannot rule out a drop over 2% (diff +0.100, lower -0.033)
+  FAIL         A-expanded rows per family               5 families returned fewer rows
+  FAIL         A-expanded empty answers (long_tail)     +0.067 per family
+  PASS         A-expanded retrieval_at_10               0.9 vs 0.9
+  PASS         A-expanded selector_at_1                 0.825 vs 0.825
+  FAIL         A-expanded p95 vs reference              22.924s vs 22.325s
+  PASS         A-expanded reference label               CC-138 A-expanded
+
+VERDICT FAIL
+Raw comparator exit 1
+  PASS         A          original long-tail trial     diff +0.075, lower +0.008
+  PASS         A          original long-tail case      diff +0.100, lower +0.025
+  FAIL         A          original rows per family     5
+  FAIL         A          original empty answers       8
+  PASS         A          retrieval_at_10              0.9 vs 0.9
+  PASS         A          selector_at_1                0.825 vs 0.825
+  PASS         B1         clustered trap trial         31 families. diff +0.022, lower +0.000
+  PASS         B1         clustered trap case          31 families. diff +0.032, lower +0.000
+  INCONCLUSIVE A-expanded clustered trap trial         31 families. cannot rule out a drop over 2% (diff +0.000, lower -0.032)
+  PASS         A-expanded clustered trap case          31 families. diff +0.032, lower +0.000
+
+P2 paired with B2
+  PASS         floor   answered_rate                 0.775 vs floor 0.7
+  PASS         floor   retrieval_at_10               0.9 vs floor 0.9
+  PASS         floor   selector_at_1                 0.8 vs floor 0.7
+  PASS         floor   answered_rate matches trials  0.775 from trials vs reported 0.775
+  PASS         floor   p95 matches trials            21.503 vs reported 21.503
+  FAIL         floor   p95 ceiling                   21.503s vs 20s
+  PASS         floor   response contract             0 of 290 trials that returned rows lack a contract field
+  PASS         B2      long_tail trial rate          diff +0.017, lower +0.000
+  PASS         B2      long_tail case rate           diff +0.025, lower +0.000
+  PASS         B2      trap trial rate               diff +0.000, lower +0.000
+  PASS         B2      trap case rate                diff +0.000, lower +0.000
+  FAIL         B2      core trial rate               observed decrease (-0.011 over 30 families)
+  FAIL         B2      core case rate                observed decrease (-0.067 over 30 families)
+  PASS         B2      rows per family               no family lost rows
+  PASS         B2      empty answers (long_tail)     -0.033 per family
+  PASS         B2      retrieval_at_10               0.9 vs 0.9
+  FAIL         B2      selector_at_1                 0.8 vs 0.825
+  PASS         B2      p95 vs reference              21.503s vs 23.537s; gain not credited, answers fell
+  PASS         B2      reference label               CC-138 B2
+  PASS         A-expanded long_tail trial rate          diff +0.075, lower -0.008
+  PASS         A-expanded long_tail case rate           diff +0.100, lower +0.000
+  INCONCLUSIVE A-expanded trap trial rate               cannot rule out a drop over 2% (diff +0.000, lower -0.029)
+  PASS         A-expanded trap case rate                diff +0.029, lower +0.000
+  INCONCLUSIVE A-expanded core trial rate               cannot rule out a drop over 2% (diff +0.056, lower -0.044)
+  INCONCLUSIVE A-expanded core case rate                cannot rule out a drop over 2% (diff +0.067, lower -0.100)
+  FAIL         A-expanded rows per family               3 families returned fewer rows
+  FAIL         A-expanded empty answers (long_tail)     +0.025 per family
+  PASS         A-expanded retrieval_at_10               0.9 vs 0.9
+  FAIL         A-expanded selector_at_1                 0.8 vs 0.825
+  PASS         A-expanded p95 vs reference              21.503s vs 22.325s; gain not credited, answers fell
+  PASS         A-expanded reference label               CC-138 A-expanded
+
+VERDICT FAIL
+Raw comparator exit 1
+  PASS         A          original long-tail trial     diff +0.092, lower +0.025
+  PASS         A          original long-tail case      diff +0.100, lower +0.025
+  FAIL         A          original rows per family     2
+  FAIL         A          original empty answers       3
+  PASS         A          retrieval_at_10              0.9 vs 0.9
+  FAIL         A          selector_at_1                0.8 vs 0.825
+  PASS         B2         clustered trap trial         31 families. diff +0.000, lower +0.000
+  PASS         B2         clustered trap case          31 families. diff +0.000, lower +0.000
+  INCONCLUSIVE A-expanded clustered trap trial         31 families. cannot rule out a drop over 2% (diff +0.000, lower -0.032)
+  PASS         A-expanded clustered trap case          31 families. diff +0.032, lower +0.000
+
+CC-138 paired quality comparison FAIL

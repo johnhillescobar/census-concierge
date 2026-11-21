@@ -262,13 +262,13 @@ def _first(problems: dict[str, list[tuple[str, str, int]]]) -> str:
     return next(f"{k} {v[0]}" for k, v in problems.items() if v)
 
 
-def family_rates(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, float]]:
+def family_counts(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str, int]]:
     return {
         family: {
-            "trial": sum(bool(t["answered"]) for t in items) / len(items),
-            "case": 1.0 if all(t["answered"] for t in items) else 0.0,
-            "rows": sum(int(t.get("rows") or 0) for t in items) / len(items),
-            "empty": sum(int(t.get("rows") or 0) == 0 for t in items) / len(items),
+            "trial": sum(bool(t["answered"]) for t in items),
+            "case": int(all(t["answered"] for t in items)),
+            "rows": sum(int(t.get("rows") or 0) for t in items),
+            "empty": sum(int(t.get("rows") or 0) == 0 for t in items),
         }
         for family, items in grouped.items()
     }
@@ -277,30 +277,33 @@ def family_rates(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, dict[str
 # --- statistics ----------------------------------------------------------------------------------
 
 
-def paired_interval(diffs: list[float], protocol: dict[str, Any]) -> tuple[float, float]:
+def paired_interval(
+    diffs: list[int], protocol: dict[str, Any], units_per_family: int
+) -> tuple[float, float]:
     """(point, lower bound) of the mean paired family difference. Families are resampled, never
     trials: repeats and paraphrases of one family are one observation."""
     sampling = protocol["sampling"]
     n = len(diffs)
-    point = sum(diffs) / n
+    denominator = n * units_per_family
     rng = random.Random(sampling["seed"])
-    means = sorted(
-        sum(diffs[rng.randrange(n)] for _ in range(n)) / n for _ in range(sampling["resamples"])
+    totals = sorted(
+        sum(diffs[rng.randrange(n)] for _ in range(n)) for _ in range(sampling["resamples"])
     )
     tail = (1 - sampling["confidence"]) / 2
-    return point, means[int(tail * len(means))]
+    return sum(diffs) / denominator, totals[int(tail * len(totals))] / denominator
 
 
-def judge(diffs: list[float], protocol: dict[str, Any]) -> tuple[str, str]:
+def judge(diffs: list[int], protocol: dict[str, Any], units_per_family: int = 1) -> tuple[str, str]:
     sampling = protocol["sampling"]
     if not diffs:
         return "INCONCLUSIVE", "no families to compare"
-    point = sum(diffs) / len(diffs)  # an observed decrease is a fact at any sample size
-    if point < 0:
+    total = sum(diffs)
+    if total < 0:  # an observed decrease is a fact at any sample size
+        point = total / (len(diffs) * units_per_family)
         return "FAIL", f"observed decrease ({point:+.3f} over {len(diffs)} families)"
     if len(diffs) < sampling["min_families"]:
         return "INCONCLUSIVE", f"{len(diffs)} families, need {sampling['min_families']}"
-    point, lower = paired_interval(diffs, protocol)
+    point, lower = paired_interval(diffs, protocol, units_per_family)
     note = f"diff {point:+.3f}, lower {lower:+.3f}"
     if lower < -sampling["max_regression"]:
         return (
@@ -397,25 +400,25 @@ def evaluate(
         ]
     if not cand.index_hash or cand.index_hash != ref.index_hash:
         return [Check(name, "index", "FAIL", "missing or different index; not like for like")]
-    rates: dict[str, tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]] = {}
+    counts: dict[str, tuple[dict[str, dict[str, int]], dict[str, dict[str, int]]]] = {}
     try:
         planned(cand, protocol)
         planned(ref, protocol)
         for cohort_name in protocol["cohorts"]:
             ids = [e["id"] for e in cohort(protocol, cohort_name)]
             tier = protocol["cohorts"][cohort_name]["tier"]
-            rates[cohort_name] = (
-                family_rates(families(cand, ids, tier, repeat)),
-                family_rates(families(ref, ids, tier, repeat)),
+            counts[cohort_name] = (
+                family_counts(families(cand, ids, tier, repeat)),
+                family_counts(families(ref, ids, tier, repeat)),
             )
     except PlanError as exc:
         return [Check(name, "planned trials", "FAIL", str(exc))]
-    for cohort_name, (mine, theirs) in rates.items():
-        for metric in ("trial", "case"):
+    for cohort_name, (mine, theirs) in counts.items():
+        for metric, units in (("trial", repeat), ("case", 1)):
             diffs = [mine[f][metric] - theirs[f][metric] for f in sorted(mine)]
-            status, detail = judge(diffs, protocol)
+            status, detail = judge(diffs, protocol, units)
             out.append(Check(name, f"{cohort_name} {metric} rate", status, detail))
-    mine_lt, theirs_lt = rates["long_tail"]
+    mine_lt, theirs_lt = counts["long_tail"]
     lost = sorted(f for f in mine_lt if mine_lt[f]["rows"] < theirs_lt[f]["rows"])
     out.append(
         Check(
@@ -433,7 +436,7 @@ def evaluate(
             name,
             "empty answers (long_tail)",
             "FAIL" if refusal > 0 else "PASS",
-            f"{refusal / len(mine_lt):+.3f} per family",
+            f"{refusal / (len(mine_lt) * repeat):+.3f} per family",
         )
     )
     for key in ("retrieval_at_10", "selector_at_1"):
@@ -478,14 +481,14 @@ def target_check(
     ids = [e["id"] for e in cohort(protocol, cohort_name)]
     tier = protocol["cohorts"][cohort_name]["tier"]
     try:
-        mine = family_rates(families(cand, ids, tier, repeat))
-        theirs = family_rates(families(base, ids, tier, repeat))
+        mine = family_counts(families(cand, ids, tier, repeat))
+        theirs = family_counts(families(base, ids, tier, repeat))
     except PlanError as exc:
         return [Check("target", cohort_name, "FAIL", str(exc))]
     out: list[Check] = []
-    for metric in ("trial", "case"):
-        rate = sum(v[metric] for v in mine.values()) / len(mine)
-        was = sum(v[metric] for v in theirs.values()) / len(theirs)
+    for metric, units in (("trial", repeat), ("case", 1)):
+        rate = sum(v[metric] for v in mine.values()) / (len(mine) * units)
+        was = sum(v[metric] for v in theirs.values()) / (len(theirs) * units)
         if len(mine) < protocol["sampling"]["min_families"]:
             out.append(
                 Check("target", f"{cohort_name} {metric}", "INCONCLUSIVE", f"{len(mine)} families")
@@ -503,7 +506,7 @@ def target_check(
             )
         else:
             _point, lower = paired_interval(
-                [mine[f][metric] - theirs[f][metric] for f in sorted(mine)], protocol
+                [mine[f][metric] - theirs[f][metric] for f in sorted(mine)], protocol, units
             )
             ok = lower > 0
             out.append(

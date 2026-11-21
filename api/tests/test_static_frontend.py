@@ -36,6 +36,7 @@ EMPTY = {
         "geographies": [],
         "allow_overlapping_acs5": False,
     },
+    "combined_rows": [],
     "chart": None,
     "chart_unavailable": False,
 }

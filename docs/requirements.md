@@ -9,7 +9,7 @@ None of these block except an incomplete geography (below): warn (or decline a c
 |---|---|
 | **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except for an incomplete geography (below). `&key=` redacted. |
 | **Margins of error** | Fetch `M` beside every `E`. Census missing sentinels are null, never zero. |
-| **GEOID** | AFFGEOID `GEO_ID` on fetched rows. Names do not join to TIGER. |
+| **GEOID** | AFFGEOID `GEO_ID` on fetched `rows[]`. Calculated totals have no Census GEOID and travel in `combined_rows[]`. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
 | **Alternatives** | Related tables with title, universe, and why they differ. |
 | **Plan** | `ResultPlan` from executed artifacts (table, estimate IDs, years, `GeoSpec`s). Never parsed from answer prose. Optional `AskRequest.plan` pins the next `POST /ask`. |
