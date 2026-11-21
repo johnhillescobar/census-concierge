@@ -215,7 +215,7 @@ def test_ask_returns_collected_artifacts_after_model_failure(
     fetched: list[str] = []
 
     def census_get(url: str) -> tuple[int, list[list[str]]]:
-        fetched.append(url)
+        fetched.append(urlsplit(url).path)
         return 200, [
             ["NAME", "B01003_001E", "B01003_001M", "GEO_ID"],
             [place, "120", "3", "0500000US48201"],
@@ -336,12 +336,13 @@ def test_ask_keeps_calculated_totals_separate_from_geocoded_rows(
     assert total["NAME"] in body["answer"]
 
 
-@pytest.mark.parametrize("census_ok", [True, False], ids=["rows", "failed-fetch"])
+@pytest.mark.parametrize("prior_fetch", ["rows", "failed-fetch", "invalid-arguments"])
 async def test_provider_failure_preserves_a_prior_fetch_without_retry(
-    monkeypatch: pytest.MonkeyPatch, census_ok: bool
+    monkeypatch: pytest.MonkeyPatch, prior_fetch: str
 ) -> None:
     place = "Harris County, Texas"
     question = f"Find the ACS total population for {place}."
+    fetch_args = None if prior_fetch == "invalid-arguments" else "{}"
     replies = iter(
         [
             {
@@ -357,7 +358,7 @@ async def test_provider_failure_preserves_a_prior_fetch_without_retry(
                 "status": "completed",
                 "output": [function_call("build_url", '{"table_id":"B01003"}')],
             },
-            {"status": "completed", "output": [function_call("fetch_data")]},
+            {"status": "completed", "output": [function_call("fetch_data", fetch_args)]},
             httpx.Response(503, json={"error": {"message": "Provider unavailable"}}),
         ]
     )
@@ -368,20 +369,24 @@ async def test_provider_failure_preserves_a_prior_fetch_without_retry(
     fetched: list[str] = []
 
     def census(url: str) -> tuple[int, Any]:
-        fetched.append(url)
-        return census_get(url) if census_ok else (503, [])
+        fetched.append(urlsplit(url).path)
+        return census_get(url) if prior_fetch == "rows" else (503, [])
 
     tools["fetch_data"].http_get = census
     response = await ask.run_ask(question, tools=tools, record=record)
 
     assert len([request for request in requests if request["tools"]]) == 4
     assert "The model request failed." in response.answer
-    assert len(response.urls) == len(fetched) == 1
-    if census_ok:
+    assert len(response.urls) == 1
+    if prior_fetch == "invalid-arguments":
+        assert fetched == response.legs == response.rows == []
+    elif prior_fetch == "rows":
+        assert len(fetched) == 1
         assert response.rows[0]["B01003_001E"] == "4838303"
         assert response.moe[0]["B01003_001M"] == "123"
         assert response.geoid == "0500000US48201"
     else:
+        assert len(fetched) == 1
         assert response.rows == []
         assert [leg.status_code for leg in response.legs] == [503]
 

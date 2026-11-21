@@ -268,8 +268,7 @@ def selected_hit(pool: list[dict[str, Any]], selected: str) -> dict[str, Any]:
 
 
 def _selected_title(record: GuardRecord) -> str:
-    hit = selected_hit(response_pool(record), getattr(record, "table_id", "") or "")
-    return str(hit.get("title") or "")
+    return str(selected_hit(response_pool(record), record.table_id or "").get("title") or "")
 
 
 def _median_measure(record: GuardRecord) -> bool:
