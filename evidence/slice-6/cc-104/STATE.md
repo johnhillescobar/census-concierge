@@ -83,7 +83,17 @@ Main moved 47 commits: GPT-6.2 Sol on the Responses API (CC-138, #134/#135), `ap
 dropped `geo_queries`/`tables_only`). main's CC-138 tests called `resolve_geography` with `query`; moved to `places` (69ad347, no source change).
 plan_split goes through the same `_openai_complete`, so the report call is already on gpt-6.2-sol. Machines at 69ad347: pytest 1547 passed / 34
 skipped; ruff, mypy clean; invariants ok (regex 18, delta -37); api LOC 4800/5100; all ten rows re-run at 69ad347, `closure.py check --pre-merge`
-CLOSURE OK. The 2026-11-12 E2E (long_tail 0.467, RED) was the old model and is void; E2E re-run next (e2e-r2/), then PR body.
+CLOSURE OK. The 2026-11-12 E2E (long_tail 0.467, RED) was the old model and is void.
+
+E2E r2 (`evidence/slice-6/cc-104/e2e-r2/`, frozen code 69ad347, driver head 486ff12 identical start/end, all steps rc=0): long_tail 0.775 (93/120),
+trap 0.889, core 1.0, overall 0.823; p95 19.949s (slowest 26.666s), under the 20s ceiling, so no waiver is needed or recorded; retrieval@10 0.9,
+selector@1 0.825; grid 210/210; check_budgets and invariants rc=0 (regex 18, delta -37; api LOC 4800/5100). metric_compare (once, vs A,A0,
+`compare.txt`): VERDICT FAIL. PASS: all floors, long_tail trial rate +0.092 (lower +0.017), case rate +0.100. FAIL: trap trial rate -0.074 (18
+families), rows per family (3 families), long_tail empty answers +0.025, A0 (no bridge, inherited from CC-133). INCONCLUSIVE: trap case, core (under 30
+families). A is the 2026-11-09 old-model run, so the comparison mixes the model change (CC-138) with CC-104; there is NO same-day control of origin/main
+7239f32 yet. Next default: run it (same driver, e2e-main-r2/, in its own worktree) before drawing any conclusion. Trap misses t05/t10 (3/3 each, missing
+`ambiguous_place` / `overlapping_vintage`) match the earlier diagnosis items 3 and 4 in PR #131; not re-diagnosed on this model. Worktree E2E prerequisites
+(this cost an invalid attempt twice): copy gitignored `index_store/`, `data/raw/` and `.env` from the main checkout before the driver.
 
 ## Open
 
