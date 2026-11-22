@@ -112,6 +112,18 @@ AC10/TC13 no national fallback: tests exist (test_level_fidelity, test_geography
 AC11/TC14 evidence: E2E vs B, A and L on frozen code, then post-merge. B (same-window pre-change main) is REQUIRED by the ticket text but the owner stopped the control: ask which governs.
 Do not start the final E2E until AC7, AC8-years and AC9 are implemented, mutation-checked and Gate 2 read; the E2E must run on frozen final code.
 
+## OWNER DECISIONS PENDING / MADE (2026-11-22) -- remind the owner of the pending one in every status message
+
+PENDING -- B: the ticket requires a same-window pre-change main control (B) and AC11 repeats it; the owner stopped the control run and has not said
+whether to DROP B by a dated amendment (like the cohort one) or RUN it after the code is done. Ask again before the final E2E. (Also in memory.)
+MADE: (1) the dedicated geography cohort is deprecated; measure on long_tail/trap/core plus fixtures (recorded in the ticket, "Owner amendments").
+(2) Ambiguity fails loudly everywhere: a name with no dominant match is refused (no selection, URL or fetch) with candidates and a message, for
+direct places, comparisons and listings (CLAUDE.md now says "too incomplete or ambiguous to search"). (3) AC10/TC13 are NOT met: a silent "done"
+with nothing rendered and a partial comparison must fail loudly. (4) AC8 approved: report years stop feeding fetch_data, `year_mismatch` warns,
+unpublished-vintage warns. (5) A multi-year question that names no years is ambiguous and is refused. (6) AC9: independent report supplies
+`states_named`; a state not in it is dropped and the bare name is checked for dominance; unknown provenance is untrusted (fail loud).
+AC7: probe first (a refused level counts as unmet only if it equals the level the report states).
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
