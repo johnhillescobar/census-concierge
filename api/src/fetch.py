@@ -11,7 +11,7 @@ import httpx
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field
 
-from src import figures
+from src import census_http, figures
 from src.census_url import CensusURL, redact_text
 from src.contract import GeoSpec, RequestLeg
 from src.tools import ToolInput, ToolResult
@@ -111,7 +111,7 @@ def series_from_record(record: Any) -> dict[str, Any]:
 
 
 def _census_get(url: str) -> tuple[int, Any]:
-    response = httpx.get(url, timeout=60.0)
+    response = census_http.census_get(url)
     try:
         payload: Any = response.json()
     except json.JSONDecodeError:

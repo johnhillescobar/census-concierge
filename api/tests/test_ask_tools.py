@@ -1659,12 +1659,11 @@ def test_listing_keeps_population_off_the_in_clause(monkeypatch: pytest.MonkeyPa
                 ["Cook County, Illinois", "0500000US17031", "5182090", "17", "031"],
             ]
 
-    def fake_get(url: str, timeout: float = 0) -> object:
-        _ = timeout
+    def fake_get(url: str, **_kwargs: object) -> object:
         captured["url"] = url
         return _Resp()
 
-    monkeypatch.setattr("src.geo_list.httpx.get", fake_get)
+    monkeypatch.setattr("src.census_http.census_get", fake_get)
     rows = list_census_names("county", {"state": "*"}, key="")
     assert "B01003_001E" in captured["url"]
     assert rows[0]["population"] == "5182090"
@@ -1676,11 +1675,10 @@ def test_listing_error_does_not_carry_the_census_key(monkeypatch: pytest.MonkeyP
     import httpx
     from src.census_url import redact_text
 
-    def boom(url: str, timeout: float = 0) -> object:
-        _ = timeout
+    def boom(url: str, **_kwargs: object) -> object:
         raise httpx.HTTPError(f"boom {url}")
 
-    monkeypatch.setattr("src.geo_list.httpx.get", boom)
+    monkeypatch.setattr("src.census_http.census_get", boom)
     with pytest.raises(RuntimeError, match="geography listing failed") as caught:
         list_census_names("county", {"state": "48"}, key="secret")
     assert "secret" not in str(caught.value)

@@ -6,6 +6,7 @@ import re
 
 import httpx
 
+from src import census_http
 from src.census_url import CENSUS_API, CensusURL
 
 WILDCARD = re.compile(
@@ -217,7 +218,7 @@ def list_census_names(
         query += "&in=" + " ".join(f"{k}:{v}" for k, v in in_parts.items())
     built = CensusURL(f"{CENSUS_API}/{vintage}/acs/{dataset}?{query}")
     try:
-        response = httpx.get(built.with_key(key), timeout=60.0)
+        response = census_http.census_get(built.with_key(key))
         response.raise_for_status()
         payload = response.json()
     except (httpx.HTTPError, ValueError, TypeError):
