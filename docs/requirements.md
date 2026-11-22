@@ -29,7 +29,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 
 | code | condition |
 |---|---|
-| `overlapping_vintage` | ACS5 periods sharing sample years are not comparable. |
+| `overlapping_vintage` | ACS5 periods sharing sample years are not comparable; also set when a series left years out because their samples overlap. |
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
 | `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
@@ -54,6 +54,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `zcta_not_zip` | Any ZCTA answer (level resolved or `860` rows), however it was worded. ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
 | `geography_not_nested` | Containment is not expressible in Census `for`/`in`. Tracts asked for inside one named place are the exception that still fetches: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
 | `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
+| `dataset_mismatch` | The model's report named ACS1 or ACS5 and its own build used the other. The build stands; check the URL's dataset. |
 | `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |
 | `moe_aggregation_degraded` | `sqrt(Σ MOEᵢ²)` degrades past a handful of areas. |

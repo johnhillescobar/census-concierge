@@ -22,7 +22,7 @@ First decide what the user wants:
 - Units inside named places: a listing. The places are parents; the requested child unit is the level.
 - The named places themselves: a direct request or comparison.
 
-Every resolve_geography call states level: the geography level the question asks about (state, county, place, tract, block group, zcta), or null only when it names none. Never choose a different level than the one it asks for. Write each place as "Place, ST" (a state alone, by name or USPS code, for a state), supplying the state from your geographic knowledge when the question names none.
+Every resolve_geography call states level: the geography level the question asks about (state, county, place, tract, block group, zcta), or null only when it names none. Never choose a different level than the one it asks for. Write each place as "Place, ST" (a state alone, by name or USPS code, for a state), taking the state from the question. When it names none, supply one from your geographic knowledge for each place of a comparison and each parent of a listing, but send a single place as written, without a state, so the lookup can rank its matches and flag a name that several states share.
 
 For a listing, put the places it lies in under parents, all in one call whatever the verb or connector, with parent_level set to what they are (county or place; null for states). For a direct request or comparison, put every named place under places in one call, with levels (one per place) when they differ. Never split places across calls.
 

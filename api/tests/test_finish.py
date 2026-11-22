@@ -697,6 +697,30 @@ async def test_a_listing_already_resolved_for_acs5_is_resolved_again_for_an_acs1
     assert [call.get("dataset") for call in seen] == ["acs1"]
 
 
+async def test_an_acs1_report_leaves_a_url_the_loop_built_for_acs5() -> None:
+    built = (
+        "https://api.census.gov/data/2024/acs/acs5?get=NAME,B01003_001E&for=county:001&in=state:39"
+    )
+    seen, _ = await _run_split(
+        "Population of Franklin County.",
+        [_wildcard("a", "39")],
+        _splitter(["Franklin County, OH"], level=None, dataset="acs1"),
+        resolved=1,
+        url=built,
+    )
+    assert seen == []
+
+
+async def test_an_acs1_report_resolves_again_when_the_loop_built_no_url() -> None:
+    seen, _ = await _run_split(
+        "Population of Franklin County.",
+        [_wildcard("a", "39")],
+        _splitter(["Franklin County, OH"], level=None, dataset="acs1"),
+        resolved=1,
+    )
+    assert [call.get("dataset") for call in seen] == ["acs1"]
+
+
 def _tracts_in(state: str, county: str) -> GeoSpec:
     return GeoSpec(
         level="tract", name="t", for_spec="tract:*", in_spec=f"state:{state} county:{county}"

@@ -335,7 +335,7 @@ async def finish_tools(
     places = list(intent.places)
     short = len(places) >= 2 and int(status.get("compare_count", 0) or 0) < len(places)
     redo = redone or short or (len(queries) >= 2 and not status.get("compare"))
-    redo = redo or bool(acs1 and (url is None or "/acs/acs1" not in str(url)))
+    redo = redo or bool(acs1 and url is None)  # a URL the loop built stands; the guard warns
     if plan is not None and plan.geographies:
         redo = False
     if not url or redo:

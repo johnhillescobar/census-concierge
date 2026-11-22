@@ -126,12 +126,39 @@ def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
 
 def overlapping_vintage(record: GuardRecord) -> AskWarning | None:
     years = [year for dataset, year in record.vintages if dataset == "acs5"]
-    if not _overlaps(years):
+    if _overlaps(years):
+        labeled = ", ".join(str(year) for year in sorted(set(years)))
+        return AskWarning(
+            code="overlapping_vintage",
+            detail=f"ACS5 vintages {labeled} share sample years and are not comparable",
+        )
+    artifact = getattr(record, "fetch", None)
+    dropped = zip(
+        getattr(artifact, "omitted_years", None) or [],
+        getattr(artifact, "omission_reasons", None) or [],
+        strict=False,
+    )
+    left_out = [str(year) for year, reason in dropped if reason == "overlapping_vintage"]
+    if not left_out:
         return None
-    labeled = ", ".join(str(year) for year in sorted(set(years)))
     return AskWarning(
         code="overlapping_vintage",
-        detail=f"ACS5 vintages {labeled} share sample years and are not comparable",
+        detail=f"ACS5 years {', '.join(left_out)} were not fetched: their samples overlap",
+    )
+
+
+def dataset_mismatch(record: GuardRecord) -> AskWarning | None:
+    """The report named another product than the model's own build; the build stands."""
+    said = intent_of(record).dataset
+    artifact = getattr(record, "fetch", None)
+    built = str(
+        getattr(artifact, "dataset", "") or (record.vintages[-1][0] if record.vintages else "")
+    )
+    if said not in {"acs1", "acs5"} or built not in {"acs1", "acs5"} or said == built:
+        return None
+    return AskWarning(
+        code="dataset_mismatch",
+        detail=f"the report asked for {said.upper()}; the request was built as {built.upper()}",
     )
 
 
@@ -422,6 +449,7 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         zcta_not_zip,
         geography_not_nested,
         geography_level_mismatch,
+        dataset_mismatch,
         geography_level_unverified,
     ):
         warning = guard(record)

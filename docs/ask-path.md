@@ -24,12 +24,13 @@ attaches warning codes from `docs/requirements.md`. None of them block. Answer f
 
 Model failure returns collected artifacts and fetches an unattempted accepted plan, preserving its URLs and statuses.
 `finish_tools()` in `api/src/finish.py` is not a generic filler. When the model
-stops without a URL, or with the wrong listing level, an incomplete comparison,
-or an ACS1 request that never built `/acs/acs1`, it
+stops without a URL, or with the wrong listing level, or an incomplete comparison,
+or a report asking for ACS1 with no URL built, it
 retries: search (only if the pool is empty); resolve
 (from the model's own split report, including its dataset and years; never from the question's words);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
+A URL the loop built stands even when the report names the other product; `dataset_mismatch` warns.
 
 A listing the loop resolved to the wrong parents, the wrong level, or nothing gets one extra model call
 ([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). It needs only the question, so

@@ -112,13 +112,60 @@ def test_small_place_series_warns_acs1_ineligible() -> None:
             "https://api.census.gov/data/2022/acs/acs5?get=NAME",
         ],
     )
-    assert _codes(record) == ["acs1_geography_ineligible"]
+    assert _codes(record) == ["overlapping_vintage", "acs1_geography_ineligible"]
     response = assemble("two ACS5 points", _stated(record))
-    assert response.warnings[0].code == "acs1_geography_ineligible"
-    assert "65,000" not in response.warnings[0].detail
-    assert "not published" in response.warnings[0].detail.casefold()
+    warning = next(w for w in response.warnings if w.code == "acs1_geography_ineligible")
+    assert "65,000" not in warning.detail
+    assert "not published" in warning.detail.casefold()
     assert response.attempted_years == [2017, 2022]
     assert response.omission_reasons == ["overlapping_vintage"] * 5
+
+
+def test_a_thinned_series_names_the_years_it_left_out() -> None:
+    record = ExecutionRecord(question=T11)
+    record.vintages = [("acs5", 2017), ("acs5", 2022)]
+    record.fetch = _fetch(
+        requested_years=list(range(2017, 2024)),
+        attempted_years=[2017, 2022],
+        succeeded_years=[2017, 2022],
+        omitted_years=[2018, 2019],
+        omission_reasons=["overlapping_vintage"] * 2,
+    )
+    warning = next(w for w in evaluate(_stated(record)) if w.code == "overlapping_vintage")
+    assert "2018, 2019" in warning.detail
+    assert "2017" not in warning.detail  # the fetched years do not overlap each other
+
+
+def test_a_year_left_out_for_another_reason_is_not_an_overlap() -> None:
+    record = ExecutionRecord(question=T11)
+    record.vintages = [("acs5", 2017), ("acs5", 2022)]
+    record.fetch = _fetch(omitted_years=[2020], omission_reasons=["vintage_gap_2020"])
+    assert "overlapping_vintage" not in _codes(record)
+
+
+def test_a_report_that_names_the_other_product_warns_and_the_build_stands() -> None:
+    record = ExecutionRecord(question=T12)
+    record.intent.dataset = "acs1"
+    record.vintages = [("acs5", 2022)]
+    warning = next(w for w in evaluate(_stated(record)) if w.code == "dataset_mismatch")
+    assert "ACS1" in warning.detail and "ACS5" in warning.detail
+
+
+def test_the_fetched_product_outranks_the_vintage_list_for_the_mismatch() -> None:
+    record = ExecutionRecord(question=T12)
+    record.intent.dataset = "acs1"
+    record.vintages = [("acs5", 2022)]
+    record.fetch = _fetch(dataset="acs1")
+    assert "dataset_mismatch" not in _codes(record)
+
+
+def test_a_report_that_agrees_with_the_build_or_is_absent_does_not_warn() -> None:
+    agreed = ExecutionRecord(question=T12)
+    agreed.intent.dataset = "acs1"
+    agreed.vintages = [("acs1", 2022)]
+    silent = ExecutionRecord(question=T12)
+    silent.vintages = [("acs5", 2022)]
+    assert "dataset_mismatch" not in _codes(agreed) + _codes(silent)
 
 
 def test_acs1_fallback_year_warns_ineligible_geography() -> None:
@@ -1240,10 +1287,9 @@ def test_tract_series_crossing_2020_warns_from_requested_years() -> None:
         ],
     )
     record.rows = list(record.fetch.rows)
-    assert _codes(record) == ["boundary_change_2020"]
+    assert _codes(record) == ["overlapping_vintage", "boundary_change_2020"]
     response = assemble("still ships", _stated(record))
-    warning = response.warnings[0]
-    assert warning.code == "boundary_change_2020"
+    warning = next(w for w in response.warnings if w.code == "boundary_change_2020")
     assert "tract" in warning.detail
     assert "Wayne County" in warning.detail
     assert period_for("acs5", 2018) in warning.detail

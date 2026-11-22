@@ -250,7 +250,7 @@ def bind_override_geographies(plan: ResultPlan) -> ResultPlan:
         spec = {**geo.model_dump(), "level": level, "for_spec": for_spec}
         spec.update(in_spec=in_spec, dataset=plan.dataset)
         bound.append(GeoSpec.model_validate(spec))
-    return ResultPlan.model_validate({**plan.model_dump(), "geographies": bound})
+    return ResultPlan.model_validate({**plan.model_dump(exclude_unset=True), "geographies": bound})
 
 
 def apply_override(record: Any, plan: ResultPlan | None) -> None:
@@ -282,7 +282,10 @@ def pin_tool_args(
             out["question"] = question  # the selector reads the user's words, not the model's copy
     if plan is None:
         return out
-    if name == "search_tables":
+    states_dataset = (
+        "dataset" in plan.model_fields_set
+    )  # an unset default is not the caller's choice
+    if name == "search_tables" and states_dataset:
         out["dataset"] = plan.dataset
     years = override_years(plan)
     if name == "build_url":
@@ -290,7 +293,8 @@ def pin_tool_args(
             out["table_id"] = plan.table_id
         if plan.variables:
             out["variables"] = list(plan.variables)
-        out["dataset"] = plan.dataset
+        if states_dataset:
+            out["dataset"] = plan.dataset
         if years:
             out["vintage"] = max(years)
         out.pop("for_spec", None)

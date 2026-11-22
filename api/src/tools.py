@@ -51,9 +51,10 @@ class ResolveGeographyInput(ToolInput):
         default=None,
         description=(
             "The places the question asks about themselves: one for a single place, 2+ for a "
-            "comparison. Each is 'Place, ST' (supply the state from your own knowledge when the "
-            "question names none, e.g. 'Chicago' -> 'Chicago, IL') or a state alone. A ZIP code "
-            "is its 5 digits. One call resolves all of them."
+            "comparison. Each is 'Place, ST' or a state alone. In a comparison supply a missing "
+            "state from your own knowledge (e.g. 'Chicago' -> 'Chicago, IL'); a single place "
+            "whose state the question does not name is sent as written, without one, so the "
+            "lookup ranks its matches. A ZIP code is its 5 digits. One call resolves all of them."
         ),
     )
     parents: list[str] | None = Field(

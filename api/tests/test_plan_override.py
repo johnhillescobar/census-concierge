@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from ask_fixtures import _harris, _tools
 from src.ask import ExecutionRecord, assemble, run_ask
-from src.contract import ResultPlan, apply_override
+from src.contract import ResultPlan, apply_override, pin_tool_args
 
 
 def _complete(queue: list[dict[str, Any]]):
@@ -273,3 +273,20 @@ async def test_race_iteration_override_is_a_deliberate_selection() -> None:
     )
     assert response.table_id == "B19013B"
     assert response.plan.table_id == "B19013B"
+
+
+def test_a_plan_that_states_no_dataset_leaves_the_models_own_dataset() -> None:
+    record = ExecutionRecord()
+    apply_override(
+        record, ResultPlan.model_validate({"geographies": [{"geoid": "0500000US48201"}]})
+    )
+    for tool in ("search_tables", "build_url"):
+        assert pin_tool_args(tool, {"dataset": "acs1"}, record.override)["dataset"] == "acs1"
+
+
+def test_a_plan_that_states_its_dataset_pins_it_over_the_models() -> None:
+    record = ExecutionRecord()
+    plan = {"dataset": "acs1", "geographies": [{"geoid": "0500000US48201"}]}
+    apply_override(record, ResultPlan.model_validate(plan))
+    for tool in ("search_tables", "build_url"):
+        assert pin_tool_args(tool, {"dataset": "acs5"}, record.override)["dataset"] == "acs1"
