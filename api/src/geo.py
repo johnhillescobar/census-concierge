@@ -394,7 +394,7 @@ class ResolveGeographyTool(BaseTool):
             )
             matched = named_rows(token, county)
         specs = [_spec(row, dataset, year) for row in matched]
-        if list_in.get("state") == "*" and len(matched) > 1 and not dominant(matched):
+        if list_in.get("state") == "*" and not dominant(matched):  # fewer than two always dominate
             names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
             detail = f"{entry!r} matches {len(matched)} places ({names}); name its state"
             return detail, ResolveGeographyResult(

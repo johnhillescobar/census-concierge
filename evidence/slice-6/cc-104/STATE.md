@@ -125,6 +125,17 @@ unpublished-vintage warns. (5) A multi-year question that names no years is ambi
 `states_named`; a state not in it is dropped and the bare name is checked for dominance; unknown provenance is untrusted (fail loud).
 AC7: probe first (a refused level counts as unmet only if it equals the level the report states).
 
+## 2026-11-22 (later): implementation of the owner decisions is done; Gate 1 done; Gate 2 next
+
+Implemented and pushed: AC7 (`GeoIntent.unserved`), AC8 (report years never steer a fetch, `year_mismatch`, `unpublished_vintage`), the multi-year-with-no-years
+refusal, the no-place refusal, ambiguity refused for direct places and comparisons (all-or-nothing), `unanswered` (a loud end, never a silent "done"),
+AC9 (`states_named` from the independent report; unknown is not written; `state_supplied`). Gate 1: gate1-ac7-ac10.txt (50 mutations killed, 8 gaps found and
+strengthened, 1 equivalent mutant: `len(matched) > 1`, removed). Golden flips (owner amendment A, 2026-11-22, in the ticket): q42, q43, t01, t14 (and q13 only if
+its name proves non-dominant on live populations) are expected, explained misses; goldens, scorer and hashes unchanged. Budgets: api LOC ~4968/5100; ask.py and
+contract.py sit AT the 410-line cap, so any fix there must be net-zero. NEXT: Gate 2 (cold; /code-review then review-pr; one re-run only), then closure rows AC6-AC11 and
+TC6-TC14 (the manifest still lists AC1-5/TC1-5 and is stale), then B,P,P,B E2E blocks (owner: run B) in separate worktrees, no other activity during a block.
+The post-rebase ledger/latest.json on main come from CC-125's post-merge run (main 989f2b4: long_tail 0.733, p95 20.714).
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
