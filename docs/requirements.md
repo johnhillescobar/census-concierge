@@ -46,6 +46,8 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `vintage_gap_2020` | No standard 2020 ACS1 release. Show a gap; never interpolate. |
 | `boundary_change_2020` | Tract / block-group geometry was redrawn across 2020. |
 | `variable_not_in_vintage` | Absent or redefined in part of the requested range. |
+| `unpublished_vintage` | A requested year has no release for this dataset; it was not fetched. |
+| `year_mismatch` | The report named other years than the fetch used; the fetch stands as built. |
 
 ## Slice 3 warning codes — geographies
 

@@ -1821,7 +1821,7 @@ async def test_finish_searches_the_dataset_the_report_states_whatever_the_questi
     assert seen and set(seen) == {searched}
 
 
-def test_the_shipped_fetch_tool_takes_years_from_the_plan_or_the_report_never_the_question(
+def test_the_shipped_fetch_tool_takes_years_from_the_plan_only_never_the_question_or_the_report(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from types import SimpleNamespace
@@ -1844,7 +1844,55 @@ def test_the_shipped_fetch_tool_takes_years_from_the_plan_or_the_report_never_th
     record.intent.years = [2015, 2016]
     assert years() == [2019, 2022]  # a pinned plan outranks the report
     record.override = None
-    assert years() == [2015, 2016]  # the model's report supplies them when the loop did not
+    assert years() == []  # the report never steers a fetch; year_mismatch warns when it differs
+
+
+@pytest.mark.parametrize("model_years", [None, [2024]])
+async def test_a_report_year_never_replaces_the_year_the_loop_built(
+    model_years: list[int] | None,
+) -> None:
+    place = "Harris County, Texas"
+    record = ExecutionRecord(question=f"Population of {place}")
+    tools = _tools(record)
+    sent: list[str] = []
+    census = tools["fetch_data"].http_get
+
+    def spy(url: str) -> tuple[int, Any]:
+        sent.append(urlsplit(url).path)
+        return census(url)
+
+    tools["fetch_data"].http_get = spy
+    calls = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"places": [place], "level": "county"}),
+        ("build_url", {"table_id": "B01003", "vintage": 2024}),
+        ("fetch_data", {} if model_years is None else {"years": model_years}),
+    ]
+    queue = [
+        {"content": "", "tool_calls": [{"id": str(n), "name": name, "args": args}]}
+        for n, (name, args) in enumerate(calls)
+    ]
+    report = {
+        "parents": [place],
+        "unit": "county",
+        "listing": False,
+        "level": "county",
+        "named": [],
+        "numbered": [],
+        "given": ["state", "county"],
+        "asks_for": "data",
+        "years": [2021],
+    }
+
+    async def complete(messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]) -> Any:
+        if not openai_tools:  # the split report
+            return {"content": json.dumps(report), "tool_calls": []}
+        return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
+
+    response = await run_ask(record.question, complete=complete, tools=tools, record=record)
+    assert sent == ["/data/2024/acs/acs5"]  # the year the loop built, never the report's 2021
+    assert [urlsplit(url).path for url in response.urls] == sent
+    assert "year_mismatch" in [w.code for w in response.warnings]
 
 
 async def test_the_split_call_is_told_the_latest_published_vintage(

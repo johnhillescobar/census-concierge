@@ -143,6 +143,43 @@ def test_a_year_left_out_for_another_reason_is_not_an_overlap() -> None:
     assert "overlapping_vintage" not in _codes(record)
 
 
+def test_a_report_that_named_other_years_than_the_fetch_used_warns() -> None:
+    record = ExecutionRecord(question=T12)
+    record.intent.years = [2021]
+    record.fetch = _fetch(requested_years=[2024])
+    warning = next(w for w in evaluate(_stated(record)) if w.code == "year_mismatch")
+    assert "2021" in warning.detail and "2024" in warning.detail
+
+
+def test_agreeing_or_absent_report_years_do_not_warn() -> None:
+    agreed = ExecutionRecord(question=T12)
+    agreed.intent.years = [2022, 2019]
+    agreed.fetch = _fetch(requested_years=[2019, 2022])
+    unreported = ExecutionRecord(question=T12)
+    unreported.fetch = _fetch(requested_years=[2024])
+    unfetched = ExecutionRecord(question=T12)
+    unfetched.intent.years = [2021]
+    assert "year_mismatch" not in _codes(agreed) + _codes(unreported) + _codes(unfetched)
+
+
+def test_a_year_with_no_release_is_named_not_silently_dropped() -> None:
+    record = ExecutionRecord(question=T12)
+    record.fetch = _fetch(
+        requested_years=[2014, 2024],
+        attempted_years=[2024],
+        omitted_years=[2014],
+        omission_reasons=["unpublished_vintage"],
+    )
+    warning = next(w for w in evaluate(_stated(record)) if w.code == "unpublished_vintage")
+    assert "2014" in warning.detail and "2024" not in warning.detail
+
+
+def test_a_year_left_out_for_another_reason_is_not_called_unpublished() -> None:
+    record = ExecutionRecord(question=T12)
+    record.fetch = _fetch(omitted_years=[2020], omission_reasons=["vintage_gap_2020"])
+    assert "unpublished_vintage" not in _codes(record)
+
+
 def test_a_report_that_names_the_other_product_warns_and_the_build_stands() -> None:
     record = ExecutionRecord(question=T12)
     record.intent.dataset = "acs1"

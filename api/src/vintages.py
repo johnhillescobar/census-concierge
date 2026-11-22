@@ -56,6 +56,32 @@ def variable_not_in_vintage(record: Any) -> AskWarning | None:
     )
 
 
+def unpublished_vintage(record: Any) -> AskWarning | None:
+    """Years the dataset has no release for are left out of the fetch; say which."""
+    artifact = getattr(record, "fetch", None)
+    omitted = getattr(artifact, "omitted_years", None) or []
+    reasons = getattr(artifact, "omission_reasons", None) or []
+    left = [str(y) for y, why in zip(omitted, reasons, strict=False) if why == REASON_UNPUBLISHED]
+    if not left:
+        return None
+    return AskWarning(
+        code="unpublished_vintage",
+        detail=f"no release is published for {', '.join(dict.fromkeys(left))}; not fetched",
+    )
+
+
+def year_mismatch(record: Any) -> AskWarning | None:
+    """The report named other years than the fetch used. The fetch stands as the loop built it."""
+    said = set(getattr(getattr(record, "intent", None), "years", None) or [])
+    asked = set(getattr(getattr(record, "fetch", None), "requested_years", None) or [])
+    if not said or not asked or said == asked:
+        return None
+    return AskWarning(
+        code="year_mismatch",
+        detail=f"the report asked for {sorted(said)}; the fetch used {sorted(asked)}",
+    )
+
+
 def consecutive(years: list[int]) -> bool:
     ordered = sorted(set(years))
     return len(ordered) >= 2 and ordered[-1] - ordered[0] + 1 == len(ordered)

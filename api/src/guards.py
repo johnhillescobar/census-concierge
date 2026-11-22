@@ -15,7 +15,7 @@ from src.geo_level import ZCTA, geography_level_mismatch, geography_level_unveri
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
 )
-from src.vintages import period_for, variable_not_in_vintage
+from src.vintages import period_for, unpublished_vintage, variable_not_in_vintage, year_mismatch
 
 _ACS5_SPAN = 5
 _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -436,6 +436,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
     for guard in (
         overlapping_vintage,
         variable_not_in_vintage,
+        unpublished_vintage,
+        year_mismatch,
         acs1_geography_ineligible,
         vintage_gap_2020,
         boundary_change_2020,

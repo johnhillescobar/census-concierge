@@ -114,8 +114,9 @@ Do not start the final E2E until AC7, AC8-years and AC9 are implemented, mutatio
 
 ## OWNER DECISIONS PENDING / MADE (2026-11-22) -- remind the owner of the pending one in every status message
 
-PENDING -- B: the ticket requires a same-window pre-change main control (B) and AC11 repeats it; the owner stopped the control run and has not said
-whether to DROP B by a dated amendment (like the cohort one) or RUN it after the code is done. Ask again before the final E2E. (Also in memory.)
+DECIDED 2026-11-22 -- B: the owner said YES, run it. B (unchanged origin/main at the time) runs in the same window as the candidate in alternating blocks
+(protocol `B,P,P,B`), never at the same moment (shared API load distorts p95), after the code is frozen. Each block ~1.2h (demo + grid) in its own worktree
+with index_store/, data/raw/ and .env copied in; no subagent or git command in either worktree while a block runs; record HEAD at start and end.
 MADE: (1) the dedicated geography cohort is deprecated; measure on long_tail/trap/core plus fixtures (recorded in the ticket, "Owner amendments").
 (2) Ambiguity fails loudly everywhere: a name with no dominant match is refused (no selection, URL or fetch) with candidates and a message, for
 direct places, comparisons and listings (CLAUDE.md now says "too incomplete or ambiguous to search"). (3) AC10/TC13 are NOT met: a silent "done"
