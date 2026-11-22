@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import socket
 import threading
 import time
@@ -224,87 +223,39 @@ def _family_income_url_tool() -> BuildUrlTool:
     )
 
 
-def _status_server(box: dict[str, object], status: bytes) -> None:
-    server = socket.socket()
-    server.bind(("127.0.0.1", 0))
-    server.listen(1)
-    box["server"] = server
-    box["port"] = server.getsockname()[1]
-    ready = box["ready"]
-    assert isinstance(ready, threading.Event)
-    ready.set()
-    server.settimeout(8)
-    seen = 0
-    while seen < 4:
-        try:
-            conn, _ = server.accept()
-        except OSError:
-            break
-        data = b""
-        conn.settimeout(8)
-        with contextlib.suppress(OSError):
-            while b"\r\n\r\n" not in data:
-                chunk = conn.recv(4096)
-                if not chunk:
-                    break
-                data += chunk
-        body = b'{"error":{"code":503,"message":"unavailable","status":"UNAVAILABLE"}}'
-        with contextlib.suppress(OSError):
-            conn.sendall(
-                b"HTTP/1.1 "
-                + status
-                + b"\r\nContent-Type: application/json\r\nContent-Length: "
-                + str(len(body)).encode()
-                + b"\r\nConnection: close\r\n\r\n"
-                + body
-            )
-        seen += 1
-        box["requests"] = seen
-        conn.close()
-    server.close()
-
-
 def test_a_retriable_status_does_not_wait_out_a_backoff(monkeypatch) -> None:
-    box: dict[str, object] = {"ready": threading.Event()}
-    threading.Thread(
-        target=_status_server, args=(box, b"503 Service Unavailable"), daemon=True
-    ).start()
-    ready = box["ready"]
-    assert isinstance(ready, threading.Event)
-    assert ready.wait(2)
+    calls = {"n": 0}
 
-    import google.genai as genai
-    from google.genai import types
-
-    real = genai.Client
-    port = box["port"]
-
-    def factory(api_key: str | None = None, http_options: object | None = None) -> object:
-        options = (
-            http_options if isinstance(http_options, types.HttpOptions) else types.HttpOptions()
-        )
-        options.base_url = f"http://127.0.0.1:{port}"
-        return real(api_key=api_key or "local", http_options=options)
+    class StatusClient(httpx.Client):
+        def send(self, request: httpx.Request, **kwargs: object) -> httpx.Response:
+            del kwargs
+            calls["n"] += 1
+            return httpx.Response(
+                503,
+                json={
+                    "error": {
+                        "code": 503,
+                        "message": "unavailable",
+                        "status": "UNAVAILABLE",
+                    }
+                },
+                request=request,
+            )
 
     monkeypatch.setenv("GEMINI_API_KEY", "local")
-    monkeypatch.setattr(genai, "Client", factory)
+    monkeypatch.setattr("src.retrieval.rerank.httpx.Client", StatusClient)
     started = time.perf_counter()
-    try:
-        picked = choose(
-            "income",
-            [
-                Candidate("B19113", "Median Family Income", "Families"),
-                Candidate("B19013", "Median Household Income", "Households"),
-            ],
-        )
-        elapsed = time.perf_counter() - started
-        assert picked == "B19113"
-        assert box.get("requests") == 1
-        assert elapsed < WAIT_SECONDS
-    finally:
-        sock = box.get("server")
-        if isinstance(sock, socket.socket):
-            sock.close()
+    picked = choose(
+        "income",
+        [
+            Candidate("B19113", "Median Family Income", "Families"),
+            Candidate("B19013", "Median Household Income", "Households"),
+        ],
+    )
+    elapsed = time.perf_counter() - started
+    assert picked == "B19113"
+    assert calls["n"] == 1
+    assert elapsed < WAIT_SECONDS
 
 
 async def test_a_stalled_rerank_keeps_related_tables_universe_and_margins(monkeypatch) -> None:
