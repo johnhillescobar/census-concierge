@@ -95,6 +95,23 @@ families). A is the 2026-11-09 old-model run, so the comparison mixes the model 
 `ambiguous_place` / `overlapping_vintage`) match the earlier diagnosis items 3 and 4 in PR #131; not re-diagnosed on this model. Worktree E2E prerequisites
 (this cost an invalid attempt twice): copy gitignored `index_store/`, `data/raw/` and `.env` from the main checkout before the driver.
 
+## 2026-11-22: rebased onto main 989f2b4 (CC-125 promoted); the ticket now has AC1-AC11 and TC1-TC14
+
+Rebased 73 commits onto origin/main 989f2b4, no conflicts (backup `backup/cc-104-pre-rebase2-ee4eab3`); pytest 1564 passed / 34 skipped, ruff, mypy,
+invariants clean; the only red budget row is p95 26.391 from main's committed CC-125 `evidence/latest.json`. CLAUDE.md "URL is the product" now says
+"too incomplete or ambiguous to search" (owner instruction; R1 closed by classification, no second exception). The same-day control of main was stopped by
+the owner; `e2e-main-r2/` holds a replicate of the CC-104 code (NOT a control) and the aborted log.
+
+The owner rewrote the Jira description (read 2026-11-22): the manifest `required` list (AC1-5, TC1-5) is incomplete. Status of the new ones:
+AC6/TC6/TC7 same-state single-parent precedence: implemented + mutation-checked (gate1-e2e-single-parent.txt, gate1-rebase-r2-fixes.txt); rows to write.
+AC7/TC8/TC9 a corrected call supersedes a refused invalid-level call: NOT implemented (`intent.unmet` in geo_level.py keeps a refused level).
+AC8/TC10/TC11 report years/dataset never change a built fetch, mismatch warns: dataset done (no redo of a built URL, `dataset_mismatch`); YEARS NOT done
+(`question_years` in ask.py:377 still lets `intent.years` steer a fetch_data call that stated none, so the rendered URL's vintage can differ from the year fetched).
+AC9/TC12 a model-supplied state is recorded inferred and cannot suppress ambiguity: NOT done in code (only the prompt/tool text tells the model not to supply a state for a single place).
+AC10/TC13 no national fallback: tests exist (test_level_fidelity, test_geography_intent); map and confirm TC13 specifically.
+AC11/TC14 evidence: E2E vs B, A and L on frozen code, then post-merge. B (same-window pre-change main) is REQUIRED by the ticket text but the owner stopped the control: ask which governs.
+Do not start the final E2E until AC7, AC8-years and AC9 are implemented, mutation-checked and Gate 2 read; the E2E must run on frozen final code.
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
