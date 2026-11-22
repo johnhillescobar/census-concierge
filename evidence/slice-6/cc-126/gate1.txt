@@ -1,0 +1,1555 @@
+CC-126 Gate 1 | Slice 6 | 2026-11-22
+
+Repo path: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126
+Phase: gate1
+Branch: cc-126/census-deadline
+Review base: origin/main 700d80082c6bdb371dab2c551c9b6f3736c8986f
+Review head: 7da4661be908468b59e02c284327be4f2ac15097
+Evidence: evidence/slice-6/cc-126/gate1.txt
+Scoped uncommitted changes at start: none. This file is the gate transcript.
+make is not used. The test recipe is: uv run pytest -q -m "not integration"
+Adversarial matrix tests: api/tests/test_process.py (docs/process-evidence.md)
+Catalogs read for touched paths (api/src/census_http.py, api/src/fetch.py,
+api/src/geo_list.py, api/tests/test_census_http.py, api/tests/test_ask_tools.py,
+scripts/latency_probe.py, docs/ask-path.md):
+docs/requirements.md (URL on failure, redacted key, MOE, GEOID, universe, alternatives),
+docs/ask-path.md (census_get: 60s wall clock, one identical hedge; listings use the same GET),
+docs/slices.md (slice 6 is current),
+docs/retrieval.md (no hedge contract; this change does not touch index, search, or rerank).
+
+New tests are the ten functions in api/tests/test_census_http.py.
+api/tests/test_ask_tools.py only retargets two existing listing tests at census_get.
+Those two are run at HEAD and are not new tests.
+
+$ git rev-parse --show-toplevel
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-126
+Exit code 0
+
+$ git branch --show-current
+cc-126/census-deadline
+Exit code 0
+
+$ git rev-parse HEAD
+7da4661be908468b59e02c284327be4f2ac15097
+Exit code 0
+
+$ git rev-parse origin/main
+700d80082c6bdb371dab2c551c9b6f3736c8986f
+Exit code 0
+
+$ git status --porcelain=v1 --branch
+## cc-126/census-deadline...origin/main [ahead 1]
+?? evidence/slice-6/cc-126/_gate1_run.py
+?? evidence/slice-6/cc-126/gate1.txt
+Exit code 0
+
+$ git log --oneline origin/main..HEAD
+7da4661 fix(CC-126): bound Census GETs with one hedged retry
+Exit code 0
+
+$ git diff --stat origin/main...HEAD
+ api/src/census_http.py               | 167 ++++++++++++++++++++++++
+ api/src/fetch.py                     |   4 +-
+ api/src/geo_list.py                  |   3 +-
+ api/tests/test_ask_tools.py          |  10 +-
+ api/tests/test_census_http.py        | 237 +++++++++++++++++++++++++++++++++++
+ docs/ARCHITECTURE.md                 |   1 +
+ docs/ask-path.md                     |   2 +-
+ evidence/slice-6/cc-126/preflight.md |  17 +++
+ scripts/latency_probe.py             |  20 +--
+ 9 files changed, 441 insertions(+), 20 deletions(-)
+Exit code 0
+
+$ git diff --name-status origin/main...HEAD
+A	api/src/census_http.py
+M	api/src/fetch.py
+M	api/src/geo_list.py
+M	api/tests/test_ask_tools.py
+A	api/tests/test_census_http.py
+M	docs/ARCHITECTURE.md
+M	docs/ask-path.md
+A	evidence/slice-6/cc-126/preflight.md
+M	scripts/latency_probe.py
+Exit code 0
+
+Mutation anchors
+GOOD each mutation anchor matches the source once
+Exit code 0
+
+Adversarial matrix (api/tests/test_process.py)
+GOOD adversarial matrix tests
+
+$ uv run pytest -q api/tests/test_process.py
+........................                                                 [100%]
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_expected_number_of_transcripts_are_pinned
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+24 passed, 1 warning in 2.19s
+Exit code 0
+
+New Census deadline tests at HEAD
+GOOD new census deadline tests at HEAD
+
+$ uv run pytest -v api/tests/test_census_http.py
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 10 items
+
+api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum PASSED [ 10%]
+api/tests/test_census_http.py::test_the_client_timeout_disables_every_phase PASSED [ 20%]
+api/tests/test_census_http.py::test_a_response_inside_the_hedge_is_not_repeated PASSED [ 30%]
+api/tests/test_census_http.py::test_the_first_response_back_wins PASSED  [ 40%]
+api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url PASSED [ 50%]
+api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again PASSED [ 60%]
+api/tests/test_census_http.py::test_a_read_timeout_is_not_retried PASSED [ 70%]
+api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock PASSED [ 80%]
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives PASSED [ 90%]
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives PASSED [100%]
+
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 10 passed, 1 warning in 7.22s ========================
+Exit code 0
+
+Existing listing tests retargeted at census_get
+GOOD retargeted listing tests
+
+$ uv run pytest -q api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause api/tests/test_ask_tools.py::test_listing_error_does_not_carry_the_census_key
+..                                                                       [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_tools.py::test_listing_keeps_population_off_the_in_clause
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 1 warning in 1.27s
+Exit code 0
+
+Makefile test recipe
+GOOD pytest -q -m "not integration"
+
+$ uv run pytest -q -m not integration
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+.........................sssssssssssssssss..sss......................... [ 33%]
+.......................................xxxxxxx...x...................... [ 38%]
+........................................................................ [ 43%]
+........................................................................ [ 48%]
+........................................................................ [ 53%]
+........................................................................ [ 57%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 86%]
+..................................................................ssssss [ 91%]
+sssss..s.ss............................................................. [ 96%]
+...................................................                      [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1449 passed, 34 skipped, 8 xfailed, 1 warning in 222.07s (0:03:42)
+Exit code 0
+
+Mutation checks. Each BAD run reverts one behaviour, runs only that test, then restores.
+
+BAD shorten the hedge below twice the clean-window maximum
+for api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+
+$ uv run pytest -q api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_hedge_wait_is_above_the_clean_window_maximum ______________
+
+    def test_hedge_wait_is_above_the_clean_window_maximum() -> None:
+        phases = httpx.Timeout(60.0)
+        assert phases.connect == phases.read == phases.write == phases.pool == 60.0
+>       assert HEDGE_AFTER == 10.0
+E       assert 4.0 == 10.0
+
+api\tests\test_census_http.py:35: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+1 failed, 1 warning in 2.13s
+Exit code 1
+Mutation exit 1 after restore of shorten the hedge below twice the clean-window maximum
+
+BAD shorten the wall-clock deadline below 60 seconds
+for api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+
+$ uv run pytest -q api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_hedge_wait_is_above_the_clean_window_maximum ______________
+
+    def test_hedge_wait_is_above_the_clean_window_maximum() -> None:
+        phases = httpx.Timeout(60.0)
+        assert phases.connect == phases.read == phases.write == phases.pool == 60.0
+        assert HEDGE_AFTER == 10.0
+>       assert TOTAL_DEADLINE == 60.0
+E       assert 30.0 == 60.0
+
+api\tests\test_census_http.py:36: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+1 failed, 1 warning in 2.00s
+Exit code 1
+Mutation exit 1 after restore of shorten the wall-clock deadline below 60 seconds
+
+BAD give the Census client a 60 second per-phase timeout
+for api/tests/test_census_http.py::test_the_client_timeout_disables_every_phase
+
+$ uv run pytest -q api/tests/test_census_http.py::test_the_client_timeout_disables_every_phase
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_the_client_timeout_disables_every_phase _________________
+
+    def test_the_client_timeout_disables_every_phase() -> None:
+        seen: list[httpx.Timeout] = []
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = url
+            seen.append(client.timeout)
+            return httpx.Response(204)
+    
+        census_get(URL, hedge_after=1, total=1, get=get)
+        timeout = seen[0]
+>       assert timeout.connect is None
+E       assert 60.0 is None
+E        +  where 60.0 = Timeout(timeout=60.0).connect
+
+api\tests\test_census_http.py:50: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_the_client_timeout_disables_every_phase
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_the_client_timeout_disables_every_phase
+1 failed, 1 warning in 2.36s
+Exit code 1
+Mutation exit 1 after restore of give the Census client a 60 second per-phase timeout
+
+BAD repeat an HTTP error that arrived inside the hedge
+for api/tests/test_census_http.py::test_a_response_inside_the_hedge_is_not_repeated
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_response_inside_the_hedge_is_not_repeated
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_a_response_inside_the_hedge_is_not_repeated _______________
+
+    def test_a_response_inside_the_hedge_is_not_repeated() -> None:
+        calls: list[str] = []
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            return httpx.Response(500, text="no")
+    
+        response = census_get(URL, hedge_after=2, total=2, get=get)
+        assert response.status_code == 500
+>       assert calls == [URL]
+E       AssertionError: assert ['https://api...&in=state:48'] == ['https://api...&in=state:48']
+E         
+E         Left contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48'
+E         Use -v to get more diff
+
+api\tests\test_census_http.py:66: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_response_inside_the_hedge_is_not_repeated
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_response_inside_the_hedge_is_not_repeated
+1 failed, 1 warning in 2.43s
+Exit code 1
+Mutation exit 1 after restore of repeat an HTTP error that arrived inside the hedge
+
+BAD keep the slower primary when the hedge returns first
+for api/tests/test_census_http.py::test_the_first_response_back_wins
+
+$ uv run pytest -q api/tests/test_census_http.py::test_the_first_response_back_wins
+F                                                                        [100%]
+================================== FAILURES ===================================
+______________________ test_the_first_response_back_wins ______________________
+
+    def test_the_first_response_back_wins() -> None:
+        calls: list[str] = []
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                time.sleep(0.8)
+                return httpx.Response(200, text="slow")
+            return httpx.Response(200, text="fast")
+    
+        response = census_get(URL, hedge_after=0.05, total=3, get=get)
+>       assert response.text == "fast"
+E       AssertionError: assert 'slow' == 'fast'
+E         
+E         - fast
+E         + slow
+
+api\tests\test_census_http.py:81: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_the_first_response_back_wins
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_the_first_response_back_wins - Ass...
+1 failed, 1 warning in 4.01s
+Exit code 1
+Mutation exit 1 after restore of keep the slower primary when the hedge returns first
+
+BAD do not retry a dropped connection
+for api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_dropped_connection_is_retried_once_with_the_same_url _________
+
+    def test_a_dropped_connection_is_retried_once_with_the_same_url() -> None:
+        calls: list[str] = []
+        live = f"{URL}&key=secret"
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+>       response = census_get(live, hedge_after=5, total=5, get=get)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+api\tests\test_census_http.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+api\src\census_http.py:41: in census_get
+    return _hedged(url, deadline, hedge_after, done, attempts, getter)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\census_http.py:70: in _hedged
+    _reraise(first.outcome)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+exc = ConnectError('dropped https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret')
+
+    def _reraise(exc: BaseException) -> NoReturn:
+        if not isinstance(exc, httpx.HTTPError):
+            raise exc
+        cleaned = redact_text(str(exc))
+        if cleaned == str(exc):
+            raise exc
+        try:
+>           raise type(exc)(cleaned) from None
+E           httpx.ConnectError: dropped https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=REDACTED
+
+api\src\census_http.py:118: ConnectError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+1 failed, 1 warning in 3.77s
+Exit code 1
+Mutation exit 1 after restore of do not retry a dropped connection
+
+BAD retry a dropped connection with a different URL
+for api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_dropped_connection_is_retried_once_with_the_same_url _________
+
+    def test_a_dropped_connection_is_retried_once_with_the_same_url() -> None:
+        calls: list[str] = []
+        live = f"{URL}&key=secret"
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        response = census_get(live, hedge_after=5, total=5, get=get)
+        assert response.status_code == 200
+>       assert calls == [live, live]
+E       AssertionError: assert ['https://api...cret&hedge=1'] == ['https://api...8&key=secret']
+E         
+E         At index 1 diff: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret&hedge=1' != 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret'
+E         Use -v to get more diff
+
+api\tests\test_census_http.py:98: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_dropped_connection_is_retried_once_with_the_same_url
+1 failed, 1 warning in 2.04s
+Exit code 1
+Mutation exit 1 after restore of retry a dropped connection with a different URL
+
+BAD send a third attempt after two connection errors
+for api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_a_second_connection_error_is_not_retried_again _____________
+
+    def test_a_second_connection_error_is_not_retried_again() -> None:
+        calls: list[str] = []
+        live = f"{URL}&key=secret"
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        with pytest.raises(httpx.ConnectError) as caught:
+            census_get(live, hedge_after=5, total=5, get=get)
+>       assert calls == [live, live]
+E       AssertionError: assert ['https://api...8&key=secret'] == ['https://api...8&key=secret']
+E         
+E         Left contains one more item: 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret'
+E         Use -v to get more diff
+
+api\tests\test_census_http.py:112: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+1 failed, 1 warning in 2.81s
+Exit code 1
+Mutation exit 1 after restore of send a third attempt after two connection errors
+
+BAD leave the Census key in a connection error
+for api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_a_second_connection_error_is_not_retried_again _____________
+
+    def test_a_second_connection_error_is_not_retried_again() -> None:
+        calls: list[str] = []
+        live = f"{URL}&key=secret"
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        with pytest.raises(httpx.ConnectError) as caught:
+            census_get(live, hedge_after=5, total=5, get=get)
+        assert calls == [live, live]
+>       assert "secret" not in str(caught.value)
+E       AssertionError: assert 'secret' not in 'dropped htt...8&key=secret'
+E         
+E         'secret' is contained here:
+E           ate:48&key=secret
+E         ?            ++++++
+
+api\tests\test_census_http.py:113: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_second_connection_error_is_not_retried_again
+1 failed, 1 warning in 2.86s
+Exit code 1
+Mutation exit 1 after restore of leave the Census key in a connection error
+
+BAD retry a read timeout
+for api/tests/test_census_http.py::test_a_read_timeout_is_not_retried
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_read_timeout_is_not_retried
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________________ test_a_read_timeout_is_not_retried ______________________
+
+    def test_a_read_timeout_is_not_retried() -> None:
+        calls: list[int] = []
+    
+        def get(url: str, client: httpx.Client) -> httpx.Response:
+            _ = url, client
+            calls.append(1)
+            raise httpx.ReadTimeout("read")
+    
+        with pytest.raises(httpx.ReadTimeout):
+            census_get(URL, hedge_after=5, total=5, get=get)
+>       assert calls == [1]
+E       assert [1, 1] == [1]
+E         
+E         Left contains one more item: 1
+E         Use -v to get more diff
+
+api\tests\test_census_http.py:127: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_read_timeout_is_not_retried
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_read_timeout_is_not_retried - as...
+1 failed, 1 warning in 2.54s
+Exit code 1
+Mutation exit 1 after restore of retry a read timeout
+
+BAD do not hedge a Census GET that is still in flight
+for api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_a_hung_pair_stops_on_the_wall_clock ___________________
+
+    def test_a_hung_pair_stops_on_the_wall_clock() -> None:
+        hits: list[int] = []
+        release = threading.Event()
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - stdlib handler name
+                hits.append(1)
+                release.wait(30)
+    
+            def log_message(self, format: str, *args: object) -> None:
+                _ = format, args
+    
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        started = time.perf_counter()
+        try:
+            with pytest.raises(httpx.HTTPError) as caught:
+                census_get(f"http://127.0.0.1:{port}/data?key=secret", hedge_after=0.2, total=2.0)
+            elapsed = time.perf_counter() - started
+        finally:
+            release.set()
+            server.shutdown()
+>       assert len(hits) == 2
+E       assert 1 == 2
+E        +  where 1 = len([1])
+
+api\tests\test_census_http.py:153: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+1 failed, 1 warning in 4.23s
+Exit code 1
+Mutation exit 1 after restore of do not hedge a Census GET that is still in flight
+
+BAD leave a hung Census GET running past the wall-clock deadline
+for api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_a_hung_pair_stops_on_the_wall_clock ___________________
+
+    def test_a_hung_pair_stops_on_the_wall_clock() -> None:
+        hits: list[int] = []
+        release = threading.Event()
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - stdlib handler name
+                hits.append(1)
+                release.wait(30)
+    
+            def log_message(self, format: str, *args: object) -> None:
+                _ = format, args
+    
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        started = time.perf_counter()
+        try:
+            with pytest.raises(httpx.HTTPError) as caught:
+                census_get(f"http://127.0.0.1:{port}/data?key=secret", hedge_after=0.2, total=2.0)
+            elapsed = time.perf_counter() - started
+        finally:
+            release.set()
+            server.shutdown()
+        assert len(hits) == 2
+>       assert 1.2 <= elapsed < 5
+E       assert 8.692307799938135 < 5
+
+api\tests\test_census_http.py:154: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+1 failed, 1 warning in 10.90s
+Exit code 1
+Mutation exit 1 after restore of leave a hung Census GET running past the wall-clock deadline
+
+BAD leave the Census key in a hung-request error
+for api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+F                                                                        [100%]
+================================== FAILURES ===================================
+__________________ test_a_hung_pair_stops_on_the_wall_clock ___________________
+
+    def test_a_hung_pair_stops_on_the_wall_clock() -> None:
+        hits: list[int] = []
+        release = threading.Event()
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - stdlib handler name
+                hits.append(1)
+                release.wait(30)
+    
+            def log_message(self, format: str, *args: object) -> None:
+                _ = format, args
+    
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        started = time.perf_counter()
+        try:
+            with pytest.raises(httpx.HTTPError) as caught:
+                census_get(f"http://127.0.0.1:{port}/data?key=secret", hedge_after=0.2, total=2.0)
+            elapsed = time.perf_counter() - started
+        finally:
+            release.set()
+            server.shutdown()
+        assert len(hits) == 2
+        assert 1.2 <= elapsed < 5
+>       assert "secret" not in str(caught.value)
+E       AssertionError: assert 'secret' not in 'census tota...a?key=secret'
+E         
+E         'secret' is contained here:
+E           2/data?key=secret
+E         ?            ++++++
+
+api\tests\test_census_http.py:155: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_hung_pair_stops_on_the_wall_clock
+1 failed, 1 warning in 5.21s
+Exit code 1
+Mutation exit 1 after restore of leave the Census key in a hung-request error
+
+BAD do not retry a dropped connection
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026108075310>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+>       assert calls[0] == calls[1]
+                           ^^^^^^^^
+E       IndexError: list index out of range
+
+api\tests\test_census_http.py:202: IndexError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 3.75s
+Exit code 1
+Mutation exit 1 after restore of do not retry a dropped connection
+
+BAD drop the margin variable from the Census request
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000241C0AE5340>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+>       assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+E       AssertionError: assert ('B01003_001M' in 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001&for=county:201&in=state:48&key=secret')
+
+api\tests\test_census_http.py:203: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 4.66s
+Exit code 1
+Mutation exit 1 after restore of drop the margin variable from the Census request
+
+BAD drop GEO_ID from the Census request
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001E2B20B56A0>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+>       assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+E       AssertionError: assert ('B01003_001M' in 'https://api.census.gov/data/2024/acs/acs5?get=NAME,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret' and 'GEO_ID' in 'https://api.census.gov/data/2024/acs/acs5?get=NAME,B01003_001E,B01003_001M&for=county:201&in=state:48&key=secret')
+
+api\tests\test_census_http.py:203: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 2.66s
+Exit code 1
+Mutation exit 1 after restore of drop GEO_ID from the Census request
+
+BAD omit the margin of error from fetched rows
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000022F99FAF830>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+>       assert artifact.rows[0]["B01003_001M"] == "12"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'B01003_001M'
+
+api\tests\test_census_http.py:205: KeyError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 3.59s
+Exit code 1
+Mutation exit 1 after restore of omit the margin of error from fetched rows
+
+BAD omit GEO_ID from fetched rows
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000281AE34F6E0>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+        assert artifact.rows[0]["B01003_001M"] == "12"
+>       assert artifact.rows[0]["GEO_ID"] == "0500000US48201"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'GEO_ID'
+
+api\tests\test_census_http.py:206: KeyError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 2.86s
+Exit code 1
+Mutation exit 1 after restore of omit GEO_ID from fetched rows
+
+BAD omit the margin of error beside the estimate
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002C2AF61F4A0>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+        assert artifact.rows[0]["B01003_001M"] == "12"
+        assert artifact.rows[0]["GEO_ID"] == "0500000US48201"
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+        assert "B01003_001M" in response.urls[0] and "GEO_ID" in response.urls[0]
+>       assert response.moe[0]["B01003_001M"] == "12"
+               ^^^^^^^^^^^^^^^
+E       IndexError: list index out of range
+
+api\tests\test_census_http.py:209: IndexError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 8.27s
+Exit code 1
+Mutation exit 1 after restore of omit the margin of error beside the estimate
+
+BAD omit GEO_ID from the answer
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000023F97AD9550>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+        assert artifact.rows[0]["B01003_001M"] == "12"
+        assert artifact.rows[0]["GEO_ID"] == "0500000US48201"
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+        assert "B01003_001M" in response.urls[0] and "GEO_ID" in response.urls[0]
+        assert response.moe[0]["B01003_001M"] == "12"
+>       assert response.geoid == "0500000US48201"
+E       AssertionError: assert '' == '0500000US48201'
+E         
+E         - 0500000US48201
+
+api\tests\test_census_http.py:210: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 6.34s
+Exit code 1
+Mutation exit 1 after restore of omit GEO_ID from the answer
+
+BAD omit the published universe
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001CC710AB6B0>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+        assert artifact.rows[0]["B01003_001M"] == "12"
+        assert artifact.rows[0]["GEO_ID"] == "0500000US48201"
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+        assert "B01003_001M" in response.urls[0] and "GEO_ID" in response.urls[0]
+        assert response.moe[0]["B01003_001M"] == "12"
+        assert response.geoid == "0500000US48201"
+>       assert response.universe == "Total population"
+E       AssertionError: assert '' == 'Total population'
+E         
+E         - Total population
+
+api\tests\test_census_http.py:211: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 8.70s
+Exit code 1
+Mutation exit 1 after restore of omit the published universe
+
+BAD omit related tables
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001A547C6C860>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+        assert artifact.rows[0]["B01003_001M"] == "12"
+        assert artifact.rows[0]["GEO_ID"] == "0500000US48201"
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+        assert "B01003_001M" in response.urls[0] and "GEO_ID" in response.urls[0]
+        assert response.moe[0]["B01003_001M"] == "12"
+        assert response.geoid == "0500000US48201"
+        assert response.universe == "Total population"
+>       assert any(item.table_id == "B11001" for item in response.alternatives)
+E       assert False
+E        +  where False = any(<generator object test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives.<locals>.<genexpr> at 0x000001A547EBA740>)
+
+api\tests\test_census_http.py:212: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 6.03s
+Exit code 1
+Mutation exit 1 after restore of omit related tables
+
+BAD leave the Census key on the returned URL
+for api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+______ test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000027FF5C5FA70>
+
+    async def test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        calls: list[str] = []
+    
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectError(f"dropped {url}")
+            return _ok()
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert calls[0] == calls[1]
+        assert "B01003_001M" in calls[0] and "GEO_ID" in calls[0]
+        assert artifact.ok is True
+        assert artifact.rows[0]["B01003_001M"] == "12"
+        assert artifact.rows[0]["GEO_ID"] == "0500000US48201"
+>       assert "key=" not in artifact.url and "secret" not in artifact.url
+E       AssertionError: assert ('key=' not in 'https://api...8&key=secret'
+E         
+E         'key=' is contained here:
+E           =state:48&key=secret
+E         ?           ++++)
+
+api\tests\test_census_http.py:207: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives
+1 failed, 1 warning in 6.15s
+Exit code 1
+Mutation exit 1 after restore of leave the Census key on the returned URL
+
+BAD drop the URL when the Census GET fails
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D5AE1EC860>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert artifact.ok is False
+        assert artifact.legs[0].status_code == 0
+>       assert "B01003_001M" in artifact.url and "GEO_ID" in artifact.url
+E       AssertionError: assert ('B01003_001M' in '')
+E        +  where '' = FetchDataResult(ok=False, url='', urls=[''], rows=[], status_code=0, detail='dropped https://api.census.gov/data/2024/...years=[], failed_years=[2024], omitted_years=[], omission_reasons=[], dataset='acs5', acs1_ineligible=False, labels={}).url
+
+api\tests\test_census_http.py:232: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 5.60s
+Exit code 1
+Mutation exit 1 after restore of drop the URL when the Census GET fails
+
+BAD assign an HTTP status to a connection failure
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000019AA165C860>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert artifact.ok is False
+>       assert artifact.legs[0].status_code == 0
+E       AssertionError: assert 503 == 0
+E        +  where 503 = RequestLeg(year=2024, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=count...s.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=county:201&in=state:48&key=REDACTED', for_spec='').status_code
+
+api\tests\test_census_http.py:231: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 7.46s
+Exit code 1
+Mutation exit 1 after restore of assign an HTTP status to a connection failure
+
+BAD leave the Census key in a failed fetch detail
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002E52B1EFEF0>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert artifact.ok is False
+        assert artifact.legs[0].status_code == 0
+        assert "B01003_001M" in artifact.url and "GEO_ID" in artifact.url
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+>       assert "secret" not in artifact.legs[0].detail
+E       AssertionError: assert 'secret' not in 'dropped htt...8&key=secret'
+E         
+E         'secret' is contained here:
+E           ate:48&key=secret
+E         ?            ++++++
+
+api\tests\test_census_http.py:234: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 8.28s
+Exit code 1
+Mutation exit 1 after restore of leave the Census key in a failed fetch detail
+
+BAD report a failed Census GET as a successful fetch
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000025E1551F9B0>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+>       assert artifact.ok is False
+E       AssertionError: assert True is False
+E        +  where True = FetchDataResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B01003_001E,B01003_001M&for=co...years=[2024], failed_years=[], omitted_years=[], omission_reasons=[], dataset='acs5', acs1_ineligible=False, labels={}).ok
+
+api\tests\test_census_http.py:230: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 8.19s
+Exit code 1
+Mutation exit 1 after restore of report a failed Census GET as a successful fetch
+
+BAD omit the published universe
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002AE9B87F6B0>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert artifact.ok is False
+        assert artifact.legs[0].status_code == 0
+        assert "B01003_001M" in artifact.url and "GEO_ID" in artifact.url
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+        assert "secret" not in artifact.legs[0].detail
+        assert "B01003_001M" in response.urls[0] and "GEO_ID" in response.urls[0]
+>       assert response.universe == "Total population"
+E       AssertionError: assert '' == 'Total population'
+E         
+E         - Total population
+
+api\tests\test_census_http.py:236: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 8.28s
+Exit code 1
+Mutation exit 1 after restore of omit the published universe
+
+BAD omit related tables
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000141C4B6C860>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert artifact.ok is False
+        assert artifact.legs[0].status_code == 0
+        assert "B01003_001M" in artifact.url and "GEO_ID" in artifact.url
+        assert "key=" not in artifact.url and "secret" not in artifact.url
+        assert "secret" not in artifact.legs[0].detail
+        assert "B01003_001M" in response.urls[0] and "GEO_ID" in response.urls[0]
+        assert response.universe == "Total population"
+>       assert any(item.table_id == "B11001" for item in response.alternatives)
+E       assert False
+E        +  where False = any(<generator object test_a_failed_fetch_keeps_the_url_universe_and_alternatives.<locals>.<genexpr> at 0x00000141C50CA740>)
+
+api\tests\test_census_http.py:237: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 5.48s
+Exit code 1
+Mutation exit 1 after restore of omit related tables
+
+BAD leave the Census key on the returned URL
+for api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+
+$ uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+F                                                                        [100%]
+================================== FAILURES ===================================
+_________ test_a_failed_fetch_keeps_the_url_universe_and_alternatives _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001D61253F530>
+
+    async def test_a_failed_fetch_keeps_the_url_universe_and_alternatives(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def download(url: str, client: httpx.Client) -> httpx.Response:
+            _ = client
+            raise httpx.ConnectError(f"dropped {url}")
+    
+        monkeypatch.setattr("src.census_http._download", download)
+        tool = FetchDataTool(last_url=lambda: CensusURL(URL), census_key=lambda: "secret")
+        message = await tool.ainvoke(
+            {"type": "tool_call", "name": "fetch_data", "args": {"years": [2024]}, "id": "c1"}
+        )
+        artifact = message.artifact
+        response = _show(artifact)
+        assert artifact.ok is False
+        assert artifact.legs[0].status_code == 0
+        assert "B01003_001M" in artifact.url and "GEO_ID" in artifact.url
+>       assert "key=" not in artifact.url and "secret" not in artifact.url
+E       AssertionError: assert ('key=' not in 'https://api...8&key=secret'
+E         
+E         'key=' is contained here:
+E           =state:48&key=secret
+E         ?           ++++)
+
+api\tests\test_census_http.py:233: AssertionError
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives
+1 failed, 1 warning in 5.38s
+Exit code 1
+Mutation exit 1 after restore of leave the Census key on the returned URL
+
+Pristine check after mutations
+GOOD restored census deadline tests
+
+$ uv run pytest -q api/tests/test_census_http.py
+..........                                                               [100%]
+============================== warnings summary ===============================
+api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+10 passed, 1 warning in 18.77s
+Exit code 0
+
+Removed evidence/slice-6/cc-126/_gate1_run.py before the closing status.
+
+$ git status --porcelain=v1 --branch
+## cc-126/census-deadline...origin/main [ahead 1]
+?? evidence/slice-6/cc-126/gate1.txt
+Exit code 0
+
+$ git diff --stat -- api/src/census_http.py api/src/fetch.py api/src/ask.py api/src/vintages.py api/src/contract.py
+Exit code 0
+
+Gate 1 verdict: PASS
+matrix=0 new=0 listing=0 suite=0 restored=0 mutations=30/30 failed-as-required missed=0 harness=0 dirty=False unexpected=0
