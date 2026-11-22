@@ -15,15 +15,17 @@ from __future__ import annotations
 
 import json
 import os
-import threading
 from dataclasses import dataclass
+
+import httpx
 
 # Measured in experiments/ axis B on the golden 40: 77.5% @1 vs 67.5% for
 # gpt-4o-mini over the same frozen top-10 pool.
 MODEL = "gemini-3.7-flash"
 
-# Gemini rejects a server deadline under 10s. This wait is local: the socket is
-# closed and the worker is joined, then choose() keeps the retrieval top.
+# Gemini rejects a server deadline under 10s. The httpx timeout below is local
+# and is not copied into X-Server-Timeout. One attempt: a retry backoff cannot
+# extend the wait, and the read is cancelled on this thread.
 WAIT_SECONDS = 3.0
 
 # The selector reads this many ranked candidates. The retriever ranks the plain
@@ -67,50 +69,41 @@ def _pick_table(payload: str) -> str | None:
     return table if isinstance(table, str) else None
 
 
-def _close_client(client: object) -> None:
-    close = getattr(client, "close", None)
-    if not callable(close):
-        return
-    try:
-        close()
-    except Exception:  # noqa: BLE001 - cleanup must not replace a pick already in hand
-        return
+def _keep_deadline(request: httpx.Request) -> None:
+    """The SDK passes timeout=None, which would clear this client's deadline."""
+    timeout = request.extensions.get("timeout")
+    if isinstance(timeout, dict) and timeout.get("read") is None:
+        request.extensions["timeout"] = httpx.Timeout(WAIT_SECONDS).as_dict()
 
 
 def _choose_gemini(question: str, listing: str, model: str) -> str | None:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
-    box: dict[str, object] = {}
-
-    def run() -> None:
-        try:
-            box["response"] = client.models.generate_content(
-                model=model,
-                contents=f"{PROMPT}\n\nQuestion: {question}\n\nCandidates:\n{listing}",
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
-        except Exception as exc:  # noqa: BLE001 - the caller keeps the retrieval top
-            box["error"] = exc
-
-    worker = threading.Thread(target=run)
-    worker.start()
-    worker.join(WAIT_SECONDS)
-    if worker.is_alive():
-        _close_client(client)
-        worker.join()
-        return None
-    _close_client(client)
-    error = box.get("error")
-    if isinstance(error, Exception):
-        raise error
-    response = box.get("response")
-    text = getattr(response, "text", None)
-    return _pick_table(text if isinstance(text, str) else "{}")
+    http = httpx.Client(
+        timeout=httpx.Timeout(WAIT_SECONDS),
+        follow_redirects=True,
+        event_hooks={"request": [_keep_deadline]},
+    )
+    try:
+        client = genai.Client(
+            api_key=os.environ["GEMINI_API_KEY"],
+            http_options=types.HttpOptions(
+                httpx_client=http,
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
+        response = client.models.generate_content(
+            model=model,
+            contents=f"{PROMPT}\n\nQuestion: {question}\n\nCandidates:\n{listing}",
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            ),
+        )
+        return _pick_table(response.text or "{}")
+    finally:
+        http.close()
 
 
 def _choose_openai(question: str, listing: str, model: str) -> str | None:

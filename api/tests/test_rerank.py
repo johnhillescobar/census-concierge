@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import socket
 import threading
 import time
 from types import SimpleNamespace
 
+import httpx
 from ask_fixtures import _harris
 from src.ask import ExecutionRecord, assemble
 from src.retrieval.rerank import WAIT_SECONDS, Candidate, choose
@@ -25,8 +27,8 @@ def test_gemini_selector_disables_thinking(monkeypatch) -> None:
             return SimpleNamespace(text='{"table": "B01003"}')
 
     class FakeClient:
-        def __init__(self, api_key: str | None = None) -> None:
-            del api_key
+        def __init__(self, api_key: str | None = None, **kwargs: object) -> None:
+            del api_key, kwargs
             self.models = FakeModels()
 
     monkeypatch.setenv("GEMINI_API_KEY", "test")
@@ -48,8 +50,8 @@ def test_selector_falls_back_to_retrieval_top_on_error(monkeypatch) -> None:
             raise RuntimeError("selector down")
 
     class FakeClient:
-        def __init__(self, api_key: str | None = None) -> None:
-            del api_key
+        def __init__(self, api_key: str | None = None, **kwargs: object) -> None:
+            del api_key, kwargs
             self.models = FakeModels()
 
     monkeypatch.setenv("GEMINI_API_KEY", "test")
@@ -73,8 +75,8 @@ def test_a_completed_rerank_keeps_the_model_pick(monkeypatch) -> None:
             return SimpleNamespace(text='{"table": "B19013"}')
 
     class FakeClient:
-        def __init__(self, api_key: str | None = None) -> None:
-            del api_key
+        def __init__(self, api_key: str | None = None, **kwargs: object) -> None:
+            del api_key, kwargs
             self.models = FakeModels()
 
     monkeypatch.setenv("GEMINI_API_KEY", "test")
@@ -156,23 +158,32 @@ def test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline(
     real = genai.Client
     port = box["port"]
 
-    def factory(api_key: str | None = None) -> object:
-        return real(
-            api_key=api_key or "local",
-            http_options=types.HttpOptions(base_url=f"http://127.0.0.1:{port}"),
+    def factory(api_key: str | None = None, http_options: object | None = None) -> object:
+        options = (
+            http_options if isinstance(http_options, types.HttpOptions) else types.HttpOptions()
         )
+        options.base_url = f"http://127.0.0.1:{port}"
+        return real(api_key=api_key or "local", http_options=options)
 
     monkeypatch.setenv("GEMINI_API_KEY", "local")
     monkeypatch.setattr(genai, "Client", factory)
     holder: dict[str, str] = {}
 
     def run() -> None:
+        before = {thread.ident for thread in threading.enumerate()}
         holder["picked"] = choose(
             "income",
             [
                 Candidate("B19113", "Median Family Income", "Families"),
                 Candidate("B19013", "Median Household Income", "Households"),
             ],
+        )
+        holder["left"] = str(
+            [
+                thread.name
+                for thread in threading.enumerate()
+                if thread.ident not in before and thread.is_alive()
+            ]
         )
 
     worker = threading.Thread(target=run)
@@ -191,6 +202,7 @@ def test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline(
         assert isinstance(request, str)
         assert "x-server-timeout" not in request.lower()
         assert isinstance(released, threading.Event) and released.wait(2)
+        assert holder["left"] == "[]"
     finally:
         for key in ("conn", "server"):
             sock = box.get(key)
@@ -212,28 +224,104 @@ def _family_income_url_tool() -> BuildUrlTool:
     )
 
 
-async def test_a_stalled_rerank_keeps_related_tables_universe_and_margins(monkeypatch) -> None:
-    released = threading.Event()
+def _status_server(box: dict[str, object], status: bytes) -> None:
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    box["server"] = server
+    box["port"] = server.getsockname()[1]
+    ready = box["ready"]
+    assert isinstance(ready, threading.Event)
+    ready.set()
+    server.settimeout(8)
+    seen = 0
+    while seen < 4:
+        try:
+            conn, _ = server.accept()
+        except OSError:
+            break
+        data = b""
+        conn.settimeout(8)
+        with contextlib.suppress(OSError):
+            while b"\r\n\r\n" not in data:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+        body = b'{"error":{"code":503,"message":"unavailable","status":"UNAVAILABLE"}}'
+        with contextlib.suppress(OSError):
+            conn.sendall(
+                b"HTTP/1.1 "
+                + status
+                + b"\r\nContent-Type: application/json\r\nContent-Length: "
+                + str(len(body)).encode()
+                + b"\r\nConnection: close\r\n\r\n"
+                + body
+            )
+        seen += 1
+        box["requests"] = seen
+        conn.close()
+    server.close()
 
-    class HangModels:
+
+def test_a_retriable_status_does_not_wait_out_a_backoff(monkeypatch) -> None:
+    box: dict[str, object] = {"ready": threading.Event()}
+    threading.Thread(
+        target=_status_server, args=(box, b"503 Service Unavailable"), daemon=True
+    ).start()
+    ready = box["ready"]
+    assert isinstance(ready, threading.Event)
+    assert ready.wait(2)
+
+    import google.genai as genai
+    from google.genai import types
+
+    real = genai.Client
+    port = box["port"]
+
+    def factory(api_key: str | None = None, http_options: object | None = None) -> object:
+        options = (
+            http_options if isinstance(http_options, types.HttpOptions) else types.HttpOptions()
+        )
+        options.base_url = f"http://127.0.0.1:{port}"
+        return real(api_key=api_key or "local", http_options=options)
+
+    monkeypatch.setenv("GEMINI_API_KEY", "local")
+    monkeypatch.setattr(genai, "Client", factory)
+    started = time.perf_counter()
+    try:
+        picked = choose(
+            "income",
+            [
+                Candidate("B19113", "Median Family Income", "Families"),
+                Candidate("B19013", "Median Household Income", "Households"),
+            ],
+        )
+        elapsed = time.perf_counter() - started
+        assert picked == "B19113"
+        assert box.get("requests") == 1
+        assert elapsed < WAIT_SECONDS
+    finally:
+        sock = box.get("server")
+        if isinstance(sock, socket.socket):
+            sock.close()
+
+
+async def test_a_stalled_rerank_keeps_related_tables_universe_and_margins(monkeypatch) -> None:
+    class DeadlineModels:
         def generate_content(self, model: str, contents: str, config: object) -> SimpleNamespace:
             del model, contents, config
-            released.wait()
-            return SimpleNamespace(text='{"table": "B19013"}')
+            raise httpx.ReadTimeout("rerank deadline")
 
-    class HangClient:
-        def __init__(self, api_key: str | None = None) -> None:
-            del api_key
-            self.models = HangModels()
-
-        def close(self) -> None:
-            released.set()
+    class DeadlineClient:
+        def __init__(self, api_key: str | None = None, **kwargs: object) -> None:
+            del api_key, kwargs
+            self.models = DeadlineModels()
 
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     import google.genai as genai
 
-    monkeypatch.setattr(genai, "Client", HangClient)
-    monkeypatch.setattr("src.retrieval.rerank.WAIT_SECONDS", 0.05)
+    monkeypatch.setattr(genai, "Client", DeadlineClient)
 
     def describe(table_id: str) -> dict[str, object]:
         return {
