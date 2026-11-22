@@ -1,0 +1,210 @@
+$ git rev-parse --show-toplevel
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-125
+[exit 0]
+
+$ git branch --show-current
+cc-125/rerank-wait
+[exit 0]
+
+$ git rev-parse HEAD
+7fd700ab6e46edd9a3f3e7e43d66afa64b121dbe
+[exit 0]
+
+$ git rev-parse origin/main
+7239f325e77b6d2df6837b72721aeb559337a715
+[exit 0]
+
+$ git merge-base HEAD origin/main
+0911d015329f21097e47f92607f3707c664187b9
+[exit 0]
+
+$ git status --porcelain=v1
+[exit 0]
+
+$ git status -sb
+## cc-125/rerank-wait...origin/cc-125/rerank-wait
+[exit 0]
+
+$ git log -1 --format=HEAD %H%nsubject %s%nauthor %an%ndate %ci
+fatal: invalid --pretty format: HEAD
+[exit 128]
+
+$ git log --oneline origin/main..HEAD
+7fd700a test(api): record the CC-125 Gate 1 rerun (CC-125)
+f0cf2c5 test(api): count a Gemini 503 without a local socket (CC-125)
+2b6cbf5 test(api): record the CC-125 Gate 1 transcript (CC-125)
+aef4d7a fix(api): cancel a stalled Gemini rerank on the calling thread (CC-125)
+3c7c5c7 feat(api): abandon a Gemini rerank after 3 seconds (CC-125)
+[exit 0]
+
+$ git diff --stat origin/main...HEAD
+ api/src/retrieval/rerank.py             |  46 ++-
+ api/tests/test_rerank.py                | 279 ++++++++++++-
+ evidence/slice-6/cc-125/gate1-rerun.txt | 670 ++++++++++++++++++++++++++++++++
+ evidence/slice-6/cc-125/gate1.txt       | 577 +++++++++++++++++++++++++++
+ 4 files changed, 1558 insertions(+), 14 deletions(-)
+[exit 0]
+
+$ git diff --stat
+[exit 0]
+
+$ git diff --cached --stat
+[exit 0]
+
+$ git log -1 --format="HEAD %H%nsubject %s%nauthor %an%ndate %ci"
+HEAD 7fd700ab6e46edd9a3f3e7e43d66afa64b121dbe
+subject test(api): record the CC-125 Gate 1 rerun (CC-125)
+author John Hill Escobar
+date 2026-11-21 19:02:23 -0600
+[exit 0]
+
+## Pass 1 — code-only bug review
+
+Recorded before reading .claude/PLAN.md or implementation notes.
+Diff reviewed: origin/main...HEAD (merge-base 0911d015329f21097e47f92607f3707c664187b9).
+Product files: api/src/retrieval/rerank.py, api/tests/test_rerank.py.
+Caller read for effect only: api/src/tools.py SearchTablesTool._arun / _pick_table.
+SDK checked at the installed versions (google-genai in this worktree's .venv, httpx 0.28.1): HttpRetryOptions.attempts, _api_client.build_request / _request / retry_args, httpx.Client.build_request / send hook order, httpcore reading request.extensions["timeout"] inside handle_request.
+
+Findings: nothing.
+
+What was checked and did not fail:
+- HttpOptions.timeout is unset, so get_timeout_in_seconds returns None, populate_server_timeout_header does not add X-Server-Timeout, and build_request stores Timeout(None).as_dict() (read is None). _keep_deadline runs on the httpx request hook before transport.handle_request, and httpcore reads the extension at handle time, so the 3s timeout replaces the cleared deadline. The installed SDK puts a dict in the extension, which is the case the hook handles.
+- httpx.Timeout(3.0) sets connect, read, write, and pool. httpx.HTTPTransport retries default to 0, so a connect failure does not sleep inside httpcore. HttpRetryOptions(attempts=1) is one try (the field text says 0 or 1 means no retries). generate_content does not pass per-request retry options, so the client Retrying is used. A new genai.Client is constructed per choose(), so attempt state is not reused.
+- choose() already catches Exception and returns candidates[0]. A ReadTimeout is an Exception, so the caller gets the retrieval top instead of hanging. http.close() is in finally and runs after response.text is read. The SDK does not close a caller-supplied httpx client.
+- The hang-server test uses the real client against a socket that accepts and never answers. The 503 test counts Client.send calls. The search-tool test leaves select unset with two hits, so _pick_table calls choose(); the fake client raises ReadTimeout; universe and the other hit stay on the tool result. The M variable is asserted on build_url, which is the function that pairs margins.
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               4907 <= 5100
+  ok    api src files               29 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         32.215 <= 20
+        run 2026-11-20T03:04:38+00:00; slowest trial 55.202s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.825 >= 0.7
+  ok    answered_rate            0.775 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+1 budget(s) exceeded:
+
+  - p95 latency (s): 32.215 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+[exit 1]
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+[exit 0]
+
+$ uv run ruff check .
+[1;32mAll checks passed![0m
+[exit 0]
+
+$ uv run ruff format --check .
+265 files already formatted
+[exit 0]
+
+$ uv run mypy api/src
+Success: no issues found in 29 source files
+[exit 0]
+
+$ uv run pytest -q -m not integration
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+...............sssssssssssssssss..sss................................... [ 34%]
+.............................xxxxxxx...x................................ [ 38%]
+........................................................................ [ 43%]
+........................................................................ [ 48%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 63%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 87%]
+........................................................sssssssssss..s.s [ 92%]
+s....................................................................... [ 97%]
+.........................................                                [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1439 passed, 34 skipped, 8 xfailed, 1 warning in 138.96s (0:02:18)
+[exit 0]
+
+## Pass 2 — project invariants (docs/playbooks/review-pr.md)
+
+Machines, review-pr order. A non-zero exit ends the reading review.
+
+- uv run python scripts/check_budgets.py — exit 1. p95 latency 32.215s > 20s. Run 2026-11-20T03:04:38+00:00; slowest trial 55.202s. The waiver in budgets.toml covers 25.472s at 2026-11-09T17:53:49+00:00 only. This diff does not change evidence/latest.json (not in origin/main...HEAD).
+- uv run python scripts/check_invariants.py --base origin/main — exit 0. All invariants held. api/src regex call sites 55 (base 55, delta +0). Budget increases, new exemptions, and protocol checks passed.
+- uv run ruff check . — exit 0.
+- uv run ruff format --check . — exit 0. 265 files already formatted.
+- uv run mypy api/src — exit 0. 29 source files.
+- uv run pytest -q -m "not integration" — exit 0. 1439 passed, 34 skipped, 8 xfailed, 1 warning, 138.96s.
+
+Reading review: not continued. check_budgets.py exited non-zero, so the review stops before the claim, scope, and silent-wrong-answer reading. E2E was not started.
+
+## Verdict
+
+Not yet. check_budgets.py exits 1: the recorded demo p95 is 32.215s against a ceiling of 20s (run 2026-11-20T03:04:38+00:00, slowest trial 55.202s). The stored waiver is for a different run.
+
