@@ -61,6 +61,8 @@ class ResolveGeographyResult(ToolResult):
     ambiguous: bool = False
     # The best NAME match is far larger than the next (or the only one).
     dominant: bool = True
+    # The model attached a state the report says the user did not write; it was dropped.
+    state_supplied: bool = False
 
 
 def level_name(token: str | None) -> str | None:
@@ -175,6 +177,7 @@ def geo_status(get: Callable[[str, Any], Any]) -> dict[str, str | bool | int]:
         "refused": bool(get("refused", False)),
         "wider": bool(get("wider", False)),
         "ambiguous": bool(get("ambiguous", False)),
+        "state_supplied": bool(get("state_supplied", False)),
     }
 
 

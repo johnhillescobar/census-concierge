@@ -354,6 +354,7 @@ def default_tools(record: ExecutionRecord) -> dict[str, BaseTool]:
             ),
             geo_table=metadata.geo_entries,
             latest_vintage=latest,
+            states_named=lambda: record.intent.states_named,
         ),
         "build_url": BuildUrlTool(
             allowed_tables=lambda: _allowed(record),

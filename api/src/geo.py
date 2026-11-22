@@ -28,6 +28,9 @@ from src.tools import ResolveGeographyInput
 ListGeographies = Callable[..., list[dict[str, str]]]
 GeoTable = Callable[[str, int], list[GeoLevel]]
 LatestVintage = Callable[[str], int]
+StatesNamed = Callable[
+    [], list[str] | None
+]  # the states the question itself writes; None = unknown
 Reply = tuple[str, ResolveGeographyResult]
 
 
@@ -134,6 +137,12 @@ class ResolveGeographyTool(BaseTool):
     list_geographies: ListGeographies
     geo_table: GeoTable
     latest_vintage: LatestVintage
+    states_named: StatesNamed = lambda: None
+
+    def _written(self, state: tuple[str, str] | None) -> tuple[tuple[str, str] | None, bool]:
+        """A state attached to an entry counts only if the report says the question wrote it."""
+        wrote = {s[1] for n in self.states_named() or [] if (s := state_of(n))}
+        return (state, False) if state is None or state[1] in wrote else (None, True)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("resolve_geography is async-only")
@@ -234,8 +243,11 @@ class ResolveGeographyTool(BaseTool):
         parent = parent or "state"
         in_parts: dict[str, str] = {}
         leftover: list[dict[str, str]] = []
+        guessed = False
         if parent != "us":
             state = state_of(owner) if "," in owner or parent == "state" else None
+            if "," in owner and parent != "state":
+                state, guessed = self._written(state)
             if parent == "state" and (state is None or not _only_state(owner)):
                 return _fail(
                     f"{owner!r} is not a state; send parent_level for what it is",
@@ -265,7 +277,12 @@ class ResolveGeographyTool(BaseTool):
                 detail = f"{owner!r} matches {len(matched)} places ({names}); name its state"
                 found = [_spec(row, dataset, year) for row in matched[:MAX_CANDIDATES]]
                 return detail, ResolveGeographyResult(
-                    specs=found, wildcard=False, legal=True, detail=detail, ambiguous=True
+                    specs=found,
+                    wildcard=False,
+                    legal=True,
+                    detail=detail,
+                    ambiguous=True,
+                    state_supplied=guessed,
                 )
             pick, leftover = matched[0], matched[1:]
             in_parts.update(clause_codes(pick.get("in", "")))
@@ -292,7 +309,9 @@ class ResolveGeographyTool(BaseTool):
             vintage=year,
         )
         others = [_spec(row, dataset, year) for row in leftover]
-        result = ResolveGeographyResult(specs=[spec, *others], wildcard=True, legal=True, detail="")
+        result = ResolveGeographyResult(
+            specs=[spec, *others], wildcard=True, legal=True, detail="", state_supplied=guessed
+        )
         return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
 
     async def _place(
@@ -316,6 +335,9 @@ class ResolveGeographyTool(BaseTool):
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
             return f"1 geography: {spec.for_spec}", result
         state = state_of(entry) if "," in entry or for_level in {None, "state"} else None
+        guessed = False
+        if "," in entry and for_level not in {"state", ZCTA}:
+            state, guessed = self._written(state)
         if for_level is None:
             for_level = "state" if state and _only_state(entry) else "place"
         in_parts: dict[str, str] = {}
@@ -382,6 +404,7 @@ class ResolveGeographyTool(BaseTool):
                 detail=detail,
                 ambiguous=True,
                 dominant=False,
+                state_supplied=guessed,
             )
         detail = f"no {for_level} matched {entry!r}" if not specs else ""
         result = ResolveGeographyResult(
@@ -391,6 +414,7 @@ class ResolveGeographyTool(BaseTool):
             detail=detail,
             inferred=inferred,
             dominant=dominant(matched),
+            state_supplied=guessed,
         )
         n = len(specs)
         chosen = specs[0] if specs else None

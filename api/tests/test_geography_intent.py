@@ -6,10 +6,11 @@ cases about wording. Nothing here reads a sentence: the inputs are the fields th
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
-from ask_fixtures import _geo_tool, only_dane
+from ask_fixtures import _geo_tool, _tools, only_dane
 from src.ask import ExecutionRecord
 from src.contract import GeoSpec
 from src.geo_level import GeoIntent, ResolveGeographyResult, level_name
@@ -594,3 +595,110 @@ def test_no_report_leaves_the_intent_unreported_and_asking_for_data() -> None:
 def test_a_report_that_asks_for_tables_means_no_geography_is_wanted() -> None:
     assert GeoIntent(asks_for="tables").tables_only is True
     assert GeoIntent(asks_for="data").tables_only is False
+
+
+async def _resolve_with_states(written: list[str] | None, **args: Any) -> ResolveGeographyResult:
+    """The real resolver, with the independent report saying which states the user wrote."""
+    tool = _geo_tool()
+    tool.states_named = lambda: written
+    message = await tool.ainvoke(
+        {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+    )
+    return message.artifact
+
+
+@pytest.mark.parametrize("written", [[], None, ["Missouri"]])
+async def test_a_state_the_user_did_not_write_cannot_settle_a_shared_name(
+    written: list[str] | None,
+) -> None:
+    hit = await _resolve_with_states(written, places=["Springfield, IL"], level="place")
+    assert hit.ambiguous and hit.state_supplied and not hit.dominant
+    assert len(hit.specs) == 3  # every Springfield is a candidate; none is selected
+
+
+@pytest.mark.parametrize("written", [["Illinois"], ["IL"], ["il", "Texas"]])
+async def test_a_state_the_report_says_the_user_wrote_settles_it(written: list[str]) -> None:
+    hit = await _resolve_with_states(written, places=["Springfield, IL"], level="place")
+    assert len(hit.specs) == 1 and not hit.ambiguous and not hit.state_supplied
+    assert hit.specs[0].in_spec == "state:17"
+
+
+async def test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied() -> None:
+    hit = await _resolve_with_states([], places=["Chicago, IL"], level="place")
+    assert len(hit.specs) == 1 and not hit.ambiguous and hit.state_supplied
+
+
+async def test_a_listing_parent_is_checked_like_a_place() -> None:
+    args = {"parents": ["Cook County, IL"], "parent_level": "county", "level": "tract"}
+    unwritten = await _resolve_with_states([], **args)
+    written = await _resolve_with_states(["Illinois"], **args)
+    assert unwritten.specs and unwritten.state_supplied  # dominant, so it resolves, but flagged
+    assert written.specs and not written.state_supplied
+
+
+async def test_each_comparison_leg_is_judged_on_its_own_state() -> None:
+    legs = {"places": ["Springfield, IL", "Springfield, MO"], "level": "place"}
+    both = await _resolve_with_states(["IL", "MO"], **legs)
+    one = await _resolve_with_states(["IL"], **legs)
+    assert both.compare is True and len(both.specs) >= 2 and not both.ambiguous
+    assert one.ambiguous and one.compare is False  # the second Springfield could be any of three
+
+
+@pytest.mark.parametrize(
+    "args", [{"places": ["Texas"], "level": "state"}, {"places": ["10001"], "level": "zcta"}]
+)
+async def test_a_state_or_a_zip_code_has_no_state_to_drop(args: dict[str, Any]) -> None:
+    hit = await _resolve_with_states([], **args)
+    assert hit.specs and not hit.ambiguous and not hit.state_supplied
+
+
+async def test_the_report_reaches_the_resolver_through_the_loop() -> None:
+    from src.ask import ExecutionRecord, run_ask
+
+    async def ask(report_states: list[str]) -> tuple[Any, list[str]]:
+        record = ExecutionRecord(question="Population of Springfield, IL")
+        tools = _tools(record)
+        tools["resolve_geography"].states_named = lambda: record.intent.states_named
+        sent: list[str] = []
+        census = tools["fetch_data"].http_get
+        tools["fetch_data"].http_get = lambda url: (sent.append(url), census(url))[1]
+        steps = [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"places": ["Springfield, IL"], "level": "place"}),
+            ("build_url", {"table_id": "B01003"}),
+            ("fetch_data", {}),
+        ]
+        queue = [
+            {"content": "", "tool_calls": [{"id": str(n), "name": name, "args": args}]}
+            for n, (name, args) in enumerate(steps)
+        ]
+        report = {
+            "parents": ["Springfield, IL"],
+            "unit": "place",
+            "listing": False,
+            "level": "place",
+            "named": [],
+            "numbered": [],
+            "asks_for": "data",
+            "states_named": report_states,
+        }
+
+        async def complete(
+            messages: list[dict[str, Any]], openai_tools: list[dict[str, Any]]
+        ) -> Any:
+            if not openai_tools:
+                return {"content": json.dumps(report), "tool_calls": []}
+            return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
+
+        response = await run_ask(record.question, complete=complete, tools=tools, record=record)
+        return response, sent
+
+    guessed, sent = await ask([])
+    assert sent == [] and guessed.urls == []
+    assert [w.code for w in guessed.warnings].count("ambiguous_place") == 1
+    written, sent = await ask(["Illinois"])
+    assert (
+        len(sent) == 1
+        and written.urls
+        and "ambiguous_place" not in [w.code for w in written.warnings]
+    )
