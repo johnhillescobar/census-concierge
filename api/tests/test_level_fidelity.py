@@ -7,6 +7,7 @@ warning code raised when it was not the level that was asked for.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -620,8 +621,11 @@ async def test_a_refused_level_followed_by_a_place_lookup_is_flagged_not_swapped
     assert flag and "no URL fetches congressional district" in flag[0].detail
 
 
-async def _flow(geo_steps: list[tuple[str, dict[str, Any]]]) -> tuple[ExecutionRecord, Any]:
-    """A scripted ask: search, the given geography calls, then build and fetch."""
+async def _flow(
+    geo_steps: list[tuple[str, dict[str, Any]]], report: dict[str, Any] | None = None
+) -> tuple[ExecutionRecord, Any]:
+    """A scripted ask: search, the given geography calls, then build and fetch.
+    The independent report is `report` (none by default)."""
     record = ExecutionRecord()
     steps = [
         ("search_tables", {"question": "population"}),
@@ -637,7 +641,7 @@ async def _flow(geo_steps: list[tuple[str, dict[str, Any]]]) -> tuple[ExecutionR
     async def complete(messages: list[dict[str, Any]], tools_: list[dict[str, Any]]) -> Any:
         del messages
         if not tools_:
-            return {"content": "{}", "tool_calls": []}
+            return {"content": json.dumps(report or {}), "tool_calls": []}
         return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
 
     response = await run_ask("population", complete=complete, tools=_tools(record), record=record)
@@ -751,3 +755,77 @@ async def test_a_wildcard_listing_for_several_parents_is_a_comparison_at_the_sta
     )
     assert message.artifact.compare is True and message.artifact.inferred is False
     assert [spec.level for spec in message.artifact.specs] == ["county", "county"]
+
+
+HARRIS = "Harris County, Texas"
+COUNTY_REPORT = {"parents": [HARRIS], "unit": "county", "listing": False, "level": "county"}
+
+
+def _response_codes(response: Any) -> set[str]:
+    return {w.code for w in response.warnings}
+
+
+@pytest.mark.parametrize("bad", ["congressional district", "us", "place"])
+async def test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning(
+    bad: str,
+) -> None:
+    record, response = await _flow(
+        [
+            ("resolve_geography", {"level": bad, "places": [HARRIS]}),
+            ("resolve_geography", {"level": "county", "places": [HARRIS]}),
+        ],
+        COUNTY_REPORT,
+    )
+    assert "geography_level_mismatch" not in _response_codes(response)
+    assert response.urls and "for=county" in response.urls[0]
+
+
+async def test_a_refused_call_the_report_never_asked_for_does_not_trigger_a_repair() -> None:
+    report = {"parents": ["Texas"], "unit": "county", "listing": True, "level": "county"}
+    record, response = await _flow(
+        [
+            ("resolve_geography", {"level": "congressional district", "parents": ["Texas"]}),
+            ("resolve_geography", {"level": "state", "places": ["Texas"]}),
+        ],
+        report,
+    )
+    resolves = [t for t in record.timings if t["tool"] == "resolve_geography"]
+    assert len(resolves) == 2  # a repair would be a third
+    assert len(response.urls) == 1
+    assert "geography_level_mismatch" not in _response_codes(response)
+
+
+async def test_a_level_the_user_really_asked_for_stays_unmet_after_an_unrelated_success() -> None:
+    report = {**COUNTY_REPORT, "level": "tract", "unit": "tract"}
+    record, response = await _flow(
+        [
+            ("resolve_geography", {"level": "tract", "places": [HARRIS]}),
+            ("resolve_geography", {"level": "county", "places": [HARRIS]}),
+        ],
+        report,
+    )
+    mismatch = [w for w in response.warnings if w.code == "geography_level_mismatch"]
+    assert mismatch and "tract" in mismatch[0].detail
+    assert "for=county" in response.urls[0]
+    assert record.intent.unmet == {"tract"}
+
+
+async def test_with_no_report_a_refused_level_stays_flagged() -> None:
+    record, response = await _flow(
+        [
+            ("resolve_geography", {"level": "us", "places": [HARRIS]}),
+            ("resolve_geography", {"level": "county", "places": [HARRIS]}),
+        ]
+    )
+    assert "geography_level_mismatch" in _response_codes(response)
+
+
+def test_only_a_level_the_report_states_counts_as_unserved() -> None:
+    stated = GeoIntent(reported=True, level="tract", unmet={"tract", "us"})
+    assert stated.unserved() == {"tract"}
+    assert GeoIntent(reported=True, unit="tract", unmet={"tract", "us"}).unserved() == {"tract"}
+    assert GeoIntent(reported=False, level="tract", unmet={"tract", "us"}).unserved() == {
+        "tract",
+        "us",
+    }
+    assert GeoIntent(reported=True, unmet={"tract", "us"}).unserved() == {"tract", "us"}

@@ -108,11 +108,23 @@ class GeoIntent:
     parent_level: str | None = None
     dataset: str | None = None  # acs1 or acs5, as the report stated it
     years: list[int] = field(default_factory=list)  # end years the report stated
+    answered_places: bool = False  # the report answered the place question (it sent a parents list)
+    trend: bool = False  # the report says the question covers several years or a change
+    states_named: list[str] | None = None  # states the question itself writes; None = unknown
 
     @property
     def tables_only(self) -> bool:
         """The question asks which table holds something: no geography is wanted or flagged."""
         return str(self.asks_for or "").strip().casefold() == "tables"
+
+    def unserved(self) -> set[str]:
+        """Stated levels no legal call served that the question really asks about.
+
+        When the independent report states the level (or the unit of a listing), a refused level it
+        does not state was a failed attempt, not a request. No report, or one stating no level:
+        every unmet level stays, so a refusal is never hidden by missing evidence."""
+        asked = {lv for lv in (level_name(self.level), level_name(self.unit)) if lv}
+        return set(self.unmet) & asked if self.reported and asked else set(self.unmet)
 
     def adopt(self, report: GeoIntent | None) -> None:
         """Take the split call's fields, once; the loop's own fields are never touched."""
@@ -121,6 +133,8 @@ class GeoIntent:
         for name in ("level", "named", "numbered", "given", "asks_for", "county_named"):
             setattr(self, name, getattr(report, name))
         for name in ("pointing", "places", "parents", "unit", "parent_level", "dataset", "years"):
+            setattr(self, name, getattr(report, name))
+        for name in ("answered_places", "trend", "states_named"):
             setattr(self, name, getattr(report, name))
         self.reported = True
 
@@ -169,7 +183,7 @@ def geography_level_mismatch(record: Any) -> AskWarning | None:
     plan = getattr(getattr(record, "override", None), "geographies", None)  # the user's own plan
     intent = intent_of(record)
     asked = [g.level for g in plan] if plan else list(intent.levels)
-    unmet = set(intent.unmet)
+    unmet = intent.unserved()
     if not (asked or unmet) or intent.tables_only:
         return None
     allowed = {level for level in asked if level} | unmet  # fetching a stated level is not a swap

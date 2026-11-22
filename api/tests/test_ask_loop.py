@@ -218,7 +218,9 @@ async def test_computer_share_finishes_when_the_model_stops() -> None:
 
     response = await run_ask(
         "How has the share of households with a computer changed since 2013?",
-        complete=_stopped(_split([], "county", years=list(range(2013, 2025))), calls=[_US]),
+        complete=_stopped(
+            _split([], "county", level="us", years=list(range(2013, 2025))), calls=[_US]
+        ),
         tools=tools,
         record=record,
     )
@@ -299,7 +301,7 @@ async def test_overlapping_income_finishes_when_the_model_stops() -> None:
 
     response = await run_ask(
         "Compare median household income between 2015-2019 and 2018-2022",
-        complete=_stopped(_split([], "county", years=[2019, 2022]), calls=[_US]),
+        complete=_stopped(_split([], "county", level="us", years=[2019, 2022]), calls=[_US]),
         tools=tools,
         record=record,
     )
@@ -580,7 +582,9 @@ async def test_acs1_year_span_builds_after_acs5_resolve() -> None:
     record.consecutive_failures["build_url"] = 2
     response = await run_ask(
         "1-year ACS poverty for Fresno County, 2018 through 2022",
-        complete=_stopped(_split([], "county", dataset="acs1", years=list(range(2018, 2023)))),
+        complete=_stopped(
+            _split(["Fresno County, CA"], "county", dataset="acs1", years=list(range(2018, 2023)))
+        ),
         tools=tools,
         record=record,
     )

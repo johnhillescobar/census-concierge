@@ -20,7 +20,8 @@ Complete = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[dict
 _SPLIT_PARENTS = (
     'Reply with only JSON {"parents": [...], "unit": ..., "listing": bool, "parent_level": ..., '
     '"level": ..., "named": [...], "numbered": [...], "given": [...], "asks_for": ..., '
-    '"pointing": bool, "county_named": bool, "dataset": ..., "years": [...]}. parents are the '
+    '"pointing": bool, "county_named": bool, "dataset": ..., "years": [...], "trend": bool, '
+    '"states_named": [...]}. parents are the '
     "places the user names, one entry "
     "each, whatever word connects them. Write a place smaller than a state as 'Name, State' "
     "with the state from your "
@@ -29,8 +30,8 @@ _SPLIT_PARENTS = (
     "listing is true when they want a row for every unit inside the parents, false when they want "
     "the parents themselves. parent_level is the level the parents are (county or place), null "
     "for states. level is the geography level the question asks about (state, county, place, "
-    "tract, block group, zcta, or us for the whole nation or when no place is named), or null "
-    "when it asks about none; a "
+    "tract, block group, zcta, or us only when it asks about the whole nation), or null "
+    "when it names no place or asks about none; a "
     "tract, block group or county "
     "identified by number asks about that level. named lists each code that identifies a place "
     "on its own, as the user wrote it ('FIPS 39049', 'GEOID 06037', a ZIP code); never replace a "
@@ -45,7 +46,10 @@ _SPLIT_PARENTS = (
     "five-digit FIPS code. dataset is acs1 when the question asks for the 1-year product, else "
     "acs5. years lists the end year of every vintage the question asks for: a period such as "
     "2015-2019 is the vintage ending 2019, a span of years lists each year in it, and an "
-    "open-ended period lists each year through {latest}; empty when it names none."
+    "open-ended period lists each year through {latest}; empty when it names none. trend is true "
+    "when the question asks how something changed or covers several years or periods. "
+    "states_named lists the states the question itself writes, by name or code, as written; "
+    "never one you supplied from your own knowledge."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -110,6 +114,7 @@ async def plan_split(
     wants_rows = found.get("listing") is True  # a string or a number is not the model saying yes
     listing = bool(names) and wants_rows and unit in _SPLIT_UNITS
     up, years = found.get("parent_level"), found.get("years")
+    states = found.get("states_named")
     return GeoIntent(
         reported=True,
         dataset=found["dataset"] if found.get("dataset") in _PRODUCTS else None,
@@ -127,6 +132,11 @@ async def plan_split(
         parents=names if listing else [],
         unit=unit if listing else None,
         parent_level=up if listing and isinstance(up, str) else None,
+        answered_places=isinstance(found.get("parents"), list),
+        trend=found.get("trend") is True,
+        states_named=[x for x in states if isinstance(x, str)]
+        if isinstance(states, list)
+        else None,
     )
 
 
@@ -185,6 +195,12 @@ def _join(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
 
 
+def _stop(record: Any, why: str, fix: str) -> str:
+    """The answer for a question that cannot be searched: what is missing, and no URL."""
+    record.geo_status = {"legal": False, "detail": why, "nested": True}
+    return f"This question is incomplete and cannot be searched: {why}. {fix} and ask again."
+
+
 async def incomplete(record: Any, split: asyncio.Task[GeoIntent | None] | None) -> str | None:
     """The answer to return at once when a question lacks what its geography level needs.
 
@@ -211,10 +227,14 @@ async def incomplete(record: Any, split: asyncio.Task[GeoIntent | None] | None) 
     if intent.tables_only:
         return None  # which table holds something is not a search by geography
     if intent.pointing:
-        record.geo_status = {"legal": False, "detail": "a place is not named", "nested": True}
-        return (
-            "This question is incomplete and cannot be searched: it is about a place it does "
-            "not name. Name the place, with its state, and ask again."
+        return _stop(
+            record, "it is about a place it does not name", "Name the place, with its state,"
+        )
+    if intent.trend and not intent.years:
+        return _stop(
+            record,
+            "it asks about several years and names none",
+            "Name the years, a start year and an end year,",
         )
     reported = [n for n in intent.named if isinstance(n, str)][:MAX_REPORTED]
     units = [lv for n in intent.numbered if (lv := _unit(n)) in _ORDER][:MAX_REPORTED]
@@ -242,6 +262,11 @@ async def incomplete(record: Any, split: asyncio.Task[GeoIntent | None] | None) 
             have |= {coded[0], *(clause.split(":")[0] for clause in coded[2].split("+") if clause)}
     missing = [part for part in need if part not in have]
     if not missing:
+        said = intent.places or intent.parents or intent.named or level_name(intent.level)
+        if (
+            intent.answered_places and not said
+        ):  # no place and no level: nothing says what is wanted
+            return _stop(record, "it names no place", "Name a state, county, city or other place,")
         return None
     unit = level if level in units else next(iter(units), None)
     asked = f"a {level} identified by its number" if unit == level else f"every {level}"
@@ -271,7 +296,7 @@ async def _split_parents(
     ]
     want = {s[1] for p in parents if (s := state_of(p))}  # the states the model says it lies in
     inside = want <= {g.codes.get("state") for g in geos}
-    stood = len(parents) < 2 and geos and any(intent.levels) and not intent.unmet
+    stood = len(parents) < 2 and geos and any(intent.levels) and not intent.unserved()
     if stood and inside and intent.parent_level in {None, "state"}:
         return False  # the state the loop asked for and got stands over a lone report's listing
     shallow = intent.parent_level not in {None, "state"} and not all(

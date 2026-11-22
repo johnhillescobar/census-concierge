@@ -233,7 +233,9 @@ async def test_entries_that_are_not_text_are_not_places_and_never_fail_the_reque
 
 @pytest.mark.parametrize("level", [5, None])
 async def test_a_level_that_is_not_a_word_names_no_level_so_the_loop_runs(level: Any) -> None:
-    response, record = await _ask("Total population", _reply(level, [], []))
+    response, record = await _ask(
+        "Total population in Dane County", _reply(level, ["Dane County, Wisconsin"], [])
+    )
     assert record.timings
     assert STOPPED not in response.answer
 
@@ -258,7 +260,11 @@ async def test_a_frame_the_model_sends_is_never_the_report(sent: Any) -> None:
     reply = _reply("tract", ["Dane County, Wisconsin"], ["tract"], frame=sent)
     found = await _split(reply)
     assert found == GeoIntent(
-        reported=True, level="tract", named=["Dane County, Wisconsin"], numbered=["tract"]
+        reported=True,
+        answered_places=True,
+        level="tract",
+        named=["Dane County, Wisconsin"],
+        numbered=["tract"],
     )
 
 

@@ -195,7 +195,6 @@ CASES = [
     ),
     # levels that list with no parent at all, and a question that asks about no level
     ("Population by county", "county", [], [], False, ()),
-    ("Total population", None, [], [], False, ()),
     # a number is its own level when the model reports none
     (f"{Q_TRACTS}?", None, [], TRACTS, False, ("state", "county")),
 ]
@@ -223,6 +222,51 @@ async def test_a_question_is_answerable_exactly_when_it_carries_what_its_level_n
     assert expected in response.answer and expected in response.warnings[0].detail
     assert all(part in response.answer for part in lacks)
     assert state_of(response.answer) is None  # code wrote it; no state or county invented
+
+
+async def test_a_question_with_no_place_and_no_level_is_refused_before_any_tool_runs() -> None:
+    response, record, fetched = await _ask("Total population", _frame(None, []))
+    assert STOPPED in response.answer
+    assert [item.code for item in response.warnings] == ["geography_unsupported"]
+    assert response.urls == [] and response.rows == []
+    assert record.timings == [] and fetched == []
+
+
+async def test_a_question_over_several_years_that_names_none_is_refused_before_any_tool_runs() -> (
+    None
+):
+    reply = _frame("county", ["Dane County, Wisconsin"], trend=True, years=[])
+    response, record, fetched = await _ask("How has population changed in Dane County?", reply)
+    assert STOPPED in response.answer and "years" in response.answer
+    assert response.urls == [] and response.rows == []
+    assert record.timings == [] and fetched == []
+
+
+async def test_a_question_over_several_years_that_names_them_runs() -> None:
+    reply = _frame("county", ["Dane County, Wisconsin"], trend=True, years=[2018, 2022])
+    response, record, _ = await _ask("Population of Dane County, 2018 to 2022", reply)
+    assert STOPPED not in response.answer
+    assert record.timings
+
+
+async def test_only_a_true_flag_is_a_trend_and_only_a_list_of_strings_names_states() -> None:
+    sent = await _split(parents=["Ohio"], trend="yes", states_named=["OH", 5, "Ohio"])
+    assert sent.trend is False and sent.states_named == ["OH", "Ohio"]
+    bad = await _split(parents=["Ohio"], trend=True, states_named="OH")
+    assert bad.trend is True and bad.states_named is None
+    assert (await _split(parents=["Ohio"])).states_named is None  # unknown, never "none named"
+
+
+async def test_a_nation_the_model_states_is_not_a_missing_place() -> None:
+    response, record, fetched = await _ask("Total population of the nation", _frame("us", []))
+    assert STOPPED not in response.answer
+    assert record.timings  # the loop ran
+
+
+async def test_a_report_that_names_a_level_but_no_place_is_a_listing_not_a_refusal() -> None:
+    response, record, fetched = await _ask("Population by state", _frame("state", []))
+    assert STOPPED not in response.answer
+    assert record.timings
 
 
 @pytest.mark.parametrize(
@@ -425,6 +469,7 @@ async def test_the_split_report_always_carries_the_level_and_the_places_it_found
         asks_for="data",
     )
     assert found == _shape(
+        answered_places=True,
         level="county",
         named=["Dane County, Wisconsin"],
         numbered=["county"],
