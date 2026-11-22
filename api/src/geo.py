@@ -183,6 +183,8 @@ class ResolveGeographyTool(BaseTool):
             picks = await asyncio.gather(*(self._list(owner, *args) for owner in owners or [""]))
             if len(owners) < 2:
                 return await tracts_in_place(self, owners, level, dataset, year, entries, picks[0])
+            if unclear := next((pick for pick in picks if pick[1].ambiguous), None):
+                return unclear  # one ambiguous parent: nothing is selected or listed
             pairs = zip(owners, picks, strict=True)
             bad = [owner for owner, (_d, hit) in pairs if not (hit.legal and hit.specs)]
             if bad:
@@ -218,7 +220,8 @@ class ResolveGeographyTool(BaseTool):
             )
         if not legs and level_name(level) != "us":
             return _fail(
-                "name the place in places (parents for a listing); level 'us' is the nation"
+                "name the place in places (parents for a listing); level 'us' is the nation; "
+                "every unit nationwide is level plus parent_level 'us'"
             )
         return await self._place(legs[0] if legs else "", level, dataset, year, entries)
 

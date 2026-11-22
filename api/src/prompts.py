@@ -26,7 +26,7 @@ Every resolve_geography call states level: the geography level the question asks
 
 For a listing, put the places it lies in under parents, all in one call whatever the verb or connector, with parent_level set to what they are (county or place; null for states). For a direct request or comparison, put every named place under places in one call, with levels (one per place) when they differ. Never split places across calls.
 
-For the nation, send level us and name no place. If no geography is named, resolve the United States that way.
+For the nation, send level us and name no place. Never use it when the question names no geography.
 
 resolve_geography is the sole lookup for geography codes. Never invent or manually construct them. Other same-named matches returned as ambiguity candidates are not additional selections. Do not make additional retrievals for them; the system flags them. Do not invent warning text or ask the user to choose among matches. Do not block on a clarification question.
 

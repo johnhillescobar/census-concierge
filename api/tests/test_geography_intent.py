@@ -760,3 +760,71 @@ def test_the_shipped_resolver_reads_the_states_the_report_says_the_question_wrot
     assert states() is None  # no report yet: unknown, never "none written"
     record.intent.states_named = ["Illinois"]
     assert states() == ["Illinois"]
+
+
+ORANGES = [
+    _row("Orange County, Florida", "12", "095", "1400000"),
+    _row("Orange County, California", "06", "059", "3200000"),
+    _row("Wayne County, Michigan", "26", "163", "1770000"),
+    _row("Wayne County, North Carolina", "37", "191", "117000"),
+]
+
+
+async def test_a_listing_over_several_parents_refuses_when_one_parent_is_unwritten_and_shared() -> (
+    None
+):
+    def counties(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        state = parts.get("state", "*")
+        return [r for r in ORANGES if state == "*" or r["in"] == f"state:{state}"]
+
+    async def listing(written: list[str]) -> ResolveGeographyResult:
+        tool = _geo_tool(listing=counties)
+        tool.states_named = lambda: written
+        args = {
+            "parents": ["Orange County, FL", "Wayne County, MI"],
+            "parent_level": "county",
+            "level": "tract",
+        }
+        call = {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+        return (await tool.ainvoke(call)).artifact
+
+    unwritten = await listing([])
+    assert (
+        unwritten.ambiguous and unwritten.state_supplied
+    )  # the model added FL; no Orange is chosen
+    written = await listing(["FL", "MI"])
+    assert not written.ambiguous and len(written.specs) >= 2
+
+
+async def test_tracts_in_one_named_place_refuse_when_its_state_was_not_written() -> None:
+    from test_tracts_in_place import WITH_STEP, listing
+
+    def places(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        if level != "place":
+            return listing(level, parts, **kwargs)
+        return [
+            {
+                **_row(f"Springfield city, {state}", fips, "000", people),
+                "level": "place",
+                "for": f"place:{code}",
+            }
+            for state, fips, code, people in [
+                ("Illinois", "17", "72000", "114000"),
+                ("Missouri", "29", "70000", "169000"),
+            ]
+        ]
+
+    async def tracts(written: list[str]) -> ResolveGeographyResult:
+        tool = _geo_tool(listing=places, table=WITH_STEP)
+        tool.states_named = lambda: written
+        args = {"parents": ["Springfield, MO"], "parent_level": "place", "level": "tract"}
+        call = {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+        return (await tool.ainvoke(call)).artifact
+
+    assert (await tracts([])).ambiguous  # a state the user never wrote cannot settle the name
+    assert not (await tracts(["MO"])).ambiguous
+
+
+async def test_a_nationwide_listing_is_told_how_to_be_asked() -> None:
+    hit = await _resolve_with_states(["TX"], level="county")
+    assert not hit.specs and "parent_level" in hit.detail

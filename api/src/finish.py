@@ -48,8 +48,9 @@ _SPLIT_PARENTS = (
     "2015-2019 is the vintage ending 2019, a span of years lists each year in it, and an "
     "open-ended period lists each year through {latest}; empty when it names none. trend is true "
     "when the question asks how something changed or covers several years or periods. "
-    "states_named lists the states the question itself writes, by name or code, as written; "
-    "never one you supplied from your own knowledge."
+    "states_named lists the states the question itself writes, each as its two-letter USPS code "
+    "(a nickname, abbreviation or typo becomes the code); never one you supplied from your own "
+    "knowledge."
 )
 
 _SPLIT_UNITS = frozenset({"county", "tract", "block group", "zcta", "place"})
@@ -204,7 +205,8 @@ def unanswered(record: Any) -> str | None:
             "Nothing was fetched because a place name matches several places. Name the state "
             "and ask again; the candidates are listed with the warning."
         )
-    if not getattr(record, "geographies", None):
+    tried = any(t.get("tool") in {"build_url", "fetch_data"} for t in record.timings)
+    if tried and not getattr(record, "geographies", None):  # a which-table answer has no URL
         return (
             "Nothing was fetched because no place was resolved. "
             "Name the place, with its state, and ask again."

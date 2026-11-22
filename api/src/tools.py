@@ -66,7 +66,8 @@ class ResolveGeographyInput(ToolInput):
     )
     parent_level: str | None = Field(
         default=None,
-        description="The level the parents are, such as county; null means state.",
+        description="The level the parents are, such as county; null means state; 'us' lists "
+        "the level across the whole nation (no parents).",
     )
     level: str | None = Field(
         description=(

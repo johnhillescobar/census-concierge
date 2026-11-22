@@ -378,6 +378,15 @@ async def test_a_name_with_one_clear_largest_match_still_resolves_without_its_st
     assert not response.answer.startswith("Nothing was fetched")
 
 
+async def test_a_which_table_answer_with_no_report_keeps_the_models_own_text() -> None:
+    steps = [("search_tables", {"question": "which table has median rent"})]
+    response, record, fetched, _ = await _run(
+        "Which table has median rent?", EMPTY_REPORT, steps=steps
+    )
+    assert response.answer == "done"  # nothing was built or fetched, and nothing was attempted
+    assert fetched == [] and response.urls == []
+
+
 async def test_a_nation_the_model_states_is_not_a_missing_place() -> None:
     response, record, fetched = await _ask("Total population of the nation", _frame("us", []))
     assert STOPPED not in response.answer

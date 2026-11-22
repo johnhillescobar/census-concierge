@@ -1586,7 +1586,7 @@ async def test_failing_split_call_never_fails_the_request(monkeypatch: Any) -> N
     monkeypatch.setattr("src.ask.finish_tools", spy)
     record = ExecutionRecord()
     response = await run_ask("anything", complete=complete, tools=_tools(record), record=record)
-    assert response.answer.startswith("Nothing was fetched") and seen == [None]
+    assert response.answer == "done" and seen == [None]  # nothing was attempted: the text stands
 
 
 async def test_split_task_is_cancelled_when_the_loop_raises() -> None:

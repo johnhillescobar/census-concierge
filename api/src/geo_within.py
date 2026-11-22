@@ -39,11 +39,16 @@ async def tracts_in_place(
     _detail, hit = await tool._place(names[0], "place", dataset, year, entries)
     if not (hit.legal and hit.specs):
         return ordinary
-    if not hit.dominant and "," not in names[0]:  # no state given: candidates, not the largest
+    if hit.ambiguous:  # no state the user wrote settles it: candidates, not the largest
         found = hit.specs[:MAX_CANDIDATES]
         detail = f"{names[0]!r} matches {len(hit.specs)} places; name its state"
         return detail, ResolveGeographyResult(
-            specs=found, wildcard=False, legal=True, detail=detail, ambiguous=True
+            specs=found,
+            wildcard=False,
+            legal=True,
+            detail=detail,
+            ambiguous=True,
+            state_supplied=hit.state_supplied,
         )
     place, state = hit.specs[0], clause_codes(hit.specs[0].in_spec).get("state", "")
     parts = {"state": state, "place": place.for_spec.split(":")[-1]}

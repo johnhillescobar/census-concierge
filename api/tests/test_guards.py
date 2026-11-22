@@ -207,6 +207,13 @@ def test_a_report_for_the_default_product_over_an_acs1_build_does_not_warn() -> 
     assert "dataset_mismatch" not in _codes(both)  # an ACS1 report over an ACS1 build agrees
 
 
+def test_an_acs1_fallback_to_acs5_is_not_a_report_disagreement() -> None:
+    record = ExecutionRecord(question=T12)
+    record.intent.dataset = "acs1"
+    record.fetch = _fetch(dataset="acs5", acs1_ineligible=True)
+    assert "dataset_mismatch" not in _codes(record)
+
+
 def test_a_report_that_agrees_with_the_build_or_is_absent_does_not_warn() -> None:
     agreed = ExecutionRecord(question=T12)
     agreed.intent.dataset = "acs1"
