@@ -1,0 +1,80 @@
+CC-104 Gate 1 for the rebased-branch Gate 2 fixes; scope: git diff f1ddc3d e926d30 -- api docs
+Branch: cc-104/structured-geography
+HEAD: e926d30a981f02f0658de7a80097885870dabfb1
+git status at start: "nothing to commit, working tree clean"
+Rules: one mutation at a time, only the covering tests run, restored with git checkout -- <file> after each
+and the tree confirmed clean (git status --porcelain empty) before the next. GOOD = the covering tests fail
+against the mutation. BAD = they still pass.
+
+Behaviour map and covering tests:
+ (1) contract.pin_tool_args pins `dataset` only when the plan states it; bind_override_geographies keeps which fields were set
+     test_plan_override.py::test_a_plan_that_states_no_dataset_leaves_the_models_own_dataset
+     test_plan_override.py::test_a_plan_that_states_its_dataset_pins_it_over_the_models
+ (2) finish.finish_tools redoes the resolve for an acs1 report only when the loop built no URL
+     test_finish.py::test_an_acs1_report_leaves_a_url_the_loop_built_for_acs5
+     test_finish.py::test_an_acs1_report_resolves_again_when_the_loop_built_no_url
+ (3) guards.overlapping_vintage omission-reason branch and detail
+     test_guards.py::test_a_thinned_series_names_the_years_it_left_out
+     test_guards.py::test_a_year_left_out_for_another_reason_is_not_an_overlap
+ (4) guards.dataset_mismatch
+     test_guards.py::test_a_report_that_names_the_other_product_warns_and_the_build_stands
+     test_guards.py::test_the_fetched_product_outranks_the_vintage_list_for_the_mismatch
+     test_guards.py::test_a_report_that_agrees_with_the_build_or_is_absent_does_not_warn
+
+not mutation-testable: prompt wording; covered by the E2E
+  (api/src/prompts.py and api/src/tools.py: a single place is sent without a state; the project forbids tests that assert prompt wording)
+
+mutation: always pin plan.dataset in search_tables (ignore whether the plan states it)
+GOOD
+1 failed, 1 passed, 1 warning in 2.06s
+
+mutation: always pin plan.dataset in build_url (ignore whether the plan states it)
+GOOD
+1 failed, 1 passed, 1 warning in 2.68s
+
+mutation: never pin the plan's dataset (a stated dataset no longer pins)
+GOOD
+1 failed, 1 passed, 1 warning in 2.46s
+
+mutation: bind_override_geographies uses a full model_dump (loses which plan fields were set)
+GOOD
+1 failed, 1 passed, 1 warning in 1.85s
+
+mutation: acs1 report redoes whenever the built URL is not acs1 (the old condition)
+GOOD
+1 failed, 1 passed, 1 warning in 2.01s
+
+mutation: acs1 report never redoes the resolve
+GOOD
+1 failed, 1 passed, 1 warning in 1.78s
+
+mutation: overlapping_vintage: remove the omitted-years branch
+GOOD
+1 failed, 1 passed, 1 warning in 2.04s
+
+mutation: overlapping_vintage: fire on any omission reason
+GOOD
+1 failed, 1 passed, 1 warning in 1.69s
+
+mutation: overlapping_vintage: detail lists the fetched vintages instead of the omitted years
+GOOD
+1 failed, 1 passed, 1 warning in 2.10s
+
+mutation: remove dataset_mismatch from evaluate()'s guard list
+GOOD
+1 failed, 2 passed, 1 warning in 2.34s
+
+mutation: dataset_mismatch fires when the datasets agree
+GOOD
+2 failed, 1 passed, 1 warning in 1.52s
+
+mutation: dataset_mismatch reads only record.vintages and ignores fetch.dataset
+GOOD
+1 failed, 2 passed, 1 warning in 2.08s
+
+mutation: dataset_mismatch fires when the report has no dataset
+GOOD
+1 failed, 2 passed, 1 warning in 1.81s
+
+Totals: 13 GOOD, 0 BAD. No test file changed.
+Restored tree, full suite run once (uv run pytest -q -m "not integration"): 1556 passed, 34 skipped
