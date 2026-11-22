@@ -76,6 +76,15 @@ Machines at that head: pytest 1505 passed / 34 skipped / 0 xfailed; ruff, mypy c
 that omits years or the 1-year product now gets the latest ACS5 unless the report supplies them. Watch time questions in demo.misses.
 Any later change to api/src or api/tests makes every row stale: re-run the row commands, refresh closure-run/.
 
+## Rebase onto origin/main 7239f32 (2026-11-21, owner request) -- supersedes the Open items below where they conflict
+
+Main moved 47 commits: GPT-6.2 Sol on the Responses API (CC-138, #134/#135), `api_src_loc` 5100 (#136). Rebased 57 commits (backup branch
+`backup/cc-104-pre-rebase-f6fa608`); two conflicts (docs/ask-path.md, ask.py `ExecutionRecord` fields: kept main's `retained_legs`,
+dropped `geo_queries`/`tables_only`). main's CC-138 tests called `resolve_geography` with `query`; moved to `places` (69ad347, no source change).
+plan_split goes through the same `_openai_complete`, so the report call is already on gpt-6.2-sol. Machines at 69ad347: pytest 1547 passed / 34
+skipped; ruff, mypy clean; invariants ok (regex 18, delta -37); api LOC 4800/5100; all ten rows re-run at 69ad347, `closure.py check --pre-merge`
+CLOSURE OK. The 2026-11-12 E2E (long_tail 0.467, RED) was the old model and is void; E2E re-run next (e2e-r2/), then PR body.
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
