@@ -1,0 +1,349 @@
+CC-104 Gate 1 for AC7-AC10, AC8, AC9/TC12, Decision 1 and AC10/TC13; scope: git diff f70e9f9~1 569a541 -- api docs
+Branch: cc-104/structured-geography
+HEAD: 569a5419b80e32d44cc5c18f3049a852b69c6ba0
+git status at start: clean (git status --porcelain empty)
+Rules: one mutation at a time, only the covering tests run (uv run pytest -q -p no:cacheprovider <node ids>),
+restored with git checkout -- <file> after each and `git status --porcelain -- api/src` confirmed empty before
+the next. GOOD = the covering tests fail against the mutation. BAD = they still pass. The line under each
+GOOD/BAD is pytest's real summary; "failing:" names the tests that failed.
+
+Behaviour map (item: source, covering tests):
+ 1  AC8 report years never steer fetch_data (ask.py question_years): test_ask_loop.py
+ 2  AC8 year_mismatch guard + registration (vintages.py, guards.py): test_guards.py, test_ask_loop.py
+ 3  AC8 unpublished_vintage guard + registration: test_guards.py
+ 4  incomplete(): several years with no years refused (finish.py): test_geography_completeness.py
+ 5  incomplete(): no place and no level refused (finish.py): test_geography_completeness.py
+ 6  plan_split / GeoIntent.adopt parse trend, states_named, answered_places: completeness, report tests
+ 7  AC7 GeoIntent.unserved() in geography_level_mismatch and _split_parents: test_level_fidelity.py
+ 8  Decision 1 geo._place ambiguity (no dominant match selects nothing): ask_tools, ask_loop, completeness, intent
+ 9  geo.py comparison all-or-nothing + ambiguous leg: completeness, level_per_leg, intent, ask_tools
+ 10 AC10/TC13 finish.unanswered and its use in ask.py: completeness, ask_loop, ask_responses
+ 11 finish_tools `refused` includes geo_status.ambiguous (no second resolve): completeness (new test, see Round 2)
+ 12 AC9/TC12 _written/_place/_list provenance, state_supplied, ask.py wiring: test_geography_intent.py
+
+--- Round 1: tests as committed at HEAD 569a541 (item 11 had no covering test; see Round 2) ---
+
+mutation: ask.py takes fetch_data years from the plan override only: `or list(record.intent.years)` restored
+GOOD
+1 failed, 1 warning in 1.37s
+  failing: test_the_shipped_fetch_tool_takes_years_from_the_plan_only_never_the_question_or_the_report
+
+mutation: year_mismatch: guard removed from guards.evaluate
+GOOD
+3 failed, 1 passed, 1 warning in 1.26s
+  failing: test_a_report_that_named_other_years_than_the_fetch_used_warns, test_a_report_year_never_replaces_the_year_the_loop_built[None], test_a_report_year_never_replaces_the_year_the_loop_built[model_years1]
+
+mutation: year_mismatch: warns when the report years and the fetch years are equal
+GOOD
+1 failed, 3 passed, 1 warning in 1.31s
+  failing: test_agreeing_or_absent_report_years_do_not_warn
+
+mutation: year_mismatch: warns when the report stated no years
+GOOD
+1 failed, 3 passed, 1 warning in 1.34s
+  failing: test_agreeing_or_absent_report_years_do_not_warn
+
+mutation: year_mismatch: warns when there was no fetch
+GOOD
+1 failed, 3 passed, 1 warning in 1.20s
+  failing: test_agreeing_or_absent_report_years_do_not_warn
+
+mutation: unpublished_vintage: guard removed from guards.evaluate
+GOOD
+1 failed, 1 passed, 1 warning in 1.09s
+  failing: test_a_year_with_no_release_is_named_not_silently_dropped
+
+mutation: unpublished_vintage: fires for any omission reason, not only no_release
+GOOD
+1 failed, 1 passed, 1 warning in 1.01s
+  failing: test_a_year_left_out_for_another_reason_is_not_called_unpublished
+
+mutation: unpublished_vintage: lists the fetched years instead of the omitted ones
+GOOD
+1 failed, 1 passed, 1 warning in 1.20s
+  failing: test_a_year_with_no_release_is_named_not_silently_dropped
+
+mutation: incomplete: the several-years-no-years refusal dropped
+GOOD
+1 failed, 1 passed, 1 warning in 1.30s
+  failing: test_a_question_over_several_years_that_names_none_is_refused_before_any_tool_runs
+
+mutation: incomplete: refuses when years ARE given
+GOOD
+2 failed, 1 warning in 1.34s
+  failing: test_a_question_over_several_years_that_names_none_is_refused_before_any_tool_runs, test_a_question_over_several_years_that_names_them_runs
+
+mutation: incomplete: ignores intent.trend, refuses whenever years are empty
+BAD
+2 passed, 1 warning in 1.02s
+
+mutation: incomplete: the no-place refusal dropped
+GOOD
+1 failed, 2 passed, 1 warning in 1.48s
+  failing: test_a_question_with_no_place_and_no_level_is_refused_before_any_tool_runs
+
+mutation: incomplete: no-place refusal also fires when the level is stated (level_name(intent.level) removed)
+GOOD
+2 failed, 1 passed, 1 warning in 1.43s
+  failing: test_a_nation_the_model_states_is_not_a_missing_place, test_a_report_that_names_a_level_but_no_place_is_a_listing_not_a_refusal
+
+mutation: incomplete: no-place refusal fires when answered_places is False (minimal report)
+GOOD
+1 failed, 2 passed, 1 warning in 1.60s
+  failing: test_a_question_with_no_place_and_no_level_is_refused_before_any_tool_runs
+
+mutation: incomplete: level us counts as no place
+GOOD
+1 failed, 2 passed, 1 warning in 1.35s
+  failing: test_a_nation_the_model_states_is_not_a_missing_place
+
+mutation: plan_split: trend is any truthy value instead of only True
+GOOD
+1 failed, 6 passed, 1 warning in 1.19s
+  failing: test_only_a_true_flag_is_a_trend_and_only_a_list_of_strings_names_states
+
+mutation: plan_split: states_named keeps non-strings
+GOOD
+1 failed, 6 passed, 1 warning in 1.76s
+  failing: test_only_a_true_flag_is_a_trend_and_only_a_list_of_strings_names_states
+
+mutation: plan_split: states_named is [] instead of None when absent
+GOOD
+7 failed, 1 warning in 1.38s
+  failing: test_only_a_true_flag_is_a_trend_and_only_a_list_of_strings_names_states, test_the_split_report_always_carries_the_level_and_the_places_it_found, test_a_frame_the_model_sends_is_never_the_report[tract], test_a_frame_the_model_sends_is_never_the_report[sent1], test_a_frame_the_model_sends_is_never_the_report[5], test_a_frame_the_model_sends_is_never_the_report[None], test_a_frame_the_model_sends_is_never_the_report[sent4]
+
+mutation: GeoIntent.adopt: skips states_named
+BAD
+7 passed, 1 warning in 1.14s
+
+mutation: plan_split: answered_places always True
+BAD
+7 passed, 1 warning in 1.00s
+
+mutation: GeoIntent.unserved: always returns every unmet level
+GOOD
+5 failed, 2 passed, 1 warning in 1.72s
+  failing: test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning[congressional district], test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning[us], test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning[place], test_a_refused_call_the_report_never_asked_for_does_not_trigger_a_repair, test_only_a_level_the_report_states_counts_as_unserved
+
+mutation: GeoIntent.unserved: returns nothing once a report exists
+GOOD
+3 failed, 4 passed, 1 warning in 1.82s
+  failing: test_a_level_the_user_really_asked_for_stays_unmet_after_an_unrelated_success, test_with_no_report_a_refused_level_stays_flagged, test_only_a_level_the_report_states_counts_as_unserved
+
+mutation: GeoIntent.unserved: the `self.reported and asked` guard dropped (an unstated report hides every unmet level)
+GOOD
+2 failed, 5 passed, 1 warning in 1.75s
+  failing: test_with_no_report_a_refused_level_stays_flagged, test_only_a_level_the_report_states_counts_as_unserved
+
+mutation: finish._split_parents: `stood` reads intent.unmet instead of intent.unserved()
+GOOD
+1 failed, 6 passed, 1 warning in 2.19s
+  failing: test_a_refused_call_the_report_never_asked_for_does_not_trigger_a_repair
+
+mutation: geography_level_mismatch: reads set(intent.unmet) instead of intent.unserved()
+GOOD
+4 failed, 3 passed, 1 warning in 5.09s
+  failing: test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning[congressional district], test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning[us], test_a_refused_first_call_the_model_then_corrects_leaves_no_level_warning[place], test_a_refused_call_the_report_never_asked_for_does_not_trigger_a_repair
+
+mutation: GeoIntent.unserved: the listing unit no longer counts as a stated level (level_name(self.unit) removed)
+GOOD
+1 failed, 6 passed, 1 warning in 1.70s
+  failing: test_only_a_level_the_report_states_counts_as_unserved
+
+mutation: geo._place: the ambiguity branch removed
+GOOD
+4 failed, 2 passed, 1 warning in 1.65s
+  failing: test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match, test_a_comparison_with_an_ambiguous_place_selects_nothing, test_versus_with_an_ambiguous_place_selects_nothing_and_warns, test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates
+
+mutation: geo._place: ambiguity no longer needs the state wildcard (refuses even when a state is given)
+BAD
+6 passed, 1 warning in 1.17s
+
+mutation: geo._place: ambiguity ignores dominance (refuses a clearly dominant name)
+BAD
+6 passed, 1 warning in 1.15s
+
+mutation: geo._place: ambiguity no longer needs more than one match
+BAD
+6 passed, 1 warning in 1.29s
+
+mutation: geo._place: ambiguous result no longer sets dominant=False
+GOOD
+2 failed, 4 passed, 1 warning in 1.40s
+  failing: test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match, test_tracts_in_an_ambiguous_place_return_candidates_not_the_largest
+
+mutation: geo._place: ambiguous result no longer sets ambiguous=True
+GOOD
+4 failed, 2 passed, 1 warning in 1.50s
+  failing: test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match, test_a_comparison_with_an_ambiguous_place_selects_nothing, test_versus_with_an_ambiguous_place_selects_nothing_and_warns, test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates
+
+mutation: geo comparison: answers with the legs that resolved when another leg fails
+GOOD
+2 failed, 2 passed, 1 warning in 2.06s
+  failing: test_a_comparison_missing_one_place_is_refused_not_answered_with_the_other, test_a_leg_is_not_resolved_at_a_level_other_than_the_one_stated
+
+mutation: geo comparison: the `stuck` ambiguous-leg short-circuit dropped
+GOOD
+2 failed, 2 passed, 1 warning in 1.43s
+  failing: test_each_comparison_leg_is_judged_on_its_own_state, test_a_comparison_with_an_ambiguous_place_selects_nothing
+
+mutation: geo comparison: `lost` names the resolved legs instead of the unresolved ones
+GOOD
+2 failed, 2 passed, 1 warning in 1.38s
+  failing: test_a_comparison_missing_one_place_is_refused_not_answered_with_the_other, test_a_leg_is_not_resolved_at_a_level_other_than_the_one_stated
+
+mutation: ask.run_ask: the unanswered() message never applied
+GOOD
+4 failed, 2 passed, 1 warning in 1.75s
+  failing: test_a_comparison_that_names_no_place_ends_with_a_message_and_no_national_fetch[report0], test_a_comparison_that_names_no_place_ends_with_a_message_and_no_national_fetch[report1], test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates, test_failing_split_call_never_fails_the_request
+
+mutation: finish.unanswered: the ambiguous-name branch dropped
+GOOD
+1 failed, 5 passed, 1 warning in 1.95s
+  failing: test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates
+
+mutation: finish.unanswered: the no-geographies branch dropped
+GOOD
+3 failed, 3 passed, 1 warning in 2.52s
+  failing: test_a_comparison_that_names_no_place_ends_with_a_message_and_no_national_fetch[report0], test_a_comparison_that_names_no_place_ends_with_a_message_and_no_national_fetch[report1], test_failing_split_call_never_fails_the_request
+
+mutation: ask.run_ask: unanswered() also replaces a raw 'failed twice' tool failure
+GOOD
+1 failed, 5 passed, 1 warning in 3.47s
+  failing: test_answer_stays_a_visible_failure_when_recovery_also_fails
+
+mutation: ask.run_ask: unanswered() applies even when build_url is not among the tools
+GOOD
+3 failed, 6 passed, 1 warning in 6.59s
+  failing: test_malformed_function_arguments_use_the_existing_tool_validation[None], test_malformed_function_arguments_use_the_existing_tool_validation[{], test_malformed_function_arguments_use_the_existing_tool_validation[[["value","incorrectly accepted"]]]
+
+mutation: finish.unanswered: the tables_only exemption dropped
+BAD
+6 passed, 1 warning in 1.60s
+
+mutation: geo._written: always trusts the state
+GOOD
+7 failed, 5 passed, 1 warning in 1.83s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0], test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None], test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2], test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied, test_a_listing_parent_is_checked_like_a_place, test_each_comparison_leg_is_judged_on_its_own_state, test_the_report_reaches_the_resolver_through_the_loop
+
+mutation: geo._written: never trusts a state
+GOOD
+6 failed, 6 passed, 1 warning in 1.59s
+  failing: test_a_state_the_report_says_the_user_wrote_settles_it[written0], test_a_state_the_report_says_the_user_wrote_settles_it[written1], test_a_state_the_report_says_the_user_wrote_settles_it[written2], test_a_listing_parent_is_checked_like_a_place, test_each_comparison_leg_is_judged_on_its_own_state, test_the_report_reaches_the_resolver_through_the_loop
+
+mutation: geo._written: an unknown report (None) counts as trusted
+GOOD
+1 failed, 11 passed, 1 warning in 1.54s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None]
+
+mutation: geo._written: compares the state name as written instead of its FIPS
+GOOD
+3 failed, 9 passed, 1 warning in 1.40s
+  failing: test_a_state_the_report_says_the_user_wrote_settles_it[written1], test_a_state_the_report_says_the_user_wrote_settles_it[written2], test_each_comparison_leg_is_judged_on_its_own_state
+
+mutation: geo._place: the written-state check skipped
+GOOD
+6 failed, 6 passed, 1 warning in 1.71s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0], test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None], test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2], test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied, test_each_comparison_leg_is_judged_on_its_own_state, test_the_report_reaches_the_resolver_through_the_loop
+
+mutation: geo._list: the written-state check skipped
+GOOD
+1 failed, 11 passed, 1 warning in 1.46s
+  failing: test_a_listing_parent_is_checked_like_a_place
+
+mutation: geo._place: the state/zcta level exemption removed
+BAD
+12 passed, 1 warning in 1.48s
+
+mutation: geo._written: never reports state_supplied
+GOOD
+5 failed, 7 passed, 1 warning in 1.52s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0], test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None], test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2], test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied, test_a_listing_parent_is_checked_like_a_place
+
+mutation: ask.default_tools: the report is not wired to resolve_geography (states_named line removed)
+BAD
+12 passed, 1 warning in 1.62s
+
+--- Round 2: strengthened tests (new or stricter behaviour assertions in the same test files) ---
+
+Added test_geography_completeness.py::test_a_question_that_names_no_years_runs_unless_the_report_says_it_spans_years
+  (no years and no trend flag must run; kills "refuse whenever years are empty")
+Added test_geography_completeness.py::test_a_report_with_no_parents_list_has_not_answered_the_place_question
+  (no parents list, or a non-list, is answered_places False; an empty list is True)
+Added test_geography_completeness.py::test_the_report_gives_the_intent_its_trend_its_places_answer_and_the_states_it_wrote
+  (GeoIntent.adopt copies trend, answered_places and states_named)
+Added test_geography_intent.py::test_a_name_that_carries_its_state_is_never_ambiguous_even_when_none_dominates
+  (two similar places in the written state: the state settles it, largest first, not ambiguous)
+Added test_geography_intent.py::test_a_shared_name_with_one_clear_largest_match_is_selected_with_alternatives
+  (an unqualified name with a dominant match is selected, the other is an alternative, not ambiguous)
+Added test_geography_completeness.py::test_a_question_about_which_table_holds_something_is_never_told_nothing_was_fetched
+  (a tables-only report ending with no URL gets no "nothing was fetched" message)
+Added test_geography_completeness.py::test_an_ambiguous_name_is_resolved_once_and_the_repair_does_not_guess_again
+  (item 11: a scripted ambiguous place makes exactly ONE resolve_geography call in record.timings)
+Strengthened test_geography_intent.py::test_a_state_or_a_zip_code_has_no_state_to_drop
+  (adds the entry "Texas, TX" at level state: the comma path must not strip the state of a state)
+Added test_geography_intent.py::test_the_shipped_resolver_reads_the_states_the_report_says_the_question_wrote
+  (default_tools' resolve_geography reads record.intent.states_named; the loop test patched the lambda
+   by hand, so it never covered the ask.py wiring)
+ruff format and ruff check pass on both files. All new/strengthened tests pass on the real code
+(test_geography_completeness.py + test_geography_intent.py: 221 passed).
+
+mutation: incomplete: ignores intent.trend, refuses whenever years are empty [strengthened tests]
+GOOD
+1 failed, 2 passed, 1 warning in 1.43s
+  failing: test_a_question_that_names_no_years_runs_unless_the_report_says_it_spans_years
+
+mutation: plan_split: answered_places always True [strengthened tests]
+GOOD
+1 failed, 7 passed, 1 warning in 1.42s
+  failing: test_a_report_with_no_parents_list_has_not_answered_the_place_question
+
+mutation: GeoIntent.adopt: skips states_named [strengthened tests]
+GOOD
+1 failed, 7 passed, 1 warning in 1.40s
+  failing: test_the_report_gives_the_intent_its_trend_its_places_answer_and_the_states_it_wrote
+
+mutation: geo._place: ambiguity no longer needs the state wildcard (refuses even when a state is given) [strengthened tests]
+GOOD
+1 failed, 6 passed, 1 warning in 1.44s
+  failing: test_a_name_that_carries_its_state_is_never_ambiguous_even_when_none_dominates
+
+mutation: geo._place: ambiguity ignores dominance (refuses a clearly dominant name) [strengthened tests]
+GOOD
+1 failed, 6 passed, 1 warning in 1.58s
+  failing: test_a_shared_name_with_one_clear_largest_match_is_selected_with_alternatives
+
+mutation: geo._place: ambiguity no longer needs more than one match [strengthened tests]
+BAD
+8 passed, 1 warning in 1.44s
+
+mutation: finish.unanswered: the tables_only exemption dropped [strengthened tests]
+GOOD
+1 failed, 6 passed, 1 warning in 1.81s
+  failing: test_a_question_about_which_table_holds_something_is_never_told_nothing_was_fetched
+
+mutation: geo._place: the state/zcta level exemption removed [strengthened tests]
+GOOD
+1 failed, 12 passed, 1 warning in 1.80s
+  failing: test_a_state_or_a_zip_code_has_no_state_to_drop[args1]
+
+mutation: ask.default_tools: the report is not wired to resolve_geography (states_named line removed) [strengthened tests]
+GOOD
+1 failed, 13 passed, 1 warning in 1.79s
+  failing: test_the_shipped_resolver_reads_the_states_the_report_says_the_question_wrote
+
+mutation: finish_tools: `refused` no longer includes geo_status.ambiguous (the repair re-resolves an ambiguous name)
+GOOD
+1 failed, 1 warning in 3.01s
+  failing: test_an_ambiguous_name_is_resolved_once_and_the_repair_does_not_guess_again
+
+Note on "geo._place: ambiguity no longer needs more than one match" (BAD, not killable): geo_list.dominant()
+returns True for fewer than two matches, so `len(matched) > 1` is redundant with `not dominant(matched)`.
+The mutation is behaviourally equivalent; no test can fail it. Reported as an equivalent mutant, not a test gap.
+(Candidate for removal in a source cleanup; source is out of scope for this Gate 1.)
+
+Totals: Round 1: 41 GOOD, 9 BAD (50 mutations; item 11 had no covering test, so its mutation was not run).
+Round 2: 8 of the 9 BAD strengthened and now GOOD; 1 BAD is an equivalent mutant (above); item 11 test added,
+its mutation is GOOD. Final: 50 GOOD, 1 equivalent, 0 BAD with a test gap. Test files changed:
+api/tests/test_geography_completeness.py, api/tests/test_geography_intent.py. No api/src change left in place.
+Restored tree (no api/src change), full suite run once (uv run pytest -q -m "not integration"): 1609 passed, 34 skipped

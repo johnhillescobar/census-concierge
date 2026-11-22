@@ -623,6 +623,37 @@ async def test_a_state_the_report_says_the_user_wrote_settles_it(written: list[s
     assert hit.specs[0].in_spec == "state:17"
 
 
+async def test_a_shared_name_with_one_clear_largest_match_is_selected_with_alternatives() -> None:
+    hit = await resolved(places=["Portland"], level="place")  # Oregon dwarfs Maine
+    assert hit.dominant and not hit.ambiguous
+    assert hit.specs[0].name == "Portland city, Oregon" and len(hit.specs) == 2
+
+
+async def test_a_name_that_carries_its_state_is_never_ambiguous_even_when_none_dominates() -> None:
+    def listing(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        rows = [
+            ("Springfield city, Illinois", "17", "72000", "114394"),
+            ("Springfield village, Illinois", "17", "72001", "100000"),
+            ("Springfield city, Missouri", "29", "70000", "169954"),
+        ]
+        return [
+            {
+                "name": name,
+                "level": "place",
+                "for": f"place:{code}",
+                "in": f"state:{state}",
+                "geoid": "",
+                "population": people,
+            }
+            for name, state, code, people in rows
+            if level == "place" and parts.get("state") in {"*", state}
+        ]
+
+    hit = await resolved(listing, places=["Springfield, IL"], level="place")
+    assert not hit.ambiguous and len(hit.specs) == 2
+    assert hit.specs[0].name == "Springfield city, Illinois"  # the state settled it; largest first
+
+
 async def test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied() -> None:
     hit = await _resolve_with_states([], places=["Chicago, IL"], level="place")
     assert len(hit.specs) == 1 and not hit.ambiguous and hit.state_supplied
@@ -645,7 +676,12 @@ async def test_each_comparison_leg_is_judged_on_its_own_state() -> None:
 
 
 @pytest.mark.parametrize(
-    "args", [{"places": ["Texas"], "level": "state"}, {"places": ["10001"], "level": "zcta"}]
+    "args",
+    [
+        {"places": ["Texas"], "level": "state"},
+        {"places": ["Texas, TX"], "level": "state"},
+        {"places": ["10001"], "level": "zcta"},
+    ],
 )
 async def test_a_state_or_a_zip_code_has_no_state_to_drop(args: dict[str, Any]) -> None:
     hit = await _resolve_with_states([], **args)
@@ -702,3 +738,25 @@ async def test_the_report_reaches_the_resolver_through_the_loop() -> None:
         and written.urls
         and "ambiguous_place" not in [w.code for w in written.warnings]
     )
+
+
+def test_the_shipped_resolver_reads_the_states_the_report_says_the_question_wrote(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from src import ask
+    from src.retrieval import availability, index
+
+    monkeypatch.setenv("CENSUS_API_KEY", "key")
+    monkeypatch.setattr(
+        index,
+        "load",
+        lambda: SimpleNamespace(tables=["B01003"], titles=["t"], universes=["u"], members=[[]]),
+    )
+    monkeypatch.setattr(availability, "load", lambda: {"datasets": {"acs5": {"2024": {}}}})
+    record = ExecutionRecord(question="Population of Springfield, IL")
+    states = ask.default_tools(record)["resolve_geography"].states_named
+    assert states() is None  # no report yet: unknown, never "none written"
+    record.intent.states_named = ["Illinois"]
+    assert states() == ["Illinois"]

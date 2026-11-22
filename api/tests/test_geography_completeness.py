@@ -249,6 +249,27 @@ async def test_a_question_over_several_years_that_names_them_runs() -> None:
     assert record.timings
 
 
+async def test_a_question_that_names_no_years_runs_unless_the_report_says_it_spans_years() -> None:
+    reply = _frame("county", ["Dane County, Wisconsin"], years=[])  # no trend flag at all
+    response, record, _ = await _ask("Population of Dane County", reply)
+    assert STOPPED not in response.answer
+    assert record.timings
+
+
+async def test_a_report_with_no_parents_list_has_not_answered_the_place_question() -> None:
+    assert (await _split(level="county")).answered_places is False
+    assert (await _split(parents="Ohio")).answered_places is False  # not a list
+    assert (await _split(parents=[])).answered_places is True
+
+
+def test_the_report_gives_the_intent_its_trend_its_places_answer_and_the_states_it_wrote() -> None:
+    intent = GeoIntent()
+    intent.adopt(_shape(answered_places=True, trend=True, states_named=["OH", "Texas"]))
+    assert intent.answered_places is True and intent.trend is True
+    assert intent.states_named == ["OH", "Texas"]
+    assert GeoIntent().states_named is None  # unknown until a report says otherwise
+
+
 async def test_only_a_true_flag_is_a_trend_and_only_a_list_of_strings_names_states() -> None:
     sent = await _split(parents=["Ohio"], trend="yes", states_named=["OH", 5, "Ohio"])
     assert sent.trend is False and sent.states_named == ["OH", "Ohio"]
@@ -286,6 +307,30 @@ async def test_the_nation_is_fetched_only_when_the_model_states_it() -> None:
     )
     assert len(fetched) == 1 and "for=us" in fetched[0]
     assert response.urls and not response.answer.startswith("Nothing was fetched")
+
+
+async def test_a_question_about_which_table_holds_something_is_never_told_nothing_was_fetched() -> (
+    None
+):
+    reply = _frame(None, [], asks_for="tables")
+    response, record, fetched = await _ask("Which table holds median gross rent?", reply)
+    assert fetched == [] and record.url is None and record.timings
+    assert not response.answer.startswith("Nothing was fetched")
+
+
+async def test_an_ambiguous_name_is_resolved_once_and_the_repair_does_not_guess_again() -> None:
+    steps = [
+        ("search_tables", {"question": "population"}),
+        (
+            "resolve_geography",
+            {"places": ["Springfield", "Texas"], "level": None, "levels": ["place", "state"]},
+        ),
+    ]
+    reply = _frame("place", [], parents=["Springfield", "Texas"])
+    response, record, fetched, _ = await _run("Springfield versus Texas", reply, steps=steps)
+    assert record.geo_status["ambiguous"] is True and fetched == []
+    asked = [tick["tool"] for tick in record.timings]
+    assert asked.count("resolve_geography") == 1  # the repair never re-resolves an ambiguous name
 
 
 async def test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates() -> None:
