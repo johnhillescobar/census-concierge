@@ -317,12 +317,16 @@ class BuildUrlTool(BaseTool):
         for_clause = (for_spec or "").strip() or (geography.for_spec if geography else "")
         in_clause = (in_spec or "").strip() or (geography.in_spec if geography else "")
         allowed_geo = self.allowed_geographies()
-        if not for_clause or (for_clause, in_clause, dataset) not in allowed_geo:
+        if (
+            geography is None
+            or not for_clause
+            or (for_clause, in_clause, dataset) not in allowed_geo
+        ):
             return _build_fail(
                 table_id,
                 dataset,
                 year,
-                "resolve_geography before build_url, or pass a for_spec from its matches",
+                "resolve_geography before build_url (a name matching several places selects none)",
                 paired,
                 str(facts.get("universe") or ""),
             )

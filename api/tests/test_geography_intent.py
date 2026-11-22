@@ -834,3 +834,65 @@ async def test_tracts_in_one_named_place_refuse_when_its_state_was_not_written()
 async def test_a_nationwide_listing_is_told_how_to_be_asked() -> None:
     hit = await _resolve_with_states(["TX"], level="county")
     assert not hit.specs and "parent_level" in hit.detail
+
+
+@pytest.mark.parametrize("written", [None, []])
+async def test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state(
+    written: list[str] | None,
+) -> None:
+    """Portland is mostly Oregon, but the model said Maine: a different state is no silent swap."""
+    moved = await _resolve_with_states(written, places=["Portland, ME"], level="place")
+    assert moved.ambiguous and moved.state_supplied
+    assert {spec.in_spec for spec in moved.specs} == {"state:23", "state:41"}
+    same = await _resolve_with_states(written, places=["Portland, OR"], level="place")
+    assert (
+        not same.ambiguous and same.state_supplied
+    )  # Oregon is both the model's state and largest
+    assert same.specs[0].in_spec == "state:41"
+    stated = await _resolve_with_states(["ME"], places=["Portland, ME"], level="place")
+    assert len(stated.specs) == 1 and stated.specs[0].in_spec == "state:23"
+
+
+async def test_a_comparison_records_that_a_state_was_supplied() -> None:
+    args = {
+        "places": ["Chicago, IL", "Harris County, TX"],
+        "level": None,
+        "levels": ["place", "county"],
+    }
+    supplied = await _resolve_with_states([], **args)
+    written = await _resolve_with_states(["IL", "TX"], **args)
+    assert supplied.compare and supplied.state_supplied and not supplied.ambiguous
+    assert written.compare and not written.state_supplied
+
+
+async def test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not() -> None:
+    from src.ask import ExecutionRecord, run_ask
+
+    async def ask(written: list[str]) -> list[str]:
+        record = ExecutionRecord(question="Population of Chicago")
+        tools = _tools(record)
+        tools["resolve_geography"].states_named = lambda: record.intent.states_named
+        steps = [
+            ("search_tables", {"question": "population"}),
+            ("resolve_geography", {"places": ["Chicago, IL"], "level": "place"}),
+            ("build_url", {"table_id": "B01003"}),
+            ("fetch_data", {}),
+        ]
+        queue = [
+            {"content": "", "tool_calls": [{"id": str(n), "name": name, "args": args}]}
+            for n, (name, args) in enumerate(steps)
+        ]
+        report = {"parents": ["Chicago, IL"], "level": "place", "asks_for": "data"}
+        report["states_named"] = written
+
+        async def complete(messages: list[dict[str, Any]], tool_specs: list[dict[str, Any]]) -> Any:
+            if not tool_specs:
+                return {"content": json.dumps(report), "tool_calls": []}
+            return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
+
+        response = await run_ask(record.question, complete=complete, tools=tools, record=record)
+        assert response.urls  # a unique name still resolves either way
+        return [w.code for w in response.warnings]
+
+    assert "state_inferred" in await ask([])
+    assert "state_inferred" not in await ask(["Illinois"])

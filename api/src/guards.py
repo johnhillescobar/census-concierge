@@ -192,6 +192,17 @@ def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     )
 
 
+def state_inferred(record: GuardRecord) -> AskWarning | None:
+    """The model attached a state the question did not write; the name alone settled the place."""
+    status = record.geo_status or {}
+    if not status.get("state_supplied") or status.get("ambiguous"):
+        return None
+    return AskWarning(
+        code="state_inferred",
+        detail="the question writes no state for this place; the name alone settled it",
+    )
+
+
 def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
     """A ZCTA answer: the level resolved or the rows fetched, whatever the user called it."""
     ids = {str(row.get("GEO_ID") or "") for row in record.rows}
@@ -452,6 +463,7 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         geography_not_nested,
         geography_level_mismatch,
         dataset_mismatch,
+        state_inferred,
         geography_level_unverified,
     ):
         warning = guard(record)

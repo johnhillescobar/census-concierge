@@ -96,7 +96,7 @@ no place, a listing without `level`, or a non-state parent without `parent_level
 NAME listing ranks by place class, population, then GEO_ID. A name with no state is searched across states and selected only if its best match has 4 times the people of the next; otherwise nothing is selected, built or fetched and `ambiguous_place` carries the candidates (direct place, comparison leg and listing parent alike). A comparison resolves every place or none. A state attached to an entry counts only if the report's `states_named` lists it (unknown is not written): otherwise it is dropped, the bare name is checked for a dominant match, and `state_supplied` is set. A token matches the NAME
 head or that head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`) and
 is not retried as its last word. A place with a null level and no NAME hit falls back to the county listing,
-flagged inferred. A listing parent (county, or the place a tract lies in) named without its state is searched across states and taken only if its best match has 4 times the people of the next (`dominant`, Census population, no list of cities); otherwise `ambiguous_place` returns the ranked candidates and nothing is selected, built or fetched. A direct single place keeps the largest match with the others as alternatives. A blank
+flagged inferred. `dominant` is Census population, never a list of cities. A blank
 parent fails the whole call. `ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
 dataset/vintage, `for`/`in`). Comparison legs resolve concurrently and merge.
 A named-county parent of a tract wildcard is `for=tract:*` without listing

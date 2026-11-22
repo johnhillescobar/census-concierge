@@ -362,6 +362,23 @@ async def test_a_place_name_with_no_dominant_match_is_refused_with_its_candidate
     assert len(warning.candidates) == 3
 
 
+async def test_a_candidate_of_an_ambiguous_name_cannot_be_built_by_passing_its_for_spec() -> None:
+    steps = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"places": ["Springfield"], "level": "place"}),
+        (
+            "build_url",
+            {"table_id": "B01003", "for_spec": "place:72000", "in_spec": "state:17"},
+        ),
+        ("fetch_data", {}),
+    ]
+    response, record, fetched, _ = await _run(
+        "Population of Springfield", _frame("place", ["Springfield"]), steps=steps
+    )
+    assert record.geo_status["ambiguous"] is True and record.url is None
+    assert response.urls == [] and response.rows == [] and fetched == []
+
+
 async def test_a_comparison_missing_one_place_is_refused_not_answered_with_the_other() -> None:
     steps = [
         ("search_tables", {"question": "population"}),

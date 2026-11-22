@@ -56,6 +56,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `zcta_not_zip` | Any ZCTA answer (level resolved or `860` rows), however it was worded. ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
 | `geography_not_nested` | Containment is not expressible in Census `for`/`in`. Tracts asked for inside one named place are the exception that still fetches: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
 | `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
+| `state_inferred` | A state the model attached was not written in the question; the place was settled by its name alone. |
 | `dataset_mismatch` | The model's report asked for ACS1 and its own build was ACS5. The build stands; check the URL's dataset. |
 | `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |

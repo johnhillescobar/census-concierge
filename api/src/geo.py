@@ -28,9 +28,8 @@ from src.tools import ResolveGeographyInput
 ListGeographies = Callable[..., list[dict[str, str]]]
 GeoTable = Callable[[str, int], list[GeoLevel]]
 LatestVintage = Callable[[str], int]
-StatesNamed = Callable[
-    [], list[str] | None
-]  # the states the question itself writes; None = unknown
+StateRef = tuple[str, str]  # (name, FIPS)
+StatesNamed = Callable[[], list[str] | None]  # states the question writes; None = unknown
 Reply = tuple[str, ResolveGeographyResult]
 
 
@@ -41,17 +40,41 @@ def _fail(detail: str, *, wildcard: bool = False, nested: bool = True) -> Reply:
     return detail, hit
 
 
+def _moved(dropped: StateRef | None, matched: list[dict[str, str]]) -> bool:
+    """The state the model attached, dropped as unwritten, is not where the best match lies."""
+    best = clause_codes(matched[0].get("in", "")).get("state") if matched else None
+    return bool(dropped and best and best != dropped[1])
+
+
+def _unclear(
+    name: str, matched: list[dict[str, str]], dataset: str, year: int, dropped: StateRef | None
+) -> Reply:
+    """A name with no clear owner: its candidates are the result and nothing is selected."""
+    names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
+    detail = f"{name!r} matches {len(matched)} places ({names}); name its state"
+    return detail, ResolveGeographyResult(
+        specs=[_spec(row, dataset, year) for row in matched[:MAX_CANDIDATES]],
+        wildcard=False,
+        legal=True,
+        detail=detail,
+        ambiguous=True,
+        dominant=False,
+        state_supplied=dropped is not None,
+    )
+
+
 def _compare_result(
-    specs: list[GeoSpec], extra: list[GeoSpec], *, legal: bool, inferred: bool, detail: str = ""
+    specs: list[GeoSpec], extra: list[GeoSpec], inferred: bool, supplied: bool
 ) -> ResolveGeographyResult:
     return ResolveGeographyResult(
         specs=specs + extra,
         wildcard=False,
-        legal=legal,
-        detail=detail,
+        legal=True,
+        detail="",
         compare=True,
         compare_count=len(specs),
         inferred=inferred,
+        state_supplied=supplied,
     )
 
 
@@ -139,10 +162,10 @@ class ResolveGeographyTool(BaseTool):
     latest_vintage: LatestVintage
     states_named: StatesNamed = lambda: None
 
-    def _written(self, state: tuple[str, str] | None) -> tuple[tuple[str, str] | None, bool]:
-        """A state attached to an entry counts only if the report says the question wrote it."""
+    def _written(self, state: StateRef | None) -> tuple[StateRef | None, StateRef | None]:
+        """(kept, dropped): an attached state counts only if the report says it was written."""
         wrote = {s[1] for n in self.states_named() or [] if (s := state_of(n))}
-        return (state, False) if state is None or state[1] in wrote else (None, True)
+        return (state, None) if state is None or state[1] in wrote else (None, state)
 
     def _run(self, *args: Any, **kwargs: Any) -> Any:
         raise NotImplementedError("resolve_geography is async-only")
@@ -191,10 +214,11 @@ class ResolveGeographyTool(BaseTool):
                 return _fail(f"unresolved wildcard parent(s): {', '.join(bad)}", wildcard=True)
             specs = [hit.specs[0] for _d, hit in picks]
             extra = [row for _d, hit in picks for row in hit.specs[1:]]
-            flag = any(hit.inferred for _d, hit in picks)
-            return f"{len(specs)} wildcard geographies", _compare_result(
-                specs, extra, legal=True, inferred=flag
+            flag, said = (
+                any(h.inferred for _d, h in picks),
+                any(h.state_supplied for _d, h in picks),
             )
+            return f"{len(specs)} wildcard geographies", _compare_result(specs, extra, flag, said)
         if levels and (len(legs) < 2 or len(levels) != len(legs)):
             return _fail("levels pairs with two or more places, one entry each")
         if len(legs) >= 2:
@@ -214,9 +238,9 @@ class ResolveGeographyTool(BaseTool):
             specs = [hit.specs[0] for hit in hits]
             extra = [row for hit in hits for row in hit.specs[1:]]
             summary = " vs ".join(spec.for_spec for spec in specs)
-            inferred = any(h.inferred for h in hits)
+            inferred, said = any(h.inferred for h in hits), any(h.state_supplied for h in hits)
             return f"{len(specs)} geographies: {summary}", _compare_result(
-                specs, extra, legal=True, inferred=inferred
+                specs, extra, inferred, said
             )
         if not legs and level_name(level) != "us":
             return _fail(
@@ -246,11 +270,11 @@ class ResolveGeographyTool(BaseTool):
         parent = parent or "state"
         in_parts: dict[str, str] = {}
         leftover: list[dict[str, str]] = []
-        guessed = False
+        dropped: StateRef | None = None
         if parent != "us":
             state = state_of(owner) if "," in owner or parent == "state" else None
             if "," in owner and parent != "state":
-                state, guessed = self._written(state)
+                state, dropped = self._written(state)
             if parent == "state" and (state is None or not _only_state(owner)):
                 return _fail(
                     f"{owner!r} is not a state; send parent_level for what it is",
@@ -275,18 +299,8 @@ class ResolveGeographyTool(BaseTool):
             matched = rank_matches(filter_rows(name_token(owner), rows))
             if not matched:
                 return _fail(f"{for_level} nested in unresolved {parent}", wildcard=True)
-            if where.get("state") == "*" and not dominant(matched):
-                names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
-                detail = f"{owner!r} matches {len(matched)} places ({names}); name its state"
-                found = [_spec(row, dataset, year) for row in matched[:MAX_CANDIDATES]]
-                return detail, ResolveGeographyResult(
-                    specs=found,
-                    wildcard=False,
-                    legal=True,
-                    detail=detail,
-                    ambiguous=True,
-                    state_supplied=guessed,
-                )
+            if where.get("state") == "*" and (not dominant(matched) or _moved(dropped, matched)):
+                return _unclear(owner, matched, dataset, year, dropped)
             pick, leftover = matched[0], matched[1:]
             in_parts.update(clause_codes(pick.get("in", "")))
             parsed = clause_codes(pick["for"])
@@ -313,7 +327,11 @@ class ResolveGeographyTool(BaseTool):
         )
         others = [_spec(row, dataset, year) for row in leftover]
         result = ResolveGeographyResult(
-            specs=[spec, *others], wildcard=True, legal=True, detail="", state_supplied=guessed
+            specs=[spec, *others],
+            wildcard=True,
+            legal=True,
+            detail="",
+            state_supplied=dropped is not None,
         )
         return f"wildcard {spec.for_spec} {spec.in_spec}".strip(), result
 
@@ -338,9 +356,9 @@ class ResolveGeographyTool(BaseTool):
             result = ResolveGeographyResult(specs=[spec], wildcard=False, legal=True, detail="")
             return f"1 geography: {spec.for_spec}", result
         state = state_of(entry) if "," in entry or for_level in {None, "state"} else None
-        guessed = False
+        dropped: StateRef | None = None
         if "," in entry and for_level not in {"state", ZCTA}:
-            state, guessed = self._written(state)
+            state, dropped = self._written(state)
         if for_level is None:
             for_level = "state" if state and _only_state(entry) else "place"
         in_parts: dict[str, str] = {}
@@ -397,18 +415,8 @@ class ResolveGeographyTool(BaseTool):
             )
             matched = named_rows(token, county)
         specs = [_spec(row, dataset, year) for row in matched]
-        if list_in.get("state") == "*" and not dominant(matched):  # fewer than two always dominate
-            names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
-            detail = f"{entry!r} matches {len(matched)} places ({names}); name its state"
-            return detail, ResolveGeographyResult(
-                specs=specs[:MAX_CANDIDATES],
-                wildcard=False,
-                legal=True,
-                detail=detail,
-                ambiguous=True,
-                dominant=False,
-                state_supplied=guessed,
-            )
+        if list_in.get("state") == "*" and (not dominant(matched) or _moved(dropped, matched)):
+            return _unclear(entry, matched, dataset, year, dropped)
         detail = f"no {for_level} matched {entry!r}" if not specs else ""
         result = ResolveGeographyResult(
             specs=specs,
@@ -417,7 +425,7 @@ class ResolveGeographyTool(BaseTool):
             detail=detail,
             inferred=inferred,
             dominant=dominant(matched),
-            state_supplied=guessed,
+            state_supplied=dropped is not None,
         )
         n = len(specs)
         chosen = specs[0] if specs else None
