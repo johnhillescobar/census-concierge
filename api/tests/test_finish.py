@@ -745,6 +745,22 @@ async def test_a_county_parent_the_loop_already_carries_stands() -> None:
     assert seen == []
 
 
+async def test_every_county_parent_must_be_carried_or_the_listing_is_resolved_again() -> None:
+    cook = GeoSpec(level="tract", name="t", for_spec="tract:*", in_spec="state:17 county:031")
+    kings_statewide = GeoSpec(level="tract", name="t", for_spec="tract:*", in_spec="state:36")
+    reply = _splitter(["Cook County, Illinois", "Kings County, New York"], "tract", "county")
+    seen, _ = await _run_split(
+        "Every tract in Cook County, Illinois and Kings County, New York.",
+        [cook, kings_statewide],
+        reply,
+        resolved=2,
+        stated=["tract"],
+    )
+    assert [call["parents"] for call in seen] == [
+        ["Cook County, Illinois", "Kings County, New York"]
+    ]
+
+
 def _tracts_in(state: str, county: str) -> GeoSpec:
     return GeoSpec(
         level="tract", name="t", for_spec="tract:*", in_spec=f"state:{state} county:{county}"

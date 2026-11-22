@@ -164,6 +164,10 @@ def test_a_report_for_the_default_product_over_an_acs1_build_does_not_warn() -> 
     record.intent.dataset = "acs5"
     record.vintages = [("acs1", 2022)]
     assert "dataset_mismatch" not in _codes(record)
+    both = ExecutionRecord(question=T12)
+    both.intent.dataset = "acs1"
+    both.vintages = [("acs1", 2022)]
+    assert "dataset_mismatch" not in _codes(both)  # an ACS1 report over an ACS1 build agrees
 
 
 def test_a_report_that_agrees_with_the_build_or_is_absent_does_not_warn() -> None:
