@@ -1,0 +1,174 @@
+CC-104 Gate 1 for the final fixes after the second Gate 2; scope: git diff f48f334 093ca65 -- api docs
+Branch: cc-104/structured-geography
+HEAD: 093ca659e9dd5b8d23613a7b4faac4d447da5129
+git status at start: clean (git status --porcelain empty)
+Rules: one mutation at a time, only the covering tests run (uv run pytest -q -p no:cacheprovider <node ids>),
+restored with git checkout -- <file> after each and `git status --porcelain` confirmed to show only the
+strengthened test file before the next. GOOD = the covering tests fail against the mutation. BAD = they still
+pass. The line under each GOOD/BAD is pytest's real summary; "failing:" names the tests that failed.
+
+Behaviour map (item: source, covering tests):
+ 1  _moved: a state the model attached and the code dropped never moves the answer to another state: geo.py;
+    test_geography_intent.py
+ 2  _unclear shared builder (candidates, ambiguous, not dominant, state_supplied): geo.py; test_geography_intent.py,
+    test_ask_tools.py, test_geography_completeness.py (whole files)
+ 3  _compare_result carries state_supplied (comparison and wildcard-parents): geo.py; test_geography_intent.py
+ 4  state_inferred guard and its registration in evaluate: guards.py; test_geography_intent.py
+ 5  build_url refuses when geography is None: tools.py; test_geography_completeness.py
+ 6  _written returns (kept, dropped): geo.py; test_geography_intent.py
+
+Not mutation-testable (documentation text; no behaviour):
+ - docs/ask-path.md edit
+ - docs/requirements.md edit
+
+--- Round 1: tests as committed at HEAD 093ca65 ---
+
+mutation: geo _moved: always False (a dropped state may move the answer silently)
+GOOD
+2 failed, 1 warning in 3.38s
+  failing: test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None], [written1]
+
+mutation: geo _moved: True whenever a state was dropped
+GOOD
+2 failed, 1 warning in 1.35s
+  failing: test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None], [written1]
+
+mutation: geo _moved: compares the dropped state NAME instead of its FIPS
+GOOD
+2 failed, 1 warning in 1.54s
+  failing: test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None], [written1]
+
+mutation: geo _place: the _moved term dropped from the ambiguity test
+GOOD
+2 failed, 1 warning in 1.15s
+  failing: test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None], [written1]
+
+mutation: geo _list: the _moved term dropped from the ambiguity test
+BAD
+2 passed, 1 warning in 1.33s
+  failing: none
+  cause: the only moved-state test resolves a single place through _place; no test sent a listing parent whose
+         dropped state is not where the largest match lies
+
+mutation: geo _moved: checks the last match instead of the best one
+GOOD
+2 failed, 1 warning in 1.01s
+  failing: test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None], [written1]
+
+mutation: geo _unclear: ambiguous=False
+GOOD
+19 failed, 311 passed, 1 warning in 38.78s
+  failing: 19 tests across the three files, among them test_a_candidate_of_an_ambiguous_name_cannot_be_built_by_passing_its_for_spec,
+           test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match,
+           test_a_comparison_with_an_ambiguous_place_selects_nothing
+
+mutation: geo _unclear: dominant=True
+GOOD
+5 failed, 325 passed, 1 warning in 36.14s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name (3 params),
+           test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match, and one more
+
+mutation: geo _unclear: state_supplied always False
+GOOD
+8 failed, 322 passed, 1 warning in 37.29s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name (3 params),
+           test_a_listing_over_several_parents_refuses_when_one_parent_is_unwritten_and_shared,
+           test_tracts_in_one_named_place_refuse_when_its_state_was_not_written,
+           test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state (2 params), and one more
+
+mutation: geo _unclear: candidates capped at 1 instead of MAX_CANDIDATES
+GOOD
+16 failed, 314 passed, 1 warning in 37.96s
+  failing: 16 tests across the three files, among them test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates,
+           test_springfield_alternatives_are_not_comparison_legs
+
+mutation: geo comparison: direct-comparison call site passes supplied=False
+GOOD
+1 failed, 1 passed, 1 warning in 1.47s
+  failing: test_a_comparison_records_that_a_state_was_supplied
+
+mutation: geo comparison: wildcard-parents call site passes supplied=False
+BAD
+2 passed, 1 warning in 1.02s
+  failing: none
+  cause: the multi-parent listing test is the ambiguous refusal path, which never reaches _compare_result; no test
+         read state_supplied on a multi-parent listing that resolves
+
+mutation: geo _compare_result: inferred and supplied swapped
+GOOD
+1 failed, 1 passed, 1 warning in 1.30s
+  failing: test_a_comparison_records_that_a_state_was_supplied
+
+mutation: guards: state_inferred removed from the guard list in evaluate
+GOOD
+1 failed, 1 warning in 1.25s
+  failing: test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not
+
+mutation: guards.state_inferred: also fires when the place is ambiguous
+BAD
+1 passed, 1 warning in 1.09s
+  failing: none
+  cause: the test only asked for a unique name (Chicago); no case where the place is ambiguous and ambiguous_place
+         already speaks
+
+mutation: guards.state_inferred: fires when state_supplied is False
+GOOD
+1 failed, 1 warning in 1.29s
+  failing: test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not
+
+mutation: guards.state_inferred: condition inverted
+GOOD
+1 failed, 1 warning in 1.37s
+  failing: test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not
+
+mutation: tools BuildUrlTool: the `geography is None` refusal dropped
+GOOD
+1 failed, 1 warning in 1.20s
+  failing: test_a_candidate_of_an_ambiguous_name_cannot_be_built_by_passing_its_for_spec
+
+mutation: geo _written: a drop returns (None, None), losing the dropped state
+GOOD
+3 failed, 3 passed, 1 warning in 1.29s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name (3 params)
+
+mutation: geo _written: a drop returns (state, state), keeping the state as well
+GOOD
+3 failed, 3 passed, 1 warning in 1.23s
+  failing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name (3 params)
+
+--- Round 2: the 3 BAD strengthened (behaviour assertions only), real code passes, the BAD mutations re-run ---
+Test changes (api/tests/test_geography_intent.py; ruff format and ruff check clean):
+ - new test_a_listing_parent_whose_dropped_state_is_not_the_largest_is_unclear: Orange County, CA (3.2M) dwarfs
+   Orange County, FL (300k); the model says FL, the user wrote none -> ambiguous, state_supplied, not dominant,
+   both candidates; the model own largest state (CA) stays selected; a written FL selects Florida unambiguously
+ - new test_a_listing_over_several_parents_records_that_a_state_was_supplied: Cook County IL + Wayne County MI,
+   each the dominant match; states unwritten -> a resolved comparison with state_supplied True and not ambiguous;
+   states written -> state_supplied False
+ - test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not: the ask helper takes the place and
+   returns (answered, warning codes); new case Springfield, IL unwritten -> no URL, ambiguous_place present,
+   state_inferred absent
+ Real code: all three pass.
+
+mutation: geo _list: the _moved term dropped from the ambiguity test [strengthened test]
+GOOD
+1 failed, 1 warning in 1.21s
+  failing: test_a_listing_parent_whose_dropped_state_is_not_the_largest_is_unclear
+  (also GOOD with _moved always False: 1 failed, same test)
+
+mutation: geo comparison: wildcard-parents call site passes supplied=False [strengthened test]
+GOOD
+1 failed, 1 warning in 1.29s
+  failing: test_a_listing_over_several_parents_records_that_a_state_was_supplied
+  (also GOOD with inferred and supplied swapped: 1 failed, same test)
+
+mutation: guards.state_inferred: also fires when the place is ambiguous [strengthened test]
+GOOD
+1 failed, 1 warning in 1.56s
+  failing: test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not
+  (re-run against the strengthened test also GOOD: removed from the guard list, fires when state_supplied is
+   False, condition inverted: each 1 failed, same test)
+
+Totals: Round 1: 17 GOOD, 3 BAD (20 mutations). Round 2: all 3 BAD strengthened and now GOOD, plus re-runs of
+their neighbouring mutations GOOD. Final: 20 GOOD, 0 BAD, 0 equivalent.
+No api/src change left in place (git status showed only the strengthened test file).
+Restored tree (no api/src change), full suite run once (uv run pytest -q -m "not integration"): 1623 passed, 34 skipped

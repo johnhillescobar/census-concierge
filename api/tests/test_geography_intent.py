@@ -800,6 +800,62 @@ async def test_a_listing_over_several_parents_refuses_when_one_parent_is_unwritt
     assert not written.ambiguous and len(written.specs) >= 2
 
 
+async def test_a_listing_over_several_parents_records_that_a_state_was_supplied() -> None:
+    rows = [
+        _row("Cook County, Illinois", "17", "031", "5200000"),
+        _row("Cook County, Minnesota", "27", "031", "5000"),
+        _row("Wayne County, Michigan", "26", "163", "1770000"),
+        _row("Wayne County, North Carolina", "37", "191", "120000"),
+    ]
+
+    def counties(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        state = parts.get("state", "*")
+        return [r for r in rows if state == "*" or r["in"] == f"state:{state}"]
+
+    async def listing(written: list[str]) -> ResolveGeographyResult:
+        tool = _geo_tool(listing=counties)
+        tool.states_named = lambda: written
+        args = {
+            "parents": ["Cook County, IL", "Wayne County, MI"],
+            "parent_level": "county",
+            "level": "tract",
+        }
+        call = {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+        return (await tool.ainvoke(call)).artifact
+
+    unwritten, written = await listing([]), await listing(["IL", "MI"])
+    assert unwritten.compare and not unwritten.ambiguous and unwritten.state_supplied
+    assert written.compare and not written.ambiguous and not written.state_supplied
+
+
+async def test_a_listing_parent_whose_dropped_state_is_not_the_largest_is_unclear() -> None:
+    """Orange County, CA dwarfs Florida's, but the model said FL and the user wrote no state."""
+    rows = [
+        _row("Orange County, California", "06", "059", "3200000"),
+        _row("Orange County, Florida", "12", "095", "300000"),
+    ]
+
+    def counties(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        state = parts.get("state", "*")
+        return [r for r in rows if state == "*" or r["in"] == f"state:{state}"]
+
+    async def listing(parent: str, written: list[str]) -> ResolveGeographyResult:
+        tool = _geo_tool(listing=counties)
+        tool.states_named = lambda: written
+        args = {"parents": [parent], "parent_level": "county", "level": "tract"}
+        call = {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
+        return (await tool.ainvoke(call)).artifact
+
+    moved = await listing("Orange County, FL", [])
+    assert moved.ambiguous and moved.state_supplied and not moved.dominant
+    assert {spec.for_spec for spec in moved.specs} == {"county:059", "county:095"}
+    same = await listing("Orange County, CA", [])
+    assert not same.ambiguous and same.state_supplied  # California is the model's state and largest
+    stated = await listing("Orange County, FL", ["FL"])
+    assert not stated.ambiguous and not stated.state_supplied
+    assert stated.specs[0].in_spec.startswith("state:12")
+
+
 async def test_tracts_in_one_named_place_refuse_when_its_state_was_not_written() -> None:
     from test_tracts_in_place import WITH_STEP, listing
 
@@ -868,13 +924,13 @@ async def test_a_comparison_records_that_a_state_was_supplied() -> None:
 async def test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is_not() -> None:
     from src.ask import ExecutionRecord, run_ask
 
-    async def ask(written: list[str]) -> list[str]:
-        record = ExecutionRecord(question="Population of Chicago")
+    async def ask(written: list[str], place: str = "Chicago, IL") -> tuple[bool, list[str]]:
+        record = ExecutionRecord(question=f"Population of {place}")
         tools = _tools(record)
         tools["resolve_geography"].states_named = lambda: record.intent.states_named
         steps = [
             ("search_tables", {"question": "population"}),
-            ("resolve_geography", {"places": ["Chicago, IL"], "level": "place"}),
+            ("resolve_geography", {"places": [place], "level": "place"}),
             ("build_url", {"table_id": "B01003"}),
             ("fetch_data", {}),
         ]
@@ -882,7 +938,7 @@ async def test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is
             {"content": "", "tool_calls": [{"id": str(n), "name": name, "args": args}]}
             for n, (name, args) in enumerate(steps)
         ]
-        report = {"parents": ["Chicago, IL"], "level": "place", "asks_for": "data"}
+        report = {"parents": [place], "level": "place", "asks_for": "data"}
         report["states_named"] = written
 
         async def complete(messages: list[dict[str, Any]], tool_specs: list[dict[str, Any]]) -> Any:
@@ -891,8 +947,11 @@ async def test_a_state_the_model_added_is_shown_to_the_user_and_a_written_one_is
             return queue.pop(0) if queue else {"content": "done", "tool_calls": []}
 
         response = await run_ask(record.question, complete=complete, tools=tools, record=record)
-        assert response.urls  # a unique name still resolves either way
-        return [w.code for w in response.warnings]
+        return bool(response.urls), [w.code for w in response.warnings]
 
-    assert "state_inferred" in await ask([])
-    assert "state_inferred" not in await ask(["Illinois"])
+    answered, codes = await ask([])
+    assert answered and "state_inferred" in codes  # a unique name still resolves
+    answered, codes = await ask(["Illinois"])
+    assert answered and "state_inferred" not in codes
+    answered, codes = await ask([], "Springfield, IL")  # a shared name: ambiguous_place speaks
+    assert not answered and "ambiguous_place" in codes and "state_inferred" not in codes
