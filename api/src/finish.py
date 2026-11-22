@@ -274,7 +274,10 @@ async def _split_parents(
     stood = len(parents) < 2 and geos and any(intent.levels) and not intent.unmet
     if stood and inside and intent.parent_level in {None, "state"}:
         return False  # the state the loop asked for and got stands over a lone report's listing
-    if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside:
+    shallow = intent.parent_level not in {None, "state"} and not all(
+        " " in g.in_spec for g in geos[: len(parents)]
+    )  # a county or place parent needs more than the state in the loop's `in=`
+    if _all_wild(geos) and len(parents) <= len(geos) and all(right) and inside and not shallow:
         return False
     before = {name: getattr(record, name) for name in _SNAPSHOT}
     legs = list(intent.legs)

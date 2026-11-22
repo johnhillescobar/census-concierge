@@ -154,11 +154,11 @@ def dataset_mismatch(record: GuardRecord) -> AskWarning | None:
     built = str(
         getattr(artifact, "dataset", "") or (record.vintages[-1][0] if record.vintages else "")
     )
-    if said not in {"acs1", "acs5"} or built not in {"acs1", "acs5"} or said == built:
+    if said != "acs1" or built != "acs5":  # ACS5 is the default, so only ACS1 is a request
         return None
     return AskWarning(
         code="dataset_mismatch",
-        detail=f"the report asked for {said.upper()}; the request was built as {built.upper()}",
+        detail="the report asked for ACS1; the request was built as ACS5",
     )
 
 

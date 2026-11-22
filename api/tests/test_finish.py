@@ -721,6 +721,30 @@ async def test_an_acs1_report_resolves_again_when_the_loop_built_no_url() -> Non
     assert [call.get("dataset") for call in seen] == ["acs1"]
 
 
+async def test_a_county_parent_is_resolved_again_when_the_loop_stopped_at_the_state() -> None:
+    statewide = GeoSpec(level="tract", name="t", for_spec="tract:*", in_spec="state:17")
+    seen, _ = await _run_split(
+        "Every tract in Cook County, Illinois.",
+        [statewide],
+        _splitter(["Cook County, Illinois"], level="tract", parent_level="county"),
+        resolved=1,
+        stated=["tract"],
+    )
+    assert [call["parents"] for call in seen] == [["Cook County, Illinois"]]
+
+
+async def test_a_county_parent_the_loop_already_carries_stands() -> None:
+    one_county = GeoSpec(level="tract", name="t", for_spec="tract:*", in_spec="state:17 county:031")
+    seen, _ = await _run_split(
+        "Every tract in Cook County, Illinois.",
+        [one_county],
+        _splitter(["Cook County, Illinois"], level="tract", parent_level="county"),
+        resolved=1,
+        stated=["tract"],
+    )
+    assert seen == []
+
+
 def _tracts_in(state: str, county: str) -> GeoSpec:
     return GeoSpec(
         level="tract", name="t", for_spec="tract:*", in_spec=f"state:{state} county:{county}"

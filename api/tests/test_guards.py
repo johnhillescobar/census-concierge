@@ -159,6 +159,13 @@ def test_the_fetched_product_outranks_the_vintage_list_for_the_mismatch() -> Non
     assert "dataset_mismatch" not in _codes(record)
 
 
+def test_a_report_for_the_default_product_over_an_acs1_build_does_not_warn() -> None:
+    record = ExecutionRecord(question=T12)
+    record.intent.dataset = "acs5"
+    record.vintages = [("acs1", 2022)]
+    assert "dataset_mismatch" not in _codes(record)
+
+
 def test_a_report_that_agrees_with_the_build_or_is_absent_does_not_warn() -> None:
     agreed = ExecutionRecord(question=T12)
     agreed.intent.dataset = "acs1"
