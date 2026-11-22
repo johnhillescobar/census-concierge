@@ -30,7 +30,7 @@ retries: search (only if the pool is empty); resolve
 (from the model's own split report, including its dataset and years; never from the question's words);
 build, unless `geo_status.nested` is False; then fetch. Non-expressible
 containment stops — it does not invent nested `for`/`in`.
-A URL the loop built stands even when the report names the other product; `dataset_mismatch` warns.
+A URL the loop built stands even when the report names the other product (`dataset_mismatch` warns) or other years (`year_mismatch`); only a plan override steers a fetch's years. `incomplete()` also refuses a question with no place and no level, or one over several years that names none; a run that ends with no URL says why (`unanswered`).
 
 A listing the loop resolved to the wrong parents, the wrong level, or nothing gets one extra model call
 ([CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)). It needs only the question, so
@@ -93,7 +93,7 @@ comparison), `parents` (a listing: every `level` unit inside them) with `parent_
 / `levels`. Each entry is "Place, ST" or a state alone; its state is an exact lookup on the entry (`state_of`),
 its NAME token the part before the first comma. `level` `us` with no place is the nation; a null level and
 no place, a listing without `level`, or a non-state parent without `parent_level` is refused for repair.
-NAME listing ranks by place class, population, then GEO_ID; `specs[0]` is selected. A token matches the NAME
+NAME listing ranks by place class, population, then GEO_ID. A name with no state is searched across states and selected only if its best match has 4 times the people of the next; otherwise nothing is selected, built or fetched and `ambiguous_place` carries the candidates (direct place, comparison leg and listing parent alike). A comparison resolves every place or none. A token matches the NAME
 head or that head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`) and
 is not retried as its last word. A place with a null level and no NAME hit falls back to the county listing,
 flagged inferred. A listing parent (county, or the place a tract lies in) named without its state is searched across states and taken only if its best match has 4 times the people of the next (`dominant`, Census population, no list of cities); otherwise `ambiguous_place` returns the ranked candidates and nothing is selected, built or fetched. A direct single place keeps the largest match with the others as alternatives. A blank
