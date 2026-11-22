@@ -65,7 +65,7 @@ status = "PASS"
 command = "uv run python scripts/check_budgets.py"
 expected = "The 20s ceiling is unchanged and demo.p95_latency_seconds is still read from the run."
 observed = "p95_latency_seconds remains 20.0. The post-merge run records demo.p95_latency_seconds 20.714 (slowest trial 32.514) at 989f2b4. The top-level p95 key stays 18.928, the last under-ceiling value, because an over-ceiling result is not promoted. The owner raised api_src_loc 4890 to 5100 in PR #136 so the wait could land; measured 4907 on this head. The ceiling was not changed."
-evidence = [{ path = "evidence/slice-6/cc-125/latest-after-demo.json", sha256 = "e8537f44c63b312bcf2942e66e53d62e44bfdd8670126841a9f5752496e66305" }]
+evidence = [{ path = "evidence/slice-6/cc-125/latest-after-demo.json", sha256 = "e5c48d486d68486c4146da3abd04262fd577001016f439af9dc0682927ec414b" }]
 tested_head = "989f2b4ee0823e29c2b5eef4fcab34d386393b3b"
 affects = ["api/src/retrieval/rerank.py", "budgets.toml"]
 new_tests = false
@@ -89,4 +89,4 @@ status = "AMENDED"
 
 [post_merge]
 main_head = "989f2b4ee0823e29c2b5eef4fcab34d386393b3b"
-e2e = { path = "evidence/slice-6/cc-125/e2e-post.txt", sha256 = "e7d8de82d5d7f7cee0c9802312fc6e194fd69c73f52dea9530c558baf25b9c5d" }
+e2e = { path = "evidence/slice-6/cc-125/e2e-post.txt", sha256 = "f2a651483eb438de791ab3da41276c34850c834dfcb59273e828655cb4236a80" }
