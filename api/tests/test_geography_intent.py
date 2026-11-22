@@ -766,7 +766,7 @@ ORANGES = [
     _row("Orange County, Florida", "12", "095", "1400000"),
     _row("Orange County, California", "06", "059", "3200000"),
     _row("Wayne County, Michigan", "26", "163", "1770000"),
-    _row("Wayne County, North Carolina", "37", "191", "117000"),
+    _row("Wayne County, North Carolina", "37", "191", "1500000"),
 ]
 
 
@@ -792,6 +792,10 @@ async def test_a_listing_over_several_parents_refuses_when_one_parent_is_unwritt
     assert (
         unwritten.ambiguous and unwritten.state_supplied
     )  # the model added FL; no Orange is chosen
+    assert [s.for_spec for s in unwritten.specs] == [
+        "county:059",
+        "county:095",
+    ]  # Orange, the first
     written = await listing(["FL", "MI"])
     assert not written.ambiguous and len(written.specs) >= 2
 
@@ -821,8 +825,10 @@ async def test_tracts_in_one_named_place_refuse_when_its_state_was_not_written()
         call = {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
         return (await tool.ainvoke(call)).artifact
 
-    assert (await tracts([])).ambiguous  # a state the user never wrote cannot settle the name
-    assert not (await tracts(["MO"])).ambiguous
+    unwritten, written = await tracts([]), await tracts(["MO"])
+    assert unwritten.ambiguous  # a state the user never wrote cannot settle the name
+    assert unwritten.state_supplied  # and the result says the model added the state
+    assert not written.ambiguous and not written.state_supplied
 
 
 async def test_a_nationwide_listing_is_told_how_to_be_asked() -> None:

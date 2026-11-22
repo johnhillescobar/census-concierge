@@ -300,6 +300,18 @@ async def test_a_comparison_that_names_no_place_ends_with_a_message_and_no_natio
     assert "geography_level_mismatch" not in [w.code for w in response.warnings]
 
 
+@pytest.mark.parametrize("attempt", NO_PLACE_STEPS[2:], ids=["build", "fetch"])
+async def test_either_attempt_with_no_place_is_told_no_place_was_resolved(
+    attempt: tuple[str, dict[str, Any]],
+) -> None:
+    steps = [*NO_PLACE_STEPS[:2], attempt]
+    response, record, fetched, _ = await _run(
+        "Median gross rent somewhere", EMPTY_REPORT, steps=steps
+    )
+    assert fetched == [] and response.urls == [] and record.url is None
+    assert response.answer.startswith("Nothing was fetched because no place was resolved")
+
+
 async def test_the_nation_is_fetched_only_when_the_model_states_it() -> None:
     steps = [*NO_PLACE_STEPS[:1], ("resolve_geography", {"level": "us", "places": []})]
     response, record, fetched, _ = await _run(
