@@ -1,0 +1,577 @@
+CC-125 Gate 1 | Slice 6 | 2026-11-21
+
+Repo path: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125
+Phase: gate1
+Review base: origin/main
+Review head: HEAD
+Evidence: evidence/slice-6/cc-125/gate1.txt
+make is not used. The test recipe is: uv run pytest -q -m "not integration"
+Adversarial matrix tests: api/tests/test_process.py (docs/process-evidence.md)
+Catalogs read for touched paths (api/src/retrieval/rerank.py, api/tests/test_rerank.py): docs/retrieval.md, docs/ask-path.md, docs/requirements.md, docs/slices.md
+
+$ git rev-parse --show-toplevel
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-125
+Exit code 0
+
+$ git branch --show-current
+cc-125/rerank-wait
+Exit code 0
+
+$ git rev-parse HEAD
+aef4d7afdac73214754530755995b7b8448dd80e
+Exit code 0
+
+$ git rev-parse origin/main
+7239f325e77b6d2df6837b72721aeb559337a715
+Exit code 0
+
+$ git status --porcelain=v1 --branch
+## cc-125/rerank-wait...origin/cc-125/rerank-wait
+?? evidence/slice-6/cc-125/
+Exit code 0
+
+$ git log --oneline origin/main..HEAD
+aef4d7a fix(api): cancel a stalled Gemini rerank on the calling thread (CC-125)
+3c7c5c7 feat(api): abandon a Gemini rerank after 3 seconds (CC-125)
+Exit code 0
+
+$ git diff --stat origin/main...HEAD
+ api/src/retrieval/rerank.py |  46 +++++--
+ api/tests/test_rerank.py    | 328 +++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 360 insertions(+), 14 deletions(-)
+Exit code 0
+
+$ git diff --name-status origin/main...HEAD
+M	api/src/retrieval/rerank.py
+M	api/tests/test_rerank.py
+Exit code 0
+
+Adversarial matrix (api/tests/test_process.py)
+
+$ uv run pytest -q api/tests/test_process.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+........................                                                 [100%]
+============================== warnings summary ===============================
+api/tests/test_process.py::test_the_expected_number_of_transcripts_are_pinned
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+24 passed, 1 warning in 1.57s
+Exit code 0
+
+GOOD new and existing selector tests at HEAD aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -v api/tests/test_rerank.py
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+api/tests/test_rerank.py::test_gemini_selector_disables_thinking PASSED  [ 16%]
+api/tests/test_rerank.py::test_selector_falls_back_to_retrieval_top_on_error PASSED [ 33%]
+api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick PASSED [ 50%]
+api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline PASSED [ 66%]
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff PASSED [ 83%]
+api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins PASSED [100%]
+
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_gemini_selector_disables_thinking
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 6 passed, 1 warning in 6.00s =========================
+Exit code 0
+
+Makefile test recipe
+
+$ uv run pytest -q -m "not integration"
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 29%]
+...............sssssssssssssssss..sss................................... [ 34%]
+.............................xxxxxxx...x................................ [ 38%]
+........................................................................ [ 43%]
+........................................................................ [ 48%]
+........................................................................ [ 53%]
+........................................................................ [ 58%]
+........................................................................ [ 63%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 87%]
+...............................................F........sssssssssss..s.s [ 92%]
+s....................................................................... [ 97%]
+.........................................                                [100%]
+================================== FAILURES ===================================
+_____________ test_a_retriable_status_does_not_wait_out_a_backoff _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000012FEA7F6990>
+
+    def test_a_retriable_status_does_not_wait_out_a_backoff(monkeypatch) -> None:
+        box: dict[str, object] = {"ready": threading.Event()}
+        threading.Thread(
+            target=_status_server, args=(box, b"503 Service Unavailable"), daemon=True
+        ).start()
+        ready = box["ready"]
+        assert isinstance(ready, threading.Event)
+        assert ready.wait(2)
+    
+        import google.genai as genai
+        from google.genai import types
+    
+        real = genai.Client
+        port = box["port"]
+    
+        def factory(api_key: str | None = None, http_options: object | None = None) -> object:
+            options = (
+                http_options if isinstance(http_options, types.HttpOptions) else types.HttpOptions()
+            )
+            options.base_url = f"http://127.0.0.1:{port}"
+            return real(api_key=api_key or "local", http_options=options)
+    
+        monkeypatch.setenv("GEMINI_API_KEY", "local")
+        monkeypatch.setattr(genai, "Client", factory)
+        started = time.perf_counter()
+        try:
+            picked = choose(
+                "income",
+                [
+                    Candidate("B19113", "Median Family Income", "Families"),
+                    Candidate("B19013", "Median Household Income", "Households"),
+                ],
+            )
+            elapsed = time.perf_counter() - started
+            assert picked == "B19113"
+>           assert box.get("requests") == 1
+E           AssertionError: assert None == 1
+E            +  where None = <built-in method get of dict object at 0x0000012FECCCA9C0>('requests')
+E            +    where <built-in method get of dict object at 0x0000012FECCCA9C0> = {'ready': <threading.Event at 0x12fea8870e0: set>, 'server': <socket.socket fd=860, family=2, type=1, proto=0, laddr=('127.0.0.1', 49266)>, 'port': 49266}.get
+
+api\tests\test_rerank.py:302: AssertionError
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+1 failed, 1438 passed, 34 skipped, 8 xfailed, 1 warning in 148.13s (0:02:28)
+Exit code 1
+
+Isolated rerun of the suite failure. The Makefile test recipe failed this test inside the full suite; these runs execute only that test.
+
+GOOD isolated rerun 1 of api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.74s
+Exit code 0
+
+GOOD isolated rerun 2 of api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.73s
+Exit code 0
+
+GOOD isolated rerun 3 of api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.56s
+Exit code 0
+
+Mutation checks. Each BAD run reverts one behaviour, runs only that test, then restores.
+
+GOOD api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.17s
+Exit code 0
+
+BAD discard a completed model pick and return the retrieval top for api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+________________ test_a_completed_rerank_keeps_the_model_pick _________________
+api\tests\test_rerank.py:93: in test_a_completed_rerank_keeps_the_model_pick
+    assert picked == "B19013"
+E   AssertionError: assert 'B19113' == 'B19013'
+E     
+E     - B19013
+E     ?    ^
+E     + B19113
+E     ?    ^
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_completed_rerank_keeps_the_model_pick
+1 failed, 1 warning in 1.70s
+Exit code 1
+Mutation exit 1 after restore of discard a completed model pick and return the retrieval top
+
+GOOD api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 4.60s
+Exit code 0
+
+BAD leave a stalled Gemini read open past 3 seconds for api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline ___
+api\tests\test_rerank.py:195: in test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+    assert not worker.is_alive()
+E   assert not True
+E    +  where True = is_alive()
+E    +    where is_alive = <Thread(Thread-2 (run), started 39072)>.is_alive
+------------------------------ Captured log call ------------------------------
+WARNING  google_genai.models:models.py:6577 Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+1 failed, 1 warning in 7.15s
+Exit code 1
+Mutation exit 1 after restore of leave a stalled Gemini read open past 3 seconds
+
+BAD copy the local wait into X-Server-Timeout for api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline ___
+api\tests\test_rerank.py:203: in test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+    assert "x-server-timeout" not in request.lower()
+E   assert 'x-server-timeout' not in 'post /v1bet...udget": 0}}}'
+E     
+E     'x-server-timeout' is contained here:
+E       th: 1403
+E       x-server-timeout: 3.0
+E       
+E       {"contents": [{"parts": [{"text": "pick the acs table that best answers the question.\n\nmatch the universe \u2014 households, families, population and housing units are different denominators and picking the wrong one is the most common error in census work. prefer the table whose subject is the question over one that crosses that subject with another variable.\n\nwhen several candidates share a subject, match the title to what the question asks \u2014 not the narrowest cross-tab unless the question names ...
+E     
+E     ...Full output truncated (1 line hidden), use '-vv' to show
+------------------------------ Captured log call ------------------------------
+WARNING  google_genai.models:models.py:6577 Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+1 failed, 1 warning in 5.00s
+Exit code 1
+Mutation exit 1 after restore of copy the local wait into X-Server-Timeout
+
+BAD leave a stalled rerank thread running after choose returns for api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+___ test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline ___
+api\tests\test_rerank.py:205: in test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+    assert holder["left"] == "[]"
+E   assert "['stalled-rerank']" == '[]'
+E     
+E     - []
+E     + ['stalled-rerank']
+------------------------------ Captured log call ------------------------------
+WARNING  google_genai.models:models.py:6577 Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline
+1 failed, 1 warning in 4.92s
+Exit code 1
+Mutation exit 1 after restore of leave a stalled rerank thread running after choose returns
+
+GOOD api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.96s
+Exit code 0
+
+BAD retry a retriable Gemini status through its backoff for api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.42s
+Exit code 0
+Mutation exit 0 after restore of retry a retriable Gemini status through its backoff
+
+GOOD api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins --tb=short
+.                                                                        [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 1 warning in 1.25s
+Exit code 0
+
+BAD propagate a stalled rerank instead of keeping the retrieval top for api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_a_stalled_rerank_keeps_related_tables_universe_and_margins _______
+api\tests\test_rerank.py:336: in test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+    message = await asyncio.wait_for(
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:520: in wait_for
+    return await fut
+           ^^^^^^^^^
+.venv\Lib\site-packages\langchain_core\tools\base.py:776: in ainvoke
+    return await self.arun(tool_input, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv\Lib\site-packages\langchain_core\tools\base.py:1264: in arun
+    raise error_to_raise
+.venv\Lib\site-packages\langchain_core\tools\base.py:1230: in arun
+    response = await coro_with_context(coro, context)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\tools.py:225: in _arun
+    picked = await asyncio.to_thread(_pick_table, question, hits, self.select)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\asyncio\threads.py:25: in to_thread
+    return await loop.run_in_executor(None, func_call)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\johnh\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\tools.py:137: in _pick_table
+    return choose(
+api\src\retrieval\rerank.py:131: in choose
+    picked = _choose_gemini(question, listing, model)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+api\src\retrieval\rerank.py:96: in _choose_gemini
+    response = client.models.generate_content(
+api\tests\test_rerank.py:314: in generate_content
+    raise httpx.ReadTimeout("rerank deadline")
+E   httpx.ReadTimeout: rerank deadline
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+1 failed, 1 warning in 1.68s
+Exit code 1
+Mutation exit 1 after restore of propagate a stalled rerank instead of keeping the retrieval top
+
+BAD drop related tables and keep only the selected hit for api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_a_stalled_rerank_keeps_related_tables_universe_and_margins _______
+api\tests\test_rerank.py:353: in test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+    assert [hit["table_id"] for hit in hits] == ["B19113", "B19013"]
+E   AssertionError: assert ['B19113'] == ['B19113', 'B19013']
+E     
+E     Right contains one more item: 'B19013'
+E     Use -v to get more diff
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+1 failed, 1 warning in 2.09s
+Exit code 1
+Mutation exit 1 after restore of drop related tables and keep only the selected hit
+
+BAD omit the margin of error beside the estimate for api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_a_stalled_rerank_keeps_related_tables_universe_and_margins _______
+api\tests\test_rerank.py:366: in test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+    assert "B19113_001M" in built.artifact.url
+E   AssertionError: assert 'B19113_001M' in 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19113_001E&for=county:201&in=state:48'
+E    +  where 'https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19113_001E&for=county:201&in=state:48' = BuildUrlResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19113_001E&for=county:201&in=state:48', table_id='B19113', variables=['B19113_001E'], dataset='acs5', vintage=2024, detail='', universe='Families').url
+E    +    where BuildUrlResult(ok=True, url='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19113_001E&for=county:201&in=state:48', table_id='B19113', variables=['B19113_001E'], dataset='acs5', vintage=2024, detail='', universe='Families') = ToolMessage(content='https://api.census.gov/data/2024/acs/acs5?get=NAME,GEO_ID,B19113_001E&for=county:201&in=state:48'...state:48', table_id='B19113', variables=['B19113_001E'], dataset='acs5', vintage=2024, detail='', universe='Families')).artifact
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+1 failed, 1 warning in 1.76s
+Exit code 1
+Mutation exit 1 after restore of omit the margin of error beside the estimate
+
+BAD omit the published universe from search hits for api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+
+$ uv run pytest -q api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins --tb=short
+F                                                                        [100%]
+================================== FAILURES ===================================
+_______ test_a_stalled_rerank_keeps_related_tables_universe_and_margins _______
+api\tests\test_rerank.py:352: in test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+    assert hits[0]["universe"] == "Families"
+E   AssertionError: assert '' == 'Families'
+E     
+E     - Families
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins
+1 failed, 1 warning in 1.45s
+Exit code 1
+Mutation exit 1 after restore of omit the published universe from search hits
+
+Pristine check after mutations
+
+GOOD restored new selector tests on aef4d7afdac73214754530755995b7b8448dd80e
+
+$ uv run pytest -q api/tests/test_rerank.py --tb=line
+......                                                                   [100%]
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_gemini_selector_disables_thinking
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6 passed, 1 warning in 6.12s
+Exit code 0
+
+$ git diff --stat -- api/src/retrieval/rerank.py api/src/tools.py api/tests/test_rerank.py
+
+Exit code 0
+
+$ git status --porcelain=v1 --branch
+## cc-125/rerank-wait...origin/cc-125/rerank-wait
+?? evidence/slice-6/cc-125/
+Exit code 0
+
+BAD retry a retriable Gemini status through its backoff for api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+Rerun after the first attempts=4 run passed in 1.42s without a second request. This run deletes the rerank bytecode and confirms the source line before pytest.
+$ Select-String HttpRetryOptions api/src/retrieval/rerank.py
+retry_options=types.HttpRetryOptions(attempts=4),
+$ uv run pytest -q api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff --tb=short
+warning: `VIRTUAL_ENV=C:\Users\johnh\Dropbox\Python\census-concierge\.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+F                                                                        [100%]
+================================== FAILURES ===================================
+_____________ test_a_retriable_status_does_not_wait_out_a_backoff _____________
+api\tests\test_rerank.py:302: in test_a_retriable_status_does_not_wait_out_a_backoff
+    assert box.get("requests") == 1
+E   AssertionError: assert 2 == 1
+E    +  where 2 = <built-in method get of dict object at 0x0000028557831140>('requests')
+E    +    where <built-in method get of dict object at 0x0000028557831140> = {'ready': <threading.Event at 0x2855780ef30: set>, 'server': <socket.socket fd=936, family=2, type=1, proto=0, laddr=('127.0.0.1', 53233)>, 'port': 53233, 'requests': 2}.get
+------------------------------ Captured log call ------------------------------
+WARNING  google_genai.models:models.py:6577 Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+============================== warnings summary ===============================
+api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-125\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED api/tests/test_rerank.py::test_a_retriable_status_does_not_wait_out_a_backoff
+1 failed, 1 warning in 3.95s
+Exit code 1
+
+$ git diff --stat -- api/src/retrieval/rerank.py api/src/tools.py api/tests/test_rerank.py
+(no diff)
+Exit code 0
+$ git status --porcelain=v1 --branch
+## cc-125/rerank-wait...origin/cc-125/rerank-wait ?? evidence/slice-6/cc-125/ 
+Exit code 0
+
+$ git status --porcelain=v1 --branch
+## cc-125/rerank-wait...origin/cc-125/rerank-wait
+?? evidence/slice-6/cc-125/
+Exit code 0
+$ git diff --exit-code
+(no diff)
+Exit code 0
+
+Gate 1 verdict: FAIL. The Makefile test recipe, uv run pytest -q -m "not integration", exited 1: test_a_retriable_status_does_not_wait_out_a_backoff failed in the suite because requests was None. That test passed when api/tests/test_rerank.py ran alone and on three isolated reruns. Adversarial-matrix tests in api/tests/test_process.py passed (24). Each new test failed when its behaviour was reverted. The attempts=4 mutation first passed in 1.42s; the rerun with bytecode cleared failed, assert 2 == 1. Source was restored. The only uncommitted path is evidence/slice-6/cc-125/.
