@@ -1,0 +1,92 @@
+ticket = "CC-125"
+head = "989f2b4ee0823e29c2b5eef4fcab34d386393b3b"
+required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7"]
+
+[[amendment]]
+id = "AC3"
+date = "2026-11-22"
+owner = "John Hill Escobar"
+reason = "No same-window unbound arm was run. Owner closed on the two bound repeat-3 measurements: selector @1 0.800 then 0.725 (3 of 40 questions, each left on retrieval rank 1), long_tail answered 0.733 both times, demo p95 26.391s then 20.714s."
+destination = "Recorded on CC-125. No follow-up ticket. Jira: https://johnhillescobar.atlassian.net/browse/CC-125"
+
+[[amendment]]
+id = "AC7"
+date = "2026-11-22"
+owner = "John Hill Escobar"
+reason = "Owner closed CC-125 on the post-merge scoreboard without a new sealed aggregate. The sealed set was not read."
+destination = "CC-3 AC6-12. Jira: https://johnhillescobar.atlassian.net/browse/CC-3"
+
+[[row]]
+id = "AC1"
+status = "PASS"
+command = "uv run pytest api/tests/test_rerank.py -q"
+expected = "A Gemini rerank still running at 3 seconds is abandoned on the client and choose() returns the top retrieval candidate. No server-deadline header."
+observed = "Gate 1 rerun at 7fd700a, recorded in gate1-rerun.txt. test_a_stalled_call_is_abandoned_at_3_seconds_without_a_server_deadline and test_selector_falls_back_to_retrieval_top_on_error cover the bound and the fallback. The httpx timeout is local because Gemini rejects a server deadline under 10 seconds."
+evidence = [{ path = "evidence/slice-6/cc-125/gate1-rerun.txt", sha256 = "25558a5c394cd80c7f4b79483f6aac4c18ed4b8257eebdfc78561093ed0dba1b" }]
+tested_head = "3f3b7983f1d2d3401f1b4ac62d7917c89c5d375a"
+affects = ["api/src/retrieval/rerank.py", "api/tests/test_rerank.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-125/gate1-rerun.txt", sha256 = "25558a5c394cd80c7f4b79483f6aac4c18ed4b8257eebdfc78561093ed0dba1b" }
+reviewer = "evidence/slice-6/cc-125/gate2.txt"
+
+[[row]]
+id = "AC2"
+status = "PASS"
+command = "uv run pytest api/tests/test_rerank.py -q"
+expected = "The abandoned call does not keep a thread or connection until the process exits."
+observed = "The 3s bound is an httpx timeout on the calling thread, with one attempt so a 503 cannot add a backoff. test_a_retriable_status_does_not_wait_out_a_backoff counts sends. Gate 1 rerun passed after that count moved off a local socket."
+evidence = [{ path = "evidence/slice-6/cc-125/gate1-rerun.txt", sha256 = "25558a5c394cd80c7f4b79483f6aac4c18ed4b8257eebdfc78561093ed0dba1b" }]
+tested_head = "3f3b7983f1d2d3401f1b4ac62d7917c89c5d375a"
+affects = ["api/src/retrieval/rerank.py", "api/tests/test_rerank.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-125/gate1-rerun.txt", sha256 = "25558a5c394cd80c7f4b79483f6aac4c18ed4b8257eebdfc78561093ed0dba1b" }
+reviewer = "evidence/slice-6/cc-125/gate2.txt"
+
+[[row]]
+id = "AC3"
+status = "AMENDED"
+
+[[row]]
+id = "AC4"
+status = "PASS"
+command = "uv run pytest api/tests/test_rerank.py::test_a_stalled_rerank_keeps_related_tables_universe_and_margins -q"
+expected = "A fallback answer still lists the other table, shows that table's universe, and builds the M variable beside the estimate."
+observed = "The stalled-rerank test keeps B19013 beside B19113, universes Families and Households, and B19113_001M on the built URL."
+evidence = [{ path = "evidence/slice-6/cc-125/gate1-rerun.txt", sha256 = "25558a5c394cd80c7f4b79483f6aac4c18ed4b8257eebdfc78561093ed0dba1b" }]
+tested_head = "3f3b7983f1d2d3401f1b4ac62d7917c89c5d375a"
+affects = ["api/tests/test_rerank.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-125/gate1-rerun.txt", sha256 = "25558a5c394cd80c7f4b79483f6aac4c18ed4b8257eebdfc78561093ed0dba1b" }
+reviewer = "evidence/slice-6/cc-125/gate2.txt"
+
+[[row]]
+id = "AC5"
+status = "PASS"
+command = "uv run python scripts/check_budgets.py"
+expected = "The 20s ceiling is unchanged and demo.p95_latency_seconds is still read from the run."
+observed = "p95_latency_seconds remains 20.0. The post-merge run records demo.p95_latency_seconds 20.714 (slowest trial 32.514) at 989f2b4. The top-level p95 key stays 18.928, the last under-ceiling value, because an over-ceiling result is not promoted. The owner raised api_src_loc 4890 to 5100 in PR #136 so the wait could land; measured 4907 on this head. The ceiling was not changed."
+evidence = [{ path = "evidence/slice-6/cc-125/latest-after-demo.json", sha256 = "e5c48d486d68486c4146da3abd04262fd577001016f439af9dc0682927ec414b" }]
+tested_head = "989f2b4ee0823e29c2b5eef4fcab34d386393b3b"
+affects = ["api/src/retrieval/rerank.py", "budgets.toml"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-125/gate2.txt"
+
+[[row]]
+id = "AC6"
+status = "PASS"
+command = "git diff -U0 8f95001 989f2b4 -- api/src"
+expected = "No regex or keyword matching and no new graph node."
+observed = "The api/src diff from 8f95001 to 989f2b4 adds no re. call. api/src contains no add_node. Gate 2's code pass found nothing."
+evidence = [{ path = "evidence/slice-6/cc-125/gate2.txt", sha256 = "268cfbc934b2a0e2ea0c0336229717194fa0ecff3e37626f15ba8d69c646e900" }]
+tested_head = "3f3b7983f1d2d3401f1b4ac62d7917c89c5d375a"
+affects = ["api/src/retrieval/rerank.py"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-125/gate2.txt"
+
+[[row]]
+id = "AC7"
+status = "AMENDED"
+
+[post_merge]
+main_head = "989f2b4ee0823e29c2b5eef4fcab34d386393b3b"
+e2e = { path = "evidence/slice-6/cc-125/e2e-post.txt", sha256 = "f2a651483eb438de791ab3da41276c34850c834dfcb59273e828655cb4236a80" }
