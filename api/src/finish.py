@@ -195,6 +195,23 @@ def _join(parts: list[str]) -> str:
     return ", ".join(parts[:-1]) + (" and " if len(parts) > 1 else "") + parts[-1]
 
 
+def unanswered(record: Any) -> str | None:
+    """Why nothing was built, when the loop and the repair ended with no URL: never a silent end."""
+    if getattr(record, "url", None) or intent_of(record).tables_only:
+        return None
+    if (getattr(record, "geo_status", None) or {}).get("ambiguous"):
+        return (
+            "Nothing was fetched because a place name matches several places. Name the state "
+            "and ask again; the candidates are listed with the warning."
+        )
+    if not getattr(record, "geographies", None):
+        return (
+            "Nothing was fetched because no place was resolved. "
+            "Name the place, with its state, and ask again."
+        )
+    return None
+
+
 def _stop(record: Any, why: str, fix: str) -> str:
     """The answer for a question that cannot be searched: what is missing, and no URL."""
     record.geo_status = {"legal": False, "detail": why, "nested": True}
@@ -349,7 +366,8 @@ async def finish_tools(
     geo = tools.get("resolve_geography")
     url = getattr(record, "url", None)
     plan = getattr(record, "override", None)
-    refused = bool((getattr(record, "geo_status", None) or {}).get("refused"))  # never re-guess it
+    status0 = getattr(record, "geo_status", None) or {}
+    refused = bool(status0.get("refused") or status0.get("ambiguous"))  # never re-guess either
     try:
         found = await asyncio.wait_for(split, SPLIT_WAIT_SECONDS) if split is not None else None
     except TimeoutError:

@@ -257,6 +257,82 @@ async def test_only_a_true_flag_is_a_trend_and_only_a_list_of_strings_names_stat
     assert (await _split(parents=["Ohio"])).states_named is None  # unknown, never "none named"
 
 
+NO_PLACE_STEPS = [
+    ("search_tables", {"question": "median gross rent"}),
+    ("resolve_geography", {"level": None, "places": []}),
+    ("build_url", {"table_id": "B25064"}),
+    ("fetch_data", {}),
+]
+EMPTY_REPORT = {"content": "{}", "tool_calls": []}  # a report that says nothing: the loop runs
+
+
+@pytest.mark.parametrize("report", [EMPTY_REPORT, {"content": "not json", "tool_calls": []}])
+async def test_a_comparison_that_names_no_place_ends_with_a_message_and_no_national_fetch(
+    report: dict[str, Any],
+) -> None:
+    response, record, fetched, _ = await _run(
+        "Is median gross rent higher in one city than another?", report, steps=NO_PLACE_STEPS
+    )
+    assert response.urls == [] and response.rows == []
+    assert fetched == [] and record.geographies == [] and record.url is None
+    assert response.answer.startswith("Nothing was fetched because no place was resolved")
+    assert "geography_level_mismatch" not in [w.code for w in response.warnings]
+
+
+async def test_the_nation_is_fetched_only_when_the_model_states_it() -> None:
+    steps = [*NO_PLACE_STEPS[:1], ("resolve_geography", {"level": "us", "places": []})]
+    response, record, fetched, _ = await _run(
+        "Median gross rent of the nation", EMPTY_REPORT, steps=[*steps, *NO_PLACE_STEPS[2:]]
+    )
+    assert len(fetched) == 1 and "for=us" in fetched[0]
+    assert response.urls and not response.answer.startswith("Nothing was fetched")
+
+
+async def test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates() -> None:
+    steps = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"places": ["Springfield"], "level": "place"}),
+        ("build_url", {"table_id": "B01003"}),
+        ("fetch_data", {}),
+    ]
+    response, record, fetched, _ = await _run(
+        "Population of Springfield", _frame("place", ["Springfield"]), steps=steps
+    )
+    assert response.urls == [] and response.rows == [] and fetched == []
+    assert record.geography is None and record.geo_status["ambiguous"] is True
+    assert response.answer.startswith("Nothing was fetched because a place name matches")
+    warning = next(w for w in response.warnings if w.code == "ambiguous_place")
+    assert len(warning.candidates) == 3
+
+
+async def test_a_comparison_missing_one_place_is_refused_not_answered_with_the_other() -> None:
+    steps = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"places": ["Chicago, IL", "Zzyzx, TX"], "level": "place"}),
+        ("build_url", {"table_id": "B01003"}),
+        ("fetch_data", {}),
+    ]
+    reply = _frame("place", ["Chicago, IL", "Zzyzx, TX"])
+    response, record, fetched, _ = await _run("Compare Chicago and Zzyzx", reply, steps=steps)
+    assert response.urls == [] and response.rows == [] and fetched == []
+    warning = next(w for w in response.warnings if w.code == "geography_unsupported")
+    assert "Zzyzx, TX" in warning.detail and "Chicago" not in warning.detail
+
+
+async def test_a_name_with_one_clear_largest_match_still_resolves_without_its_state() -> None:
+    steps = [
+        ("search_tables", {"question": "population"}),
+        ("resolve_geography", {"places": ["Chicago"], "level": "place"}),
+        ("build_url", {"table_id": "B01003"}),
+        ("fetch_data", {}),
+    ]
+    response, record, fetched, _ = await _run(
+        "Population of Chicago", _frame("place", ["Chicago"]), steps=steps
+    )
+    assert len(fetched) == 1 and response.urls and response.rows
+    assert not response.answer.startswith("Nothing was fetched")
+
+
 async def test_a_nation_the_model_states_is_not_a_missing_place() -> None:
     response, record, fetched = await _ask("Total population of the nation", _frame("us", []))
     assert STOPPED not in response.answer

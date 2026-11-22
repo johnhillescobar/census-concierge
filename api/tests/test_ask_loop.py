@@ -827,7 +827,7 @@ async def test_versus_geography_does_not_warn_ambiguous_place() -> None:
     assert [item.code for item in response.warnings] == ["shared_sample"]
 
 
-async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
+async def test_versus_with_an_ambiguous_place_selects_nothing_and_warns() -> None:
     record = ExecutionRecord(question="Springfield versus the Texas average")
     tools = _tools(record)
     await dispatch(
@@ -843,15 +843,15 @@ async def test_versus_with_several_places_warns_and_keeps_both_legs() -> None:
         record,
     )
     assert record.geo_status is not None
-    assert record.geo_status["compare"] is True
-    assert record.geographies[0].for_spec == "place:70000"
-    assert record.geographies[1].for_spec == "state:48"
-    assert len(record.geographies) > 2
+    assert record.geo_status["ambiguous"] is True and record.geo_status["compare"] is False
+    assert record.geography is None  # nothing is selected, so nothing can be built or fetched
+    assert len(record.geographies) == 3  # the candidates
     response = assemble("Springfield vs Texas", record)
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
+    assert len(response.warnings[0].candidates) == 3
     fetch = tools["fetch_data"]
     assert fetch.last_geographies is not None
-    assert [row.for_spec for row in fetch.last_geographies()] == ["place:70000", "state:48"]
+    assert fetch.last_geographies() == []
 
 
 async def test_and_phrased_comparison_resolves_both_geographies() -> None:
@@ -1586,7 +1586,7 @@ async def test_failing_split_call_never_fails_the_request(monkeypatch: Any) -> N
     monkeypatch.setattr("src.ask.finish_tools", spy)
     record = ExecutionRecord()
     response = await run_ask("anything", complete=complete, tools=_tools(record), record=record)
-    assert response.answer == "done" and seen == [None]
+    assert response.answer.startswith("Nothing was fetched") and seen == [None]
 
 
 async def test_split_task_is_cancelled_when_the_loop_raises() -> None:

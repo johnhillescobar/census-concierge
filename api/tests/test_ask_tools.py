@@ -890,7 +890,7 @@ async def test_versus_emits_austin_then_texas_as_comparison_legs() -> None:
     assert artifact.specs[1].in_spec == ""
 
 
-async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
+async def test_a_comparison_with_an_ambiguous_place_selects_nothing() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -905,10 +905,8 @@ async def test_springfield_versus_texas_keeps_place_alternatives() -> None:
         }
     )
     artifact = message.artifact
-    assert artifact.compare is True
-    assert artifact.specs[0].for_spec == "place:70000"
-    assert artifact.specs[1].for_spec == "state:48"
-    assert {row.in_spec for row in artifact.specs[2:]} == {"state:17", "state:51"}
+    assert artifact.ambiguous is True and artifact.compare is False
+    assert {row.in_spec for row in artifact.specs} == {"state:17", "state:29", "state:51"}
 
 
 async def test_springfield_alternatives_are_not_comparison_legs() -> None:
@@ -992,7 +990,7 @@ async def test_portland_selects_oregon_over_maine() -> None:
     assert "alternatives" in message.content
 
 
-async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
+async def test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -1002,15 +1000,14 @@ async def test_springfield_selects_missouri_and_keeps_every_match() -> None:
             "id": "c1",
         }
     )
-    specs = message.artifact.specs
-    assert specs[0].in_spec == "state:29"
-    assert {row.name for row in specs} == {
+    artifact = message.artifact
+    assert artifact.ambiguous is True and artifact.dominant is False
+    assert {row.name for row in artifact.specs} == {
         "Springfield city, Missouri",
         "Springfield city, Illinois",
         "Springfield CDP, Virginia",
     }
-    assert "alternatives" in message.content
-    assert "Springfield city, Illinois" not in message.content
+    assert "name its state" in message.content
 
 
 async def test_state_qualified_place_stays_exact() -> None:

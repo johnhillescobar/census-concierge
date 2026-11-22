@@ -195,19 +195,18 @@ class ResolveGeographyTool(BaseTool):
                 )
             )
             hits = [hit for _detail, hit in resolved]
-            if all(hit.legal and hit.specs for hit in hits):
-                specs = [hit.specs[0] for hit in hits]
-                extra = [row for hit in hits for row in hit.specs[1:]]
-                summary = " vs ".join(spec.for_spec for spec in specs)
-                inferred = any(h.inferred for h in hits)
-                return f"{len(specs)} geographies: {summary}", _compare_result(
-                    specs, extra, legal=True, inferred=inferred
-                )
-            for hit in hits:
-                if hit.legal and hit.specs:
-                    return f"1 geography: {hit.specs[0].for_spec}", hit
-        if len(legs) > 1:
-            return resolved[0]  # no leg resolved: the first leg's own answer, not a second lookup
+            if stuck := next((hit for hit in hits if hit.ambiguous), None):
+                return stuck.detail, stuck  # one ambiguous place: nothing is selected or compared
+            if not all(hit.legal and hit.specs for hit in hits):
+                lost = [leg for leg, h in zip(legs, hits, strict=True) if not (h.legal and h.specs)]
+                return _fail(f"a comparison needs every place; could not resolve {', '.join(lost)}")
+            specs = [hit.specs[0] for hit in hits]
+            extra = [row for hit in hits for row in hit.specs[1:]]
+            summary = " vs ".join(spec.for_spec for spec in specs)
+            inferred = any(h.inferred for h in hits)
+            return f"{len(specs)} geographies: {summary}", _compare_result(
+                specs, extra, legal=True, inferred=inferred
+            )
         if not legs and level_name(level) != "us":
             return _fail(
                 "name the place in places (parents for a listing); level 'us' is the nation"
@@ -373,6 +372,17 @@ class ResolveGeographyTool(BaseTool):
             )
             matched = named_rows(token, county)
         specs = [_spec(row, dataset, year) for row in matched]
+        if list_in.get("state") == "*" and len(matched) > 1 and not dominant(matched):
+            names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
+            detail = f"{entry!r} matches {len(matched)} places ({names}); name its state"
+            return detail, ResolveGeographyResult(
+                specs=specs[:MAX_CANDIDATES],
+                wildcard=False,
+                legal=True,
+                detail=detail,
+                ambiguous=True,
+                dominant=False,
+            )
         detail = f"no {for_level} matched {entry!r}" if not specs else ""
         result = ResolveGeographyResult(
             specs=specs,

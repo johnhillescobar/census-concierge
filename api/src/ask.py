@@ -31,7 +31,7 @@ from src.contract import (
     take_chart,
 )
 from src.fetch import FetchDataResult, FetchDataTool, clear_series, series_from_record
-from src.finish import degraded_answer, finish_tools, incomplete, split_beside
+from src.finish import degraded_answer, finish_tools, incomplete, split_beside, unanswered
 from src.geo import ResolveGeographyTool, track_geo_query
 from src.geo_level import GeoIntent, geo_status, note_intent
 from src.geo_list import list_census_names
@@ -440,6 +440,9 @@ async def run_ask(
         except RuntimeError as exc:
             answer = answer or str(exc)
         await finish_tools(dispatch, tools, record, split)
-    if record.rows and re.match(r"^[a-z_]+ failed twice$", answer):
+    failed = re.match(r"^[a-z_]+ failed twice$", answer)  # a raw tool failure stays visible
+    if record.rows and failed:
         answer = degraded_answer(record)
+    elif not failed and "build_url" in tools:  # the Census path was available
+        answer = unanswered(record) or answer
     return assemble(answer, record)
