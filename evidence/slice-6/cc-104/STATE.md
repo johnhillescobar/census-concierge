@@ -136,6 +136,15 @@ contract.py sit AT the 410-line cap, so any fix there must be net-zero. NEXT: Ga
 TC6-TC14 (the manifest still lists AC1-5/TC1-5 and is stale), then B,P,P,B E2E blocks (owner: run B) in separate worktrees, no other activity during a block.
 The post-rebase ledger/latest.json on main come from CC-125's post-merge run (main 989f2b4: long_tail 0.733, p95 20.714).
 
+## 2026-11-22 (end of day): code frozen at 7073bed; closure manifest regenerated for AC1-AC11 / TC1-TC14
+
+Gate 2 ran twice (gate2-final.txt, gate2-final-r2.txt; the playbook's one re-run is spent); every finding fixed with tests and mutation checks except the deferred
+ones (T8: a plan with geographies and no dataset binds ACS5, API-only, contract.py has no spare line; T9-T15 notes). Gate 1 transcripts are all in the mutation
+index. `closure.py check --pre-merge`: only AC11 and TC14 (the E2E rows) are NOT RUN. Frozen code: 1623 tests pass; api LOC 4998/5100; ask.py AND contract.py
+at the 410-line cap; doc lines 1819/1820. NEXT: announce, then the E2E blocks B,P,P,B (owner said run B), each in its own worktree with index_store/, data/raw/ and
+.env copied in, NO other agent or git command in either worktree while a block runs, HEAD recorded at start and end; then `metric_compare` once; then fill AC11/TC14.
+Comparator FAILs on q42, q43, t01, t14 are the owner's accepted amendment A; any other decrease is not covered. Post-merge E2E precedes Done.
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
