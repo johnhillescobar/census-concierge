@@ -1,0 +1,175 @@
+GATE 2 (cold review) - CC-104 - rebase r2
+Repo: .worktrees/cc-104, branch cc-104/structured-geography
+Review base: origin/main 7239f325e77b6d2df6837b72721aeb559337a715
+Review head: b2716c0a62c57bbea21251ac47374ed5c9de7f10 (checked out HEAD verified equal)
+Diff: git diff 7239f32 b2716c0 -- api web scripts evals budgets.toml docs (37 files, +2476 -1807; web/, scripts/, budgets.toml unchanged)
+Working tree at start: clean.
+
+====================================================================
+PASS 1 - generic bugs (code-review skill, medium; cold read of code only)
+====================================================================
+Recorded before reading any plan/STATE/gate/PR/implementation note (none were read).
+The skill's own findings were re-verified by hand; those that did not hold up are
+downgraded or dropped below. Where a probe was run it is stated.
+
+S1  BLOCKER (process, closure)  evidence/closure/CC-104.toml
+    `uv run python scripts/closure.py check evidence/closure/CC-104.toml` exits
+    BLOCKED: every row AC1-AC5, TC1-TC5 is "stale, 8 covered file(s) changed since
+    69ad347". The manifest pins tested_head 69ad347; commit e926d30 (Gate 2 fixes)
+    then changed api/src/{contract,finish,guards,prompts,tools}.py and
+    api/tests/{test_finish,test_guards,test_plan_override}.py. The manifest's own
+    header says any later change to api/src or api/tests makes every row stale.
+    Failing state: head b2716c0 vs row head 69ad347. The rows (and the E2E they
+    rely on, which predates the guards/contract/tools changes) must be re-run at the
+    final head before the branch can be called ready. post_merge is unrecorded, as
+    expected before merge.
+
+S2  SHOULD  api/src/finish.py:_split_parents (the `inside` / `_all_wild` / `right` test, ~l.255-262)
+    The "loop's resolution already stands" test compares only the state FIPS of each
+    reported parent and the level, never the parent's own county/place code. A
+    one-parent listing therefore stands when the loop resolved the wrong, wider parent.
+    Probe run (api/, scratch script): record.geographies=[tract:* in state:17],
+    intent.parents=["Cook County, Illinois"], unit="tract", parent_level="county",
+    intent.levels=["tract"] -> _split_parents returns False and dispatches nothing.
+    Failing input: "every tract in Cook County, Illinois" where the loop sent
+    level=tract with no parent (or only the state). Result: a statewide tract URL
+    and rows for a one-county question; geography_level_mismatch cannot catch it
+    (the level is right), so it ships with no warning. Base had the same shape
+    (len-only test); this diff added `inside`/`right` but still stops at state.
+    Fix: compare each parent's `in_spec` codes (county/place), not just state.
+
+S3  NOTE  api/src/finish.py (finish_tools, `level = (stated or [...])[0]`, ~l.342)
+    With 2+ legs and no per-leg levels stated by the loop, level is forced to None
+    and `levels=[]` even when the split report gave one shared `intent.level`
+    ("compare Cook and Harris counties" -> level county). Each leg is then resolved
+    by name guess (place, then county fallback) and flagged
+    geography_level_unverified, instead of resolving at the reported level. Warning
+    path only; fix: use [intent.level] * len(legs) when stated is empty.
+
+S4  NOTE  api/src/ask.py:run_ask `split_beside(question, complete, not given, acs5)` (~l.408)
+    When a user's plan names the geographies, the split call is not started, so
+    intent.dataset and intent.years stay empty, and apply_override no longer
+    promotes "1-year" itself (wants_acs1 deleted). If the loop stops short, finish
+    builds ACS5 for the latest year and fetches no span, with no warning
+    (dataset_mismatch needs intent.dataset). Failing state: plan strip pins a county,
+    question says "ACS 1-year, 2015 through 2022", loop ends with no URL. The model's
+    own fetch_data years normally cover it, so this is the fallback only. Fix: run
+    the report call for dataset/years even when the plan supplies the places, or
+    state in ask-path.md that a plan carries its own years/product.
+
+S5  NOTE  api/src/fetch.py:305 + api/src/ask.py:416-419 (recovery after model failure)
+    The recovery fetch (`recovery=True`) drops every suggested year
+    (`suggested = [] if self.recovery ...`), including intent.years from an adopted
+    report and the plan's years. The base side did the same, but the base's
+    overlapping_vintage guard still read the question's range and warned; that scan
+    is deleted here and the guard now only looks at record.vintages and omitted
+    years. Failing state: question "compare 2015-2019 with 2018-2022", the model
+    fails after build_url: one latest vintage is fetched, and neither the dropped
+    years nor overlapping_vintage is reported. A silent loss of requested years on a
+    rare path; consider warning when intent.years is not a subset of
+    fetch.attempted_years.
+
+S6  NOTE  api/src/guards.py:dataset_mismatch (~l.147-163) vs plan_split prompt
+    The report's dataset is "acs1 when the question asks for the 1-year product,
+    else acs5", so "acs5" means "nothing asked", not a request. The guard treats it
+    as the report naming ACS5. Failing state: "population of X in 2024" where only
+    ACS1 has that year; the loop correctly builds acs1; report says acs5; user gets
+    dataset_mismatch "the report asked for ACS5; the request was built as ACS1". A
+    false warning, not a wrong answer. Fix: warn only when said == "acs1" and
+    built == "acs5" (or have the report return null for "not asked").
+
+S7  NOTE  api/src/geo_within.py:36-48 / api/src/geo.py:260-270 (ambiguous parents) vs docs/ask-path.md
+    The doc says an ambiguous parent "returns the ranked candidates and nothing is
+    selected, built or fetched". record.geography is now None, and finish_tools will
+    not build, but the candidates stay in record.geographies, which is exactly the
+    allowed_geographies set for build_url (ask.py:360). If the loop passes a
+    candidate's for_spec/in_spec, build_url accepts it. For the tracts-in-place case
+    those candidates are place-level specs, so the URL would be a place, not tracts;
+    geography_level_mismatch warns. Doc overclaims the "built" half; either soften
+    the sentence or keep ambiguous specs out of the build allow-set.
+
+S8  NOTE (pre-existing, outside this diff's edits)  api/src/guards.py:244-296, 383-429
+    guards still read record.question with regex/keyword lists (_named_universes,
+    "median", _DERIVED, _wants_combination). They only shape warnings, never
+    execution, and CLAUDE.md's no-prose-interpretation rule plus AC1's "the
+    question's words are not an input" make them visible. The diff removed the
+    sibling scans (_ZIP, _RANGE, wants_acs1); these remain. Not a defect of this
+    change; flagged so AC1's wording is not read as covering the guards.
+
+S9  NOTE  api/src/finish.py (_SNAPSHOT) / api/src/ask.py record.retained_legs
+    The listing-repair restore snapshot covers retained_urls but not retained_legs,
+    and the "never show the old parent's data" reset (record.url/rows/fetch = None)
+    leaves retained_legs holding the loop's wrong-parent legs, so series_from_record
+    returns the old leg URLs beside the repaired ones. Same as base; the
+    all-expected-URLs-shown rule makes it acceptable. Noted because this diff
+    rewrote both functions.
+
+S10 NOTE  api/src/finish.py:plan_split open-ended years
+    `split_beside(..., acs5)` tells the model "through {latest}" using the ACS5
+    latest vintage for every product, so "since 2018, 1-year" lists years through
+    the ACS5 latest and leaves out a newer ACS1 year. Base used the acs5 latest too.
+
+Considered and dropped:
+ - code-review's "parent listing ambiguous returns legal=True with candidates" as an
+   important bug: build is refused without a for_spec (see S7), so reduced to a NOTE.
+ - code-review's "given omits state refuses a complete question" (finish.py ~l.231):
+   this is the documented AC5 design (a state the model supplied does not count),
+   fail-closed; not a bug.
+ - code-review's "bare 'Washington' with level null resolves as the state": the
+   prompt sends a lone place as written and a stated null resolves by NAME match,
+   unflagged (documented in ask-path.md).
+Responses-API client (ask.py _openai_complete): unchanged by the diff; plan_split
+calls it with tools=[]; a status != completed returns a model_failed dict, which
+plan_split turns into None (fails open). No finding.
+
+====================================================================
+PASS 2 - project invariants (docs/playbooks/review-pr.md)
+====================================================================
+Machines (all run at b2716c0):
+ - scripts/check_invariants.py --base origin/main : exit 0, "All invariants held".
+   new regex ok, new exemptions ok, budget increases ok; info: api/src regex call
+   sites 18 (base 55, delta -37). evals/leakage_baseline.txt only shrank.
+ - scripts/check_budgets.py : all ok except one row, which is not from this diff:
+     FAIL p95 latency (s) 32.215 <= 20 (run 2026-11-20T03:04:38+00:00, from the
+     committed evidence/latest.json). Reported, not a finding against this diff.
+   Headroom is thin: largest file 409<=410, doc lines 1813<=1820, web src 3350<=3350.
+   budgets.toml is untouched by the diff.
+ - ruff check . : pass. ruff format --check . : 269 files formatted.
+ - mypy api/src : Success, no issues in 29 source files.
+ - pytest -q -m "not integration" (run once): no failures (a handful skipped).
+ - scripts/closure.py check evidence/closure/CC-104.toml : BLOCKED (S1).
+
+P1  BLOCKER  see S1. Verdict rule: every in-scope AC/TC must be PASS with
+    commit-specific evidence at the head; the rows are pinned to 69ad347, and the
+    code under the guard/contract/finish/tools/prompt paths changed afterwards.
+    The E2E scoreboard that backs the claim is likewise from before e926d30.
+
+P2  NOTE  Scope: 37 files (>15), but the change is the single planned migration
+    (delete the prose parsers, move to structured intent); no new module, tool,
+    route, graph node or model was added (tools 8<=12 schema, 4 agent tools).
+    Dataclass GeoIntent lives in an existing module.
+
+P3  NOTE  docs/ARCHITECTURE.md: the geo_level.py line still describes only "the
+    level the model stated per resolve_geography call" and the finish.py line
+    omits that finish reads dataset and years from the split report. GeoIntent is now
+    the one record of both reports; the shape line is stale by one sentence.
+
+P4  Silent-wrong-answer review (URL, MOE, GEOID, universe, key): no new URL
+    formatting path (all URLs go through CensusURL); refusals still return no URL;
+    numbers never go through the model; guards warn and ship; vintage/dataset
+    differences are warnings (overlapping_vintage, dataset_mismatch), never silent
+    repairs. Open items: S2 (a wider parent stands without a warning) and the
+    thinner year/overlap coverage on the recovery path (S5).
+
+P5  Tests: no ticket-named test files; no prompt-text assertions (invariants
+    "prompt assertions" ok); test_geography_intent.py adds the isolation harness
+    (fixed model output, reworded question -> identical execution).
+
+P6  Docs: ask-path.md and requirements.md updated in the same diff (dataset_mismatch
+    code added, overlapping_vintage and zcta_not_zip conditions revised). See S7 for
+    one overclaiming sentence.
+
+====================================================================
+COUNTS: BLOCKER 1 (S1/P1, same item)   SHOULD 1 (S2)   NOTE 8 (S3-S10; P2, P3 are extra notes)
+====================================================================
+VERDICT: NOT YET
