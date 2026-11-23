@@ -1,0 +1,153 @@
+# CC-141 Gate 1 (increment 94bebf9..fbc066e): the grid check, parent_state scorer branch, ADDED phrase path
+repo: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-141   branch: cc-141/golden-state
+HEAD at start: fbc066e97b283340001eae8ea9229d3c25fe667d (tree clean)
+Increment under test: git diff 94bebf9..fbc066e -- scripts api/tests Makefile
+Earlier Gate 1 (gate1.txt, gate1-fixes.txt, gate2-fixes.txt) untouched.
+
+## (d) Makefile
+`make demo` recipe line 1 is `uv run python scripts/verify_golden_places.py` (Makefile, target demo; lines: verify, npm ci, npm build, run_demo, run_grid). No test needed.
+
+## Matrix judged against the pre-existing increment tests; tests added (commit dba107a, split in 9b023da)
+Gaps found and closed (each a real defect a green suite could hide):
+- scorer: empty parent_state going unrestricted; casefold of parent_state
+- grid_problems: shared county among parents when it is not the last (last-parent-wins), only the first parent checked against the state, state written after a county other than the last / before all counties, county whose NAME merely contains the parent (_exact) holding the state, a unique county that also writes its state, a bad cell hiding the next one
+- grid_diff_problems: changing verb/connector/parent_count/an added field, changing or dropping an existing parent_state, state written twice, an unchanged cell that already carries its state
+- _load(ref, path, table): path and table honoured in both the working-tree and the git branch
+- main: the grid really checked (shared county, state declared but not written, state written away from the last county) and the grid diff really run (--base) on a real tmp git repo; one listing read shared with the goldens; grid read from the grid file
+- ADDED: phrase doubled / already there, another golden's phrase, altered phrase, real golden text carries the phrase exactly once, real goldens differ from their phrase-less text by the phrase only, stale annotation / stale phrase
+- real grid: every parent_state is a state the scorer knows (16 cells)
+Observation (not a defect): grid_diff_problems alone passes a cell that gains parent_state with its question unchanged; grid_problems in the same `main` run flags it (state not written). Pinned through main (test_main_fails_a_grid_state_that_is_declared_but_not_written).
+
+## Mutation check: one revert at a time, only the covering test run, restore with git checkout -- <file>
+Driver output follows (BAD = mutated code, the test must fail; every named test FAILed). Run 1: 44 mutations.
+[0] BAD: mutation 'drop the parent_state county check (a wrong-state fetch passes)' (scripts/run_grid.py)
+      FAIL  test_tract_cell_that_writes_its_state_passes_only_in_that_state: 1 failed, 1 warning in 0.56s
+[1] BAD: mutation 'an unknown parent_state restricts nothing' (scripts/run_grid.py)
+      FAIL  test_tract_cell_with_a_state_the_grid_does_not_know_fails: 1 failed, 1 warning in 0.74s
+[2] BAD: mutation 'an empty parent_state restricts nothing (guard on truthiness)' (scripts/run_grid.py)
+      FAIL  test_tract_cell_with_an_empty_state_fails_rather_than_going_unrestricted: 1 failed, 1 warning in 0.82s
+[3] BAD: mutation 'parent_state compared without casefold' (scripts/run_grid.py)
+      FAIL  test_the_state_is_matched_whatever_its_case: 1 failed, 1 warning in 0.42s
+      FAIL  test_tract_cell_that_writes_its_state_passes_only_in_that_state: 1 failed, 1 warning in 0.24s
+[4] BAD: mutation 'a shared county with its state is flagged anyway' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_cell_with_shared_counties_and_its_state_passes: 1 failed, 1 warning in 0.26s
+[5] BAD: mutation 'a shared county with no state is not flagged' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_cell_with_shared_counties_and_no_state_fails: 1 failed, 1 warning in 0.37s
+[6] BAD: mutation 'the state need not be written in the question' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_cell_whose_state_the_question_does_not_write_fails: 1 failed, 1 warning in 0.44s
+      FAIL  test_main_fails_a_grid_state_that_is_declared_but_not_written: 1 failed, 1 warning in 1.85s
+[7] BAD: mutation 'the state need not hold the county' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_cell_whose_state_does_not_hold_the_county_fails: 1 failed, 1 warning in 0.45s
+[8] BAD: mutation 'a county that exists nowhere is not reported' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_cell_with_a_county_that_exists_nowhere_fails: 1 failed, 1 warning in 0.22s
+[9] BAD: mutation 'a unique county counts as shared' (scripts/verify_golden_places.py)
+      FAIL  test_a_unique_county_needs_no_state: 1 failed, 1 warning in 0.53s
+[10] BAD: mutation 'county-level cells are checked like tract cells' (scripts/verify_golden_places.py)
+      FAIL  test_county_level_cells_name_unique_states_and_are_not_checked: 1 failed, 1 warning in 0.32s
+[11] BAD: mutation 'an unknown grid level is silently accepted' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_level_the_check_does_not_know_is_a_problem_not_a_pass: 1 failed, 1 warning in 0.32s
+[12] BAD: mutation 'the holds-the-state test ignores a unique county's state' (scripts/verify_golden_places.py)
+      FAIL  test_a_unique_county_that_also_writes_its_state_passes: 1 failed, 1 warning in 0.44s
+      FAIL  test_a_grid_cell_with_shared_counties_and_its_state_passes: 1 failed, 1 warning in 0.36s
+[13] BAD: mutation 'only the last parent decides whether a county is shared' (scripts/verify_golden_places.py)
+      FAIL  test_one_shared_county_among_the_parents_needs_the_state_wherever_it_sits: 1 failed, 1 passed, 1 warning in 0.35s
+[14] BAD: mutation 'only the first parent is checked against the state' (scripts/verify_golden_places.py)
+      FAIL  test_every_parent_must_be_in_the_state_not_only_the_first: 1 failed, 1 warning in 0.22s
+[15] BAD: mutation 'the state is looked for after the first county, not the last' (scripts/verify_golden_places.py)
+      FAIL  test_a_state_written_after_another_county_than_the_last_is_not_written: 1 failed, 1 warning in 0.36s
+[16] BAD: mutation 'a county whose name only contains the parent holds the state' (scripts/verify_golden_places.py)
+      FAIL  test_a_county_that_only_contains_the_name_does_not_hold_the_state: 1 failed, 1 warning in 0.25s
+[17] BAD: mutation 'the first bad cell ends the check' (scripts/verify_golden_places.py)
+      FAIL  test_a_bad_cell_does_not_hide_the_next_one: 1 failed, 1 warning in 0.27s
+[18] BAD: mutation 'the state strip in the grid diff removes the wrong text' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_only_adds_the_state_passes: 1 failed, 1 warning in 0.22s
+      FAIL  test_main_with_a_base_passes_a_grid_edit_that_only_adds_the_state: 1 failed, 1 warning in 1.77s
+[19] BAD: mutation 'level and expected_parents may change in the grid diff' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_changes_the_level_or_parents_fails: 1 failed, 1 warning in 0.28s
+[20] BAD: mutation 'verb connector parent_count and any added field may change in the grid diff' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_changes_any_other_field_fails: 4 failed, 1 warning in 0.24s
+[21] BAD: mutation 'the grid question may change by more than the state' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_rewords_more_than_the_state_fails: 1 failed, 1 warning in 0.21s
+      FAIL  test_a_grid_edit_that_writes_a_state_without_declaring_it_fails: 1 failed, 1 warning in 0.28s
+      FAIL  test_a_grid_edit_that_writes_the_state_twice_fails: 1 failed, 1 warning in 0.18s
+[22] SURVIVOR: mutation 'an undeclared state counts as declared (state guard dropped)' (scripts/verify_golden_places.py)
+      PASS  test_a_grid_edit_that_writes_a_state_without_declaring_it_fails: 1 passed, 1 warning in 0.11s
+[23] BAD: mutation 'grid cell ids or order may change' (scripts/verify_golden_places.py)
+      FAIL  test_grid_cells_dropped_or_reordered_fail: 1 failed, 1 warning in 0.32s
+      FAIL  test_main_with_a_base_fails_a_dropped_grid_cell: 1 failed, 1 warning in 1.51s
+[24] SURVIVOR: mutation 'a changed or dropped parent_state is not a field change' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_changes_or_drops_a_parent_state_fails: 1 failed, 1 warning in 0.29s
+      PASS  test_a_grid_edit_that_only_adds_the_state_passes: 1 passed, 1 warning in 0.06s
+[25] BAD: mutation 'a state already in the old question may be written again' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_writes_the_state_twice_fails: 1 failed, 1 warning in 0.27s
+[26] BAD: mutation 'an unchanged question is checked for the state insertion' (scripts/verify_golden_places.py)
+      FAIL  test_an_unchanged_grid_cell_that_already_carries_its_state_passes: 1 failed, 1 warning in 0.22s
+[27] BAD: mutation 'the ADDED phrase path is dropped from diff_problems' (scripts/verify_golden_places.py)
+      FAIL  test_a_golden_that_named_no_place_gains_exactly_the_added_phrase: 3 failed, 1 warning in 0.28s
+[28] BAD: mutation 'the ADDED phrase may come with other changes' (scripts/verify_golden_places.py)
+      FAIL  test_a_golden_that_named_no_place_gains_exactly_the_added_phrase: 3 failed, 1 warning in 0.22s
+      FAIL  test_the_added_phrase_with_a_changed_place_fails: 1 failed, 1 warning in 0.23s
+[29] BAD: mutation 'the ADDED phrase may already be there (doubled)' (scripts/verify_golden_places.py)
+      FAIL  test_the_added_phrase_written_twice_or_already_there_fails: 1 failed, 1 warning in 0.23s
+[30] BAD: mutation 'any golden may gain any ADDED phrase' (scripts/verify_golden_places.py)
+      FAIL  test_a_golden_may_not_gain_the_phrase_added_to_another: 1 failed, 1 warning in 0.17s
+[31] BAD: mutation 'stale annotation: t01 annotated with another county' (scripts/verify_golden_places.py)
+      FAIL  test_the_added_places_are_the_annotated_ones: 1 failed, 1 warning in 0.22s
+[32] BAD: mutation 'stale phrase: ADDED t14 states WA not Washington' (scripts/verify_golden_places.py)
+      FAIL  test_the_added_places_are_the_annotated_ones: 1 failed, 1 warning in 0.39s
+      FAIL  test_the_added_phrase_is_in_the_real_golden_exactly_once: 1 failed, 1 warning in 0.18s
+      FAIL  test_the_real_goldens_differ_from_their_phrase_less_text_by_the_added_phrase_only: 1 failed, 1 warning in 0.29s
+[33] BAD: mutation 'data: g054 question loses its state' (evals/cc103_phrasing_grid.toml)
+      FAIL  test_every_curated_cell_in_the_real_grid_writes_its_state: 1 failed, 1 warning in 0.34s
+[34] BAD: mutation 'data: g054 parent_state is not a state the scorer knows' (evals/cc103_phrasing_grid.toml)
+      FAIL  test_every_grid_state_in_the_real_grid_is_one_the_scorer_knows: 1 failed, 1 warning in 0.38s
+[35] BAD: mutation 'data: t06 loses its added phrase' (evals/golden_questions.toml)
+      FAIL  test_the_added_phrase_is_in_the_real_golden_exactly_once: 1 failed, 1 warning in 0.29s
+      FAIL  test_the_real_goldens_differ_from_their_phrase_less_text_by_the_added_phrase_only: 1 failed, 1 warning in 0.30s
+[36] BAD: mutation '_load git branch ignores the path' (scripts/verify_golden_places.py)
+      FAIL  test_load_reads_a_named_file_and_table_from_the_tree_or_a_ref: 1 failed, 1 warning in 1.31s
+[37] BAD: mutation '_load working-tree branch ignores the path' (scripts/verify_golden_places.py)
+      FAIL  test_load_reads_a_named_file_and_table_from_the_tree_or_a_ref: 1 failed, 1 warning in 1.19s
+[38] BAD: mutation '_load ignores the table' (scripts/verify_golden_places.py)
+      FAIL  test_load_reads_a_named_file_and_table_from_the_tree_or_a_ref: 1 failed, 1 warning in 1.15s
+[39] BAD: mutation 'main drops grid_problems' (scripts/verify_golden_places.py)
+      FAIL  test_main_fails_a_grid_cell_that_names_a_shared_county_without_its_state: 1 failed, 1 warning in 1.17s
+      FAIL  test_main_fails_a_grid_state_that_is_declared_but_not_written: 1 failed, 1 warning in 2.27s
+      FAIL  test_main_fails_a_grid_state_written_away_from_the_last_county: 1 failed, 1 warning in 1.22s
+[40] BAD: mutation 'main drops grid_diff_problems' (scripts/verify_golden_places.py)
+      FAIL  test_main_with_a_base_fails_a_grid_edit_that_changed_more_than_the_state: 1 failed, 1 warning in 2.25s
+      FAIL  test_main_with_a_base_fails_a_dropped_grid_cell: 1 failed, 1 warning in 1.48s
+[41] BAD: mutation 'main re-reads the listing for the grid instead of sharing it' (scripts/verify_golden_places.py)
+      FAIL  test_main_passes_a_grid_cell_that_writes_its_state: 1 failed, 1 warning in 2.19s
+[42] BAD: mutation 'main reads the grid from the golden file' (scripts/verify_golden_places.py)
+      FAIL  test_main_passes_a_grid_cell_that_writes_its_state: 1 failed, 1 warning in 1.04s
+[43] BAD: mutation 'main diffs the grid against the golden file at the base' (scripts/verify_golden_places.py)
+      FAIL  test_main_with_a_base_passes_a_grid_edit_that_only_adds_the_state: 1 failed, 1 warning in 2.38s
+(run 1 end)
+clean tree
+
+Run 1 reading: [22] and [24] were reported SURVIVOR by the driver.
+- [24] was a driver artefact: the control test listed beside the covering test (a state-only edit must still pass) passed as it should; the covering test FAILED. But that test looped over two cases in one body, so the dropped case was never exercised once the changed case failed. STRENGTHENED (commit 9b023da): parametrized [changed] / [dropped]; mutated each case separately:
+[24] BAD: mutation 'a changed or dropped parent_state is not a field change' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_changes_or_drops_a_parent_state_fails[changed]: 1 failed, 1 warning in 0.66s
+      FAIL  test_a_grid_edit_that_changes_or_drops_a_parent_state_fails[dropped]: 1 failed, 1 warning in 0.48s
+[25] BAD: mutation 'a dropped parent_state is not a field change' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_changes_or_drops_a_parent_state_fails[dropped]: 1 failed, 1 warning in 0.52s
+[26] BAD: mutation 'a changed parent_state is not a field change' (scripts/verify_golden_places.py)
+      FAIL  test_a_grid_edit_that_changes_or_drops_a_parent_state_fails[changed]: 1 failed, 1 warning in 0.30s
+(run 2 end: no survivor)
+clean tree
+
+- [22] EQUIVALENT MUTANT, no test forced: dropping `state and` from the "state declared" guard in grid_diff_problems. With no parent_state, state is None, so the test becomes `", None" not in before and after.replace(", None", "", 1) == before`, which is false for any real edit; the outcome is identical. The behaviour (an undeclared state is refused) is pinned by deleting the whole question check ([21], killed by test_a_grid_edit_that_writes_a_state_without_declaring_it_fails).
+- [13] one parametrized case of test_one_shared_county_among_the_parents... still passes under last-parent-wins by design (that case has the shared county last); the other case fails, the test fails.
+
+## Result
+Mutations run: 46 (44 in run 1, 2 more for the split cases in run 2, plus the re-run of [24]), all restored (`git status` clean after each run). Killed on the first pass: 43 of 44 distinct run-1 mutations by their covering test; [24] killed after strengthening; [22] equivalent. New tests: 26 test functions added (2 in api/tests/test_grid_scorer.py, 24 in api/tests/test_verify_golden_places.py, plus a _repo/main_grid helper change); 1 test strengthened (parametrized).
+No defect found in the code under test.
+
+## Final verification at HEAD 9b023dae23c8af06cbd9708e109e9008ffa47f1f
+$ uv run pytest api/tests/test_verify_golden_places.py api/tests/test_grid_scorer.py api/tests/test_grid_labels.py -q
+114 passed, 1 warning
+$ uv run ruff check .          -> All checks passed!
+$ uv run ruff format --check . -> 276 files already formatted
+$ uv run python scripts/check_invariants.py --base origin/main -> All invariants held. (regex call sites 55, delta +0) exit 0
