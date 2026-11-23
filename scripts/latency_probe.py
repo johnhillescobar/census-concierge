@@ -8,9 +8,10 @@
     python scripts/latency_probe.py validity validity-*.jsonl
 
 Design: evidence/slice-6/latency-experiment-design.md. Nothing under api/src changes.
-Spans are wrapped at the SDK / httpx boundary (leaf calls), so a nested call is never
-counted twice. Time is attributed to exactly one name per instant (priority below), and
-whatever no span covers is reported as `unaccounted`, never folded into "ours".
+Spans are wrapped at the SDK boundary and at `census_get` (one hedged Census GET),
+so a nested call is never counted twice. Time is attributed to exactly one name per
+instant (priority below), and whatever no span covers is reported as `unaccounted`,
+never folded into "ours".
 Arms are interleaved (repeat, arm, question) so provider drift cannot line up with one arm.
 Sealed runs: pass --questions-file and --aggregate-only; no question text is written.
 """
@@ -203,12 +204,11 @@ def _usage(response: Any, tier: str) -> tuple[int, int]:
 
 
 def install_spans() -> None:
-    import httpx
     from google import genai
     from openai.resources.chat.completions import AsyncCompletions, Completions
     from openai.resources.embeddings import Embeddings
     from src import ask as ask_mod
-    from src import guards
+    from src import census_http, guards
     from src.census_url import redact_text
     from src.retrieval import index, rerank
 
@@ -275,14 +275,14 @@ def install_spans() -> None:
 
     rerank.choose = choose  # type: ignore[assignment]
 
-    real_get = httpx.get
+    real_census_get = census_http.census_get
 
-    def get(url: Any, *a: Any, **kw: Any) -> Any:
+    def census_get(url: Any, *a: Any, **kw: Any) -> Any:
         rec, began = STATE.rec, time.perf_counter()
         status = 0
         try:
-            response = real_get(url, *a, **kw)
-            status = response.status_code
+            response = real_census_get(url, *a, **kw)
+            status = getattr(response, "status_code", 0)
             return response
         finally:
             if rec:
@@ -296,7 +296,7 @@ def install_spans() -> None:
                     year=int(text.split("/data/")[1].split("/")[0]) if "/data/" in text else 0,
                 )
 
-    httpx.get = get  # type: ignore[assignment]
+    census_http.census_get = census_get  # type: ignore[assignment]
 
     def wrap_sync(module: Any, attr: str, name: str) -> None:
         original = getattr(module, attr)

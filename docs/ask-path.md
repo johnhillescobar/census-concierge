@@ -15,7 +15,7 @@ Four tools:
 | `search_tables` | `tools.py` | The app sets `POOL_DEPTH` (30) for `index.search` on the model's `topic` (the question if none). The tool filters by publication and uses `rerank.choose` over the full question, keeping the pick and up to nine other hits. An accepted URL retains the first pool containing its table for display and measure guards. The latest search governs permission to build another URL. |
 | `resolve_geography` | `geo.py` | ordered `GeoSpec` list from that vintage's `geography.json` |
 | `build_url` | `tools.py` | availability matrix; empty `variables` → `001E` paired with `001M` |
-| `fetch_data` | `fetch.py` | live Census; fans `years` and comparison geos (cap 5 in flight, 12 years) |
+| `fetch_data` | `fetch.py` | live Census via `census_http.census_get` (60s wall clock, one identical hedge); fans `years` and comparison geos (cap 5 in flight, 12 years). Name listings use the same GET. |
 
 `assemble()` builds `AskResponse` from the execution record. `guards.evaluate()`
 attaches warning codes from `docs/requirements.md`. None of them block. Answer figures: `docs/ARCHITECTURE.md`.

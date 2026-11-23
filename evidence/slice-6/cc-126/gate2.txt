@@ -1,0 +1,264 @@
+$ git rev-parse --show-toplevel
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-126
+[exit 0]
+
+$ git branch --show-current
+cc-126/census-deadline
+[exit 0]
+
+$ git rev-parse HEAD
+80504f829604296fe8dc05becf61e1fcb83d41d7
+[exit 0]
+
+$ git rev-parse origin/main
+700d80082c6bdb371dab2c551c9b6f3736c8986f
+[exit 0]
+
+$ git merge-base HEAD origin/main
+700d80082c6bdb371dab2c551c9b6f3736c8986f
+[exit 0]
+
+$ git status --porcelain=v1
+[exit 0]
+
+$ git status -sb
+## cc-126/census-deadline...origin/main [ahead 2]
+[exit 0]
+
+$ git log -1 --format="HEAD %H%nsubject %s%nauthor %an%ndate %ci"
+HEAD 80504f829604296fe8dc05becf61e1fcb83d41d7
+subject test(api): record the CC-126 Gate 1 transcript (CC-126)
+author John Hill Escobar
+date 2026-11-22 14:55:01 -0600
+[exit 0]
+
+$ git log --oneline origin/main..HEAD
+80504f8 test(api): record the CC-126 Gate 1 transcript (CC-126)
+7da4661 fix(CC-126): bound Census GETs with one hedged retry
+[exit 0]
+
+$ git diff --stat origin/main...HEAD
+ api/src/census_http.py               |  167 ++++
+ api/src/fetch.py                     |    4 +-
+ api/src/geo_list.py                  |    3 +-
+ api/tests/test_ask_tools.py          |   10 +-
+ api/tests/test_census_http.py        |  237 ++++++
+ docs/ARCHITECTURE.md                 |    1 +
+ docs/ask-path.md                     |    2 +-
+ evidence/slice-6/cc-126/gate1.txt    | 1555 ++++++++++++++++++++++++++++++++++
+ evidence/slice-6/cc-126/preflight.md |   17 +
+ scripts/latency_probe.py             |   20 +-
+ 10 files changed, 1996 insertions(+), 20 deletions(-)
+[exit 0]
+
+$ git diff --stat
+[exit 0]
+
+$ git diff --cached --stat
+[exit 0]
+
+Review base origin/main 700d80082c6bdb371dab2c551c9b6f3736c8986f.
+Review head 80504f829604296fe8dc05becf61e1fcb83d41d7.
+Scoped uncommitted changes at the start of the review: none.
+
+## Pass 1 ? code-only bug review
+
+Recorded before reading .claude/PLAN.md, implementation notes, or the caller's intent.
+Diff reviewed: origin/main...HEAD (merge-base 700d80082c6bdb371dab2c551c9b6f3736c8986f).
+Product files: api/src/census_http.py, api/src/fetch.py, api/src/geo_list.py, api/tests/test_census_http.py, api/tests/test_ask_tools.py, scripts/latency_probe.py.
+httpx 0.28.1 in this worktree's .venv. Client.close, ConnectionPool.close / handle_request, HTTP11Connection.close, SyncStream.read / close, and Timeout(None) were read at that version.
+
+Findings: nothing.
+
+What was checked and did not fail:
+- httpx.Client(timeout=None) stores Timeout with connect, read, write, and pool all None. The sync backend passes that None to socket.create_connection and socket.settimeout, which is a blocking socket with no phase deadline. The only deadline is threading.Timer calling Client.close. ConnectionPool does not hold its lock across handle_request, and HTTP11Connection.close closes the socket without waiting for the read.
+- A local _download GET (no injected getter) returned a body that response.json() could read after the worker closed the client. A peer that accepted and never answered raised httpx.TimeoutException "census total deadline exceeded" at the total budget (1.017s for total=1.0). The key was not in the message. No census client thread was still alive after return. A fast hedge response was returned at the moment that response finished; join of the loser did not add a further second.
+- Tight totals (0, 0.001, 0.05, 0.2), eight tries each, raised only TimeoutException or ReadError. Both are httpx.HTTPError, which fetch._fetch_one and geo_list.list_census_names already catch. No RuntimeError and no key in the message.
+- One backup, never a third. A connection failure before the hedge waits only for the backup. A primary still running at the hedge waits for both, and the first httpx.Response wins, including a non-200. That is what the module text and the tests lock in. ConnectTimeout, NetworkError, and ProtocolError count as connection failures; other TimeoutException subclasses do not. ReadError is a NetworkError, so a reset before the hedge is retried once. With phase timeouts disabled, the production client does not raise ReadTimeout.
+- _download reads the body before the worker closes the client and queues the attempt. _reraise redacts &key= in HTTPError text and re-raises the original when the text is unchanged. fetch stores redact_text(str(exc)) on the leg. geo_list turns HTTPError into RuntimeError containing the CensusURL, which has no key, and uses "from None". The key is attached only by CensusURL.with_key.
+- fetch still enters _census_get through asyncio.to_thread under Semaphore(5). The hedge is a second connection inside one leg. No httpx.get remains under api/src. FetchDataTool.http_get still skips _census_get. The two geography-listing tests now patch src.census_http.census_get.
+- latency_probe install_spans wraps census_http.census_get, which is the attribute fetch and geo_list call, so one hedged GET is one census span. cmd_replay's _get still calls httpx.get(timeout=60) for direct URL replay. That helper is not the ask path, and this diff does not change it.
+
+Local probes (not part of the machine list; they informed the finding above):
+
+$ uv run python (probe: real _download, deadline, hedge)
+--- success json after close ---
+status 200 elapsed 0.414
+json [['NAME', 'GEO_ID', 'B01003_001E', 'B01003_001M'], ['Harris', '0500000US48201', '100', '12']]
+nonmain [('Thread-1 (serve_forever)', True)]
+--- deadline exception type ---
+httpx.TimeoutException 1.017
+msg census total deadline exceeded
+has_secret False
+alive after deadline [('Thread-1 (serve_forever)', True), ('Thread-7 (process_request_thread)', True), ('Thread-10 (process_request_thread)', True)]
+--- fast hedge vs hung twin ---
+status 200 body b'[["A"],["1"]]' elapsed 0.94 hits 2
+alive after hedge [('Thread-1 (serve_forever)', True), ('Thread-7 (process_request_thread)', True), ('Thread-10 (process_request_thread)', True), ('Thread-11 (serve_forever)', True), ('Thread-14 (process_request_thread)', True)]
+[exit 0]
+
+The surviving threads were the stub server blocked in time.sleep, not census client threads.
+
+$ uv run python (probe: hedge timing)
+hedge0 elapsed 0.62 status=200 body=b'ok'
+  events [('start', 0, 0.27), ('start', 1, 0.618), ('end', 1, 0.618)]
+  extra threads []
+hedge1 elapsed 0.567 status=200 body=b'ok'
+  events [('start', 0, 0.238), ('start', 1, 0.565), ('end', 1, 0.566)]
+  extra threads []
+hedge2 elapsed 0.622 status=200 body=b'ok'
+  events [('start', 0, 0.194), ('start', 1, 0.621), ('end', 1, 0.621)]
+  extra threads []
+plain elapsed 5.002 TimeoutException census total deadline exceeded
+  events [('start', 0, 0.22)]
+  extra threads []
+[exit 0]
+
+The plain case slept inside the stub on the first request, so that timeout is the stub. Return time on the hedge cases matched the fast response's end event.
+
+$ uv run python (probe: tight deadline, 8 tries)
+total=0.0 hedge=0.0 {'TimeoutException': 7, 'ReadError': 1}
+total=0.001 hedge=0.0 {'TimeoutException': 8}
+total=0.05 hedge=0.0 {'TimeoutException': 6, 'ReadError': 2}
+total=0.2 hedge=0.05 {'TimeoutException': 8}
+[exit 0]
+
+The stub printed ConnectionAbortedError and ConnectionResetError while the client closed sockets. Those lines are the server thread, not the exception census_get raised.
+
+## Pass 2 ? project invariants (docs/playbooks/review-pr.md)
+
+Machines first. A non-zero exit ends the reading review.
+Raw stdout and stderr from a subprocess re-run. Exit codes matched the first run (budgets 1, invariants 0, ruff 0, format 0, mypy 0, pytest 0 with 1449 passed in 198.51s).
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5100
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  FAIL  doc lines                 1822 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         20.714 <= 20
+        run 2026-11-22T18:58:29+00:00; slowest trial 32.514s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.725 >= 0.7
+  ok    answered_rate            0.733 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+2 budget(s) exceeded:
+
+  - doc lines: 1822 (limit 1820)
+  - p95 latency (s): 20.714 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+[exit 1]
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+[exit 0]
+
+$ uv run ruff check .
+[1;32mAll checks passed![0m
+[exit 0]
+
+$ uv run ruff format --check .
+269 files already formatted
+[exit 0]
+
+$ uv run mypy api/src
+Success: no issues found in 30 source files
+[exit 0]
+
+$ uv run pytest -q -m not integration
+........................................................................ [  4%]
+........................................................................ [  9%]
+........................................................................ [ 14%]
+........................................................................ [ 19%]
+........................................................................ [ 24%]
+........................................................................ [ 28%]
+.........................sssssssssssssssss..sss......................... [ 33%]
+.......................................xxxxxxx...x...................... [ 38%]
+........................................................................ [ 43%]
+........................................................................ [ 48%]
+........................................................................ [ 53%]
+........................................................................ [ 57%]
+........................................................................ [ 62%]
+........................................................................ [ 67%]
+........................................................................ [ 72%]
+........................................................................ [ 77%]
+........................................................................ [ 82%]
+........................................................................ [ 86%]
+..................................................................ssssss [ 91%]
+sssss..s.ss............................................................. [ 96%]
+...................................................                      [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-126\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1449 passed, 34 skipped, 8 xfailed, 1 warning in 207.79s (0:03:27)
+[exit 0]
+
+
+Doc-line count using the same file set as scripts/check_budgets.py _doc_lines, via git show:
+
+$ uv run python (doc lines at HEAD and origin/main)
+HEAD 1822 files 21
+BASE 1822 files 21
+only head set()
+only base set()
+[exit 0]
+
+No counted file changed length. docs/ask-path.md is one line replaced. docs/ARCHITECTURE.md gained one line and is excluded from this count. budgets.toml is unchanged. The waiver on line 104 covers p95 25.472 at 2026-11-09T17:53:49+00:00 only. evidence/latest.json is not in origin/main...HEAD.
+
+Reading review: not continued. check_budgets.py exited 1, so the review stops before .claude/PLAN.md, the catalogs, and the claim / scope / silent-wrong-answer reading. E2E was not started.
+
+## Verdict
+
+Not yet. check_budgets.py exits 1: the recorded demo p95 is 20.714s against a ceiling of 20s (run 2026-11-22T18:58:29+00:00, slowest trial 32.514s). The stored waiver is for a different run. Doc lines are also over, 1822 against 1820, and that count is already the count on origin/main.
