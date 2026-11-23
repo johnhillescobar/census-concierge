@@ -1,11 +1,12 @@
 #!/bin/bash
-# CC-141 E2E on frozen code (goldens curated, api/src unchanged from origin/main): the make eval and make demo recipes, in recipe order, each command's
+# CC-141 E2E on frozen code (goldens and grid curated, api/src unchanged from origin/main): the make eval and make demo recipes, in recipe order, each command's
 # output redirected to its own file (no tee). Transcripts are never read; aggregates come from
 # evidence/latest.json (gated keys and demo.misses only).
 cd "$(dirname "$0")/../../../.."
 O=evidence/slice-6/cc-141/e2e; L=$O/log.txt
 echo "HEAD start $(git rev-parse HEAD) branch $(git branch --show-current) status: $(git status --short | wc -l) changed" >> $L
 run() { n=$1; shift; echo "$n START $(date -u +%FT%TZ) :: $*" >> $L; "$@" > $O/$n.out 2> $O/$n.err; rc=$?; echo "$n END $(date -u +%FT%TZ) rc=$rc" >> $L; }
+run v uv run python scripts/verify_golden_places.py --base origin/main
 run s uv sync
 run n1 npm --prefix web ci
 run n2 npm --prefix web run build

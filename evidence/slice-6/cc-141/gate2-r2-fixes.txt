@@ -1,0 +1,24 @@
+# CC-141 Gate 2 round 2 fixes (word edge, county-cell parent_state, empty parents): mutation check of their tests
+# repo /c/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-141 branch cc-141/golden-state HEAD d7a02f9
+
+GOOD: unmutated
+9 passed, 93 deselected, 1 warning in 0.07s
+
+BAD: mutation 'no word edge: the form is matched anywhere in the text' -> must_end_at_a_word_edge
+1 failed, 101 deselected, 1 warning in 0.28s
+
+BAD: mutation 'only a space counts as an edge (punctuation breaks the match)' -> before_punctuation_or_a_space
+3 failed, 2 passed, 97 deselected, 1 warning in 0.27s
+
+BAD: mutation 'a county cell may carry parent_state silently' -> county_cell_carrying
+1 failed, 101 deselected, 1 warning in 0.23s
+
+BAD: mutation 'a tract cell with no parents is not guarded (IndexError)' -> no_parents
+1 failed, 101 deselected, 1 warning in 0.18s
+
+BAD: mutation 'a county nobody has is not reported' -> names_no_county
+1 failed, 101 deselected, 1 warning in 0.21s
+
+GOOD: restored
+?? evidence/slice-6/cc-141/gate2-r2.txt
+102 passed, 1 warning in 20.61s

@@ -1,51 +1,43 @@
 # CC-141 working state (read this first after any context reset)
 
 Branch `cc-141/golden-state` (worktree `.worktrees/cc-141`), cut from origin/main 9a36dff. No PR yet. Jira CC-141 is In Progress
-(status source of truth). Rules: `CLAUDE.md`, `docs/playbooks/run-slice.md`. Plan, pre-flight and decisions: `plan.md` here.
+(status source of truth). Rules: `CLAUDE.md`, `docs/playbooks/run-slice.md`. Plan, pre-flight, scope change and decisions: `plan.md`.
 
-## Done (2026-11-22/23)
+## Scope (owner, 2026-11-23, in chat; recorded in plan.md)
 
-- Pre-flight (`preflight.py`, `preflight.txt`): 26 visible goldens name a shared place with no state; ticket corrected (q42/q43 are
-  shared-name cases; scorer hash does not move). Jira comment posted.
-- Curation (c31feb2): 26 `text` edits, state inserted right after the place. `scripts/verify_golden_places.py` proves AC1 against live
-  listings and, with `--base origin/main`, AC2. `verify-before.txt` (25 problems at origin/main; q23 already wrote "Texas"),
-  `verify-after.txt` (OK).
-- Gate 1 (`gate1.txt`, subagent): 44 mutations, 43 killed first pass, 1 strengthened. Fix `gate1-fixes.txt`: diff check needs
-  "<place>, <State>" directly after the place and absent from the old text (one test survived its mutation, strengthened, rerun).
-- Gate 2 (`gate2.txt`, subagent, /code-review high then review-pr): NOT YET only for the pending steps R1-R3 (bridge, manifest,
-  post-merge). Fixed: R4/R5 (`_carries` scan replaced by the literal `_written`, `gate2-fixes.txt`, 3 mutations killed).
-  Kept, not fixed: R6 (the state-qualified name is proven to exist, not to be unique inside the state; the resolver ranks by class
-  when a state is written), R7 (the live check is not in `make check`; follow-up), R8 (refresh matrix heads in the manifest).
-  Decision (default): no second Gate 2 round; the fixes remove a heuristic from a script outside api/src, with tests and mutation.
-- Machines at 9998aac: pytest green, ruff/mypy clean, invariants exit 0, no new regex. `check_budgets` red on doc lines 1822/1820 and
-  p95 20.714: BOTH ALREADY ON origin/main (confirmed on a clean archive), this branch changes neither. Not raised, not mine.
+26 visible goldens get their state; the 16 phrasing-grid tract cells g054-g069 get a state and a `parent_state` field (the grid scorer
+requires that state's counties); t01, t06, t14 each gain a county (Fulton GA, LA CA, King WA: MY defaults, revertible); the live check
+`scripts/verify_golden_places.py` is the first line of `make demo`. I once widened scope without asking and was told so: ask before
+adding scope, and say what is a default.
 
-## In flight: the E2E
+## Done
 
-Frozen code = HEAD 5e463bf (driver committed). Isolated worktree `.worktrees/cc-141-e2e`, detached at 5e463bf, with index_store/,
-data/raw/ and .env copied in. Driver `evidence/slice-6/cc-141/e2e/driver.sh` (eval_retrieval x3, run_demo --repeat 3, run_grid --repeat 3,
-check_budgets, check_invariants); log at `evidence/slice-6/cc-141/e2e/log.txt` IN THAT WORKTREE. Do not run git, edit, or start any live
-API job in it or beside it until `DONE` is in the log. HEAD must be 5e463bf at start and end. Never read the .out transcripts or demo.trials.
+- Pre-flight (`preflight.py/.txt`), curation, `scripts/verify_golden_places.py` (AC1 live, AC2 with `--base`), `verify-before*.txt`,
+  `verify-after.txt` (re-capture at the E2E head), `url-grid-scan.txt` (the generated grid needs no change).
+- Gate 1: `gate1.txt` + `gate1-fixes.txt` (goldens + checker), `gate1-grid.txt` (grid check, parent_state scorer, ADDED path; 46 mutations, no
+  GOOD baseline lines in that file, the subagent's own).
+- Gate 2: `gate2.txt` (round 1) -> `gate2-fixes.txt`; round 2 `gate2-r2.txt` (NOT YET only for pending evidence: manifest, E2E, bridge) ->
+  `gate2-r2-fixes.txt` (word edge, county-cell parent_state, empty parents; 5 mutations killed). The one allowed re-run is SPENT.
+  Kept, not fixed, to disclose in the PR: nit 1 (hand annotation can be mislabelled), nit 2 (url_grid_scan.py scans wording, a one-off
+  fixture lint outside api/src), nit 7 (the live fetch has no retry; a blip aborts the demo loudly), nit 4 (the instrument moved: cohort
+  hashes change and retrieval@10 sits exactly at its 0.90 floor, so report it, never tune).
+- Red on origin/main, NOT from this branch: `check_budgets` doc lines 1822/1820 and p95 20.714. Never raised.
+- The first E2E (HEAD 5e463bf) was stopped and its processes killed; void.
 
-## Next
+## Next (in order)
 
-1. After DONE: copy `e2e/` artifacts (latest-after-demo.json, grid files, log, .out/.err) into `.worktrees/cc-141/evidence/slice-6/cc-141/e2e/`.
-   Quote gated keys + `demo.misses` only. `git checkout -- evidence/latest.json`; delete root `evidence/grid-latest.json` / `grid-trials.jsonl`
-   in the E2E worktree (they were tracked there? check `git status` only after DONE).
-2. AC3/TC3: `uv run python scripts/metric_compare.py freeze` (new cohort hashes long_tail ab5c9c2ffa0bbb1c, trap 27ef452a0959cfe6,
-   core 622f5f5937db5bac; scorer 6054312479188110 unchanged; old: 3357c07b051d8f28 / 86599fef7d3afc08 / 3f0faaf0e5df706b). Write
-   `evidence/metrics/bridges.json` (ref A; from/to scorer equal; from/to cohorts as above; `rescored_run` = A's run file, `rescored_sha256`;
-   note: text-only curation, the trials answered the old wording, so a comparison against it mixes curation with code). Then ONE
-   `metric_compare compare <candidate latest-after-demo.json> --refs A,A0`; a FAIL verdict is the product's result, report it. TC3 = it completes
-   under the bridge (A0 has no bridge: say so). Per the protocol never rerun until green.
-3. `evidence/closure/CC-141.toml` (AC1-AC4, TC1-TC3; rows with command, observed, evidence+sha256, tested_head, mutation index = gate1*/gate2-fixes,
-   reviewer = gate2.txt). AC4 (CC-104 rebase and its rows re-run) can only be PASS after merge: leave NOT RUN until then, never PASS early.
-   `uv run python scripts/closure.py check evidence/closure/CC-141.toml --pre-merge`.
-4. Draft PR (body: each gate's findings, the numbers, the ticket corrections, defaults, the two inherited red budget rows). Owner merges.
-   Post-merge E2E on main, then rebase CC-104 onto main (AC4), then `jira_transition.py CC-141 --done`.
+1. Full machines at the frozen head (pytest, ruff, mypy, invariants), then a NEW isolated worktree detached at that head with index_store/,
+   data/raw/ and .env copied in, and `bash evidence/slice-6/cc-141/e2e/driver.sh` (verify, eval, demo, grid, budgets, invariants). HEAD must be
+   identical at start and end (log.txt). No git, edit or live API job in that worktree or beside it until DONE. `make e2e` / e2e_capture.py
+   do NOT run the live place check: the driver does (step v).
+2. Copy artifacts into this branch's `evidence/slice-6/cc-141/e2e/`; quote gated keys + `demo.misses` only; never `demo.trials`.
+3. AC3/TC3: `metric_compare.py freeze` (new cohort hashes; scorer hash unchanged); `evidence/metrics/bridges.json` (ref A; relabel; note says the
+   old trials answered the old wording); ONE `metric_compare compare ... --refs A,A0`; FAIL verdicts are the product's result.
+4. `evidence/closure/CC-141.toml` (AC1-AC4, TC1-TC3; AC4 stays NOT RUN until after merge), `closure.py check --pre-merge`.
+5. Draft PR; owner merges; post-merge E2E on main; rebase CC-104 onto main with a backup branch (AC4); `jira_transition.py CC-141 --done`.
 
 ## Owner items to surface in every status message
 
-- Defaults taken (revertible): q42/q43 curated here; t01/t06/t14 left to CC-104 amendment A; holdouts curated; grid files out of scope
-  (they carry unqualified counties too: CC-104 follow-up); bridge is a relabel of A, so CC-104's B block must run on the curated goldens.
-- Inherited red on origin/main: doc_lines 1822/1820 and p95 20.714. A waiver or raise is an owner commit.
+- Defaults taken (revertible): the three places for t01/t06/t14; q42/q43 curated here; holdouts curated; the bridge is a relabel of A, so CC-104's
+  B block must run on the curated goldens and grid.
+- Inherited red on origin/main: doc_lines 1822/1820, p95 20.714. A waiver or raise is an owner commit.
