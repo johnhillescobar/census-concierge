@@ -114,3 +114,13 @@ def test_tract_cell_that_writes_its_state_passes_only_in_that_state() -> None:
 def test_tract_cell_with_a_state_the_grid_does_not_know_fails() -> None:
     cell = {**INDIANA, "parent_state": "Hoosierland"}
     assert not run_grid.cell_passes(cell, _body(_tract_url("18", "097"), _tract_url("18", "057")))
+
+
+def test_tract_cell_with_an_empty_state_fails_rather_than_going_unrestricted() -> None:
+    cell = {**INDIANA, "parent_state": ""}
+    assert not run_grid.cell_passes(cell, _body(_tract_url("18", "097"), _tract_url("18", "057")))
+
+
+def test_the_state_is_matched_whatever_its_case() -> None:
+    cell = {**INDIANA, "parent_state": "INDIANA"}
+    assert run_grid.cell_passes(cell, _body(_tract_url("18", "097"), _tract_url("18", "057")))
