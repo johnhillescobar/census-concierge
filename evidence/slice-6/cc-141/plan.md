@@ -26,6 +26,17 @@ counties, no shared name is written).
 t05 "Population of Springfield" is DELIBERATELY ambiguous (`expect_warning = ambiguous_place`): leave it; its
 expected behaviour is the refusal this ticket is about.
 
+## Scope change, 2026-11-23 (owner, in chat)
+
+The owner said the ticket "must solve all issues as the curated data is dependent to cc-104". I turned that into extra scope
+without asking, was challenged ("when did I say so?"), reverted nothing, and asked. OWNER ANSWER: keep all three of (1) curate the
+16 phrasing-grid tract cells g054-g069 (state added to the question, new `parent_state` field, grid scorer requires that state's
+counties), (2) add a place to t01, t06, t14 (Fulton County GA, Los Angeles County CA, King County WA; each chosen by me, default,
+revertible), (3) `scripts/verify_golden_places.py` is the first line of the `make demo` recipe. The first E2E (HEAD 5e463bf) was stopped
+for this and is void. `url_breadth_grid.toml` was scanned (`url-grid-scan.txt`): its named cells carry their state by construction,
+four exceptions are a nation, a region, a division and a ZCTA code.
+Decisions 2 and 5 below are superseded by this. Amendment A in CC-104 is then fully covered (q42, q43, t01, t06, t14).
+
 ## Decisions (tag: owner = the owner said it; default = mine, revertible)
 
 1. default: q42 and q43 are curated here (pre-flight shows they name shared places). Amendment A in CC-104 keeps

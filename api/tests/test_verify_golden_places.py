@@ -360,6 +360,7 @@ def _repo(tmp_path: Path, old: str, new: str) -> Path:
     """A real git repo: the golden file committed as `old`, the working tree holding `new`."""
     (tmp_path / "evals").mkdir()
     path = tmp_path / vg.GOLDENS
+    (tmp_path / vg.GRID).write_text(GRID_FILE, encoding="utf-8")  # unchanged, nothing to flag
     _git(tmp_path, "init", "-q")
     path.write_text(old, encoding="utf-8")
     _git(tmp_path, "add", ".")
@@ -368,6 +369,7 @@ def _repo(tmp_path: Path, old: str, new: str) -> Path:
     return tmp_path
 
 
+GRID_FILE = '[[cell]]\nid = "g1"\nlevel = "county"\nexpected_parents = ["Ohio"]\nquestion = "x"\n'
 FILE_OLD = '[[question]]\nid = "a"\ntext = "Poverty in Cook County"\nexpect_table = "B17001"\n'
 FILE_NEW = FILE_OLD.replace("Cook County", "Cook County, Illinois")
 
@@ -463,3 +465,149 @@ def test_a_state_inserted_away_from_the_place_fails(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
     new = edit(a={"text": "Poverty, Illinois in Cook County"})
     assert any("more than the state" in p for p in vg.diff_problems(OLD, new))
+
+
+GRID_COUNTY = [
+    {"name": "Marion County, Indiana"},
+    {"name": "Marion County, Ohio"},
+    {"name": "Hamilton County, Indiana"},
+    {"name": "Hamilton County, Ohio"},
+    {"name": "DuPage County, Illinois"},
+]
+
+
+def grid_check(cells: list[dict[str, Any]]) -> list[str]:
+    return vg.grid_problems(cells, lambda level: {"county": GRID_COUNTY}[level])
+
+
+def cell(**fields: Any) -> dict[str, Any]:
+    base = {
+        "id": "g1",
+        "level": "tract",
+        "expected_parents": ["Marion County", "Hamilton County"],
+        "question": "All tracts in Marion and Hamilton County, Indiana.",
+        "parent_state": "Indiana",
+    }
+    return {**base, **fields}
+
+
+def test_a_grid_cell_with_shared_counties_and_its_state_passes() -> None:
+    assert grid_check([cell()]) == []
+
+
+def test_a_grid_cell_with_shared_counties_and_no_state_fails() -> None:
+    bare = {k: v for k, v in cell().items() if k != "parent_state"}
+    problems = grid_check([{**bare, "question": "All tracts in Marion and Hamilton County."}])
+    assert problems == ["g1: names a shared county and carries no parent_state"]
+
+
+def test_a_grid_cell_whose_state_the_question_does_not_write_fails() -> None:
+    problems = grid_check([cell(question="All tracts in Marion and Hamilton County.")])
+    assert any("not in the question after the last county" in p for p in problems)
+
+
+def test_a_grid_cell_whose_state_does_not_hold_the_county_fails() -> None:
+    problems = grid_check(
+        [cell(parent_state="Illinois", question="Marion and Hamilton County, Illinois")]
+    )
+    assert any("no county 'Marion County' in Illinois" in p for p in problems)
+
+
+def test_a_grid_cell_with_a_county_that_exists_nowhere_fails() -> None:
+    problems = grid_check([cell(expected_parents=["Atlantis County"], parent_state=None)])
+    assert any("matches no county nationwide" in p for p in problems)
+
+
+def test_a_unique_county_needs_no_state() -> None:
+    unique = cell(expected_parents=["DuPage County"], question="All tracts in DuPage County.")
+    del unique["parent_state"]
+    assert grid_check([unique]) == []
+
+
+def test_county_level_cells_name_unique_states_and_are_not_checked() -> None:
+    states = {"id": "g2", "level": "county", "expected_parents": ["Ohio"], "question": "x"}
+    assert grid_check([states]) == []
+
+
+def test_a_grid_level_the_check_does_not_know_is_a_problem_not_a_pass() -> None:
+    assert grid_check([cell(level="block group")]) == [
+        "g1: level 'block group' is not one this check knows"
+    ]
+
+
+OLD_CELL = {
+    "id": "g1",
+    "level": "tract",
+    "expected_parents": ["Marion County"],
+    "question": "All tracts in Marion County.",
+}
+
+
+def test_a_grid_edit_that_only_adds_the_state_passes() -> None:
+    new = {
+        **OLD_CELL,
+        "question": "All tracts in Marion County, Indiana.",
+        "parent_state": "Indiana",
+    }
+    assert vg.grid_diff_problems([OLD_CELL], [new]) == []
+
+
+def test_a_grid_edit_that_changes_the_level_or_parents_fails() -> None:
+    base = {
+        **OLD_CELL,
+        "question": "All tracts in Marion County, Indiana.",
+        "parent_state": "Indiana",
+    }
+    for changed in ({"level": "county"}, {"expected_parents": ["Hamilton County"]}):
+        assert vg.grid_diff_problems([OLD_CELL], [{**base, **changed}]) == [
+            "g1: a field other than question or a new parent_state changed"
+        ]
+
+
+def test_a_grid_edit_that_rewords_more_than_the_state_fails() -> None:
+    new = {
+        **OLD_CELL,
+        "question": "Every tract in Marion County, Indiana.",
+        "parent_state": "Indiana",
+    }
+    assert "g1: question changed by more than the state" in vg.grid_diff_problems([OLD_CELL], [new])
+
+
+def test_a_grid_edit_that_writes_a_state_without_declaring_it_fails() -> None:
+    new = {**OLD_CELL, "question": "All tracts in Marion County, Indiana."}
+    assert "g1: question changed by more than the state" in vg.grid_diff_problems([OLD_CELL], [new])
+
+
+def test_grid_cells_dropped_or_reordered_fail() -> None:
+    other = {**OLD_CELL, "id": "g2"}
+    assert vg.grid_diff_problems([OLD_CELL, other], [other, OLD_CELL]) == [
+        "the grid cell ids or their order changed"
+    ]
+
+
+def test_every_curated_cell_in_the_real_grid_writes_its_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cells = tomllib.loads((ROOT / vg.GRID).read_text(encoding="utf-8"))["cell"]
+    tract = [c for c in cells if c["level"] == "tract"]
+    assert tract and all(
+        vg._written(c["question"], c["expected_parents"][-1], c["parent_state"]) for c in tract
+    )
+
+
+@pytest.mark.parametrize("gid", ["t01", "t06", "t14"])
+def test_a_golden_that_named_no_place_gains_exactly_the_added_phrase(
+    monkeypatch: pytest.MonkeyPatch, gid: str
+) -> None:
+    old = [golden(gid, "Share of households")]
+    phrase = vg.ADDED[gid]
+    new = [golden(gid, f"Share of households{phrase}")]
+    assert vg.diff_problems(old, new) == []
+    worse = [golden(gid, f"Share of households{phrase} in 2024")]
+    assert any("more than the state" in p for p in vg.diff_problems(old, worse))
+
+
+def test_the_added_places_are_the_annotated_ones() -> None:
+    for gid, phrase in vg.ADDED.items():
+        name, _level, state = vg.PLACES[gid][0]
+        assert phrase == f" in {name}, {state}"

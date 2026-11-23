@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that no visible golden names a shared place without its state (CC-141).
+"""Check that no visible golden or grid cell names a shared place without its state (CC-141).
 
     python scripts/verify_golden_places.py [--base origin/main]
 
@@ -9,7 +9,9 @@ retrieval. Each golden's places are annotated below by hand (the script never re
 words to find a place); the match is the resolver's own `filter_rows` over live Census listings at
 the level the golden expects. Needs CENSUS_API_KEY. With --base REF it also proves the edit changed
 only the state: per id every field but `text` is equal, and `text` minus the inserted ", State" is
-the old text. Exits non-zero on any problem.
+the old text. The phrasing grid is checked the same way from each cell's structured
+`expected_parents` (a tract cell whose county names are shared must carry `parent_state`, written
+in the question). Exits non-zero on any problem.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ sys.path.insert(0, str(ROOT / "api"))
 from src.geo_list import STATES, filter_rows, list_census_names  # noqa: E402
 
 GOLDENS = "evals/golden_questions.toml"
+GRID = "evals/cc103_phrasing_grid.toml"
 Listing = Callable[[str], list[dict[str, str]]]
 # (name as the model would write it, level, state the question carries or None)
 Place = tuple[str, str, str | None]
@@ -79,12 +82,12 @@ PLACES: dict[str, list[Place]] = {
     "q42": [("Fayetteville", "place", "North Carolina")],
     "q43": [("Suffolk County", "county", "New York")],
     "q44": [("Sarasota County", "county", None)],
-    "t01": [],
+    "t01": [("Fulton County", "county", "Georgia")],
     "t02": [],
     "t03": [],
     "t04": [],
     "t05": [("Springfield", "place", None)],
-    "t06": [],
+    "t06": [("Los Angeles County", "county", "California")],
     "t07": [("Phoenix", "place", "Arizona")],
     "t08": [("Travis County", "county", None)],
     "t09": [("Denver", "place", "Colorado")],
@@ -92,7 +95,7 @@ PLACES: dict[str, list[Place]] = {
     "t11": [("Middlebury", "place", "Vermont")],
     "t12": [("Fresno County", "county", None)],
     "t13": [("Wayne County", "county", "Michigan")],
-    "t14": [],
+    "t14": [("King County", "county", "Washington")],
     "t15": [],
     "t16": [("Denver", "place", "Colorado")],
     "t17": [("Cook County", "county", "Illinois")],
@@ -105,6 +108,12 @@ PLACES: dict[str, list[Place]] = {
     "h06": [("Clark County", "county", "Nevada")],
     "h07": [("Cameron County", "county", "Texas")],
     "h08": [("Portland", "place", "Maine")],
+}
+# Goldens that named no place: the exact phrase inserted to give them one (the diff proves it).
+ADDED = {
+    "t01": " in Fulton County, Georgia",
+    "t06": " in Los Angeles County, California",
+    "t14": " in King County, Washington",
 }
 # A golden whose expected behaviour IS the refusal: its place stays shared and stateless on purpose.
 EXEMPT = {"t05": "expects ambiguous_place: the candidates are the answer"}
@@ -166,7 +175,8 @@ def place_problems(goldens: list[dict[str, Any]], listing: Listing) -> list[str]
 
 
 def diff_problems(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[str]:
-    """Same ids in the same order; only `text` may differ, and only by the inserted ", State"."""
+    """Same ids in the same order; only `text` may differ, and only by the inserted ", State" (or
+    the one phrase ADDED to a golden that named no place)."""
     if [g["id"] for g in old] != [g["id"] for g in new]:
         return ["the golden ids or their order changed"]
     out = []
@@ -179,10 +189,15 @@ def diff_problems(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[
         if before["text"] == after["text"]:
             continue
         inserted = [(t, s) for t, _l, s in PLACES.get(gid, []) if s]
+        phrase = ADDED.get(gid)
         if not any(
             f"{t}, {s}" not in before["text"]
             and after["text"].replace(f"{t}, {s}", t, 1) == before["text"]
             for t, s in inserted
+        ) and not (
+            phrase
+            and phrase not in before["text"]
+            and after["text"].replace(phrase, "", 1) == before["text"]
         ):
             out.append(
                 f"{gid}: text changed by more than the state: "
@@ -191,14 +206,68 @@ def diff_problems(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[
     return out
 
 
-def _load(ref: str | None) -> list[dict[str, Any]]:
+def grid_problems(cells: list[dict[str, Any]], listing: Listing) -> list[str]:
+    """A tract cell's `expected_parents` are counties. A county name shared by several states needs
+    `parent_state`, written in the question right after the last parent, and that state must hold
+    every parent. County cells name states, which are unique."""
+    out: list[str] = []
+    for cell in cells:
+        cid, state = cell["id"], cell.get("parent_state")
+        if cell["level"] == "county":
+            continue
+        if cell["level"] != "tract":
+            out.append(f"{cid}: level {cell['level']!r} is not one this check knows")
+            continue
+        shared = False
+        for parent in cell["expected_parents"]:
+            hits = filter_rows(parent.casefold(), listing("county"))
+            shared = shared or len(hits) > 1
+            if not hits:
+                out.append(f"{cid}: {parent!r} matches no county nationwide")
+            elif state and not any(
+                _exact(r["name"], parent) and r["name"].casefold().endswith(f", {state.casefold()}")
+                for r in hits
+            ):
+                out.append(f"{cid}: no county {parent!r} in {state}")
+        if shared and not state:
+            out.append(f"{cid}: names a shared county and carries no parent_state")
+        if state and not _written(str(cell["question"]), cell["expected_parents"][-1], state):
+            out.append(
+                f"{cid}: parent_state {state!r} is not in the question after the last county"
+            )
+    return out
+
+
+def grid_diff_problems(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[str]:
+    """Same cells in the same order; only `question` and a new `parent_state` may differ, and the
+    question only by the inserted ", State"."""
+    if [c["id"] for c in old] != [c["id"] for c in new]:
+        return ["the grid cell ids or their order changed"]
+    out = []
+    for before, after in zip(old, new, strict=True):
+        cid, state = after["id"], after.get("parent_state")
+        keep = {"question", "parent_state"}
+        if {k: v for k, v in before.items() if k not in keep} != {
+            k: v for k, v in after.items() if k not in keep
+        } or before.get("parent_state") != (state if "parent_state" in before else None):
+            out.append(f"{cid}: a field other than question or a new parent_state changed")
+        if before["question"] != after["question"] and not (
+            state
+            and f", {state}" not in before["question"]
+            and after["question"].replace(f", {state}", "", 1) == before["question"]
+        ):
+            out.append(f"{cid}: question changed by more than the state")
+    return out
+
+
+def _load(ref: str | None, path: str = GOLDENS, table: str = "question") -> list[dict[str, Any]]:
     if ref is None:
-        raw = (ROOT / GOLDENS).read_bytes()
+        raw = (ROOT / path).read_bytes()
     else:
         raw = subprocess.run(
-            ["git", "show", f"{ref}:{GOLDENS}"], cwd=ROOT, capture_output=True, check=True
+            ["git", "show", f"{ref}:{path}"], cwd=ROOT, capture_output=True, check=True
         ).stdout
-    return list(tomllib.loads(raw.decode("utf-8"))["question"])
+    return list(tomllib.loads(raw.decode("utf-8"))[table])
 
 
 def main() -> int:
@@ -219,11 +288,15 @@ def main() -> int:
             cache[level] = list_census_names(level, {"state": "*"}, key=key)
         return cache[level]
 
-    new = _load(None)
-    problems = place_problems(new, listing)
-    print(f"{len(new)} goldens; listings: " + ", ".join(f"{k} {len(v)}" for k, v in cache.items()))
+    new, cells = _load(None), _load(None, GRID, "cell")
+    problems = place_problems(new, listing) + grid_problems(cells, listing)
+    print(
+        f"{len(new)} goldens, {len(cells)} grid cells; listings: "
+        + ", ".join(f"{k} {len(v)}" for k, v in cache.items())
+    )
     if args.base:
         problems += diff_problems(_load(args.base), new)
+        problems += grid_diff_problems(_load(args.base, GRID, "cell"), cells)
     for line in problems:
         print(f"  FAIL  {line}")
     print("OK" if not problems else f"{len(problems)} problem(s)")
