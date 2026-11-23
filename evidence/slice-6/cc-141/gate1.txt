@@ -1,0 +1,229 @@
+CC-141 Gate 1 transcript
+repo:   C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-141
+branch: cc-141/golden-state
+review base: origin/main 9a36dff
+HEAD at start: c31feb2d51ec882002da53b77e1f374014f7adf7 (tree clean; 21 tests passed)
+HEAD after adding tests (mutated from here): d2f84de (tree clean; 42 tests passed)
+
+Matrix review: the 12 existing script-logic tests left these defects unguarded; tests added (+21 test functions, 1 parametrized x2):
+  USPS case/word/comma handling, state name case, state held only by longer state name (West Virginia vs Virginia),
+  state held only by a word match (East Portland), suffix-word names, every place of a golden checked, listing level,
+  unannotated golden does not hide others, unchanged golden already carrying its state, state written twice,
+  field added/removed, diff continues past a changed golden, _load ref vs working file, bad ref raises, and main()
+  (exit codes, once-per-level listing, key passed, --base runs the diff, missing key). main() tests run a real tmp git repo.
+Fixtures: listing rows only. Real TOML, real filter_rows, real git show.
+
+Each mutation: revert ONE behaviour, run ONLY its test (uv run pytest api/tests/test_verify_golden_places.py -k <test> -q),
+expect FAIL, restore with git checkout -- <file>. GOOD = the test failed against the broken code. BAD = it still passed.
+
+=== First pass (44 mutations over the 42 tests incl. existing) ===
+Result: 43 GOOD, 1 BAD (mutation 4). Mutation 4 survived because the test text "Somerville, MA" never needed the comma
+replace (MA is its own token). Test strengthened to "Housing units in Somerville, MA, by tenure" and mutation 4 re-run (below).
+
+[1] GOOD (killed): drop the shared-place-without-state check
+    test: test_a_shared_place_with_no_state_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.19s
+[2] GOOD (killed): a stated state no longer skips the shared-place check
+    test: test_a_shared_place_that_writes_its_state_passes
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.20s
+[3] GOOD (killed): a USPS code no longer counts as the state
+    test: test_a_usps_code_counts_as_the_state
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.21s
+[4] BAD (survived): USPS codes are split without separating commas
+    test: test_a_usps_code_beside_a_comma_counts
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 passed, 41 deselected, 1 warning in 0.08s
+[5] GOOD (killed): state name matched case-sensitively against the question
+    test: test_a_state_name_counts_in_any_letter_case
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.19s
+[6] GOOD (killed): USPS code matched case-insensitively
+    test: test_a_word_that_only_looks_like_the_state_code_does_not_count
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 1 passed, 40 deselected, 1 warning in 0.17s
+[7] GOOD (killed): USPS code matched as a substring instead of a whole word
+    test: test_a_word_that_only_looks_like_the_state_code_does_not_count
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 1 passed, 40 deselected, 1 warning in 0.16s
+[8] GOOD (killed): a place matching one place now needs a state (threshold >1 becomes >=1)
+    test: test_a_place_that_matches_one_place_needs_no_state
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.14s
+[9] GOOD (killed): drop the stated-state-is-in-the-question check
+    test: test_a_stated_state_the_question_does_not_carry_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.16s
+[10] GOOD (killed): drop the state-holds-the-place check
+    test: test_a_state_that_does_not_hold_the_place_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.19s
+[11] GOOD (killed): state suffix matched without its comma separator
+    test: test_a_state_held_only_by_a_longer_state_name_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.16s
+[12] GOOD (killed): any word match of the name counts as holding the place
+    test: test_a_state_held_only_by_a_word_match_of_the_name_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.19s
+[13] GOOD (killed): the name must equal the token exactly (suffix words refused)
+    test: test_a_state_held_by_a_name_with_a_suffix_word_passes
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.17s
+[14] GOOD (killed): stop at the first place that carries a state
+    test: test_every_place_of_a_golden_is_checked
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.14s
+[15] GOOD (killed): read the place listing at the wrong level
+    test: test_the_listing_is_read_at_the_level_the_place_is_annotated_at
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.22s
+[16] GOOD (killed): drop the matches-no-place check
+    test: test_a_name_that_matches_nothing_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.17s
+[17] GOOD (killed): stop at the first unannotated golden
+    test: test_an_unannotated_golden_does_not_hide_the_others
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.17s
+[18] GOOD (killed): drop the unannotated-golden report
+    test: test_a_golden_nobody_annotated_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.18s
+[19] GOOD (killed): drop the annotation-for-a-missing-golden report
+    test: test_an_annotation_for_a_golden_that_is_gone_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.17s
+[20] GOOD (killed): exempt goldens no longer excused from the shared-place check
+    test: test_a_golden_that_expects_the_refusal_may_stay_shared
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.17s
+[21] GOOD (killed): drop the stale-exemption check
+    test: test_an_exemption_that_is_no_longer_shared_is_stale
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.18s
+[22] GOOD (killed): drop the exempt-but-not-annotated report
+    test: test_an_exemption_without_an_annotation_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.19s
+[23] GOOD (killed): a golden id exists that no annotation covers (goldens file)
+    test: test_every_golden_in_the_real_file_is_annotated
+    file: evals/golden_questions.toml   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.16s
+[24] GOOD (killed): q03 loses its state in the question text (goldens file)
+    test: test_every_stated_state_is_in_the_real_question_text
+    file: evals/golden_questions.toml   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.15s
+[25] GOOD (killed): t05 loses its ambiguous_place expectation (goldens file)
+    test: test_the_real_file_holds_every_unqualified_exemption_unchanged
+    file: evals/golden_questions.toml   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.17s
+[26] GOOD (killed): refuse every text change
+    test: test_an_edit_that_only_adds_the_state_passes
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.16s
+[27] GOOD (killed): an unchanged text is no longer skipped
+    test: test_an_untouched_file_passes
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.15s
+[28] GOOD (killed): an unchanged text is no longer skipped (already-stated state)
+    test: test_an_unchanged_golden_that_already_carries_its_state_passes
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.18s
+[29] GOOD (killed): drop the other-field-changed report
+    test: test_a_changed_expectation_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.15s
+[30] GOOD (killed): fields only in the new golden are ignored
+    test: test_an_added_or_removed_field_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.18s
+[31] GOOD (killed): stop diffing at the first changed text
+    test: test_a_second_golden_is_still_checked_after_the_first_changed
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.14s
+[32] GOOD (killed): a text change is not required to restore the old text
+    test: test_an_edit_that_adds_more_than_the_state_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.18s
+[33] GOOD (killed): the state is removed everywhere, not once
+    test: test_a_state_written_twice_is_more_than_the_state
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.26s
+[34] GOOD (killed): a text change with no state annotation is accepted
+    test: test_a_rewording_with_no_state_annotation_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.20s
+[35] GOOD (killed): golden order is ignored
+    test: test_a_dropped_or_reordered_golden_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.14s
+[36] GOOD (killed): golden ids are not compared at all (drop)
+    test: test_a_dropped_or_reordered_golden_fails
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 0.16s
+[37] GOOD (killed): the base ref is ignored: the working file is read
+    test: test_load_reads_the_working_file_or_the_ref_asked_for
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.02s
+[38] GOOD (killed): a failed git show no longer raises
+    test: test_a_ref_that_does_not_exist_is_an_error_not_an_empty_diff
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.42s
+[39] GOOD (killed): listings are re-fetched for every place
+    test: test_main_passes_a_clean_file_and_reads_each_level_once
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.10s
+[40] GOOD (killed): the Census key is not passed to the listing call
+    test: test_main_passes_a_clean_file_and_reads_each_level_once
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.22s
+[41] GOOD (killed): exit code is 0 whatever the problems
+    test: test_main_fails_a_golden_that_names_a_shared_place_without_its_state
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.02s
+[42] GOOD (killed): --base no longer runs the diff
+    test: test_main_with_a_base_fails_an_edit_that_changed_more_than_the_state
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.02s
+[43] GOOD (killed): --base diffs against a ref that is not the one given
+    test: test_main_with_a_base_passes_an_edit_that_changed_only_the_state
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.36s
+[44] GOOD (killed): a missing Census key no longer stops the run
+    test: test_main_without_a_census_key_does_not_check_anything
+    file: scripts/verify_golden_places.py   restored clean: True
+    1 failed, 41 deselected, 1 warning in 1.25s
+killed 43
+
+=== Mutation 4 re-run after strengthening the test ===
+[4] GOOD (killed): USPS codes are split without separating commas
+    test: test_a_usps_code_beside_a_comma_counts
+    file: scripts/verify_golden_places.py   restored clean: False
+    1 failed, 41 deselected, 1 warning in 0.18s
+killed 1
+(restored clean: False above only because the strengthened test file was not yet committed; the script was restored.)
+
+=== Equivalent / unmutated notes ===
+  zip(old, new, strict=True) in diff_problems: strict=True can never raise, the id-list check returns first. Equivalent mutant, no test forced.
+  place_problems sorted(...)[:5] in the shared-place message: message detail only, not asserted (prose).
+  _load is called with the working file first in main(): order has no observable effect.
+
+=== Script observations (not fixed, per instructions) ===
+  1. diff_problems accepts the inserted ", State" ANYWHERE in the text, and accepts doubling a state that was already there
+     ("Harris County, Texas" -> "Harris County, Texas, Texas" passes). Plan decision 4 says the state goes straight after the
+     place name; the script does not check position. Weak, not wrong for AC2 as written (only the state was inserted).
+  2. _carries scans the question text for the state (name substring, or USPS code as an upper-case whole word). It reads
+     golden data, not a user question, so it is a data check, but it is a text scan to be aware of at Gate 2 against the no-wording-heuristics rule.
+     A lower-case "in"/"or"/"me" is correctly not read as Indiana/Oregon/Maine (test added).
+  No script defect that breaks AC1 or AC2 found.
+
+=== Final ===
+$ uv run pytest api/tests/test_verify_golden_places.py -q
+42 passed, 1 warning in 7.83s
+$ uv run ruff check .
+All checks passed!
+$ uv run ruff format --check .
+274 files already formatted

@@ -85,7 +85,10 @@ def test_a_usps_code_counts_as_the_state(monkeypatch: pytest.MonkeyPatch) -> Non
 
 def test_a_usps_code_beside_a_comma_counts(monkeypatch: pytest.MonkeyPatch) -> None:
     places: dict[str, list[vg.Place]] = {"a": [("Somerville", "place", "Massachusetts")]}
-    assert check(monkeypatch, places, [golden("a", "Housing units in Somerville, MA")]) == []
+    assert (
+        check(monkeypatch, places, [golden("a", "Housing units in Somerville, MA, by tenure")])
+        == []
+    )
 
 
 def test_a_state_name_counts_in_any_letter_case(monkeypatch: pytest.MonkeyPatch) -> None:
