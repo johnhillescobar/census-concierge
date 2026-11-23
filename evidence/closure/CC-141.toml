@@ -1,5 +1,5 @@
 ticket = "CC-141"
-head = "133b3bc84ade03a433f17513bdead24c47785dd1"
+head = "04f42843d8b3bbd6a9744d9cd2bdefd23f5c6c9d"
 required = ["AC1", "AC2", "AC3", "AC4", "TC1", "TC2", "TC3"]
 # AC3 and AC4 are NOT RUN on purpose: the bridge is the owner's own commit on main, and AC4 follows the merge.
 
@@ -10,7 +10,7 @@ command = "uv run python scripts/verify_golden_places.py --base origin/main"
 expected = "every visible golden and grid cell that names a place shared by several states carries its state; zero stateless shared places, checked against live Census metadata"
 observed = "Run at 133b3bc as step v of the E2E driver (e2e/v.out): 70 goldens and 70 grid cells checked against the live ACS5 county (3222) and place (32330) listings with the resolver's own NAME match; exit 0, OK. Before the edit the same checker flags 25 goldens (verify-before.txt; q23 already wrote Texas for its comparison average) and the 16 phrasing-grid tract cells g054-g069 (verify-before-grid.txt); 26 goldens and 16 cells now carry their state, and t01/t06/t14 gained a county (owner kept this, plan.md). t05 is exempt by design (expects ambiguous_place). The generated url_breadth_grid was scanned (url-grid-scan.txt): 58 named cells, the 4 without a state are a nation, a region, a division and a ZCTA code. Limit, stated: the place annotation per id is by hand; the check proves the annotation against metadata and the text, not that no place was mislabelled."
 evidence = [{ path = "evidence/slice-6/cc-141/e2e/v.out", sha256 = "e029770bf66890782fc42b5b816c402127d98db52f5915a014084584b0eabc21" }, { path = "evidence/slice-6/cc-141/verify-before.txt", sha256 = "bc89cd66c1f51be3ce5adf062c4004c1f685bcdfad476a6688d40ff38cccc1ed" }, { path = "evidence/slice-6/cc-141/verify-before-grid.txt", sha256 = "81cd5eadf3feec1081fe3a81e37365e82199f4999b146d63a6661f8227ee5f38" }, { path = "evidence/slice-6/cc-141/url-grid-scan.txt", sha256 = "a963755cfb6945324d8a6ed1610768bc915a936e3601d46803a9a271c7329adb" }, { path = "evidence/slice-6/cc-141/closure-run/test_verify_golden_places.txt", sha256 = "ae83a5cbbc82945a2abcf87881268396ff696dc79c93f78b5ee727db2e4f7547" }]
-tested_head = "133b3bc84ade03a433f17513bdead24c47785dd1"
+tested_head = "04f42843d8b3bbd6a9744d9cd2bdefd23f5c6c9d"
 affects = ["scripts/verify_golden_places.py", "api/tests/test_verify_golden_places.py", "evals", "Makefile"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-141/closure-run/mutation-index.txt", sha256 = "8a20659085ade357c928e0bd24aa356bb736432fb409c958c5034ba419963c16" }
@@ -23,7 +23,7 @@ command = "uv run python scripts/verify_golden_places.py --base origin/main"
 expected = "no golden changes its table, universe, level or vintage expectation; per id only the question text (and its place) changed"
 observed = "Run at 133b3bc (e2e/v.out, --base origin/main = 9a36dff): same ids in the same order, every field but text/question equal per id, each changed text equals the old text plus exactly ', State' straight after the place (or the one added county phrase for t01/t06/t14), each changed grid cell gains only the state in its question and a new parent_state. 102 tests in test_verify_golden_places.py and 21 in the grid scorer and label tests pass, covering a changed expectation, an extra reword, a doubled or misplaced state, dropped or reordered ids. The grid scorer now requires the stated state's counties for a cell that carries parent_state and is unchanged for a cell without one."
 evidence = [{ path = "evidence/slice-6/cc-141/e2e/v.out", sha256 = "e029770bf66890782fc42b5b816c402127d98db52f5915a014084584b0eabc21" }, { path = "evidence/slice-6/cc-141/closure-run/test_verify_golden_places.txt", sha256 = "ae83a5cbbc82945a2abcf87881268396ff696dc79c93f78b5ee727db2e4f7547" }, { path = "evidence/slice-6/cc-141/closure-run/test_grid_scorer_and_labels.txt", sha256 = "750d8799e2e178a74cfcddf5d0dc57bee96199cbb66c0a3734a273328b8dbf15" }]
-tested_head = "133b3bc84ade03a433f17513bdead24c47785dd1"
+tested_head = "04f42843d8b3bbd6a9744d9cd2bdefd23f5c6c9d"
 affects = ["scripts/verify_golden_places.py", "api/tests/test_verify_golden_places.py", "evals", "Makefile", "scripts/run_grid.py", "api/tests/test_grid_scorer.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-141/closure-run/mutation-index.txt", sha256 = "8a20659085ade357c928e0bd24aa356bb736432fb409c958c5034ba419963c16" }
@@ -50,7 +50,7 @@ command = "uv run python scripts/verify_golden_places.py --base origin/main"
 expected = "the verification script finds zero visible goldens with a shared, stateless place"
 observed = "Run at 133b3bc (e2e/v.out): '70 goldens, 70 grid cells ... OK', exit 0. Mutation-checked: reverting the shared-place test, the state-in-text test, the word-edge rule or the annotation coverage each fails its covering test (gate1.txt, gate1-grid.txt, gate2-r2-fixes.txt)."
 evidence = [{ path = "evidence/slice-6/cc-141/e2e/v.out", sha256 = "e029770bf66890782fc42b5b816c402127d98db52f5915a014084584b0eabc21" }, { path = "evidence/slice-6/cc-141/closure-run/test_verify_golden_places.txt", sha256 = "ae83a5cbbc82945a2abcf87881268396ff696dc79c93f78b5ee727db2e4f7547" }]
-tested_head = "133b3bc84ade03a433f17513bdead24c47785dd1"
+tested_head = "04f42843d8b3bbd6a9744d9cd2bdefd23f5c6c9d"
 affects = ["scripts/verify_golden_places.py", "api/tests/test_verify_golden_places.py", "evals", "Makefile"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-141/closure-run/mutation-index.txt", sha256 = "8a20659085ade357c928e0bd24aa356bb736432fb409c958c5034ba419963c16" }
@@ -63,7 +63,7 @@ command = "uv run python scripts/verify_golden_places.py --base origin/main"
 expected = "the per-id diff shows no change outside the question text"
 observed = "Run at 133b3bc (e2e/v.out): the --base diff reports no problem for any of the 70 goldens or 70 grid cells. The tests build a real git repo with the file committed old and edited new and prove each failure mode (changed expectation, extra words, doubled or misplaced state, dropped or reordered ids, an undeclared parent_state)."
 evidence = [{ path = "evidence/slice-6/cc-141/e2e/v.out", sha256 = "e029770bf66890782fc42b5b816c402127d98db52f5915a014084584b0eabc21" }, { path = "evidence/slice-6/cc-141/closure-run/test_verify_golden_places.txt", sha256 = "ae83a5cbbc82945a2abcf87881268396ff696dc79c93f78b5ee727db2e4f7547" }]
-tested_head = "133b3bc84ade03a433f17513bdead24c47785dd1"
+tested_head = "04f42843d8b3bbd6a9744d9cd2bdefd23f5c6c9d"
 affects = ["scripts/verify_golden_places.py", "api/tests/test_verify_golden_places.py", "evals", "Makefile"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-141/closure-run/mutation-index.txt", sha256 = "8a20659085ade357c928e0bd24aa356bb736432fb409c958c5034ba419963c16" }
@@ -74,9 +74,9 @@ id = "TC3"
 status = "PASS"
 command = "uv run python scripts/metric_compare.py compare evidence/slice-6/cc-141/e2e/latest-after-demo.json --refs A,A0"
 expected = "metric_compare over a pre-change and a post-change run completes under the bridge"
-observed = "Run once in a scratch checkout at 46d34c6 that held bridge-entry.json at evidence/metrics/bridges.json (not committed on this branch; see AC3): the comparator completed, read reference A as 'bridged: CC-141 ...', reported no hash FAIL for A, and printed VERDICT FAIL. That verdict is the measured result of the unchanged-main code on the curated goldens: long_tail 0.725 (floor 0.70 met), retrieval_at_10 0.90 (at its floor), selector_at_1 0.75 (A 0.825: FAIL), p95 23.758 (ceiling 20: FAIL, red on origin/main too), trap and core below A on families of 18 and 4, 3 families with fewer rows, A0 has no bridge (its scorer differs, as in CC-133). api/src is byte-identical to main, so none of this is code; A is an older run on an older model and the bridge note says its trials answered the old wording, so the comparison cannot isolate the curation: CC-104's same-window B block on the curated goldens does that. Per-id: 29 curated ids missed 13 trials in A and 10 here; q23 misses 3 of 3 in both; q12 and q33 newly miss and were not edited."
-evidence = [{ path = "evidence/slice-6/cc-141/compare.txt", sha256 = "12032ea098e02b5517410475d468b9879c8e726a2556526faacfe2488f4df915" }, { path = "evidence/slice-6/cc-141/bridge-entry.json", sha256 = "0f1ef99c9a484987296e0cf150629b70ca17abad0a8b2c9c11ab96625bf52d70" }, { path = "evidence/slice-6/cc-141/closure-run/freeze.txt", sha256 = "1042509cfd6d3b2c577e78f248389d56cee1c1f12bb534ab033c066691f0b246" }]
-tested_head = "133b3bc84ade03a433f17513bdead24c47785dd1"
+observed = "Run in a scratch checkout at 46d34c6, and again once after the rebase onto main d51ceb9 (scratch checkout at 4837976; output byte-identical, same sha256; the rebase only appended one cc-126 ledger line under evidence/metrics, which the comparator never reads), each holding bridge-entry.json at evidence/metrics/bridges.json (not committed on this branch; see AC3): the comparator completed, read reference A as 'bridged: CC-141 ...', reported no hash FAIL for A, and printed VERDICT FAIL. That verdict is the measured result of the unchanged-main code on the curated goldens: long_tail 0.725 (floor 0.70 met), retrieval_at_10 0.90 (at its floor), selector_at_1 0.75 (A 0.825: FAIL), p95 23.758 (ceiling 20: FAIL, red on origin/main too), trap and core below A on families of 18 and 4, 3 families with fewer rows, A0 has no bridge (its scorer differs, as in CC-133). api/src is byte-identical to main, so none of this is code; A is an older run on an older model and the bridge note says its trials answered the old wording, so the comparison cannot isolate the curation: CC-104's same-window B block on the curated goldens does that. Per-id: 29 curated ids missed 13 trials in A and 10 here; q23 misses 3 of 3 in both; q12 and q33 newly miss and were not edited."
+evidence = [{ path = "evidence/slice-6/cc-141/compare.txt", sha256 = "12032ea098e02b5517410475d468b9879c8e726a2556526faacfe2488f4df915" }, { path = "evidence/slice-6/cc-141/compare-rebased.txt", sha256 = "12032ea098e02b5517410475d468b9879c8e726a2556526faacfe2488f4df915" }, { path = "evidence/slice-6/cc-141/bridge-entry.json", sha256 = "0f1ef99c9a484987296e0cf150629b70ca17abad0a8b2c9c11ab96625bf52d70" }, { path = "evidence/slice-6/cc-141/closure-run/freeze.txt", sha256 = "1042509cfd6d3b2c577e78f248389d56cee1c1f12bb534ab033c066691f0b246" }]
+tested_head = "48379762b5834f57a5aaf69dda86e2a71e99457b"
 affects = ["evals", "scripts/metric_compare.py", "evidence/metrics"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-141/closure-run/mutation-index.txt", sha256 = "8a20659085ade357c928e0bd24aa356bb736432fb409c958c5034ba419963c16" }
