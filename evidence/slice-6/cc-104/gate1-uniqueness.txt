@@ -1,0 +1,165 @@
+CC-104 Gate 1 mutation check of the uniqueness rule (53013af: a name matching several places, no state the user wrote, is refused)
+branch cc-104/structured-geography; HEAD c2419f7 (code at 53013af); tree clean before mutating; one behaviour reverted at a time, restored with git checkout.
+Covering tests (every test new or rewritten in 53013af, plus unchanged siblings that pin the same rule): 27 cases; baseline 27 passed.
+Tests by behaviour:
+  a shared place name is refused with candidates, nothing selected/built/fetched: test_a_shared_name_without_its_state_builds_and_fetches_nothing, test_cook_county_selects_nothing_and_lists_every_match, test_a_larger_city_does_not_win_a_shared_name, test_a_name_that_matches_several_places_selects_nothing_and_lists_every_match, test_a_place_name_matching_several_places_is_refused_with_its_candidates, test_a_shared_name_is_refused_however_much_larger_one_match_is, test_ambiguous_resolve_lands_on_the_response
+  a shared listing parent is refused: test_tracts_in_a_county_name_shared_by_two_states_are_refused, test_a_place_parent_shared_by_several_states_is_refused_not_guessed, test_a_county_parent_shared_by_several_states_is_refused_not_guessed, test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick, test_a_listing_parent_is_checked_like_a_place
+  exactly one match resolves: test_a_name_matching_exactly_one_place_resolves_without_its_state, test_a_county_parent_that_matches_one_place_resolves_without_its_state
+  a model-supplied state the user did not write settles nothing: test_a_state_the_user_did_not_write_cannot_settle_a_shared_name, test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state, test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear, test_a_listing_over_several_parents_records_that_a_state_was_supplied
+  comparison with one shared leg / listing with one shared parent of several: test_each_comparison_leg_is_judged_on_its_own_state, test_a_listing_over_several_parents_records_that_a_state_was_supplied
+Two mutations were BAD on the first pass and fixed with tests (run 2 below shows them GOOD):
+  - a parent whose state IS written is also refused: the "never ambiguous" test gave its second Ohio row a name that did not match; it now matches, so two matches inside the written state are exercised
+  - the resolved-listing state_supplied flag dropped: new test_a_listing_parent_that_matches_one_place_records_the_state_the_model_added (unique name, model-added state)
+
+== run 1 (all tests above) ==
+GOOD _place: a shared name is never ambiguous
+14 failed, 13 passed, 1629 deselected in 2.46s
+    test_a_larger_city_does_not_win_a_shared_name
+    test_a_name_that_matches_several_places_selects_nothing_and_lists_every_match
+    test_a_place_name_matching_several_places_is_refused_with_its_candidates
+    test_a_place_parent_shared_by_several_states_is_refused_not_guessed
+    test_a_shared_name_is_refused_however_much_larger_one_match_is
+    test_a_shared_name_without_its_state_builds_and_fetches_nothing
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2]
+    test_ambiguous_resolve_lands_on_the_response
+    test_cook_county_selects_nothing_and_lists_every_match
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[written1]
+    test_each_comparison_leg_is_judged_on_its_own_state
+GOOD _list: a shared parent name is never ambiguous
+6 failed, 21 passed, 1629 deselected in 1.96s
+    test_a_county_parent_shared_by_several_states_is_refused_not_guessed
+    test_a_listing_over_several_parents_records_that_a_state_was_supplied
+    test_a_listing_parent_is_checked_like_a_place
+    test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear
+    test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+    test_tracts_in_a_county_name_shared_by_two_states_are_refused
+GOOD _place: a single match is ambiguous too
+2 failed, 25 passed, 1629 deselected in 2.18s
+    test_a_name_matching_exactly_one_place_resolves_without_its_state
+    test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied
+GOOD _list: a single match is ambiguous too
+1 failed, 26 passed, 1629 deselected in 3.15s
+    test_a_county_parent_that_matches_one_place_resolves_without_its_state
+GOOD _place: a name with its written state is also ambiguous
+1 failed, 26 passed, 1629 deselected in 1.91s
+    test_a_name_that_carries_its_state_is_never_ambiguous_even_when_none_dominates
+BAD _list: a parent with its written state is also ambiguous
+27 passed, 1629 deselected in 1.84s
+GOOD _unclear: the first candidate is selected (result not flagged ambiguous)
+20 failed, 7 passed, 1629 deselected in 3.05s
+    test_a_county_parent_shared_by_several_states_is_refused_not_guessed
+    test_a_larger_city_does_not_win_a_shared_name
+    test_a_listing_over_several_parents_records_that_a_state_was_supplied
+    test_a_listing_parent_is_checked_like_a_place
+    test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear
+    test_a_name_that_matches_several_places_selects_nothing_and_lists_every_match
+    test_a_place_name_matching_several_places_is_refused_with_its_candidates
+    test_a_place_parent_shared_by_several_states_is_refused_not_guessed
+    test_a_shared_name_is_refused_however_much_larger_one_match_is
+    test_a_shared_name_without_its_state_builds_and_fetches_nothing
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2]
+    test_ambiguous_resolve_lands_on_the_response
+    test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+    test_cook_county_selects_nothing_and_lists_every_match
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[written1]
+    test_each_comparison_leg_is_judged_on_its_own_state
+    test_tracts_in_a_county_name_shared_by_two_states_are_refused
+GOOD _unclear: only the first match is returned as a candidate
+17 failed, 10 passed, 1629 deselected in 2.76s
+    test_a_county_parent_shared_by_several_states_is_refused_not_guessed
+    test_a_larger_city_does_not_win_a_shared_name
+    test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear
+    test_a_name_that_matches_several_places_selects_nothing_and_lists_every_match
+    test_a_place_name_matching_several_places_is_refused_with_its_candidates
+    test_a_place_parent_shared_by_several_states_is_refused_not_guessed
+    test_a_shared_name_is_refused_however_much_larger_one_match_is
+    test_a_shared_name_without_its_state_builds_and_fetches_nothing
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2]
+    test_ambiguous_resolve_lands_on_the_response
+    test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+    test_cook_county_selects_nothing_and_lists_every_match
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[written1]
+    test_tracts_in_a_county_name_shared_by_two_states_are_refused
+GOOD _unclear: the state_supplied flag is dropped
+8 failed, 19 passed, 1629 deselected in 2.08s
+    test_a_listing_over_several_parents_records_that_a_state_was_supplied
+    test_a_listing_parent_is_checked_like_a_place
+    test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[written1]
+GOOD _place: state_supplied flag dropped from a resolved single place
+1 failed, 26 passed, 1629 deselected in 1.86s
+    test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied
+BAD _list: state_supplied flag dropped from a resolved listing
+27 passed, 1629 deselected in 1.78s
+GOOD _written: a model-supplied state counts as written
+10 failed, 17 passed, 1629 deselected in 2.03s
+    test_a_listing_over_several_parents_records_that_a_state_was_supplied
+    test_a_listing_parent_is_checked_like_a_place
+    test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[None]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0]
+    test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written2]
+    test_a_unique_name_resolves_without_its_state_and_records_that_it_was_supplied
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[written1]
+    test_each_comparison_leg_is_judged_on_its_own_state
+GOOD _written: the model state is dropped even when the user wrote it
+10 failed, 17 passed, 1629 deselected in 2.50s
+    test_a_listing_over_several_parents_records_that_a_state_was_supplied
+    test_a_listing_parent_is_checked_like_a_place
+    test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear
+    test_a_name_that_carries_its_state_is_never_ambiguous_even_when_none_dominates
+    test_a_state_the_report_says_the_user_wrote_settles_it[written0]
+    test_a_state_the_report_says_the_user_wrote_settles_it[written1]
+    test_a_state_the_report_says_the_user_wrote_settles_it[written2]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[None]
+    test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state[written1]
+    test_each_comparison_leg_is_judged_on_its_own_state
+GOOD comparison: an ambiguous leg is ignored
+1 failed, 26 passed, 1629 deselected in 2.04s
+    test_each_comparison_leg_is_judged_on_its_own_state
+GOOD listing: an ambiguous parent among several is ignored
+1 failed, 26 passed, 1629 deselected in 1.94s
+    test_a_listing_over_several_parents_records_that_a_state_was_supplied
+GOOD _unclear: detail loses the more-geographic-detail text
+3 failed, 24 passed, 1629 deselected in 2.03s
+    test_a_name_that_matches_several_places_selects_nothing_and_lists_every_match
+    test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick
+    test_cook_county_selects_nothing_and_lists_every_match
+GOOD unanswered: the ambiguous message is the old wording
+1 failed, 26 passed, 1629 deselected in 2.27s
+    test_a_place_name_matching_several_places_is_refused_with_its_candidates
+GOOD ask: the first geography is selected even when ambiguous
+3 failed, 24 passed, 1629 deselected in 1.87s
+    test_a_place_name_matching_several_places_is_refused_with_its_candidates
+    test_a_shared_name_without_its_state_builds_and_fetches_nothing
+    test_ambiguous_resolve_lands_on_the_response
+
+== run 2: the two BAD mutations re-verified against the strengthened tests, plus the one-vs-two boundary (len > 2) in _place and _list ==
+GOOD _list: a parent with its written state is also ambiguous
+1 failed, 1 passed, 1655 deselected in 1.91s
+    test_a_parent_with_its_state_is_never_ambiguous
+GOOD _list: state_supplied flag dropped from a resolved listing
+1 failed, 1 passed, 1655 deselected in 1.55s
+    test_a_listing_parent_that_matches_one_place_records_the_state_the_model_added
+GOOD _place: two matches are tolerated, only three or more are ambiguous
+1 failed, 5 passed, 1651 deselected in 1.74s
+    test_a_shared_name_is_refused_however_much_larger_one_match_is
+GOOD _list: two matches are tolerated, only three or more are ambiguous
+1 failed, 5 passed, 1651 deselected in 1.74s
+    test_a_county_parent_shared_by_several_states_is_refused_not_guessed
+
+tally: 20 mutations GOOD (16 in run 1, 4 in run 2 of which 2 are the re-verified BADs), BAD 2 on first pass, BAD 0 after the fix

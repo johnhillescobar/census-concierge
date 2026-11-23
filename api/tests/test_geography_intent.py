@@ -369,7 +369,7 @@ async def test_a_parent_with_its_state_is_never_ambiguous() -> None:
     def inside_ohio(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
         return [
             _row("Washington County, Ohio", "39", "167", "61000"),
-            _row("Fort Washington County, Ohio", "39", "168", "60000"),
+            _row("Washington County, Ohio", "39", "168", "60000"),  # a second match in that state
         ]
 
     hit = await resolved(
@@ -592,9 +592,11 @@ def test_a_report_that_asks_for_tables_means_no_geography_is_wanted() -> None:
     assert GeoIntent(asks_for="data").tables_only is False
 
 
-async def _resolve_with_states(written: list[str] | None, **args: Any) -> ResolveGeographyResult:
+async def _resolve_with_states(
+    written: list[str] | None, listing: Any = None, **args: Any
+) -> ResolveGeographyResult:
     """The real resolver, with the independent report saying which states the user wrote."""
-    tool = _geo_tool()
+    tool = _geo_tool(listing) if listing else _geo_tool()
     tool.states_named = lambda: written
     message = await tool.ainvoke(
         {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
@@ -792,6 +794,19 @@ async def test_a_listing_over_several_parents_refuses_when_one_parent_is_unwritt
     ]  # Orange, the first
     written = await listing(["FL", "MI"])
     assert not written.ambiguous and len(written.specs) >= 2
+
+
+async def test_a_listing_parent_that_matches_one_place_records_the_state_the_model_added() -> None:
+    def only(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        return [_row("DuPage County, Illinois", "17", "043", "930000")]
+
+    args = {"parents": ["DuPage County, IL"], "parent_level": "county", "level": "tract"}
+    unwritten = await _resolve_with_states([], listing=only, **args)
+    written = await _resolve_with_states(["IL"], listing=only, **args)
+    assert unwritten.specs[0].in_spec == "state:17 county:043" and not unwritten.ambiguous
+    assert (
+        unwritten.state_supplied and not written.state_supplied
+    )  # one match settles it either way
 
 
 async def test_a_listing_over_several_parents_records_that_a_state_was_supplied() -> None:
