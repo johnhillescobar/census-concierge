@@ -225,3 +225,9 @@ curated in ANOTHER TICKET (question wording improved so each carries its state),
 and the B,P,P,B E2E waits for the curated goldens to land on this branch. No Jira ticket filed yet: a search of project CC found none (CC-134/CC-128 are table-selection stories);
 recommend a new story, parent CC-3 only if the owner says so, and ask before filing (epic-scope rule). Owner commits goldens/scorer/hashes (dated commit, needs a bridge).
 Amendment A ids (q42, q43, t01, t06, t14) are NOT shared-name cases (no place named); whether they are curated too is for that ticket.
+
+## 2026-11-22: golden curation ticket filed = CC-141 (Bug, Highest, parent CC-3, owner request)
+
+CC-141 curates the visible goldens that name a shared place without a state (and decides the no-place ids q42/q43/t01/t06/t14). CC-104's final E2E (AC11/TC14) waits for CC-141's work to be rebased here.
+Gate 1 for the uniqueness rule is done: gate1-uniqueness.txt (20 mutations killed, 2 gaps fixed with tests), HEAD 72ff3af, pytest 1623 passed. NOT yet in `closure-run/mutation-index.txt`
+(the manifest pins its sha256 in ~8 fields): regenerate rows and index together after the rebase, since every row is stale at the new head anyway.
