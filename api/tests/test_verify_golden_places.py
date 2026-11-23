@@ -692,13 +692,16 @@ def test_a_grid_edit_that_changes_any_other_field_fails(changed: dict[str, Any])
     ]
 
 
-def test_a_grid_edit_that_changes_or_drops_a_parent_state_fails() -> None:
-    ohio = {**STATED, "parent_state": "Ohio"}
-    dropped = {k: v for k, v in STATED.items() if k != "parent_state"}
-    for new in (ohio, dropped):
-        assert "g1: a field other than question or a new parent_state changed" in (
-            vg.grid_diff_problems([STATED], [new])
-        )
+@pytest.mark.parametrize("how", ["changed", "dropped"])
+def test_a_grid_edit_that_changes_or_drops_a_parent_state_fails(how: str) -> None:
+    new = (
+        {**STATED, "parent_state": "Ohio"}
+        if how == "changed"
+        else {k: v for k, v in STATED.items() if k != "parent_state"}
+    )
+    assert vg.grid_diff_problems([STATED], [new]) == [
+        "g1: a field other than question or a new parent_state changed"
+    ]
 
 
 def test_a_grid_edit_that_writes_the_state_twice_fails() -> None:
