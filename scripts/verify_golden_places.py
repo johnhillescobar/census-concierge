@@ -173,8 +173,12 @@ def diff_problems(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[
             out.append(f"{gid}: a field other than text changed")
         if before["text"] == after["text"]:
             continue
-        states = [s for _t, _l, s in PLACES.get(gid, []) if s]
-        if not any(after["text"].replace(f", {s}", "", 1) == before["text"] for s in states):
+        inserted = [(t, s) for t, _l, s in PLACES.get(gid, []) if s]
+        if not any(
+            f"{t}, {s}" not in before["text"]
+            and after["text"].replace(f"{t}, {s}", t, 1) == before["text"]
+            for t, s in inserted
+        ):
             out.append(
                 f"{gid}: text changed by more than the state: "
                 f"{before['text']!r} -> {after['text']!r}"

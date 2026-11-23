@@ -442,3 +442,17 @@ def test_main_without_a_census_key_does_not_check_anything(
 ) -> None:
     code, calls = run_main(monkeypatch, _repo(tmp_path, FILE_OLD, FILE_NEW), [], key=None)
     assert (code, calls) == (2, [])
+
+
+def test_a_state_doubled_after_the_place_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    old = [golden("a", "Poverty in Cook County, Illinois")]
+    monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")]})
+    new = [golden("a", "Poverty in Cook County, Illinois, Illinois")]
+    assert any("more than the state" in p for p in vg.diff_problems(old, new))
+
+
+def test_a_state_inserted_away_from_the_place_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
+    new = edit(a={"text": "Poverty in Cook County, Illinois"})
+    new[0]["text"] = "Illinois poverty in Cook County"
+    assert any("more than the state" in p for p in vg.diff_problems(OLD, new))
