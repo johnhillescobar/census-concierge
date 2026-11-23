@@ -162,10 +162,18 @@ the grid scorer fails every such cell. FIX TO MAKE (code, then Gate 1 for it, th
 match (not `_moved`), keep resolving WITH that state (filter matched to it, so no leftover candidates) and still set state_supplied; apply in `_place` and `_list`. Add tests at the resolver
 level (a dominant unwritten name returns ONE state's rows and no extra candidates) and a guard-level test (no ambiguous_place for it), mutation-check them. geo.py has 5 lines left (410 cap).
 Then run P once (2.5h block; B stays as measured, same base 700d800), compare once with `register B` in a scratch worktree, and report t10/t13/q04 separately.
-OPEN OWNER DECISION BEFORE THE FIX (2026-11-23): dominance rule or uniqueness rule? Today geo_list.dominant() resolves an unqualified name when its largest match has 4x the people of the next
-(Cook County -> IL ~5.2M vs GA ~17k, MN ~5.6k; owner decision 2026-11-11, kept when the owner said YES to "refuse when there is no dominant match"). The owner then asked why Cook County proceeds when 3 exist,
-i.e. may want UNIQUENESS (refuse unless exactly one place has the name: DuPage and Chicago resolve, Cook/Wayne/Ramsey refuse). Uniqueness is a one-line change (dominant -> exactly one match) but flips most
-tract-grid cells and t13/t18 (Wayne County) into expected refusals and needs a wider amendment than option A. Do NOT implement the "keep the dominant name's state" fix until the owner decides: under uniqueness it is moot.
+OWNER DECISION (2026-11-23, in the ticket's Owner amendments): UNIQUENESS, NOT DOMINANCE. The app never guesses: a place name that matches more than one place and has no state the user wrote is REFUSED
+(no selection, URL or fetch) with a message that the question needs more geographic detail, candidates listed. The 4x-population exception (geo_list.dominant(), DOMINANCE=4) is WITHDRAWN. A name matching exactly
+one place (DuPage County, Chicago) still resolves. The earlier "keep the dominant name's state" fix is OBSOLETE: do not implement it.
+TO IMPLEMENT (next session): (1) in geo.py `_place` and `_list` (and geo_within.tracts_in_place) treat any nationwide match count > 1 as ambiguous (drop the `dominant`/`_moved` tests; `_moved` becomes moot);
+applies only when no state was kept (with a written state, keep today's ranking by place class). Keep `state_supplied`/`state_inferred` for a UNIQUE name whose state the model added. (2) deterministic message in finish.unanswered
+should say the question needs more geographic detail (no digits). (3) update tests that assume dominance (search: dominant, clear_largest, never_moves, the Wayne/Cook fixtures, test_a_name_with_one_clear_largest_match...),
+add: Cook County (3 matches) refused; DuPage (1) resolves; a model-added state never settles a non-unique name. (4) docs: ask-path.md lines on dominance, requirements.md ambiguous_place row, CLAUDE.md untouched.
+(5) Gate 1 mutation check, then ONE P block + compare once (B stays 700d800, measured).
+CONSEQUENCE the owner must still decide: ~18 visible goldens name a shared place without its state and become expected refusals (core q03 Cook County and q04 Detroit; long_tail q05, q13?, q16, q18, q20, q23, q31, q36, q38, q39, q40;
+trap t07, t09, t13, t16, t18, plus the already accepted q42, q43, t01, t06, t14). That drops long_tail answered_rate by roughly 25-30 points (under the 0.700 floor) and the tract grid cells with unqualified counties. Options: (a) amend
+those goldens to expect a refusal (dated owner commit; moves cohort/scorer hashes, needs a bridge) - these are "wrong questions" by the owner's own definition; (b) accept them as expected misses by a wider amendment.
+
 OWNER DECISIONS (2026-11-23): t06 IS added to amendment A (expected, explained miss); the T8 deferral is accepted. Both are in the ticket's Owner amendments.
 
 ## Open
