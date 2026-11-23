@@ -162,7 +162,7 @@ the grid scorer fails every such cell. FIX TO MAKE (code, then Gate 1 for it, th
 match (not `_moved`), keep resolving WITH that state (filter matched to it, so no leftover candidates) and still set state_supplied; apply in `_place` and `_list`. Add tests at the resolver
 level (a dominant unwritten name returns ONE state's rows and no extra candidates) and a guard-level test (no ambiguous_place for it), mutation-check them. geo.py has 5 lines left (410 cap).
 Then run P once (2.5h block; B stays as measured, same base 700d800), compare once with `register B` in a scratch worktree, and report t10/t13/q04 separately.
-OWNER DECISIONS PENDING: (1) extend amendment A with t06 (no place named, same rule as t01/t14)? (2) is the multi-year/no-place refusal acceptable given it also costs t06? (3) the deferred T8.
+OWNER DECISIONS (2026-11-23): t06 IS added to amendment A (expected, explained miss); the T8 deferral is accepted. Both are in the ticket's Owner amendments.
 
 ## Open
 
