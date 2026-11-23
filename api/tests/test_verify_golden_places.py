@@ -5,6 +5,7 @@ changed nothing but the state. Real golden file, real `filter_rows`; only the li
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -48,10 +49,13 @@ def check(
     places: dict[str, list[vg.Place]],
     goldens: list[dict[str, Any]],
     exempt: dict[str, str] | None = None,
+    lists: dict[str, list[dict[str, str]]] | None = None,
 ) -> list[str]:
     monkeypatch.setattr(vg, "PLACES", places)
     monkeypatch.setattr(vg, "EXEMPT", exempt or {})
-    return vg.place_problems(goldens, listing)
+    if lists is None:
+        return vg.place_problems(goldens, listing)
+    return vg.place_problems(goldens, lambda level: lists[level])
 
 
 def test_a_shared_place_with_no_state_fails(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -79,6 +83,35 @@ def test_a_usps_code_counts_as_the_state(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
+def test_a_usps_code_beside_a_comma_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    places: dict[str, list[vg.Place]] = {"a": [("Somerville", "place", "Massachusetts")]}
+    assert check(monkeypatch, places, [golden("a", "Housing units in Somerville, MA")]) == []
+
+
+def test_a_state_name_counts_in_any_letter_case(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "educational attainment in cook county, ILLINOIS"
+    places: dict[str, list[vg.Place]] = {"a": [("Cook County", "county", "Illinois")]}
+    assert check(monkeypatch, places, [golden("a", text)]) == []
+
+
+@pytest.mark.parametrize("text", ["Housing in Fresno", "The MAYOR of Fresno"])
+def test_a_word_that_only_looks_like_the_state_code_does_not_count(
+    monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    # "in" is Indiana lower case, "MA" sits inside MAYOR; neither is the state written
+    places: dict[str, list[vg.Place]] = {
+        "a": [("Fresno", "place", "Indiana")],
+        "b": [("Fresno", "place", "Massachusetts")],
+    }
+    problems = check(
+        monkeypatch,
+        places,
+        [golden("a", text), golden("b", text)],
+        lists={"place": [{"name": "Fresno city, Indiana"}, {"name": "Fresno city, Massachusetts"}]},
+    )
+    assert sum("not in the question" in p for p in problems) == 2
+
+
 def test_a_place_that_matches_one_place_needs_no_state(monkeypatch: pytest.MonkeyPatch) -> None:
     assert (
         check(monkeypatch, {"a": [("Ann Arbor", "place", None)]}, [golden("a", "Ann Arbor study")])
@@ -104,11 +137,79 @@ def test_a_state_that_does_not_hold_the_place_fails(monkeypatch: pytest.MonkeyPa
     assert any("no county 'Cook County' in Texas" in p for p in problems)
 
 
+def test_a_state_held_only_by_a_longer_state_name_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    lists = {"county": [{"name": "Fairfax County, West Virginia"}]}
+    problems = check(
+        monkeypatch,
+        {"a": [("Fairfax County", "county", "Virginia")]},
+        [golden("a", "Poverty in Fairfax County, Virginia")],
+        lists=lists,
+    )
+    assert any("no county 'Fairfax County' in Virginia" in p for p in problems)
+
+
+def test_a_state_held_only_by_a_word_match_of_the_name_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # East Portland is a hit of the resolver's matcher, but it is not Portland
+    lists = {"place": [{"name": "East Portland CDP, Oregon"}, {"name": "Portland city, Maine"}]}
+    problems = check(
+        monkeypatch,
+        {"a": [("Portland", "place", "Oregon")]},
+        [golden("a", "Population of Portland, Oregon")],
+        lists=lists,
+    )
+    assert any("no place 'Portland' in Oregon" in p for p in problems)
+
+
+def test_a_state_held_by_a_name_with_a_suffix_word_passes(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = "Population of Portland, Oregon"
+    places: dict[str, list[vg.Place]] = {"a": [("Portland", "place", "Oregon")]}
+    assert check(monkeypatch, places, [golden("a", text)]) == []
+
+
+def test_every_place_of_a_golden_is_checked(monkeypatch: pytest.MonkeyPatch) -> None:
+    places: dict[str, list[vg.Place]] = {
+        "a": [("Cook County", "county", "Illinois"), ("Portland", "place", None)]
+    }
+    # the state-holding place comes first: a check that stops there never reaches Portland
+    text = "Cook County, Illinois against Portland"
+    lists = {"county": COUNTY, "place": PLACE}
+    problems = check(monkeypatch, places, [golden("a", text)], lists=lists)
+    assert len(problems) == 1 and "'Portland' matches 3 places" in problems[0]
+
+
+def test_the_listing_is_read_at_the_level_the_place_is_annotated_at(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[str] = []
+
+    def spy(level: str) -> list[dict[str, str]]:
+        asked.append(level)
+        return LISTINGS[level]
+
+    monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", None)]})
+    monkeypatch.setattr(vg, "EXEMPT", {})
+    vg.place_problems([golden("a", "Poverty in Cook County")], spy)
+    assert asked == ["county"]
+
+
 def test_a_name_that_matches_nothing_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     problems = check(
         monkeypatch, {"a": [("Atlantis", "place", None)]}, [golden("a", "People in Atlantis")]
     )
     assert any("matches no place" in p for p in problems)
+
+
+def test_an_unannotated_golden_does_not_hide_the_others(monkeypatch: pytest.MonkeyPatch) -> None:
+    problems = check(
+        monkeypatch,
+        {"b": [("Cook County", "county", None)]},
+        [golden("a", "Population of the nation"), golden("b", "Poverty in Cook County")],
+    )
+    assert len(problems) == 2
+    assert problems[0].startswith("a: no place annotation")
+    assert problems[1].startswith("b:") and "writes no state" in problems[1]
 
 
 def test_a_golden_nobody_annotated_fails(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -181,15 +282,45 @@ def test_an_untouched_file_passes(monkeypatch: pytest.MonkeyPatch) -> None:
     assert vg.diff_problems(OLD, edit()) == []
 
 
+def test_an_unchanged_golden_that_already_carries_its_state_passes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
+    old = [golden("a", "Poverty in Cook County, Illinois"), OLD[1]]
+    assert vg.diff_problems(old, [dict(g) for g in old]) == []
+
+
 def test_a_changed_expectation_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
     new = edit(a={"text": "Poverty in Cook County, Illinois", "expect_table": "B17001"})
     assert vg.diff_problems(OLD, new) == ["a: a field other than text changed"]
 
 
+def test_an_added_or_removed_field_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(vg, "PLACES", {})
+    added = [{**OLD[0], "expect_warning": "ambiguous_place"}, OLD[1]]
+    removed = [{k: v for k, v in OLD[0].items() if k != "tier"}, OLD[1]]
+    assert vg.diff_problems(OLD, added) == ["a: a field other than text changed"]
+    assert vg.diff_problems(OLD, removed) == ["a: a field other than text changed"]
+
+
+def test_a_second_golden_is_still_checked_after_the_first_changed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
+    new = edit(a={"text": "Poverty in Cook County, Illinois"}, b={"expect_table": "B17001"})
+    assert vg.diff_problems(OLD, new) == ["b: a field other than text changed"]
+
+
 def test_an_edit_that_adds_more_than_the_state_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
     new = edit(a={"text": "Poverty in Cook County, Illinois, in 2024"})
+    assert any("more than the state" in p for p in vg.diff_problems(OLD, new))
+
+
+def test_a_state_written_twice_is_more_than_the_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
+    new = edit(a={"text": "Poverty in Cook County, Illinois, Illinois"})
     assert any("more than the state" in p for p in vg.diff_problems(OLD, new))
 
 
@@ -203,3 +334,108 @@ def test_a_dropped_or_reordered_golden_fails(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(vg, "PLACES", {})
     assert vg.diff_problems(OLD, OLD[:1]) == ["the golden ids or their order changed"]
     assert vg.diff_problems(OLD, OLD[::-1]) == ["the golden ids or their order changed"]
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+def _repo(tmp_path: Path, old: str, new: str) -> Path:
+    """A real git repo: the golden file committed as `old`, the working tree holding `new`."""
+    (tmp_path / "evals").mkdir()
+    path = tmp_path / vg.GOLDENS
+    _git(tmp_path, "init", "-q")
+    path.write_text(old, encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-q", "-m", "old")
+    path.write_text(new, encoding="utf-8")
+    return tmp_path
+
+
+FILE_OLD = '[[question]]\nid = "a"\ntext = "Poverty in Cook County"\nexpect_table = "B17001"\n'
+FILE_NEW = FILE_OLD.replace("Cook County", "Cook County, Illinois")
+
+
+def test_load_reads_the_working_file_or_the_ref_asked_for(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(vg, "ROOT", _repo(tmp_path, FILE_OLD, FILE_NEW))
+    assert vg._load(None)[0]["text"] == "Poverty in Cook County, Illinois"
+    assert vg._load("HEAD")[0]["text"] == "Poverty in Cook County"
+
+
+def test_a_ref_that_does_not_exist_is_an_error_not_an_empty_diff(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(vg, "ROOT", _repo(tmp_path, FILE_OLD, FILE_NEW))
+    with pytest.raises(subprocess.CalledProcessError):
+        vg._load("no-such-ref")
+
+
+def run_main(
+    monkeypatch: pytest.MonkeyPatch,
+    root: Path,
+    argv: list[str],
+    *,
+    ids: tuple[str, ...] = ("a",),
+    key: str | None = "k",
+) -> tuple[int, list[tuple[str, str | None]]]:
+    calls: list[tuple[str, str | None]] = []
+
+    def fake(level: str, geo: dict[str, str], *, key: str | None = None) -> list[dict[str, str]]:
+        assert geo == {"state": "*"}
+        calls.append((level, key))
+        return LISTINGS[level]
+
+    monkeypatch.setattr(vg, "ROOT", root)
+    monkeypatch.setattr(vg, "list_census_names", fake)
+    monkeypatch.setattr(vg, "PLACES", {i: [("Cook County", "county", "Illinois")] for i in ids})
+    monkeypatch.setattr(vg, "EXEMPT", {})
+    monkeypatch.setattr(sys, "argv", ["verify_golden_places", *argv])
+    if key is None:
+        monkeypatch.delenv("CENSUS_API_KEY", raising=False)
+    else:
+        monkeypatch.setenv("CENSUS_API_KEY", key)
+    return vg.main(), calls
+
+
+def test_main_passes_a_clean_file_and_reads_each_level_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = _repo(tmp_path, FILE_OLD, FILE_NEW + FILE_NEW.replace('"a"', '"b"'))
+    code, calls = run_main(monkeypatch, root, [], ids=("a", "b"))
+    assert (code, calls) == (0, [("county", "k")])
+
+
+def test_main_fails_a_golden_that_names_a_shared_place_without_its_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    code, _ = run_main(monkeypatch, _repo(tmp_path, FILE_OLD, FILE_OLD), [])
+    assert code == 1
+
+
+def test_main_with_a_base_fails_an_edit_that_changed_more_than_the_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = _repo(tmp_path, FILE_OLD, FILE_NEW.replace("B17001", "B19013"))
+    assert run_main(monkeypatch, root, [])[0] == 0
+    assert run_main(monkeypatch, root, ["--base", "HEAD"])[0] == 1
+
+
+def test_main_with_a_base_passes_an_edit_that_changed_only_the_state(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = _repo(tmp_path, FILE_OLD, FILE_NEW)
+    assert run_main(monkeypatch, root, ["--base", "HEAD"])[0] == 0
+
+
+def test_main_without_a_census_key_does_not_check_anything(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    code, calls = run_main(monkeypatch, _repo(tmp_path, FILE_OLD, FILE_NEW), [], key=None)
+    assert (code, calls) == (2, [])
