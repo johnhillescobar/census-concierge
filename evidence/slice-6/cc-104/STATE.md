@@ -162,6 +162,10 @@ the grid scorer fails every such cell. FIX TO MAKE (code, then Gate 1 for it, th
 match (not `_moved`), keep resolving WITH that state (filter matched to it, so no leftover candidates) and still set state_supplied; apply in `_place` and `_list`. Add tests at the resolver
 level (a dominant unwritten name returns ONE state's rows and no extra candidates) and a guard-level test (no ambiguous_place for it), mutation-check them. geo.py has 5 lines left (410 cap).
 Then run P once (2.5h block; B stays as measured, same base 700d800), compare once with `register B` in a scratch worktree, and report t10/t13/q04 separately.
+OPEN OWNER DECISION BEFORE THE FIX (2026-11-23): dominance rule or uniqueness rule? Today geo_list.dominant() resolves an unqualified name when its largest match has 4x the people of the next
+(Cook County -> IL ~5.2M vs GA ~17k, MN ~5.6k; owner decision 2026-11-11, kept when the owner said YES to "refuse when there is no dominant match"). The owner then asked why Cook County proceeds when 3 exist,
+i.e. may want UNIQUENESS (refuse unless exactly one place has the name: DuPage and Chicago resolve, Cook/Wayne/Ramsey refuse). Uniqueness is a one-line change (dominant -> exactly one match) but flips most
+tract-grid cells and t13/t18 (Wayne County) into expected refusals and needs a wider amendment than option A. Do NOT implement the "keep the dominant name's state" fix until the owner decides: under uniqueness it is moot.
 OWNER DECISIONS (2026-11-23): t06 IS added to amendment A (expected, explained miss); the T8 deferral is accepted. Both are in the ticket's Owner amendments.
 
 ## Open
