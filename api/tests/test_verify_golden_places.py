@@ -453,6 +453,5 @@ def test_a_state_doubled_after_the_place_fails(monkeypatch: pytest.MonkeyPatch) 
 
 def test_a_state_inserted_away_from_the_place_fails(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(vg, "PLACES", {"a": [("Cook County", "county", "Illinois")], "b": []})
-    new = edit(a={"text": "Poverty in Cook County, Illinois"})
-    new[0]["text"] = "Illinois poverty in Cook County"
+    new = edit(a={"text": "Poverty, Illinois in Cook County"})
     assert any("more than the state" in p for p in vg.diff_problems(OLD, new))
