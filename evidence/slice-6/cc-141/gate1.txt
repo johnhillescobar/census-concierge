@@ -5,7 +5,7 @@ review base: origin/main 9a36dff
 HEAD at start: c31feb2d51ec882002da53b77e1f374014f7adf7 (tree clean; 21 tests passed)
 HEAD after adding tests (mutated from here): d2f84de (tree clean; 42 tests passed)
 
-Matrix review: the 12 existing script-logic tests left these defects unguarded; tests added (+21 test functions, 1 parametrized x2):
+Matrix review: the 21 existing tests left these defects unguarded; added 21 test cases (42 total):
   USPS case/word/comma handling, state name case, state held only by longer state name (West Virginia vs Virginia),
   state held only by a word match (East Portland), suffix-word names, every place of a golden checked, listing level,
   unannotated golden does not hide others, unchanged golden already carrying its state, state written twice,
@@ -16,7 +16,7 @@ Fixtures: listing rows only. Real TOML, real filter_rows, real git show.
 Each mutation: revert ONE behaviour, run ONLY its test (uv run pytest api/tests/test_verify_golden_places.py -k <test> -q),
 expect FAIL, restore with git checkout -- <file>. GOOD = the test failed against the broken code. BAD = it still passed.
 
-=== First pass (44 mutations over the 42 tests incl. existing) ===
+=== First pass: 44 mutations, every one of the 42 test cases covered by at least one ===
 Result: 43 GOOD, 1 BAD (mutation 4). Mutation 4 survived because the test text "Somerville, MA" never needed the comma
 replace (MA is its own token). Test strengthened to "Housing units in Somerville, MA, by tenure" and mutation 4 re-run (below).
 
@@ -227,3 +227,5 @@ $ uv run ruff check .
 All checks passed!
 $ uv run ruff format --check .
 274 files already formatted
+
+HEAD at end of mutation work: f94da6368a0a96274b909c41691163b6b5a9fda0 (the transcript itself is committed after; tree clean of mutations: git diff of scripts/ and evals/ vs c31feb2 is empty)
