@@ -130,7 +130,8 @@ def _written(text: str, token: str, state: str) -> bool:
     annotation; nothing is read out of the wording."""
     forms = [f"{token}, {state}"]
     forms += [f"{token} {code}" for name, code, _fips in STATES if name == state.casefold()]
-    return any(form in text for form in forms)
+    padded = text + " "  # the form must end at a word edge: "Denver CO" is not in "Denver COunty"
+    return any(f"{form}{edge}" in padded for form in forms for edge in " ,.?;:)")
 
 
 def place_problems(goldens: list[dict[str, Any]], listing: Listing) -> list[str]:
@@ -214,9 +215,14 @@ def grid_problems(cells: list[dict[str, Any]], listing: Listing) -> list[str]:
     for cell in cells:
         cid, state = cell["id"], cell.get("parent_state")
         if cell["level"] == "county":
+            if "parent_state" in cell:
+                out.append(f"{cid}: a county cell names states, which are unique: no parent_state")
             continue
         if cell["level"] != "tract":
             out.append(f"{cid}: level {cell['level']!r} is not one this check knows")
+            continue
+        if not cell["expected_parents"]:
+            out.append(f"{cid}: a tract cell with no expected_parents")
             continue
         shared = False
         for parent in cell["expected_parents"]:

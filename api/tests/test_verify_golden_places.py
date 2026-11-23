@@ -830,3 +830,37 @@ def test_the_added_phrase_with_a_changed_place_fails() -> None:
     old = [golden("t01", "Income by year")]
     new = [golden("t01", "Income in Fulton County Georgia by year")]
     assert any("more than the state" in p for p in vg.diff_problems(old, new))
+
+
+def test_a_usps_code_must_end_at_a_word_edge(monkeypatch: pytest.MonkeyPatch) -> None:
+    places: dict[str, list[vg.Place]] = {"a": [("Denver", "place", "Colorado")]}
+    rows = {"place": [{"name": "Denver city, Colorado"}, {"name": "Denver city, Iowa"}]}
+    bad = check(monkeypatch, places, [golden("a", "Homes in Denver COunty")], lists=rows)
+    assert any("not in the question after 'Denver'" in p for p in bad)
+
+
+@pytest.mark.parametrize("tail", ["", ".", "?", ",", " since 2017"])
+def test_a_usps_code_before_punctuation_or_a_space_counts(
+    monkeypatch: pytest.MonkeyPatch, tail: str
+) -> None:
+    places: dict[str, list[vg.Place]] = {"a": [("Denver", "place", "Colorado")]}
+    rows = {"place": [{"name": "Denver city, Colorado"}, {"name": "Denver city, Iowa"}]}
+    assert check(monkeypatch, places, [golden("a", f"Homes in Denver CO{tail}")], lists=rows) == []
+
+
+def test_a_county_cell_carrying_a_state_is_a_problem() -> None:
+    states = {"id": "g2", "level": "county", "expected_parents": ["Ohio"], "parent_state": "Ohio"}
+    assert grid_check([{**states, "question": "x"}]) == [
+        "g2: a county cell names states, which are unique: no parent_state"
+    ]
+
+
+def test_a_tract_cell_with_no_parents_is_a_problem_not_a_crash() -> None:
+    assert grid_check([cell(expected_parents=[])]) == ["g1: a tract cell with no expected_parents"]
+
+
+def test_a_tract_cell_that_names_no_county_is_flagged_even_where_the_scorer_skips_it() -> None:
+    # run_grid's tract_identity_ok returns True for a list that is not county names; the check
+    # must be the one that catches a state written beside such a list
+    odd = cell(expected_parents=["Atlantis"], question="All tracts in Atlantis, Indiana.")
+    assert any("matches no county nationwide" in p for p in grid_check([odd]))
