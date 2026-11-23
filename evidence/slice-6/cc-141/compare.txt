@@ -1,0 +1,22 @@
+  PASS         floor   answered_rate                 0.725 vs floor 0.7
+  PASS         floor   retrieval_at_10               0.9 vs floor 0.9
+  PASS         floor   selector_at_1                 0.75 vs floor 0.7
+  PASS         floor   answered_rate matches trials  0.725 from trials vs reported 0.725
+  PASS         floor   p95 matches trials            23.758 vs reported 23.758
+  FAIL         floor   p95 ceiling                   23.758s vs 20s
+  PASS         floor   response contract             0 of 174 trials that returned rows lack a contract field
+  INCONCLUSIVE A       long_tail trial rate          cannot rule out a drop over 2% (diff +0.042, lower -0.058)
+  INCONCLUSIVE A       long_tail case rate           cannot rule out a drop over 2% (diff +0.025, lower -0.075)
+  FAIL         A       trap trial rate               observed decrease (-0.056 over 18 families)
+  FAIL         A       trap case rate                observed decrease (-0.111 over 18 families)
+  FAIL         A       core trial rate               observed decrease (-0.083 over 4 families)
+  FAIL         A       core case rate                observed decrease (-0.250 over 4 families)
+  FAIL         A       rows per family               3 families returned fewer rows
+  FAIL         A       empty answers (long_tail)     +0.033 per family
+  PASS         A       retrieval_at_10               0.9 vs 0.9
+  FAIL         A       selector_at_1                 0.75 vs 0.825
+  PASS         A       p95 vs reference              23.758s vs 25.472s; gain not credited, answers fell
+  PASS         A       reference label               legacy-unfrozen-protocol: post-CC-114 main 69d7364, existing harness; bridged: CC-141: question text only (26 goldens gain a state, t01/t06/t14 gain a county). The scorer is unchanged, so re-scoring A's trials by it returns A's trials. They answered the OLD wording: comparing a candidate with them mixes the curation with any code change. Per-id expectations are unchanged (verify_golden_places.py --base).
+  FAIL         A0      scorer / cohort hashes        changed since the reference, no bridge; any gain is the instrument's
+
+VERDICT FAIL
