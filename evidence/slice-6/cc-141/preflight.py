@@ -1,4 +1,4 @@
-"""CC-141 pre-flight: which named places in the visible goldens match more than one place nationwide?
+"""CC-141 pre-flight: which named goldens' places match more than one place nationwide?
 
 Reads no question wording: the (token, level) pairs below were annotated by hand from the goldens.
 Uses the repo's own grounded NAME match (filter_rows) over live Census listings.
@@ -91,5 +91,8 @@ for qid, entries in PLACES.items():
         out[qid] = (token, level, state, len(hits), names)
         flag = "SHARED" if len(hits) > 1 else ("none" if not hits else "unique")
         shown = "; ".join(names[:6]) + (" ..." if len(names) > 6 else "")
-        print(f"{qid} {token!r:22} {level:6} state={state!s:13} matches={len(hits):3} {flag:6} {shown}")
+        print(
+            f"{qid} {token!r:22} {level:6} state={state!s:13} "
+            f"matches={len(hits):3} {flag:6} {shown}"
+        )
 print(f"\nrows: county={len(listing('county'))} place={len(listing('place'))}")
