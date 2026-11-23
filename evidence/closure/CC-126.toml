@@ -1,0 +1,94 @@
+ticket = "CC-126"
+head = "9a36dff6678479e6d0daee178fb880b448abbb69"
+required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7"]
+
+[[amendment]]
+id = "AC5"
+date = "2026-11-23"
+owner = "John Hill Escobar"
+reason = "Owner closed CC-126 on 2026-11-23 and left p95 judgment to CC-127. The same-window latency_probe.py compare of the unchanged arm against the hedge was not run. The repeat-3 post-merge scoreboard is recorded on main 9a36dff: long_tail answered 0.717, retrieval @10 0.900, selector @1 0.750, geography grid 0.986 (207/210), demo p95 20.560s, slowest trial 27.464s."
+destination = "CC-127. Jira: https://johnhillescobar.atlassian.net/browse/CC-127"
+
+[[row]]
+id = "AC1"
+status = "PASS"
+command = "uv run pytest -q api/tests/test_census_http.py"
+expected = "A Census GET still running at 10s, or one that fails to connect, is sent once more with the same URL. The first response back is used. Both attempts share a 60s wall clock. A second failure keeps the existing failure path and the full URL."
+observed = "Gate 1 at a51e2eb, recorded in gate1.txt. Ten tests passed. All 30 mutations failed after the covered behavior was removed, including a dropped connection retried once with the same URL, no third attempt, and a hung pair stopped on the wall clock. fetch.py and geo_list.py call census_get."
+evidence = [{ path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }]
+tested_head = "a51e2ebc87385fbf1a7b5571deea20c9f4209210"
+affects = ["api/src/census_http.py", "api/src/fetch.py", "api/src/geo_list.py", "api/tests/test_census_http.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }
+reviewer = "evidence/slice-6/cc-126/gate2.txt"
+
+[[row]]
+id = "AC2"
+status = "PASS"
+command = "uv run pytest -q api/tests/test_census_http.py::test_hedge_wait_is_above_the_clean_window_maximum"
+expected = "The wait before the retry is justified by the clean-window measurement: slowest legitimate response 4.311s, and the 10s cut would not have fired."
+observed = "Preflight against arms-clean.jsonl: 944 Census requests, slowest HTTP 200 is 4.311s, 0 requests over 10s. HEDGE_AFTER is 10.0. The hedge-wait test locks that constant above twice the clean-window maximum."
+evidence = [{ path = "evidence/slice-6/cc-126/preflight.md", sha256 = "afad95629907fa7e1828d3f4246bc6ffa11b06ff9eda032afee86f2fdd5d5707" }, { path = "evidence/slice-6/latency/arms-clean.jsonl", sha256 = "10c96d566e67120d694119d6b99e9820d0712bff3b13bf68c1dcfb5935a79c1e" }, { path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }]
+tested_head = "a51e2ebc87385fbf1a7b5571deea20c9f4209210"
+affects = ["api/src/census_http.py", "api/tests/test_census_http.py", "evidence/slice-6/latency/arms-clean.jsonl"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }
+reviewer = "evidence/slice-6/cc-126/gate2.txt"
+
+[[row]]
+id = "AC3"
+status = "PASS"
+command = "uv run pytest -q api/tests/test_census_http.py::test_a_retried_fetch_keeps_margin_geoid_universe_and_alternatives api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives"
+expected = "M is fetched beside every estimate, and GEOID, universe, and alternatives stay on a retried or failed request."
+observed = "The retried-fetch test keeps the margin variable, GEOID, universe, and alternatives. The failed-fetch test keeps the URL, universe, and alternatives. Mutations that drop the margin or the related tables failed."
+evidence = [{ path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }]
+tested_head = "a51e2ebc87385fbf1a7b5571deea20c9f4209210"
+affects = ["api/tests/test_census_http.py", "api/src/fetch.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }
+reviewer = "evidence/slice-6/cc-126/gate2.txt"
+
+[[row]]
+id = "AC4"
+status = "PASS"
+command = "uv run pytest -q api/tests/test_census_http.py::test_a_failed_fetch_keeps_the_url_universe_and_alternatives"
+expected = "The Census key stays redacted in every string form. It is attached only by CensusURL.with_key at the httpx call."
+observed = "Gate 2 read the redaction path: _reraise redacts &key= in HTTPError text, and the key is attached only by CensusURL.with_key. The mutation that leaves the key on the returned URL failed the failed-fetch test."
+evidence = [{ path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }, { path = "evidence/slice-6/cc-126/gate2.txt", sha256 = "00ebe1557f62e5add8d3eb6075aa9f5a64853fa63bfa0989039d157127b70866" }]
+tested_head = "a51e2ebc87385fbf1a7b5571deea20c9f4209210"
+affects = ["api/src/census_http.py", "api/tests/test_census_http.py"]
+new_tests = true
+mutation = { path = "evidence/slice-6/cc-126/gate1.txt", sha256 = "bbc6d00829954585a06209cb6261e350293e09bd33831f5bd0ececf5edfb59f1" }
+reviewer = "evidence/slice-6/cc-126/gate2.txt"
+
+[[row]]
+id = "AC5"
+status = "AMENDED"
+
+[[row]]
+id = "AC6"
+status = "PASS"
+command = "uv run python scripts/check_budgets.py"
+expected = "budgets.toml is unchanged and demo.p95_latency_seconds is still read from the run."
+observed = "p95_latency_seconds remains 20.0. budgets.toml is unchanged from 700d800 through 9a36dff. The post-merge run records demo.p95_latency_seconds 20.560 (slowest trial 27.464) at 9a36dff. The top-level p95 key stays 18.928, the last under-ceiling value, because an over-ceiling result is not promoted. Owner 2026-11-23: this ceiling miss is judged on CC-127. No waiver line was added."
+evidence = [{ path = "evidence/slice-6/cc-126/latest-after-demo.json", sha256 = "f7cd9f1db8e9127a69ba008da3d54e7dcae5ca59f5b8d37b43818553fff62f0f" }]
+tested_head = "9a36dff6678479e6d0daee178fb880b448abbb69"
+affects = ["budgets.toml"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-126/gate2.txt"
+
+[[row]]
+id = "AC7"
+status = "PASS"
+command = "uv run python scripts/check_invariants.py --base origin/main"
+expected = "No regex or keyword matching, no new graph node, and no module named *_manager, *_service, or the like."
+observed = "Gate 2 reports api/src regex call sites 55 (base 55, delta +0). census_http.py adds no re. call and no add_node. The code pass found nothing. The invariants command exited 0. check_budgets.py then exited 1 on the inherited over-ceiling p95 and doc_lines 1822 against 1820, both already on main."
+evidence = [{ path = "evidence/slice-6/cc-126/gate2.txt", sha256 = "00ebe1557f62e5add8d3eb6075aa9f5a64853fa63bfa0989039d157127b70866" }]
+tested_head = "a51e2ebc87385fbf1a7b5571deea20c9f4209210"
+affects = ["api/src/census_http.py", "api/src/fetch.py", "api/src/geo_list.py"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-126/gate2.txt"
+
+[post_merge]
+main_head = "9a36dff6678479e6d0daee178fb880b448abbb69"
+e2e = { path = "evidence/slice-6/cc-126/e2e-post.txt", sha256 = "d87428f02c26c57a6ebc6b9df3b9e08374d452ab9974ff32283a89a69ef7e869" }
