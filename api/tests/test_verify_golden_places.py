@@ -83,18 +83,26 @@ def test_a_usps_code_counts_as_the_state(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
 
-def test_a_usps_code_beside_a_comma_counts(monkeypatch: pytest.MonkeyPatch) -> None:
-    places: dict[str, list[vg.Place]] = {"a": [("Somerville", "place", "Massachusetts")]}
-    assert (
-        check(monkeypatch, places, [golden("a", "Housing units in Somerville, MA, by tenure")])
-        == []
-    )
-
-
-def test_a_state_name_counts_in_any_letter_case(monkeypatch: pytest.MonkeyPatch) -> None:
-    text = "educational attainment in cook county, ILLINOIS"
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Illinois attainment in Cook County",  # the state is elsewhere in the question
+        "Attainment in cook county, illinois",  # the annotation is the exact written form
+        "Attainment in Cook County in Illinois",  # not "<place>, <State>"
+    ],
+)
+def test_the_state_must_follow_the_place_exactly_as_annotated(
+    monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
     places: dict[str, list[vg.Place]] = {"a": [("Cook County", "county", "Illinois")]}
-    assert check(monkeypatch, places, [golden("a", text)]) == []
+    problems = check(monkeypatch, places, [golden("a", text)])
+    assert any("not in the question after 'Cook County'" in p for p in problems)
+
+
+def test_an_unknown_state_is_a_problem_not_a_crash(monkeypatch: pytest.MonkeyPatch) -> None:
+    places: dict[str, list[vg.Place]] = {"a": [("Cook County", "county", "Atlantis")]}
+    problems = check(monkeypatch, places, [golden("a", "Attainment in Cook County, Atlantis")])
+    assert any("no county 'Cook County' in Atlantis" in p for p in problems)
 
 
 @pytest.mark.parametrize("text", ["Housing in Fresno", "The MAYOR of Fresno"])
@@ -252,8 +260,8 @@ def test_every_stated_state_is_in_the_real_question_text() -> None:
     missing = [
         e["id"]
         for e in entries
-        for _name, _level, state in vg.PLACES[e["id"]]
-        if state and not vg._carries(e["text"], state)
+        for name, _level, state in vg.PLACES[e["id"]]
+        if state and not vg._written(e["text"], name, state)
     ]
     assert missing == []
 

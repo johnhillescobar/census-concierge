@@ -115,10 +115,13 @@ def _exact(name: str, token: str) -> bool:
     return head == token.casefold() or head.startswith(f"{token.casefold()} ")
 
 
-def _carries(text: str, state: str) -> bool:
-    """The question writes the state, as its name or its USPS code (a whole word, upper case)."""
-    usps = next(code for name, code, _fips in STATES if name == state.casefold())
-    return state.casefold() in text.casefold() or usps in text.replace(",", " ").split()
+def _written(text: str, token: str, state: str) -> bool:
+    """The golden's text holds the annotated state right after the place, exactly as annotated:
+    "<place>, <State>" or "<place> <USPS>". A literal comparison of the fixture with its own
+    annotation; nothing is read out of the wording."""
+    forms = [f"{token}, {state}"]
+    forms += [f"{token} {code}" for name, code, _fips in STATES if name == state.casefold()]
+    return any(form in text for form in forms)
 
 
 def place_problems(goldens: list[dict[str, Any]], listing: Listing) -> list[str]:
@@ -138,8 +141,10 @@ def place_problems(goldens: list[dict[str, Any]], listing: Listing) -> list[str]
             rows = listing(level)
             hits = filter_rows(token.casefold(), rows)
             if state is not None:
-                if not _carries(text, state):
-                    out.append(f"{gid}: annotated state {state!r} is not in the question")
+                if not _written(text, token, state):
+                    out.append(
+                        f"{gid}: annotated state {state!r} is not in the question after {token!r}"
+                    )
                 if not any(
                     _exact(r["name"], token)
                     and r["name"].casefold().endswith(f", {state.casefold()}")
