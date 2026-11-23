@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-22T21:16:24.577-0600",
+ "updated": "2026-11-22T21:20:18.663-0600",
  "description": {
   "type": "doc",
   "version": 1,
@@ -190,6 +190,15 @@
      {
       "type": "text",
       "text": "2026-11-23, owner: the app never guesses on ambiguous geographic information. The rule is UNIQUENESS, not population dominance: a place name that matches more than one place and carries no state the user wrote is refused (no selection, URL or fetch) with a message that the question needs more geographic detail, and the candidates are listed. The 4-times-the-people exception of 2026-11-11 is withdrawn. A name that matches exactly one place (DuPage County, Chicago) still resolves. Goldens that name a shared place without its state are therefore expected refusals; how they are scored is a separate owner decision."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "2026-11-23, owner (wider amendment, option b): under the uniqueness rule, every visible golden that names a shared place without a state the user wrote is an expected, explained miss against B, A and L, in addition to q42, q43, t01, t06 and t14. The goldens, the scorer and the cohort hashes are NOT changed (no bridge). The comparison must name each such golden by id and say why it is refused; the initial list from the golden-impact check is core q03 and q04; long_tail q05, q13, q16, q18, q20, q23, q31, q36, q38, q39, q40; trap t07, t09, t13, t16, t18 (to be confirmed against the run, since populations were not available offline). Any other decrease is not covered. The long_tail answered_rate floor of 0.700 is therefore expected to be missed by design on this ticket; the miss is reported with its explained ids, not hidden. Reason: the owner defines an ambiguous question as never correct, so a golden that expects an answer to one is a wrong question."
      }
     ]
    },

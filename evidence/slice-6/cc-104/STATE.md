@@ -170,7 +170,9 @@ applies only when no state was kept (with a written state, keep today's ranking 
 should say the question needs more geographic detail (no digits). (3) update tests that assume dominance (search: dominant, clear_largest, never_moves, the Wayne/Cook fixtures, test_a_name_with_one_clear_largest_match...),
 add: Cook County (3 matches) refused; DuPage (1) resolves; a model-added state never settles a non-unique name. (4) docs: ask-path.md lines on dominance, requirements.md ambiguous_place row, CLAUDE.md untouched.
 (5) Gate 1 mutation check, then ONE P block + compare once (B stays 700d800, measured).
-CONSEQUENCE the owner must still decide: ~18 visible goldens name a shared place without its state and become expected refusals (core q03 Cook County and q04 Detroit; long_tail q05, q13?, q16, q18, q20, q23, q31, q36, q38, q39, q40;
+GOLDEN HANDLING DECIDED (owner, 2026-11-23, in the ticket as the 'wider amendment', option b): do NOT amend the goldens; every visible golden that names a shared place without a state is an expected, explained miss
+(goldens, scorer, hashes unchanged, no bridge); the comparison must name each by id with the reason; the long_tail 0.700 floor is expected to be missed by design on this ticket and is reported, not hidden.
+CONSEQUENCE (now decided as above): ~18 visible goldens name a shared place without its state and become expected refusals (core q03 Cook County and q04 Detroit; long_tail q05, q13?, q16, q18, q20, q23, q31, q36, q38, q39, q40;
 trap t07, t09, t13, t16, t18, plus the already accepted q42, q43, t01, t06, t14). That drops long_tail answered_rate by roughly 25-30 points (under the 0.700 floor) and the tract grid cells with unqualified counties. Options: (a) amend
 those goldens to expect a refusal (dated owner commit; moves cohort/scorer hashes, needs a bridge) - these are "wrong questions" by the owner's own definition; (b) accept them as expected misses by a wider amendment.
 
