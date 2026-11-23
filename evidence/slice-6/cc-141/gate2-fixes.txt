@@ -1,0 +1,15 @@
+# CC-141 Gate 2 fixes R4/R5 (_carries -> _written); mutation check of the tests that cover them
+# repo /c/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-141 branch cc-141/golden-state HEAD b544f19
+
+BAD: mutation '_written scans for the state anywhere in the text' -> state-must-follow-the-place test must fail
+2 failed, 1 passed, 43 deselected, 1 warning in 0.29s
+
+BAD: mutation 'unknown state raises StopIteration' -> unknown-state test must fail
+1 failed, 45 deselected, 1 warning in 0.43s
+
+BAD: mutation 'drop the USPS form' -> usps test must fail
+1 failed, 45 deselected, 1 warning in 0.40s
+
+GOOD: restored
+?? evidence/slice-6/cc-141/gate2.txt
+46 passed, 1 warning in 6.88s

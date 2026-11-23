@@ -1,0 +1,186 @@
+CC-141 Gate 2 transcript
+Branch cc-141/golden-state, HEAD 21e5484959f44565c68663961d8bdc874881cf97, base origin/main 9a36dff6678479e6d0daee178fb880b448abbb69
+Diff files: api/tests/test_verify_golden_places.py, evals/golden_questions.toml, scripts/verify_golden_places.py, evidence/slice-6/cc-141/* (plan.md, preflight.*, verify-before.txt, gate1*.txt)
+
+=== PASS 1: /code-review high (cold, code-only; plan.md not read before this record) ===
+Skill invoked: code-review (forked), args "high git diff origin/main...HEAD". Raw findings as returned:
+
+1. [important] evidence/metrics/bridges.json:1 - The branch edits the text of 26 goldens but adds no bridge and no new
+   cohort hashes. Text is an expectation field, so core/long_tail/trap cohort hashes move. scripts/metric_compare.py fails a
+   cohort change between reference and candidate unless evidence/metrics/bridges.json holds a bridge; the file does not exist
+   in the tree. Fix: add the bridge and re-frozen hashes, candidate run on the curated goldens (plan AC3/TC3), before ready.
+2. [important] scripts/verify_golden_places.py:64 - _carries decides whether the question "writes the state" with
+   state.casefold() in text.casefold() (raw substring). "kansas" is inside "Arkansas", "virginia" inside "West Virginia", so a
+   golden naming the wrong state still passes. Scenario: annotated ('Fairfax County','county','Virginia') but text says
+   "Fairfax County, West Virginia" -> _carries True; Virginia has a Fairfax County so the second check passes too.
+3. [nit] scripts/verify_golden_places.py:128 - For a golden with a stated state the check proves only that some exact-named
+   place exists in that state, not that the state-qualified name picks one place. filter_rows matches by word, so
+   "Providence, Rhode Island" also hits "East Providence city", "Portland, Oregon" hits "East Portland CDP". Count in-state
+   hits and require one exact match, or confirm the resolver ranks exact first.
+4. [nit] scripts/verify_golden_places.py:62 - Script reads golden question wording with substring/token matching
+   (_carries, comma split for USPS codes). CLAUDE.md: "Never interpret question wording with regex, keyword, substring or
+   equivalent semantic heuristics". It is data tooling not product path, flagged at Gate 1; needs an explicit decision /
+   owner-approved exemption, or drop the text scan.
+5. [nit] scripts/verify_golden_places.py:62 - USPS-code branch matches only an upper-case token delimited by spaces/commas;
+   "Somerville (MA)", "MA?", "MA." fail with a misleading message. next(...) over STATES raises bare StopIteration for an
+   annotation naming a state not in STATES. Strip punctuation; give next a default.
+6. [nit] scripts/verify_golden_places.py:1 - The check is not wired into make check / check_invariants (needs live Census
+   listings and key); the offline test proves only that each golden has an annotation. A future golden can re-introduce a
+   shared stateless name unnoticed.
+7. [nit] evidence/slice-6/cc-141/gate1.txt:1 - Gate 1 transcripts record inconsistent HEAD hashes (gate1-fixes.txt says
+   8fe7edc, gate1.txt ends at f94da63, "restored clean: False"); evidence is not tied to final commit 21e5484. CLAUDE.md
+   requires commit-specific evidence for every AC/TC. Re-run tests + mutation set at the final head.
+
+(Pass 1 recorded. Pass 2 follows.)
+
+=== PASS 2: review-pr (docs/playbooks/review-pr.md), HEAD 21e5484, base origin/main 9a36dff ===
+Skill review-pr invoked; procedure read from docs/playbooks/review-pr.md; plan.md read only after Pass 1 was recorded above.
+
+--- Machine 1: uv run python scripts/check_budgets.py  (RAW, exit 1) ---
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5100
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  FAIL  doc lines                 1822 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  FAIL  p95 latency (s)         20.714 <= 20
+        run 2026-11-22T18:58:29+00:00; slowest trial 32.514s (p95 leaves out the top 5%)
+  ok    retrieval_at_10            0.9 >= 0.9
+  ok    selector_at_1            0.725 >= 0.7
+  ok    answered_rate            0.733 >= 0.7
+  ok    synthetic_alignment      0.544 >= 0.5
+
+2 budget(s) exceeded:
+
+  - doc lines: 1822 (limit 1820)
+  - p95 latency (s): 20.714 (limit 20)
+
+p95 is read from the run's own demo block. Reduce latency; or the owner may log
+'# <date> [waiver] p95_latency_seconds <demo.generated_at> <p95> <ticket> <why>'
+in budgets.toml. It covers that one run only, and goes in its own commit: a waiver
+added in the same change as code fails 'new exemptions' in check_invariants.
+
+STOP. Do not edit budgets.toml to make this pass.
+
+A budget exceeded means one of two things:
+  1. The change is carrying complexity it does not need -> simplify it.
+  2. The product genuinely outgrew the budget -> stop and ask the human,
+     who will raise it in a separate commit with a written reason.
+
+Raising a limit yourself defeats the only mechanism protecting this
+project from the failure mode it was built to avoid.
+
+EXIT=1
+
+--- Same script against a pristine `git archive origin/main` extract (confirming the claim myself) ---
+  FAIL  doc lines                 1822 <= 1820
+  FAIL  p95 latency (s)         20.714 <= 20
+        run 2026-11-22T18:58:29+00:00; slowest trial 32.514s
+  2 budget(s) exceeded: doc lines 1822 (limit 1820); p95 latency (s) 20.714 (limit 20)
+CONFIRMED: identical numbers on origin/main. `git diff origin/main...HEAD --name-only` touches no budgets.toml, no
+evidence/latest.json, no docs/ file (files: api/tests/test_verify_golden_places.py, evals/golden_questions.toml,
+scripts/verify_golden_places.py, evidence/slice-6/cc-141/*). This branch changes neither value. Red is pre-existing, not
+caused by CC-141. Budget was not edited. (Playbook says non-zero ends the review; since it is red identically on base and
+unchanged by the branch, remaining machines were run to completion and the invariants read continued.)
+
+--- Machine 2: uv run python scripts/check_invariants.py --base origin/main  (RAW, exit 0) ---
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+EXIT=0
+
+--- Machine 3: ruff check . (exit 0) / ruff format --check . (exit 0) ---
+All checks passed!
+274 files already formatted
+--- Machine 4: uv run mypy api/src (exit 0) ---
+Success: no issues found in 30 source files
+--- Machine 5: uv run pytest -q -m "not integration" (exit 0) ---
+1493 passed, 34 skipped, 8 xfailed, 1 warning in 123.74s (0:02:03)
+
+--- Extra: AC1/AC2 live check at HEAD (read-only Census listings): uv run python scripts/verify_golden_places.py --base origin/main ---
+70 goldens; listings: county 3222, place 32330
+OK            (exit 0)
+(verify-before.txt at origin/main shows 25 problems; at HEAD zero. Latent finding-2 check: for every golden annotated with a
+state, the state is written right after the place name or as USPS code (q22 "Somerville MA"); no current golden is
+misattributed by the substring test.)
+
+--- Closure: scripts/closure.py check ---
+No manifest evidence/closure/CC-141.toml exists (only CC-125, CC-133, CC-138). Not runnable; see finding R3.
+
+--- The claim ---
+A user/eval can now run the 26 visible goldens that named a place shared across states (Cook County, Detroit, Portland,
+Providence, ... and holdouts) with the state written, so the goldens measure retrieval instead of the CC-104 ambiguity
+refusal. Edit is text-only: each changed text equals the old text plus ", <State>" directly after the place name (proven by
+--base diff, exit 0). t05 stays deliberately ambiguous (exempt). Scope: 9 files, 3 code/data files + evidence; no ARCHITECTURE
+change needed (no shape change); no api/src change; no response path touched, so URL/MOE/GEOID/universe, key redaction,
+model-values, clarification and silent-repair checks are N/A (no api/src diff; invariants "key in artifacts", "new regex",
+"eval phrasing in api/src" all ok, regex call sites delta +0). No new module-name violations (scripts/verify_golden_places.py
+is not a *_manager etc.), test file not ticket-named, tests use real TOML + real filter_rows with per-input listings (not a
+constant fake) and no prompt/prose assertions. Tuning-to-instrument: edits add states to visible goldens only; no sealed
+set, demo.trials or transcripts read; no eval place/phrasing added to api/src.
+Metric-gate read (requirements/PLAN): editing `text` (an expectation field) moves the core/long_tail/trap cohort hashes, so
+AC3 (bridge) is required before any candidate is compared against reference A.
+
+=== CONSOLIDATED FINDINGS (file:line, severity) ===
+R1  [BLOCKS SHIP, expected-pending per plan] evidence/metrics/bridges.json (absent) - AC3/TC3 not done: no re-frozen cohort
+    hashes, no bridge, no candidate run on curated goldens, no metric_compare compare. Plan schedules it after Gate 2 (E2E
+    phase). Nothing is wrong in code; it must exist before ready. (code-review #1 confirmed.)
+R2  [BLOCKS SHIP, expected-pending] AC4 (rebase of cc-104 onto merged main) and post-merge E2E are not yet possible.
+R3  [BLOCKS SHIP] evidence/closure/CC-141.toml absent: scripts/closure.py check cannot pass and jira_transition --done will
+    refuse; per review-pr.md the matrix must be reconciled with commit-specific evidence. Create it with rows AC1-AC4/TC1-TC3
+    at the final head (AC1/AC2 evidence can cite the verify run above, re-saved under evidence/slice-6/cc-141/ because the
+    post-edit run is not yet committed: only verify-before.txt exists).
+R4  [MEDIUM, owner decision] scripts/verify_golden_places.py:118-121 (_carries) reads golden question wording with substring
+    and token matching, against the CLAUDE.md "never interpret question wording with ... substring" rule. It is fixture
+    tooling, not product path, and the check_invariants "new regex" ratchet is green, but the rule says "regardless". Either
+    record an owner exemption or drop it (diff_problems already proves the state was inserted verbatim after the place for every
+    changed golden; only unchanged goldens with a pre-existing state - q01,q22,t11,t17,h08 - rely on _carries).
+R5  [LOW] scripts/verify_golden_places.py:121 - state substring is not word-bounded ("kansas" in "Arkansas", "virginia" in
+    "West Virginia") and `next(...)` at :120 raises StopIteration for an unknown state; USPS branch misses "MA." / "(MA)".
+    Latent only: no current golden is affected (verified above). Fix or accept with R4.
+R6  [LOW] scripts/verify_golden_places.py:139-148 - with a stated state, only checks that an exact-named place exists in that
+    state; filter_rows is word-based ("Portland, Oregon" also matches "East Portland CDP"), so uniqueness of the state-qualified
+    name is not proven. Resolver ranking not examined here.
+R7  [LOW] scripts/verify_golden_places.py (whole) - live-only check, not in make check; a future golden can reintroduce a shared
+    stateless name unnoticed until someone reruns it. Document the manual step or accept.
+R8  [LOW] evidence/slice-6/cc-141/gate1.txt, gate1-fixes.txt - Gate 1 transcripts cite HEADs f94da63 / 8fe7edc (and
+    "restored clean: False", explained as an uncommitted test file) not the reviewed head 21e5484. Full pytest at 21e5484 is
+    green (1493 passed) and the post-0937004 test run (44 passed) is in gate1-fixes.txt; refresh the matrix row with HEAD.
+No silent-wrong-answer findings (no response path touched). budgets: red on origin/main identically, unchanged by branch.
+
+VERDICT: NOT YET - no code defect blocks the E2E phase, but the slice is not shippable: AC3 bridge/cohort hashes (R1) and the
+closure manifest with commit-specific evidence (R3) do not exist, and AC4/post-merge E2E are pending; R4 needs an owner
+decision. Pre-existing budget red (doc lines, p95) is not caused by this branch.
