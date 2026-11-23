@@ -202,8 +202,9 @@ def unanswered(record: Any) -> str | None:
         return None
     if (getattr(record, "geo_status", None) or {}).get("ambiguous"):
         return (
-            "Nothing was fetched because a place name matches several places. Name the state "
-            "and ask again; the candidates are listed with the warning."
+            "Nothing was fetched: the question needs more geographic detail, because a place "
+            "name matches several places. Name the state and ask again; the candidates are "
+            "listed with the warning."
         )
     tried = any(t.get("tool") in {"build_url", "fetch_data"} for t in record.timings)
     if tried and not getattr(record, "geographies", None):  # a which-table answer has no URL

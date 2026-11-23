@@ -14,7 +14,7 @@ from ask_fixtures import _geo_tool, _tools, only_dane
 from src.ask import ExecutionRecord
 from src.contract import GeoSpec
 from src.geo_level import GeoIntent, ResolveGeographyResult, level_name
-from src.geo_list import DOMINANCE, dominant, fips_state, name_token, state_of
+from src.geo_list import fips_state, name_token, state_of
 from test_execution_isolation import BUILD, FETCH, NEUTRAL, SEARCH, differing, execute, resolve
 from test_geography_completeness import STOPPED, _ask, _frame, _run
 from test_tracts_in_place import ASK as IN_PLACE
@@ -174,18 +174,28 @@ async def test_a_code_with_its_own_label_grounds_the_state() -> None:
     assert record.timings  # the code grounds the state it lies in, for completeness only
 
 
-async def test_a_place_parent_named_without_its_state_is_found_by_name_across_states() -> None:
+async def test_a_place_parent_shared_by_several_states_is_refused_not_guessed() -> None:
     tracts = await in_place({**IN_PLACE, "parents": ["Detroit"]})
-    assert (
-        tracts.legal and tracts.wider
-    )  # Detroit, Michigan: the largest match, not a guess at a state
-    assert tracts.specs[0].in_spec == "state:26 county:163"  # other Detroits stay as alternatives
+    assert tracts.ambiguous and not tracts.wildcard  # candidates, nothing selected
+    assert len(tracts.specs) >= 2 and all(s.for_spec.startswith("place:") for s in tracts.specs)
 
 
-async def test_a_county_parent_named_without_its_state_is_found_by_name_across_states() -> None:
+async def test_a_county_parent_shared_by_several_states_is_refused_not_guessed() -> None:
     tracts = await resolved(parents=["Wayne County"], parent_level="county", level="tract")
-    assert tracts.legal and tracts.specs[0].in_spec == "state:26 county:163"
-    assert [spec.name for spec in tracts.specs[1:]] == ["Wayne County, North Carolina"]
+    assert tracts.ambiguous and not tracts.wildcard
+    assert {spec.name for spec in tracts.specs} == {
+        "Wayne County, Michigan",
+        "Wayne County, North Carolina",
+    }
+
+
+async def test_a_county_parent_that_matches_one_place_resolves_without_its_state() -> None:
+    def only(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, str]]:
+        return [_row("DuPage County, Illinois", "17", "043", "930000")]
+
+    tracts = await resolved(only, parents=["DuPage County"], parent_level="county", level="tract")
+    assert tracts.legal and not tracts.ambiguous
+    assert tracts.specs[0].in_spec == "state:17 county:043"
 
 
 async def test_a_nationwide_listing_is_run_only_when_parent_level_is_us() -> None:
@@ -342,14 +352,6 @@ def alike(level: str, parts: dict[str, str], **kwargs: Any) -> list[dict[str, st
     return [r for r in ALIKE if level == "county" and state in {"*", r["in"].split(":")[1]}]
 
 
-def test_a_best_match_dominates_only_when_it_is_several_times_the_next() -> None:
-    big, small = {"population": str(DOMINANCE * 100)}, {"population": "100"}
-    near = {"population": str(DOMINANCE * 100 - 1)}
-    assert dominant([big, small]) and dominant([small]) and dominant([])
-    assert not dominant([near, small])  # just under the threshold: not known to dominate
-    assert not dominant([big, {"name": "no population"}])  # nothing to judge by
-
-
 async def test_an_unqualified_parent_that_no_match_dominates_returns_candidates_not_a_pick() -> (
     None
 ):
@@ -358,7 +360,7 @@ async def test_an_unqualified_parent_that_no_match_dominates_returns_candidates_
     assert [s.name for s in hit.specs] == [
         r["name"] for r in reversed(ALIKE)
     ]  # ranked, largest first
-    assert "name its state" in hit.detail
+    assert "more geographic detail" in hit.detail
 
 
 async def test_a_parent_with_its_state_is_never_ambiguous() -> None:
@@ -520,13 +522,6 @@ async def test_the_nation_level_does_not_swallow_a_named_state() -> None:
     assert [spec.for_spec for spec in nation.specs] == ["us:1"]
 
 
-def test_empty_places_dominate_nothing_and_the_comparison_is_with_the_largest_other() -> None:
-    zero = {"population": "0"}
-    assert not dominant([zero, zero])
-    big, mid, small = {"population": "1000"}, {"population": "900"}, {"population": "10"}
-    assert not dominant([big, small, mid])  # the best match is compared with the largest other one
-
-
 async def test_a_repair_over_nothing_keeps_what_it_found_but_is_not_taken_as_done() -> None:
     from src import finish
 
@@ -612,7 +607,7 @@ async def test_a_state_the_user_did_not_write_cannot_settle_a_shared_name(
     written: list[str] | None,
 ) -> None:
     hit = await _resolve_with_states(written, places=["Springfield, IL"], level="place")
-    assert hit.ambiguous and hit.state_supplied and not hit.dominant
+    assert hit.ambiguous and hit.state_supplied
     assert len(hit.specs) == 3  # every Springfield is a candidate; none is selected
 
 
@@ -623,10 +618,9 @@ async def test_a_state_the_report_says_the_user_wrote_settles_it(written: list[s
     assert hit.specs[0].in_spec == "state:17"
 
 
-async def test_a_shared_name_with_one_clear_largest_match_is_selected_with_alternatives() -> None:
+async def test_a_shared_name_is_refused_however_much_larger_one_match_is() -> None:
     hit = await resolved(places=["Portland"], level="place")  # Oregon dwarfs Maine
-    assert hit.dominant and not hit.ambiguous
-    assert hit.specs[0].name == "Portland city, Oregon" and len(hit.specs) == 2
+    assert hit.ambiguous and len(hit.specs) == 2
 
 
 async def test_a_name_that_carries_its_state_is_never_ambiguous_even_when_none_dominates() -> None:
@@ -663,8 +657,8 @@ async def test_a_listing_parent_is_checked_like_a_place() -> None:
     args = {"parents": ["Cook County, IL"], "parent_level": "county", "level": "tract"}
     unwritten = await _resolve_with_states([], **args)
     written = await _resolve_with_states(["Illinois"], **args)
-    assert unwritten.specs and unwritten.state_supplied  # dominant, so it resolves, but flagged
-    assert written.specs and not written.state_supplied
+    assert unwritten.ambiguous and unwritten.state_supplied  # Cook County is in three states
+    assert written.specs and not written.ambiguous and not written.state_supplied
 
 
 async def test_each_comparison_leg_is_judged_on_its_own_state() -> None:
@@ -824,12 +818,12 @@ async def test_a_listing_over_several_parents_records_that_a_state_was_supplied(
         return (await tool.ainvoke(call)).artifact
 
     unwritten, written = await listing([]), await listing(["IL", "MI"])
-    assert unwritten.compare and not unwritten.ambiguous and unwritten.state_supplied
+    assert unwritten.ambiguous and unwritten.state_supplied and not unwritten.compare
     assert written.compare and not written.ambiguous and not written.state_supplied
 
 
-async def test_a_listing_parent_whose_dropped_state_is_not_the_largest_is_unclear() -> None:
-    """Orange County, CA dwarfs Florida's, but the model said FL and the user wrote no state."""
+async def test_a_listing_parent_whose_state_the_user_did_not_write_is_unclear() -> None:
+    """Orange County is in two states and the user wrote none: the model's state settles nothing."""
     rows = [
         _row("Orange County, California", "06", "059", "3200000"),
         _row("Orange County, Florida", "12", "095", "300000"),
@@ -847,10 +841,12 @@ async def test_a_listing_parent_whose_dropped_state_is_not_the_largest_is_unclea
         return (await tool.ainvoke(call)).artifact
 
     moved = await listing("Orange County, FL", [])
-    assert moved.ambiguous and moved.state_supplied and not moved.dominant
+    assert moved.ambiguous and moved.state_supplied
     assert {spec.for_spec for spec in moved.specs} == {"county:059", "county:095"}
     same = await listing("Orange County, CA", [])
-    assert not same.ambiguous and same.state_supplied  # California is the model's state and largest
+    assert (
+        same.ambiguous and same.state_supplied
+    )  # the larger one is no more settled than the other
     stated = await listing("Orange County, FL", ["FL"])
     assert not stated.ambiguous and not stated.state_supplied
     assert stated.specs[0].in_spec.startswith("state:12")
@@ -896,15 +892,12 @@ async def test_a_nationwide_listing_is_told_how_to_be_asked() -> None:
 async def test_dropping_an_unwritten_state_never_moves_the_answer_to_another_state(
     written: list[str] | None,
 ) -> None:
-    """Portland is mostly Oregon, but the model said Maine: a different state is no silent swap."""
+    """Portland is in two states and the user wrote none: neither the model state nor size picks."""
     moved = await _resolve_with_states(written, places=["Portland, ME"], level="place")
     assert moved.ambiguous and moved.state_supplied
     assert {spec.in_spec for spec in moved.specs} == {"state:23", "state:41"}
     same = await _resolve_with_states(written, places=["Portland, OR"], level="place")
-    assert (
-        not same.ambiguous and same.state_supplied
-    )  # Oregon is both the model's state and largest
-    assert same.specs[0].in_spec == "state:41"
+    assert same.ambiguous and same.state_supplied  # Oregon is the larger one; it is still refused
     stated = await _resolve_with_states(["ME"], places=["Portland, ME"], level="place")
     assert len(stated.specs) == 1 and stated.specs[0].in_spec == "state:23"
 

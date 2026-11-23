@@ -93,10 +93,10 @@ comparison), `parents` (a listing: every `level` unit inside them) with `parent_
 / `levels`. Each entry is "Place, ST" or a state alone; its state is an exact lookup on the entry (`state_of`),
 its NAME token the part before the first comma. `level` `us` with no place is the nation; a null level and
 no place, a listing without `level`, or a non-state parent without `parent_level` is refused for repair.
-NAME listing ranks by place class, population, then GEO_ID. A name with no state is searched across states and selected only if its best match has 4 times the people of the next; otherwise nothing is selected, built or fetched and `ambiguous_place` carries the candidates (direct place, comparison leg and listing parent alike). A comparison resolves every place or none. A state attached to an entry counts only if the report's `states_named` lists it (unknown is not written): otherwise it is dropped, the bare name is checked for a dominant match, and `state_supplied` is set. A token matches the NAME
+NAME listing ranks by place class, population, then GEO_ID. A name with no state is searched across states and resolves only if it matches exactly one place, whatever the populations; otherwise nothing is selected, built or fetched and `ambiguous_place` carries the candidates, with a message that the question needs more geographic detail (direct place, comparison leg and listing parent alike). A comparison resolves every place or none. A state attached to an entry counts only if the report's `states_named` lists it (unknown is not written): otherwise it is dropped, the bare name must then match exactly one place, and `state_supplied` is set. A token matches the NAME
 head or that head plus a Census class, not an unrelated compound (`Queens` is not `Queens Gate CDP`) and
 is not retried as its last word. A place with a null level and no NAME hit falls back to the county listing,
-flagged inferred. `dominant` is Census population, never a list of cities. A blank
+flagged inferred. Size never picks a place. A blank
 parent fails the whole call. `ambiguous_place` carries ranked `GeoSpec` candidates (level, GEOID,
 dataset/vintage, `for`/`in`). Comparison legs resolve concurrently and merge.
 A named-county parent of a tract wildcard is `for=tract:*` without listing

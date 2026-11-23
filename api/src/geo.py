@@ -14,7 +14,6 @@ from src.contract import GeoSpec, clause_codes
 from src.geo_level import ZCTA, ResolveGeographyResult, declared_levels, level_name
 from src.geo_list import (
     MAX_CANDIDATES,
-    dominant,
     filter_rows,
     name_token,
     named_rows,
@@ -40,25 +39,18 @@ def _fail(detail: str, *, wildcard: bool = False, nested: bool = True) -> Reply:
     return detail, hit
 
 
-def _moved(dropped: StateRef | None, matched: list[dict[str, str]]) -> bool:
-    """The state the model attached, dropped as unwritten, is not where the best match lies."""
-    best = clause_codes(matched[0].get("in", "")).get("state") if matched else None
-    return bool(dropped and best and best != dropped[1])
-
-
 def _unclear(
     name: str, matched: list[dict[str, str]], dataset: str, year: int, dropped: StateRef | None
 ) -> Reply:
-    """A name with no clear owner: its candidates are the result and nothing is selected."""
+    """A name that matches several places: they are the result and nothing is selected."""
     names = "; ".join(row["name"] for row in matched[:MAX_CANDIDATES])
-    detail = f"{name!r} matches {len(matched)} places ({names}); name its state"
+    detail = f"{name!r} matches several places ({names}); it needs more geographic detail"
     return detail, ResolveGeographyResult(
         specs=[_spec(row, dataset, year) for row in matched[:MAX_CANDIDATES]],
         wildcard=False,
         legal=True,
         detail=detail,
         ambiguous=True,
-        dominant=False,
         state_supplied=dropped is not None,
     )
 
@@ -288,7 +280,7 @@ class ResolveGeographyTool(BaseTool):
                     f"{for_level} does not nest in {parent} ({owner})", wildcard=True, nested=False
                 )
         if parent not in {"us", "state"}:
-            # a parent named without its state: every state is searched, the largest match wins
+            # a parent named without its state: every state is searched; it must match one place
             star = legal_predicate(parent, frozenset({"state"}), wildcard=True, entries=entries)
             where = dict(in_parts) or ({"state": "*"} if star else {})
             if not where:
@@ -299,7 +291,7 @@ class ResolveGeographyTool(BaseTool):
             matched = rank_matches(filter_rows(name_token(owner), rows))
             if not matched:
                 return _fail(f"{for_level} nested in unresolved {parent}", wildcard=True)
-            if where.get("state") == "*" and (not dominant(matched) or _moved(dropped, matched)):
+            if where.get("state") == "*" and len(matched) > 1:  # a shared name, no state written
                 return _unclear(owner, matched, dataset, year, dropped)
             pick, leftover = matched[0], matched[1:]
             in_parts.update(clause_codes(pick.get("in", "")))
@@ -415,7 +407,7 @@ class ResolveGeographyTool(BaseTool):
             )
             matched = named_rows(token, county)
         specs = [_spec(row, dataset, year) for row in matched]
-        if list_in.get("state") == "*" and (not dominant(matched) or _moved(dropped, matched)):
+        if list_in.get("state") == "*" and len(matched) > 1:  # a shared name, no state written
             return _unclear(entry, matched, dataset, year, dropped)
         detail = f"no {for_level} matched {entry!r}" if not specs else ""
         result = ResolveGeographyResult(
@@ -424,7 +416,6 @@ class ResolveGeographyTool(BaseTool):
             legal=True,
             detail=detail,
             inferred=inferred,
-            dominant=dominant(matched),
             state_supplied=dropped is not None,
         )
         n = len(specs)

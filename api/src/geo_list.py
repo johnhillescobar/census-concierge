@@ -141,21 +141,7 @@ def _rank_key(row: dict[str, str]) -> tuple[int, int, float, str]:
         return (klass, 1, 0.0, row.get("geoid", ""))
 
 
-# An unqualified name is taken only if its best match has this many times the next one's people.
-DOMINANCE = 4
-MAX_CANDIDATES = 5  # candidates returned when it is not
-
-
-def dominant(ranked: list[dict[str, str]]) -> bool:
-    """One match, or a best match so much larger than the next that the name means it."""
-    if len(ranked) < 2:
-        return True
-    try:
-        top = float(ranked[0]["population"])
-        rest = max(float(row["population"]) for row in ranked[1:])
-    except (KeyError, TypeError, ValueError):
-        return False  # no population to judge by: it is not known to dominate
-    return top > 0 and top >= DOMINANCE * rest  # two empty places dominate nothing
+MAX_CANDIDATES = 5  # candidates returned when a name matches several places
 
 
 def rank_matches(matches: list[dict[str, str]]) -> list[dict[str, str]]:

@@ -345,7 +345,7 @@ async def test_an_ambiguous_name_is_resolved_once_and_the_repair_does_not_guess_
     assert asked.count("resolve_geography") == 1  # the repair never re-resolves an ambiguous name
 
 
-async def test_a_place_name_with_no_dominant_match_is_refused_with_its_candidates() -> None:
+async def test_a_place_name_matching_several_places_is_refused_with_its_candidates() -> None:
     steps = [
         ("search_tables", {"question": "population"}),
         ("resolve_geography", {"places": ["Springfield"], "level": "place"}),
@@ -357,7 +357,10 @@ async def test_a_place_name_with_no_dominant_match_is_refused_with_its_candidate
     )
     assert response.urls == [] and response.rows == [] and fetched == []
     assert record.geography is None and record.geo_status["ambiguous"] is True
-    assert response.answer.startswith("Nothing was fetched because a place name matches")
+    assert response.answer.startswith(
+        "Nothing was fetched: the question needs more geographic detail"
+    )
+    assert not any(ch.isdigit() for ch in response.answer)
     warning = next(w for w in response.warnings if w.code == "ambiguous_place")
     assert len(warning.candidates) == 3
 
@@ -393,7 +396,7 @@ async def test_a_comparison_missing_one_place_is_refused_not_answered_with_the_o
     assert "Zzyzx, TX" in warning.detail and "Chicago" not in warning.detail
 
 
-async def test_a_name_with_one_clear_largest_match_still_resolves_without_its_state() -> None:
+async def test_a_name_matching_exactly_one_place_resolves_without_its_state() -> None:
     steps = [
         ("search_tables", {"question": "population"}),
         ("resolve_geography", {"places": ["Chicago"], "level": "place"}),

@@ -719,8 +719,7 @@ async def test_ambiguous_resolve_lands_on_the_response() -> None:
     )
     response = assemble("three Cook Counties", record)
     assert len(record.geographies) == 3
-    assert record.geography is not None
-    assert record.geography.in_spec == "state:17"
+    assert record.geography is None  # a shared name with no state selects nothing
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert response.answer == "three Cook Counties"
 

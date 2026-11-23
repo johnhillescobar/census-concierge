@@ -709,7 +709,7 @@ async def test_tracts_in_wayne_county_are_one_wildcard_not_a_listing() -> None:
     assert called[0][1] == {"state": "26"}
 
 
-async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
+async def test_tracts_in_a_county_name_shared_by_two_states_are_refused() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -719,11 +719,10 @@ async def test_tracts_in_wayne_without_a_state_pick_michigan() -> None:
             "id": "c1",
         }
     )
-    spec = message.artifact.specs[0]
-    assert message.artifact.legal is True
-    assert spec.for_spec == "tract:*"
-    assert spec.in_spec == "state:26 county:163"
-    assert [row.name for row in message.artifact.specs[1:]] == ["Wayne County, North Carolina"]
+    artifact = message.artifact
+    assert artifact.ambiguous is True and artifact.wildcard is False
+    assert all(spec.for_spec.startswith("county:") for spec in artifact.specs)  # candidates only
+    assert {spec.in_spec for spec in artifact.specs} == {"state:26", "state:37"}
 
 
 async def test_all_tracts_in_michigan_stay_illegal() -> None:
@@ -923,7 +922,7 @@ async def test_springfield_alternatives_are_not_comparison_legs() -> None:
     assert len(message.artifact.specs) == 3
 
 
-async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
+async def test_cook_county_selects_nothing_and_lists_every_match() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -935,10 +934,8 @@ async def test_cook_county_selects_illinois_and_keeps_every_match() -> None:
     )
     specs = message.artifact.specs
     assert [row.in_spec for row in specs] == ["state:17", "state:13", "state:27"]
-    assert len(specs) == 3
-    assert "selected county:031 state:17" in message.content
-    assert "2 alternatives" in message.content
-    assert "state:13" not in message.content
+    assert message.artifact.ambiguous is True
+    assert "selected" not in message.content and "more geographic detail" in message.content
 
 
 async def test_queens_resolves_as_the_county_not_the_gate_cdp() -> None:
@@ -974,7 +971,7 @@ async def test_named_city_does_not_fall_back_to_the_county() -> None:
     assert "no place matched" in message.artifact.detail
 
 
-async def test_portland_selects_oregon_over_maine() -> None:
+async def test_a_larger_city_does_not_win_a_shared_name() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -984,13 +981,13 @@ async def test_portland_selects_oregon_over_maine() -> None:
             "id": "c1",
         }
     )
-    specs = message.artifact.specs
-    assert specs[0].in_spec == "state:41"
-    assert {row.in_spec for row in specs} == {"state:41", "state:23"}
-    assert "alternatives" in message.content
+    assert (
+        message.artifact.ambiguous is True
+    )  # Oregon's Portland is far larger; it still is not chosen
+    assert {row.in_spec for row in message.artifact.specs} == {"state:41", "state:23"}
 
 
-async def test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_match() -> None:
+async def test_a_name_that_matches_several_places_selects_nothing_and_lists_every_match() -> None:
     tool = _geo_tool()
     message = await tool.ainvoke(
         {
@@ -1001,13 +998,13 @@ async def test_a_name_with_no_dominant_match_selects_nothing_and_lists_every_mat
         }
     )
     artifact = message.artifact
-    assert artifact.ambiguous is True and artifact.dominant is False
+    assert artifact.ambiguous is True
     assert {row.name for row in artifact.specs} == {
         "Springfield city, Missouri",
         "Springfield city, Illinois",
         "Springfield CDP, Virginia",
     }
-    assert "name its state" in message.content
+    assert "more geographic detail" in message.content
 
 
 async def test_state_qualified_place_stays_exact() -> None:

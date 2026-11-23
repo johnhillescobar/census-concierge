@@ -766,7 +766,7 @@ async def test_successful_rebuild_drops_previous_rows() -> None:
     assert record.table_id == "B01003"
 
 
-async def test_ambiguous_geography_builds_the_selected_url() -> None:
+async def test_a_shared_name_without_its_state_builds_and_fetches_nothing() -> None:
     record = ExecutionRecord(question="Population of Cook County")
     tools = _tools(record)
     await dispatch(tools["search_tables"], {"id": "1", "args": {"question": "population"}}, record)
@@ -776,17 +776,11 @@ async def test_ambiguous_geography_builds_the_selected_url() -> None:
         record,
     )
     assert len(record.geographies) == 3
-    assert record.geography is not None
-    assert record.geography.in_spec == "state:17"
+    assert record.geography is None  # nothing is selected
     await dispatch(tools["build_url"], {"id": "3", "args": {"table_id": "B01003"}}, record)
     await dispatch(tools["fetch_data"], {"id": "4", "args": {}}, record)
-    response = assemble("Cook County, Illinois", record)
-    assert record.url is not None
-    assert "county:031" in str(record.url)
-    assert "state:17" in str(record.url)
-    assert response.table_id == "B01003"
-    assert response.rows
-    assert response.universe == "Total population"
+    response = assemble("Cook County", record)
+    assert record.url is None and not response.rows
     assert [item.code for item in response.warnings] == ["ambiguous_place"]
     assert "Cook County, Georgia" in response.warnings[0].detail
     assert "Cook County, Minnesota" in response.warnings[0].detail

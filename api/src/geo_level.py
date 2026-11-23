@@ -57,10 +57,8 @@ class ResolveGeographyResult(ToolResult):
     refused: bool = False
     # Executable but wider than asked (the counties a place lies in): warn, still run.
     wider: bool = False
-    # The name matched several places, none dominates: the specs are candidates, none is selected.
+    # The name matched several places: the specs are candidates, none is selected.
     ambiguous: bool = False
-    # The best NAME match is far larger than the next (or the only one).
-    dominant: bool = True
     # The model attached a state the report says the user did not write; it was dropped.
     state_supplied: bool = False
 
