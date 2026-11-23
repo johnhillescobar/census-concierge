@@ -145,6 +145,25 @@ at the 410-line cap; doc lines 1819/1820. NEXT: announce, then the E2E blocks B,
 .env copied in, NO other agent or git command in either worktree while a block runs, HEAD recorded at start and end; then `metric_compare` once; then fill AC11/TC14.
 Comparator FAILs on q42, q43, t01, t14 are the owner's accepted amendment A; any other decrease is not covered. Post-merge E2E precedes Done.
 
+## 2026-11-23: FINAL E2E RAN AND IS RED. Do not merge. AC11/TC14 stay NOT RUN (the run is evidence of a defect, not of closure)
+
+Blocks (sequential, own worktrees, HEAD identical start/end, all steps rc 0 except the floor checks): `e2e-b/` = unchanged main 700d800, `e2e-p/` = branch 4d9445f
+(code frozen at 7073bed). `metric_compare` was NOT run on this P: the code must change first, and the compare is run once on the final P.
+Aggregates (gated keys; demo.misses ids only). B vs P: long_tail 0.717 / 0.692 (P is under the 0.700 floor); trap 0.907 / 0.741; core 1.0 / 0.917; overall 0.79 / 0.72;
+p95 31.5 / 29.9 (both over 20); retrieval@10 0.9 / 0.9; selector@1 0.775 / 0.775; misses 39 / 52; GRID pass 0.986 / 0.781, and the grid at level=tract 1.0 / 0.042.
+Misses only in P: q42 x3 and q43 x3 (accepted, amendment A); t01 x3 (accepted); t14 r3 (accepted); NOT covered: t06 x3 (no place named, expects a URL + universe_mismatch:
+the same "no place" rule as t01/t14, so it needs the owner to extend amendment A), t10 x3 (P gets acs1 + vintage_gap_2020 instead of overlapping_vintage; B passes: unexplained,
+investigate), t13 r1-r2 (wrong table B28011), q04 r3 (core, ambiguous_place + geography_not_nested), q34 r2, q35 r2 (wrong table, probably noise). P fixed 8 B misses (q06, q08, q12 x2, q35 r1, t12 x2, t18).
+
+ROOT CAUSE of the grid collapse (live probe, `e2e-p/live_probe.py`, "All tracts in Cook and DuPage County."): the URLs ARE right (4 and 6 URLs, data returned) but the answer carries
+`ambiguous_place` + `state_inferred`. The report lists `states_named` [] (the user wrote none), so geo.py `_written` DROPS the model's "Cook County, Illinois" state, the search runs
+across states, and the other same-name counties (Cook GA/MN) stay as extra candidates (`specs[1:]` in `_list`/`_place`), so guards.ambiguous_place fires on a clearly DOMINANT name;
+the grid scorer fails every such cell. FIX TO MAKE (code, then Gate 1 for it, then re-run B? no: only P again; compare once): when the dropped state equals the state of the dominant best
+match (not `_moved`), keep resolving WITH that state (filter matched to it, so no leftover candidates) and still set state_supplied; apply in `_place` and `_list`. Add tests at the resolver
+level (a dominant unwritten name returns ONE state's rows and no extra candidates) and a guard-level test (no ambiguous_place for it), mutation-check them. geo.py has 5 lines left (410 cap).
+Then run P once (2.5h block; B stays as measured, same base 700d800), compare once with `register B` in a scratch worktree, and report t10/t13/q04 separately.
+OWNER DECISIONS PENDING: (1) extend amendment A with t06 (no place named, same rule as t01/t14)? (2) is the multi-year/no-place refusal acceptable given it also costs t06? (3) the deferred T8.
+
 ## Open
 
 - **Cohort (owner decision 2026-11-12): the owner commits the cohort first** (any `metric_compare.py` loader change it needs
