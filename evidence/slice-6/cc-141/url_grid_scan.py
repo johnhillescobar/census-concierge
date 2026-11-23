@@ -13,7 +13,8 @@ from src.geo_list import STATES  # noqa: E402
 
 names = {n for n, _, _ in STATES} | {"puerto rico"}
 codes = {c for _, c, _ in STATES} | {"PR"}
-cells = tomllib.load(open("evals/url_breadth_grid.toml", "rb"))["cell"]
+with open("evals/url_breadth_grid.toml", "rb") as handle:
+    cells = tomllib.load(handle)["cell"]
 bare = []
 for c in cells:
     q = c["question"]
