@@ -210,3 +210,18 @@ OWNER DECISIONS (2026-11-23): t06 IS added to amendment A (expected, explained m
   refused; `parents` with other places/levels refused (same names again are redundant); several county/place parents
   must each carry their state; an unqualified listing parent that no match dominates returns candidates.
 - Context: `.claude/hooks/ctx.py` warns at 80%; then update this file, commit, ask for `/clear`.
+
+## 2026-11-22 (session): uniqueness implemented (53013af); golden curation moves to its own ticket
+
+IMPLEMENTED at 53013af: `dominant()`, `DOMINANCE`, `_moved` and `ResolveGeographyResult.dominant` deleted; geo.py `_place`/`_list` refuse any state-less match count > 1
+(`ambiguous_place`, candidates, no selection/URL/fetch); a name matching exactly one place resolves (`state_supplied` -> `state_inferred` when the model added a state).
+`finish.unanswered` says the question needs more geographic detail (no digits). ask-path.md updated in place (doc lines 1819/1820). Machines: pytest 1622 passed / 34 skipped,
+ruff, mypy clean, invariants ok (regex 18, delta -37), api LOC 4980/5100. Only red budget row: p95 20.714 (inherited from main's committed latest.json).
+15 dominance tests rewritten or renamed (Cook/Portland/Wayne/Springfield refused; DuPage and Chicago, one match each, resolve).
+NOT DONE: Gate 1 mutation check of these changes (subagent, gate1-uniqueness.txt); requirements.md `ambiguous_place` row needs no change (already says "picks none").
+
+OWNER DECISION (2026-11-22, in chat) -- supersedes "GOLDEN HANDLING DECIDED ... option b" above: the visible goldens that name a shared place without a state are
+curated in ANOTHER TICKET (question wording improved so each carries its state), then that work is REBASED into CC-104. So: no accepted-miss list for those goldens,
+and the B,P,P,B E2E waits for the curated goldens to land on this branch. No Jira ticket filed yet: a search of project CC found none (CC-134/CC-128 are table-selection stories);
+recommend a new story, parent CC-3 only if the owner says so, and ask before filing (epic-scope rule). Owner commits goldens/scorer/hashes (dated commit, needs a bridge).
+Amendment A ids (q42, q43, t01, t06, t14) are NOT shared-name cases (no place named); whether they are curated too is for that ticket.
