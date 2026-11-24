@@ -240,3 +240,8 @@ file untouched by this branch; main's own flake, not CC-104).
 BUDGET RED: api src LOC 5118 > 5100. origin/main alone is 5045 (CC-126 added to it); CC-104 is +73 over main in api/src. The cap cannot be raised here. Options: (a) trim >= 18 lines from api/src
 with tests (each change is new code: Gate 1 mutation check, and the playbook's one Gate 2 re-run is spent), or (b) the owner raises `api_src_loc` in their own commit with a written reason.
 p95 20.56 is main's committed latest.json (inherited). Every closure row is stale at the new head; the E2E has not started. The CC-141 goldens are on main now, so nothing else blocks the E2E except the LOC cap.
+
+## 2026-11-23 (later): owner merged #145 (api_src_loc 5200); rebased onto origin/main e96f3a8, local only, NOT pushed
+
+The LOC block is cleared: api src LOC 5118/5200; invariants hold; ruff, mypy clean; the only red budget row is p95 20.56 (main's committed latest.json). Backup `backup/cc-104-pre-rebase5-3848dda`.
+Only budgets.toml differs from the previous tree, so the 2026-11-23 pytest run (1738 passed, 1 CC-126 timing flake) still stands. Next: force-push (owner's word), refresh closure rows at the new head, B,P,P,B E2E, metric_compare once, draft PR.
