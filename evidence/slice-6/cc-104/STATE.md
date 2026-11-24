@@ -252,3 +252,13 @@ Pushed with --force-with-lease; PR #131 (draft) updated. All 23 AC/TC command ro
 AC9, AC10 and TC12 `-k` filters were updated for renamed or added tests; gate1-uniqueness.txt added to the mutation index; every pin and `tested_head` rewritten. `closure.py check --pre-merge` now blocks ONLY on
 AC11 and TC14 (the E2E). Not Gate 2 read: the uniqueness change (the one re-run is spent); say so in #131's body. NEXT: the B,P,P,B E2E blocks (owner says when), `metric_compare` once,
 fill AC11/TC14, update #131's body, mark ready.
+
+## 2026-11-24: E2E in flight; OWNER DECISION on t10 (option C)
+
+Blocks b1, p1, p2 done (HEAD identical start/end: b = 29c0518, p = e86882d); b2 running (expected ~07:45 UTC). Results are in `e2e-r3-{b1,p1,p2}/` (committed with the E2E, not yet).
+Preliminary (aggregates only, no metric_compare yet): grid P 1.0/1.0 vs B 0.986; long_tail B .692, P .633/.700; trap B .796, P .704/.722; p95 ~29-30 s everywhere (inherited, load-driven);
+selector_at_1 P .425 x2 but b2 (unchanged main) also .425 at 06:21: environmental (Gemini rerank), not this branch; the b1 .75 is the odd one. prompt_hash differs in P (CC-104 rewrote the geography prompt).
+OWNER DECISION (2026-11-24, in chat): t10 is an expected, explained miss (option C): no code change, no golden change, no P re-run. Cause: main's overlapping_vintage reads the question; this branch reads fetched
+ACS5 vintages only, and a dense series becomes ACS1 annual (valid, no overlap). A golden fix (warning only for ACS5 answers) goes to a separate curation ticket. Recorded as a CC-104 Jira comment.
+t09 (wrong table B28010, 2/6 P trials) is NOT excused: probably selection variance under the degraded rerank; report it. NEXT: after b2 ends, quote gated keys and demo.misses for all four blocks, run metric_compare ONCE
+(`register B` for the B blocks as needed; refs A,A0), name t10 and each other miss with its reason, fill AC11/TC14, update #131, commit evidence.
