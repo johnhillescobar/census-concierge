@@ -231,3 +231,12 @@ Amendment A ids (q42, q43, t01, t06, t14) are NOT shared-name cases (no place na
 CC-141 curates the visible goldens that name a shared place without a state (and decides the no-place ids q42/q43/t01/t06/t14). CC-104's final E2E (AC11/TC14) waits for CC-141's work to be rebased here.
 Gate 1 for the uniqueness rule is done: gate1-uniqueness.txt (20 mutations killed, 2 gaps fixed with tests), HEAD 72ff3af, pytest 1623 passed. NOT yet in `closure-run/mutation-index.txt`
 (the manifest pins its sha256 in ~8 fields): regenerate rows and index together after the rebase, since every row is stale at the new head anyway.
+
+## 2026-11-23: rebased onto origin/main c29f22c (CC-141 golden curation and CC-126 deadline are on main); local only, NOT pushed
+
+97 commits replayed with no conflicts (backup `backup/cc-104-pre-rebase4-52ae627`). Pushing needs a force-push (owner's call). Machines after the rebase: ruff/mypy clean on api/src and tests;
+invariants ok (regex 18, delta -37); pytest 1738 passed / 34 skipped / 1 failed: `test_census_http.py::test_the_first_response_back_wins` (CC-126, a timing test; fails 1 run in 3 on this tree,
+file untouched by this branch; main's own flake, not CC-104).
+BUDGET RED: api src LOC 5118 > 5100. origin/main alone is 5045 (CC-126 added to it); CC-104 is +73 over main in api/src. The cap cannot be raised here. Options: (a) trim >= 18 lines from api/src
+with tests (each change is new code: Gate 1 mutation check, and the playbook's one Gate 2 re-run is spent), or (b) the owner raises `api_src_loc` in their own commit with a written reason.
+p95 20.56 is main's committed latest.json (inherited). Every closure row is stale at the new head; the E2E has not started. The CC-141 goldens are on main now, so nothing else blocks the E2E except the LOC cap.
