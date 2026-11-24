@@ -1,0 +1,25 @@
+HEAD start c29f22cec7131456c1e067a9c64dde50a59699dd branch cc-141/post-merge status: 1 changed
+v START 2026-11-24T00:15:09Z :: uv run python scripts/verify_golden_places.py
+v END 2026-11-24T00:15:22Z rc=0
+s START 2026-11-24T00:15:22Z :: uv sync
+s END 2026-11-24T00:15:24Z rc=0
+n1 START 2026-11-24T00:15:24Z :: npm --prefix web ci
+n1 END 2026-11-24T00:15:46Z rc=0
+n2 START 2026-11-24T00:15:46Z :: npm --prefix web run build
+n2 END 2026-11-24T00:16:11Z rc=0
+a START 2026-11-24T00:16:12Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-24T00:16:47Z rc=0
+b START 2026-11-24T00:16:47Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-24T00:18:55Z rc=0
+c START 2026-11-24T00:18:55Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-24T00:19:03Z rc=0
+d START 2026-11-24T00:19:03Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-24T01:18:15Z rc=1
+e START 2026-11-24T01:18:16Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-24T01:34:49Z rc=0
+f START 2026-11-24T01:34:49Z :: uv run python scripts/check_budgets.py
+f END 2026-11-24T01:34:50Z rc=1
+g START 2026-11-24T01:34:51Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-24T01:35:07Z rc=0
+HEAD end c29f22cec7131456c1e067a9c64dde50a59699dd
+DONE
