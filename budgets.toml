@@ -9,7 +9,7 @@
 # "what's the population of New York City?" in under 75 seconds.
 
 [size]
-api_src_loc          = 5100   # non-blank, non-comment lines under api/src
+api_src_loc          = 5200   # non-blank, non-comment lines under api/src
 api_src_files        = 40
 max_file_loc         = 410    # any single file
 web_src_loc          = 3350
@@ -103,3 +103,4 @@ synthetic_alignment_min = 0.50
 
 # 2026-11-11  [waiver] p95_latency_seconds 2026-11-09T17:53:49+00:00 25.472 CC-114 owner waives this one run: CC-114 closed 2026-11-09 with p95 over the 20s ceiling (post-merge E2E on main 69d7364, evidence/slice-6/cc-114/e2e-post/); latency is owned by CC-125/126/127. Covers this run only; CC-104 and later runs are unwaived.
 # 2026-11-21  [size] api_src_loc 4890 -> 5100  CC-125: the client-side 3s Gemini rerank wait does not fit in 4 lines of headroom (measured 4886/4890 on 8f95001). Owner set the cap at 5100 so that wait can land in a later commit.
+# 2026-11-23  [size] api_src_loc 5100 -> 5200  CC-104: the geography rules move from word scans to the model's structured fields (places, parents, parent_level, level), and a name that matches several places with no state the user wrote is refused with its candidates, never guessed (geo.py, geo_level.py, geo_list.py, geo_within.py, finish.py, guards.py, ask.py, contract.py, vintages.py). origin/main c29f22c measures 5045/5100 after CC-126; the CC-104 branch rebased on it measures 5118 (+73 over main), 18 over the cap. Fitting it under 5100 would mean cutting the refusal paths (incomplete, ambiguous, unserved level, year_mismatch, unanswered) that make its answers fail loudly instead of silently; ask.py and contract.py already sit at the 410-line file cap. The extra 82 lines of headroom are for fixes the review gates may still find. Owner approved in chat 2026-11-23.
