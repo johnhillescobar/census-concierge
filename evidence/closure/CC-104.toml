@@ -27,7 +27,7 @@ id = "AC2"
 status = "PASS"
 command = "uv run python scripts/check_invariants.py --base origin/main"
 expected = "phrase gates, prose parsers, finish rescans and English rebuilds are gone; exact lookups stay"
-observed = "check_invariants exits 0 (regex call sites in api/src 55 -> 18, delta -37); a grep of the removed readers' definitions in api/src finds none (AC2-grep.txt, exit 1). Exact lookups (STATES, GEOID parsing, NAME matching after the model names an entity) stay. Run at 7073bed: exit 0."
+observed = "check_invariants exits 0 (regex call sites in api/src 55 -> 18, delta -37); a grep of the removed readers' definitions in api/src finds none (AC2-grep.txt, exit 1). Exact lookups (STATES, GEOID parsing, NAME matching after the model names an entity) stay. Run at d72434a: exit 0, all invariants held (regex call sites 18, delta -37)."
 evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC2.txt", sha256 = "bb65e74ad184e34f58e7def59b6ce20627414ee4dcb474caf547e10a58c0d094" }, { path = "evidence/slice-6/cc-104/closure-run/AC2-grep.txt", sha256 = "897d29a0e1ae1fdaf37beaca89be3dccc300af1f117136ab44475054a0ecd3c0" }]
 tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
