@@ -1,6 +1,6 @@
 # CC-104 working state (read this first after any context reset)
 
-Branch `cc-104/structured-geography`, cut from `main`, rebased on 261c18f (2026-11-11). No PR yet. Jira CC-104 is the
+Branch `cc-104/structured-geography`, cut from `main`, rebased on 261c18f (2026-11-11). The PR is #131 (draft, head this branch); it is the one to work on. Jira CC-104 is the
 status source of truth. Rules: `CLAUDE.md`, `docs/playbooks/run-slice.md` (re-read both). Plan and design:
 `evidence/slice-6/cc-104-plan.md` (pre-flight table, owner answers, design refinement, AC/TC matrix).
 
@@ -245,3 +245,10 @@ p95 20.56 is main's committed latest.json (inherited). Every closure row is stal
 
 The LOC block is cleared: api src LOC 5118/5200; invariants hold; ruff, mypy clean; the only red budget row is p95 20.56 (main's committed latest.json). Backup `backup/cc-104-pre-rebase5-3848dda`.
 Only budgets.toml differs from the previous tree, so the 2026-11-23 pytest run (1738 passed, 1 CC-126 timing flake) still stands. Next: force-push (owner's word), refresh closure rows at the new head, B,P,P,B E2E, metric_compare once, draft PR.
+
+## 2026-11-23 (later): force-pushed (d72434a); closure rows refreshed at d72434a
+
+Pushed with --force-with-lease; PR #131 (draft) updated. All 23 AC/TC command rows were re-run at d72434a (pass counts as before except AC9 22 and TC1 15, which pick up the uniqueness tests);
+AC9, AC10 and TC12 `-k` filters were updated for renamed or added tests; gate1-uniqueness.txt added to the mutation index; every pin and `tested_head` rewritten. `closure.py check --pre-merge` now blocks ONLY on
+AC11 and TC14 (the E2E). Not Gate 2 read: the uniqueness change (the one re-run is spent); say so in #131's body. NEXT: the B,P,P,B E2E blocks (owner says when), `metric_compare` once,
+fill AC11/TC14, update #131's body, mark ready.
