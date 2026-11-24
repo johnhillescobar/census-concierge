@@ -1,23 +1,25 @@
 ticket = "CC-104"
-head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8", "TC9", "TC10", "TC11", "TC12", "TC13", "AC11", "TC14"]
 # Rows are run at `head`. Any later change to api/src or api/tests makes every row stale.
 # 2026-11-22: regenerated for the ticket's AC1-AC11 and TC1-TC14 on the code frozen after Gate 2 (gate2-final.txt, gate2-final-r2.txt: every finding fixed or
 # deferred with a reason) and Gate 1 (the mutation index lists every transcript). AC11 and TC14 are the E2E rows: NOT RUN until the E2E exists.
+# 2026-11-23: refreshed after the uniqueness rule (a shared name with no written state is refused, size never picks; gate1-uniqueness.txt in the mutation index), the rebase onto
+# origin/main e96f3a8 (CC-141 goldens, CC-126, the api_src_loc 5200 raise) and the owner's request. The uniqueness change was Gate 1 checked but NOT read by a Gate 2 round (the one re-run is spent).
 # Owner amendments in the ticket (2026-11-22): the geography cohort is deprecated (measure on long_tail/trap/core plus fixtures); q42, q43, t01 and t14
-# are expected, explained misses (option A); ambiguity and incompleteness fail loudly. The comparison must name those ids.
+# were expected, explained misses (option A); CC-141 has since curated the shared-place goldens on main, so the E2E comparison names whichever ids still miss and why; ambiguity and incompleteness fail loudly. The comparison must name those ids.
 
 [[row]]
 id = "AC1"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_execution_isolation.py api/tests/test_geography_intent.py"
 expected = "structured scope, level, entities and parents decide execution; the question's words are not an input"
-observed = "Scripted model, fixed tool calls and a fixed report give identical execution under neutral rewordings and under wordings that look like a statistic, filler, a level word, a comparison, a ZIP, a dataset, a year or a span; a changed stated level changes execution; invalid intent is sent back for repair and never parsed. The isolation harness names a place in its report so a fixed intent is complete. Run at 7073bed: 125 passed, 1 warning in 24.24s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC1.txt", sha256 = "cbccc2f9dd3f65b792f0646799c84c2dae2645398b28ffbf662d0c7e2132dd66" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Scripted model, fixed tool calls and a fixed report give identical execution under neutral rewordings and under wordings that look like a statistic, filler, a level word, a comparison, a ZIP, a dataset, a year or a span; a changed stated level changes execution; invalid intent is sent back for repair and never parsed. The isolation harness names a place in its report so a fixed intent is complete. Run at d72434a: 125 passed, 1 warning in 29.71s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC1.txt", sha256 = "ad9fa3924970be0e78da352e9cd54d78fb142e75be4374bf3b3041fadbde60ae" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -26,11 +28,11 @@ status = "PASS"
 command = "uv run python scripts/check_invariants.py --base origin/main"
 expected = "phrase gates, prose parsers, finish rescans and English rebuilds are gone; exact lookups stay"
 observed = "check_invariants exits 0 (regex call sites in api/src 55 -> 18, delta -37); a grep of the removed readers' definitions in api/src finds none (AC2-grep.txt, exit 1). Exact lookups (STATES, GEOID parsing, NAME matching after the model names an entity) stay. Run at 7073bed: exit 0."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC2.txt", sha256 = "b173b5894d1cefad14bc97e1efc984f43f88774ff7dda2ae7d79d8a79f0af350" }, { path = "evidence/slice-6/cc-104/closure-run/AC2-grep.txt", sha256 = "49e402f6bf7910c8a2bc3f62ab7b323450fe844ccec21add4c9ebf62bf9db27b" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC2.txt", sha256 = "bb65e74ad184e34f58e7def59b6ce20627414ee4dcb474caf547e10a58c0d094" }, { path = "evidence/slice-6/cc-104/closure-run/AC2-grep.txt", sha256 = "897d29a0e1ae1fdaf37beaca89be3dccc300af1f117136ab44475054a0ecd3c0" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -38,12 +40,12 @@ id = "AC3"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_geography_report.py api/tests/test_level_fidelity.py api/tests/test_finish.py"
 expected = "loop and report feed one intent (GeoIntent); requested, executed and inferred stay apart; CC-114 checks and the response contract hold"
-observed = "The loop's calls and the split report land in record.intent (GeoIntent) in separate groups; what ran stays in record.geographies and what the lookup guessed in geo_status. The report's new fields (trend, states_named, answered_places) are parsed by type and adopted once. Run at 7073bed: 182 passed, 1 warning in 21.49s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC3.txt", sha256 = "2105838b8c6428faf09929cb9e55afee7ca3300d74fa4d0d9d0b3c6461cc354e" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "The loop's calls and the split report land in record.intent (GeoIntent) in separate groups; what ran stays in record.geographies and what the lookup guessed in geo_status. The report's new fields (trend, states_named, answered_places) are parsed by type and adopted once. Run at d72434a: 182 passed, 1 warning in 24.77s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC3.txt", sha256 = "f605a4a7f4a2710701bc8d00f0793778e96186434077111669eb899daa89a164" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -51,12 +53,12 @@ id = "AC4"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_finish.py api/tests/test_geography_intent.py api/tests/test_level_repair.py"
 expected = "recovery uses complete validated intent or returns what is missing; no national, latest or total fallback; a missing or late report activates no parser"
-observed = "finish resolves nothing when the model reported nothing; a call with no place and no level, a listing without a level and a parent without its level are refused for repair; recovery takes dataset and years only from the report, validated by type and range. Run at 7073bed: 168 passed, 1 warning in 11.63s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC4.txt", sha256 = "d6977675dbe4d4588e7d18a5761a3cfabdebb0356eeb4442bd685b525e46417d" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "finish resolves nothing when the model reported nothing; a call with no place and no level, a listing without a level and a parent without its level are refused for repair; recovery takes dataset and years only from the report, validated by type and range. Run at d72434a: 168 passed, 1 warning in 14.70s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC4.txt", sha256 = "34a59f1aadf254d3411b8a0d92fb8deeae7bf0bb65f435fdfdb2a69880fb8ace" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -64,12 +66,12 @@ id = "AC5"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_geography_completeness.py api/tests/test_geography_intent.py"
 expected = "a question must carry what its geography level needs; inferred or hallucinated parents cannot satisfy completeness"
-observed = "A question short of its level's needs (_NEEDS) is refused before any tool runs, naming what is missing, with no URL; a number identifies nothing without its parents; the report's `given` and named places decide, never the question's words. Run at 7073bed: 234 passed, 1 warning in 31.79s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC5.txt", sha256 = "7c884a255fc43e6ff7953089e9205ae67037dda4807eb15327364c8ac68ebc96" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "A question short of its level's needs (_NEEDS) is refused before any tool runs, naming what is missing, with no URL; a number identifies nothing without its parents; the report's `given` and named places decide, never the question's words. Run at d72434a: 234 passed, 1 warning in 31.87s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC5.txt", sha256 = "8375f6bad3f160cedc2e2fcfffb0d296f5c8b2560f8edbe817a70349c4844d5e" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -77,12 +79,12 @@ id = "AC6"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_finish.py -k \"stands_over_a_one_parent_report or still_repairs_what_the_loop_never or not_covered_by_the_loops_stated_state or resolved_with_every_parent or carries_stands or resolved_again_when_the_loop_stopped or every_county_parent_must_be_carried\""
 expected = "a loop's successful state fetch stands over a one-parent same-state report; repair runs for two or more parents, a county or place parent, a different state, an unmet requested level and no geography"
-observed = "Each repair condition has its own test and a Gate 1 mutation (gate1-e2e-single-parent.txt, gate1-rebase-r2-fixes.txt, gate1-ac7-ac10.txt). A county or place parent needs more than the state in the loop's in=, and every parent must be carried or the listing is resolved again. Run at 7073bed: 8 passed, 48 deselected, 1 warning in 1.10s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC6.txt", sha256 = "fe945a5a8d79cc2246734124f3469ad63c2ffb395cf2eb28733db8156315cce5" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Each repair condition has its own test and a Gate 1 mutation (gate1-e2e-single-parent.txt, gate1-rebase-r2-fixes.txt, gate1-ac7-ac10.txt). A county or place parent needs more than the state in the loop's in=, and every parent must be carried or the listing is resolved again. Run at d72434a: 8 passed, 48 deselected, 1 warning in 2.94s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC6.txt", sha256 = "f17498b8b159c89985cc1a219e021fc02d97181cfceaa91332e891e0f2e58872" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -90,12 +92,12 @@ id = "AC7"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_level_fidelity.py -k \"refused_first_call or report_never_asked_for or really_asked_for or no_report_a_refused or counts_as_unserved\""
 expected = "a corrected call supersedes a refused invalid-level call; a level the user asked for stays unmet"
-observed = "GeoIntent.unserved() counts a refused level as unmet only if the independent report states it (level, or a listing's unit); with no report every unmet level stays, so a refusal is never hidden by missing evidence. Three invalid levels (a published one, us, place) are corrected without a stale warning or repair; a genuinely requested tract level stays flagged with a county URL. Run at 7073bed: 7 passed, 55 deselected, 1 warning in 2.01s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC7.txt", sha256 = "34f948772dc00f4895ddcd501c89c4fd7e8dc608b52fcc725283781debfd4a5c" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "GeoIntent.unserved() counts a refused level as unmet only if the independent report states it (level, or a listing's unit); with no report every unmet level stays, so a refusal is never hidden by missing evidence. Three invalid levels (a published one, us, place) are corrected without a stale warning or repair; a genuinely requested tract level stays flagged with a county URL. Run at d72434a: 7 passed, 55 deselected, 1 warning in 3.45s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC7.txt", sha256 = "408fcc729537bea8e3b4a3b5d2486391ee369033cd96d109fce673b57d6a910f" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -103,38 +105,38 @@ id = "AC8"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_ask_loop.py api/tests/test_guards.py -k \"other_years or report_years or no_release or another_reason or plan_only_never_the_question or report_year_never_replaces or names_the_other_product or fetched_product or agrees_with_the_build or acs1_fallback or default_product or thinned or left_out\""
 expected = "report years and dataset never change a fetch the loop built; a disagreement warns; the rendered URL is the year and dataset fetched; overlapping-vintage warnings stay visible"
-observed = "fetch_data takes years only from the model or a plan override, never the report (the shipped wiring is tested). year_mismatch and dataset_mismatch warn and the fetch stands as built; a year with no release is named (unpublished_vintage); an ACS1 to ACS5 fallback is not a clash; a series thinned for overlap still warns overlapping_vintage and names the years. Run at 7073bed: 15 passed, 181 deselected, 1 warning in 1.21s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC8.txt", sha256 = "326f50c5f5a5930e8eb7c77dff85d8e5a6e222a145946e1aca26533393b04f7e" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "fetch_data takes years only from the model or a plan override, never the report (the shipped wiring is tested). year_mismatch and dataset_mismatch warn and the fetch stands as built; a year with no release is named (unpublished_vintage); an ACS1 to ACS5 fallback is not a clash; a series thinned for overlap still warns overlapping_vintage and names the years. Run at d72434a: 15 passed, 181 deselected, 1 warning in 4.55s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC8.txt", sha256 = "4b418be68317d40db9de62612bf49af47006849368e5f08793ad826120e9face" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
 id = "AC9"
 status = "PASS"
-command = "uv run pytest -q api/tests/test_geography_intent.py -k \"user_did_not_write or report_says_the_user_wrote or unique_name_resolves or listing_parent_is_checked or each_comparison_leg or no_state_to_drop or reaches_the_resolver or never_moves or records_that_a_state or shown_to_the_user or listing_over_several or tracts_in_one_named or default_tools\""
+command = "uv run pytest -q api/tests/test_geography_intent.py -k \"user_did_not_write or report_says_the_user_wrote or unique_name_resolves or listing_parent_is_checked or each_comparison_leg or no_state_to_drop or reaches_the_resolver or never_moves or records_that_a_state or records_the_state_the_model or shown_to_the_user or listing_over_several or tracts_in_one_named or default_tools\""
 expected = "a state supplied from model knowledge is recorded as inferred and cannot suppress ambiguity for a place the user did not qualify"
-observed = "The independent report lists the states the question writes (states_named); resolve_geography keeps an attached state only if listed, unknown counts as not written, and a dropped state that would move the answer to another state is refused with candidates. state_supplied is recorded on the result (comparisons too) and a state_inferred warning shows it. State, ZCTA and nation entries are untouched. Run at 7073bed: 20 passed, 87 deselected, 1 warning in 1.67s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC9.txt", sha256 = "b5c0df24754af102e665923e7b4b6b1b4c1a7ae1e51b4357a30945a6a2dbc076" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "The independent report lists the states the question writes (states_named); resolve_geography keeps an attached state only if listed, unknown counts as not written, and a dropped state that would move the answer to another state is refused with candidates. state_supplied is recorded on the result (comparisons too) and a state_inferred warning shows it. State, ZCTA and nation entries are untouched. Run at d72434a: 22 passed, 85 deselected, 1 warning in 2.90s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC9.txt", sha256 = "f501a3a756d5d7106c66573642fafcd4a50b8ebb958a8d7fb88508929ab456e4" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
 id = "AC10"
 status = "PASS"
-command = "uv run pytest -q api/tests/test_geography_completeness.py -k \"no_place or nation or missing_one_place or either_attempt or which_table or no_dominant or clear_largest or candidate_of_an_ambiguous\""
+command = "uv run pytest -q api/tests/test_geography_completeness.py -k \"no_place or nation or missing_one_place or either_attempt or which_table or matching_several_places or matching_exactly_one_place or candidate_of_an_ambiguous\""
 expected = "ambiguity and incompleteness fail loudly: no selection, URL, rows or fetch, and a message naming what is missing; no national fallback"
-observed = "A name with no state and no dominant match returns its candidates and selects nothing (direct place, comparison, multi-parent listing, tracts in a place); a comparison resolves every place or none; a question with no place and no level, or several years with none named, is refused before any tool runs; a run that ends with no URL says why, never a silent done; the nation is fetched only when the model states it; a candidate cannot be built by passing its for_spec. Run at 7073bed: 16 passed, 111 deselected, 1 warning in 3.27s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC10.txt", sha256 = "23aa326cde514195b1735dd7e454230428ec8675b904bd34b68d4d7636a99a8d" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "A name that matches several places, with no state the user wrote, returns its candidates and selects nothing however much larger one match is (uniqueness, not dominance); a name that matches exactly one place resolves (direct place, comparison, multi-parent listing, tracts in a place); a comparison resolves every place or none; a question with no place and no level, or several years with none named, is refused before any tool runs; a run that ends with no URL says why, never a silent done; the nation is fetched only when the model states it; a candidate cannot be built by passing its for_spec. Run at d72434a: 16 passed, 111 deselected, 1 warning in 7.83s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/AC10.txt", sha256 = "de7058848c016310b0f5cc45c69b794c68460edcabb0410fd8ec33419bfd08b7" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -142,12 +144,12 @@ id = "TC1"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_geography_intent.py -k \"listing\""
 expected = "a listing with no historical keyword executes correctly"
-observed = "Listings are driven by the stated level and parents (parent_level, level), never a keyword. Run at 7073bed: 14 passed, 93 deselected, 1 warning in 1.88s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC1.txt", sha256 = "e25e0a30279d3d0c003c23e686ecdeb1f8b72f6361a2279c7024dbf6d38cc743" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Listings are driven by the stated level and parents (parent_level, level), never a keyword. Run at d72434a: 15 passed, 92 deselected, 1 warning in 6.21s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC1.txt", sha256 = "6d25afbd65f46420f812a451f29d41f8ae7d53f1f2c65fa82d5b4ba5266c2bd6" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -155,12 +157,12 @@ id = "TC2"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_execution_isolation.py api/tests/test_geography_intent.py"
 expected = "identical execution under different or absent outer wording"
-observed = "The same scripted calls and report give identical responses across neutral rewordings and rewordings that mention levels, years, datasets, ZIPs and statistics. Run at 7073bed: 125 passed, 1 warning in 25.99s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC2.txt", sha256 = "96dca7256f3e22e38188f9927de296a59beb63fdd343667bd484b3568f609ed8" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "The same scripted calls and report give identical responses across neutral rewordings and rewordings that mention levels, years, datasets, ZIPs and statistics. Run at d72434a: 125 passed, 1 warning in 33.09s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC2.txt", sha256 = "c72fac3761128293f5fe6b9bef3035a8a247ef150db1e05d6253a6d145d5583c" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -168,12 +170,12 @@ id = "TC3"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_execution_isolation.py api/tests/test_geography_intent.py"
 expected = "a changed structured level changes execution with the wording fixed"
-observed = "Changing only the stated level changes the URL's for= level under identical wording. Run at 7073bed: 125 passed, 1 warning in 26.24s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC3.txt", sha256 = "0945439726021a745ca7c533646113021b4f93c686f782c9c2f7acb0972638ef" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Changing only the stated level changes the URL's for= level under identical wording. Run at d72434a: 125 passed, 1 warning in 31.49s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC3.txt", sha256 = "c0a52150d5637730d1c81ccb73534abc4ce56b185e53c77360dd730f078ffb65" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -181,12 +183,12 @@ id = "TC4"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_ask_tools.py api/tests/test_ask_loop.py api/tests/test_geography_completeness.py"
 expected = "comparisons, wildcard parents, ambiguous names and incomplete numeric chains keep their behaviour"
-observed = "Ambiguity now refuses (candidates, nothing selected) instead of selecting the largest match, as the owner decided 2026-11-22; comparison, wildcard-parent and numeric-chain behaviour is otherwise unchanged and the updated tests assert the new rule. Run at 7073bed: 304 passed, 1 warning in 34.82s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC4.txt", sha256 = "da8f185b050e43db61029772f67b5097d20c7c4d54f945755e82fd68952d02a6" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Ambiguity now refuses (candidates, nothing selected) instead of selecting the largest match, as the owner decided 2026-11-22; comparison, wildcard-parent and numeric-chain behaviour is otherwise unchanged and the updated tests assert the new rule. Run at d72434a: 304 passed, 1 warning in 45.21s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC4.txt", sha256 = "2e2ab4eb4263fc95378b883b9acb886e26b03ec36dbbe3f5d47a359090fa9b9c" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -194,12 +196,12 @@ id = "TC5"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_finish.py api/tests/test_level_repair.py api/tests/test_geography_intent.py"
 expected = "a missing report, an invalid level and finish recovery cannot fall back to prose"
-observed = "A missing, late or empty report and an invalid or unknown level resolve no geography, year or product from the question; they return missing fields for bounded repair. Run at 7073bed: 168 passed, 1 warning in 12.47s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC5.txt", sha256 = "2faf76051ca88ec37c73121193f74b98cd332576cdd12f7ff6126ea07d9894a9" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "A missing, late or empty report and an invalid or unknown level resolve no geography, year or product from the question; they return missing fields for bounded repair. Run at d72434a: 168 passed, 1 warning in 16.83s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC5.txt", sha256 = "7dd5064267ab09eb8739ecb6ad5786f019d4c0e034646fb438d9e793865fc672" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -207,12 +209,12 @@ id = "TC6"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_finish.py::test_a_level_the_loop_stated_and_got_stands_over_a_one_parent_report"
 expected = "the loop's state fetch stands over a same-state single-parent report; no replacement fetch"
-observed = "The state-level resolution is kept and the report's county listing is not run. Run at 7073bed: 1 passed, 1 warning in 0.90s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC6.txt", sha256 = "63465474d3da7740cdc68b1c5cc5b5c2bf8e3832a1e2c3b82912c6fce1aa8048" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "The state-level resolution is kept and the report's county listing is not run. Run at d72434a: 1 passed, 1 warning in 2.85s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC6.txt", sha256 = "7d2421140ce282a8c8918eb35a3350b01838b6e8b05dfe8de3c38d2f8dcf3de6" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -220,12 +222,12 @@ id = "TC7"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_finish.py -k \"stands_over_a_one_parent_report or still_repairs_what_the_loop_never or not_covered_by_the_loops_stated_state or resolved_with_every_parent or carries_stands or resolved_again_when_the_loop_stopped or every_county_parent_must_be_carried\""
 expected = "each repair boundary independently mutation-checked"
-observed = "Two or more parents, a county or place parent, a different state, an unmet requested level and no geography each repair; the same-state single-parent exception and each condition were mutation-checked one at a time (gate1 transcripts in the mutation index). Run at 7073bed: 8 passed, 48 deselected, 1 warning in 0.83s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC7.txt", sha256 = "e4b20db36898e46452c3d4901c8316181543773f65fb4515c10a0c486e5e253b" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Two or more parents, a county or place parent, a different state, an unmet requested level and no geography each repair; the same-state single-parent exception and each condition were mutation-checked one at a time (gate1 transcripts in the mutation index). Run at d72434a: 8 passed, 48 deselected, 1 warning in 5.26s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC7.txt", sha256 = "0683d84dd9952eea8aabdd7a59a1e15f209b483927e39d8bb1e7ab332caed3a0" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -233,12 +235,12 @@ id = "TC8"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_level_fidelity.py -k \"refused_first_call or report_never_asked_for\""
 expected = "a refused invalid-level call then a valid call leaves no geography_level_mismatch and no repair"
-observed = "Three bad levels are corrected cleanly; a listing-shaped bad call followed by a state call makes exactly two resolve calls (a repair would be a third) and one URL. Run at 7073bed: 4 passed, 58 deselected, 1 warning in 1.32s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC8.txt", sha256 = "4ef3756cfb5212d8640feaa6a54c718e30eaeacca98e852ab31bf1014a9f2ddd" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Three bad levels are corrected cleanly; a listing-shaped bad call followed by a state call makes exactly two resolve calls (a repair would be a third) and one URL. Run at d72434a: 4 passed, 58 deselected, 1 warning in 2.19s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC8.txt", sha256 = "baf7ed954768d419c10d8ed2beb0bd3ceea5e622c1834b9b3cac23eb6d0976ef" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -246,12 +248,12 @@ id = "TC9"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_level_fidelity.py -k \"really_asked_for or no_report_a_refused\""
 expected = "a level the user requested stays unmet after an unrelated success; the wrong-level fetch is not answered"
-observed = "A requested tract level stays unmet with a mismatch warning naming it and a county URL; with no report a refused level stays flagged. Run at 7073bed: 2 passed, 60 deselected, 1 warning in 1.16s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC9.txt", sha256 = "1654ab5e62d97af6d289b3356690c605c86467b2c7b5f5aa33c98a343f9ab38d" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "A requested tract level stays unmet with a mismatch warning naming it and a county URL; with no report a refused level stays flagged. Run at d72434a: 2 passed, 60 deselected, 1 warning in 1.35s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC9.txt", sha256 = "ccf841d6685a09f37d8afe06ea4929b1f780cda019ea1df6f2c3117c8e5c1dcb" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -259,12 +261,12 @@ id = "TC10"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_ask_loop.py api/tests/test_guards.py -k \"other_years or report_years or no_release or another_reason or plan_only_never_the_question or report_year_never_replaces\""
 expected = "a report year different from the built fetch changes nothing and is warned; the URL keeps the built year"
-observed = "The loop builds 2024, the report says 2021: only 2024 is requested (with or without the model stating years) and year_mismatch is shown; the shipped fetch tool takes plan years only. Run at 7073bed: 8 passed, 188 deselected, 1 warning in 1.21s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC10.txt", sha256 = "c6c78f9ac334b97cf5fa4e31e8c3f0af76bdb8f1af1b5ec0c4f52a6b76ca534d" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "The loop builds 2024, the report says 2021: only 2024 is requested (with or without the model stating years) and year_mismatch is shown; the shipped fetch tool takes plan years only. Run at d72434a: 8 passed, 188 deselected, 1 warning in 1.69s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC10.txt", sha256 = "87deef5e01e0a685b7dc664e4e62c37e41fcfe61664ba4f942422b3ff79a6bfc" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -272,25 +274,25 @@ id = "TC11"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_guards.py -k \"names_the_other_product or fetched_product or agrees_with_the_build or acs1_fallback or default_product or thinned or left_out\""
 expected = "a report dataset different from the built fetch changes nothing and is warned; overlapping_vintage stays visible"
-observed = "dataset_mismatch warns only for an ACS1 report over an ACS5 build and not on a fallback; a thinned series names the omitted years in overlapping_vintage. Run at 7073bed: 9 passed, 107 deselected, 1 warning in 0.86s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC11.txt", sha256 = "929d96e9eaf790518f7daf0fa50e387fed4f6355f382c3622746310e569b0495" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "dataset_mismatch warns only for an ACS1 report over an ACS5 build and not on a fallback; a thinned series names the omitted years in overlapping_vintage. Run at d72434a: 9 passed, 107 deselected, 1 warning in 3.38s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC11.txt", sha256 = "323848f6b2021e5db88af18258c7bf9df4347368f7379ffb29306bc8fd895725" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
 id = "TC12"
 status = "PASS"
-command = "uv run pytest -q api/tests/test_geography_intent.py -k \"user_did_not_write or report_says_the_user_wrote or unique_name_resolves or each_comparison_leg or reaches_the_resolver or never_moves or shown_to_the_user\""
+command = "uv run pytest -q api/tests/test_geography_intent.py -k \"user_did_not_write or report_says_the_user_wrote or unique_name_resolves or each_comparison_leg or reaches_the_resolver or never_moves or shown_to_the_user or records_the_state_the_model\""
 expected = "an unqualified shared name stays ambiguous when the model supplies a state; candidates and the warning appear and no inferred-state fetch is accepted"
-observed = "Springfield with an attached IL and no state written returns three candidates and selects nothing; with Illinois written it resolves; Chicago still resolves and records state_supplied; Portland, ME is refused rather than answered as Oregon; the report reaches the resolver through the loop. Run at 7073bed: 12 passed, 95 deselected, 1 warning in 2.29s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC12.txt", sha256 = "862fa96eef1e8c3f5c749da73bdcec193ebfea62691fb011024d85f4f9f3e1c1" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "Springfield with an attached IL and no state written returns three candidates and selects nothing; with Illinois written it resolves; Chicago still resolves and records state_supplied; Portland, ME is refused rather than answered as Oregon; the report reaches the resolver through the loop. Run at d72434a: 14 passed, 93 deselected, 1 warning in 4.97s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC12.txt", sha256 = "a727f3a8a4fd9ca0fecd4856fb9e81d62fcaa778ed0667bc27c9d804b4e1befa" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
@@ -298,12 +300,12 @@ id = "TC13"
 status = "PASS"
 command = "uv run pytest -q api/tests/test_geography_completeness.py -k \"no_place or nation or missing_one_place or either_attempt or which_table\""
 expected = "a comparison with no named geography returns no URL, rows or implicit national fetch"
-observed = "End to end through run_ask with a scripted model and a recording fake Census client: no URL, no rows, no fetch, and a message naming what is missing; a comparison missing one place resolves none; the nation is fetched only when the model states level us. Run at 7073bed: 13 passed, 114 deselected, 1 warning in 4.85s."
-evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC13.txt", sha256 = "29c6e991e507e8ea6167bc7597e4ec218b42975cb8d67143f6c404b549339cfa" }]
-tested_head = "7073bed366be6b8328324e30cf09a4de1f4b0863"
+observed = "End to end through run_ask with a scripted model and a recording fake Census client: no URL, no rows, no fetch, and a message naming what is missing; a comparison missing one place resolves none; the nation is fetched only when the model states level us. Run at d72434a: 13 passed, 114 deselected, 1 warning in 7.05s."
+evidence = [{ path = "evidence/slice-6/cc-104/closure-run/TC13.txt", sha256 = "4b00ad6295aa2f811b1c687862e0ba2fc91731ce103b15d55f1380a157b84c42" }]
+tested_head = "d72434afed86cc8e038e1a9d0535bb8effff48fa"
 affects = ["api/src", "api/tests"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "4ecf808a7b2544cc6171408b6a70c4d6208631e783125d75629ca810fdee2d71" }
+mutation = { path = "evidence/slice-6/cc-104/closure-run/mutation-index.txt", sha256 = "f71fb8ba029e9e5c2af8f0a865a236a25f3b38dfbe587bce67f39442a705ee66" }
 reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]

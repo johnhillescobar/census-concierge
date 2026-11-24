@@ -1,7 +1,12 @@
-$ uv run pytest -q api/tests/test_geography_intent.py -k "user_did_not_write or report_says_the_user_wrote or unique_name_resolves or listing_parent_is_checked or each_comparison_leg or no_state_to_drop or reaches_the_resolver or never_moves or records_that_a_state or shown_to_the_user or listing_over_several or tracts_in_one_named or default_tools"
-head 7073bed366be6b8328324e30cf09a4de1f4b0863
+$ uv run pytest -q api/tests/test_geography_intent.py -k "user_did_not_write or report_says_the_user_wrote or unique_name_resolves or listing_parent_is_checked or each_comparison_leg or no_state_to_drop or reaches_the_resolver or never_moves or records_that_a_state or records_the_state_the_model or shown_to_the_user or listing_over_several or tracts_in_one_named or default_tools"
+head d72434afed86cc8e038e1a9d0535bb8effff48fa
 exit 0
 
+......................                                                   [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_intent.py::test_a_state_the_user_did_not_write_cannot_settle_a_shared_name[written0]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-104\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-20 passed, 87 deselected, 1 warning in 1.67s
+22 passed, 85 deselected, 1 warning in 2.90s

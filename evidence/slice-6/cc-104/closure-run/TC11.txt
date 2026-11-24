@@ -1,7 +1,12 @@
 $ uv run pytest -q api/tests/test_guards.py -k "names_the_other_product or fetched_product or agrees_with_the_build or acs1_fallback or default_product or thinned or left_out"
-head 7073bed366be6b8328324e30cf09a4de1f4b0863
+head d72434afed86cc8e038e1a9d0535bb8effff48fa
 exit 0
 
+.........                                                                [100%]
+============================== warnings summary ===============================
+api/tests/test_guards.py::test_a_thinned_series_names_the_years_it_left_out
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-104\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-9 passed, 107 deselected, 1 warning in 0.86s
+9 passed, 107 deselected, 1 warning in 3.38s
