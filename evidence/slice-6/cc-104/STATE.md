@@ -271,3 +271,15 @@ grid B .986/.986, P 1.0/1.0; selector_at_1 .425 in p1/p2/b2 (rerank environment)
 What is explained: t10 (owner option C). What is NOT: trap and core misses beyond t10 (t09 2/3 in p1, t08, t18, q04 3/3 in P vs 2/3 in B), long_tail empty answers (per-id causes not diagnosed), under the degraded rerank that also hit b2.
 No rerun, no tuning (protocol). The honest state: CC-104 fixes the grid (1.0) and makes ambiguity/incompleteness fail loudly, but does not improve the demo scoreboard and is red on trap/empty answers vs B.
 NEXT (owner decides): diagnose the non-t10 trap/empty-answer deltas from demo.misses (reasons only), or accept with a written waiver per row, or fix and re-run P blocks. Post-merge E2E not applicable until merge.
+
+## 2026-11-24 (owner statement, tag: owner): fail immediately when the components of a non-unique place are not all provided
+
+OWNER, in chat 2026-11-24, in the owner's words: "I stated that the agent must fail immediately when NOT all components are provided for questions where component are NOT unique (unique means things like Chicago)."
+This is the rule; it is not yet recorded anywhere else in the repo. CLAUDE.md "Geography is level-complete" already says "say immediately" for an incomplete question, but only for the level's parents (tract, block group, one county by number).
+A name matching several places is refused at resolve time, not immediately (api/src/geo.py `_place`/`_list`/`_unclear`, after the loop has already run search_tables), so the refusal is neither immediate nor first-turn.
+FACTS (read from code 2026-11-24, not measured in the E2E): (1) a state the model attaches counts as written only if the independent report's `states_named` lists it (geo.py:157-160; wiring ask.py:357);
+(2) the report is awaited at most 3 s before the first tool (finish.py:59) and `incomplete()` fails open when it is late; (3) if the report has not landed when the resolver runs, `self.states_named() or []` treats unknown
+and "user wrote none" the same, so every attached state is dropped and a question that DID carry its state is refused as ambiguous. That path conflicts with the owner's rule (refuse only when components are missing).
+It came from owner decision (6) of 2026-11-22 (AC9): "unknown provenance is untrusted (fail loud)".
+OPEN, for the owner: A = the resolver awaits the report and, if it never lands, fails with a distinct "could not verify which states the question names" (about +6 lines, touches AC9); B = a per-place flag in the loop's own call;
+C = look up places right after the report, before any table search (truly immediate; larger). Recommended A, plus a live probe of q11, q14, q17, q26 at repeat 3 to see whether the report was late. Not started.
