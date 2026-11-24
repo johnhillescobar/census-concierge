@@ -50,3 +50,11 @@ It cannot isolate the curation (A is an older run on an older model; api/src is 
   curated goldens and grid. Amendment A in CC-104 is fully covered by this ticket (q42, q43, t01, t06, t14), so it can be withdrawn.
 - retrieval_at_10 sits exactly on its 0.90 floor after the wording change; a future dip is a floor failure to report, never to tune against.
 - Inherited red on origin/main: doc_lines 1822/1820, p95 20.714 (23.758 in this run). A waiver or raise is an owner commit.
+
+## Post-merge (main c29f22c: #142 and #144 merged)
+
+E2E on main in an isolated worktree, HEAD identical at start and end (`e2e-post/`, transcripts unread). Gated keys, repeat 3: long_tail 0.717 (floor 0.70 met),
+overall 0.78, core 0.833, trap 0.907; retrieval_at_10 0.90 (at floor), selector_at_1 0.75, p95 27.021 (ceiling 20: FAIL, tracked on CC-142; red on main before this ticket);
+grid 210/210, pass rate 0.986, tract level 1.0, only g028 misses (untouched). check_budgets red on doc lines 1822/1820 and p95; invariants held; live place check OK.
+Comparator (`e2e-post/compare.txt`, one run, real bridge on main): A reads as bridged, no hash FAIL for A; VERDICT FAIL (p95, selector_at_1 vs A, trap, core; A0 unbridged).
+AC3 PASS. AC4 NOT RUN: the owner runs the CC-104 rebase and rows in another agent; link its evidence here, then close with jira_transition.py.
