@@ -1,0 +1,23 @@
+p2 HEAD start e86882ddd80a6f02eae44531012a80a8ca0e5d7f status: 4 changed
+s START 2026-11-24T05:00:33Z :: uv sync
+s END 2026-11-24T05:00:33Z rc=0
+n1 START 2026-11-24T05:00:33Z :: npm --prefix web ci
+n1 END 2026-11-24T05:00:53Z rc=0
+n2 START 2026-11-24T05:00:53Z :: npm --prefix web run build
+n2 END 2026-11-24T05:01:14Z rc=0
+a START 2026-11-24T05:01:14Z :: uv run python scripts/eval_retrieval.py --verbose
+a END 2026-11-24T05:01:33Z rc=0
+b START 2026-11-24T05:01:34Z :: uv run python scripts/eval_retrieval.py --tier long_tail --rerank
+b END 2026-11-24T05:03:41Z rc=0
+c START 2026-11-24T05:03:41Z :: uv run python scripts/score_synthetic.py
+c END 2026-11-24T05:03:48Z rc=0
+d START 2026-11-24T05:03:48Z :: uv run python scripts/run_demo.py --repeat 3
+d END 2026-11-24T06:03:32Z rc=1
+e START 2026-11-24T06:03:32Z :: uv run python scripts/run_grid.py --repeat 3
+e END 2026-11-24T06:19:55Z rc=0
+f START 2026-11-24T06:19:56Z :: uv run python scripts/check_budgets.py
+f END 2026-11-24T06:19:57Z rc=1
+g START 2026-11-24T06:19:57Z :: uv run python scripts/check_invariants.py --base origin/main
+g END 2026-11-24T06:20:15Z rc=0
+p2 HEAD end e86882ddd80a6f02eae44531012a80a8ca0e5d7f status: 5 changed
+DONE

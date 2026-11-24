@@ -262,3 +262,12 @@ OWNER DECISION (2026-11-24, in chat): t10 is an expected, explained miss (option
 ACS5 vintages only, and a dense series becomes ACS1 annual (valid, no overlap). A golden fix (warning only for ACS5 answers) goes to a separate curation ticket. Recorded as a CC-104 Jira comment.
 t09 (wrong table B28010, 2/6 P trials) is NOT excused: probably selection variance under the degraded rerank; report it. NEXT: after b2 ends, quote gated keys and demo.misses for all four blocks, run metric_compare ONCE
 (`register B` for the B blocks as needed; refs A,A0), name t10 and each other miss with its reason, fill AC11/TC14, update #131, commit evidence.
+
+## 2026-11-24 (late): FINAL E2E DONE AND RED. AC11/TC14 = FAIL. PR #131 stays draft.
+
+All four blocks (b1 p1 p2 b2) finished, HEAD identical start/end each (orchestrator log). metric_compare ran ONCE per P run (p1, p2) against A, A0, B1, B2 (B1/B2 = the two main blocks, registered in a scratch worktree
+so evidence/metrics is untouched; see e2e-r3-compare/): VERDICT FAIL both. Aggregates: long_tail B .692/.675, P .633/.700; trap B .796/.778, P .704/.722; core B .75/.75, P .75/.583; p95 ~29-30 s everywhere;
+grid B .986/.986, P 1.0/1.0; selector_at_1 .425 in p1/p2/b2 (rerank environment), .75 in b1. FAIL vs B: trap trial rate (-0.056..-0.093), long_tail empty answers (+0.042..+0.075), rows per family; p1 also long_tail -0.05.
+What is explained: t10 (owner option C). What is NOT: trap and core misses beyond t10 (t09 2/3 in p1, t08, t18, q04 3/3 in P vs 2/3 in B), long_tail empty answers (per-id causes not diagnosed), under the degraded rerank that also hit b2.
+No rerun, no tuning (protocol). The honest state: CC-104 fixes the grid (1.0) and makes ambiguity/incompleteness fail loudly, but does not improve the demo scoreboard and is red on trap/empty answers vs B.
+NEXT (owner decides): diagnose the non-t10 trap/empty-answer deltas from demo.misses (reasons only), or accept with a written waiver per row, or fix and re-run P blocks. Post-merge E2E not applicable until merge.

@@ -310,12 +310,12 @@ reviewer = "evidence/slice-6/cc-104/gate2-final-r2.txt"
 
 [[row]]
 id = "AC11"
-status = "NOT RUN"
+status = "FAIL"
 expected = "the refresh of every affected closure row on frozen code, Gate 1, Gate 2 and the same-repeat real E2E against B, A and L, then the post-merge E2E"
-observed = "rows AC1-AC10 and TC1-TC13 are refreshed here at the frozen head; Gate 1 and Gate 2 transcripts are linked; the E2E blocks (B,P,P,B) and the post-merge E2E are NOT RUN yet"
+observed = "FAIL. Final E2E blocks B,P,P,B at frozen code d72434a (P = e86882d, evidence-only commits after it) against unchanged origin/main 29c0518, repeat 3, all four HEADs identical at start and end (e2e-r3-orchestrator.log). metric_compare ran once per P run against A, A0, B1 and B2 (e2e-r3-compare/compare-p1.txt, compare-p2.txt, ledger-rows.jsonl): VERDICT FAIL for both. long_tail p1/p2 0.633/0.700 (B1/B2 0.692/0.675), trap 0.704/0.722 (0.796/0.778), core 0.750/0.583 (0.750/0.750), p95 29.5/29.4 s (30.2/28.3), grid 1.000/1.000 (0.986/0.986), retrieval_at_10 0.9 everywhere, selector_at_1 0.425 in p1, p2 and b2 (0.75 only in b1: the Gemini rerank degraded during the window, not this branch). FAIL against B: trap trial rate -0.056 to -0.093, empty long_tail answers +0.042 to +0.075, rows per family (4-5 families), long_tail trial rate -0.042 to -0.058 for p1 only; INCONCLUSIVE or PASS for p2 on long_tail. FAIL against A and A0 (A bridged for CC-141; A0 has no bridge). Floors red in P and B alike: p95 and selector_at_1; long_tail 0.633 (p1) is under 0.700. t10 is an expected, explained miss (owner decision 2026-11-24, option C). Nothing was rerun or tuned."
 
 [[row]]
 id = "TC14"
-status = "NOT RUN"
+status = "FAIL"
 expected = "verification evidence from the slice workflow: Gate 1 for every new behaviour test, the same-repeat E2E on frozen candidate code, and the post-merge E2E on merged main"
-observed = "Gate 1 transcripts exist for every new behaviour (mutation index); the pre-merge and post-merge E2E are NOT RUN yet"
+observed = "FAIL. The same-repeat E2E on frozen candidate code exists and is red (see AC11); the post-merge E2E on merged main has not run. Gate 1 transcripts for every new behaviour are in the mutation index (gate1-uniqueness.txt is the newest). The row cannot pass while metric_compare returns FAIL."
