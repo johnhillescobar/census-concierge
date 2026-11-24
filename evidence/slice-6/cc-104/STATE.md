@@ -4,6 +4,13 @@ Branch `cc-104/structured-geography`, cut from `main`, rebased on 261c18f (2026-
 status source of truth. Rules: `CLAUDE.md`, `docs/playbooks/run-slice.md` (re-read both). Plan and design:
 `evidence/slice-6/cc-104-plan.md` (pre-flight table, owner answers, design refinement, AC/TC matrix).
 
+> **RULES THAT OVERRIDE ANYTHING BELOW (owner).**
+> 1. **Ambiguity is uniqueness, never dominance** (owner, 2026-11-23). A name that matches more than one place, with no state the user wrote, is refused: no
+> selection, no URL, no fetch; the candidates are listed and the message says the question needs more geographic detail. The 4x population rule (`dominant()`,
+> owner decision 2026-11-11) is WITHDRAWN: every line below that says "dominant", "4x" or `gate1-dominance.txt` is history and must never be implemented or
+> restored. A state the model attached is not a state the user wrote. A unique name (Chicago) resolves.
+> 2. **Fail immediately when the components of a non-unique place are not all provided** (owner, 2026-11-24). Not yet enforced; see the last section (options A, B, C: the owner decides).
+
 ## The order, and the tools (no improvising)
 
 1. Work from the AC/TC rows (AC1-5, TC1-5 are the Jira ticket's own IDs, plus MET and INH in the plan). Each row gets a test
