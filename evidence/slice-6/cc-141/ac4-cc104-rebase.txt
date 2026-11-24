@@ -1,0 +1,48 @@
+CC-141 AC4: the CC-104 rebase and its closure rows, read from origin/cc-104/structured-geography (PR #131, draft)
+recorded 2026-11-24 on main 0412baa; every line below is a command and its output
+
+$ git rev-parse origin/cc-104/structured-geography
+e86882ddd80a6f02eae44531012a80a8ca0e5d7f
+
+$ git merge-base origin/main origin/cc-104/structured-geography
+e96f3a8a45af45c88cfcfa3ff50002793aeb78e5
+
+$ git merge-base --is-ancestor <each> origin/cc-104/structured-geography   (CC-141 code, bridge, budget raise)
+e96f3a8 ancestor: yes
+c29f22c ancestor: yes
+d85753c ancestor: yes
+
+$ git merge-base --is-ancestor c29f22c ...
+c29f22c (main when CC-141 post-merge E2E ran): yes
+
+$ git show origin/cc-104/structured-geography:evidence/closure/CC-104.toml | sha256sum
+37c13eff3504908f28db4c05b0c6bfe120e4a0f60dbcfd85baa727f28162bd80 *-
+
+$ row ids, status and tested_head in that manifest
+"AC1" "PASS" d72434a
+"AC2" "PASS" d72434a
+"AC3" "PASS" d72434a
+"AC4" "PASS" d72434a
+"AC5" "PASS" d72434a
+"AC6" "PASS" d72434a
+"AC7" "PASS" d72434a
+"AC8" "PASS" d72434a
+"AC9" "PASS" d72434a
+"AC10" "PASS" d72434a
+"TC1" "PASS" d72434a
+"TC2" "PASS" d72434a
+"TC3" "PASS" d72434a
+"TC4" "PASS" d72434a
+"TC5" "PASS" d72434a
+"TC6" "PASS" d72434a
+"TC7" "PASS" d72434a
+"TC8" "PASS" d72434a
+"TC9" "PASS" d72434a
+"TC10" "PASS" d72434a
+"TC11" "PASS" d72434a
+"TC12" "PASS" d72434a
+"TC13" "PASS" d72434a
+"AC11" NOT RUN (the E2E rows; CC-104 own closure, not CC-141)
+"TC14" NOT RUN (the E2E rows; CC-104 own closure, not CC-141)
+
+limit: CC-104's uniqueness change was Gate 1 checked but not read by a Gate 2 round (its manifest header says so); its rows still cite gate2-final-r2.txt.

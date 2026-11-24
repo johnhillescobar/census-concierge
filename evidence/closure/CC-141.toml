@@ -1,7 +1,7 @@
 ticket = "CC-141"
 head = "7c0e913b349aad3f2d407e2b11efd2b35d81ee32"
 required = ["AC1", "AC2", "AC3", "AC4", "TC1", "TC2", "TC3"]
-# AC3 passed after the owner landed the bridge (#144). AC4 is NOT RUN: the CC-104 rebase and its rows are another agent's work (owner, in chat).
+# AC3 passed after the owner landed the bridge (#144). AC4 PASS: the CC-104 rebase and its rows were re-run by the owner's other agent; see ac4-cc104-rebase.txt.
 
 [[row]]
 id = "AC1"
@@ -43,10 +43,15 @@ reviewer = "evidence/slice-6/cc-141/gate2-r2.txt"
 
 [[row]]
 id = "AC4"
-status = "NOT RUN"
-command = "git rebase onto main, then the CC-104 closure rows re-run"
+status = "PASS"
+command = "git show origin/cc-104/structured-geography:evidence/closure/CC-104.toml (row statuses and heads), git merge-base --is-ancestor <CC-141 merge commits> origin/cc-104/structured-geography"
 expected = "the rebase of this work into CC-104 leaves its closure rows re-run at the new head"
-observed = "NOT RUN here, on purpose. CC-141 is merged (#142, #144), so the rebase is unblocked, but the owner is running the CC-104 rebase and its closure rows in another agent. Nothing of CC-104 was changed from this branch. This row needs that agent's evidence (rebased head and re-run rows) linked before CC-141 can close."
+observed = "CC-104 (PR #131, draft) is rebased onto main e96f3a8, which holds the CC-141 goldens (#142), the bridge (#144, c29f22c) and the api_src_loc raise (#145): all three are ancestors of its tip e86882d (ac4-cc104-rebase.txt). Its manifest, sha256 37c13eff at that tip, lists AC1-AC10 and TC1-TC13 PASS with tested_head d72434a, refreshed after the rebase by the other agent (the owner's). Limits, stated: (1) AC11 and TC14, CC-104's own E2E rows, are NOT RUN and belong to CC-104's closure, not this ticket; CC-104's comparison must still name the ids that miss on the curated goldens (its own amendment). (2) CC-104's uniqueness change was Gate 1 checked but not read by a Gate 2 round; its rows still cite gate2-final-r2.txt. (3) The CC-104 files are on its branch, not main, so this row pins a record of what they said at e86882d, not the files. (4) tested_head is c29f22c, the main the post-merge E2E ran on; the record was read on 0412baa, which differs from it only by #145 (budgets.toml) and #146 (evidence), and no code. PR #131 has not merged; if its manifest is rewritten later, this row describes the state at e86882d only."
+evidence = [{ path = "evidence/slice-6/cc-141/ac4-cc104-rebase.txt", sha256 = "d003618c93a551fc019cd65afa7db54d8d17d1f1dba0e7077c0ad0ec2346f6cb" }]
+tested_head = "c29f22cec7131456c1e067a9c64dde50a59699dd"
+affects = ["evidence/slice-6/cc-141/ac4-cc104-rebase.txt"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-141/gate2-r2.txt"
 
 [[row]]
 id = "TC1"
