@@ -58,3 +58,9 @@ overall 0.78, core 0.833, trap 0.907; retrieval_at_10 0.90 (at floor), selector_
 grid 210/210, pass rate 0.986, tract level 1.0, only g028 misses (untouched). check_budgets red on doc lines 1822/1820 and p95; invariants held; live place check OK.
 Comparator (`e2e-post/compare.txt`, one run, real bridge on main): A reads as bridged, no hash FAIL for A; VERDICT FAIL (p95, selector_at_1 vs A, trap, core; A0 unbridged).
 AC3 PASS. AC4 NOT RUN: the owner runs the CC-104 rebase and rows in another agent; link its evidence here, then close with jira_transition.py.
+
+## AC4 (2026-11-24)
+
+AC4 PASS: CC-104 is rebased onto main e96f3a8 (CC-141 goldens, bridge, budget raise are ancestors of its tip e86882d) and its AC1-AC10, TC1-TC13 are PASS at d72434a
+(`ac4-cc104-rebase.txt`). Its AC11 and TC14 (E2E) stay NOT RUN on CC-104's own closure. Its uniqueness change had no Gate 2 read. `closure.py check --ref origin/main` exits 0.
+Next: owner merges this evidence PR, then `jira_transition.py CC-141 --done` from main.
