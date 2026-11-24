@@ -1,0 +1,150 @@
+CC-141 GATE 2 (round 2, the one allowed re-run)
+Worktree: .worktrees/cc-141  branch cc-141/golden-state  HEAD 86737bd52a94b0d5162d885a4e5796b9df3bcebb
+Review base: origin/main 9a36dff6678479e6d0daee178fb880b448abbb69   (git diff origin/main...HEAD, 22 files, +2230/-46)
+Not opened before step 1 recorded: plan.md, STATE.md, .claude/PLAN.md, gate2.txt, gate2-fixes.txt, gate1*.txt.
+Disclosure: while the cold pass ran I read evidence/slice-6/cc-141/e2e/driver.sh (not on the forbidden list), plus run_grid.py,
+verify_golden_places.py, the TOML diffs, test_grid_scorer.py (code). The code-review pass itself (a forked agent) read code only.
+
+=====================================================================
+PASS 1: /code-review high on git diff origin/main...HEAD (cold, code-only)
+=====================================================================
+Result: 7 findings, ALL severity nit; no bug above nit. Verbatim substance:
+
+1. [nit] scripts/verify_golden_places.py:40  PLACES is hand annotation; the check "proves" no golden names a shared place without its
+   state only for annotated places. A golden annotated [] (or a mislabeled new one) passes silently. Reword the claim; optionally
+   require a reason on each [] entry.
+2. [nit] evidence/slice-6/cc-141/url_grid_scan.py:21  committed script scans grid question wording with re.search for a state name /
+   USPS code: the pattern CLAUDE.md forbids (wording interpretation). One-off, outside api/src, docstring says "Run once", but it is
+   committed as precedent. Delete or replace with structured-field check.
+3. [nit] scripts/verify_golden_places.py:127  _written uses substring `form in text`, including the bare "<place> <USPS>" form
+   ("Denver CO" matches inside "Denver COunty"). Looser than the ", State" form diff_problems requires. Drop the USPS form or anchor it.
+4. [nit] evals/golden_questions.toml:41  ~35 golden texts changed; retrieval@10 floor sits exactly at its limit (0.9>=0.9) and metric_compare
+   cohort hashes include text, so scoreboards are not comparable with pre-CC-141 runs. Re-baseline at same --repeat and say the
+   instrument changed.
+5. [nit] scripts/verify_golden_places.py:214  grid_problems skips county cells entirely (a stray parent_state on a county cell is never
+   checked) and indexes expected_parents[-1] unguarded (empty list + parent_state -> IndexError).
+6. [nit] scripts/run_grid.py:53  the new parent_state check sits after the early `return True` for cells whose expected_parents are not all
+   known county names (Gazetteer names), so a mistyped county name skips the state check; verifier uses live listing, scorer uses Gazetteer.
+7. [nit] Makefile:35  make demo's first line downloads full county (~3.2k) and place (~32k) listings live, uncached, no retry; a Census blip or
+   missing key (exit 2) aborts demo before any scoreboard. Suggest a separate target or cache.
+Reviewer also ran verify_golden_places.py --base origin/main live: OK; 249 tests pass (geography_completeness, demo_harness,
+grid_scorer, verify_golden_places). It reported check_budgets red (doc lines 1822/1820, p95 20.714/20) and not attributable to this branch.
+
+=====================================================================
+PASS 2: review-pr (docs/playbooks/review-pr.md), run at HEAD 86737bd, tree clean
+=====================================================================
+--- Machines (raw) ---
+scripts/check_budgets.py on branch:   exit 1. FAIL doc lines 1822 <= 1820 ; FAIL p95 latency (s) 20.714 <= 20
+                                      (run 2026-11-22T18:58:29+00:00; slowest trial 32.514s). All other rows ok
+                                      (api src LOC 5045<=5100, files 30<=40, largest file 410<=410, web LOC 3350<=3350, prompt tokens 1095<=1200).
+scripts/check_budgets.py on a clean `git archive origin/main` extract (run with the worktree's python from the extract dir;
+  `uv run` could not build a venv there, access denied): exit 1, "2 budget(s) exceeded: doc lines: 1822 (limit 1820); p95 latency (s): 20.714 (limit 20)".
+CONFIRMED: both reds are identical on origin/main; this branch changes neither value (no docs, no api/src, no budgets.toml, no evidence/latest.json in the diff).
+scripts/check_invariants.py --base origin/main: exit 0, "All invariants held" (budget increases ok, new regex ok, delta +0 call sites, new exemptions ok,
+  protocol weakened ok, metric records rewritten ok, closure manifests ok, eval phrasing in api/src ok).
+ruff check .: All checks passed.  ruff format --check .: 276 files already formatted.
+mypy api/src: Success, no issues in 30 source files.
+pytest -q -m "not integration": 1546 passed, 34 skipped, 8 xfailed (exit 0).
+pytest api/tests/test_grid_scorer.py api/tests/test_verify_golden_places.py: 109 passed.
+scripts/verify_golden_places.py --base origin/main (live Census, at HEAD): "70 goldens, 70 grid cells; listings: county 3222, place 32330 / OK" exit 0.
+scripts/closure.py check evidence/closure/CC-141.toml --pre-merge: BLOCKED (manifest does not exist), non-zero.
+Per the playbook a non-zero machine ends the review. The two budget reds are inherited and not attributable to the branch (confirmed above), so
+the invariants review was continued; the closure BLOCKED is this branch's own and is a verdict item below.
+
+--- (a) grid scorer change, scripts/run_grid.py:53-58 ---
+The diff is one added branch inside tract_identity_ok, entered only when "parent_state" is in the cell, placed AFTER the "not a county list ->
+return True" early exit and the one-state / count check, BEFORE the permutation match. cell_passes' non-tract and county paths are untouched.
+- Cells with no parent_state cannot be affected (branch not entered). The grid has 54 county cells (none carry parent_state; county path
+  unchanged) and 16 tract cells (all carry it).
+- Wrong-state answer passing: needs geoids[0][:2] == the written state's FIPS AND the existing per-name permutation match, so a wrong-state
+  answer fails the FIPS test. Unknown or empty parent_state -> fips None -> fails (never unrestricted); case-insensitive via casefold (STATES
+  names are lowercase). Tests cover right state passes, wrong state fails, unknown fails, empty fails, case. Only hole: a tract cell whose
+  expected_parents are not all Gazetteer county names returns True before the state check (code-review nit 6). I checked with the Gazetteer zip
+  from the main checkout (data/raw is not in this worktree): all 16 tract cells' names are present and each name has a county in its
+  parent_state, so the hole is theoretical today.
+- Right answer failing: a right-state answer with the right counties passes; the new check only adds the state constraint. Where the question
+  used to leave the state open the old scorer accepted either state; the new one requires the written one. No false fail found.
+- Side note: run_grid.py needs data/raw/census_ref/counties.zip (git-ignored); absent in this worktree, so the scorer cannot run live from a
+  fresh checkout without copying it (pre-existing; tests mock it).
+VERDICT (a): sound.
+
+--- (b) golden_questions.toml and cc103_phrasing_grid.toml edits ---
+Read `git diff -U0`: golden file = 29 `text` lines changed and nothing else; grid = 16 `question` lines changed plus 16 added `parent_state`
+lines and nothing else. verify_golden_places.py --base origin/main re-proves it per id (every field but text/question/parent_state equal; text
+differs only by an inserted ", State" directly after the place; same ids, same order) and exits 0 at HEAD.
+By design, to state in the PR: t01, t06, t14 change by an ADDED phrase (" in Fulton County, Georgia" etc.), a change of what the question asks,
+not just a state; their expectations (expect_table, expect_warning, tier) are unchanged and the diff check allows exactly that literal phrase.
+Owner approved this in chat per plan.md; the PR and Jira should say so.
+Every golden text edit moves the cohort hashes (text is an expectation field) and the retrieval@10 floor sits exactly at its limit (0.9>=0.9):
+the instrument changed, so numbers are not comparable with pre-CC-141 runs (code-review nit 4). That comparability step is AC3 (see (e)).
+VERDICT (b): nothing changed other than question text and the new field (plus the three owner-approved added phrases).
+
+--- (c) verify_golden_places.py vs the "never interpret question wording" rule ---
+The places are hand-written annotations in a PLACES table keyed by id; no step finds a place or a state in the wording. The only text touch is
+_written (line 127), a literal check that the fixture's own annotated "<place>, <State>" (or "<place> <USPS>") occurs in that fixture's text,
+plus the diff checks, which compare old and new text for an exact insertion. That is fixture versus annotation, not question interpretation, and
+the script is outside api/src and the product path. It uses the resolver's own filter_rows for the NAME match against live listings, which is
+the permitted grounded NAME match. Weak spots, all nits: the bare USPS form is a loose substring ("Denver CO" inside "Denver COunty"), and the
+check is only as complete as the annotator (PLACES [] is trusted). The committed one-off evidence/slice-6/cc-141/url_grid_scan.py DOES scan
+question wording with re.search; it is evidence, not product code, but it is the pattern the rule forbids and is committed as precedent
+(nit 2). The new-regex invariant is +0 for api/src.
+VERDICT (c): does not read wording to find places; acceptable, with the nits recorded.
+
+--- (d) Makefile demo recipe (Makefile:35) ---
+`uv run python scripts/verify_golden_places.py` is the first line; make stops on non-zero, so a failed or key-less check (exit 1/2) aborts the
+demo loudly rather than skipping it. It does not call run_demo/run_grid and they do not call it, so no double run via make. It does an
+uncached live fetch of ~35k listing rows with no retry: a Census blip aborts the whole demo (nit 7).
+SILENT SKIP: the other two ways the E2E is run bypass the recipe. evidence/slice-6/cc-141/e2e/driver.sh replicates the recipe lines by hand
+(uv sync, npm ci, build, eval x3, run_demo, run_grid, budgets, invariants) and does NOT include verify_golden_places; scripts/e2e_capture.py
+(`make e2e`) runs run_demo directly and does not either. An E2E taken with either silently omits the live check, so for this ticket the check
+must be run and recorded separately at the E2E head. docs/ARCHITECTURE.md:94 still says `make demo` is `run_demo.py --repeat 3` (stale before;
+now also omits the verify line and run_grid); docs lines are at the ceiling (1822/1820, already red), so a doc fix needs the owner's budget
+decision, not a quiet edit.
+VERDICT (d): the recipe line itself is correct; the driver / e2e_capture bypass is a real gap to close by running the check explicitly.
+
+--- (e) AC/TC proof paths (plan.md table; Jira text lives there) ---
+AC1 / TC1 (zero shared stateless places in the visible goldens, live): reproduced here, verify_golden_places.py exit 0 at 86737bd. Caveat: the
+  committed verify-after.txt is stamped "working tree on 94bebf9", not this head, and no manifest row pins it.
+AC2 / TC2 (per id only the state inserted; --base): same run, exit 0 at 86737bd; same caveat. Tests: test_verify_golden_places.py (832 lines)
+  and the Gate 1 mutation transcripts (gate1*.txt, gate1-grid.txt) exist; I did not open them in this pass.
+AC3 / TC3 (new cohort hashes frozen, bridges.json entry, one candidate run on the curated goldens at frozen code, metric_compare compare
+  completes under the bridge): NOT DONE. The branch diff has no change under evidence/metrics (no freeze, no bridges.json) and
+  evidence/slice-6/cc-141/e2e/ holds only driver.sh: no candidate run, no latest-after-demo.json, no compare output. The first E2E (5e463bf) is
+  void per plan.md and was superseded by commit 501efa7 (grid curation, t01/t06/t14, make demo line); no E2E at the current frozen code has run.
+AC4 (after merge, CC-104 rebased onto main and its closure rows re-run): NOT DONE and cannot be before merge; must stay NOT RUN until then.
+Closure: evidence/closure/CC-141.toml does not exist; closure.py check -> BLOCKED. No PR exists. run-slice requires the manifest, E2E on head,
+and post-merge E2E before Done.
+Bookkeeping: STATE.md is stale (says E2E in flight at 5e463bf); plan.md decisions 2 and 5 are marked superseded but not rewritten. Not a product
+problem, but a fresh context would be misled.
+Shape/scope: 22 files, 11 of them evidence; code is Makefile, run_grid.py, verify_golden_places.py (307 lines), two tests, two evals files.
+No api/src change, so no catalog impact beyond the stale ARCHITECTURE line. No new tool, route, model, node, or forbidden module name. No fake
+returning one table for every input (tests use the real TOML, real filter_rows, per-name fixtures).
+
+=====================================================================
+FINDINGS (consolidated)
+=====================================================================
+BLOCKING for READY (process, not a code bug):
+B1 [blocker] evidence/closure/CC-141.toml missing; `scripts/closure.py check evidence/closure/CC-141.toml --pre-merge` is BLOCKED.
+B2 [blocker] AC3/TC3 not done: no freeze of new cohort hashes, no evidence/metrics/bridges.json entry, no candidate run, no compare.
+B3 [blocker] No E2E (make eval + make demo --repeat 3, plus run_grid) at the current head 86737bd; the 5e463bf one is void; e2e/ has only
+     driver.sh. The driver omits the live verify_golden_places check, so it must be run and recorded at the E2E head separately.
+B4 [pending by design] AC4 and post-merge E2E cannot be PASS before merge; no PR yet.
+NON-BLOCKING:
+N1 [nit] scripts/verify_golden_places.py:40       trusted hand annotation; the claim "proves" is stronger than the check.
+N2 [nit] evidence/slice-6/cc-141/url_grid_scan.py:21   committed regex scan of question wording (forbidden pattern, one-off); delete or restructure.
+N3 [nit] scripts/verify_golden_places.py:127-133  _written USPS form is an unanchored substring.
+N4 [nit] scripts/verify_golden_places.py:214,234  county cells skipped (stray parent_state unchecked); expected_parents[-1] unguarded.
+N5 [nit] scripts/run_grid.py:53                   parent_state check after the early return True (theoretical; none of the 16 cells hit it).
+N6 [nit] Makefile:35                              uncached live fetch in the demo path; a Census outage aborts the demo before any scoreboard.
+N7 [nit] evals/golden_questions.toml (29 texts)   instrument change; re-baseline and say so in the PR (AC3's job).
+N8 [nit] docs/ARCHITECTURE.md:94                  describes `make demo` without the verify line (and run_grid); docs budget already red at the ceiling.
+N9 [nit] verify-after.txt stamped 94bebf9; re-capture at the E2E head for the manifest. STATE.md stale.
+INHERITED (not this branch): check_budgets doc lines 1822/1820 and p95 20.714/20, identical on origin/main (confirmed on a git archive extract).
+No silent-wrong-answer finding: nothing here touches a response path (no api/src change).
+
+CODE RESULT: no bug found above nit.
+
+VERDICT: NOT YET.
+Single most important reason: the evidence is not whole. AC3/TC3 has no artifacts, there is no E2E at the current head, and no closure manifest
+exists (closure.py BLOCKED); AC4 and post-merge E2E are rightly pending. The code (scorer change, golden/grid edits, verify script, Makefile line)
+reviews clean apart from nits, so READY follows once B1-B3 are done and the live check is run and recorded alongside the E2E head.

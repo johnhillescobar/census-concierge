@@ -50,6 +50,12 @@ def tract_identity_ok(cell: dict[str, Any], in_values: list[str]) -> bool:
     geoids = [geoid_of(v) for v in in_values]
     if len(geoids) != len(names) or len({g[:2] for g in geoids}) != 1:
         return False
+    if "parent_state" in cell:  # the question wrote a state: the counties must be that state's
+        fips = {name: code for name, _usps, code in STATES}.get(
+            str(cell["parent_state"]).casefold()
+        )
+        if fips is None or geoids[0][:2] != fips:
+            return False
     return any(
         all(g in counties[n] for g, n in zip(p, names, strict=True)) for p in permutations(geoids)
     )

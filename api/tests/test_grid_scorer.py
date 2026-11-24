@@ -95,3 +95,32 @@ def test_tract_cell_whose_names_fit_two_states_passes_in_either() -> None:
 def test_geoid_is_read_from_an_in_clause_with_plain_string_operations() -> None:
     assert run_grid.geoid_of("state:17+county:031") == "17031"
     assert run_grid.geoid_of("state:17") == "17"
+
+
+INDIANA = {
+    "level": "tract",
+    "expected_parents": ["Marion County", "Hamilton County"],
+    "parent_state": "Indiana",
+}
+
+
+def test_tract_cell_that_writes_its_state_passes_only_in_that_state() -> None:
+    indiana = _body(_tract_url("18", "097"), _tract_url("18", "057"))
+    ohio = _body(_tract_url("39", "101"), _tract_url("39", "061"))
+    assert run_grid.cell_passes(INDIANA, indiana)
+    assert not run_grid.cell_passes(INDIANA, ohio)
+
+
+def test_tract_cell_with_a_state_the_grid_does_not_know_fails() -> None:
+    cell = {**INDIANA, "parent_state": "Hoosierland"}
+    assert not run_grid.cell_passes(cell, _body(_tract_url("18", "097"), _tract_url("18", "057")))
+
+
+def test_tract_cell_with_an_empty_state_fails_rather_than_going_unrestricted() -> None:
+    cell = {**INDIANA, "parent_state": ""}
+    assert not run_grid.cell_passes(cell, _body(_tract_url("18", "097"), _tract_url("18", "057")))
+
+
+def test_the_state_is_matched_whatever_its_case() -> None:
+    cell = {**INDIANA, "parent_state": "INDIANA"}
+    assert run_grid.cell_passes(cell, _body(_tract_url("18", "097"), _tract_url("18", "057")))

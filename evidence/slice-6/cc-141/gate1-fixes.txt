@@ -1,0 +1,18 @@
+# CC-141 Gate 1 fix: diff_problems requires '<place>, <State>' directly after the place, absent from the old text
+# repo /c/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-141 branch cc-141/golden-state HEAD 8fe7edc
+
+BAD: mutation 'drop the already-there guard' (f"{t}, {s}" not in before) -> doubled-state test must fail
+1 failed, 43 deselected, 1 warning in 0.23s
+
+BAD: mutation 'accept the state anywhere' (replace(', {s}', '') instead of '{t}, {s}') -> away-from-place test must fail
+1 passed, 43 deselected, 1 warning in 0.07s
+
+GOOD: restored
+?? evidence/slice-6/cc-141/gate1-fixes.txt
+44 passed, 1 warning in 7.10s
+
+# the away-from-place test survived the mutation; its text carried no ', Illinois' so it failed either way. Strengthened (state inserted elsewhere) at 0937004, mutation rerun:
+BAD: mutation 'accept the state anywhere' -> away-from-place test must fail
+1 failed, 43 deselected, 1 warning in 0.19s
+GOOD: restored
+44 passed, 1 warning in 7.23s

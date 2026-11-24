@@ -29,8 +29,10 @@ index:
 
 ## End-to-end against live APIs. Needs OPENAI_API_KEY and CENSUS_API_KEY.
 ## Installs web deps, then builds web/dist so GET / is the UI on the same
-## process that scores POST /ask.
+## process that scores POST /ask. First it proves no golden or grid cell names a shared place
+## without its state (live Census listings): such a question measures the refusal, not the product.
 demo:
+	uv run python scripts/verify_golden_places.py
 	npm --prefix web ci
 	npm --prefix web run build
 	uv run python scripts/run_demo.py --repeat 3

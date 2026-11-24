@@ -91,7 +91,9 @@ four-tool loop still runs, and model args cannot undo the pin.
 `ambiguous_place` carries ranked `GeoSpec` candidates. Start:
 `uv run uvicorn src.main:app --reload` (from `api/`, or with `PYTHONPATH=api`).
 
-`make demo` is `scripts/run_demo.py --repeat 3` (golden set except holdout).
+`make demo` is `scripts/verify_golden_places.py` (every golden and phrasing-grid cell that names a shared place
+carries its state, checked against live Census listings), then `scripts/run_demo.py --repeat 3` (golden set except
+holdout) and `scripts/run_grid.py --repeat 3`.
 
 ### Answer figures (CC-121)
 
