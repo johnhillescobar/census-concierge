@@ -1,0 +1,280 @@
+CC-144 Gate 2, the single re-run (run-slice.md section 5)
+
+branch          cc-144/gate-line
+reviewed head   d260d795e606e35fe6726bf7e9bf58a70b2b2059
+round-one head  c66d514
+ticket base     0b69842
+reviewer        fresh subagent, no caller history
+safety          Jira not read or written; jira_gate_line.py never run as a command (imported
+                with fakes only); jira_transition.py not run; no Atlassian tool; .env not
+                loaded by the reviewer; no APPROVED or FAILED file created under evidence/;
+                no product or test file changed; nothing committed or pushed.
+
+======================================================================
+PASS 1 - cold read of `git diff c66d514 d260d79 -- scripts api/tests`
+plus the whole of scripts/jira_gate_line.py.
+Written before anything under evidence/ was opened. The Jira ticket was never read.
+(Seen before writing: the commit subjects and the --stat file list, which name evidence files.)
+======================================================================
+
+No high or medium finding. In the paths probed: no write of unapproved text, no false
+"written" on a stored document that differs by more than localId, and no false failure
+on a faithful round trip (the real CC-104/CC-105 fixtures, and localId added by the store).
+
+P1R2-A  LOW  FAILED blocks only the directory it is in; the docstring says every apply.
+  scripts/jira_gate_line.py:17-18 says DIR/FAILED "blocks every later --apply until a
+  person deletes it". apply() looks only at <approved dir>/FAILED. With a second approved
+  directory (made with --out, which dry_run's own message suggests), apply runs and writes
+  CC-2 while the first directory's CC-1 is still damaged and unexamined (probe A).
+  Needs a second deliberate approval. The code or the sentence is wrong.
+
+P1R2-B  LOW  A dry run can delete the before snapshot that FAILED tells the owner to use.
+  dry_run() guards a directory by APPROVED only, never by FAILED. With APPROVED removed
+  and FAILED present, a dry run into the same directory drops CC-1 from the set (its live
+  text no longer carries the wording) and _discard() unlinks CC-1.before.json; exit 0,
+  FAILED still points at the deleted file (probe B). Needs a person to delete APPROVED
+  first; no message of the script asks for that. Recovery would then rest on git (if the
+  set was committed) or Jira's issue history.
+
+P1R2-C  LOW  An interrupt between PUT and the read-back leaves no FAILED.
+  _write() records nothing before the PUT, and its except list has no KeyboardInterrupt;
+  a killed process records nothing either way. If that PUT had damaged CC-1, the rerun
+  reports only "the description changed after the snapshot; run --dry-run again" (it does
+  not say this script's write may be the change) and goes on to write CC-2 (probe C).
+  Needs a bad store and an interrupt on the same ticket. No text is lost by the rerun and
+  before.json stays.
+
+Wording note, not counted: when the PUT itself is rejected (the real client exits on any
+HTTP error, so nothing was stored), FAILED and stderr still say "restore it from
+...before.json" (probe F). The first clause ("could not be confirmed") is true. The text
+printed by the next --apply is the better one: compare, restore if needed.
+
+Probed and found nothing:
+  - round trip with localId added to the new paragraph and other nodes: exit 0, rerun "done"
+  - real CC-104 and CC-105 fixtures through dry run, approval and apply: 2 written, 0 refused
+  - pointer with a no-break space, in capitals, or after other text in its node: refused
+  - read-back losing a link, a card, a card address or list structure: stops (also in tests)
+  - APPROVED with extra words, or twice the hash: not an approval
+  - an AttributeError can escape _stored_form outside the try if a read-back carried
+    "attrs": null (probe G). Not counted: no known Jira response has that shape, and the
+    run would still end in a traceback, not in success.
+Not provable with fakes: that Jira's search and issue GET return the same ADF (apply
+compares them exactly at `live != before`; a difference would refuse, not write), and that
+Jira adds nothing but localId to a stored description. The only node this edit creates is
+a plain one-text paragraph; the rest is what Jira itself returned.
+
+Probe output (fakes and temp directories only; script kept in the session scratchpad):
+
+  A  apply first -> 1 FAILED exists: True
+     REFUSED  CC-1  the description changed after the snapshot; run --dry-run again
+     written  CC-2  IDs unchanged: AC1, AC2, TC1
+     apply second -> 1 writes: ['CC-2']
+  B  before.json named by FAILED exists: True
+     2 open ticket(s) read: 1 ticket(s) left to change, 0 refused
+     dry run -> 0
+     before.json exists after: False FAILED exists: True
+  C  interrupted; FAILED exists: False
+     REFUSED  CC-1  the description changed after the snapshot; run --dry-run again
+     written  CC-2  IDs unchanged: AC1, AC2, TC1
+     rerun -> 1 writes: ['CC-2']
+  D  apply -> 0 rerun -> 0
+  E  2 written, 0 refused
+     apply -> 0 writes: ['CC-104', 'CC-105']
+  F  FAILED   CC-1: the write could not be confirmed (SystemExit: 1); restore it from
+     <tmp>\CC-1.before.json
+  G  raised AttributeError FAILED exists: False
+  H  all three shapes -> a line would still point at the removed contract
+     (formatted, nested or moved)
+
+======================================================================
+PASS 2 - project invariants (docs/playbooks/review-pr.md)
+Written after pass 1. Pass 1 above is unchanged.
+Reviewed head d260d79; ticket base 0b69842 (= origin/main and the merge base).
+======================================================================
+
+---- The machines, all at d260d79 --------------------------------------
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+
+[exit 0]
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget log matches values
+  ok    eval phrasing in api/src
+  ok    closure manifests
+  ok    budget increases
+  ok    new regex
+  ok    new exemptions
+  ok    protocol weakened
+  ok    metric records rewritten
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+[exit 0]
+
+$ uv run ruff check .
+All checks passed!
+[exit 0]
+
+$ uv run ruff format --check .
+324 files already formatted
+[exit 0]
+
+$ uv run mypy api/src
+Success: no issues found in 30 source files
+[exit 0]
+
+$ uv run pytest -q -m "not integration"
+(progress dots omitted)
+1763 passed, 34 skipped, 8 xfailed, 1 warning in 229.11s (0:03:49)
+[exit 0]
+
+$ uv run pytest api/tests/test_jira_gate_line.py -q -p no:cacheprovider
+81 passed, 1 warning in 0.52s
+
+$ uv run python scripts/closure.py check evidence/closure/CC-144.toml --pre-merge
+  BLOCKED  CC-144.toml: malformed manifest (FileNotFoundError: [Errno 2] No such file or directory: 'evidence\\closure\\CC-144.toml')
+CLOSURE BLOCKED: 1 problem(s)
+[exit 1]
+
+The five listed machines exit 0. The worktree has no .env (only .env.example) and no
+ATLASSIAN_* variable was set, so no test could reach Jira with credentials.
+
+---- Claim, scope, shape, response path, tests --------------------------
+
+Unchanged from round one: no new end-user ability (process tooling). 97 files differ from
+the base; 9 are outside evidence/ (4 of them the two ticket fixtures, before and after).
+No api/src or web change, so nothing for URL/MOE/GEOID/universe, key redaction, shape or
+eval wording. Doc budget unchanged at 1820/1820; regex call sites delta +0. The fix tests
+test behavior, assert no prompt or prose, and are not ticket-named.
+
+---- Round-one code findings at d260d79 ---------------------------------
+Replayed with fakes (sockets disabled in the replay; for P1-4 and P1-5 the real
+jira_fetch._search and jira_transition._api ran over a faked _api / urlopen).
+
+P1-1  FIXED. A store that drops the link, card, mention, media or table: each gives
+      exit 1, one write only, FAILED written, CC-2 untouched. The read-back and the
+      "done" check compare _stored_form (all of the ADF except attrs.localId).
+P1-2  FIXED. Pointer split by formatting, in a panel, after a newline, or broken
+      mid-phrase: REFUSED, exit 1, no manifest. All real after sides shortened cleanly
+      (0 refused).
+P1-3  FIXED. Closed between snapshot and apply: "REFUSED CC-1 the ticket was closed
+      after the snapshot"; the one request is GET ?fields=description,status. No PUT.
+P1-4  FIXED. {"issues": []} and {} both exit 1, "Jira returned no open ticket at all",
+      5 earlier files kept; the count read is printed. A search that returns only some
+      of the open tickets still shows only through that count (54 in dry-run.txt).
+P1-5  FIXED for the write. Read-back timeout, read-back HTTP 503, PUT timeout and PUT
+      HTTP 400 each give exit 1, FAILED, and the before.json path; the real client with
+      an empty 204 on PUT gives 2 written, exit 0. The GET before each later ticket is
+      still outside any handler: its timeout is a traceback after "written CC-1". Nothing
+      is unconfirmed then, the exit is non-zero and a rerun is safe, so not a finding.
+      See also the wording note in pass 1.
+P1-6  FIXED for the reported case. The same command again: exit 2, no call at all.
+      Remaining edges: P1R2-A (another directory), P1R2-C (interrupt before FAILED).
+P1-7  FIXED. The manifest lists the refused ticket; apply prints it, counts it
+      ("1 written, 1 refused") and exits 1, on a second run too.
+P1-8  FIXED for the three reported shapes (changed capital, typed bullet, prefix):
+      each is REFUSED, exit 1. A copy whose marker words themselves were reworded is
+      still not detected; edit() leaves such a paragraph in place, so no text is lost.
+P1-9  FIXED. "NOT approved <hash>": exit 2, no call.
+P2-1  FIXED. The test reads api/tests/fixtures/gate_wording/ (byte-identical to the
+      CC-104 and CC-105 snapshots) and asserts every real hash is exercised. The only
+      uses of jg.OUT left in the test file are monkeypatches to a temp directory.
+
+---- Evidence against the code ------------------------------------------
+
+gate2-fixes.txt: three runs of 25 mutations (23 GOOD/2 BAD, 24/1, 25/0), earlier runs
+kept; the third changes only which test one mutation selects, and that test exists for
+that behaviour. git diff of scripts/ from 6cf39c2 to d260d79, and of scripts/ and api/
+from 18922dc to d260d79, is empty. Mutations were read, not re-run, by this review.
+dry-run.txt now names its head (6230860; no code change after it): 54 open tickets read,
+20 to change, 0 refused.
+Snapshots, checked offline at d260d79: manifest sha256
+b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05 equals dry-run.txt;
+all 80 files match it in the working tree and as committed; none unlisted; the rule
+reproduces all 20 after sides; IDs and order equal; each .md equals _readable(.json);
+each after side has exactly one gate line; refused = {}. After sides hold 11 link marks,
+5 code marks, 46 headings, 1 bullet list, 5 hard breaks, no localId, no empty attrs or
+marks, no adjacent same-mark text nodes. No APPROVED or FAILED file under evidence/.
+Since c66d514 the only snapshot file changed is manifest.json (the "refused" key), so
+round one's approval hash (da42137a...) no longer approves anything, and round one's
+owner-decision items on ticket wording (L1-L11, D1-D3, X1-X3) apply to the same after
+sides. They were not re-assessed; plan.md records no ruling on them, and the Jira ticket
+was not read.
+plan.md: expected outcomes and defaults agree with the code and the dry run. Its
+"54 issues, 20 carriers" matches dry-run.txt; live Jira was not re-checked.
+
+---- AC/TC matrix --------------------------------------------------------
+IDs and outcomes from plan.md (the ticket itself was not read in this run).
+
+AC1  PASS on recorded evidence (dry-run.txt at 6230860; snapshot checks above; tests of
+     the command's reads). Completeness over live open tickets not re-run.
+AC2  PASS  81 passed at d260d79.
+AC3  NOT RUN  expected: the owner has not approved the snapshots.
+AC4  PASS  unchanged since round one; full suite and closure invariant pass.
+TC1  PASS  fake Jira.
+TC2  PASS  fake Jira; not run as a command, by instruction.
+TC3  NOT RUN against Jira (follows AC3). Fake-only test passes.
+There is no evidence/closure/CC-144.toml (closure check exits 1) and no PR matrix.
+
+---- Verdict ---------------------------------------------------------------
+
+NOT YET (merge readiness / Done).
+The single most important reason: the criteria are not cleared. AC3 and the real TC3
+are NOT RUN (expected until the owner approves) and there is no closure manifest.
+Code: all of P1-1..P1-9 and P2-1 are fixed. Three new LOW findings (P1R2-A, B, C);
+none lets a normal run alter text, write something unapproved or report success
+falsely, and none is a silent-wrong-answer finding. Nothing found in the code that
+should hold the owner's approval or the one-time apply. This was the one allowed
+re-run (run-slice.md section 5): fix what is worth fixing, with a test and a mutation
+check, and do not re-run Gate 2. A change confined to FAILED handling or the docstring
+leaves the rule, the gate line and so the snapshots as they are.
+
+Safety record for the whole run: no Jira read or write; jira_gate_line.py imported with
+fakes only, never run as a command; jira_transition.py not run as a command (for P1-5
+its _api function ran in-process over a faked urlopen and a faked auth header); no
+Atlassian tool; no .env loaded; no APPROVED or FAILED file under evidence/ (all probe
+directories were system temp directories). No product or test file changed; nothing
+committed or pushed. The only file written in the repository is this one.
