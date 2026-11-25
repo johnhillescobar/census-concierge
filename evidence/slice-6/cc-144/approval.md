@@ -61,5 +61,7 @@ Gate 1 `gate1.txt` (81 GOOD, 0 BAD, after tests were added for 20 surviving prob
 first two kept). Re-run `gate2-r2.txt` (round one fixed; three low findings, fixed in `gate2-r2-fixes.txt`). An outside review of d1c5ee4, run by the owner,
 then found three script bugs the gates had not stopped: lost edits and overlapping runs, an inexact copy left beside the
 gate line, and cleanup deleting files a manifest named. Fixed: `review3-fixes.txt`, `review3-probes.txt`. **No review has
-read these last fixes or the re-run ones.** `make-check.txt`: every recipe line exits 0. Closure: AC1 AC2 AC4 TC1 TC2 PASS; AC3 TC3 NOT RUN.
+read these last fixes or the re-run ones.** `make-check-final.txt`: every recipe step passes on the final code (`npm ci` first failed twice on a locked folder;
+`make-check-failed-over-pinned-file.txt` is a run that overwrote a pinned file and failed for that reason; `make-check.txt`
+is the earlier passing run). Per-criterion output: `closure-run-final/`. Closure: AC1 AC2 AC4 TC1 TC2 PASS; AC3 TC3 NOT RUN.
 No E2E: no `api/src`, `evals/` or run-harness file changed.

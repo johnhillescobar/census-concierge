@@ -1,5 +1,5 @@
 ticket = "CC-144"
-head = "368a1e2f798b894731fd40c04bda9c0b915b2b20"
+head = "aab945a1333ebfce045c76ae9837f598018f3ab2"
 required = ["AC1", "AC2", "AC3", "AC4", "TC1", "TC2", "TC3"]
 # No post-merge run is expected: no api/src, evals/ or run-harness file changed
 # (CC-143 AC11, computed by closure.py from the merged diff).
@@ -10,25 +10,25 @@ status = "PASS"
 command = "uv run python scripts/jira_gate_line.py --dry-run"
 expected = "lists every open ticket that carries the pasted gate wording and writes a before and after snapshot of each description without changing Jira"
 observed = "54 open tickets read: 20 to change, 0 refused; before and after snapshots with a hashed manifest. The ticket said about 23. The command's only Jira call is the search (tested), which is a POST that reads."
-evidence = [{ path = "evidence/slice-6/cc-144/closure-run/AC1.txt", sha256 = "38420db6007dffa14a34557ae33efc3f6e5e73dfced3bb7bcdd4b663b8fb995d" }, { path = "evidence/slice-6/cc-144/snapshots/manifest.json", sha256 = "b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05" }]
-tested_head = "368a1e2f798b894731fd40c04bda9c0b915b2b20"
+evidence = [{ path = "evidence/slice-6/cc-144/closure-run-final/AC1.txt", sha256 = "e2399b2e7eaecd5bc2e2ecd23bc63ec3fbc60edfb1b773c9c8c016ccdfd93b73" }, { path = "evidence/slice-6/cc-144/snapshots/manifest.json", sha256 = "b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05" }]
+tested_head = "aab945a1333ebfce045c76ae9837f598018f3ab2"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1.txt", sha256 = "19f585d80db76564fa7f184fefa4f22c78e51d26a1f91c9cbd60709e42b83303" }
-reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt. The fixes after the re-run, the three from the owner's outside review included, have not been reviewed"
 
 [[row]]
 id = "AC2"
 status = "PASS"
 command = "uv run pytest api/tests/test_jira_gate_line.py -q"
 expected = "the script refuses any ticket whose criterion IDs would change"
-observed = "88 passed. IDs are compared in order with repeats, because CC-3 and other tickets number two sections from AC1."
-evidence = [{ path = "evidence/slice-6/cc-144/closure-run/AC2.txt", sha256 = "e06cd8e129af9eb981003a4c4fc7c32afc4c7b2fe287270428757e0881063e20" }, { path = "evidence/slice-6/cc-144/make-check.txt", sha256 = "fcac6483945be978d471efac079bd6cc556e509bdb11154b188e7a7b1b15b99c" }, { path = "evidence/slice-6/cc-144/gate1-fixes.txt", sha256 = "7098515c0ee519599cdc31d10f9c37e1c8102788fdde5cae250cb596f32f0119" }, { path = "evidence/slice-6/cc-144/gate2-fixes.txt", sha256 = "f1b77d68699df1c592a47013ebf1a2c7517f0967c493643468788dc60775b31a" }, { path = "evidence/slice-6/cc-144/gate2-r2-fixes.txt", sha256 = "bb4ff60980c2dcdc9d7a244810815daf1668b16f274af21e8215d607b5b264c6" }]
-tested_head = "368a1e2f798b894731fd40c04bda9c0b915b2b20"
+observed = "125 passed. IDs are compared in order with repeats, because CC-3 and other tickets number two sections from AC1."
+evidence = [{ path = "evidence/slice-6/cc-144/closure-run-final/AC2.txt", sha256 = "fb33992a30e20f060b54d7049623f18a30f311c8e89483b3e2131362c5bf4ec0" }, { path = "evidence/slice-6/cc-144/make-check-final.txt", sha256 = "3677336b70a7232ce9b4ce672e791d893e6d817e2d52af5a6b515f5f5ba9543f" }, { path = "evidence/slice-6/cc-144/gate1-fixes.txt", sha256 = "7098515c0ee519599cdc31d10f9c37e1c8102788fdde5cae250cb596f32f0119" }, { path = "evidence/slice-6/cc-144/gate2-fixes.txt", sha256 = "f1b77d68699df1c592a47013ebf1a2c7517f0967c493643468788dc60775b31a" }, { path = "evidence/slice-6/cc-144/gate2-r2-fixes.txt", sha256 = "bb4ff60980c2dcdc9d7a244810815daf1668b16f274af21e8215d607b5b264c6" }, { path = "evidence/slice-6/cc-144/review3-fixes.txt", sha256 = "2a778b0478cea62a3d3df2efd980247eadfc4fc656f1cde94ee3a88eef28014a" }, { path = "evidence/slice-6/cc-144/review3-probes.txt", sha256 = "9a793dfa9188c3c90a10871260620ee3c025db7d8d291e2d543b6ac66c242b97" }]
+tested_head = "aab945a1333ebfce045c76ae9837f598018f3ab2"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1.txt", sha256 = "19f585d80db76564fa7f184fefa4f22c78e51d26a1f91c9cbd60709e42b83303" }
-reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt. The fixes after the re-run, the three from the owner's outside review included, have not been reviewed"
 
 [[row]]
 id = "AC3"
@@ -43,12 +43,12 @@ status = "PASS"
 command = "uv run python scripts/closure.py check evidence/closure/<KEY>.toml --pre-merge"
 expected = "the playbook's pre-flight step says every criterion names a command, and the closure check rejects a row without one"
 observed = "A NOT RUN row with no command is reported as 'AC1: missing command'; 9 cases pass; the six earlier manifests stay well formed; doc lines 1820 of 1820. AMENDED rows are exempt (a default)."
-evidence = [{ path = "evidence/slice-6/cc-144/closure-run/AC4.txt", sha256 = "2a74a8ed1819977353f80b33dedd2d920012000eee2860a3e9c882c11747ec3d" }]
-tested_head = "368a1e2f798b894731fd40c04bda9c0b915b2b20"
+evidence = [{ path = "evidence/slice-6/cc-144/closure-run-final/AC4.txt", sha256 = "8fe58470a5759e5ed956c5cb7daa3d3fa8d6be98c4bfbfb60e6c245b762de29b" }]
+tested_head = "aab945a1333ebfce045c76ae9837f598018f3ab2"
 affects = ["scripts/closure.py", "api/tests/test_closure_gate.py", "docs/playbooks/run-slice.md"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1.txt", sha256 = "19f585d80db76564fa7f184fefa4f22c78e51d26a1f91c9cbd60709e42b83303" }
-reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt. The fixes after the re-run, the three from the owner's outside review included, have not been reviewed"
 
 [[row]]
 id = "TC1"
@@ -56,12 +56,12 @@ status = "PASS"
 command = "uv run pytest api/tests/test_jira_gate_line.py -q -k 'drop_an_id or add_an_id or would_change_the_ids'"
 expected = "a description whose edit would drop or add an ID is refused and left unchanged"
 observed = "4 passed: a dropped id, a dropped repeat of an id, an added id, and an approved edit that would change the ids at apply time."
-evidence = [{ path = "evidence/slice-6/cc-144/closure-run/TC1.txt", sha256 = "76c26f479b323f4dd021ca77d55922ca0ebea20b54dc5175cf8c0b540fd9a5c9" }]
-tested_head = "368a1e2f798b894731fd40c04bda9c0b915b2b20"
+evidence = [{ path = "evidence/slice-6/cc-144/closure-run-final/TC1.txt", sha256 = "6314dc0d394d9a3a0292211c882c93fc6ba5701292a42be80e7de2ae0e6a4027" }]
+tested_head = "aab945a1333ebfce045c76ae9837f598018f3ab2"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1.txt", sha256 = "19f585d80db76564fa7f184fefa4f22c78e51d26a1f91c9cbd60709e42b83303" }
-reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt. The fixes after the re-run, the three from the owner's outside review included, have not been reviewed"
 
 [[row]]
 id = "TC2"
@@ -69,12 +69,12 @@ status = "PASS"
 command = "uv run python scripts/jira_gate_line.py --apply"
 expected = "running --apply without an approved snapshot directory exits non-zero and writes nothing"
 observed = "The real command, with no credentials available, exits 2 with no directory, with the unapproved snapshots and with a missing directory. 8 test cases show no Jira call is made."
-evidence = [{ path = "evidence/slice-6/cc-144/closure-run/TC2.txt", sha256 = "21ed5877f76995b35d1f20f8201e0a89b6939048eecb3400c1782e38b510988a" }]
-tested_head = "368a1e2f798b894731fd40c04bda9c0b915b2b20"
+evidence = [{ path = "evidence/slice-6/cc-144/closure-run-final/TC2.txt", sha256 = "4f142dcaa0447dc94478454bff3bd021b4fbdd20c64bed43ccf23846d8419733" }]
+tested_head = "aab945a1333ebfce045c76ae9837f598018f3ab2"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1.txt", sha256 = "19f585d80db76564fa7f184fefa4f22c78e51d26a1f91c9cbd60709e42b83303" }
-reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt"
+reviewer = "evidence/slice-6/cc-144/gate2.txt; evidence/slice-6/cc-144/gate2-r2.txt. The fixes after the re-run, the three from the owner's outside review included, have not been reviewed"
 
 [[row]]
 id = "TC3"
