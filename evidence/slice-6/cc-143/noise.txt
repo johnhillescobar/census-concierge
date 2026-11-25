@@ -1,0 +1,104 @@
+$ git rev-parse HEAD
+ec2ba525e4e99f0b7baa5d73b6a5f32d771dd56b
+$ uv run python scripts/metric_compare.py noise evidence/metrics/runs/main-b1.json evidence/metrics/runs/main-b2.json evidence/metrics/runs/cc104-p1.json evidence/metrics/runs/cc104-p2.json --sizes 1x1,2x2,1x2,4x4
+NOISE  protocol 58f23fdf4ab84c37  seed 20261109  sims 2000
+rule: rate_drop_max=0.07, small_group_lost_questions=1.0, empty_rise_max=0.03, rows_lost_questions_max=1, retrieval_drop_max=0.0, selector_drop_max=0.33, p95_rise_max_seconds=2.5; small groups under 30 questions
+stored runs: 4 of 2 code(s)
+  29c0518  2 run(s): main-b1.json, main-b2.json
+  e86882d  2 run(s): cc104-p1.json, cc104-p2.json
+
+Simulated runs draw each trial from the stored trials of its own question and code, so
+they hold the trial-to-trial noise and not a shift that moves a whole run (a provider's
+bad hour). Read a simulated rate as a floor; the observed pairs are the check on it.
+
+size 1x1 (candidate runs x reference runs)
+  observed  unchanged code fails 0.000 [0.000, 0.490] of 4
+  simulated 29c0518  unchanged code fails 0.056 [0.047, 0.067]
+      long_tail trial rate       fails 0.004; worsening passed in 95%: 0.042
+      trap trial rate            fails 0.009; worsening passed in 95%: 0.037
+      core trial rate            fails 0.003; worsening passed in 95%: 0.167
+      empty answers (long_tail)  fails 0.011; worsening passed in 95%: 0.025
+      rows per question          fails 0.000; worsening passed in 95%: 0.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.325
+      p95 vs reference           fails 0.029; worsening passed in 95%: 2.195
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.810 [0.769, 0.845]; one fewer 0.510 [0.461, 0.559]
+  simulated e86882d  unchanged code fails 0.097 [0.084, 0.110]
+      long_tail trial rate       fails 0.001; worsening passed in 95%: 0.042
+      trap trial rate            fails 0.048; worsening passed in 95%: 0.056
+      core trial rate            fails 0.000; worsening passed in 95%: 0.167
+      empty answers (long_tail)  fails 0.033; worsening passed in 95%: 0.025
+      rows per question          fails 0.000; worsening passed in 95%: 1.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.000
+      p95 vs reference           fails 0.017; worsening passed in 95%: 2.012
+      smallest seeded regression caught 80% of the time: 5 long_tail question(s) broken (12.5 points), caught 0.968 [0.945, 0.981]; one fewer 0.790 [0.747, 0.827]
+
+size 2x2 (candidate runs x reference runs)
+  observed  none: one comparison needs 4 runs of one code, the largest stored group has 2; 2 more run(s) of that code
+  simulated 29c0518  unchanged code fails 0.006 [0.003, 0.010]
+      long_tail trial rate       fails 0.000; worsening passed in 95%: 0.033
+      trap trial rate            fails 0.001; worsening passed in 95%: 0.037
+      core trial rate            fails 0.000; worsening passed in 95%: 0.125
+      empty answers (long_tail)  fails 0.000; worsening passed in 95%: 0.017
+      rows per question          fails 0.000; worsening passed in 95%: 0.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.325
+      p95 vs reference           fails 0.005; worsening passed in 95%: 1.729
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.892 [0.858, 0.919]; one fewer 0.557 [0.509, 0.605]
+  simulated e86882d  unchanged code fails 0.018 [0.013, 0.025]
+      long_tail trial rate       fails 0.000; worsening passed in 95%: 0.029
+      trap trial rate            fails 0.014; worsening passed in 95%: 0.046
+      core trial rate            fails 0.000; worsening passed in 95%: 0.125
+      empty answers (long_tail)  fails 0.003; worsening passed in 95%: 0.017
+      rows per question          fails 0.000; worsening passed in 95%: 1.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.000
+      p95 vs reference           fails 0.002; worsening passed in 95%: 1.162
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.892 [0.858, 0.919]; one fewer 0.532 [0.484, 0.581]
+
+size 1x2 (candidate runs x reference runs)
+  observed  none: one comparison needs 3 runs of one code, the largest stored group has 2; 1 more run(s) of that code
+  simulated 29c0518  unchanged code fails 0.033 [0.026, 0.042]
+      long_tail trial rate       fails 0.004; worsening passed in 95%: 0.042
+      trap trial rate            fails 0.005; worsening passed in 95%: 0.037
+      core trial rate            fails 0.002; worsening passed in 95%: 0.167
+      empty answers (long_tail)  fails 0.003; worsening passed in 95%: 0.017
+      rows per question          fails 0.000; worsening passed in 95%: 0.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.325
+      p95 vs reference           fails 0.021; worsening passed in 95%: 1.826
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.875 [0.839, 0.904]; one fewer 0.517 [0.469, 0.566]
+  simulated e86882d  unchanged code fails 0.061 [0.051, 0.072]
+      long_tail trial rate       fails 0.002; worsening passed in 95%: 0.037
+      trap trial rate            fails 0.037; worsening passed in 95%: 0.056
+      core trial rate            fails 0.000; worsening passed in 95%: 0.125
+      empty answers (long_tail)  fails 0.015; worsening passed in 95%: 0.025
+      rows per question          fails 0.000; worsening passed in 95%: 1.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.000
+      p95 vs reference           fails 0.007; worsening passed in 95%: 1.559
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.885 [0.850, 0.913]; one fewer 0.522 [0.474, 0.571]
+
+size 4x4 (candidate runs x reference runs)
+  observed  none: one comparison needs 8 runs of one code, the largest stored group has 2; 6 more run(s) of that code
+  simulated 29c0518  unchanged code fails 0.000 [0.000, 0.002]
+      long_tail trial rate       fails 0.000; worsening passed in 95%: 0.023
+      trap trial rate            fails 0.000; worsening passed in 95%: 0.023
+      core trial rate            fails 0.000; worsening passed in 95%: 0.083
+      empty answers (long_tail)  fails 0.000; worsening passed in 95%: 0.010
+      rows per question          fails 0.000; worsening passed in 95%: 0.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.163
+      p95 vs reference           fails 0.000; worsening passed in 95%: 1.439
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.938 [0.909, 0.957]; one fewer 0.537 [0.489, 0.586]
+  simulated e86882d  unchanged code fails 0.001 [0.000, 0.003]
+      long_tail trial rate       fails 0.000; worsening passed in 95%: 0.021
+      trap trial rate            fails 0.001; worsening passed in 95%: 0.032
+      core trial rate            fails 0.000; worsening passed in 95%: 0.083
+      empty answers (long_tail)  fails 0.000; worsening passed in 95%: 0.013
+      rows per question          fails 0.000; worsening passed in 95%: 1.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.000
+      p95 vs reference           fails 0.000; worsening passed in 95%: 0.836
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.945 [0.918, 0.963]; one fewer 0.515 [0.466, 0.564]

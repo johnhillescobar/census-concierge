@@ -1,0 +1,61 @@
+CC-143 pre-flight. Branch cc-143/acceptance-gate, HEAD ec2ba525e4e99f0b7baa5d73b6a5f32d771dd56b, base origin/main 29c051860b8430d4319ad918669e18351dc9e779.
+
+$ uv run python evidence/slice-6/cc-143/old_rule.py <origin/main:scripts/metric_compare.py>
+# claim (ticket): the rule on main returns FAIL when unchanged main is judged against unchanged main
+origin/main rule, main-b1 against main-b2 (one code, 29c0518): FAIL
+  INCONCLUSIVE long_tail trial rate         cannot rule out a drop over 2% (diff +0.017, lower -0.050)
+  FAIL         long_tail case rate          observed decrease (-0.025 over 40 families)
+  INCONCLUSIVE trap trial rate              18 families, need 30
+  INCONCLUSIVE trap case rate               18 families, need 30
+  INCONCLUSIVE core trial rate              4 families, need 30
+  FAIL         core case rate               observed decrease (-0.250 over 4 families)
+  FAIL         rows per family              2 families returned fewer rows
+  FAIL         empty answers (long_tail)    +0.017 per family
+  PASS         retrieval_at_10              0.9 vs 0.9
+  PASS         selector_at_1                0.75 vs 0.425
+  FAIL         p95 vs reference             30.204s vs 28.275s
+origin/main rule, main-b2 against main-b1 (one code, 29c0518): FAIL
+  FAIL         long_tail trial rate         observed decrease (-0.017 over 40 families)
+  INCONCLUSIVE long_tail case rate          cannot rule out a drop over 2% (diff +0.025, lower -0.075)
+  FAIL         trap trial rate              observed decrease (-0.019 over 18 families)
+  FAIL         trap case rate               observed decrease (-0.056 over 18 families)
+  INCONCLUSIVE core trial rate              4 families, need 30
+  INCONCLUSIVE core case rate               4 families, need 30
+  PASS         rows per family              no family lost rows
+  PASS         empty answers (long_tail)    -0.017 per family
+  PASS         retrieval_at_10              0.9 vs 0.9
+  FAIL         selector_at_1                0.425 vs 0.75
+  PASS         p95 vs reference             28.275s vs 30.204s; gain not credited, answers fell
+
+$ git rev-parse cc-104/structured-geography ; sha256sum of the four blobs there and here
+# claim (ticket AC5): four stored runs, two of main and two of the CC-104 branch
+178c158ada53609846598dfd9db92a68ef212854
+9c7adc0ae277a191d94dc3c85d878ed11d498f24dcf5c941816384ccc54889fc  e2e-r3-b1 (cc-104 branch)
+9c7adc0ae277a191d94dc3c85d878ed11d498f24dcf5c941816384ccc54889fc  evidence/metrics/runs/main-b1.json (this branch)
+cdc483e48a3eabcf759a6f80e814027d3bcc16d4ee238691d424fd32ced15c8f  e2e-r3-b2 (cc-104 branch)
+cdc483e48a3eabcf759a6f80e814027d3bcc16d4ee238691d424fd32ced15c8f  evidence/metrics/runs/main-b2.json (this branch)
+9bb4fc22ff01bb4b5ae3c6c55892d04eea733a5c839dd5ce941badb063281278  e2e-r3-p1 (cc-104 branch)
+9bb4fc22ff01bb4b5ae3c6c55892d04eea733a5c839dd5ce941badb063281278  evidence/metrics/runs/cc104-p1.json (this branch)
+349c1c9f09e20854b37bc841b7d3c6892bbf24d3a874757e7c685e78472f38d3  e2e-r3-p2 (cc-104 branch)
+349c1c9f09e20854b37bc841b7d3c6892bbf24d3a874757e7c685e78472f38d3  evidence/metrics/runs/cc104-p2.json (this branch)
+
+$ git show origin/main:evals/metric_protocol.toml | (protocol hash) ; git diff --stat origin/main e86882d -- evals/metric_protocol.toml
+# claim: the stored runs recorded protocol 8239289b06c79e1f, the file on main and on the CC-104 head
+origin/main protocol hash 8239289b06c79e1f
+recorded by the runs   ['8239289b06c79e1f']
+(no output above this line from git diff = identical)
+
+$ git diff --stat origin/main -- api/src
+# claim (ticket scope): no api/src change
+(empty = none)
+
+$ git show origin/main:docs/... doc lines ; uv run python scripts/check_budgets.py --structural-only | grep "doc lines"
+# claim (epic): prescriptive docs were 1822 against 1820 on main; 9599fa2 removes 5, this branch adds 3
+  ok    doc lines                 1820 <= 1820
+
+$ git log --first-parent --format="%h %s" origin/main -- evidence/closure/CC-141.toml
+# claim (AC11 design): first-parent history names the merges that carried a ticket by its manifest
+29c0518 Merge pull request #148 from johnhillescobar:cc-141/ac4-affects
+bed972e Merge pull request #147 from johnhillescobar:cc-141/ac4
+0412baa Merge pull request #146 from johnhillescobar:cc-141/post-merge
+d85753c Merge pull request #142 from johnhillescobar:cc-141/golden-state
