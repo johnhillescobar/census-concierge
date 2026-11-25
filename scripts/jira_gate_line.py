@@ -11,10 +11,12 @@ stores it) and DIR/manifest.json.
 The owner approves a set of snapshots by writing the sha256 of its manifest.json, which --dry-run
 prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots void it.
 
-A ticket is left unchanged when its AC/TC IDs would differ, when a copy of the wording was
-reworded, when its description changed after the snapshot, or when its after snapshot is not what
-this script's rule produces. Auth as in jira_transition.py: ATLASSIAN_EMAIL and
-ATLASSIAN_API_TOKEN in .env.
+A ticket is left unchanged when its AC/TC IDs would differ, when a copy of the wording is not
+exact (reworded, formatted or linked), when a line would still point at the removed contract, when
+it was closed or its description changed after the snapshot, or when its after snapshot is not what
+this script's rule produces. A write that Jira cannot be shown to hold stops the run and leaves
+DIR/FAILED, which blocks every later --apply until a person deletes it. Auth as in
+jira_transition.py: ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN in .env.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import http.client
 import json
 import sys
 from collections.abc import Callable
@@ -49,7 +52,8 @@ PASTED = {
     "8d17d73f28ba0ad83ab4e78542e0861c67481c23ae9d1b7b13308ec0f42cdbf7": "AC/TC clearance",  # 104
     "2e5d766b01f39c364c01b3a059cc657a9cab652ddc602c83feaebc73956718a4": "audit gates",
 }
-# How a copy of the pasted wording begins. One still there after the edit was not recognised.
+# How a copy of the pasted wording begins. One still there after the edit, anywhere and in any
+# capitals, was not recognised.
 MARKERS = (
     "Metric progression and non-regression contract",
     "Mandatory AC/TC clearance before shipping",
@@ -61,6 +65,7 @@ OLD_POINTER = (
     "CC-114 keeps its scoped closeout)"
 )
 NEW_POINTER = "Existing scope"
+POINTER_PHRASE = "the stricter metric contract above"
 
 Doc = dict[str, Any]
 ApiFn = Callable[..., dict[str, Any]]
@@ -122,15 +127,22 @@ def edit(doc: Doc) -> tuple[Doc, list[str]]:
     return after, replaced
 
 
+def _mentions(doc: Doc, phrase: str) -> bool:
+    """In any capitals, mid-line or across a line break."""
+    return phrase.casefold() in " ".join(_lines(doc)).casefold()
+
+
 def refusal(before: Doc, after: Doc) -> str | None:
     """Why this edit must not be made, or None."""
     old, new = criterion_ids(before), criterion_ids(after)
     if old != new:
         was, would = ", ".join(old) or "none", ", ".join(new) or "none"
         return f"criterion IDs would change: {was} -> {would}"
-    for line in _lines(after):
-        if line.startswith(MARKERS):
-            return f"a copy of the pasted wording is reworded, formatted or linked: {line[:60]!r}"
+    for marker in MARKERS:
+        if _mentions(after, marker):
+            return f"a copy of the pasted wording is reworded, formatted or linked: {marker!r}"
+    if _mentions(before, MARKERS[0]) and _mentions(after, POINTER_PHRASE):
+        return "a line would still point at the removed contract (formatted, nested or moved)"
     return None
 
 
@@ -152,7 +164,7 @@ def changes(issues: list[dict[str, Any]]) -> list[Change]:
             continue
         after, replaced = edit(before)
         why = refusal(before, after)
-        carries = any(line.startswith(MARKERS) for line in _lines(before))
+        carries = any(_mentions(before, marker) for marker in MARKERS)
         if replaced or carries:
             found.append(Change(str(issue.get("key")), before, after, replaced, why))
     return found
@@ -184,14 +196,21 @@ def _discard(out: Path) -> None:
 
 
 def dry_run(out: Path, search: SearchFn) -> int:
-    found = changes(search(OPEN_JQL, fields="description"))
+    issues = search(OPEN_JQL, fields="description")
+    if not issues:  # an empty answer is a fault to look at, not a project with nothing to change
+        print("Jira returned no open ticket at all; nothing changed", file=sys.stderr)
+        return 1
+    found = changes(issues)
     ready = [c for c in found if not c.refused]
     for change in found:
         if change.refused:
             print(f"REFUSED  {change.key}  {change.refused}")
         else:
             print(f"change   {change.key}  replaces: {', '.join(change.replaced)}")
-    print(f"{len(ready)} ticket(s) left to change, {len(found) - len(ready)} refused")
+    print(
+        f"{len(issues)} open ticket(s) read: {len(ready)} ticket(s) left to change, "
+        f"{len(found) - len(ready)} refused"
+    )
     failed = 1 if len(found) > len(ready) else 0
     if (out / "APPROVED").exists():
         if not ready:
@@ -220,15 +239,17 @@ def dry_run(out: Path, search: SearchFn) -> int:
             "replaced": change.replaced,
             "files": {name: _sha(data) for name, data in files.items()},
         }
-    manifest = _dump({"gate_line": GATE_LINE, "tickets": tickets})
+    skipped = {c.key: c.refused for c in found if c.refused}
+    manifest = _dump({"gate_line": GATE_LINE, "refused": skipped, "tickets": tickets})
     (out / "manifest.json").write_bytes(manifest)
     print(f"snapshots in {out}")
     print(f"to approve, write this into {out / 'APPROVED'}: {_sha(manifest)}")
     return failed
 
 
-def approved_snapshots(folder: Path) -> dict[str, tuple[Doc, Doc]]:
-    """key -> (before, after) from an approved directory. ValueError when it is not one."""
+def approved_snapshots(folder: Path) -> tuple[dict[str, tuple[Doc, Doc]], dict[str, str]]:
+    """From an approved directory: key -> (before, after), and the tickets the dry run refused.
+    ValueError when it is not one."""
     manifest = folder / "manifest.json"
     approval = folder / "APPROVED"
     if not manifest.is_file():
@@ -237,10 +258,11 @@ def approved_snapshots(folder: Path) -> dict[str, tuple[Doc, Doc]]:
         raise ValueError(f"{folder} is not approved: it has no APPROVED file")
     raw = manifest.read_bytes()
     # utf-8-sig: Windows PowerShell writes a byte order mark
-    if _sha(raw) not in approval.read_text(encoding="utf-8-sig").split():
+    if approval.read_text(encoding="utf-8-sig").strip() != _sha(raw):  # the hash and no more
         raise ValueError(f"{approval} does not name these snapshots (manifest {_sha(raw)})")
+    listed = json.loads(raw)
     docs: dict[str, tuple[Doc, Doc]] = {}
-    for key, entry in json.loads(raw)["tickets"].items():
+    for key, entry in listed["tickets"].items():
         for name, want in entry["files"].items():
             path = folder / name
             if not path.is_file() or _sha(path.read_bytes()) != want:
@@ -249,26 +271,74 @@ def approved_snapshots(folder: Path) -> dict[str, tuple[Doc, Doc]]:
             json.loads((folder / f"{key}.{side}.json").read_bytes()) for side in ("before", "after")
         ]
         docs[key] = (pair[0], pair[1])
-    return docs
+    return docs, listed["refused"]
 
 
-def _description(key: str, api: ApiFn) -> Doc:
-    return api("GET", f"/issue/{key}?fields=description")["fields"]["description"]
+def _stored_form(node: Any) -> Any:
+    """A document without what Jira may add of its own when it stores one: a localId, and the
+    attrs that then holds nothing. Everything else, links and structure included, must match."""
+    if isinstance(node, list):
+        return [_stored_form(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    out = {key: _stored_form(value) for key, value in node.items()}
+    if "attrs" in out:
+        out["attrs"] = {k: v for k, v in out["attrs"].items() if k != "localId"}
+        if not out["attrs"]:
+            del out["attrs"]
+    return out
+
+
+def _issue(key: str, api: ApiFn) -> tuple[Doc, bool]:
+    """The description as Jira stores it now, and whether the ticket is closed."""
+    fields = api("GET", f"/issue/{key}?fields=description,status")["fields"]
+    return fields["description"], fields["status"]["statusCategory"]["key"] == "done"
+
+
+def _write(key: str, before: Doc, after: Doc, api: ApiFn) -> str | None:
+    """Write one description and read it back. Why it cannot be shown to hold, or None."""
+    try:
+        api("PUT", f"/issue/{key}", {"fields": {"description": after}})
+        stored, _ = _issue(key, api)
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        http.client.HTTPException,
+        SystemExit,  # jira_transition._api exits on an HTTP error
+    ) as exc:
+        return f"the write could not be confirmed ({type(exc).__name__}: {exc})"
+    if _stored_form(stored) != _stored_form(after):
+        return "Jira does not hold the approved description"
+    return None
 
 
 def apply(folder: Path, api: ApiFn) -> int:
+    stop = folder / "FAILED"
+    if stop.exists():
+        print(
+            f"nothing written: {stop} records a write that did not hold. Compare that ticket "
+            "with its before snapshot, restore it if needed, then delete the file",
+            file=sys.stderr,
+        )
+        return 2
     try:
-        snapshots = approved_snapshots(folder)
+        snapshots, skipped = approved_snapshots(folder)
     except (ValueError, KeyError, TypeError, OSError) as exc:
         print(f"nothing written: {exc}", file=sys.stderr)
         return 2
-    written = refused = 0
+    for key, why in skipped.items():
+        print(f"REFUSED  {key}  at the dry run: {why}")
+    written, refused = 0, len(skipped)
     for key, (before, after) in snapshots.items():
-        live = _description(key, api)
-        if _lines(live) == _lines(after):
+        live, closed = _issue(key, api)
+        if _stored_form(live) == _stored_form(after):
             print(f"done     {key}  already reads as approved")
             continue
         why = refusal(before, after)
+        if not why and closed:
+            why = "the ticket was closed after the snapshot"
         if not why and live != before:
             why = "the description changed after the snapshot; run --dry-run again"
         if not why and edit(before)[0] != after:
@@ -277,18 +347,15 @@ def apply(folder: Path, api: ApiFn) -> int:
             print(f"REFUSED  {key}  {why}")
             refused += 1
             continue
-        api("PUT", f"/issue/{key}", {"fields": {"description": after}})
-        stored = _description(key, api)
-        if criterion_ids(stored) != criterion_ids(before) or _lines(stored) != _lines(after):
-            # stop at once: whatever went wrong would go wrong on the next ticket too
-            print(
-                f"FAILED   {key}  Jira does not hold the approved text; restore it from "
-                f"{folder / f'{key}.before.json'}",
-                file=sys.stderr,
-            )
+        problem = _write(key, before, after, api)
+        if problem:
+            # stop at once, and stay stopped: what went wrong here would go wrong on the next
+            message = f"{key}: {problem}; restore it from {folder / f'{key}.before.json'}"
+            stop.write_text(message + "\n", encoding="utf-8")
+            print(f"FAILED   {message}", file=sys.stderr)
             return 1
         written += 1
-        print(f"written  {key}  IDs unchanged: {', '.join(criterion_ids(stored)) or 'none'}")
+        print(f"written  {key}  IDs unchanged: {', '.join(criterion_ids(after)) or 'none'}")
     print(f"{written} written, {refused} refused")
     return 1 if refused else 0
 

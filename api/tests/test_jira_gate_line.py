@@ -4,8 +4,10 @@ writes what the owner did not approve, and finds nothing left once it has writte
 from __future__ import annotations
 
 import copy
+import http.client
 import json
 import sys
+import urllib.error
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,8 @@ CONTRACT = "Metric progression and non-regression contract\nNo observed decrease
 CLEARANCE = "Mandatory AC/TC clearance before shipping\nEvery merged change owes a run."
 AUDIT = "Existing AC/TC, earned floors, and the old uncertainty rule remain binding."
 REAL_PASTED = dict(jg.PASTED)  # read before any test stands in its own
+# two descriptions as Jira held them before and after the edit
+FIXTURES = ROOT / "api" / "tests" / "fixtures" / "gate_wording"
 
 
 def para(text: str) -> dict[str, Any]:
@@ -52,6 +56,7 @@ class Jira:
         self.tickets = {key.replace("_", "-"): body for key, body in tickets.items()}
         self.writes: list[str] = []
         self.calls: list[str] = []
+        self.closed: set[str] = set()
 
     def search(self, jql: str, *, fields: str) -> list[dict[str, Any]]:
         self.calls.append("search")
@@ -64,7 +69,13 @@ class Jira:
         self.calls.append(method)
         key = path.split("/")[2].split("?")[0]
         if method == "GET":
-            return {"fields": {"description": copy.deepcopy(self.tickets[key])}}
+            asked = path.split("fields=")[1].split(",")
+            category = "done" if key in self.closed else "indeterminate"
+            held = {
+                "description": copy.deepcopy(self.tickets[key]),
+                "status": {"statusCategory": {"key": category}},
+            }
+            return {"fields": {name: held[name] for name in asked}}
         assert method == "PUT" and body is not None
         self.writes.append(key)
         self.tickets[key] = copy.deepcopy(body["fields"]["description"])
@@ -162,6 +173,10 @@ def test_an_approved_edit_that_would_change_the_ids_is_still_not_written(
         CONTRACT + " An owner added this sentence.",
         CLEARANCE + " An owner added this sentence.",
         AUDIT + " Except on one ticket.",
+        CONTRACT.upper(),
+        "Note: " + CLEARANCE,
+        "Retained from before.\n" + AUDIT,
+        "Existing AC/TC, earned\nfloors, in two lines.",
     ],
 )
 def test_a_reworded_copy_refuses_the_whole_ticket(tmp_path: Path, reworded: str) -> None:
@@ -215,7 +230,9 @@ def test_a_pasted_paragraph_split_by_line_breaks_is_still_an_exact_copy() -> Non
     assert jg.edit({"type": "doc", "version": 1, "content": [block]})[1] == ["metric contract"]
 
 
-@pytest.mark.parametrize("left", [{}, {"CC_1": doc(CONTRACT + " reworded")}])
+@pytest.mark.parametrize(
+    "left", [{"CC_9": doc("no wording here")}, {"CC_1": doc(CONTRACT + " reworded")}]
+)
 def test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve(
     tmp_path: Path, left: dict[str, Any]
 ) -> None:
@@ -456,14 +473,16 @@ def test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side(
     """The other tests stand in their own paragraphs. This one holds the real hashes and the
     real line to the descriptions that were read from Jira."""
     monkeypatch.setattr(jg, "PASTED", REAL_PASTED)
-    manifest = json.loads((jg.OUT / "manifest.json").read_bytes())
-    assert manifest["tickets"]
-    for key, entry in manifest["tickets"].items():
+    seen: set[str] = set()
+    for key in ("CC-104", "CC-105"):  # between them they hold every pasted paragraph
         before, after = (
-            json.loads((jg.OUT / f"{key}.{side}.json").read_bytes()) for side in ("before", "after")
+            json.loads((FIXTURES / f"{key}.{side}.json").read_bytes())
+            for side in ("before", "after")
         )
-        assert jg.edit(before) == (after, entry["replaced"]), key
+        assert jg.edit(before)[0] == after, key
         assert jg.refusal(before, after) is None, key
+        seen |= {jg.fingerprint(node) for node in before["content"]} & set(REAL_PASTED)
+    assert seen == set(REAL_PASTED)
 
 
 def never(*args: Any, **kwargs: Any) -> Any:
@@ -525,3 +544,147 @@ def test_a_dry_run_and_an_apply_asked_at_once_write_nothing(
         jg.main(["--dry-run", "--apply", "--approved", str(tmp_path)])
     assert stopped.value.code != 0
     assert jira.calls == []
+
+
+def structured() -> dict[str, Any]:
+    """A ticket with the things its visible text does not show: a link, a card and a list."""
+    body = ticket()
+    body["content"][0]["content"][0]["marks"] = [copy.deepcopy(LINK)]
+    body["content"][0]["content"].append(
+        {"type": "inlineCard", "attrs": {"url": "https://example.invalid/card"}}
+    )
+    body["content"].append(
+        {"type": "bulletList", "content": [{"type": "listItem", "content": [para("a point")]}]}
+    )
+    return body
+
+
+@pytest.mark.parametrize("lost", ["the link", "the card", "the list structure"])
+def test_a_write_that_loses_what_the_text_does_not_show_stops_the_run(
+    tmp_path: Path, lost: str
+) -> None:
+    jira = Jira(CC_1=structured(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def dropping(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        done = jira.api(method, path, body)
+        if method == "PUT":
+            blocks = jira.tickets["CC-1"]["content"]
+            if lost == "the link":
+                del blocks[0]["content"][0]["marks"]
+            elif lost == "the card":
+                del blocks[0]["content"][1]
+            else:
+                blocks[-1] = para("a point")
+        return done
+
+    assert jg.apply(tmp_path, dropping) == 1
+    assert jira.writes == ["CC-1"]
+    assert (tmp_path / "FAILED").read_text(encoding="utf-8").startswith("CC-1:")
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        urllib.error.URLError("timed out"),
+        TimeoutError("read timed out"),
+        http.client.IncompleteRead(b""),
+        ValueError("not JSON"),
+        SystemExit(1),  # what the real client does on an HTTP error
+    ],
+)
+@pytest.mark.parametrize("during", ["PUT", "GET"])
+def test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped(
+    tmp_path: Path, fault: BaseException, during: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    put: list[bool] = []
+
+    def faulty(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if method == during and (during == "PUT" or put):
+            raise fault
+        if method == "PUT":
+            put.append(True)
+        return jira.api(method, path, body)
+
+    assert jg.apply(tmp_path, faulty) == 1
+    assert "CC-1.before.json" in capsys.readouterr().err
+    written = list(jira.writes)
+    jira.calls.clear()
+    assert jg.apply(tmp_path, jira.api) == 2  # a rerun must not carry on to the next ticket
+    assert jira.calls == [] and jira.writes == written
+
+
+def test_a_ticket_closed_after_the_snapshot_is_left_alone(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    jira.closed.add("CC-1")
+    assert jg.apply(tmp_path, jira.api) == 1
+    assert jira.writes == ["CC-2"]
+    assert jira.tickets["CC-1"] == ticket()
+
+
+def test_a_ticket_the_dry_run_refused_is_still_reported_by_apply(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=doc(CONTRACT + " reworded"), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    capsys.readouterr()
+    assert jg.apply(tmp_path, jira.api) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1" in out and "1 written, 1 refused" in out
+    assert jira.writes == ["CC-2"]
+
+
+@pytest.mark.parametrize("wording", ["NOT approved {}", "{} rejected", "{0} {0}"])
+def test_a_file_that_says_more_than_the_hash_is_not_an_approval(
+    tmp_path: Path, wording: str
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    digest = jg._sha((tmp_path / "manifest.json").read_bytes())
+    (tmp_path / "APPROVED").write_text(wording.format(digest), encoding="utf-8")
+    jira.calls.clear()
+    assert jg.apply(tmp_path, jira.api) == 2
+    assert jira.calls == []
+
+
+def test_a_search_that_returns_nothing_is_a_fault_and_touches_nothing(tmp_path: Path) -> None:
+    snapshot(Jira(CC_1=ticket()), tmp_path)
+    kept = sorted(p.name for p in tmp_path.iterdir())
+    assert snapshot(Jira(), tmp_path) == 1
+    assert sorted(p.name for p in tmp_path.iterdir()) == kept
+
+
+def test_a_dry_run_says_how_many_tickets_it_read(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    snapshot(Jira(CC_1=ticket(), CC_2=doc("no wording"), CC_3=doc("none here")), tmp_path)
+    assert "3 open ticket(s) read: 1 ticket(s) left to change, 0 refused" in capsys.readouterr().out
+
+
+def _pointer_survives(shape: str) -> list[dict[str, Any]]:
+    head, tail = jg.OLD_POINTER[:14], jg.OLD_POINTER[14:]
+    if shape == "split by formatting":
+        bold = {"type": "text", "text": head, "marks": [{"type": "strong"}]}
+        return [{"type": "paragraph", "content": [bold, {"type": "text", "text": tail}]}]
+    if shape == "inside a panel":
+        return [{"type": "panel", "content": [para(jg.OLD_POINTER)]}]
+    if shape == "after a newline":
+        return [para("A heading line\n" + jg.OLD_POINTER)]
+    return [para(jg.OLD_POINTER.replace("contract above", "contract\nabove"))]
+
+
+@pytest.mark.parametrize(
+    "shape", ["split by formatting", "inside a panel", "after a newline", "broken mid-phrase"]
+)
+def test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket(tmp_path: Path, shape: str) -> None:
+    body = doc(CONTRACT, "AC1. a")
+    body["content"] += _pointer_survives(shape)
+    assert snapshot(Jira(CC_1=body), tmp_path) == 1
+    assert not (tmp_path / "manifest.json").exists()
