@@ -24,6 +24,8 @@ Final run: not required (no `api/src`, `evals/` or run-harness file; CC-143 AC11
 | the closure check rejects a row with no command | `closure.problems` on a NOT RUN row | **no**: only PASS rows are checked. That is the AC4 change |
 | existing manifests survive the stricter check | every `evidence/closure/*.toml` | rows with no command are all AMENDED (CC-125, CC-126, CC-138) |
 | room for a playbook line | `check_budgets.py --structural-only` | doc lines 1820/1820: the sentence goes on an existing line |
+| Jira can refuse a write when the ticket changed after the read | web search; a live GET | **no way found**: no ETag on the read, no supported precondition in the search ([JRACLOUD-26005](https://jira.atlassian.com/browse/JRACLOUD-26005) asks for one). The history lists every description change, so the script detects, and cannot prevent |
+| the history reader reads real histories | `_description_changes` on all 20, GET only | 120 description changes; equal to an independent count for each ticket. That a new write appears at once is **not verified**: if it does not, the run stops |
 | criterion IDs are unique per ticket | `required_ids` per line | **no**: CC-3 has AC1 in two sections, so IDs are compared with repeats, in order |
 
 ## What is replaced
@@ -37,7 +39,9 @@ Each affected ticket ends with exactly one line:
 3. The paragraph "Existing AC/TC, earned floors, family-based uncertainty, ...": 8 tickets.
 4. In tickets that lose block 1, the line "Existing scope (the stricter metric contract above controls ...)" becomes "Existing scope".
 
-A paragraph is replaced only when its text matches the pasted text exactly (sha256). A reworded copy refuses the ticket.
+A paragraph is replaced only when its text matches the pasted text exactly (sha256) and it carries no mark or link.
+A ticket is refused while any other trace would remain: a paragraph's opening words, or any sentence of 40 characters or
+more from the five pasted paragraphs. A copy rewritten in all of those is not recognised.
 Never edited: AC/TC lines, checklist criteria, "Model-owned intent" blocks, anything ticket-specific.
 
 ## Defaults (revertible; the owner sees them at snapshot approval)

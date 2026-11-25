@@ -14,6 +14,12 @@ To approve, put the manifest hash alone in `snapshots/APPROVED`:
 
 Edit a ticket by hand only **after** the apply: a description changed before it is refused as stale.
 
+**Do not edit any of the 20 while the apply runs.** Jira offers no conditional write, so an edit that lands between the
+script's last read and its write is overwritten. The script detects this afterwards from the ticket history, stops and
+says so; Jira's history keeps the overwritten text. It cannot prevent it.
+
+The hash is the same as before the three later fixes because the proposed text did not change. The script did.
+
 ## Text that stays and will read wrong (found by Gate 2; the script edits no criterion)
 
 | Ticket | Line | Problem |
@@ -52,6 +58,8 @@ and PLAN's latency paragraph still requires "no observed worsening" where the pr
 
 Gate 1 `gate1.txt` (81 GOOD, 0 BAD, after tests were added for 20 surviving probes; it found two defects, fixed in
 `gate1-fixes.txt`). Gate 2 `gate2.txt` (ten code findings, fixed in `gate2-fixes.txt`; its third run is 25 GOOD, 0 BAD, the
-first two kept). Re-run `gate2-r2.txt` (round one fixed; three low findings, fixed in `gate2-r2-fixes.txt`, which no review
-has read). `make-check.txt`: every recipe line exits 0. Closure: AC1 AC2 AC4 TC1 TC2 PASS; AC3 TC3 NOT RUN.
+first two kept). Re-run `gate2-r2.txt` (round one fixed; three low findings, fixed in `gate2-r2-fixes.txt`). An outside review of d1c5ee4, run by the owner,
+then found three script bugs the gates had not stopped: lost edits and overlapping runs, an inexact copy left beside the
+gate line, and cleanup deleting files a manifest named. Fixed: `review3-fixes.txt`, `review3-probes.txt`. **No review has
+read these last fixes or the re-run ones.** `make-check.txt`: every recipe line exits 0. Closure: AC1 AC2 AC4 TC1 TC2 PASS; AC3 TC3 NOT RUN.
 No E2E: no `api/src`, `evals/` or run-harness file changed.
