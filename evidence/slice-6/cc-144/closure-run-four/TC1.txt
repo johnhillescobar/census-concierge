@@ -1,0 +1,18 @@
+HEAD 767f18b88b13033ce204ad71e6a2b5a5554fe69f
+$ uv run pytest api/tests/test_jira_gate_line.py -v -k 'drop_an_id or add_an_id or would_change_the_ids'
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 139 items / 135 deselected / 4 selected
+
+api/tests/test_jira_gate_line.py::test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged[Metric progression and non-regression contract\nNo observed decrease against A.\nAC9. a criterion pasted inside the block] PASSED [ 25%]
+api/tests/test_jira_gate_line.py::test_an_edit_that_would_drop_an_id_is_refused_and_left_unchanged[Metric progression and non-regression contract\nNo observed decrease against A.\nTC1. repeats an id the ticket also has below] PASSED [ 50%]
+api/tests/test_jira_gate_line.py::test_an_edit_that_would_add_an_id_is_refused PASSED [ 75%]
+api/tests/test_jira_gate_line.py::test_an_approved_edit_that_would_change_the_ids_is_still_not_written PASSED [100%]
+
+====================== 4 passed, 135 deselected in 0.10s ======================
+exit 0

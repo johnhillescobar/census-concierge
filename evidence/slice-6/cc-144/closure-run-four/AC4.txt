@@ -1,0 +1,81 @@
+HEAD 767f18b88b13033ce204ad71e6a2b5a5554fe69f
+
+A record with one NOT RUN row that names no command:
+required = ["AC1"]
+[[row]]
+id = "AC1"
+status = "NOT RUN"
+
+$ uv run python scripts/closure.py check CC-0-no-command.toml --pre-merge
+  BLOCKED  AC1: missing command
+  BLOCKED  AC1: NOT RUN blocks closure
+CLOSURE BLOCKED: 2 problem(s)
+exit 1
+
+$ uv run pytest api/tests/test_closure_gate.py -v -k 'names_no_command or needs_no_command'
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 155 items / 146 deselected / 9 selected
+
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[True-PASS] PASSED [ 11%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[True-NOT RUN] PASSED [ 22%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[True-FAIL] PASSED [ 33%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[True-UNKNOWN] PASSED [ 44%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[False-PASS] PASSED [ 55%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[False-NOT RUN] PASSED [ 66%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[False-FAIL] PASSED [ 77%]
+api/tests/test_closure_gate.py::test_a_row_that_names_no_command_is_rejected[False-UNKNOWN] PASSED [ 88%]
+api/tests/test_closure_gate.py::test_a_row_the_owner_removed_from_scope_needs_no_command PASSED [100%]
+
+====================== 9 passed, 146 deselected in 2.28s ======================
+exit 0
+
+Every other committed manifest, form check (what make check runs):
+  CC-125.toml: well formed
+  CC-126.toml: well formed
+  CC-133.toml: well formed
+  CC-138.toml: well formed
+  CC-141.toml: well formed
+  CC-143.toml: well formed
+
+The playbook sentence:
+$ git diff 0b69842 HEAD -- docs/playbooks/run-slice.md
+diff --git a/docs/playbooks/run-slice.md b/docs/playbooks/run-slice.md
+index cb04458..42b54b0 100644
+--- a/docs/playbooks/run-slice.md
++++ b/docs/playbooks/run-slice.md
+@@ -28,7 +28,7 @@ PR that has not been demonstrated is not finished, however good the diff looks.
+ ## 1. Pre-flight: check the claims
+
+ Both gates read the diff; neither checks the notes it was built from. Run every
+-claim against the thing it names, before code depends on it.
++claim against the thing it names, before code depends on it. Every criterion names the command that proves it; `scripts/closure.py check` rejects a row without one (an amended row is exempt).
+
+ | Claim | Settled by |
+ | --- | --- |
+exit 0
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+exit 0
