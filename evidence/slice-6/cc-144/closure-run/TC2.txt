@@ -1,0 +1,39 @@
+HEAD 368a1e2f798b894731fd40c04bda9c0b915b2b20
+no .env in this worktree
+snapshots have no APPROVED file
+
+$ uv run python scripts/jira_gate_line.py --apply
+usage: jira_gate_line.py [-h] (--dry-run | --apply) [--out OUT]
+                         [--approved APPROVED]
+jira_gate_line.py: error: --apply needs --approved <snapshot dir>; nothing written
+exit 2
+
+$ uv run python scripts/jira_gate_line.py --apply --approved evidence/slice-6/cc-144/snapshots
+nothing written: evidence\slice-6\cc-144\snapshots is not approved: it has no APPROVED file
+exit 2
+
+$ uv run python scripts/jira_gate_line.py --apply --approved evidence/slice-6/cc-144/no-such-dir
+nothing written: evidence\slice-6\cc-144\no-such-dir has no manifest.json; run --dry-run first
+exit 2
+
+$ uv run pytest api/tests/test_jira_gate_line.py -v -k 'without_an_approval or without_a_directory or more_than_the_hash'
+============================= test session starts =============================
+platform win32 -- Python 3.12.12, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+configfile: pyproject.toml
+plugins: anyio-4.14.2, langsmith-0.11.0, asyncio-1.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 88 items / 80 deselected / 8 selected
+
+api/tests/test_jira_gate_line.py::test_without_an_approval_nothing_is_read_or_written[None] PASSED [ 12%]
+api/tests/test_jira_gate_line.py::test_without_an_approval_nothing_is_read_or_written[] PASSED [ 25%]
+api/tests/test_jira_gate_line.py::test_without_an_approval_nothing_is_read_or_written[yes] PASSED [ 37%]
+api/tests/test_jira_gate_line.py::test_without_an_approval_nothing_is_read_or_written[0000000000000000000000000000000000000000000000000000000000000000] PASSED [ 50%]
+api/tests/test_jira_gate_line.py::test_apply_without_a_directory_exits_non_zero_and_writes_nothing PASSED [ 62%]
+api/tests/test_jira_gate_line.py::test_a_file_that_says_more_than_the_hash_is_not_an_approval[NOT approved {}] PASSED [ 75%]
+api/tests/test_jira_gate_line.py::test_a_file_that_says_more_than_the_hash_is_not_an_approval[{} rejected] PASSED [ 87%]
+api/tests/test_jira_gate_line.py::test_a_file_that_says_more_than_the_hash_is_not_an_approval[{0} {0}] PASSED [100%]
+
+====================== 8 passed, 80 deselected in 0.87s =======================
+exit 0
