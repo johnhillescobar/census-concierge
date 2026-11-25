@@ -1,0 +1,27 @@
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         30.143 <= 20
+        run 2026-11-25T16:11:47+00:00; slowest trial 47.197s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.683 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+

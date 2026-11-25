@@ -1,0 +1,47 @@
+$ git log --format=%H %an %ad %s --date=iso-strict --name-only -1 -- evidence/metrics/references.json
+f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89 John Hill Escobar 2026-11-25T09:06:36-06:00 CC-143: seed reference L from the stored runs of main
+
+evidence/metrics/references.json
+[exit 0]
+
+$ uv run pytest api/tests/test_metric_compare.py::test_the_committed_anchors_are_registered_whole_and_unaltered api/tests/test_metric_compare.py::test_promotion_is_refused_until_l_is_seeded api/tests/test_metric_compare.py::test_what_promote_writes_is_still_the_owners_to_commit api/tests/test_metric_compare.py::test_report_only_rows_are_printed_in_parentheses -q -rA -p no:cacheprovider
+....                                                                     [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_the_committed_anchors_are_registered_whole_and_unaltered
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143-post\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+_________________ test_promotion_is_refused_until_l_is_seeded _________________
+---------------------------- Captured stderr call -----------------------------
+L is not seeded; the owner seeds it once with `register L`
+___________ test_what_promote_writes_is_still_the_owners_to_commit ____________
+---------------------------- Captured stdout call -----------------------------
+  PASS           hard floor   answered_rate floor           1.0 vs floor 0.7
+  PASS           hard floor   retrieval_at_10 floor         0.9 vs floor 0.9
+  PASS           hard floor   selector_at_1 floor           0.8 vs floor 0.7
+  PASS           hard floor   answered_rate matches trials  1.000 from trials vs reported 1.000
+  PASS           hard floor   p95 matches trials            10.000 vs reported 10.000
+  PASS           hard floor   p95 ceiling                   10.000s vs 20s
+  PASS           hard floor   response contract             0 of 186 trials that returned rows lack a contract field
+  PASS           rate L       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  PASS           rate L       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  PASS           rate L       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  PASS           rate L       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  PASS           rate L       rows per question             0 questions returned fewer rows when answered, limit 1
+  PASS           rate L       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate L       selector_at_1                 0.800 vs 0.800, may fall 0.330
+  PASS           rate L       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  (PASS)         hard L       lost questions                0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+  PASS           hard L       reference label               test
+
+VERDICT PASS
+L is now eeeeeee
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_the_committed_anchors_are_registered_whole_and_unaltered
+PASSED api/tests/test_metric_compare.py::test_promotion_is_refused_until_l_is_seeded
+PASSED api/tests/test_metric_compare.py::test_what_promote_writes_is_still_the_owners_to_commit
+PASSED api/tests/test_metric_compare.py::test_report_only_rows_are_printed_in_parentheses
+4 passed, 1 warning in 0.36s
+[exit 0]

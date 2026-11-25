@@ -1,0 +1,35 @@
+$ git log --format=%H %an %ad %s --date=iso-strict --name-only -1 -- budgets.toml
+09d63a433318f2a24905ce7033b24cdd1efb1a88 John Hill Escobar 2026-11-25T09:03:32-06:00 CC-143: exceptions for the floors main already misses
+
+budgets.toml
+[exit 0]
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+
+[exit 0]

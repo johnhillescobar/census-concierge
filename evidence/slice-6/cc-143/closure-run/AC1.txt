@@ -1,5 +1,5 @@
 $ uv run python scripts/metric_compare.py noise evidence/metrics/runs/main-b1.json evidence/metrics/runs/main-b2.json evidence/metrics/runs/cc104-p1.json evidence/metrics/runs/cc104-p2.json --sizes 1x1,2x2
-NOISE  protocol c1cea139d1db2943  seed 20261109  sims 2000
+NOISE  protocol 1a7dbae675430443  seed 20261109  sims 2000
 rule: rate_drop_max=0.07, small_group_lost_questions=1.0, empty_rise_max=0.03, rows_lost_questions_max=1, retrieval_drop_max=0.0, selector_drop_max=0.33, p95_rise_max_seconds=2.5, window_hours=12, lost_questions_min_runs=2; small groups under 30 questions
 stored runs: 4 of 2 code(s)
   29c0518  2 run(s): main-b1.json, main-b2.json
@@ -60,14 +60,14 @@ $ uv run pytest api/tests/test_metric_compare.py::test_unchanged_code_seldom_fai
 ........                                                                 [100%]
 ============================== warnings summary ===============================
 api/tests/test_metric_compare.py::test_unchanged_code_seldom_fails_its_own_simulated_reruns
-  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143-post\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
     warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =================================== PASSES ====================================
 _ test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed _
 ---------------------------- Captured stderr call -----------------------------
-noise: evidence/metrics/runs/absent.json: not a usable run file (FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc-143\\evidence\\metrics\\runs\\absent.json')
+noise: evidence/metrics/runs/absent.json: not a usable run file (FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc-143-post\\evidence\\metrics\\runs\\absent.json')
 =========================== short test summary info ===========================
 PASSED api/tests/test_metric_compare.py::test_unchanged_code_seldom_fails_its_own_simulated_reruns
 PASSED api/tests/test_metric_compare.py::test_a_seeded_regression_is_caught_more_often_the_larger_it_is
@@ -77,5 +77,5 @@ PASSED api/tests/test_metric_compare.py::test_stored_same_code_comparisons_are_o
 PASSED api/tests/test_metric_compare.py::test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed
 PASSED api/tests/test_metric_compare.py::test_the_wilson_interval_holds_the_rate_and_narrows_with_more_trials
 PASSED api/tests/test_metric_compare.py::test_the_noise_command_reads_its_sizes
-8 passed, 1 warning in 1.28s
+8 passed, 1 warning in 1.43s
 [exit 0]

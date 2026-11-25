@@ -1,5 +1,10 @@
 # CC-143: the commits only the owner can make
 
+**Status, 2026-11-25: done.** All three commits are on `main`, made after PR #149 was merged and
+not before it as this file planned: `09d63a4` (exceptions; p95 names CC-140, the other two CC-148
+and CC-149), `1e38ed8` (ratification, no number changed) and `f0c1e6b` (L). The post-merge run
+(AC13) is in `e2e-post/`. What follows is the plan as written before the merge.
+
 `check_invariants.py --base origin/main` rejects each of these on a branch, by design. They go
 straight onto `main`, each as its own commit, in this order. Everything else is in the PR.
 

@@ -1,0 +1,14 @@
+$ git log --format=%H %an %ad %s --date=iso-strict --name-only -2 -- budgets.toml evals/metric_protocol.toml
+1e38ed87701b29ac38090655162145960347d90d John Hill Escobar 2026-11-25T09:04:15-06:00 CC-143: ratify the acceptance rule
+
+evals/metric_protocol.toml
+09d63a433318f2a24905ce7033b24cdd1efb1a88 John Hill Escobar 2026-11-25T09:03:32-06:00 CC-143: exceptions for the floors main already misses
+
+budgets.toml
+[exit 0]
+
+$ git grep -n -A2 RATIFIED -- evals/metric_protocol.toml
+evals/metric_protocol.toml:12:# RATIFIED by the owner on 2026-11-25 (CC-143 AC9). The [rule] numbers come from
+evals/metric_protocol.toml-13-# evidence/slice-6/cc-143/noise.txt and reached main with PR #149, before this commit. The
+evals/metric_protocol.toml-14-# selector tolerance scales with the pool, and a lost question blocks from two runs per side.
+[exit 0]

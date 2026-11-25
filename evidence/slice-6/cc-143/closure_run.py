@@ -1,8 +1,10 @@
 """CC-143: run the command behind every AC and TC and save its raw output, one file per id.
 
-    uv run python evidence/slice-6/cc-143/closure_run.py
+    uv run python evidence/slice-6/cc-143/closure_run.py [ID ...]
 
-Run from the repository root at the head under test. It writes evidence/slice-6/cc-143/
+Run from the repository root at the head under test. The manifest pins these files, so
+`check_invariants` (AC4) reads as clean only when run after the manifest was written: run all, write
+the manifest, run AC4 again, pin it. It writes evidence/slice-6/cc-143/
 closure-run/<ID>.txt and HEAD.txt, and nothing else. A row that waits for the owner or for the
 merge is listed in WAITING and gets no file: its status in the manifest is NOT RUN.
 """
@@ -199,13 +201,34 @@ ROWS: dict[str, list[object]] = {
     ],
     "TC8": [(GATE, ["test_a_ticket_whose_merge_touched_api_src_still_owes_its_post_merge_run"])],
 }
-# Code for these is tested (AC7: the promote and guard tests; AC8: test_budgets.py), but the
-# criterion itself is an owner commit or the post-merge run.
+LOG = ["git", "log", "--format=%H %an %ad %s", "--date=iso-strict"]
+# The owner's three commits on main (2026-11-25), read back from git and from the tools that use
+# what they wrote. They landed after the merge of the pull request, not before it.
+ROWS |= {
+    "AC7": [
+        [*LOG, "--name-only", "-1", "--", "evidence/metrics/references.json"],
+        (
+            MC,
+            [
+                "test_the_committed_anchors_are_registered_whole_and_unaltered",
+                "test_promotion_is_refused_until_l_is_seeded",
+                "test_what_promote_writes_is_still_the_owners_to_commit",
+                "test_report_only_rows_are_printed_in_parentheses",
+            ],
+        ),
+    ],
+    "AC8": [
+        [*LOG, "--name-only", "-1", "--", "budgets.toml"],
+        [*PY, "scripts/check_budgets.py"],
+    ],
+    "AC9": [
+        [*LOG, "--name-only", "-2", "--", "budgets.toml", "evals/metric_protocol.toml"],
+        ["git", "grep", "-n", "-A2", "RATIFIED", "--", "evals/metric_protocol.toml"],
+    ],
+}
+# Not a command this script can run: a paid run against live services.
 WAITING = {
-    "AC7": "the owner seeds L on main after the merge (owner-commits.md, step 3)",
-    "AC8": "the owner records the exceptions in budgets.toml (owner-commits.md, step 1)",
-    "AC9": "the owner ratifies in two commits (owner-commits.md, steps 1 and 2)",
-    "AC13": "the post-merge run on main, judged against L",
+    "AC13": "the post-merge run on main, judged against L: evidence/slice-6/cc-143/e2e-post/",
 }
 
 
@@ -237,7 +260,10 @@ def main() -> int:
     dirty = subprocess.run(["git", "status", "--short"], capture_output=True, text=True).stdout
     (OUT / "HEAD.txt").write_text(f"{head}{dirty or 'clean\n'}", encoding="utf-8", newline="\n")
     red = []
+    only = set(sys.argv[1:])  # ids to run again; none means all
     for name, commands in ROWS.items():
+        if only and name not in only:
+            continue
         parts = []
         for command in commands:
             if isinstance(command, tuple):

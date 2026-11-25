@@ -1,8 +1,8 @@
 ticket = "CC-143"
-head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
-# AC7, AC8, AC9 and AC13 are NOT RUN on purpose: each is an owner commit or the post-merge run
-# (evidence/slice-6/cc-143/owner-commits.md). The [rule] numbers are proposed until AC9.
+# Every row was run again at f0c1e6b, merged main with the owner's three commits of 2026-11-25
+# (exceptions, ratification, L). AC7, AC8, AC9 and AC13 could only be run there.
 
 [[row]]
 id = "AC1"
@@ -10,8 +10,8 @@ status = "PASS"
 command = "uv run python scripts/metric_compare.py noise evidence/metrics/runs/main-b1.json evidence/metrics/runs/main-b2.json evidence/metrics/runs/cc104-p1.json evidence/metrics/runs/cc104-p2.json --sizes 1x1,2x2"
 expected = "at the current run size and at double it: how often unchanged code fails and the smallest seeded regression caught 80% of the time, each with its uncertainty; or that the stored runs are too few and how many more are needed"
 observed = "noise.txt (1x1, 2x2, 1x2, 4x4): at 1x1, 0 of 2 same-code pairs fail [0.000, 0.658] observed, 5.6% and 9.7% simulated for the two codes; at 2x2 nothing can be observed (needs 4 runs of one code, 2 more) and simulation gives 7.9% and 1.8%; smallest seeded regression caught 80% of the time is 4-5 long-tail questions at 1x1 and 1 fully broken question at 2x2 (the question-level rule), each with a 95% Wilson interval. 8 test cases pass."
-evidence = [{ path = "evidence/slice-6/cc-143/noise.txt", sha256 = "63276bc0a876464b6e368ae6541a29ad4f1439c4a5317f30e9bbb92ed5c1c220" }, { path = "evidence/slice-6/cc-143/closure-run/AC1.txt", sha256 = "e4dd1abc34b3d019621ec25763bd7ae0af4a675d48342e99b59afcef91c3df61" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/noise.txt", sha256 = "1b536a8048355515b370c7c3f63a69626c7488ffe5074b3a2f91c25ea82c9a5a" }, { path = "evidence/slice-6/cc-143/closure-run/AC1.txt", sha256 = "2e2825702495604cc14ecf91eb96f6078532873cce5b72177554a5f362248873" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -23,8 +23,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "the tool judges pooled candidate runs against pooled same-window main runs passed as files"
 observed = "compare RUN... --base RUN... pools each side by question; the planned run count, distinct runs, one clean head on main, the main the candidate is built on, and the collection window are each required; the stored CC-104 pool is judged against the stored main pool. 15 test cases pass."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC2.txt", sha256 = "e5cbf4894bf18e0fbc24ee4df8ad357166ad2a21e4e547a1251bf3dbf527169d" }, { path = "evidence/slice-6/cc-143/stored-runs.txt", sha256 = "ec1f56b8c39bf8649996eb328792b64dfcfd14298538974754a24e253e99a30f" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC2.txt", sha256 = "02e476789d18795290a7b2ddfc0d2bf050f8a1aea96ad45b8deea4f2b53d6d95" }, { path = "evidence/slice-6/cc-143/stored-runs.txt", sha256 = "1f26a681b32cc1aedceb252fb4956b87d5d5a66aa23b78df61bb591ceb90e12e" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -35,9 +35,9 @@ id = "AC3"
 status = "PASS"
 command = "uv run python scripts/metric_compare.py freeze"
 expected = "every row the tool prints has a numeric rule in evals/metric_protocol.toml, including empty answers, rows per question, selector and p95, and a parameter for groups under 30 questions; noisy rates and named hard failures are separate kinds of row"
-observed = "freeze prints each rate row with its [rule] number (rate_drop_max, empty_rise_max, rows_lost_questions_max, retrieval_drop_max, selector_drop_max, p95_rise_max_seconds), small_group_lost_questions for groups under 30, and the hard rows by name with window_hours and lost_questions_min_runs. Every row compare prints is checked to be one kind or the other. 13 test cases pass. The numbers are PROPOSED until AC9."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC3.txt", sha256 = "99ddbae10ad4a3ff208261b89508739f2726584f252b103350d36d7b3a42f50a" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+observed = "freeze prints each rate row with its [rule] number (rate_drop_max, empty_rise_max, rows_lost_questions_max, retrieval_drop_max, selector_drop_max, p95_rise_max_seconds), small_group_lost_questions for groups under 30, and the hard rows by name with window_hours and lost_questions_min_runs. Every row compare prints is checked to be one kind or the other. 13 test cases pass. The owner ratified the numbers in 1e38ed8."
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC3.txt", sha256 = "41a527243c90143ac491f3edd402f65232b3a32bbdb6bef630a83a8aec083521" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -48,9 +48,9 @@ id = "AC4"
 status = "PASS"
 command = "uv run python scripts/check_invariants.py --base origin/main"
 expected = "every rule parameter is guarded by the invariant check"
-observed = "On this branch the command exits 1 on exactly one check, protocol weakened, naming every [rule] parameter as the owner's to ratify (10 violations): that is the guard working before AC9. Raising a tolerance, removing one, nan or inf, an unknown parameter, and a reference added to report_only are each rejected; the committed [rule] keys equal the guarded set. 34 test cases pass."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC4.txt", sha256 = "18003c5727783a789a12e7a74e739bed3a235852557e1ad3f3bc7dcfa24954af" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+observed = "On main the command exits 0: no [rule] number differs from the base, now that the owner has ratified them. Raising a tolerance, removing one, nan or inf, an unknown parameter, and a reference added to report_only are each rejected; the committed [rule] keys equal the guarded set. 34 test cases pass."
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC4.txt", sha256 = "e5db93ce6ffe083061ac6a4f99a1e87f0839c2d69e5227393f2bb784726c0b37" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/check_invariants.py", "evals/metric_protocol.toml", "api/tests/test_closure_gate.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -61,9 +61,9 @@ id = "AC5"
 status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "the four stored runs (two of main, two of the CC-104 branch) are on main as test fixtures, and the tests call the judging function directly"
-observed = "evidence/metrics/runs/{main-b1,main-b2,cc104-p1,cc104-p2}.json are byte-identical to the blobs on cc-104/structured-geography (preflight.txt), with the question plan they were collected under; the tests call mc.evaluate, mc.sample and mc.lost_questions on them. They reach main when this PR merges."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC5.txt", sha256 = "6176b19bafe52848195ac113ffb78d9745b3aed6ccb1d0351660d01acedbd937" }, { path = "evidence/slice-6/cc-143/preflight.txt", sha256 = "089d501537122484505cb24787458767f66b0d932a0773ee765d0e8433e711dd" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+observed = "evidence/metrics/runs/{main-b1,main-b2,cc104-p1,cc104-p2}.json are byte-identical to the blobs on cc-104/structured-geography (preflight.txt), with the question plan they were collected under; the tests call mc.evaluate, mc.sample and mc.lost_questions on them. They are on main since 27da8f2 (PR #149)."
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC5.txt", sha256 = "6f88c1198ac9059cf494ad44507a9819ae3f85df09c5d22fbd977667777c73fb" }, { path = "evidence/slice-6/cc-143/preflight.txt", sha256 = "089d501537122484505cb24787458767f66b0d932a0773ee765d0e8433e711dd" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py", "evidence/metrics/runs"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -75,11 +75,47 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "a run collected with unchanged collection settings can be judged under a changed rule"
 observed = "A run is bound to the collection hash at its head (trials per question, blocks, exclusions, cohorts, scorer), not to the protocol file: the stored main run, collected before [rule] existed, passes provenance under today's file with nothing stubbed but the code comparison; a tightened rule fails the same stored run. 5 test cases pass."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC6.txt", sha256 = "dbd2b5b264e9948d9a7a0227c6b48f9e08740b0f6d0e9fe7062e4330b27d03d0" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC6.txt", sha256 = "91c22b1ca03c605e276baf62b3f9d9abb23f7f42ac6fb7cd4c309a72f95ffafa" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
+reviewer = "evidence/slice-6/cc-143/gate2.txt"
+
+[[row]]
+id = "AC7"
+status = "PASS"
+command = "git log -1 -- evidence/metrics/references.json; uv run pytest api/tests/test_metric_compare.py -q"
+expected = "L is seeded once from the re-scored stored main runs through an owner-commit path; promote and the invariant no longer require a pass against A; A and A0 are off the default list and never block"
+observed = "The owner seeded L in f0c1e6b, a commit that touches only evidence/metrics/references.json, with `register L` from the two stored runs of main 29c0518. compare judges against L by default and prints A and A0 in parentheses; promote needs only L and what it writes is still the owner's to commit. 4 test cases pass. The seed landed after PR #149 merged, as this step planned."
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC7.txt", sha256 = "b096a11bdfc9037f5e25b498a5455f9d385bbe2f50ed7db34e73f07b898a3728" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
+affects = ["evidence/metrics/references.json", "scripts/metric_compare.py"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-143/gate2.txt"
+
+[[row]]
+id = "AC8"
+status = "PASS"
+command = "uv run python scripts/check_budgets.py"
+expected = "a floor main already misses is recorded in budgets.toml as an exception with metric, baseline, approval and ticket; 'worse' is judged by the ratified rule"
+observed = "budgets.toml carries three [[exception]] blocks, added by the owner alone in 09d63a4: answered_rate_min (baseline 0.683, CC-148), selector_at_1_min (0.5875, CC-149) and p95_latency_seconds (28.844, CC-140), each with metric, baseline, approved and ticket. check_budgets prints excpt on those rows and exits 0; the comparator prints EXCEPTED with the baseline and holds each to its [rule] tolerance."
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC8.txt", sha256 = "48db0c33049630982b39fb32efba49c525aadebebeefdc810d942a6f8d084070" }, { path = "evidence/slice-6/cc-143/e2e-post/compare-confirm.txt", sha256 = "fd1d2acfb4765fde21be0f81ed088eafd410c1ec8bebfe4c38669450dc2c1ab8" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
+affects = ["budgets.toml", "scripts/check_budgets.py", "scripts/budget_log.py"]
+new_tests = false
+reviewer = "evidence/slice-6/cc-143/gate2.txt"
+
+[[row]]
+id = "AC9"
+status = "PASS"
+command = "git log --format=\"%H %an %ad %s\" -2 -- budgets.toml evals/metric_protocol.toml"
+expected = "the owner ratifies in two commits: the budgets.toml exceptions, then the protocol file including its header comment"
+observed = "Two owner commits on main, each touching one file: 09d63a4 (budgets.toml), then 1e38ed8 (evals/metric_protocol.toml), whose header now reads RATIFIED by the owner on 2026-11-25. No number was changed. Order as it happened: PR #149 was merged first (27da8f2, 07:48 local) while still a draft, and the two commits followed at 09:03 and 09:04, so the [rule] numbers reached main with the merge and were ratified 76 minutes later; no pre-merge run was made."
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC9.txt", sha256 = "46601cf83024e7aa551b93d3dc1ff46b67d8f97cbb91ab995ef147d51aa25b9e" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
+affects = ["budgets.toml", "evals/metric_protocol.toml"]
+new_tests = false
 reviewer = "evidence/slice-6/cc-143/gate2.txt"
 
 [[row]]
@@ -88,8 +124,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "the question-level rule is tried on the fixtures, including a copy with a defect seeded in one kind of geography, and adopted only if it catches that defect with no false alarm on the same-code pairs"
 observed = "Tried: it names both ZCTA questions in every arrangement of the seeded copy, and it fires on unchanged main at one run per side (q20: 3 of 3 answered in one run, 0 of 3 in the other). So it is not adopted at one run per side, where it is reported. By the owner's decision of 2026-11-25 it blocks when each side pools two runs (lost_questions_min_runs = 2), a size at which the stored runs give no same-code comparison. 7 test cases pass."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC10.txt", sha256 = "b108b3ccfec1b1fcb93752d97349ff26ac7bcc0016317ec1d85038aa8dabece7" }, { path = "evidence/slice-6/cc-143/stored-runs.txt", sha256 = "ec1f56b8c39bf8649996eb328792b64dfcfd14298538974754a24e253e99a30f" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC10.txt", sha256 = "290416c2b466297099eeea6801c45741912a005ca69b55748b59f5905af299aa" }, { path = "evidence/slice-6/cc-143/stored-runs.txt", sha256 = "1f26a681b32cc1aedceb252fb4956b87d5d5a66aa23b78df61bb591ceb90e12e" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -101,8 +137,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_closure_gate.py -q"
 expected = "the closure check does not require a post-merge run when the merged diff touches no api/src, evals/ or run-harness file; computed from the diff, not declared"
 observed = "closure.py reads the merges that carried a ticket (first-parent commits that changed its manifest, and those that brought in a row's tested head) and owes the run only if their diff touches E2E_PATHS; a docs-only ticket closes without one. 11 test cases pass against one real git history."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC11.txt", sha256 = "47c31e90c01e5e3cdefdd9f6027204bfc70a7faa39b2b148d62b667fb2296bd6" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC11.txt", sha256 = "6832625e92f03dbfa9e5f3703bc7e80ade8632e105ad22e1af0c470c553df0d7" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/closure.py", "api/tests/test_closure_gate.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -114,11 +150,23 @@ status = "PASS"
 command = "uv run python scripts/check_budgets.py --structural-only"
 expected = "the playbook states the post-merge rule in three steps; prescriptive docs stay at or under 1820 lines"
 observed = "docs/playbooks/run-slice.md, section 6, 'A red post-merge row': (1) a row under an exception or one-run waiver does not count, (2) any other red row gets one confirmation run, (3) red twice goes to the owner and L does not move while a row is red. doc lines 1820 <= 1820."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC12.txt", sha256 = "c3511b3da76733adda891aa7856e475fe30a79d2eec0b52d1ed89535bbbb829e" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC12.txt", sha256 = "47996fceeb963c105c2d2646b7cfa27b56fb366aea99549c28fa432f8f989053" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["docs/playbooks/run-slice.md", ".claude/PLAN.md"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
+reviewer = "evidence/slice-6/cc-143/gate2.txt"
+
+[[row]]
+id = "AC13"
+status = "PASS"
+command = "uv run python scripts/metric_compare.py compare evidence/metrics/runs/main-f0c1e6b.json --record (then the same for main-f0c1e6b-confirm.json)"
+expected = "after the merge, main judged against L under the ratified rule passes"
+observed = "Two runs of main f0c1e6b, each judged alone against L. Run 1 (demo finished 2026-11-25T16:11Z): VERDICT FAIL on one row, rows per question (t16 and t17 returned fewer rows when answered; limit 1); every other row passed or is under an owner exception. No exception covers that row, so the one confirmation run of run-slice.md section 6 was made. Run 2 (17:26Z): VERDICT PASS, 0 questions with fewer rows. Both verdicts are in evidence/metrics/ledger.jsonl and L was not moved. The measured code (api/src, run_demo.py, the pins) is byte-identical to L's head 29c0518, so run 1 is the gate failing unchanged code in one of two one-run comparisons against L."
+evidence = [{ path = "evidence/slice-6/cc-143/e2e-post/compare.txt", sha256 = "7f115088f88fdb151cfcad384f05a23820ed90ac5bde9710d9abcccfc596b3ac" }, { path = "evidence/slice-6/cc-143/e2e-post/compare-confirm.txt", sha256 = "fd1d2acfb4765fde21be0f81ed088eafd410c1ec8bebfe4c38669450dc2c1ab8" }, { path = "evidence/slice-6/cc-143/e2e-post/log.txt", sha256 = "ef90c02b642b1d516e589da9ffdbbd8bf1d63f4f3eee21bb4d0138e5bd34501f" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
+affects = ["api/src", "evals", "scripts/metric_compare.py", "scripts/run_demo.py", "evidence/metrics/references.json", "budgets.toml"]
+new_tests = false
 reviewer = "evidence/slice-6/cc-143/gate2.txt"
 
 [[row]]
@@ -127,8 +175,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "both stored same-code pairs pass under the new rule"
 observed = "main-b1/main-b2 and cc104-p1/cc104-p2 pass either way round: 4 of 4 cases."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC1.txt", sha256 = "fafdfd5214f2e14af8e5c4bc7271b5725b547a5e8413e3ecfafd37d0b79165d0" }, { path = "evidence/slice-6/cc-143/stored-runs.txt", sha256 = "ec1f56b8c39bf8649996eb328792b64dfcfd14298538974754a24e253e99a30f" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC1.txt", sha256 = "abfef64bcfa627d8b062df134543d01f38e47f759e370d5d9c40268e4bce2713" }, { path = "evidence/slice-6/cc-143/stored-runs.txt", sha256 = "1f26a681b32cc1aedceb252fb4956b87d5d5a66aa23b78df61bb591ceb90e12e" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -140,8 +188,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "a copy of a stored run with a stated number of long-tail questions broken fails; the number is written in the test before the rule is tuned"
 observed = "BROKEN_LONG_TAIL = 6 entered git in 45cba01, before any [rule] number (first in ec2ba52; git log -S in TC2.txt). The copy fails the long_tail rate row against its same-code partner in all 4 arrangements."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC2.txt", sha256 = "e121ddbcb83a80c737691934ffa6c10cf3c6605d0c0fb15b6a0a0698f3866601" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC2.txt", sha256 = "160927f7dc8ac3017a4b84ba7d514c11dbd362ccde4370fcdea2cfa3012df2a8" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -153,8 +201,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "a named hard failure blocks even when the pooled rate rises"
 observed = "A candidate better than L on the long tail, with one answer lacking margins of error: response contract FAIL, verdict FAIL."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC3.txt", sha256 = "e1fcac117d8a1f5d6ba3f15a0abd3e1c7425fc7a08f3b37511179a873063334a" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC3.txt", sha256 = "863e7f9d42dd402b3d340051474e817d51d33278631b57968e2be7182fc6139d" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -166,8 +214,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "a group under 30 questions returns a verdict, not 'inconclusive'"
 observed = "core (4 questions) passes at one question lost and fails at two, by small_group_lost_questions; no INCONCLUSIVE row."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC4.txt", sha256 = "48ad0958554d69a385b334a26c362603adca3c8679a41ec3046b126244376858" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC4.txt", sha256 = "f3092464a5d0841e90af586fed87b46059ef83719aa75caaace5239ae4246a11" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -179,8 +227,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_metric_compare.py -q"
 expected = "a missing or failing A or A0 does not change the verdict"
 observed = "Unregistered, unbridged and far-above anchors print in parentheses and leave a PASS a PASS; a failing L still fails beside a passing A; L is judged whatever is named."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC5.txt", sha256 = "f74aba040e5cba4795d8f5e8c45ffabe3119b7b086b16254aa248f18482b6832" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC5.txt", sha256 = "c56c07bd971afb486c163a5e7085faa19676e5cff166f16fbc5db9d7faba8ce4" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -192,8 +240,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_invariants.py -q"
 expected = "a budgets.toml exception added in the same change as code is rejected"
 observed = "check_no_new_exemptions flags an [[exception]] that is new or changed against the base, whatever else the change holds."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC6.txt", sha256 = "36401584ed440716f36d8aa7d31dc39ddeab75ad9d425c57d852de6bcc9a5d88" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC6.txt", sha256 = "432389086c8b6cc1c47433e2a47911e4dafb5dc2341ca143a32d26fd8b8498c4" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/check_invariants.py", "api/tests/test_invariants.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -205,8 +253,8 @@ status = "PASS"
 command = "uv run pytest api/tests/test_closure_gate.py -q"
 expected = "a change to L outside the owner-commit path is rejected"
 observed = "A seed, a move (even the entry promote wrote after a recorded pass) and a removal of L are each a violation against the base."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC7.txt", sha256 = "476899657a6bb3374e8c21eb6e196b7e4fa43cad760d802ff9f7584de2b7855f" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC7.txt", sha256 = "d312d1c9a75fb0aed1881fd008cba1a1ce07aa9981c6bc2d3d74fd5b168aaa9c" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/check_invariants.py", "evals/metric_protocol.toml", "api/tests/test_closure_gate.py", "scripts/metric_compare.py", "api/tests/test_metric_compare.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
@@ -218,37 +266,13 @@ status = "PASS"
 command = "uv run pytest api/tests/test_closure_gate.py -q"
 expected = "a ticket whose diff touches api/src still requires its post-merge run"
 observed = "A merge that touched api/src/ask.py beside docs is refused closure without a recorded run, though its row declares it covers another file."
-evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC8.txt", sha256 = "ddf93fa980023d22d521da3f60caff5e8258f1d64e6242e6fbd99918a10ad913" }]
-tested_head = "999d3cbae2b3fdb3a391b0d038452b3bb76fa73f"
+evidence = [{ path = "evidence/slice-6/cc-143/closure-run/TC8.txt", sha256 = "066aae9d5702688a48cad1e0b42d3e80c3578021a513977a7ecce002dde95642" }]
+tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
 affects = ["scripts/closure.py", "api/tests/test_closure_gate.py"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
 reviewer = "evidence/slice-6/cc-143/gate2.txt"
 
-[[row]]
-id = "AC7"
-status = "NOT RUN"
-command = "uv run pytest api/tests/test_metric_compare.py -q and uv run python scripts/check_invariants.py --base origin/main"
-expected = "L is seeded once from the re-scored stored main runs through an owner-commit path; promote and the invariant no longer require a pass against A; A and A0 are off the default list and never block"
-observed = "Code and tests are in place (register validates the runs, promote needs only L, any change to L is owner-only, compare defaults to L). The seed itself is the owner's commit after the merge: owner-commits.md, step 3."
-
-[[row]]
-id = "AC8"
-status = "NOT RUN"
-command = "uv run python scripts/check_budgets.py"
-expected = "a floor main already misses is recorded in budgets.toml as an exception with metric, baseline, approval and ticket; 'worse' is judged by the ratified rule"
-observed = "Code and tests are in place; a dry run of the proposed block turns the missed floors into excpt rows. The block itself is the owner's commit: owner-commits.md, step 1."
-
-[[row]]
-id = "AC9"
-status = "NOT RUN"
-command = "git log --format=\"%an %s\" -- budgets.toml evals/metric_protocol.toml"
-expected = "the owner ratifies in two commits: the budgets.toml exceptions, then the protocol file including its header comment"
-observed = "Not yet made. evals/metric_protocol.toml on this branch says PROPOSED, NOT RATIFIED."
-
-[[row]]
-id = "AC13"
-status = "NOT RUN"
-command = "uv run python scripts/metric_compare.py compare <post-merge run> --record"
-expected = "after the merge, main judged against L under the ratified rule passes"
-observed = "Waits for the merge and for AC7."
+[post_merge]
+e2e = { path = "evidence/slice-6/cc-143/e2e-post/log.txt", sha256 = "ef90c02b642b1d516e589da9ffdbbd8bf1d63f4f3eee21bb4d0138e5bd34501f" }
+main_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
