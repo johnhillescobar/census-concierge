@@ -1,0 +1,17 @@
+The outside review's reproductions, run again on the fixed code with a fake that keeps a ticket history. HEAD 683a449f7ce0cb8218928eaba3d1ab90438b4f34.
+In 'claim 3' the two True values describe the proposed edit, which is now refused. The overlap line is a nested stand-in; the tests hold the real overlap case.
+
+== claim 2a: owner edit lands between the pre-write read and the write
+exit 1 | note survived: False | CC-105: the history shows 2 description changes where one was written: another edit arrived during the write and may be overwritten. Read the ticket's History in Jira, which keeps each version, before restoring anything; compare it with C:\Users\johnh\AppData\Local\Temp\tmpqvg1iyyd\CC-105.before.json and restore it from there if it differs
+
+== claim 2b: a second apply of the same folder removes the first one's FAILED file
+second run exit 2 | first run exit 1
+   lock taken anywhere in apply: True
+== claim 3: contract heading says & instead of and
+replaced: ['AC/TC clearance'] | refusal: a sentence of the pasted wording would remain, in an inexact copy: 'targets are release criteria, not predictions of unmeasured '
+old contract still there: True | gate line inserted: True
+== claim 4: cleanup follows any file name in an unapproved manifest
+file outside the folder survived: True
+== do the 20 prepared after-snapshots still hold old contract wording? (claim 3 on real data)
+none of those phrases in any of the 20
+tickets: 20 | criterion id occurrences: 154
