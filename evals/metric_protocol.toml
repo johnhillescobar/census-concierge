@@ -1,22 +1,29 @@
-# Frozen metric protocol (CC-133). Read by scripts/metric_compare.py.
+# Metric protocol (CC-133; the rule from CC-143). Read by scripts/metric_compare.py.
 #
 # Change this file only in its own commit, with the owner's reason in the message.
-# check_invariants.py (--base) fails when a number here is loosened or a symbol, cohort or
-# exclusion is dropped. A changed hash separates old results from new ones: the comparison
-# refuses to call it a code gain unless evidence/metrics/bridges.json carries a bridge.
-# Values here are defaults awaiting owner ratification (see evidence/slice-6/cc-133-plan.md D2-D4).
+# check_invariants.py (--base) fails when a number here is loosened, a rule number is added or
+# a symbol, cohort or exclusion is dropped.
+#
+# Two parts. What a run COLLECTS: sampling.repeat, blocks, stopping, exclusions, [selection],
+# [scorer] and [cohorts]. Changing one makes stored runs incomparable. How runs are JUDGED:
+# [rule] and the interval settings. Changing one changes verdicts only; a stored run is judged
+# again as it is. A changed scorer or cohort still needs a bridge in evidence/metrics/bridges.json.
+#
+# PROPOSED, NOT RATIFIED. The [rule] numbers come from evidence/slice-6/cc-143/noise.txt and bind
+# nothing until the owner commits this file (CC-143 AC9) and replaces this paragraph.
 
 version = 1
 
 [sampling]
 repeat = 3             # trials per question; a planned trial that is missing fails the run
-min_families = 30      # fewer independent families than this is INCONCLUSIVE, never PASS
-confidence = 0.95      # two-sided percentile interval on the paired difference
-max_regression = 0.02  # the interval's lower bound must stay at or above -0.02
+min_families = 30      # a --target gain needs this many questions; a smaller regression group
+                       # is judged by rule.small_group_lost_questions, never left inconclusive
+confidence = 0.95      # two-sided percentile interval on a --target gain
 resamples = 10000
 seed = 20261109
 case_rule = "all_repeats"  # a case passes only if every repeat answered; trial rate is separate
-blocks = "B,P,P,B"         # order-balanced; every planned block is kept, none rerun until green
+blocks = "B,P,P,B"         # order-balanced: 2 candidate runs pooled against 2 same-window runs
+                           # of main; every planned block is kept, none rerun until green
 stopping = "fixed"         # no optional stopping, no rerun-until-green
 exclusions = []            # availability exclusions: none. Outages stay in the denominator.
 
@@ -39,3 +46,21 @@ tier = "trap"
 [cohorts.core]
 source = "evals/golden_questions.toml"
 tier = "core"
+
+# How pooled candidate runs are judged against a pooled reference (same-window main, and L).
+# A rate row is noisy: it fails only when the candidate is worse by more than its number here.
+# Each number may be tightened by anyone and loosened only by the owner.
+[rule]
+rate_drop_max = 0.07               # a cohort's answered rate may fall this far (30+ questions)
+small_group_lost_questions = 1.0   # a cohort under min_families may lose this many questions'
+                                   # worth of trials: 0.056 of trap's 18, 0.25 of core's 4
+empty_rise_max = 0.03              # long_tail trials with no rows may rise this far
+rows_lost_questions_max = 1        # questions that return fewer rows when they do answer
+retrieval_drop_max = 0.0           # retrieval@10 is deterministic: any drop fails
+selector_drop_max = 0.33           # selector@1 moved 0.75 -> 0.425 between two runs of unchanged
+                                   # main; tighten when more same-code runs exist
+p95_rise_max_seconds = 2.5         # pooled p95 over every trial
+lost_questions_block = false       # a question answered in every reference trial and in no
+                                   # candidate trial is reported, not blocking: at one run per
+                                   # side it fired on unchanged main (CC-143 AC10)
+report_only = ["A", "A0"]          # anchors from before this rule: printed, never blocking

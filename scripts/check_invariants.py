@@ -678,14 +678,29 @@ def _baseline_lines(text: str) -> Counter[str]:
     return Counter({"|".join(entry): n for entry, n in _baseline_entries(text).items()})
 
 
+def _exceptions(text: str) -> Counter[str]:
+    """Each `[[exception]]` of budgets.toml, whole: a changed baseline or ticket is a new one."""
+    try:
+        entries = tomllib.loads(text).get("exception") or []
+    except tomllib.TOMLDecodeError:
+        return Counter()
+    entries = entries if isinstance(entries, list) else [entries]
+    return Counter(f"exception {json.dumps(e, sort_keys=True, default=str)}" for e in entries)
+
+
 def check_no_new_exemptions(base: str) -> list[Violation]:
-    """A waiver or a leakage-baseline entry is an exemption. It is never added in the same
-    change it excuses, or `# [waiver]` and `tier|phrase|file` become the way around both gates.
+    """A waiver, a floor exception or a leakage-baseline entry is an exemption. It is never added
+    in the same change it excuses, or `# [waiver]`, `[[exception]]` and `tier|phrase|file` become
+    the way around the gates.
 
     A file that does not exist at the base is skipped: its first commit is the owner's review.
     """
     found: list[Violation] = []
-    for rel, read in (("budgets.toml", _waivers), (LEAK_BASELINE, _baseline_lines)):
+    for rel, read in (
+        ("budgets.toml", _waivers),
+        ("budgets.toml", _exceptions),
+        (LEAK_BASELINE, _baseline_lines),
+    ):
         old = _text_at(base, rel)
         if old is None:
             continue
@@ -718,17 +733,25 @@ PROTOCOL = "evals/metric_protocol.toml"
 # (section, key): a value may never fall / rise / change, and a list may never lose / gain a name.
 PROTOCOL_NOT_LOWER = (("sampling", "min_families"), ("sampling", "confidence"))
 PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))
-PROTOCOL_NOT_HIGHER = (("sampling", "max_regression"),)
+# The [rule] tolerances: how much worse than its reference a candidate may be. Raising one, or
+# adding one that main does not have, is the owner's ratification and never part of a change.
+RULE_NOT_HIGHER = ("rate_drop_max", "small_group_lost_questions", "empty_rise_max")
+RULE_NOT_HIGHER += ("rows_lost_questions_max", "retrieval_drop_max", "selector_drop_max")
+RULE_NOT_HIGHER += ("p95_rise_max_seconds",)
+RULE_STAYS_ON = ("lost_questions_block",)  # a blocking rule may not become report-only
 PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))
 PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))
 PROTOCOL_KEEP = (("scorer", "symbols"),)  # the old names must all remain
 PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))
+PROTOCOL_NO_NEW += (("rule", "report_only"),)  # a reference added here stops blocking
+RULE_GUARDED = {*RULE_NOT_HIGHER, *RULE_STAYS_ON, "report_only"}
 
 
 def check_protocol_not_weakened(base: str) -> list[Violation]:
-    """The frozen sampling protocol is loosened only by its owner, in its own commit. A looser
-    interval, a smaller sample, a new exclusion, a dropped scorer symbol or cohort, or a new seed
-    would let a failing run pass; a changed hash is also what makes old results incomparable."""
+    """The metric protocol is loosened only by its owner, in its own commit. A looser tolerance,
+    a smaller sample, a new exclusion, a dropped scorer symbol or cohort, or a new seed would let a
+    failing run pass. Every [rule] parameter is guarded: one this check does not know is a
+    violation, and one that main does not have yet is the owner's to ratify."""
     old_text = _text_at(base, PROTOCOL)
     if old_text is None:
         return []
@@ -746,7 +769,9 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
 
     def number(doc: dict, section: str, key: str) -> float | None:
         value = doc.get(section, {}).get(key)
-        return float(value) if isinstance(value, int | float) else None
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return None
+        return float(value)
 
     def names(doc: dict, section: str, key: str) -> set[str]:
         return {str(item) for item in doc.get(section, {}).get(key) or []}
@@ -755,10 +780,22 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
         before, after = number(old, section, key), number(new, section, key)
         if before is not None and (after is None or after < before):
             flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
-    for section, key in PROTOCOL_NOT_HIGHER:
-        before, after = number(old, section, key), number(new, section, key)
-        if before is not None and (after is None or after > before):
-            flag(f"[{section}] {key}", f"{before:g} -> {after} loosens the protocol")
+    for key in sorted(set(new.get("rule", {})) - RULE_GUARDED):
+        flag(f"[rule] {key}", "a rule parameter no invariant guards")
+    for key in RULE_NOT_HIGHER:
+        before, after = number(old, "rule", key), number(new, "rule", key)
+        if after is None:
+            flag(f"[rule] {key}", "the rule number is missing or not a number")
+        elif before is None:
+            flag(f"[rule] {key}", f"new rule number {after:g}: the owner ratifies it")
+        elif after > before:
+            flag(f"[rule] {key}", f"{before:g} -> {after:g} loosens the rule")
+    for key in RULE_STAYS_ON:
+        before, after = old.get("rule", {}).get(key), new.get("rule", {}).get(key)
+        if not isinstance(after, bool):
+            flag(f"[rule] {key}", "the switch is missing or not true/false")
+        elif before is not after and not after:
+            flag(f"[rule] {key}", f"{before!r} -> false: the owner decides what does not block")
     for section, key in PROTOCOL_UNCHANGED:
         before = (old.get(section, {}) if section else old).get(key)
         after = (new.get(section, {}) if section else new).get(key)
@@ -769,7 +806,8 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
             flag(f"[{section}] {key}", f"dropped {sorted(lost)}")
     for section, key in PROTOCOL_NO_NEW:
         if added := names(new, section, key) - names(old, section, key):
-            flag(f"[{section}] {key}", f"new exclusion {sorted(added)} shrinks the denominator")
+            why = "stops blocking" if section == "rule" else "shrinks the denominator"
+            flag(f"[{section}] {key}", f"new entry {sorted(added)} {why}")
     for name, spec in old.get("cohorts", {}).items():
         now = new.get("cohorts", {}).get(name)
         if now is None:
@@ -784,14 +822,6 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
 METRIC_RECORDS = ("evidence/metrics/references.json", "evidence/metrics/ledger.jsonl")
 
 
-def _json_object(text: str) -> dict:
-    try:
-        value = json.loads(text)
-    except json.JSONDecodeError:
-        return {}
-    return value if isinstance(value, dict) else {}
-
-
 def _json_list(text: str | None) -> list:
     # an unreadable or non-list file is one marker entry that carries the text's hash, so two
     # different bad files never compare equal and a change to one is never invisible
@@ -804,8 +834,8 @@ def _json_list(text: str | None) -> list:
 
 
 def check_metric_records_not_rewritten(base: str) -> list[Violation]:
-    """References are immutable (only L moves, and only by `promote`), the ledger is append-only,
-    and bridges are owner-only."""
+    """References are immutable, the anchor L and the bridges are owner-only, and the ledger is
+    append-only."""
     found: list[Violation] = []
 
     def flag(rel: str, why: str) -> None:
@@ -830,31 +860,11 @@ def check_metric_records_not_rewritten(base: str) -> list[Violation]:
         for name, entry in before.items():
             if name != "L" and after.get(name) != entry:
                 flag(refs, f"reference {name} was changed or removed; references are immutable")
-        if "L" in before and "L" not in after:
-            flag(refs, "reference L was removed; only `promote` moves it")
-        if "L" in after:
-            entry = after["L"]
-            keys = ("run", "head", "run_sha256")
-            if not isinstance(entry, dict) or not all(
-                isinstance(entry.get(k), str) and entry.get(k) for k in keys
-            ):
-                flag(refs, "reference L is not a complete entry (run, head, run_sha256)")
-            elif entry != before.get("L"):
-                # L moves only through `promote`, which appends a PASS record that names the
-                # same run, file hash and producing head the new L carries, judged against A
-                # and the L it replaces
-                grown = now(ledger)[len((_text_at(base, ledger) or "").replace("\r\n", "\n")) :]
-                records = [_json_object(line) for line in grown.splitlines()]
-                held = {"A", *(["L"] if "L" in before else [])}  # what a promotion is judged by
-                if not any(
-                    r.get("verdict") == "PASS"
-                    and all(r.get(k) == entry[k] for k in ("run", "run_sha256"))
-                    and r.get("run_head") == entry["head"]
-                    and isinstance(r.get("refs"), list)
-                    and held <= set(r["refs"])
-                    for r in records
-                ):
-                    flag(refs, "reference L changed with no matching PASS record in the ledger")
+        if after.get("L") != before.get("L"):
+            # the fixed anchor: `register L` seeds it once and `promote` writes its successor
+            # (after a recorded pass against the L it replaces), but committing either is the
+            # owner's, so a seed, a move and a removal are all rejected in any other change
+            flag(refs, "reference L was seeded, moved or removed: owner-only, its own commit")
     if (old := _text_at(base, ledger)) is not None and not now(ledger).startswith(
         old.replace("\r\n", "\n")
     ):

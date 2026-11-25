@@ -37,6 +37,24 @@ STATUSES = {"PASS", "FAIL", "NOT RUN", "UNKNOWN", "AMENDED"}
 ROW_FIELDS = ("command", "expected", "observed", "tested_head", "reviewer")
 GitFn = Callable[..., subprocess.CompletedProcess[str]]
 HEX = set("0123456789abcdef")
+# A merged change that touches one of these can move what `make eval` and `make demo` measure, so
+# it owes a post-merge run: the product, the evals, and the run harness (the scripts those recipes
+# execute, the recipes themselves and the dependency pins). A trailing slash is a directory.
+E2E_PATHS = (
+    "api/src/",
+    "evals/",
+    "Makefile",
+    "pyproject.toml",
+    "api/pyproject.toml",
+    "uv.lock",
+    "scripts/run_demo.py",
+    "scripts/run_grid.py",
+    "scripts/label_grid_ambiguity.py",
+    "scripts/eval_retrieval.py",
+    "scripts/score_synthetic.py",
+    "scripts/verify_golden_places.py",
+    "scripts/metric_compare.py",
+)
 LINE_NODES = {
     "paragraph",
     "heading",
@@ -178,6 +196,42 @@ def _row_problems(
     return out
 
 
+def merged_e2e_paths(
+    root: Path, manifest: str | None, tested: list[str], base: str, git: GitFn
+) -> list[str] | None:
+    """The product, eval and run-harness files this ticket's merges changed on `base`, or None when
+    git cannot say. It is read from the diff, never declared: the merges are the first-parent
+    commits of `base` that changed the manifest and the ones that brought in a row's tested head,
+    each diffed against the `base` it landed on. A pull request that did neither is not seen, so a
+    reviewer still checks that the rows cover what the ticket changed."""
+    landed: set[str] = set()
+    if manifest:
+        log = git(root, "log", "--first-parent", "--format=%H", base, "--", manifest)
+        if log.returncode:
+            return None
+        landed.update(log.stdout.split())
+    for commit in tested:
+        after = git(root, "rev-list", "--first-parent", "--ancestry-path", f"{commit}..{base}")
+        if after.returncode:
+            return None
+        # the oldest first-parent commit of base that contains `commit`: the merge that brought it
+        # in, or `commit` itself when it was committed straight onto base
+        merge = (after.stdout.split() or [commit])[-1]
+        first = git(root, "rev-parse", "--verify", "--quiet", f"{merge}^1")
+        landed.add(commit if first.stdout.strip() == commit or merge == commit else merge)
+    changed: set[str] = set()
+    for commit in sorted(landed):
+        diff = git(root, "diff", "--name-only", f"{commit}^1", commit)
+        if diff.returncode:
+            return None
+        changed.update(diff.stdout.splitlines())
+    return sorted(
+        path
+        for path in changed
+        if any(path.startswith(e) if e.endswith("/") else path == e for e in E2E_PATHS)
+    )
+
+
 def problems(
     manifest: dict[str, Any],
     root: Path = ROOT,
@@ -188,9 +242,11 @@ def problems(
     done: bool = True,
     base: str = "origin/main",
     git: GitFn = _git,
+    path: str | None = None,
 ) -> list[str]:
     """Every reason this manifest cannot back a closure. `readiness=False` checks only that the
-    record is well formed, which is all a work-in-progress manifest in the tree must be."""
+    record is well formed, which is all a work-in-progress manifest in the tree must be. `path` is
+    the manifest's own path in the repository, which names the merges that carried the ticket."""
     out: list[str] = []
     rows = [r for r in manifest.get("row") or [] if isinstance(r, dict)]
     ids = [str(r.get("id") or "") for r in rows]
@@ -225,7 +281,23 @@ def problems(
     block = manifest.get("post_merge") or {}
     if done:
         e2e, main_head = block.get("e2e"), block.get("main_head")
-        if not e2e or not main_head:
+        passed = sorted({str(r.get("tested_head")) for r in rows if r.get("status") == "PASS"})
+        if not e2e and not main_head:
+            # no run is recorded: it is owed unless nothing the ticket merged can move a metric
+            unmerged = [
+                t for t in passed if git(root, "merge-base", "--is-ancestor", t, base).returncode
+            ]
+            touched = None if unmerged else merged_e2e_paths(root, path, passed, base, git)
+            out += [f"post_merge: the work tested at {t[:7]} is not on {base}" for t in unmerged]
+            if touched is None and not unmerged:
+                out.append("post_merge: git cannot show what was merged; the E2E is required")
+            elif touched:
+                out.append(
+                    "post_merge: the post-merge E2E (e2e, main_head) is not recorded, and the "
+                    f"merged change touches {touched[0]}"
+                    + (f" and {len(touched) - 1} more" if len(touched) > 1 else "")
+                )
+        elif not e2e or not main_head:
             out.append("post_merge: the post-merge E2E (e2e, main_head) is not recorded")
         elif not _is_commit_hash(main_head):
             out.append(f"post_merge: main_head must be a commit hash, not {main_head!r}")
@@ -235,8 +307,7 @@ def problems(
             out += _evidence_problems(e2e, "post_merge", root)
             if git(root, "merge-base", "--is-ancestor", main_head, base).returncode:
                 out.append(f"post_merge: {main_head[:7]} is not on {base}")
-            passed = {str(r.get("tested_head")) for r in rows if r.get("status") == "PASS"}
-            for tested in sorted(passed):
+            for tested in passed:
                 if git(root, "merge-base", "--is-ancestor", tested, main_head).returncode:
                     out.append(
                         f"post_merge: {main_head[:7]} does not contain the work tested at "
@@ -251,7 +322,10 @@ def load(path: Path) -> dict[str, Any]:
 
 def check_file(path: Path, **kwargs: Any) -> list[str]:
     try:
-        return problems(load(path), **kwargs)
+        root = Path(kwargs.get("root", ROOT)).resolve()
+        full = path.resolve()
+        inside = full.relative_to(root).as_posix() if full.is_relative_to(root) else None
+        return problems(load(path), path=inside, **kwargs)
     except (OSError, ValueError, TypeError, AttributeError, KeyError) as exc:
         return [f"{path.name}: malformed manifest ({type(exc).__name__}: {exc})"]  # fails closed
 
