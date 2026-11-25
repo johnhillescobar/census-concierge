@@ -64,7 +64,7 @@ expected = "the four stored runs (two of main, two of the CC-104 branch) are on 
 observed = "evidence/metrics/runs/{main-b1,main-b2,cc104-p1,cc104-p2}.json are byte-identical to the blobs on cc-104/structured-geography (preflight.txt), with the question plan they were collected under; the tests call mc.evaluate, mc.sample and mc.lost_questions on them. They are on main since 27da8f2 (PR #149)."
 evidence = [{ path = "evidence/slice-6/cc-143/closure-run/AC5.txt", sha256 = "6f88c1198ac9059cf494ad44507a9819ae3f85df09c5d22fbd977667777c73fb" }, { path = "evidence/slice-6/cc-143/preflight.txt", sha256 = "089d501537122484505cb24787458767f66b0d932a0773ee765d0e8433e711dd" }]
 tested_head = "f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89"
-affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py", "evidence/metrics/runs"]
+affects = ["scripts/metric_compare.py", "evals/metric_protocol.toml", "api/tests/test_metric_compare.py", "evidence/metrics/runs/main-b1.json", "evidence/metrics/runs/main-b2.json", "evidence/metrics/runs/cc104-p1.json", "evidence/metrics/runs/cc104-p2.json", "evidence/metrics/runs/plan-29c0518.json"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-143/gate1-999d3cb.txt", sha256 = "c4ac4bf4c4c65b38d4188c67b4aac01fb80346d5e92b8585f8312369ec0061b5" }
 reviewer = "evidence/slice-6/cc-143/gate2.txt"
