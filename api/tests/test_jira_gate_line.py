@@ -22,6 +22,7 @@ CONTRACT = "Metric progression and non-regression contract\nNo observed decrease
 CLEARANCE = "Mandatory AC/TC clearance before shipping\nEvery merged change owes a run."
 AUDIT = "Existing AC/TC, earned floors, and the old uncertainty rule remain binding."
 REAL_PASTED = dict(jg.PASTED)  # read before any test stands in its own
+REAL_SENTENCES = jg.SENTENCES
 # two descriptions as Jira held them before and after the edit
 FIXTURES = ROOT / "api" / "tests" / "fixtures" / "gate_wording"
 
@@ -47,6 +48,9 @@ def pasted(monkeypatch: pytest.MonkeyPatch) -> None:
         jg.fingerprint(para(AUDIT)): "audit gates",
     }
     monkeypatch.setattr(jg, "PASTED", known)
+    stand_ins = (CONTRACT, CLEARANCE, AUDIT)
+    sentences = {jg._sentence_mark(s) for block in stand_ins for s in jg._sentences(para(block))}
+    monkeypatch.setattr(jg, "SENTENCES", frozenset(sentences))
 
 
 class Jira:
@@ -57,6 +61,8 @@ class Jira:
         self.writes: list[str] = []
         self.calls: list[str] = []
         self.closed: set[str] = set()
+        self.history: dict[str, list[dict[str, Any]]] = {key: [] for key in self.tickets}
+        self.page = 100  # how many history entries one request returns
 
     def search(self, jql: str, *, fields: str) -> list[dict[str, Any]]:
         self.calls.append("search")
@@ -68,6 +74,10 @@ class Jira:
     def api(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
         self.calls.append(method)
         key = path.split("/")[2].split("?")[0]
+        if method == "GET" and "/changelog?" in path:
+            start = int(path.split("startAt=")[1].split("&")[0])
+            entries = self.history.get(key, [])
+            return {"values": entries[start : start + self.page], "total": len(entries)}
         if method == "GET":
             asked = path.split("fields=")[1].split(",")
             category = "done" if key in self.closed else "indeterminate"
@@ -79,7 +89,17 @@ class Jira:
         assert method == "PUT" and body is not None
         self.writes.append(key)
         self.tickets[key] = copy.deepcopy(body["fields"]["description"])
+        self.changed(key)
         return {}
+
+    def changed(self, key: str, field: str = "description") -> None:
+        """One history entry, as Jira adds for every change to a field."""
+        entries = self.history.setdefault(key, [])
+        entries.append({"id": f"{key}-{len(entries)}", "items": [{"fieldId": field}]})
+
+    def owner_adds_a_note(self, key: str) -> None:
+        self.tickets[key]["content"].append(para("the owner's note"))
+        self.changed(key)
 
 
 def ticket() -> dict[str, Any]:
@@ -473,6 +493,7 @@ def test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side(
     """The other tests stand in their own paragraphs. This one holds the real hashes and the
     real line to the descriptions that were read from Jira."""
     monkeypatch.setattr(jg, "PASTED", REAL_PASTED)
+    monkeypatch.setattr(jg, "SENTENCES", REAL_SENTENCES)
     seen: set[str] = set()
     for key in ("CC-104", "CC-105"):  # between them they hold every pasted paragraph
         before, after = (
@@ -751,3 +772,281 @@ def test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket(tmp_path: Path, sh
     body["content"] += _pointer_survives(shape)
     assert snapshot(Jira(CC_1=body), tmp_path) == 1
     assert not (tmp_path / "manifest.json").exists()
+
+
+# --- an edit that arrives during a write -------------------------------------------------------
+
+
+@pytest.mark.parametrize("when", ["after the last read", "after the write", "after the read-back"])
+def test_an_edit_that_arrives_during_a_write_stops_the_run(tmp_path: Path, when: str) -> None:
+    """Jira cannot refuse a stale write, so the history is what shows the other edit."""
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    done: list[bool] = []
+    put: list[bool] = []
+
+    def racing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        reading = method == "GET" and "/changelog?" not in path
+        if method == "PUT":
+            put.append(True)
+        if not done and when == "after the read-back" and put and "/changelog?" in path:
+            done.append(True)
+            jira.owner_adds_a_note("CC-1")
+        answer = jira.api(method, path, body)
+        if not done and when == "after the last read" and reading and not put:
+            done.append(True)
+            jira.owner_adds_a_note("CC-1")  # the write that follows removes it
+        if not done and when == "after the write" and method == "PUT":
+            done.append(True)
+            jira.owner_adds_a_note("CC-1")
+        return answer
+
+    assert jg.apply(tmp_path, racing) == 1
+    assert done and jira.writes == ["CC-1"]
+    stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
+    assert "2 description changes" in stopped and "History" in stopped
+
+
+def test_a_write_the_history_does_not_show_is_not_called_done(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def lagging(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        done = jira.api(method, path, body)
+        if method == "PUT":
+            jira.history["CC-1"].clear()
+        return done
+
+    assert jg.apply(tmp_path, lagging) == 1
+    assert jira.writes == ["CC-1"]
+    assert "does not show this write" in (tmp_path / "FAILED").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("raced", [False, True])
+def test_a_history_longer_than_one_page_is_read_to_the_end(tmp_path: Path, raced: bool) -> None:
+    jira = Jira(CC_1=ticket())
+    jira.page = 2
+    for _ in range(5):
+        jira.changed("CC-1")
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def maybe_raced(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if raced and method == "PUT":
+            jira.owner_adds_a_note("CC-1")
+        return jira.api(method, path, body)
+
+    assert jg.apply(tmp_path, maybe_raced) == (1 if raced else 0)
+
+
+def test_a_change_to_another_field_during_a_write_does_not_stop_the_run(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def busy(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if method == "PUT":
+            jira.changed(path.split("/")[2], "status")
+        return jira.api(method, path, body)
+
+    assert jg.apply(tmp_path, busy) == 0
+    assert jira.writes == ["CC-1", "CC-2"]
+
+
+# --- two runs at once --------------------------------------------------------------------------
+
+
+def test_a_second_apply_of_the_same_folder_cannot_run_beside_the_first(tmp_path: Path) -> None:
+    """The first fails and leaves its stop file; a second that started meanwhile must not run, so
+    it cannot take that file away."""
+    first, second = Jira(CC_1=ticket()), Jira(CC_1=ticket())
+    snapshot(first, tmp_path)
+    approve(tmp_path)
+    codes: list[int] = []
+
+    def drops_the_write(
+        method: str, path: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        if not codes:
+            codes.append(jg.apply(tmp_path, second.api))
+        return {} if method == "PUT" else first.api(method, path, body)
+
+    assert jg.apply(tmp_path, drops_the_write) == 1
+    assert codes == [2] and second.calls == []
+    assert (tmp_path / "FAILED").is_file()
+
+
+@pytest.mark.parametrize("ending", ["written", "refused", "failed", "interrupted", "stopped"])
+def test_an_apply_that_has_ended_leaves_the_folder_free(tmp_path: Path, ending: str) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    if ending == "refused":
+        jira.closed.add("CC-1")
+    if ending == "stopped":
+        (tmp_path / "FAILED").write_text("CC-1: earlier\n", encoding="utf-8")
+
+    def ends(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if method == "PUT" and ending == "failed":
+            return {}
+        if method == "PUT" and ending == "interrupted":
+            raise KeyboardInterrupt
+        return jira.api(method, path, body)
+
+    if ending == "interrupted":
+        with pytest.raises(KeyboardInterrupt):
+            jg.apply(tmp_path, ends)
+    else:
+        jg.apply(tmp_path, ends)
+    assert not (tmp_path / "APPLYING").exists()
+
+
+def test_a_lock_left_by_a_killed_run_blocks_until_a_person_removes_it(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    (tmp_path / "APPLYING").write_bytes(b"")
+    jira.calls.clear()
+    assert jg.apply(tmp_path, jira.api) == 2
+    assert jira.calls == [] and (tmp_path / "APPLYING").exists()
+    (tmp_path / "APPLYING").unlink()
+    assert jg.apply(tmp_path, jira.api) == 0
+
+
+def test_an_unapproved_folder_gets_no_lock_file(tmp_path: Path) -> None:
+    snapshot(Jira(CC_1=ticket()), tmp_path)
+    before = sorted(p.name for p in tmp_path.iterdir())
+    assert jg.apply(tmp_path, never) == 2
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
+
+
+# --- an inexact copy must not stand beside the gate line --------------------------------------
+
+
+def _real_copies() -> list[tuple[str, str]]:
+    """(ticket, fingerprint) for each pasted paragraph, from the two stored descriptions."""
+    found: dict[str, str] = {}
+    for key in ("CC-105", "CC-104"):
+        for node in json.loads((FIXTURES / f"{key}.before.json").read_bytes())["content"]:
+            if jg.fingerprint(node) in REAL_PASTED:
+                found.setdefault(jg.fingerprint(node), key)
+    return [(key, mark) for mark, key in found.items()]
+
+
+@pytest.fixture
+def real_wording(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(jg, "PASTED", REAL_PASTED)
+    monkeypatch.setattr(jg, "SENTENCES", REAL_SENTENCES)
+
+
+def _altered(key: str, mark: str, change: str) -> dict[str, Any]:
+    """A stored description with one pasted paragraph altered."""
+    body = json.loads((FIXTURES / f"{key}.before.json").read_bytes())
+    node = next(n for n in body["content"] if jg.fingerprint(n) == mark)
+    first = node["content"][0]
+    heading, newline, rest = first["text"].partition("\n")
+    if change == "one word of the opening":
+        words = heading.split(" ")
+        words[1] = "&" if words[1] == "and" else words[1] + "s"
+        heading = " ".join(words).replace(" and ", " & ")
+    else:
+        heading = "Earlier rules, kept for reference. " + heading[40:]
+    first["text"] = heading + newline + rest
+    return body
+
+
+@pytest.mark.parametrize("change", ["one word of the opening", "the whole opening"])
+@pytest.mark.parametrize(("key", "mark"), _real_copies())
+def test_a_copy_with_an_altered_opening_refuses_the_ticket(
+    real_wording: None, tmp_path: Path, key: str, mark: str, change: str
+) -> None:
+    body = _altered(key, mark, change)
+    assert jg.fingerprint(body) != jg.fingerprint(
+        json.loads((FIXTURES / f"{key}.before.json").read_bytes())
+    )
+    jira = Jira(**{key.replace("-", "_"): body})
+    assert snapshot(jira, tmp_path) == 1
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_one_old_sentence_left_anywhere_is_reported(real_wording: None, tmp_path: Path) -> None:
+    """What a second dry run sees if a copy was altered past recognition by its opening."""
+    source = json.loads((FIXTURES / "CC-105.before.json").read_bytes())
+    node = next(n for n in source["content"] if jg.fingerprint(n) in REAL_PASTED)
+    sentence = max(jg._lines(node), key=len).split(". ")[0] + "."
+    jira = Jira(CC_1=doc(jg.GATE_LINE, "A paragraph of its own.\n" + sentence))
+    assert snapshot(jira, tmp_path) == 1
+
+
+def test_the_sentence_table_is_the_five_pasted_paragraphs(real_wording: None) -> None:
+    expected: set[str] = set()
+    for key, mark in _real_copies():
+        body = json.loads((FIXTURES / f"{key}.before.json").read_bytes())
+        node = next(n for n in body["content"] if jg.fingerprint(n) == mark)
+        expected |= {jg._sentence_mark(s) for s in jg._sentences(node)}
+    assert len(_real_copies()) == len(REAL_PASTED)
+    assert expected == REAL_SENTENCES
+
+
+# --- cleanup removes snapshot files and nothing else ------------------------------------------
+
+
+def _names(key: str) -> dict[str, str]:
+    return {name: "0" for name in jg._snapshot_names(key)}
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "a file above the folder",
+        "an absolute path",
+        "another file in the folder",
+        "a key that is a path",
+        "another ticket's files",
+        "one bad entry after a good one",
+        "not JSON",
+    ],
+)
+def test_a_manifest_that_names_other_files_removes_nothing(tmp_path: Path, bad: str) -> None:
+    out = tmp_path / "snapshots"
+    snapshot(Jira(CC_1=ticket()), out)
+    victim = tmp_path / "unrelated.txt"
+    victim.write_text("keep me", encoding="utf-8")
+    (out / "notes.txt").write_text("keep me too", encoding="utf-8")
+    (tmp_path / "x.before.json").write_text("keep", encoding="utf-8")
+    manifest = json.loads((out / "manifest.json").read_bytes())
+    files = manifest["tickets"]["CC-1"]["files"]
+    if bad == "a file above the folder":
+        files["../unrelated.txt"] = "0"
+    elif bad == "an absolute path":
+        files[str(victim)] = "0"
+    elif bad == "another file in the folder":
+        files["notes.txt"] = "0"
+    elif bad == "a key that is a path":
+        manifest["tickets"]["../x"] = {"files": _names("../x")}
+    elif bad == "another ticket's files":
+        manifest["tickets"]["CC-2"] = {"files": _names("CC-1")}
+    elif bad == "one bad entry after a good one":
+        manifest["tickets"]["CC-2"] = {"files": {"../unrelated.txt": "0"}}
+    raw = "{ not json" if bad == "not JSON" else json.dumps(manifest)
+    (out / "manifest.json").write_text(raw, encoding="utf-8")
+    kept = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert snapshot(Jira(CC_9=ticket()), out) == 1
+    assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()} == kept
+
+
+@pytest.mark.parametrize("name", ["../unrelated.txt", "notes.txt"])
+def test_an_approved_manifest_that_names_other_files_writes_nothing(
+    tmp_path: Path, name: str
+) -> None:
+    out = tmp_path / "snapshots"
+    snapshot(Jira(CC_1=ticket()), out)
+    other = (out / name).resolve()
+    other.write_bytes(b"x")
+    manifest = json.loads((out / "manifest.json").read_bytes())
+    manifest["tickets"]["CC-1"]["files"][name] = jg._sha(b"x")
+    (out / "manifest.json").write_bytes(jg._dump(manifest))
+    approve(out)
+    assert jg.apply(out, never) == 2

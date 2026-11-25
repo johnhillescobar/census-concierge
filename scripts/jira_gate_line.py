@@ -11,12 +11,20 @@ stores it) and DIR/manifest.json.
 The owner approves a set of snapshots by writing the sha256 of its manifest.json, which --dry-run
 prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots void it.
 
-A ticket is left unchanged when its AC/TC IDs would differ, when a copy of the wording is not
-exact (reworded, formatted or linked), when a line would still point at the removed contract, when
+A ticket is left unchanged when its AC/TC IDs would differ, when part of the pasted wording
+would remain (the opening words of a paragraph, or any sentence of SENTENCE_MIN characters or more,
+as in a reworded, formatted or linked copy; a copy rewritten in all of those is not recognised),
+when a line would still point at the removed contract, when
 it was closed or its description changed after the snapshot, or when its after snapshot is not what
 this script's rule produces. A write that Jira cannot be shown to hold, or that was interrupted,
 stops the run and leaves DIR/FAILED. Until a person deletes it, no --apply of DIR runs and no
---dry-run touches DIR, whose before snapshot is what to restore from. Auth as in
+--dry-run touches DIR, whose before snapshot is what to restore from. One --apply of DIR runs at a
+time (DIR/APPLYING).
+
+Jira offers no way to make a write conditional on what was read, so an edit made between the last
+read and the write is overwritten. It cannot be prevented here, only caught: after each write the
+ticket's history must show exactly one new description change, and Jira's history keeps the text
+that was overwritten. Do not edit the listed tickets while --apply runs. Auth as in
 jira_transition.py: ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN in .env.
 """
 
@@ -27,6 +35,7 @@ import copy
 import hashlib
 import http.client
 import json
+import os
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -65,6 +74,27 @@ OLD_POINTER = (
     "Existing scope (the stricter metric contract above controls prospective migration; "
     "CC-114 keeps its scoped closeout)"
 )
+# The opening words are one way to see a copy that is not exact; any one of its sentences is the
+# other, so that an edit to a heading does not hide the paragraph under it. These are the first 16
+# hex digits of the sha256 of each sentence this long in the five pasted paragraphs.
+SENTENCE_MIN = 40
+_SENTENCE_MARKS = """
+0116cdc21dd3ac94 09c8c2327763cc60 0b7075277f4b18ca 0fac4a13917852d3 11a39e66a1083741
+13c8d0db76bbbbc3 1646792f77f86086 1703836568bccf26 190ee1e393f597ef 1aa47752536203bc
+1fc58fa081f629ba 240e2603fbf0c6ed 25a4c78b9e135804 2ad62e2ac353500e 2ecdc8f2c0f43092
+2f276a1fc97fbe26 2f36b8c840504a48 357521a258e42b9d 396f78a54915bcb5 3b21360896ab0a06
+4185276b4c087754 454b9fd675b2f2c3 4912b413bde041ee 4ff566db80bc6fae 5f6f63f258021c53
+613a99f987ea1b93 65a13f0685eae009 66a63de3a4315878 68d6c2b19dbd368f 6aae8f07c9f5658e
+707048741f3049a8 716ddb76d2671bd3 75d5f02f814aa5f3 79a77c0b227eeadf 7d05e27ffa00e600
+7e63af1ba5512e7d 7e89bcb3bdb3b600 89555afc45d54976 8a124ea335db82df 8b0b08accdde1436
+969a8d869eb1f109 96bc6a13fa4634c5 998bcf28cda4af58 9bbc4a62e2849571 9cde65bf57b58af5
+9ef89f8c4294e729 aa17258f953720c1 b0c96f5bb7888605 b34bef60a476fc41 b389443b78e0f3ce
+b7591137773e922b c7bc189e22308abb ca3c7d1580559e87 cce59cb9085adbed cf17248becf2b5c8
+e74704a8c7ec584f e94c1e53ebfc6638 eecdbfb916a23963 f066080af93b2d7b f1a21c8038d6bc5f
+f77a5df7dc8c70dd f83816199faae969 fc2493cf008973f3 fd6bb98664503de3 ff225589aab0b043
+ff6ff4818d83f638
+"""
+SENTENCES = frozenset(_SENTENCE_MARKS.split())
 NEW_POINTER = "Existing scope"
 POINTER_PHRASE = "the stricter metric contract above"
 
@@ -133,6 +163,19 @@ def _mentions(doc: Doc, phrase: str) -> bool:
     return phrase.casefold() in " ".join(_lines(doc)).casefold()
 
 
+def _sentences(doc: Doc) -> list[str]:
+    parts = (part.strip(" .").casefold() for line in _lines(doc) for part in line.split(". "))
+    return [part for part in parts if len(part) >= SENTENCE_MIN]
+
+
+def _sentence_mark(sentence: str) -> str:
+    return hashlib.sha256(sentence.encode("utf-8")).hexdigest()[:16]
+
+
+def _pasted_sentence(doc: Doc) -> str | None:
+    return next((s for s in _sentences(doc) if _sentence_mark(s) in SENTENCES), None)
+
+
 def refusal(before: Doc, after: Doc) -> str | None:
     """Why this edit must not be made, or None."""
     old, new = criterion_ids(before), criterion_ids(after)
@@ -144,6 +187,9 @@ def refusal(before: Doc, after: Doc) -> str | None:
             return f"a copy of the pasted wording is reworded, formatted or linked: {marker!r}"
     if _mentions(before, MARKERS[0]) and _mentions(after, POINTER_PHRASE):
         return "a line would still point at the removed contract (formatted, nested or moved)"
+    left = _pasted_sentence(after)
+    if left:
+        return f"a sentence of the pasted wording would remain, in an inexact copy: {left[:60]!r}"
     return None
 
 
@@ -165,7 +211,9 @@ def changes(issues: list[dict[str, Any]]) -> list[Change]:
             continue
         after, replaced = edit(before)
         why = refusal(before, after)
-        carries = any(_mentions(before, marker) for marker in MARKERS)
+        carries = any(_mentions(before, marker) for marker in MARKERS) or bool(
+            _pasted_sentence(before)
+        )
         if replaced or carries:
             found.append(Change(str(issue.get("key")), before, after, replaced, why))
     return found
@@ -186,12 +234,30 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _snapshot_names(key: str) -> set[str]:
+    return {f"{key}.{side}" for side in ("before.json", "after.json", "before.md", "after.md")}
+
+
+def _listed(raw: bytes) -> dict[str, Any]:
+    """A manifest in which every ticket is an issue key and names its own four snapshot files and
+    nothing else, so that no name in it can reach another file. ValueError otherwise."""
+    listed = json.loads(raw)
+    for key, entry in listed["tickets"].items():
+        project, _, number = key.partition("-")
+        if not (project.isalpha() and number.isdigit()):
+            raise ValueError(f"the manifest lists {key!r}, which is not an issue key")
+        if set(entry["files"]) != _snapshot_names(key):
+            raise ValueError(f"the manifest names files for {key} that are not its four snapshots")
+    return listed
+
+
 def _discard(out: Path) -> None:
-    """Remove an earlier snapshot set, and only its own files: it no longer describes Jira."""
+    """Remove an earlier snapshot set, and only its own files: it no longer describes Jira. All of
+    the manifest is checked before the first file goes."""
     manifest = out / "manifest.json"
     if manifest.is_file():
-        for entry in json.loads(manifest.read_bytes())["tickets"].values():
-            for name in entry["files"]:
+        for key in _listed(manifest.read_bytes())["tickets"]:
+            for name in _snapshot_names(key):
                 (out / name).unlink(missing_ok=True)
         manifest.unlink()
 
@@ -228,7 +294,11 @@ def dry_run(out: Path, search: SearchFn) -> int:
             file=sys.stderr,
         )
         return 1
-    _discard(out)  # even with nothing to write: a stale set must not be left to approve
+    try:
+        _discard(out)  # even with nothing to write: a stale set must not be left to approve
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        print(f"nothing removed or written in {out}: {exc}", file=sys.stderr)
+        return 1
     if not ready:
         return failed
     out.mkdir(parents=True, exist_ok=True)
@@ -268,7 +338,7 @@ def approved_snapshots(folder: Path) -> tuple[dict[str, tuple[Doc, Doc]], dict[s
     # utf-8-sig: Windows PowerShell writes a byte order mark
     if approval.read_text(encoding="utf-8-sig").strip() != _sha(raw):  # the hash and no more
         raise ValueError(f"{approval} does not name these snapshots (manifest {_sha(raw)})")
-    listed = json.loads(raw)
+    listed = _listed(raw)
     docs: dict[str, tuple[Doc, Doc]] = {}
     for key, entry in listed["tickets"].items():
         for name, want in entry["files"].items():
@@ -303,11 +373,27 @@ def _issue(key: str, api: ApiFn) -> tuple[Doc, bool]:
     return fields["description"], fields["status"]["statusCategory"]["key"] == "done"
 
 
-def _write(key: str, before: Doc, after: Doc, api: ApiFn) -> str | None:
-    """Write one description and read it back. Why it cannot be shown to hold, or None."""
+def _description_changes(key: str, api: ApiFn) -> set[str]:
+    """The ids of the entries in the ticket's history that changed its description."""
+    found: set[str] = set()
+    start = 0
+    while True:
+        page = api("GET", f"/issue/{key}/changelog?startAt={start}&maxResults=100")
+        for history in page["values"]:
+            if any(item.get("fieldId") == "description" for item in history["items"]):
+                found.add(str(history["id"]))
+        start += len(page["values"])
+        if not page["values"] or start >= page["total"]:
+            return found
+
+
+def _write(key: str, after: Doc, earlier: set[str], api: ApiFn) -> str | None:
+    """Write one description, read it back, and read the history: the write must be the only
+    description change since `earlier`. Why it cannot be shown to hold, or None."""
     try:
         api("PUT", f"/issue/{key}", {"fields": {"description": after}})
         stored, _ = _issue(key, api)
+        new = _description_changes(key, api) - earlier
     except (
         OSError,
         ValueError,
@@ -317,29 +403,60 @@ def _write(key: str, before: Doc, after: Doc, api: ApiFn) -> str | None:
         SystemExit,  # jira_transition._api exits on an HTTP error
     ) as exc:
         return f"the write could not be confirmed ({type(exc).__name__}: {exc})"
+    if len(new) > 1:
+        return (
+            f"the history shows {len(new)} description changes where one was written: another "
+            "edit arrived during the write and may be overwritten. Read the ticket's History in "
+            "Jira, which keeps each version, before restoring anything"
+        )
     if _stored_form(stored) != _stored_form(after):
         return "Jira does not hold the approved description"
+    if not new:
+        return "the history does not show this write, so an overlapping edit cannot be ruled out"
     return None
 
 
 def apply(folder: Path, api: ApiFn) -> int:
-    stop = folder / "FAILED"
-    if stop.exists():
+    try:
+        snapshots, skipped = approved_snapshots(folder)
+    except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
+        print(f"nothing written: {exc}", file=sys.stderr)
+        return 2
+    running = folder / "APPLYING"
+    try:  # created only if absent, in one step: of two runs started together, one gets it
+        os.close(os.open(running, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+    except FileExistsError:
         print(
-            f"nothing written: {stop} records a write that did not hold. Compare that ticket "
-            "with its before snapshot, restore it if needed, then delete the file",
+            f"nothing written: {running} exists, so another --apply of this folder is running "
+            "or was killed. If none is running, delete the file",
             file=sys.stderr,
         )
         return 2
     try:
-        snapshots, skipped = approved_snapshots(folder)
-    except (ValueError, KeyError, TypeError, OSError) as exc:
-        print(f"nothing written: {exc}", file=sys.stderr)
+        return _apply_approved(folder, snapshots, skipped, api)
+    finally:
+        running.unlink(missing_ok=True)
+
+
+def _apply_approved(
+    folder: Path, snapshots: dict[str, tuple[Doc, Doc]], skipped: dict[str, str], api: ApiFn
+) -> int:
+    """What apply does while it holds DIR/APPLYING."""
+    stop = folder / "FAILED"
+    if stop.exists():
+        print(
+            f"nothing written: {stop} records a write that did not hold. Read that ticket and "
+            "its History in Jira against its before snapshot, restore it if needed, then delete "
+            "the file",
+            file=sys.stderr,
+        )
         return 2
     for key, why in skipped.items():
         print(f"REFUSED  {key}  at the dry run: {why}")
     written, refused = 0, len(skipped)
     for key, (before, after) in snapshots.items():
+        # read the history first: a change after this point is one the last check will count
+        earlier = _description_changes(key, api)
         live, closed = _issue(key, api)
         if _stored_form(live) == _stored_form(after):
             print(f"done     {key}  already reads as approved")
@@ -363,7 +480,7 @@ def apply(folder: Path, api: ApiFn) -> int:
         stop.write_text(
             f"{key}: a write was started and not confirmed; {restore}\n", encoding="utf-8"
         )
-        problem = _write(key, before, after, api)
+        problem = _write(key, after, earlier, api)
         if problem:
             # stop at once, and stay stopped: what went wrong here would go wrong on the next
             message = f"{key}: {problem}; {restore}"
