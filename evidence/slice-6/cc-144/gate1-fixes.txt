@@ -1,0 +1,27 @@
+Mutation check of the two fixes after Gate 1. HEAD 007e34443b4ca80e8b63ac47d623bdb37310e2bc. One behaviour reverted at a time; each baseline passed first.
+
+REVERTED: any block with the pasted text counts as an exact copy  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted]
+  GOOD
+        5 failed, 46 deselected in 0.63s
+REVERTED: formatting marks are accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[a link on the pasted words]]
+  GOOD
+        1 failed in 0.23s
+REVERTED: any inline node is accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[addition0]]
+  GOOD
+        1 failed in 0.25s
+REVERTED: any block type is accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[a heading in place of the paragraph]]
+  GOOD
+        1 failed in 0.21s
+REVERTED: a line break makes a copy inexact  [test_a_pasted_paragraph_split_by_line_breaks_is_still_an_exact_copy]
+  GOOD
+        1 failed, 50 deselected in 0.29s
+REVERTED: a stale set stays when nothing is ready  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve]
+  GOOD
+        2 failed, 49 deselected in 0.38s
+REVERTED: the earlier manifest stays behind  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve]
+  GOOD
+        2 failed, 49 deselected in 0.32s
+REVERTED: discarding removes no snapshot file  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve or test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set]
+  GOOD
+        3 failed, 48 deselected in 0.28s
+TOTAL: 8 mutations, 8 GOOD, 0 BAD
