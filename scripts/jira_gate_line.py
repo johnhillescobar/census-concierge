@@ -473,8 +473,8 @@ def _apply_approved(
             refused += 1
             continue
         restore = (
-            f"compare it with {folder / f'{key}.before.json'} and restore it from there if it "
-            "differs"
+            f"check the ticket and its History in Jira against {folder / f'{key}.before.json'}, "
+            "and put back only what this write took out"
         )
         # there before the write, so that an interrupted run stays stopped too
         stop.write_text(

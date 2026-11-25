@@ -807,6 +807,9 @@ def test_an_edit_that_arrives_during_a_write_stops_the_run(tmp_path: Path, when:
     assert done and jira.writes == ["CC-1"]
     stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
     assert "2 description changes" in stopped and "History" in stopped
+    # the before snapshot lacks the other edit, so copying it back would lose it again
+    assert "restore it from there" not in stopped
+    assert "put back only what this write took out" in stopped
 
 
 def test_a_write_the_history_does_not_show_is_not_called_done(tmp_path: Path) -> None:
