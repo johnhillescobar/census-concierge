@@ -1,0 +1,493 @@
+HEAD 54bc8f1ce868110da92700ced483d0b2dec20eca  base origin/main  worktree clean
+BASELINE (nothing reverted) 396 passed, 1 warning in 99.26s (0:01:39)
+
+REVERTED: a rate row never fails  [scripts/metric_compare.py]
+  GOOD  test_a_fall_inside_the_tolerance_passes_and_one_past_it_fails  (1 of 1 case(s) failed)
+  GOOD  test_a_p95_rise_past_its_tolerance_fails_and_one_inside_it_passes  (1 of 1 case(s) failed)
+  GOOD  test_questions_returning_fewer_rows_when_answered_fail_past_their_limit  (1 of 1 case(s) failed)
+  GOOD  test_more_empty_answers_than_the_tolerance_fail  (1 of 1 case(s) failed)
+  GOOD  test_a_retrieval_or_selector_drop_fails_past_its_tolerance  (2 of 2 case(s) failed)
+  GOOD  test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails  (4 of 4 case(s) failed)
+  GOOD  test_candidate_files_are_pooled_against_same_window_main_files  (1 of 1 case(s) failed)
+  GOOD  test_a_failing_blocking_reference_still_fails_beside_a_passing_anchor  (1 of 1 case(s) failed)
+  GOOD  test_a_seeded_regression_is_caught_more_often_the_larger_it_is  (1 of 1 case(s) failed)
+  GOOD  test_l_is_judged_whatever_references_are_named  (1 of 1 case(s) failed)
+        14 failed, 1 warning in 3.40s
+
+REVERTED: any fall fails, as before this ticket  [scripts/metric_compare.py]
+  GOOD  test_a_fall_inside_the_tolerance_passes_and_one_past_it_fails  (1 of 1 case(s) failed)
+  GOOD  test_both_stored_same_code_pairs_pass_either_way_round  (4 of 4 case(s) failed)
+  GOOD  test_unchanged_code_seldom_fails_its_own_simulated_reruns  (1 of 1 case(s) failed)
+  GOOD  test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed  (1 of 1 case(s) failed)
+  GOOD  test_stored_same_code_comparisons_are_observed_each_way_at_a_size_they_can_fill  (1 of 1 case(s) failed)
+  GOOD  test_a_candidate_inside_the_tolerance_passes_compare_and_still_cannot_lower_l  (1 of 1 case(s) failed)
+  GOOD  test_a_group_under_the_minimum_gets_a_verdict_from_the_small_group_number  (1 of 1 case(s) failed)
+        10 failed, 1 warning in 1.42s
+
+REVERTED: a tie fails  [scripts/metric_compare.py]
+  GOOD  test_a_run_compared_with_itself_passes  (1 of 1 case(s) failed)
+  GOOD  test_pools_of_different_sizes_compare_rates_not_counts  (1 of 1 case(s) failed)
+  GOOD  test_the_same_run_given_twice_is_not_two_runs  (1 of 1 case(s) failed)
+        3 failed, 1 warning in 1.06s
+
+REVERTED: a tolerance that is not a number passes everything  [scripts/metric_compare.py]
+  GOOD  test_a_tolerance_that_is_not_a_finite_number_excuses_nothing  (2 of 2 case(s) failed)
+        2 failed, 1 warning in 0.46s
+
+REVERTED: a small group is judged by the large-group tolerance  [scripts/metric_compare.py]
+  GOOD  test_a_small_group_is_not_judged_by_the_large_group_tolerance  (1 of 1 case(s) failed)
+  GOOD  test_a_group_under_the_minimum_gets_a_verdict_from_the_small_group_number  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.52s
+
+REVERTED: a rate row does not say how much worse the candidate is  [scripts/metric_compare.py]
+  GOOD  test_a_rate_row_says_how_much_worse_the_candidate_is  (1 of 1 case(s) failed)
+  GOOD  test_pools_of_different_sizes_compare_rates_not_counts  (1 of 1 case(s) failed)
+  GOOD  test_an_unanswered_trial_is_not_a_question_returning_fewer_rows  (1 of 1 case(s) failed)
+  GOOD  test_a_run_of_small_losses_never_moves_l  (1 of 1 case(s) failed)
+  GOOD  test_the_stored_candidate_runs_are_pooled_against_the_stored_main_runs  (1 of 1 case(s) failed)
+        5 failed, 1 warning in 0.80s
+
+REVERTED: a question's rows are averaged over every trial, answered or not  [scripts/metric_compare.py]
+  GOOD  test_an_unanswered_trial_is_not_a_question_returning_fewer_rows  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.32s
+
+REVERTED: a pool reports its first run's scalars  [scripts/metric_compare.py]
+  GOOD  test_a_pool_keeps_every_trial_and_averages_what_each_run_reports  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+
+REVERTED: a pool keeps only its last run's trials  [scripts/metric_compare.py]
+  GOOD  test_pooled_runs_are_judged_as_one_sample  (1 of 1 case(s) failed)
+  GOOD  test_a_pool_keeps_every_trial_and_averages_what_each_run_reports  (1 of 1 case(s) failed)
+  GOOD  test_the_stored_candidate_runs_are_pooled_against_the_stored_main_runs  (1 of 1 case(s) failed)
+  GOOD  test_a_reference_registered_from_two_runs_is_judged_as_their_pool  (1 of 1 case(s) failed)
+        4 failed, 1 warning in 0.83s
+
+REVERTED: pooled runs may have different indexes  [scripts/metric_compare.py]
+  GOOD  test_a_pool_whose_runs_have_different_indexes_is_not_comparable  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.36s
+
+REVERTED: the planned number of runs per side is not required  [scripts/metric_compare.py]
+  GOOD  test_the_planned_number_of_runs_per_side_is_required  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.41s
+
+REVERTED: base runs need not be clean runs of one head on main  [scripts/metric_compare.py]
+  GOOD  test_base_runs_must_be_clean_runs_of_one_head_on_main  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.47s
+
+REVERTED: the base's scorer is not compared with the candidate's  [scripts/metric_compare.py]
+  GOOD  test_base_runs_scored_by_another_scorer_are_not_a_baseline  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.43s
+
+REVERTED: one run given twice among the candidate and main runs is pooled as two  [scripts/metric_compare.py]
+  GOOD  test_the_same_run_given_twice_is_not_two_runs  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.54s
+
+REVERTED: one candidate run given twice is not flagged without a base  [scripts/metric_compare.py]
+  GOOD  test_the_same_run_given_twice_is_not_two_runs  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.95s
+
+REVERTED: any clean run of main is a baseline, whatever the candidate is built on  [scripts/metric_compare.py]
+  GOOD  test_base_runs_must_measure_the_main_the_candidate_is_built_on  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.53s
+
+REVERTED: the product code is not compared when asking what a candidate is built on  [scripts/metric_compare.py]
+  GOOD  test_whether_a_candidate_is_built_on_a_base_is_asked_of_real_git  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.90s
+
+REVERTED: runs from different windows are judged together  [scripts/metric_compare.py]
+  GOOD  test_runs_collected_outside_the_window_are_not_same_window  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.59s
+
+REVERTED: naming another reference leaves L out  [scripts/metric_compare.py]
+  GOOD  test_l_is_judged_whatever_references_are_named  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.64s
+
+REVERTED: A and A0 block  [scripts/metric_compare.py]
+  GOOD  test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict  (1 of 1 case(s) failed)
+  GOOD  test_report_only_rows_are_printed_in_parentheses  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.42s
+
+REVERTED: a report-only row is printed like a blocking one  [scripts/metric_compare.py]
+  GOOD  test_report_only_rows_are_printed_in_parentheses  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+
+REVERTED: the verdict counts rows that are only reported  [scripts/metric_compare.py]
+  GOOD  test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict  (1 of 1 case(s) failed)
+  GOOD  test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.44s
+
+REVERTED: an excepted floor fails the verdict  [scripts/metric_compare.py]
+  GOOD  test_an_excepted_floor_does_not_block_while_no_worse_than_its_baseline  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.24s
+
+REVERTED: an exception excuses any value, however far below its baseline  [scripts/metric_compare.py]
+  GOOD  test_an_excepted_floor_does_not_block_while_no_worse_than_its_baseline  (1 of 1 case(s) failed)
+  GOOD  test_each_quality_floor_is_excepted_by_its_own_rule_number  (3 of 3 case(s) failed)
+  GOOD  test_an_over_ceiling_p95_is_excepted_while_no_worse_than_the_owners_baseline  (1 of 1 case(s) failed)
+  GOOD  test_main_fails_a_floor_that_fell_past_its_exception  (1 of 1 case(s) failed)
+        6 failed, 1 warning in 0.60s
+
+REVERTED: an exception for one floor covers every floor  [scripts/metric_compare.py]
+  BAD   test_an_exception_covers_only_its_own_metric  (0 of 1 case(s) failed)
+  GOOD  test_an_exception_for_one_floor_does_not_cover_another  (1 of 1 case(s) failed)
+        1 failed, 1 passed, 1 warning in 0.21s
+
+REVERTED: a malformed exception does not stop the others from excusing  [scripts/metric_compare.py]
+  GOOD  test_a_malformed_exception_excuses_nothing  (7 of 7 case(s) failed)
+  GOOD  test_a_malformed_exception_is_itself_a_failure_and_excuses_nothing  (4 of 4 case(s) failed)
+        11 failed, 1 warning in 0.68s
+
+REVERTED: exceptions are never honoured  [scripts/metric_compare.py]
+  GOOD  test_an_excepted_floor_does_not_block_while_no_worse_than_its_baseline  (1 of 1 case(s) failed)
+  GOOD  test_each_quality_floor_is_excepted_by_its_own_rule_number  (3 of 3 case(s) failed)
+  GOOD  test_main_labels_an_excepted_quality_floor_and_counts_it  (1 of 1 case(s) failed)
+  GOOD  test_an_over_ceiling_p95_is_excepted_while_no_worse_than_the_owners_baseline  (1 of 1 case(s) failed)
+        6 failed, 1 warning in 0.50s
+
+REVERTED: the selector floor is excepted by the answered-rate tolerance  [scripts/metric_compare.py]
+  GOOD  test_each_quality_floor_is_excepted_by_its_own_rule_number  (1 of 3 case(s) failed)
+        1 failed, 2 passed, 1 warning in 0.34s
+
+REVERTED: floors are judged on the first pooled run  [scripts/metric_compare.py]
+  GOOD  test_floors_are_judged_on_the_pooled_candidate  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+
+REVERTED: the p95 ceiling is judged on the first pooled run  [scripts/metric_compare.py]
+  GOOD  test_floors_are_judged_on_the_pooled_candidate  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.43s
+
+REVERTED: the response contract is checked on the first pooled run  [scripts/metric_compare.py]
+  GOOD  test_an_answer_missing_a_contract_field_fails  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.23s
+
+REVERTED: what a run reports is checked against its trials for the first pooled run only  [scripts/metric_compare.py]
+  GOOD  test_a_p95_that_disagrees_with_its_trials_fails  (1 of 1 case(s) failed)
+  GOOD  test_a_reported_answered_rate_that_the_trials_do_not_support_fails  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.33s
+
+REVERTED: an answer missing a contract field passes  [scripts/metric_compare.py]
+  GOOD  test_a_named_hard_failure_blocks_even_when_the_pooled_rate_rises  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+
+REVERTED: the comparator ignores the owner's one-run waiver  [scripts/metric_compare.py]
+  GOOD  test_the_comparator_honours_a_one_run_waiver_as_the_budget_check_does  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.32s
+
+REVERTED: a one-run waiver covers a pool  [scripts/metric_compare.py]
+  GOOD  test_the_comparator_honours_a_one_run_waiver_as_the_budget_check_does  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+
+REVERTED: the question-level rule always blocks  [scripts/metric_compare.py]
+  GOOD  test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main  (1 of 1 case(s) failed)
+  GOOD  test_both_stored_same_code_pairs_pass_either_way_round  (1 of 4 case(s) failed)
+        2 failed, 3 passed, 1 warning in 0.32s
+
+REVERTED: the question-level rule never blocks  [scripts/metric_compare.py]
+  GOOD  test_the_question_level_rule_blocks_once_the_owner_adopts_it  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.26s
+
+REVERTED: one answered reference trial is enough to call a question lost  [scripts/metric_compare.py]
+  GOOD  test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+
+REVERTED: lost questions are looked for in the long tail only  [scripts/metric_compare.py]
+  GOOD  test_the_question_level_rule_names_every_question_of_a_broken_geography  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.38s
+
+REVERTED: a cohort with no questions divides by zero  [scripts/metric_compare.py]
+  GOOD  test_a_cohort_with_no_questions_is_unknown_not_a_crash  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.36s
+
+REVERTED: empty answers are judged by the answered-rate tolerance  [scripts/metric_compare.py]
+  GOOD  test_more_empty_answers_than_the_tolerance_fail  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.38s
+
+REVERTED: no question may return fewer rows  [scripts/metric_compare.py]
+  GOOD  test_questions_returning_fewer_rows_when_answered_fail_past_their_limit  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+
+REVERTED: retrieval is judged by the selector's tolerance  [scripts/metric_compare.py]
+  GOOD  test_a_retrieval_or_selector_drop_fails_past_its_tolerance  (1 of 2 case(s) failed)
+        1 failed, 1 passed, 1 warning in 0.38s
+
+REVERTED: p95 may not rise at all  [scripts/metric_compare.py]
+  GOOD  test_a_p95_rise_past_its_tolerance_fails_and_one_inside_it_passes  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+
+REVERTED: promotion needs A registered  [scripts/metric_compare.py]
+  GOOD  test_promotion_needs_no_pass_against_a  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+
+REVERTED: promotion goes ahead with no L to judge against  [scripts/metric_compare.py]
+  GOOD  test_promotion_is_refused_until_l_is_seeded  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+
+REVERTED: promotion may lower L  [scripts/metric_compare.py]
+  GOOD  test_a_run_of_small_losses_never_moves_l  (1 of 1 case(s) failed)
+  GOOD  test_a_candidate_inside_the_tolerance_passes_compare_and_still_cannot_lower_l  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.59s
+
+REVERTED: promotion ignores a failing verdict  [scripts/metric_compare.py]
+  GOOD  test_a_candidate_that_fails_against_l_does_not_become_l  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.56s
+
+REVERTED: promotion stores only the first run of a pool  [scripts/metric_compare.py]
+  GOOD  test_a_pool_of_post_merge_runs_is_promoted_as_one_reference  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+
+REVERTED: pooled candidate runs may have measured different heads  [scripts/metric_compare.py]
+  GOOD  test_pooled_candidate_runs_must_have_measured_one_head  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.40s
+
+REVERTED: an unstamped run is overlooked when the first pooled run is stamped  [scripts/metric_compare.py]
+  GOOD  test_a_run_with_no_provenance_is_unknown_and_can_never_be_promoted  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.60s
+
+REVERTED: the candidate's collection settings are not checked  [scripts/metric_compare.py]
+  GOOD  test_a_run_collected_under_other_collection_settings_is_refused  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+
+REVERTED: a reference's collection settings are not checked  [scripts/metric_compare.py]
+  GOOD  test_only_an_explicit_legacy_flag_skips_the_collection_check  (1 of 1 case(s) failed)
+  GOOD  test_a_run_collected_under_other_collection_settings_is_refused  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.68s
+
+REVERTED: a legacy reference is checked like any other  [scripts/metric_compare.py]
+  GOOD  test_only_an_explicit_legacy_flag_skips_the_collection_check  (1 of 1 case(s) failed)
+  GOOD  test_a_legacy_run_is_registered_without_reading_the_protocol_at_its_head  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.75s
+
+REVERTED: a run is bound to the whole protocol file, rule included  [scripts/metric_compare.py]
+  GOOD  test_a_run_collected_before_a_rule_change_is_judged_under_the_new_rule  (1 of 1 case(s) failed)
+  GOOD  test_a_stored_run_collected_before_the_rule_existed_is_judged_under_todays_rule  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 1.84s
+
+REVERTED: the collection hash covers the rule  [scripts/metric_compare.py]
+  GOOD  test_the_collection_hash_ignores_the_rule_and_moves_with_what_a_run_collects  (1 of 1 case(s) failed)
+  GOOD  test_a_stored_run_collected_before_the_rule_existed_is_judged_under_todays_rule  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.56s
+
+REVERTED: the collection hash ignores the trials per question  [scripts/metric_compare.py]
+  GOOD  test_the_collection_hash_ignores_the_rule_and_moves_with_what_a_run_collects  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.35s
+
+REVERTED: a reference stores only its first run  [scripts/metric_compare.py]
+  GOOD  test_a_reference_registered_from_two_runs_is_judged_as_their_pool  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+
+REVERTED: only the first file of a pooled reference is pinned  [scripts/metric_compare.py]
+  GOOD  test_a_reference_registered_from_two_runs_is_judged_as_their_pool  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.47s
+
+REVERTED: a reference may name a head its runs did not measure  [scripts/metric_compare.py]
+  GOOD  test_a_reference_is_registered_only_from_clean_runs_of_the_head_it_names  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+
+REVERTED: a reference may pool one run twice  [scripts/metric_compare.py]
+  GOOD  test_a_reference_is_registered_only_from_clean_runs_of_the_head_it_names  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.44s
+
+REVERTED: registering a legacy run reads the protocol at its head  [scripts/metric_compare.py]
+  GOOD  test_a_legacy_run_is_registered_without_reading_the_protocol_at_its_head  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.39s
+
+REVERTED: the ledger row leaves out the base files  [scripts/metric_compare.py]
+  GOOD  test_the_ledger_row_names_every_run_file_by_hash  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.42s
+
+REVERTED: compare judges A, A0, L and B unless told otherwise  [scripts/metric_compare.py]
+  GOOD  test_the_compare_command_takes_pooled_files_and_judges_against_l_by_default  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+
+REVERTED: the compare command drops the base files  [scripts/metric_compare.py]
+  GOOD  test_the_compare_command_takes_pooled_files_and_judges_against_l_by_default  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+
+REVERTED: a target is judged against the candidate itself  [scripts/metric_compare.py]
+  GOOD  test_a_target_is_judged_against_the_reference_the_rows_were  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.40s
+
+REVERTED: freeze leaves out the rule numbers  [scripts/metric_compare.py]
+  GOOD  test_freeze_prints_the_hashes_and_every_rule_number  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.48s
+
+REVERTED: the p95 row has no rule on record  [scripts/metric_compare.py]
+  GOOD  test_every_rate_row_is_judged_by_a_number_in_the_committed_rule  (1 of 1 case(s) failed)
+  GOOD  test_every_row_compare_prints_is_a_rate_with_a_rule_or_a_named_hard_failure  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.85s
+
+REVERTED: the run-count failure is not a named hard row  [scripts/metric_compare.py]
+  GOOD  test_every_row_compare_prints_is_a_rate_with_a_rule_or_a_named_hard_failure  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.82s
+
+REVERTED: a broken question still answers in a simulated run  [scripts/metric_compare.py]
+  GOOD  test_a_seeded_regression_is_caught_more_often_the_larger_it_is  (1 of 1 case(s) failed)
+  GOOD  test_a_broken_question_in_a_simulated_run_is_never_answered  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 0.61s
+
+REVERTED: a broken question returns no rows in a simulated run  [scripts/metric_compare.py]
+  GOOD  test_a_broken_question_in_a_simulated_run_is_never_answered  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+
+REVERTED: a simulated run blends the stored runs' scalars  [scripts/metric_compare.py]
+  GOOD  test_a_simulated_run_takes_its_scalars_from_one_stored_run  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+
+REVERTED: a stored same-code pair is judged one way round only  [scripts/metric_compare.py]
+  GOOD  test_stored_same_code_comparisons_are_observed_each_way_at_a_size_they_can_fill  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.33s
+
+REVERTED: a pair judged both ways counts as two observations  [scripts/metric_compare.py]
+  GOOD  test_stored_same_code_comparisons_are_observed_each_way_at_a_size_they_can_fill  (1 of 1 case(s) failed)
+  GOOD  test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 1.04s
+
+REVERTED: the noise report misstates how many more runs a size needs  [scripts/metric_compare.py]
+  GOOD  test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.07s
+
+REVERTED: one stored run is taken as enough for a noise report  [scripts/metric_compare.py]
+  GOOD  test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.24s
+
+REVERTED: the interval has no width  [scripts/metric_compare.py]
+  GOOD  test_the_wilson_interval_holds_the_rate_and_narrows_with_more_trials  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.30s
+
+REVERTED: the noise command reports one size unless told  [scripts/metric_compare.py]
+  GOOD  test_the_noise_command_reads_its_sizes  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+
+REVERTED: a run file is read without its stamp  [scripts/metric_compare.py]
+  GOOD  test_the_four_stored_runs_are_two_codes_each_measured_twice  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+
+REVERTED: the proposed rate tolerance is tighter than the stored same-code spread  [evals/metric_protocol.toml]
+  GOOD  test_both_stored_same_code_pairs_pass_either_way_round  (1 of 4 case(s) failed)
+        1 failed, 3 passed, 1 warning in 0.35s
+
+REVERTED: the proposed rate tolerance is too loose for the stated defect  [evals/metric_protocol.toml]
+  GOOD  test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails  (1 of 4 case(s) failed)
+        1 failed, 3 passed, 1 warning in 0.28s
+
+REVERTED: a rule tolerance may be raised  [scripts/check_invariants.py]
+  GOOD  test_raising_a_rule_tolerance_fails_and_lowering_it_is_allowed  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 0.46s
+
+REVERTED: a rule number main does not have needs no owner  [scripts/check_invariants.py]
+  GOOD  test_a_rule_number_main_does_not_have_yet_is_the_owners_to_ratify  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.28s
+
+REVERTED: a missing rule number is accepted  [scripts/check_invariants.py]
+  GOOD  test_a_rule_number_that_is_removed_or_not_a_number_fails  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 0.39s
+
+REVERTED: nan and inf are accepted as limits  [scripts/check_invariants.py]
+  GOOD  test_a_rule_number_that_is_removed_or_not_a_number_fails  (8 of 8 case(s) failed)
+        8 failed, 1 warning in 0.43s
+
+REVERTED: a rule parameter the guard does not know is accepted  [scripts/check_invariants.py]
+  GOOD  test_a_rule_parameter_the_guard_does_not_know_is_a_violation  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.35s
+
+REVERTED: the report-only list is not among the guarded parameters  [scripts/check_invariants.py]
+  GOOD  test_every_rule_parameter_in_the_committed_protocol_is_guarded  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.39s
+
+REVERTED: a blocking rule may be turned off  [scripts/check_invariants.py]
+  GOOD  test_a_blocking_rule_may_be_turned_on_and_never_off  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 1.06s
+
+REVERTED: a reference may join the report-only list  [scripts/check_invariants.py]
+  GOOD  test_a_reference_may_leave_the_report_only_list_and_never_join_it  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.37s
+
+REVERTED: a floor exception is not an exemption  [scripts/check_invariants.py]
+  GOOD  test_a_floor_exception_added_in_a_change_fails_the_check  (1 of 1 case(s) failed)
+  GOOD  test_an_exception_whose_baseline_or_ticket_changed_is_a_new_exception  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 2.20s
+
+REVERTED: an exception is known by its metric alone  [scripts/check_invariants.py]
+  GOOD  test_an_exception_whose_baseline_or_ticket_changed_is_a_new_exception  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 2.44s
+
+REVERTED: L may be seeded or moved in any change  [scripts/check_invariants.py]
+  GOOD  test_a_change_to_l_outside_the_owners_own_commit_is_rejected  (1 of 1 case(s) failed)
+  GOOD  test_seeding_l_is_the_owners_own_commit_too  (1 of 1 case(s) failed)
+  GOOD  test_what_promote_writes_is_still_the_owners_to_commit  (1 of 1 case(s) failed)
+        3 failed, 1 warning in 0.74s
+
+REVERTED: a post-merge run that is not recorded is never owed  [scripts/closure.py]
+  GOOD  test_a_ticket_whose_merge_touched_api_src_still_owes_its_post_merge_run  (1 of 1 case(s) failed)
+  GOOD  test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_another  (1 of 1 case(s) failed)
+  GOOD  test_a_change_committed_straight_onto_the_base_is_diffed_as_itself  (1 of 1 case(s) failed)
+  GOOD  test_check_file_names_the_manifest_whose_merges_are_diffed  (1 of 1 case(s) failed)
+        4 failed, 1 warning in 27.54s
+
+REVERTED: a post-merge run is owed whatever was merged  [scripts/closure.py]
+  GOOD  test_a_ticket_that_merged_no_product_eval_or_harness_file_closes_without_a_post_merge_run  (1 of 1 case(s) failed)
+  GOOD  test_a_change_committed_straight_onto_the_base_is_diffed_as_itself  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 16.78s
+
+REVERTED: a change to the evals owes no run  [scripts/closure.py]
+  GOOD  test_what_owes_a_post_merge_run_is_the_product_the_evals_and_the_run_harness  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 17.41s
+
+REVERTED: a change to the web build owes no run  [scripts/closure.py]
+  GOOD  test_what_owes_a_post_merge_run_is_the_product_the_evals_and_the_run_harness  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 16.04s
+
+REVERTED: a file beside a listed path counts as that path  [scripts/closure.py]
+  GOOD  test_what_owes_a_post_merge_run_is_the_product_the_evals_and_the_run_harness  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 15.95s
+
+REVERTED: the merge that brought in a tested head is not looked up  [scripts/closure.py]
+  GOOD  test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_another  (1 of 1 case(s) failed)
+  GOOD  test_a_change_committed_straight_onto_the_base_is_diffed_as_itself  (1 of 1 case(s) failed)
+        2 failed, 1 warning in 17.54s
+
+REVERTED: the merges that changed the manifest are not looked up  [scripts/closure.py]
+  GOOD  test_check_file_names_the_manifest_whose_merges_are_diffed  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 17.96s
+
+REVERTED: a commit made straight onto the base is diffed as the commit after it  [scripts/closure.py]
+  GOOD  test_a_change_committed_straight_onto_the_base_is_diffed_as_itself  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 19.26s
+
+REVERTED: work that is not on the base may close without a run  [scripts/closure.py]
+  GOOD  test_work_that_is_not_on_the_base_cannot_close_without_a_run  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 16.85s
+
+REVERTED: a merge git cannot diff counts as having merged nothing  [scripts/closure.py]
+  GOOD  test_a_merge_git_cannot_diff_owes_the_run  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 16.49s
+
+REVERTED: a half-recorded post-merge run counts as none recorded  [scripts/closure.py]
+  GOOD  test_a_half_recorded_post_merge_run_is_not_waved_through  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 21.18s
+
+REVERTED: check_file does not say which manifest it is checking  [scripts/closure.py]
+  GOOD  test_check_file_names_the_manifest_whose_merges_are_diffed  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 18.86s
+
+REVERTED: a waived run is also reported as excepted  [scripts/check_budgets.py]
+  GOOD  test_a_waived_run_is_reported_as_waived_not_excepted  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.29s
+
+REVERTED: malformed exceptions are not reported  [scripts/check_budgets.py]
+  GOOD  test_a_malformed_exception_is_itself_a_failure_and_excuses_nothing  (4 of 4 case(s) failed)
+        4 failed, 1 warning in 0.43s
+
+REVERTED: an excepted row is printed as waived  [scripts/check_budgets.py]
+  GOOD  test_main_labels_an_excepted_quality_floor_and_counts_it  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.34s
+
+REVERTED: a quality floor is never looked up for an exception  [scripts/check_budgets.py]
+  GOOD  test_main_labels_an_excepted_quality_floor_and_counts_it  (1 of 1 case(s) failed)
+        1 failed, 1 warning in 0.24s
+
+108 mutations, 161 test runs: 160 GOOD, 1 BAD
+  BAD  an exception for one floor covers every floor :: test_an_exception_covers_only_its_own_metric
+new tests with no GOOD mutation: 1
+  UNCOVERED  api/tests/test_metric_compare.py::test_an_exception_covers_only_its_own_metric
+worktree after the run: clean
