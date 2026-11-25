@@ -90,6 +90,15 @@ def _drop_pointer(node: Doc) -> None:
             return
 
 
+def _plain(node: Doc) -> bool:
+    """A paragraph of unformatted text and line breaks, which fingerprint reads in full. A link,
+    mention or mark can carry something it cannot see, so such a copy is not an exact one."""
+    return node.get("type") == "paragraph" and all(
+        child.get("type") in {"text", "hardBreak"} and not child.get("marks")
+        for child in node.get("content") or []
+    )
+
+
 def edit(doc: Doc) -> tuple[Doc, list[str]]:
     """The description with every pasted paragraph replaced by one gate line, where the first one
     stood, and the names of what was replaced. A description with none comes back equal."""
@@ -98,7 +107,7 @@ def edit(doc: Doc) -> tuple[Doc, list[str]]:
     replaced: list[str] = []
     has_line = any(_lines(node) == [GATE_LINE] for node in after.get("content") or [])
     for node in after.get("content") or []:
-        name = PASTED.get(fingerprint(node))
+        name = PASTED.get(fingerprint(node)) if _plain(node) else None
         if name is None:
             kept.append(node)
             continue
@@ -121,7 +130,7 @@ def refusal(before: Doc, after: Doc) -> str | None:
         return f"criterion IDs would change: {was} -> {would}"
     for line in _lines(after):
         if line.startswith(MARKERS):
-            return f"a copy of the pasted wording is not the text this script knows: {line[:60]!r}"
+            return f"a copy of the pasted wording is reworded, formatted or linked: {line[:60]!r}"
     return None
 
 
@@ -164,6 +173,16 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _discard(out: Path) -> None:
+    """Remove an earlier snapshot set, and only its own files: it no longer describes Jira."""
+    manifest = out / "manifest.json"
+    if manifest.is_file():
+        for entry in json.loads(manifest.read_bytes())["tickets"].values():
+            for name in entry["files"]:
+                (out / name).unlink(missing_ok=True)
+        manifest.unlink()
+
+
 def dry_run(out: Path, search: SearchFn) -> int:
     found = changes(search(OPEN_JQL, fields="description"))
     ready = [c for c in found if not c.refused]
@@ -174,19 +193,18 @@ def dry_run(out: Path, search: SearchFn) -> int:
             print(f"change   {change.key}  replaces: {', '.join(change.replaced)}")
     print(f"{len(ready)} ticket(s) left to change, {len(found) - len(ready)} refused")
     failed = 1 if len(found) > len(ready) else 0
-    if not ready:
-        return failed
     if (out / "APPROVED").exists():
+        if not ready:
+            return failed
         print(
             f"{out} holds approved snapshots and is not overwritten; use --out for new ones",
             file=sys.stderr,
         )
         return 1
+    _discard(out)  # even with nothing to write: a stale set must not be left to approve
+    if not ready:
+        return failed
     out.mkdir(parents=True, exist_ok=True)
-    if (out / "manifest.json").is_file():  # a ticket that dropped out must not look reviewable
-        for entry in json.loads((out / "manifest.json").read_bytes())["tickets"].values():
-            for name in entry["files"]:
-                (out / name).unlink(missing_ok=True)
     tickets: dict[str, Any] = {}
     for change in ready:
         files = {

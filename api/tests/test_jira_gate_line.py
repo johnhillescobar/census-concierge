@@ -176,6 +176,55 @@ def test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped(tmp_path
     assert snapshot(jira, tmp_path) == 1
 
 
+LINK = {"type": "link", "attrs": {"href": "https://example.invalid/waiver"}}
+
+
+@pytest.mark.parametrize(
+    "addition",
+    [
+        {"type": "inlineCard", "attrs": {"url": "https://example.invalid/waiver"}},
+        {"type": "mention", "attrs": {"id": "someone"}},
+        {"type": "status", "attrs": {"text": "WAIVED"}},
+        "a link on the pasted words",
+        "a heading in place of the paragraph",
+    ],
+)
+def test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted(
+    tmp_path: Path, addition: Any
+) -> None:
+    body = ticket()
+    block = body["content"][1]  # the contract, its words unchanged
+    if isinstance(addition, dict):
+        block["content"].append(addition)
+    elif addition.startswith("a link"):
+        block["content"][0]["marks"] = [LINK]
+    else:
+        block["type"] = "heading"
+    assert jg.fingerprint(block) == jg.fingerprint(para(CONTRACT))
+    after, _ = jg.edit(body)
+    assert block in after["content"]
+    jira = Jira(CC_1=body)
+    assert snapshot(jira, tmp_path) == 1
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_a_pasted_paragraph_split_by_line_breaks_is_still_an_exact_copy() -> None:
+    first, second = CONTRACT.split("\n")
+    block = para(first)
+    block["content"] += [{"type": "hardBreak"}, {"type": "text", "text": second}]
+    assert jg.edit({"type": "doc", "version": 1, "content": [block]})[1] == ["metric contract"]
+
+
+@pytest.mark.parametrize("left", [{}, {"CC_1": doc(CONTRACT + " reworded")}])
+def test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve(
+    tmp_path: Path, left: dict[str, Any]
+) -> None:
+    snapshot(Jira(CC_1=ticket()), tmp_path)
+    (tmp_path / "notes.txt").write_text("not ours", encoding="utf-8")
+    snapshot(Jira(**left), tmp_path)
+    assert [p.name for p in tmp_path.iterdir()] == ["notes.txt"]
+
+
 def test_a_dry_run_only_reads_and_writes_both_sides(tmp_path: Path) -> None:
     jira = Jira(CC_1=ticket())
     assert snapshot(jira, tmp_path) == 0
