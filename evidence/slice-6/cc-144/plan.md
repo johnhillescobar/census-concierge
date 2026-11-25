@@ -24,8 +24,10 @@ Final run: not required (no `api/src`, `evals/` or run-harness file; CC-143 AC11
 | the closure check rejects a row with no command | `closure.problems` on a NOT RUN row | **no**: only PASS rows are checked. That is the AC4 change |
 | existing manifests survive the stricter check | every `evidence/closure/*.toml` | rows with no command are all AMENDED (CC-125, CC-126, CC-138) |
 | room for a playbook line | `check_budgets.py --structural-only` | doc lines 1820/1820: the sentence goes on an existing line |
-| Jira can refuse a write when the ticket changed after the read | web search; a live GET | **no way found**: no ETag on the read, no supported precondition in the search ([JRACLOUD-26005](https://jira.atlassian.com/browse/JRACLOUD-26005) asks for one). The history lists every description change, so the script detects, and cannot prevent |
-| the history reader reads real histories | `_description_changes` on all 20, GET only | 120 description changes; equal to an independent count for each ticket. That a new write appears at once is **not verified**: if it does not, the run stops |
+| Jira can refuse a write when the ticket changed after the read | web search; a live GET | **no way found**: no ETag on the read, no supported precondition in the search ([JRACLOUD-26005](https://jira.atlassian.com/browse/JRACLOUD-26005) asks for one). The script can only detect, not prevent |
+| the history reader reads real histories | `_description_changes` on all 20, GET only | 120 description changes; equal to an independent count for each ticket |
+| a history entry holds each description as the exact text API v2 returns | GET only, every CC ticket (`review4-live.txt`) | 258 changes: one change's new text equals the next one's old text 172 of 172; the latest equals the current v2 text 86 of 86. **Not verified** without a write: the same for a v3 write of this script, and that it is listed at once. If either is not so, the run stops after its first write |
+| the search shows the latest text | [Atlassian: search and reconcile](https://developer.atlassian.com/cloud/jira/platform/search-and-reconcile/) | **no**: no read-after-write consistency by default, seconds to minutes. The dry run reads each listed ticket from its own record |
 | criterion IDs are unique per ticket | `required_ids` per line | **no**: CC-3 has AC1 in two sections, so IDs are compared with repeats, in order |
 
 ## What is replaced
@@ -51,6 +53,8 @@ Never edited: AC/TC lines, checklist criteria, "Model-owned intent" blocks, anyt
 - `default` Approval is a file `<dir>/APPROVED` holding the sha256 of `<dir>/manifest.json`, written by the owner. New snapshots void it.
 - `default` AMENDED manifest rows need no command: they are out of scope.
 - `default` A ticket that never carried the wording gets no line (AC1 lists only carriers).
+- `default` Without `--out`, `--dry-run` writes to `jira-gate-line` in the system's temporary directory. The committed set
+  here is made with `--out`; a run with `--out` naming this folder still replaces it when it has no APPROVED or FAILED file.
 
 ## Outward writes, in order
 

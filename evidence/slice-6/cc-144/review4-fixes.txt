@@ -1,0 +1,255 @@
+Mutation checks at HEAD 56fae437b4cdb5c4536838ffe72c0214f78c35c4. Each reverts one behaviour, runs its tests, restores.
+GOOD: the tests failed. Anchors in the earlier sets were re-pointed where the code moved
+(four in the three-bug set, one in the Gate 2 set); each still reverts the same behaviour.
+
+== the four outside findings
+REVERTED: one new change is accepted whatever its text  [-k test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run or test_a_history_entry_without_its_text_is_not_taken_for_this_write]
+  GOOD
+        5 failed, 134 deselected in 0.41s
+REVERTED: only the text the change goes to is compared  [-k test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+  GOOD
+        1 failed, 2 passed, 136 deselected in 0.37s
+REVERTED: only the text the change goes from is compared  [-k test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run]
+  GOOD
+        1 failed, 2 passed, 136 deselected in 0.27s
+REVERTED: a change without its old text is accepted  [-k test_a_history_entry_without_its_text_is_not_taken_for_this_write]
+  GOOD
+        1 failed, 1 passed, 137 deselected in 0.33s
+REVERTED: a change without its new text is accepted  [-k test_a_history_entry_without_its_text_is_not_taken_for_this_write]
+  GOOD
+        1 failed, 1 passed, 137 deselected in 0.34s
+REVERTED: the new text is kept as the old one  [-k test_approved_snapshots_are_written_and_every_id_is_kept]
+  GOOD
+        1 failed, 138 deselected in 0.24s
+REVERTED: the description is read before the text it is compared with  [-k test_an_edit_between_the_reads_before_a_write_is_never_written_over]
+  GOOD
+        1 failed, 138 deselected in 0.34s
+REVERTED: the text is read through the v3 path  [-k test_approved_snapshots_are_written_and_every_id_is_kept or test_the_apply_command_writes_what_the_printed_hash_approves]
+  GOOD
+        2 failed, 137 deselected in 0.45s
+REVERTED: the v2 read is sent through the v3 client  [-k test_the_apply_command_writes_what_the_printed_hash_approves]
+  GOOD
+        1 failed, 138 deselected in 0.28s
+REVERTED: the v2 read carries no authorization  [-k test_the_apply_command_writes_what_the_printed_hash_approves]
+  GOOD
+        1 failed, 138 deselected in 0.24s
+REVERTED: a ticket closed at the read-back is accepted  [-k test_a_ticket_that_closed_during_its_write_stops_the_run]
+  GOOD
+        2 failed, 137 deselected in 0.35s
+REVERTED: the default folder is the committed snapshot set  [-k test_the_default_snapshot_folder_is_outside_the_repository]
+  GOOD
+        1 failed, 138 deselected in 0.25s
+REVERTED: the dry run uses what the search returns  [-k test_a_search_from_before_the_apply_does_not_report_work_left or test_wording_a_ticket_holds_now_is_found_when_the_search_does_not_show_it or test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted or test_a_dry_run_only_reads_and_writes_both_sides or test_the_dry_run_command_asks_for_open_tickets_and_only_reads]
+  GOOD
+        6 failed, 133 deselected in 0.42s
+REVERTED: a ticket closed since it was listed is kept  [-k test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted]
+  GOOD
+        1 failed, 138 deselected in 0.29s
+REVERTED: the earlier set is removed before the tickets are read  [-k test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was]
+  GOOD
+        1 failed, 138 deselected in 0.28s
+TOTAL: 15 mutations, 15 GOOD, 0 BAD
+exit 0
+
+
+== the three earlier outside findings
+REVERTED: the history is not checked after a write  [-k test_an_edit_that_arrives_during_a_write_stops_the_run or test_a_write_the_history_does_not_show_is_not_called_done]
+  GOOD
+        4 failed, 135 deselected in 0.40s
+REVERTED: two changes in the history are accepted  [-k test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        3 failed, 136 deselected in 0.58s
+REVERTED: a write missing from the history is accepted  [-k test_a_write_the_history_does_not_show_is_not_called_done]
+  GOOD
+        1 failed, 138 deselected in 0.30s
+REVERTED: the history baseline is taken after the last read  [-k test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        1 failed, 2 passed, 136 deselected in 0.30s
+REVERTED: only the first page of the history is read  [-k test_a_history_longer_than_one_page_is_read_to_the_end]
+  GOOD
+        1 failed, 1 passed, 137 deselected in 0.68s
+REVERTED: a change to any field counts  [-k test_a_change_to_another_field_during_a_write_does_not_stop_the_run]
+  GOOD
+        1 failed, 138 deselected in 0.36s
+REVERTED: the lock is not exclusive  [-k test_a_second_apply_of_the_same_folder_cannot_run_beside_the_first or test_a_lock_left_by_a_killed_run_blocks_until_a_person_removes_it]
+  GOOD
+        2 failed, 137 deselected in 0.34s
+REVERTED: the lock is not released  [-k test_an_apply_that_has_ended_leaves_the_folder_free]
+  GOOD
+        5 failed, 134 deselected in 0.54s
+REVERTED: the lock is released only on a normal return  [-k test_an_apply_that_has_ended_leaves_the_folder_free]
+  GOOD
+        1 failed, 4 passed, 134 deselected in 0.29s
+REVERTED: the lock is taken before the approval is read  [-k test_an_unapproved_folder_gets_no_lock_file]
+  GOOD
+        1 failed, 138 deselected in 0.34s
+REVERTED: a surviving sentence is accepted  [-k test_a_copy_with_an_altered_opening_refuses_the_ticket or test_one_old_sentence_left_anywhere_is_reported]
+  GOOD
+        11 failed, 128 deselected in 1.04s
+REVERTED: a ticket with only a surviving sentence is skipped  [-k test_one_old_sentence_left_anywhere_is_reported]
+  GOOD
+        1 failed, 138 deselected in 0.29s
+REVERTED: capitals hide a sentence  [-k test_the_sentence_table_is_the_five_pasted_paragraphs or test_a_copy_with_an_altered_opening_refuses_the_ticket]
+  GOOD
+        11 failed, 128 deselected in 0.65s
+REVERTED: only whole lines are compared  [-k test_the_sentence_table_is_the_five_pasted_paragraphs or test_one_old_sentence_left_anywhere_is_reported]
+  GOOD
+        1 failed, 1 passed, 137 deselected in 0.32s
+REVERTED: one sentence fingerprint is missing from the table  [-k test_the_sentence_table_is_the_five_pasted_paragraphs]
+  GOOD
+        1 failed, 138 deselected in 0.32s
+REVERTED: a manifest may name any file  [-k test_a_manifest_that_names_other_files_removes_nothing or test_an_approved_manifest_that_names_other_files_writes_nothing]
+  GOOD
+        7 failed, 2 passed, 130 deselected in 0.93s
+REVERTED: a manifest key need not be an issue key  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        1 failed, 6 passed, 132 deselected in 0.50s
+REVERTED: cleanup deletes the names the manifest gives  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        6 failed, 1 passed, 132 deselected in 0.93s
+REVERTED: files are deleted as each entry is checked  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        6 failed, 1 passed, 132 deselected in 0.62s
+REVERTED: a bad manifest crashes the dry run  [-k test_a_manifest_that_names_other_files_removes_nothing]
+  GOOD
+        7 failed, 132 deselected in 1.09s
+REVERTED: apply trusts the names in an approved manifest  [-k test_an_approved_manifest_that_names_other_files_writes_nothing]
+  GOOD
+        2 failed, 137 deselected in 0.34s
+TOTAL: 21 mutations, 21 GOOD, 0 BAD
+exit 0
+
+
+== Gate 1 fixes
+REVERTED: any block with the pasted text counts as an exact copy  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted]
+  GOOD
+        5 failed, 134 deselected in 0.55s
+REVERTED: formatting marks are accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[a link on the pasted words]]
+  GOOD
+        1 failed in 0.27s
+REVERTED: any inline node is accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[addition0]]
+  GOOD
+        1 failed in 0.33s
+REVERTED: any block type is accepted  [test_a_copy_carrying_what_its_text_does_not_show_is_refused_not_deleted[a heading in place of the paragraph]]
+  GOOD
+        1 failed in 0.31s
+REVERTED: a line break makes a copy inexact  [test_a_pasted_paragraph_split_by_line_breaks_is_still_an_exact_copy]
+  GOOD
+        1 failed, 138 deselected in 0.26s
+REVERTED: a stale set stays when nothing is ready  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve]
+  GOOD
+        2 failed, 137 deselected in 0.42s
+REVERTED: the earlier manifest stays behind  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve]
+  GOOD
+        2 failed, 137 deselected in 0.36s
+REVERTED: discarding removes no snapshot file  [test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve or test_new_snapshots_drop_the_files_of_a_ticket_no_longer_in_the_set]
+  GOOD
+        3 failed, 136 deselected in 0.30s
+TOTAL: 8 mutations, 8 GOOD, 0 BAD
+exit 0
+
+
+== Gate 2 fixes
+REVERTED: the read-back compares visible text only  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run]
+  GOOD
+        3 failed, 1 passed, 135 deselected in 0.48s
+REVERTED: the read-back is not compared at all  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        3 failed, 3 passed, 133 deselected in 0.52s
+REVERTED: an attribute Jira adds counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 138 deselected in 0.29s
+REVERTED: an emptied attrs counts as a change  [-k test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 138 deselected in 0.34s
+REVERTED: every attribute is ignored, a card's address included  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_text_jira_stores_with_attributes_of_its_own_counts_as_written]
+  GOOD
+        1 failed, 4 passed, 134 deselected in 0.45s
+REVERTED: already-applied is judged by visible text  [-k test_an_applied_ticket_that_has_since_lost_a_link_is_not_reported_done]
+  GOOD
+        1 failed, 138 deselected in 0.50s
+REVERTED: a transport error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        4 failed, 6 passed, 129 deselected in 1.09s
+REVERTED: a broken HTTP response escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 129 deselected in 0.83s
+REVERTED: a bad body escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 129 deselected in 0.93s
+REVERTED: the real client's exit on an HTTP error escapes  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        2 failed, 8 passed, 129 deselected in 0.58s
+REVERTED: a failed write leaves no stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped or test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        3 failed, 14 passed, 122 deselected in 0.58s
+REVERTED: a rerun ignores the stop file  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 129 deselected in 0.71s
+REVERTED: apply carries on after a failed write  [-k test_a_write_that_loses_what_the_text_does_not_show_stops_the_run or test_a_write_jira_did_not_keep_stops_the_run]
+  GOOD
+        6 failed, 133 deselected in 0.45s
+REVERTED: a closed ticket is written  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 138 deselected in 0.35s
+REVERTED: apply does not ask for the status  [-k test_a_ticket_closed_after_the_snapshot_is_left_alone]
+  GOOD
+        1 failed, 138 deselected in 0.31s
+REVERTED: the manifest forgets the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 138 deselected in 0.32s
+REVERTED: apply does not count the refused tickets  [-k test_a_ticket_the_dry_run_refused_is_still_reported_by_apply]
+  GOOD
+        1 failed, 138 deselected in 0.32s
+REVERTED: the hash anywhere in the file approves  [-k test_a_file_that_says_more_than_the_hash_is_not_an_approval]
+  GOOD
+        3 failed, 136 deselected in 0.41s
+REVERTED: an empty search is accepted  [-k test_a_search_that_returns_nothing_is_a_fault_and_touches_nothing]
+  GOOD
+        1 failed, 138 deselected in 0.33s
+REVERTED: the number of tickets read is not printed  [-k test_a_dry_run_says_how_many_tickets_it_read]
+  GOOD
+        1 failed, 138 deselected in 0.27s
+REVERTED: a surviving pointer is accepted  [-k test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        4 failed, 135 deselected in 0.37s
+REVERTED: capitals hide a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        1 failed, 7 passed, 131 deselected in 0.35s
+REVERTED: only a copy at the start of a line is seen  [-k test_a_reworded_copy_refuses_the_whole_ticket]
+  GOOD
+        2 failed, 6 passed, 131 deselected in 0.37s
+REVERTED: a line break hides a copy  [-k test_a_reworded_copy_refuses_the_whole_ticket or test_a_pointer_the_edit_cannot_shorten_refuses_the_ticket]
+  GOOD
+        2 failed, 10 passed, 127 deselected in 0.36s
+REVERTED: a ticket with only an inexact copy is skipped  [-k test_a_ticket_that_only_has_a_reworded_copy_is_reported_not_skipped]
+  GOOD
+        1 failed, 138 deselected in 0.34s
+TOTAL: 25 mutations, 25 GOOD, 0 BAD
+exit 0
+
+
+== Gate 2 re-run fixes
+REVERTED: no stop file is written before the write  [-k test_a_run_interrupted_before_the_write_is_confirmed_stays_stopped]
+  GOOD
+        2 failed, 137 deselected in 0.37s
+REVERTED: a confirmed write leaves the stop file  [-k test_a_confirmed_write_leaves_no_stop_file]
+  GOOD
+        1 failed, 138 deselected in 0.30s
+REVERTED: the failure message names no before snapshot  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 129 deselected in 0.57s
+REVERTED: a dry run touches a folder with a stop file  [-k test_a_dry_run_leaves_the_files_to_restore_from_alone]
+  GOOD
+        3 failed, 1 passed, 135 deselected in 0.37s
+TOTAL: 4 mutations, 4 GOOD, 0 BAD
+exit 0
+
+
+== the recovery message
+REVERTED: the failure message says to restore from before.json  [-k test_an_edit_that_arrives_during_a_write_stops_the_run]
+  GOOD
+        3 failed, 136 deselected in 0.34s
+        exit 1
+
+Not rerun: the mutations of the original Gate 1 transcript (gate1.txt).

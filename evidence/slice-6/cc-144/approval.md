@@ -14,11 +14,17 @@ To approve, put the manifest hash alone in `snapshots/APPROVED`:
 
 Edit a ticket by hand only **after** the apply: a description changed before it is refused as stale.
 
-**Do not edit any of the 20 while the apply runs.** Jira offers no conditional write, so an edit that lands between the
-script's last read and its write is overwritten. The script detects this afterwards from the ticket history, stops and
-says so; Jira's history keeps the overwritten text. It cannot prevent it.
+**Do not edit any of the 20 while the apply runs.** No way was found to make a Jira write conditional, so an edit that
+lands between the script's last read and its write is overwritten. The script cannot prevent it. It counts a write only
+when the one new history entry goes from the text read before the write to the text read after it, and the ticket is
+still open; otherwise it stops, and Jira's history keeps each version. It compares the history's text form: a change
+that form does not show would not be caught.
 
-The hash is the same as before the three later fixes because the proposed text did not change. The script did.
+**The first apply may stop after CC-3 although nothing is wrong.** No description has been written, so it is not known
+that Jira's history entry for this script's write holds exactly that text, or lists it at once. If not, the run leaves
+FAILED after one ticket: check that ticket and its History before deleting the file.
+
+The hash is the same as before the later fixes because the proposed text did not change. The script did.
 
 ## Text that stays and will read wrong (found by Gate 2; the script edits no criterion)
 
@@ -37,7 +43,7 @@ CC-42 and CC-136 also use the names A/L and B/P/A/L, which PLAN still defines.
 - **L1** "unresolved review findings block shipping and Done". `review-pr.md` allows "Ship it with follow-ups" and
   blocks only silent-wrong-answer findings. The one that changes behaviour.
 - **L2** CC-104 only: its own clearance paragraph says post-merge evidence for TC14 is not due before merge. AC11 and
-  TC14 keep the run timing, not that exemption. CC-104 is next to resume.
+  TC14 keep the run timing, not that exemption. CC-104 resumes after CC-145.
 - **L3** an unsupported result may pass a negative control, never a supported positive case.
 - **L4** a new capability's initially unavailable score is not compared with unrelated legacy categories.
 - **L5** interpretation, faithful execution and end-to-end answers are scored separately (CC-3 and CC-132 still say it).
@@ -60,8 +66,12 @@ Gate 1 `gate1.txt` (81 GOOD, 0 BAD, after tests were added for 20 surviving prob
 `gate1-fixes.txt`). Gate 2 `gate2.txt` (ten code findings, fixed in `gate2-fixes.txt`; its third run is 25 GOOD, 0 BAD, the
 first two kept). Re-run `gate2-r2.txt` (round one fixed; three low findings, fixed in `gate2-r2-fixes.txt`). An outside review of d1c5ee4, run by the owner,
 then found three script bugs the gates had not stopped: lost edits and overlapping runs, an inexact copy left beside the
-gate line, and cleanup deleting files a manifest named. Fixed: `review3-fixes.txt`, `review3-probes.txt`. **No review has
-read these last fixes or the re-run ones.** `make-check-final.txt`: every recipe step passes on the final code (`npm ci` first failed twice on a locked folder;
-`make-check-failed-over-pinned-file.txt` is a run that overwrote a pinned file and failed for that reason; `make-check.txt`
-is the earlier passing run). Per-criterion output: `closure-run-final/`. Closure: AC1 AC2 AC4 TC1 TC2 PASS; AC3 TC3 NOT RUN.
+gate line, and cleanup deleting files a manifest named. Fixed: `review3-fixes.txt`, `review3-probes.txt`. Two outside
+reviews of 365adee, run by the owner (`gate2-code-365adee.txt`; the second pasted into the session), then found four more
+in that code: another person's edit counted as this write when this write's history entry was not yet listed; a ticket
+closed during its write reported written; a clean dry run on a fresh checkout deleting the committed snapshots; and a
+check after the apply trusting a search that can be behind. Fixed in 56fae43: `review4-probes.txt` (before and after),
+`review4-fixes.txt` (mutations, all earlier sets rerun but the original Gate 1 one), `review4-live.txt` (reads only).
+**No review has read 56fae43.** `make-check-four.txt` and `closure-run-four/` are the checks on that code; the earlier
+`make-check*.txt` and `closure-run*/` are kept. Closure: AC1 AC2 AC4 TC1 TC2 PASS; AC3 TC3 NOT RUN.
 No E2E: no `api/src`, `evals/` or run-harness file changed.
