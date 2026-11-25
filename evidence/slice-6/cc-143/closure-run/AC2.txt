@@ -1,0 +1,58 @@
+$ uv run pytest api/tests/test_metric_compare.py::test_pooled_runs_are_judged_as_one_sample api/tests/test_metric_compare.py::test_a_pool_keeps_every_trial_and_averages_what_each_run_reports api/tests/test_metric_compare.py::test_pools_of_different_sizes_compare_rates_not_counts api/tests/test_metric_compare.py::test_a_pool_whose_runs_have_different_indexes_is_not_comparable api/tests/test_metric_compare.py::test_candidate_files_are_pooled_against_same_window_main_files api/tests/test_metric_compare.py::test_the_planned_number_of_runs_per_side_is_required api/tests/test_metric_compare.py::test_base_runs_must_be_clean_runs_of_one_head_on_main api/tests/test_metric_compare.py::test_base_runs_scored_by_another_scorer_are_not_a_baseline api/tests/test_metric_compare.py::test_the_compare_command_takes_pooled_files_and_judges_against_l_by_default api/tests/test_metric_compare.py::test_the_stored_candidate_runs_are_pooled_against_the_stored_main_runs api/tests/test_metric_compare.py::test_pooled_candidate_runs_must_have_measured_one_head api/tests/test_metric_compare.py::test_the_same_run_given_twice_is_not_two_runs api/tests/test_metric_compare.py::test_base_runs_must_measure_the_main_the_candidate_is_built_on api/tests/test_metric_compare.py::test_runs_collected_outside_the_window_are_not_same_window api/tests/test_metric_compare.py::test_the_ledger_row_names_every_run_file_by_hash -q -rA -p no:cacheprovider
+...............                                                          [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_pooled_runs_are_judged_as_one_sample
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+______________ test_the_ledger_row_names_every_run_file_by_hash _______________
+---------------------------- Captured stdout call -----------------------------
+  PASS           hard floor   answered_rate floor           1.0 vs floor 0.7
+  PASS           hard floor   retrieval_at_10 floor         0.9 vs floor 0.9
+  PASS           hard floor   selector_at_1 floor           0.8 vs floor 0.7
+  PASS           hard floor   answered_rate matches trials  1.000 from trials vs reported 1.000; 1.000 from trials vs reported 1.000
+  PASS           hard floor   p95 matches trials            10.000 vs reported 10.000; 10.000 vs reported 10.000
+  PASS           hard floor   p95 ceiling                   10.000s vs 20s
+  PASS           hard floor   response contract             0 of 372 trials that returned rows lack a contract field
+  PASS           rate B       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  PASS           rate B       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  PASS           rate B       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  PASS           rate B       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  PASS           rate B       rows per question             0 questions returned fewer rows when answered, limit 1
+  PASS           rate B       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate B       selector_at_1                 0.800 vs 0.800, may fall 0.165
+  PASS           rate B       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  PASS           hard B       lost questions                0 answered in every reference trial and in no candidate trial
+  PASS           hard B       reference label               2 pooled same-window runs of main fffffff
+  PASS           rate L       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  PASS           rate L       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  PASS           rate L       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  PASS           rate L       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  PASS           rate L       rows per question             0 questions returned fewer rows when answered, limit 1
+  PASS           rate L       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate L       selector_at_1                 0.800 vs 0.800, may fall 0.330
+  PASS           rate L       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  (PASS)         hard L       lost questions                0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+  PASS           hard L       reference label               test
+
+VERDICT PASS
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_pooled_runs_are_judged_as_one_sample
+PASSED api/tests/test_metric_compare.py::test_a_pool_keeps_every_trial_and_averages_what_each_run_reports
+PASSED api/tests/test_metric_compare.py::test_pools_of_different_sizes_compare_rates_not_counts
+PASSED api/tests/test_metric_compare.py::test_a_pool_whose_runs_have_different_indexes_is_not_comparable
+PASSED api/tests/test_metric_compare.py::test_candidate_files_are_pooled_against_same_window_main_files
+PASSED api/tests/test_metric_compare.py::test_the_planned_number_of_runs_per_side_is_required
+PASSED api/tests/test_metric_compare.py::test_base_runs_must_be_clean_runs_of_one_head_on_main
+PASSED api/tests/test_metric_compare.py::test_base_runs_scored_by_another_scorer_are_not_a_baseline
+PASSED api/tests/test_metric_compare.py::test_the_compare_command_takes_pooled_files_and_judges_against_l_by_default
+PASSED api/tests/test_metric_compare.py::test_the_stored_candidate_runs_are_pooled_against_the_stored_main_runs
+PASSED api/tests/test_metric_compare.py::test_pooled_candidate_runs_must_have_measured_one_head
+PASSED api/tests/test_metric_compare.py::test_the_same_run_given_twice_is_not_two_runs
+PASSED api/tests/test_metric_compare.py::test_base_runs_must_measure_the_main_the_candidate_is_built_on
+PASSED api/tests/test_metric_compare.py::test_runs_collected_outside_the_window_are_not_same_window
+PASSED api/tests/test_metric_compare.py::test_the_ledger_row_names_every_run_file_by_hash
+15 passed, 1 warning in 4.90s
+[exit 0]

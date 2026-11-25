@@ -1,0 +1,23 @@
+$ uv run pytest api/tests/test_metric_compare.py::test_a_run_collected_before_a_rule_change_is_judged_under_the_new_rule api/tests/test_metric_compare.py::test_a_run_collected_under_other_collection_settings_is_refused api/tests/test_metric_compare.py::test_the_collection_hash_ignores_the_rule_and_moves_with_what_a_run_collects api/tests/test_metric_compare.py::test_a_stored_run_collected_before_the_rule_existed_is_judged_under_todays_rule api/tests/test_metric_compare.py::test_only_an_explicit_legacy_flag_skips_the_collection_check -q -rA -p no:cacheprovider
+.....                                                                    [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_a_run_collected_before_a_rule_change_is_judged_under_the_new_rule
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+________ test_only_an_explicit_legacy_flag_skips_the_collection_check _________
+---------------------------- Captured stdout call -----------------------------
+registered S at fffffff: {'long_tail_trial_rate': 1.0, 'p95': 10.0, 'answered_rate': 1.0, 'retrieval_at_10': 0.9, 'selector_at_1': 0.8}; blockers: none
+registered O at aaaaaaa: {'long_tail_trial_rate': 1.0, 'p95': 10.0, 'answered_rate': 1.0, 'retrieval_at_10': 0.9, 'selector_at_1': 0.8}; blockers: none
+registered S2 at fffffff: {'long_tail_trial_rate': 1.0, 'p95': 10.0, 'answered_rate': 1.0, 'retrieval_at_10': 0.9, 'selector_at_1': 0.8}; blockers: none
+registered O2 at aaaaaaa: {'long_tail_trial_rate': 1.0, 'p95': 10.0, 'answered_rate': 1.0, 'retrieval_at_10': 0.9, 'selector_at_1': 0.8}; blockers: none
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_a_run_collected_before_a_rule_change_is_judged_under_the_new_rule
+PASSED api/tests/test_metric_compare.py::test_a_run_collected_under_other_collection_settings_is_refused
+PASSED api/tests/test_metric_compare.py::test_the_collection_hash_ignores_the_rule_and_moves_with_what_a_run_collects
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_collected_before_the_rule_existed_is_judged_under_todays_rule
+PASSED api/tests/test_metric_compare.py::test_only_an_explicit_legacy_flag_skips_the_collection_check
+5 passed, 1 warning in 1.68s
+[exit 0]

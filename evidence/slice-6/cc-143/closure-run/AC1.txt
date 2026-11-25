@@ -1,0 +1,81 @@
+$ uv run python scripts/metric_compare.py noise evidence/metrics/runs/main-b1.json evidence/metrics/runs/main-b2.json evidence/metrics/runs/cc104-p1.json evidence/metrics/runs/cc104-p2.json --sizes 1x1,2x2
+NOISE  protocol c1cea139d1db2943  seed 20261109  sims 2000
+rule: rate_drop_max=0.07, small_group_lost_questions=1.0, empty_rise_max=0.03, rows_lost_questions_max=1, retrieval_drop_max=0.0, selector_drop_max=0.33, p95_rise_max_seconds=2.5, window_hours=12, lost_questions_min_runs=2; small groups under 30 questions
+stored runs: 4 of 2 code(s)
+  29c0518  2 run(s): main-b1.json, main-b2.json
+  e86882d  2 run(s): cc104-p1.json, cc104-p2.json
+
+Simulated runs draw each trial from the stored trials of its own question and code, so
+they hold the trial-to-trial noise and not a shift that moves a whole run (a provider's
+bad hour). Read a simulated rate as a floor; the observed pairs are the check on it.
+
+size 1x1 (candidate runs x reference runs)
+  observed  unchanged code fails 0.000 [0.000, 0.658] of 2 set(s) of runs, each judged both ways
+  simulated 29c0518  unchanged code fails 0.056 [0.047, 0.067]
+      long_tail trial rate       fails 0.004; worsening passed in 95%: 0.042
+      trap trial rate            fails 0.009; worsening passed in 95%: 0.037
+      core trial rate            fails 0.003; worsening passed in 95%: 0.167
+      empty answers (long_tail)  fails 0.011; worsening passed in 95%: 0.025
+      rows per question          fails 0.000; worsening passed in 95%: 0.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.325
+      p95 vs reference           fails 0.029; worsening passed in 95%: 2.195
+      smallest seeded regression caught 80% of the time: 4 long_tail question(s) broken (10.0 points), caught 0.810 [0.769, 0.845]; one fewer 0.510 [0.461, 0.559]
+  simulated e86882d  unchanged code fails 0.097 [0.084, 0.110]
+      long_tail trial rate       fails 0.001; worsening passed in 95%: 0.042
+      trap trial rate            fails 0.048; worsening passed in 95%: 0.056
+      core trial rate            fails 0.000; worsening passed in 95%: 0.167
+      empty answers (long_tail)  fails 0.033; worsening passed in 95%: 0.025
+      rows per question          fails 0.000; worsening passed in 95%: 1.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.000
+      p95 vs reference           fails 0.017; worsening passed in 95%: 2.012
+      smallest seeded regression caught 80% of the time: 5 long_tail question(s) broken (12.5 points), caught 0.968 [0.945, 0.981]; one fewer 0.790 [0.747, 0.827]
+
+size 2x2 (candidate runs x reference runs)
+  observed  none: one comparison needs 4 runs of one code, the largest stored group has 2; 2 more run(s) of that code
+  simulated 29c0518  unchanged code fails 0.079 [0.068, 0.091]
+      long_tail trial rate       fails 0.000; worsening passed in 95%: 0.033
+      trap trial rate            fails 0.001; worsening passed in 95%: 0.037
+      core trial rate            fails 0.000; worsening passed in 95%: 0.125
+      empty answers (long_tail)  fails 0.000; worsening passed in 95%: 0.017
+      rows per question          fails 0.000; worsening passed in 95%: 0.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.072; worsening passed in 95%: 0.325
+      p95 vs reference           fails 0.005; worsening passed in 95%: 1.729
+      smallest seeded regression caught 80% of the time: 1 long_tail question(s) broken (2.5 points), caught 0.850 [0.812, 0.882]
+  simulated e86882d  unchanged code fails 0.018 [0.013, 0.025]
+      long_tail trial rate       fails 0.001; worsening passed in 95%: 0.029
+      trap trial rate            fails 0.011; worsening passed in 95%: 0.046
+      core trial rate            fails 0.000; worsening passed in 95%: 0.125
+      empty answers (long_tail)  fails 0.002; worsening passed in 95%: 0.017
+      rows per question          fails 0.000; worsening passed in 95%: 1.000
+      retrieval_at_10            fails 0.000; worsening passed in 95%: 0.000
+      selector_at_1              fails 0.000; worsening passed in 95%: 0.000
+      p95 vs reference           fails 0.004; worsening passed in 95%: 1.187
+      smallest seeded regression caught 80% of the time: 1 long_tail question(s) broken (2.5 points), caught 0.828 [0.787, 0.861]
+[exit 0]
+
+$ uv run pytest api/tests/test_metric_compare.py::test_unchanged_code_seldom_fails_its_own_simulated_reruns api/tests/test_metric_compare.py::test_a_seeded_regression_is_caught_more_often_the_larger_it_is api/tests/test_metric_compare.py::test_a_broken_question_in_a_simulated_run_is_never_answered api/tests/test_metric_compare.py::test_a_simulated_run_takes_its_scalars_from_one_stored_run api/tests/test_metric_compare.py::test_stored_same_code_comparisons_are_observed_each_way_at_a_size_they_can_fill api/tests/test_metric_compare.py::test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed api/tests/test_metric_compare.py::test_the_wilson_interval_holds_the_rate_and_narrows_with_more_trials api/tests/test_metric_compare.py::test_the_noise_command_reads_its_sizes -q -rA -p no:cacheprovider
+........                                                                 [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_unchanged_code_seldom_fails_its_own_simulated_reruns
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+_ test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed _
+---------------------------- Captured stderr call -----------------------------
+noise: evidence/metrics/runs/absent.json: not a usable run file (FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc-143\\evidence\\metrics\\runs\\absent.json')
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_unchanged_code_seldom_fails_its_own_simulated_reruns
+PASSED api/tests/test_metric_compare.py::test_a_seeded_regression_is_caught_more_often_the_larger_it_is
+PASSED api/tests/test_metric_compare.py::test_a_broken_question_in_a_simulated_run_is_never_answered
+PASSED api/tests/test_metric_compare.py::test_a_simulated_run_takes_its_scalars_from_one_stored_run
+PASSED api/tests/test_metric_compare.py::test_stored_same_code_comparisons_are_observed_each_way_at_a_size_they_can_fill
+PASSED api/tests/test_metric_compare.py::test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed
+PASSED api/tests/test_metric_compare.py::test_the_wilson_interval_holds_the_rate_and_narrows_with_more_trials
+PASSED api/tests/test_metric_compare.py::test_the_noise_command_reads_its_sizes
+8 passed, 1 warning in 1.28s
+[exit 0]

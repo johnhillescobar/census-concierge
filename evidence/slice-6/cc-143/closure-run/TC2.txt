@@ -1,0 +1,24 @@
+$ git log --format=%h %ad %s --date=iso -S BROKEN_LONG_TAIL = 6 -- api/tests/test_metric_compare.py
+45cba01 2026-11-24 21:57:43 -0600 CC-143: the four stored runs as fixtures, and the seeded-defect size stated before any rule number
+[exit 0]
+
+$ git log --format=%h %ad %s --date=iso -S rate_drop_max -- evals
+ec2ba52 2026-11-24 22:34:23 -0600 CC-143: a gate that passes identical code and catches a seeded defect
+[exit 0]
+
+$ uv run pytest api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails -q -rA -p no:cacheprovider
+....                                                                     [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[main-b1-main-b2]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[main-b1-main-b2]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[main-b2-main-b1]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[cc104-p1-cc104-p2]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[cc104-p2-cc104-p1]
+4 passed, 1 warning in 0.10s
+[exit 0]

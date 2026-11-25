@@ -1,0 +1,29 @@
+$ git ls-files -s evidence/metrics/runs
+100644 14ac40663693e5bbe061b49cb23754fe55f397c1 0	evidence/metrics/runs/cc104-p1.json
+100644 2740b5b459b458d820050f467acea3787619183f 0	evidence/metrics/runs/cc104-p2.json
+100644 0b4a7860162f052d884310d9dc2b76a6acb2ed94 0	evidence/metrics/runs/main-b1.json
+100644 7fd33ac458b54ffce126cb614447d59b3bccfe45 0	evidence/metrics/runs/main-b2.json
+100644 bc241c455cc7411b380064563a264452fec8f430 0	evidence/metrics/runs/plan-29c0518.json
+[exit 0]
+
+$ uv run pytest api/tests/test_metric_compare.py::test_the_four_stored_runs_are_two_codes_each_measured_twice api/tests/test_metric_compare.py::test_both_stored_same_code_pairs_pass_either_way_round api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails -q -rA -p no:cacheprovider
+.........                                                                [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_the_four_stored_runs_are_two_codes_each_measured_twice
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_the_four_stored_runs_are_two_codes_each_measured_twice
+PASSED api/tests/test_metric_compare.py::test_both_stored_same_code_pairs_pass_either_way_round[main-b1-main-b2]
+PASSED api/tests/test_metric_compare.py::test_both_stored_same_code_pairs_pass_either_way_round[main-b2-main-b1]
+PASSED api/tests/test_metric_compare.py::test_both_stored_same_code_pairs_pass_either_way_round[cc104-p1-cc104-p2]
+PASSED api/tests/test_metric_compare.py::test_both_stored_same_code_pairs_pass_either_way_round[cc104-p2-cc104-p1]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[main-b1-main-b2]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[main-b2-main-b1]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[cc104-p1-cc104-p2]
+PASSED api/tests/test_metric_compare.py::test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails[cc104-p2-cc104-p1]
+9 passed, 1 warning in 0.11s
+[exit 0]

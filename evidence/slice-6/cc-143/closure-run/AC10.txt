@@ -1,0 +1,19 @@
+$ uv run pytest api/tests/test_metric_compare.py::test_the_question_level_rule_names_every_question_of_a_broken_geography api/tests/test_metric_compare.py::test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side api/tests/test_metric_compare.py::test_the_question_level_rule_blocks_when_each_side_pools_two_runs api/tests/test_metric_compare.py::test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass -q -rA -p no:cacheprovider
+.......                                                                  [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_the_question_level_rule_names_every_question_of_a_broken_geography[main-b1-main-b2]
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_the_question_level_rule_names_every_question_of_a_broken_geography[main-b1-main-b2]
+PASSED api/tests/test_metric_compare.py::test_the_question_level_rule_names_every_question_of_a_broken_geography[main-b2-main-b1]
+PASSED api/tests/test_metric_compare.py::test_the_question_level_rule_names_every_question_of_a_broken_geography[cc104-p1-cc104-p2]
+PASSED api/tests/test_metric_compare.py::test_the_question_level_rule_names_every_question_of_a_broken_geography[cc104-p2-cc104-p1]
+PASSED api/tests/test_metric_compare.py::test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side
+PASSED api/tests/test_metric_compare.py::test_the_question_level_rule_blocks_when_each_side_pools_two_runs
+PASSED api/tests/test_metric_compare.py::test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass
+7 passed, 1 warning in 0.33s
+[exit 0]

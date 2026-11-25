@@ -1,0 +1,98 @@
+$ uv run pytest api/tests/test_metric_compare.py::test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict api/tests/test_metric_compare.py::test_a_failing_blocking_reference_still_fails_beside_a_passing_anchor api/tests/test_metric_compare.py::test_l_is_judged_whatever_references_are_named -q -rA -p no:cacheprovider
+...                                                                      [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+_______________ test_l_is_judged_whatever_references_are_named ________________
+---------------------------- Captured stdout call -----------------------------
+  PASS           hard floor   answered_rate floor           1.0 vs floor 0.7
+  PASS           hard floor   retrieval_at_10 floor         0.9 vs floor 0.9
+  PASS           hard floor   selector_at_1 floor           0.8 vs floor 0.7
+  PASS           hard floor   answered_rate matches trials  1.000 from trials vs reported 1.000; 1.000 from trials vs reported 1.000
+  PASS           hard floor   p95 matches trials            10.000 vs reported 10.000; 10.000 vs reported 10.000
+  PASS           hard floor   p95 ceiling                   10.000s vs 20s
+  PASS           hard floor   response contract             0 of 372 trials that returned rows lack a contract field
+  PASS           rate B       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  PASS           rate B       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  PASS           rate B       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  PASS           rate B       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  PASS           rate B       rows per question             0 questions returned fewer rows when answered, limit 1
+  PASS           rate B       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate B       selector_at_1                 0.800 vs 0.800, may fall 0.165
+  PASS           rate B       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  PASS           hard B       lost questions                0 answered in every reference trial and in no candidate trial
+  PASS           hard B       reference label               2 pooled same-window runs of main fffffff
+  UNKNOWN        hard L       reference                     not registered
+
+VERDICT UNKNOWN
+  PASS           hard floor   answered_rate floor           1.0 vs floor 0.7
+  PASS           hard floor   retrieval_at_10 floor         0.9 vs floor 0.9
+  PASS           hard floor   selector_at_1 floor           0.8 vs floor 0.7
+  PASS           hard floor   answered_rate matches trials  1.000 from trials vs reported 1.000; 1.000 from trials vs reported 1.000
+  PASS           hard floor   p95 matches trials            10.000 vs reported 10.000; 10.000 vs reported 10.000
+  PASS           hard floor   p95 ceiling                   10.000s vs 20s
+  PASS           hard floor   response contract             0 of 372 trials that returned rows lack a contract field
+  PASS           rate B       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  PASS           rate B       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  PASS           rate B       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  PASS           rate B       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  PASS           rate B       rows per question             0 questions returned fewer rows when answered, limit 1
+  PASS           rate B       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate B       selector_at_1                 0.800 vs 0.800, may fall 0.165
+  PASS           rate B       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  PASS           hard B       lost questions                0 answered in every reference trial and in no candidate trial
+  PASS           hard B       reference label               2 pooled same-window runs of main fffffff
+  UNKNOWN        hard L       reference                     not registered
+  (PASS)         rate A       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  (PASS)         rate A       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  (PASS)         rate A       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  (PASS)         rate A       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  (PASS)         rate A       rows per question             0 questions returned fewer rows when answered, limit 1
+  (PASS)         rate A       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  (PASS)         rate A       selector_at_1                 0.800 vs 0.800, may fall 0.330
+  (PASS)         rate A       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  (PASS)         hard A       lost questions                0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+  (PASS)         hard A       reference label               test
+
+VERDICT UNKNOWN
+  PASS           hard floor   answered_rate floor           1.0 vs floor 0.7
+  PASS           hard floor   retrieval_at_10 floor         0.9 vs floor 0.9
+  PASS           hard floor   selector_at_1 floor           0.8 vs floor 0.7
+  PASS           hard floor   answered_rate matches trials  1.000 from trials vs reported 1.000; 1.000 from trials vs reported 1.000
+  PASS           hard floor   p95 matches trials            10.000 vs reported 10.000; 10.000 vs reported 10.000
+  PASS           hard floor   p95 ceiling                   10.000s vs 20s
+  PASS           hard floor   response contract             0 of 372 trials that returned rows lack a contract field
+  PASS           rate B       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  PASS           rate B       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  PASS           rate B       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  PASS           rate B       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  PASS           rate B       rows per question             0 questions returned fewer rows when answered, limit 1
+  PASS           rate B       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate B       selector_at_1                 0.800 vs 0.800, may fall 0.165
+  PASS           rate B       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  PASS           hard B       lost questions                0 answered in every reference trial and in no candidate trial
+  PASS           hard B       reference label               2 pooled same-window runs of main fffffff
+  UNKNOWN        hard L       reference                     not registered
+  (PASS)         rate A       long_tail trial rate          1.000 vs 1.000, may fall 0.070
+  (PASS)         rate A       trap trial rate               1.000 vs 1.000, may fall 0.056 (1 of its 18 questions)
+  (PASS)         rate A       core trial rate               1.000 vs 1.000, may fall 0.250 (1 of its 4 questions)
+  (PASS)         rate A       empty answers (long_tail)     0.000 vs 0.000, may rise 0.030
+  (PASS)         rate A       rows per question             0 questions returned fewer rows when answered, limit 1
+  (PASS)         rate A       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  (PASS)         rate A       selector_at_1                 0.800 vs 0.800, may fall 0.330
+  (PASS)         rate A       p95 vs reference              10.000s vs 10.000s, may rise 2.5s
+  (PASS)         hard A       lost questions                0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+  (PASS)         hard A       reference label               test
+  (UNKNOWN)      hard A0      reference                     not registered
+
+VERDICT UNKNOWN
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict
+PASSED api/tests/test_metric_compare.py::test_a_failing_blocking_reference_still_fails_beside_a_passing_anchor
+PASSED api/tests/test_metric_compare.py::test_l_is_judged_whatever_references_are_named
+3 passed, 1 warning in 2.35s
+[exit 0]
