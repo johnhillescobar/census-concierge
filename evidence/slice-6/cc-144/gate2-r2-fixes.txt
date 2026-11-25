@@ -1,0 +1,15 @@
+Mutation check of the Gate 2 re-run fixes. HEAD 49ab0280090d20b21196e61bbeb600e2b8a67347. One behaviour reverted at a time; each baseline passed first.
+
+REVERTED: no stop file is written before the write  [-k test_a_run_interrupted_before_the_write_is_confirmed_stays_stopped]
+  GOOD
+        2 failed, 86 deselected in 0.30s
+REVERTED: a confirmed write leaves the stop file  [-k test_a_confirmed_write_leaves_no_stop_file]
+  GOOD
+        1 failed, 87 deselected in 0.21s
+REVERTED: the failure message names no before snapshot  [-k test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped]
+  GOOD
+        10 failed, 78 deselected in 0.42s
+REVERTED: a dry run touches a folder with a stop file  [-k test_a_dry_run_leaves_the_files_to_restore_from_alone]
+  GOOD
+        3 failed, 1 passed, 84 deselected in 0.24s
+TOTAL: 4 mutations, 4 GOOD, 0 BAD
