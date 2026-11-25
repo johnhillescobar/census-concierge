@@ -119,11 +119,6 @@ fresh context in any host **reconstructs state from those artifacts, never from 
 The shared `.claude/PLAN.md` and `.claude/DESIGN.md` paths remain valid for all
 hosts; do not fork their state into host-specific copies.
 
-**Jira (project `CC`) is the status source of truth.** Close with
-`uv run python scripts/jira_transition.py CC-N --done --comment "…"` (evidence in
-the comment). PLAN.md STATUS is a close pointer; post-merge numbers live on
-the ticket. Name `CC-N` in commits and PRs.
-
 ## Session rules for long reviews and multi-write sessions
 
 Added 2026-10-04 after a review session drifted (`evidence/checkpoint-2026-10-04/`).
