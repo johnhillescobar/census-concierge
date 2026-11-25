@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import copy
 import http.client
+import io
 import json
 import sys
+import tempfile
 import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +56,21 @@ def pasted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(jg, "SENTENCES", frozenset(sentences))
 
 
+@pytest.fixture(autouse=True)
+def offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test reaches Jira: a request nobody stood in for fails it."""
+
+    def blocked(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("a test tried to open a connection")
+
+    monkeypatch.setattr(urllib.request, "urlopen", blocked)
+
+
+def as_text(body: Any) -> str:
+    """The description as the history and API v2 write it: text, without the structure."""
+    return jg.closure.adf_text(body)
+
+
 class Jira:
     """Descriptions by key, answering as the REST API does, and a record of every write."""
 
@@ -78,6 +96,9 @@ class Jira:
             start = int(path.split("startAt=")[1].split("&")[0])
             entries = self.history.get(key, [])
             return {"values": entries[start : start + self.page], "total": len(entries)}
+        if method == "GET" and path.startswith("/rest/api/2/"):
+            key = path.split("/")[5].split("?")[0]
+            return {"fields": {"description": as_text(self.tickets[key])}}
         if method == "GET":
             asked = path.split("fields=")[1].split(",")
             category = "done" if key in self.closed else "indeterminate"
@@ -88,18 +109,22 @@ class Jira:
             return {"fields": {name: held[name] for name in asked}}
         assert method == "PUT" and body is not None
         self.writes.append(key)
+        was = as_text(self.tickets[key])
         self.tickets[key] = copy.deepcopy(body["fields"]["description"])
-        self.changed(key)
+        self.changed(key, was=was)
         return {}
 
-    def changed(self, key: str, field: str = "description") -> None:
+    def changed(self, key: str, field: str = "description", was: str | None = None) -> None:
         """One history entry, as Jira adds for every change to a field."""
         entries = self.history.setdefault(key, [])
-        entries.append({"id": f"{key}-{len(entries)}", "items": [{"fieldId": field}]})
+        now = as_text(self.tickets[key]) if key in self.tickets else ""
+        item = {"fieldId": field, "fromString": now if was is None else was, "toString": now}
+        entries.append({"id": f"{key}-{len(entries)}", "items": [item]})
 
     def owner_adds_a_note(self, key: str) -> None:
+        was = as_text(self.tickets[key])
         self.tickets[key]["content"].append(para("the owner's note"))
-        self.changed(key)
+        self.changed(key, was=was)
 
 
 def ticket() -> dict[str, Any]:
@@ -112,7 +137,7 @@ def approve(folder: Path) -> None:
 
 
 def snapshot(jira: Jira, folder: Path) -> int:
-    return jg.dry_run(folder, jira.search)
+    return jg.dry_run(folder, jira.search, jira.api)
 
 
 def test_the_pasted_paragraphs_become_one_line_where_the_first_stood() -> None:
@@ -266,7 +291,7 @@ def test_a_run_with_nothing_to_write_leaves_no_earlier_set_to_approve(
 def test_a_dry_run_only_reads_and_writes_both_sides(tmp_path: Path) -> None:
     jira = Jira(CC_1=ticket())
     assert snapshot(jira, tmp_path) == 0
-    assert jira.calls == ["search"]
+    assert jira.calls == ["search", "GET"]
     before = (tmp_path / "CC-1.before.md").read_text(encoding="utf-8")
     after = (tmp_path / "CC-1.after.md").read_text(encoding="utf-8")
     assert CONTRACT in before and jg.GATE_LINE not in before
@@ -430,7 +455,7 @@ def test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_noth
     assert snapshot(jira, again) == 0
     assert "0 ticket(s) left to change, 0 refused" in capsys.readouterr().out
     assert not again.exists()
-    assert snapshot(jira, first) == 0  # the default directory, approved: still a clean pass
+    assert snapshot(jira, first) == 0  # the approved directory itself: still a clean pass
     jira.writes.clear()
     assert jg.apply(first, jira.api) == 0
     assert jira.writes == []
@@ -520,16 +545,18 @@ def test_the_dry_run_command_asks_for_open_tickets_and_only_reads(
         requests.append((method, path, body))
         return {"issues": [{"key": "CC-1", "fields": {"description": ticket()}}]}
 
+    jira = Jira(CC_1=ticket())
     monkeypatch.setattr(jg.jira_fetch, "_api", reading)
-    monkeypatch.setattr(jg.jira_transition, "_api", never)
+    monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
     monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
     monkeypatch.setattr(jg, "OUT", tmp_path / "default")
     out = tmp_path / "snapshots"
     assert jg.main(["--dry-run", "--out", str(out)]) == 0
+    assert jira.calls == ["GET"] and jira.writes == []
     [(method, path, body)] = requests
     assert (method, path) == ("POST", "/search/jql")  # Jira's search is a POST that only reads
     assert body["jql"].startswith("project = CC AND statusCategory != Done ")
-    assert body["fields"] == ["description"]
+    assert body["fields"] == ["status"]
     manifest = json.loads((out / "manifest.json").read_bytes())
     assert manifest["tickets"]["CC-1"]["ids"] == ["AC1", "AC2", "TC1"]
 
@@ -542,13 +569,30 @@ def test_the_apply_command_writes_what_the_printed_hash_approves(
     printed = capsys.readouterr().out.strip().splitlines()[-1].rsplit(": ", 1)[1]
     (tmp_path / "APPROVED").write_text(printed + "\n", encoding="utf-8")
     loaded: list[bool] = []
+    opened: list[tuple[str, str, str]] = []
+
+    def serving(request: urllib.request.Request, timeout: float) -> io.BytesIO:
+        auth = str(request.get_header("Authorization"))
+        opened.append((request.get_method(), request.full_url, auth))
+        path = request.full_url.removeprefix("https://jira.invalid")
+        return io.BytesIO(json.dumps(jira.api("GET", path)).encode())
+
+    def v3_only(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        assert path.startswith("/issue/"), path
+        return jira.api(method, path, body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", serving)
+    monkeypatch.setattr(jg.jira_transition, "_site", lambda: "jira.invalid")
+    monkeypatch.setattr(jg.jira_transition, "_auth_header", lambda: {"Authorization": "stand-in"})
     monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: loaded.append(True))
-    monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
+    monkeypatch.setattr(jg.jira_transition, "_api", v3_only)
     monkeypatch.setattr(jg.jira_fetch, "_api", never)
     monkeypatch.setattr(jg.jira_fetch, "_search", never)
     assert jg.main(["--apply", "--approved", str(tmp_path)]) == 0
     assert jira.writes == ["CC-1"]
     assert loaded == [True]
+    text_read = "https://jira.invalid/rest/api/2/issue/CC-1?fields=description"
+    assert opened == [("GET", text_read, "stand-in")] * 2  # before the write, and after it
 
 
 def test_a_dry_run_and_an_apply_asked_at_once_write_nothing(
@@ -788,7 +832,7 @@ def test_an_edit_that_arrives_during_a_write_stops_the_run(tmp_path: Path, when:
     put: list[bool] = []
 
     def racing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-        reading = method == "GET" and "/changelog?" not in path
+        reading = path.endswith("fields=description,status")
         if method == "PUT":
             put.append(True)
         if not done and when == "after the read-back" and put and "/changelog?" in path:
@@ -1054,3 +1098,174 @@ def test_an_approved_manifest_that_names_other_files_writes_nothing(
     (out / "manifest.json").write_bytes(jg._dump(manifest))
     approve(out)
     assert jg.apply(out, never) == 2
+
+
+# --- another person's change must not pass for this write -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("when", "unlisted"),
+    [
+        ("before the write", "this write's entry"),  # the one entry listed is the owner's
+        ("before the write", "the owner's entry"),  # the one listed is this write's
+        ("after the read-back", "this write's entry"),
+    ],
+)
+def test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run(
+    tmp_path: Path, when: str, unlisted: str
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    put: list[bool] = []
+    done: list[bool] = []
+
+    def racing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        history = "/CC-1/changelog?" in path
+        if method == "PUT":
+            if when == "before the write" and not done:
+                done.append(True)
+                jira.owner_adds_a_note("CC-1")
+            put.append(True)
+        if when == "after the read-back" and put and history and not done:
+            done.append(True)
+            jira.owner_adds_a_note("CC-1")
+        answer = jira.api(method, path, body)
+        if put and history:
+            entries = list(jira.history["CC-1"])
+            owners, own = entries if when == "before the write" else entries[::-1]
+            seen = [owners if unlisted == "this write's entry" else own]
+            return {"values": seen, "total": 1}
+        return answer
+
+    assert jg.apply(tmp_path, racing) == 1
+    assert done and jira.writes == ["CC-1"]
+    stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
+    assert "not shown to be this write" in stopped and "History" in stopped
+    assert "put back only what this write took out" in stopped
+
+
+@pytest.mark.parametrize("missing", ["fromString", "toString"])
+def test_a_history_entry_without_its_text_is_not_taken_for_this_write(
+    tmp_path: Path, missing: str
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def bare(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        done = jira.api(method, path, body)
+        if method == "PUT":
+            del jira.history["CC-1"][-1]["items"][0][missing]
+        return done
+
+    assert jg.apply(tmp_path, bare) == 1
+    assert "not shown to be this write" in (tmp_path / "FAILED").read_text(encoding="utf-8")
+
+
+def test_an_edit_between_the_reads_before_a_write_is_never_written_over(tmp_path: Path) -> None:
+    """Whichever read comes first, the owner edits right after it and the history has not listed
+    the edit. The text compared with the history must not be one that already holds it."""
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    done: list[bool] = []
+
+    def racing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if not done and method == "GET" and "/changelog?" not in path:
+            done.append(True)
+            jira.tickets["CC-1"]["content"].append(para("the owner's note"))
+        return answer
+
+    assert jg.apply(tmp_path, racing) == 1
+    assert jira.writes == []
+    assert "the owner's note" in texts(jira.tickets["CC-1"])
+
+
+# --- a ticket that closes while it is being written --------------------------------------------
+
+
+@pytest.mark.parametrize("when", ["just before the write", "just after the write"])
+def test_a_ticket_that_closed_during_its_write_stops_the_run(tmp_path: Path, when: str) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def closing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if method == "PUT" and when == "just before the write":
+            jira.closed.add("CC-1")
+        answer = jira.api(method, path, body)
+        if method == "PUT":
+            jira.closed.add("CC-1")
+        return answer
+
+    assert jg.apply(tmp_path, closing) == 1
+    assert jira.writes == ["CC-1"]
+    assert "reads as closed" in (tmp_path / "FAILED").read_text(encoding="utf-8")
+
+
+# --- where a routine dry run puts its files ----------------------------------------------------
+
+
+def test_the_default_snapshot_folder_is_outside_the_repository() -> None:
+    assert jg.OUT.is_relative_to(Path(tempfile.gettempdir()))
+    assert not jg.OUT.is_relative_to(jg.ROOT)
+
+
+# --- the search may be behind: each ticket is read from its own record -------------------------
+
+
+@pytest.mark.parametrize("approved_dir", [True, False])
+def test_a_search_from_before_the_apply_does_not_report_work_left(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], approved_dir: bool
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    first = tmp_path / "snapshots"
+    snapshot(jira, first)
+    approve(first)
+    behind = jira.search(jg.OPEN_JQL, fields="status")
+    for found in behind:
+        found["fields"] = {"description": ticket()}  # the search still holds the old text
+    assert jg.apply(first, jira.api) == 0
+    capsys.readouterr()
+    out = first if approved_dir else tmp_path / "again"
+    assert jg.dry_run(out, lambda *args, **kwargs: behind, jira.api) == 0
+    assert "2 open ticket(s) read: 0 ticket(s) left to change, 0 refused" in capsys.readouterr().out
+
+
+def test_wording_a_ticket_holds_now_is_found_when_the_search_does_not_show_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket())
+
+    def behind(jql: str, *, fields: str) -> list[dict[str, Any]]:
+        return [{"key": "CC-1", "fields": {"description": doc("no wording here")}}]
+
+    assert jg.dry_run(tmp_path, behind, jira.api) == 0
+    assert "1 ticket(s) left to change" in capsys.readouterr().out
+    assert json.loads((tmp_path / "CC-1.before.json").read_bytes()) == ticket()
+
+
+def test_a_ticket_closed_since_the_search_listed_it_is_not_snapshotted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    jira.closed.add("CC-1")
+    assert snapshot(jira, tmp_path) == 0
+    assert "1 open ticket(s) read: 1 ticket(s) left to change" in capsys.readouterr().out
+    manifest = json.loads((tmp_path / "manifest.json").read_bytes())
+    assert list(manifest["tickets"]) == ["CC-2"]
+
+
+def test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    kept = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+
+    def failing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        raise SystemExit(1)  # what the real client does on an HTTP error
+
+    with pytest.raises(SystemExit):
+        jg.dry_run(tmp_path, jira.search, failing)
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept

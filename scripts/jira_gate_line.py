@@ -6,7 +6,10 @@
 
 --dry-run only reads Jira. For each open ticket that carries the pasted wording it writes
 DIR/<KEY>.before.md and .after.md (to read), .before.json and .after.json (the description as Jira
-stores it) and DIR/manifest.json.
+stores it) and DIR/manifest.json. Without --out, DIR is a folder in the system's temporary
+directory, so that a routine run leaves a committed set alone. Jira's search can lag behind an
+edit, so every ticket the search lists is read again from its own record; one that the search does
+not list yet is not read.
 
 The owner approves a set of snapshots by writing the sha256 of its manifest.json, which --dry-run
 prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots void it.
@@ -16,16 +19,19 @@ would remain (the opening words of a paragraph, or any sentence of SENTENCE_MIN 
 as in a reworded, formatted or linked copy; a copy rewritten in all of those is not recognised),
 when a line would still point at the removed contract, when
 it was closed or its description changed after the snapshot, or when its after snapshot is not what
-this script's rule produces. A write that Jira cannot be shown to hold, or that was interrupted,
-stops the run and leaves DIR/FAILED. Until a person deletes it, no --apply of DIR runs and no
---dry-run touches DIR, whose before snapshot is what to restore from. One --apply of DIR runs at a
-time (DIR/APPLYING).
+this script's rule produces. A write that Jira cannot be shown to hold, that finds the ticket closed
+afterwards, or that was interrupted, stops the run and leaves DIR/FAILED. Until a person deletes
+it, no --apply of DIR runs and no --dry-run touches DIR, whose before snapshot is what to restore
+from. One --apply of DIR runs at a time (DIR/APPLYING).
 
-Jira offers no way to make a write conditional on what was read, so an edit made between the last
-read and the write is overwritten. It cannot be prevented here, only caught: after each write the
-ticket's history must show exactly one new description change, and Jira's history keeps the text
-that was overwritten. Do not edit the listed tickets while --apply runs. Auth as in
-jira_transition.py: ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN in .env.
+No way was found to make a Jira write conditional on what was read, so an edit made between the
+last read and the write is overwritten. It cannot be prevented here, only caught. The history holds
+each description change as the text before and after it, in the form API v2 returns. A write counts
+only when the history shows exactly one new description change, and that change goes from the text
+read before the write to the text read after it. A count alone would take another person's edit for
+this write while this write's own entry is not listed yet. What that text form leaves out cannot be
+compared. Do not edit the listed tickets while --apply runs. Auth as in jira_transition.py:
+ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN in .env.
 """
 
 from __future__ import annotations
@@ -37,6 +43,8 @@ import http.client
 import json
 import os
 import sys
+import tempfile
+import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,7 +55,8 @@ import jira_fetch
 import jira_transition
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "evidence" / "slice-6" / "cc-144" / "snapshots"
+OUT = Path(tempfile.gettempdir()) / "jira-gate-line"
+TEXT_API = "/rest/api/2"  # gives a description as the text its history holds; jira_transition is v3
 OPEN_JQL = "project = CC AND statusCategory != Done ORDER BY key ASC"
 GATE_LINE = (
     "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and "
@@ -262,11 +271,23 @@ def _discard(out: Path) -> None:
         manifest.unlink()
 
 
-def dry_run(out: Path, search: SearchFn) -> int:
-    issues = search(OPEN_JQL, fields="description")
-    if not issues:  # an empty answer is a fault to look at, not a project with nothing to change
+def _read_each(listed: list[dict[str, Any]], api: ApiFn) -> list[dict[str, Any]]:
+    """The listed tickets that are open, each as its own record reads now: what the search
+    returns can be from before an edit made seconds or minutes ago."""
+    now: list[dict[str, Any]] = []
+    for issue in listed:
+        description, closed = _issue(str(issue["key"]), api)
+        if not closed:
+            now.append({"key": issue["key"], "fields": {"description": description}})
+    return now
+
+
+def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
+    listed = search(OPEN_JQL, fields="status")
+    if not listed:  # an empty answer is a fault to look at, not a project with nothing to change
         print("Jira returned no open ticket at all; nothing changed", file=sys.stderr)
         return 1
+    issues = _read_each(listed, api)
     found = changes(issues)
     ready = [c for c in found if not c.refused]
     for change in found:
@@ -373,27 +394,37 @@ def _issue(key: str, api: ApiFn) -> tuple[Doc, bool]:
     return fields["description"], fields["status"]["statusCategory"]["key"] == "done"
 
 
-def _description_changes(key: str, api: ApiFn) -> set[str]:
-    """The ids of the entries in the ticket's history that changed its description."""
-    found: set[str] = set()
+def _text(key: str, api: ApiFn) -> Any:
+    """The description as the history writes it."""
+    return api("GET", f"{TEXT_API}/issue/{key}?fields=description")["fields"]["description"]
+
+
+def _description_changes(key: str, api: ApiFn) -> dict[str, tuple[Any, Any]]:
+    """The entries in the ticket's history that changed its description, by id: the text each one
+    went from and to."""
+    found: dict[str, tuple[Any, Any]] = {}
     start = 0
     while True:
         page = api("GET", f"/issue/{key}/changelog?startAt={start}&maxResults=100")
         for history in page["values"]:
-            if any(item.get("fieldId") == "description" for item in history["items"]):
-                found.add(str(history["id"]))
+            for item in history["items"]:
+                if item.get("fieldId") == "description":
+                    found[str(history["id"])] = (item.get("fromString"), item.get("toString"))
         start += len(page["values"])
         if not page["values"] or start >= page["total"]:
             return found
 
 
-def _write(key: str, after: Doc, earlier: set[str], api: ApiFn) -> str | None:
-    """Write one description, read it back, and read the history: the write must be the only
-    description change since `earlier`. Why it cannot be shown to hold, or None."""
+def _write(key: str, after: Doc, earlier: set[str], was: Any, api: ApiFn) -> str | None:
+    """Write one description, read it back, and read the history: the only description change
+    since `earlier` must go from the text `was` to the text the ticket reads as now. Why the write
+    cannot be shown to hold, or None."""
     try:
         api("PUT", f"/issue/{key}", {"fields": {"description": after}})
-        stored, _ = _issue(key, api)
-        new = _description_changes(key, api) - earlier
+        now = _text(key, api)
+        stored, closed = _issue(key, api)
+        history = _description_changes(key, api)
+        new = [history[entry] for entry in history.keys() - earlier]
     except (
         OSError,
         ValueError,
@@ -403,16 +434,24 @@ def _write(key: str, after: Doc, earlier: set[str], api: ApiFn) -> str | None:
         SystemExit,  # jira_transition._api exits on an HTTP error
     ) as exc:
         return f"the write could not be confirmed ({type(exc).__name__}: {exc})"
+    check = "Read the ticket's History in Jira, which keeps each version, before restoring anything"
     if len(new) > 1:
         return (
             f"the history shows {len(new)} description changes where one was written: another "
-            "edit arrived during the write and may be overwritten. Read the ticket's History in "
-            "Jira, which keeps each version, before restoring anything"
+            f"edit arrived during the write and may be overwritten. {check}"
         )
     if _stored_form(stored) != _stored_form(after):
         return "Jira does not hold the approved description"
     if not new:
         return "the history does not show this write, so an overlapping edit cannot be ruled out"
+    if new[0] != (was, now):
+        return (
+            "the one new description change in the history is not shown to be this write: it does "
+            "not go from the text read before the write to the text read after it, so another "
+            f"edit may be overwritten. {check}"
+        )
+    if closed:
+        return "the ticket reads as closed after the write: a closed ticket may have been changed"
     return None
 
 
@@ -455,8 +494,10 @@ def _apply_approved(
         print(f"REFUSED  {key}  at the dry run: {why}")
     written, refused = 0, len(skipped)
     for key, (before, after) in snapshots.items():
-        # read the history first: a change after this point is one the last check will count
-        earlier = _description_changes(key, api)
+        # history, then text, then the description: an edit before the last of these is refused
+        # below, and one after it cannot be part of what the history entry is compared with
+        earlier = set(_description_changes(key, api))
+        was = _text(key, api)
         live, closed = _issue(key, api)
         if _stored_form(live) == _stored_form(after):
             print(f"done     {key}  already reads as approved")
@@ -480,7 +521,7 @@ def _apply_approved(
         stop.write_text(
             f"{key}: a write was started and not confirmed; {restore}\n", encoding="utf-8"
         )
-        problem = _write(key, after, earlier, api)
+        problem = _write(key, after, earlier, was, api)
         if problem:
             # stop at once, and stay stopped: what went wrong here would go wrong on the next
             message = f"{key}: {problem}; {restore}"
@@ -494,6 +535,19 @@ def _apply_approved(
     return 1 if refused else 0
 
 
+def _jira(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    """jira_transition's client, plus the one read it has no path to."""
+    if not path.startswith(TEXT_API):
+        return jira_transition._api(method, path, body)
+    request = urllib.request.Request(
+        f"https://{jira_transition._site()}{path}",
+        headers=jira_transition._auth_header(),
+        method="GET",
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.loads(response.read())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -501,15 +555,17 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="snapshot; never changes Jira")
     mode.add_argument("--apply", action="store_true", help="write the approved snapshots")
-    parser.add_argument("--out", type=Path, default=OUT, help="where --dry-run writes")
+    parser.add_argument(
+        "--out", type=Path, default=OUT, help="where --dry-run writes (default: %(default)s)"
+    )
     parser.add_argument("--approved", type=Path, help="the approved snapshot directory")
     args = parser.parse_args(argv)
     if args.apply and not args.approved:
         parser.error("--apply needs --approved <snapshot dir>; nothing written")
     jira_transition._load_env()
     if args.apply:
-        return apply(args.approved, jira_transition._api)
-    return dry_run(args.out, jira_fetch._search)
+        return apply(args.approved, _jira)
+    return dry_run(args.out, jira_fetch._search, jira_transition._api)
 
 
 if __name__ == "__main__":
