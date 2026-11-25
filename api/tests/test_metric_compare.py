@@ -1106,3 +1106,65 @@ def test_the_code_comparison_covers_the_dependency_pins(monkeypatch: pytest.Monk
     monkeypatch.setattr(mc, "_git_status", lambda *args: seen.append(args) or 0)
     assert mc._same_code("a" * 40) is True
     assert {"pyproject.toml", "uv.lock", "api/src", "scripts/run_demo.py"} <= set(seen[0])
+
+
+# --- the stored runs: two of unchanged main, two of the CC-104 branch ---------------------------
+
+STORED = ("main-b1", "main-b2", "cc104-p1", "cc104-p2")
+# each pair is one code measured twice; either run could have been the candidate
+SAME_CODE = [
+    ("main-b1", "main-b2"),
+    ("main-b2", "main-b1"),
+    ("cc104-p1", "cc104-p2"),
+    ("cc104-p2", "cc104-p1"),
+]
+# Written before any number in [rule] was chosen (it is in git before evals/metric_protocol.toml
+# has a [rule]): a defect that breaks this many of the 40 long_tail questions, 15 points, must fail
+# the long_tail rate row whichever stored run it is seeded in.
+BROKEN_LONG_TAIL = 6
+
+
+def stored_run(name: str) -> mc.Run:
+    return mc.load_run(f"evidence/metrics/runs/{name}.json")
+
+
+def working(made: mc.Run, tier: str, count: int) -> list[str]:
+    """The first `count` questions of a tier, by id, that answered in every trial of the run."""
+    by_id: dict[str, list[bool]] = {}
+    for trial in made.trials:
+        if trial["tier"] == tier:
+            by_id.setdefault(trial["id"], []).append(bool(trial["answered"]))
+    found = sorted(family for family, answers in by_id.items() if all(answers))[:count]
+    assert len(found) == count  # fewer working questions than asked for would seed a smaller defect
+    return found
+
+
+def broken(made: mc.Run, ids: list[str]) -> mc.Run:
+    """A copy of a run in which the named questions answer nothing, in every trial."""
+    trials = [
+        {**trial, "answered": False, "rows": 0} if trial["id"] in ids else dict(trial)
+        for trial in made.trials
+    ]
+    tail = [t for t in trials if t["tier"] == "long_tail"]
+    rate = round(sum(t["answered"] for t in tail) / len(tail), 3)
+    return mc.Run(
+        path=f"{made.path} with {len(ids)} broken",
+        repeat=made.repeat,
+        index_hash=made.index_hash,
+        p95_reported=made.p95_reported,
+        scalars={**made.scalars, "answered_rate": rate},
+        trials=trials,
+        hashes=dict(made.hashes),
+    )
+
+
+@pytest.mark.parametrize(("seeded_in", "partner"), SAME_CODE)
+def test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails(
+    seeded_in: str, partner: str
+) -> None:
+    protocol = mc.load_protocol()
+    healthy = stored_run(seeded_in)
+    damaged = broken(healthy, working(healthy, "long_tail", BROKEN_LONG_TAIL))
+    checks = mc.evaluate(damaged, stored_run(partner), "B", protocol)
+    assert status(checks, "long_tail trial rate") == "FAIL"
+    assert mc.verdict(checks) == "FAIL"
