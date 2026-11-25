@@ -559,7 +559,9 @@ def structured() -> dict[str, Any]:
     return body
 
 
-@pytest.mark.parametrize("lost", ["the link", "the card", "the list structure"])
+@pytest.mark.parametrize(
+    "lost", ["the link", "the card", "the card's address", "the list structure"]
+)
 def test_a_write_that_loses_what_the_text_does_not_show_stops_the_run(
     tmp_path: Path, lost: str
 ) -> None:
@@ -575,6 +577,8 @@ def test_a_write_that_loses_what_the_text_does_not_show_stops_the_run(
                 del blocks[0]["content"][0]["marks"]
             elif lost == "the card":
                 del blocks[0]["content"][1]
+            elif lost == "the card's address":
+                blocks[0]["content"][1]["attrs"]["url"] = "https://example.invalid/other"
             else:
                 blocks[-1] = para("a point")
         return done
@@ -616,6 +620,17 @@ def test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped(
     jira.calls.clear()
     assert jg.apply(tmp_path, jira.api) == 2  # a rerun must not carry on to the next ticket
     assert jira.calls == [] and jira.writes == written
+
+
+def test_an_applied_ticket_that_has_since_lost_a_link_is_not_reported_done(tmp_path: Path) -> None:
+    jira = Jira(CC_1=structured())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    assert jg.apply(tmp_path, jira.api) == 0
+    del jira.tickets["CC-1"]["content"][0]["content"][0]["marks"]  # same words, no link
+    jira.writes.clear()
+    assert jg.apply(tmp_path, jira.api) == 1
+    assert jira.writes == []
 
 
 def test_a_ticket_closed_after_the_snapshot_is_left_alone(tmp_path: Path) -> None:
