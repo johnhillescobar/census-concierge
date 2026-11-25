@@ -194,6 +194,7 @@ def test_an_approved_edit_that_would_change_the_ids_is_still_not_written(
         CLEARANCE + " An owner added this sentence.",
         AUDIT + " Except on one ticket.",
         CONTRACT.upper(),
+        "EXISTING AC/TC, EARNED FLOORS, rewritten since.",
         "Note: " + CLEARANCE,
         "Retained from before.\n" + AUDIT,
         "Existing AC/TC, earned\nfloors, in two lines.",
