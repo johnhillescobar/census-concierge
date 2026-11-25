@@ -81,6 +81,27 @@ synthetic_alignment_min = 0.50
                               # — folding them in hurt golden @1 — so rank-1
                               # self-retrieval (~45%) is diagnostic only. Low
                               # alignment catches off-topic generation.
+# Floors main already misses (CC-143). Owner-only, in its own commit: check_invariants rejects one
+# added with any other change. An exception holds while the value is no worse than its baseline
+# by the rule in evals/metric_protocol.toml; delete it when its ticket restores the floor.
+
+[[exception]]
+metric   = "answered_rate_min"
+baseline = 0.683
+approved = "2026-11-25 John Hill"
+ticket   = "CC-148"
+
+[[exception]]
+metric   = "selector_at_1_min"
+baseline = 0.5875
+approved = "2026-11-25 John Hill"
+ticket   = "CC-149"
+
+[[exception]]
+metric   = "p95_latency_seconds"
+baseline = 28.844
+approved = "2026-11-22 John Hill"
+ticket   = "CC-140"
 
 # --- budget change log -------------------------------------------------------
 # Append one line per change: date, field, old -> new, reason.
