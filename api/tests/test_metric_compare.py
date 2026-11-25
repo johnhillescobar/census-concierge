@@ -767,11 +767,15 @@ def test_a_candidate_that_fails_against_l_does_not_become_l(
     before = (lab["dir"] / "references.json").read_bytes()
     cand = write_run(lab["dir"] / "cand.json", contract_run(protocol, ids[:3]))
     assert mc.cmd_promote(cand) == 1
-    # as many answers as L and too slow: no rate is below L, so only the failed verdict stops it
-    slow = 10.0 + protocol["rule"]["p95_rise_max_seconds"] + 1
-    late = write_run(lab["dir"] / "late.json", with_contract(run(protocol, seconds=slow)))
-    assert status(mc.compare(late, ["L"], {}), "p95 vs reference") == "FAIL"
-    assert mc.cmd_promote(late) == 1
+    # the same answers and speed as L, with one answer carrying no margins: no rate row is
+    # worse than L's, so only the failed verdict stops it
+    flawed = contract_run(protocol, [])
+    flawed.trials[0].update(has_moe=False)
+    path = write_run(lab["dir"] / "flawed.json", flawed)
+    checks = mc.compare(path, ["L"], {})
+    assert status(checks, "response contract") == "FAIL"
+    assert not [c.name for c in checks if c.kind == "rate" and (c.worse or 0) > 0]
+    assert mc.cmd_promote(path) == 1
     assert (lab["dir"] / "references.json").read_bytes() == before
 
 

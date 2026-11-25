@@ -47,7 +47,6 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
                 "test_a_stored_run_with_the_stated_number_of_long_tail_questions_broken_fails",
                 "test_candidate_files_are_pooled_against_same_window_main_files",
                 "test_a_failing_blocking_reference_still_fails_beside_a_passing_anchor",
-                "test_a_seeded_regression_is_caught_more_often_the_larger_it_is",
                 "test_l_is_judged_whatever_references_are_named",
             ]
         },

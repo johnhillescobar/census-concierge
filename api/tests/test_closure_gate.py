@@ -1036,9 +1036,12 @@ def test_a_branch_that_landed_as_a_fast_forward_is_read_whole(landed: dict[str, 
 def test_a_tested_head_spelled_short_or_in_capitals_is_the_same_commit(
     landed: dict[str, Any],
 ) -> None:
-    full = closing(landed, "straight", None)
+    # a commit made straight onto main and followed by a merge: read as another commit, it
+    # would be taken for that merge, which changed docs only
+    head = landed["on top"]
+    full = closing(landed, head, None)
     assert full and "evals/golden.toml" in full[0]
-    for spelled in (landed["straight"][:10], landed["straight"].upper(), landed["straight"][:8]):
+    for spelled in (head[:10], head.upper(), head[:8].upper()):
         assert closing(landed, spelled, None) == full, spelled
     assert closing(landed, landed["feature"][:12].upper(), None) == closing(landed, "feature", None)
 

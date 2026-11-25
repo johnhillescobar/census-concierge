@@ -1,0 +1,70 @@
+CC-143 Gate 2: what each pass found, and what was done about it.
+Base origin/main 29c051860b8430d4319ad918669e18351dc9e779.
+
+Gate 2 ran twice, which is the one re-run the playbook allows. Nothing below was reviewed a third
+time: the fixes in cf74bae carry their own tests and mutation checks (gate1-63fa3fd.txt).
+
+== Pass 1, head c531028 ==
+
+Cold bug review, fresh context, Codex: gate2-codex-cold.txt (8 findings), machines in
+gate2-codex-machines.txt. Verdict: Not yet. Two more findings came with its summary to the owner.
+All ten are fixed in 2547155:
+
+ 1 duplicate runs satisfy 2x2            a run file has an identity; a repeat is a hard failure
+ 2 a recorded PASS can omit L            L is judged in every comparison
+ 3 any clean ancestor of main is a base  base runs must measure the main the candidate is built on,
+                                         and all runs fall inside rule.window_hours
+ 4 register trusts --head                a reference is clean, distinct runs of the head it names
+ 5 web/ can skip the post-merge run      web/ is in E2E_PATHS
+ 6 register --legacy reads the protocol  not at a legacy head
+   at a head that predates it
+ 7 nan disables a tolerance              fails closed in the comparator; rejected by the invariant
+ 8 closure_run.py credits any red AC4    only green, or red on the protocol's owner-only check
+ 9 the noise report counts a pair twice  a pair judged both ways is one observation
+10 the comparator ignores a run waiver   honoured for a pool of that one run, as check_budgets does
+
+Project-invariants review (docs/playbooks/review-pr.md), Cursor, pasted to the session by the
+owner. Verdict: Not yet. Machines: check_invariants red on the nine [rule] values awaiting the
+owner (by design); check_budgets red on p95 20.56 > 20 from evidence/latest.json, which this diff
+does not touch. Its findings were about the numbers, and the owner decided them on 2026-11-25:
+
+ - selector_drop_max 0.33 would pass a 30-point selector regression
+       -> divided by the runs pooled on the smaller side (0.165 at 2x2)        [owner]
+ - lost_questions_block = false prints a lost question and does not fail
+       -> lost_questions_min_runs = 2: blocks from two runs per side           [owner]
+ - .claude/PLAN.md still states the old rule -> amended in this PR             [owner]
+ - case rate is no longer a regression row (it remains in --target)           [default, mine]
+ - A and A0 never block                                                        [ticket decision]
+
+== Pass 2, head 2547155 ==
+
+/code-review (Claude Code, high), fresh context. 10 findings, 8 important and 2 nits. All are
+fixed in cf74bae unless noted:
+
+ 1 closure.py  a tested head spelled short or in capitals is diffed as another commit
+               -> resolved to its full hash first
+ 2 closure.py  a fast-forward or a series of straight commits is only partly inspected
+               -> a commit made straight onto main is read from the last merge before it
+ 3 closure.py  E2E_PATHS omits data/, build_index.py, budget_log.py -> added
+ 4 metric_compare.py  promote can walk L down on every row but the answered rates
+               -> refused when any rate row is worse than L's
+ 5 metric_compare.py  a pool whose mean sits exactly on a floor fails by float error
+               -> compared with the same EPS the rate rows use
+ 6 closure.py  a file moved out of api/src is invisible -> --no-renames
+ 7 closure_run.py  TC5 named a test that does not exist, and -k ran the rest
+               -> tests are named by node id; the name is corrected
+ 8 noise.txt and stored-runs.txt were stale against HEAD -> regenerated and committed (63fa3fd)
+ 9 (nit) an infinite tolerance switches a row off -> fails closed like nan
+10 (nit) prescriptive docs still state the old rule
+               -> PLAN.md's No-regression paragraph is amended. CLAUDE.md, PLAN.md "Every close"
+                  and DESIGN.md 8 still say a post-merge E2E always precedes Done: NOT changed,
+                  listed in owner-commits.md, outside this ticket's scope.
+
+== Kept, not fixed, to disclose in the PR ==
+
+ - closure.py sees a ticket's merges by its manifest and its rows' tested heads. A pull request
+   that carries neither is not seen (stated in the docstring and tested as such).
+ - The noise simulation holds trial-to-trial noise only. No same-code comparison has been
+   observed at two runs per side; two more runs of one main revision would give the first.
+ - At 2x2 the simulated same-code failure rate for main is 7.9%, from the selector row (1 in 16
+   when both candidate runs draw 0.425 and both main runs 0.75, if runs are independent).
