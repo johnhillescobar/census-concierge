@@ -1,10 +1,10 @@
 $ git rev-parse HEAD
-cf74bae8f47e26c65015c9c9d1d7b230a5ff6f9c
+f0c1e6bafbcab313e0291edf8cfd1cfc8d374d89
 $ uv run python evidence/slice-6/cc-143/stored_runs.py
 L seeded from the two stored runs of main:
   metrics  {"long_tail_trial_rate": 0.683, "p95": 28.844, "answered_rate": 0.6835, "retrieval_at_10": 0.9, "selector_at_1": 0.5875}
   blockers ['answered_rate 0.6835 < 0.7', 'selector_at_1 0.5875 < 0.7', 'p95 28.844 > 20.0']
-  hashes   {"scorer": "6054312479188110", "cohorts": {"long_tail": "ab5c9c2ffa0bbb1c", "trap": "ab22fe0065a4b319", "core": "622f5f5937db5bac"}, "protocol": "c1cea139d1db2943", "collection": "13c3508d73f8ef25"}
+  hashes   {"scorer": "6054312479188110", "cohorts": {"long_tail": "ab5c9c2ffa0bbb1c", "trap": "ab22fe0065a4b319", "core": "622f5f5937db5bac"}, "protocol": "1a7dbae675430443", "collection": "13c3508d73f8ef25"}
 
 same code, main-b1.json against main-b2.json: VERDICT PASS
   PASS       rate long_tail trial rate         0.692 vs 0.675, may fall 0.070
@@ -84,7 +84,7 @@ one main run against the L seed (1x2), main-b2.json: VERDICT PASS
   (PASS)     hard lost questions               0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
 
 $ uv run python scripts/metric_compare.py freeze
-protocol c1cea139d1db2943  collection 13c3508d73f8ef25  scorer 6054312479188110
+protocol 1a7dbae675430443  collection 13c3508d73f8ef25  scorer 6054312479188110
   long_tail   40 cases  hash ab5c9c2ffa0bbb1c
   trap        18 cases  hash ab22fe0065a4b319
   core         4 cases  hash 622f5f5937db5bac

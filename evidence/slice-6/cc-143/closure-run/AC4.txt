@@ -19,40 +19,20 @@ INVARIANTS
   ok    budget increases               
   ok    new regex                      
   ok    new exemptions                 
-  FAIL  protocol weakened              
-        evals/metric_protocol.toml [rule] rate_drop_max
-        new rule number 0.07: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] small_group_lost_questions
-        new rule number 1: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] empty_rise_max
-        new rule number 0.03: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] rows_lost_questions_max
-        new rule number 1: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] retrieval_drop_max
-        new rule number 0: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] selector_drop_max
-        new rule number 0.33: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] p95_rise_max_seconds
-        new rule number 2.5: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] window_hours
-        new rule number 12: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] lost_questions_min_runs
-        new rule number 2: the owner ratifies it. This belongs in its own commit, by a human.
-        evals/metric_protocol.toml [rule] report_only
-        new entry ['A', 'A0'] stops blocking. This belongs in its own commit, by a human.
+  ok    protocol weakened              
   ok    metric records rewritten       
 
   info  api/src regex call sites: 55 (base 55, delta +0)
 
-10 violation(s).
+All invariants held.
 
-[exit 1]
+[exit 0]
 
 $ uv run pytest api/tests/test_closure_gate.py::test_every_rule_parameter_in_the_committed_protocol_is_guarded api/tests/test_closure_gate.py::test_raising_a_rule_tolerance_fails_and_lowering_it_is_allowed api/tests/test_closure_gate.py::test_a_rule_number_that_is_removed_or_not_a_number_fails api/tests/test_closure_gate.py::test_a_rule_parameter_the_guard_does_not_know_is_a_violation api/tests/test_closure_gate.py::test_a_rule_number_main_does_not_have_yet_is_the_owners_to_ratify api/tests/test_closure_gate.py::test_a_reference_may_leave_the_report_only_list_and_never_join_it api/tests/test_closure_gate.py::test_loosening_the_frozen_protocol_fails api/tests/test_closure_gate.py::test_tightening_the_frozen_protocol_is_allowed -q -rA -p no:cacheprovider
 ..................................                                       [100%]
 ============================== warnings summary ===============================
 api/tests/test_closure_gate.py::test_every_rule_parameter_in_the_committed_protocol_is_guarded
-  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143-post\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
     warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
@@ -92,5 +72,5 @@ PASSED api/tests/test_closure_gate.py::test_loosening_the_frozen_protocol_fails[
 PASSED api/tests/test_closure_gate.py::test_loosening_the_frozen_protocol_fails[edit9]
 PASSED api/tests/test_closure_gate.py::test_loosening_the_frozen_protocol_fails[edit10]
 PASSED api/tests/test_closure_gate.py::test_tightening_the_frozen_protocol_is_allowed
-34 passed, 1 warning in 0.29s
+34 passed, 1 warning in 0.41s
 [exit 0]

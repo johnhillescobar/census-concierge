@@ -1,0 +1,19 @@
+  EXCEPTED       hard floor   answered_rate floor           0.683 vs floor 0.7; exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  PASS           hard floor   retrieval_at_10 floor         0.9 vs floor 0.9
+  EXCEPTED       hard floor   selector_at_1 floor           0.425 vs floor 0.7; exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  PASS           hard floor   answered_rate matches trials  0.683 from trials vs reported 0.683
+  PASS           hard floor   p95 matches trials            30.143 vs reported 30.143
+  EXCEPTED       hard floor   p95 ceiling                   30.143s vs 20s; exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  PASS           hard floor   response contract             0 of 174 trials that returned rows lack a contract field
+  PASS           rate L       long_tail trial rate          0.683 vs 0.683, may fall 0.070
+  PASS           rate L       trap trial rate               0.778 vs 0.787, may fall 0.056 (1 of its 18 questions)
+  PASS           rate L       core trial rate               0.750 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  PASS           rate L       empty answers (long_tail)     0.033 vs 0.042, may rise 0.030
+  FAIL           rate L       rows per question             2 questions returned fewer rows when answered (t16, t17), limit 1
+  PASS           rate L       retrieval_at_10               0.900 vs 0.900, may fall 0.000
+  PASS           rate L       selector_at_1                 0.425 vs 0.588, may fall 0.330
+  PASS           rate L       p95 vs reference              30.143s vs 28.844s, may rise 2.5s
+  (PASS)         hard L       lost questions                0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+  PASS           hard L       reference label               seed: the two stored runs of main 29c0518 (2026-11-24), judged under the rule ratified in CC-143
+
+VERDICT FAIL
