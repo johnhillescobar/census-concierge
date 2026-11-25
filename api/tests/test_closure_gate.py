@@ -501,6 +501,9 @@ def test_a_rule_number_that_is_removed_or_not_a_number_fails(
     assert loosened(monkeypatch, tmp_path, (line, ""))
     assert loosened(monkeypatch, tmp_path, (line, f'{key} = "none"'))
     assert loosened(monkeypatch, tmp_path, (line, f"{key} = true"))
+    for wild in ("nan", "inf"):  # a tolerance nothing can exceed switches its row off
+        found = loosened(monkeypatch, tmp_path, (line, f"{key} = {wild}"))
+        assert [v.where for v in found] == [f"{ci.PROTOCOL} [rule] {key}"], wild
 
 
 def test_a_rule_parameter_the_guard_does_not_know_is_a_violation(
@@ -901,6 +904,8 @@ OWES = {
     "Makefile": True,
     "uv.lock": True,
     "api/pyproject.toml": True,
+    "web/index.html": True,  # `make demo` builds it and run_demo checks the served page
+    "web/src/App.tsx": True,
     "api/tests/test_geo.py": False,
     "scripts/jira_fetch.py": False,
     "scripts/closure.py": False,

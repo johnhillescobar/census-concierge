@@ -18,6 +18,7 @@ import ast
 import hashlib
 import io
 import json
+import math
 import re
 import subprocess
 import sys
@@ -737,7 +738,7 @@ PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))
 # adding one that main does not have, is the owner's ratification and never part of a change.
 RULE_NOT_HIGHER = ("rate_drop_max", "small_group_lost_questions", "empty_rise_max")
 RULE_NOT_HIGHER += ("rows_lost_questions_max", "retrieval_drop_max", "selector_drop_max")
-RULE_NOT_HIGHER += ("p95_rise_max_seconds",)
+RULE_NOT_HIGHER += ("p95_rise_max_seconds", "window_hours")
 RULE_STAYS_ON = ("lost_questions_block",)  # a blocking rule may not become report-only
 PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))
 PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))
@@ -771,7 +772,7 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
         value = doc.get(section, {}).get(key)
         if isinstance(value, bool) or not isinstance(value, int | float):
             return None
-        return float(value)
+        return float(value) if math.isfinite(value) else None  # nan or inf is not a limit
 
     def names(doc: dict, section: str, key: str) -> set[str]:
         return {str(item) for item in doc.get(section, {}).get(key) or []}

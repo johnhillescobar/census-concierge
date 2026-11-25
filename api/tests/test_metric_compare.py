@@ -8,10 +8,13 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import itertools
 import json
 import random
+import shutil
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -370,8 +373,16 @@ def test_a_pool_whose_runs_have_different_indexes_is_not_comparable(
 # --- references: L is the anchor, A and A0 are reported, a changed scorer needs a bridge ---------
 
 
-def write_run(path: Path, made: mc.Run) -> str:
+WRITTEN = itertools.count()
+MIDNIGHT = datetime(2026, 11, 24, tzinfo=UTC)
+
+
+def write_run(path: Path, made: mc.Run, hours: float | None = None) -> str:
+    """A run file. Each is its own run, collected a second after the one written before it, or
+    `hours` after midnight when a test is about the window."""
+    after = timedelta(seconds=next(WRITTEN)) if hours is None else timedelta(hours=hours)
     demo = {
+        "generated_at": (MIDNIGHT + after).isoformat(),
         "repeat": 3,
         "index_hash": made.index_hash,
         "p95_latency_seconds": made.p95_reported,
@@ -398,6 +409,7 @@ def lab(
     monkeypatch.setattr(mc, "_head", lambda: "f" * 40)
     monkeypatch.setattr(mc, "_same_code", lambda head: True)  # a real git diff is tested apart
     monkeypatch.setattr(mc, "_reachable", lambda commit, tip: True)
+    monkeypatch.setattr(mc, "_built_on", lambda base, cand: True)
     return {"dir": tmp_path, "now": now, "kept": kept}
 
 
@@ -524,7 +536,7 @@ def test_a_reference_registered_from_two_runs_is_judged_as_their_pool(
     past = beyond(protocol, "rate_drop_max", len(ids))
     whole = write_run(lab["dir"] / "m1.json", contract_run(protocol, []))
     lower = write_run(lab["dir"] / "m2.json", contract_run(protocol, ids[: 2 * past]))
-    assert mc.cmd_register("L", [whole, lower], "a" * 40, "two runs of main") == 0
+    assert mc.cmd_register("L", [whole, lower], "f" * 40, "two runs of main") == 0
     entry = mc.load_refs()["L"]
     assert [item["run"] for item in entry["runs"]] == [whole, lower]
     assert entry["metrics"]["long_tail_trial_rate"] == round(1 - past / len(ids), 3)
@@ -541,14 +553,16 @@ def test_candidate_files_are_pooled_against_same_window_main_files(
     ids = families_of(protocol, "long_tail", 40)
     past = beyond(protocol, "rate_drop_max", len(ids))
     bad = write_run(lab["dir"] / "p1.json", wrong_table_run(protocol, ids[:past]))
+    again = write_run(lab["dir"] / "p3.json", wrong_table_run(protocol, ids[:past]))
     good = write_run(lab["dir"] / "p2.json", contract_run(protocol, []))
     main = [write_run(lab["dir"] / f"b{n}.json", contract_run(protocol, [])) for n in (1, 2)]
-    assert status(mc.compare([bad, bad], [], {}, main), "long_tail trial rate", "B") == "FAIL"
+    register(lab, "L", contract_run(protocol, []))
+    assert status(mc.compare([bad, again], [], {}, main), "long_tail trial rate", "B") == "FAIL"
     pooled = mc.compare([bad, good], [], {}, main)
     assert status(pooled, "long_tail trial rate", "B") == "PASS"
     assert mc.verdict(pooled) == "PASS"
     assert "2 pooled same-window runs of main" in row(pooled, "reference label", "B").detail
-    assert mc.verdict(mc.compare([bad, bad], [], {}, main)) == "FAIL"
+    assert mc.verdict(mc.compare([bad, again], [], {}, main)) == "FAIL"
 
 
 def test_the_planned_number_of_runs_per_side_is_required(
@@ -658,14 +672,28 @@ def test_a_failing_blocking_reference_still_fails_beside_a_passing_anchor(
     assert mc.verdict(checks) == "FAIL"
 
 
-def test_compare_without_a_blocking_reference_is_refused_and_writes_no_record(
+def test_l_is_judged_whatever_references_are_named(
     protocol: dict[str, Any], lab: dict[str, Any]
 ) -> None:
     register(lab, "A", contract_run(protocol, []))
-    path = write_run(lab["dir"] / "cand.json", contract_run(protocol, []))
-    assert mc.cmd_compare(path, [], {}, record=True) == 2
-    assert mc.cmd_compare(path, ["A", "A0"], {}, record=True) == 2  # anchors alone decide nothing
-    assert not (lab["dir"] / "ledger.jsonl").exists()
+    cands = [write_run(lab["dir"] / f"p{n}.json", contract_run(protocol, [])) for n in (1, 2)]
+    main = [write_run(lab["dir"] / f"b{n}.json", contract_run(protocol, [])) for n in (1, 2)]
+    for names in ([], ["A"], ["A", "A0"]):  # L is not seeded: nothing may read as a pass
+        checks = mc.compare(cands, names, {}, main)
+        assert status(checks, "reference", "L") == "UNKNOWN" and mc.verdict(checks) == "UNKNOWN"
+        assert mc.cmd_compare(cands, names, {}, True, main) == 1
+    lines = (lab["dir"] / "ledger.jsonl").read_text().splitlines()
+    assert [json.loads(line)["refs"][0] for line in lines] == ["L", "L", "L"]
+    assert {json.loads(line)["verdict"] for line in lines} == {"UNKNOWN"}
+    # seeded, and the candidate is as good as same-window main but far below the anchor
+    lost = families_of(protocol, "long_tail", 8)
+    lower = [write_run(lab["dir"] / f"q{n}.json", contract_run(protocol, lost)) for n in (1, 2)]
+    low_main = [write_run(lab["dir"] / f"c{n}.json", contract_run(protocol, lost)) for n in (1, 2)]
+    register(lab, "L", contract_run(protocol, []))
+    checks = mc.compare(lower, ["A"], {}, low_main)  # naming A does not take L out
+    assert status(checks, "long_tail trial rate", "B") == "PASS"
+    assert status(checks, "long_tail trial rate", "L") == "FAIL"
+    assert mc.verdict(checks) == "FAIL"
 
 
 def test_report_only_rows_are_printed_in_parentheses(
@@ -739,6 +767,11 @@ def test_a_candidate_that_fails_against_l_does_not_become_l(
     before = (lab["dir"] / "references.json").read_bytes()
     cand = write_run(lab["dir"] / "cand.json", contract_run(protocol, ids[:3]))
     assert mc.cmd_promote(cand) == 1
+    # as many answers as L and too slow: no rate is below L, so only the failed verdict stops it
+    slow = 10.0 + protocol["rule"]["p95_rise_max_seconds"] + 1
+    late = write_run(lab["dir"] / "late.json", with_contract(run(protocol, seconds=slow)))
+    assert status(mc.compare(late, ["L"], {}), "p95 vs reference") == "FAIL"
+    assert mc.cmd_promote(late) == 1
     assert (lab["dir"] / "references.json").read_bytes() == before
 
 
@@ -865,7 +898,8 @@ def test_floors_are_judged_on_the_pooled_candidate(
     high = run(protocol, scalars={**scalars, "selector_at_1": 0.9})
     low = run(protocol, scalars={**scalars, "selector_at_1": 0.6})
     assert status(mc.absolute(low, protocol), "selector_at_1 floor") == "FAIL"
-    assert status(mc.absolute([high, low], protocol), "selector_at_1 floor") == "PASS"  # mean 0.75
+    for pool in ([high, low], [low, high]):  # the mean, 0.75, whichever run comes first
+        assert status(mc.absolute(pool, protocol), "selector_at_1 floor") == "PASS"
     slow = run(protocol, seconds=30.0)
     assert status(mc.absolute([run(protocol), slow], protocol), "p95 ceiling") == "FAIL"
 
@@ -1019,8 +1053,11 @@ def test_a_target_is_judged_against_the_reference_the_rows_were(
     register(lab, "L", contract_run(protocol, ids[:12]))
     cand = write_run(lab["dir"] / "cand.json", contract_run(protocol, []))
     checks = mc.compare(cand, ["L"], {"long_tail": 0.95})
-    assert status(checks, "long_tail case", "target") == "PASS"  # a proven gain from 70%
-    assert mc.compare(cand, ["A0", "L"], {"long_tail": 0.95}).count(row(checks, "long_tail case"))
+    assert status(checks, "long_tail case", "target") == "PASS"
+    assert "from 0.700" in row(checks, "long_tail case", "target").detail  # a gain over L's 70%
+    # an anchor that is not registered has no runs to gain over: one set of target rows, not two
+    both = mc.compare(cand, ["A0", "L"], {"long_tail": 0.95})
+    assert [c.name for c in both if c.ref == "target"] == ["long_tail trial", "long_tail case"]
 
 
 # --- findings of the cold review ---------------------------------------------------------------
@@ -1082,10 +1119,10 @@ def test_only_an_explicit_legacy_flag_skips_the_collection_check(
 ) -> None:
     complete = contract_run(protocol, [])
     path = write_run(lab["dir"] / "ref.json", complete)
-    assert mc.cmd_register("S", path, "a" * 40, "strict", legacy=False) == 0
+    assert mc.cmd_register("S", path, "f" * 40, "strict", legacy=False) == 0
     assert mc.cmd_register("O", path, "a" * 40, "legacy-unfrozen-protocol", legacy=True) == 0
     # the flag decides, never the wording of the label
-    assert mc.cmd_register("S2", path, "a" * 40, "legacy-looking label", legacy=False) == 0
+    assert mc.cmd_register("S2", path, "f" * 40, "legacy-looking label", legacy=False) == 0
     assert mc.cmd_register("O2", path, "a" * 40, "plain label", legacy=True) == 0
     refs = mc.load_refs()
     assert refs["S"]["hashes"]["protocol"] == "p1" and refs["S"]["hashes"]["collection"] == "k1"
@@ -1130,10 +1167,10 @@ def test_an_unusable_run_file_is_a_fail_row_not_a_bare_exception(
     assert status(mc.compare(str(bad), ["L"], {}), "candidate run file") == "FAIL"
     register(lab, "L", run(protocol))
     good = write_run(lab["dir"] / "good.json", run(protocol))
+    more = write_run(lab["dir"] / "more.json", run(protocol))
     assert status(mc.compare([good, str(bad)], ["L"], {}), "candidate run file") == "FAIL"
-    assert (
-        status(mc.compare([good, good], [], {}, [good, str(bad)]), "reference run file") == "FAIL"
-    )
+    unusable = mc.compare([good, more], [], {}, [good, str(bad)])
+    assert status(unusable, "reference run file") == "FAIL"
     refs = mc.load_refs()
     Path(refs["L"]["run"]).write_text(text)  # a reference whose file went bad...
     refs["L"]["run_sha256"] = hashlib.sha256(Path(refs["L"]["run"]).read_bytes()).hexdigest()
@@ -1295,8 +1332,9 @@ def test_a_head_that_cannot_be_checked_is_a_failure_not_a_crash(
     register(lab, "L", with_contract(run(protocol)))
     cand = write_run(lab["dir"] / "cand.json", with_contract(run(protocol)))
     assert status(mc.compare(cand, ["L"], {}), "provenance") == "FAIL"
+    more = write_run(lab["dir"] / "more.json", with_contract(run(protocol)))
     main = [write_run(lab["dir"] / f"b{n}.json", with_contract(run(protocol))) for n in (1, 2)]
-    assert status(mc.compare([cand, cand], [], {}, main), "same-window main") == "FAIL"
+    assert status(mc.compare([cand, more], [], {}, main), "same-window main") == "FAIL"
 
 
 # --- a run is bound to what it collected, not to the rule that judges it ---------------------
@@ -1611,7 +1649,8 @@ def test_freeze_prints_the_hashes_and_every_rule_number(
 def test_every_rate_row_is_judged_by_a_number_in_the_committed_rule() -> None:
     rule = mc.load_protocol()["rule"]
     numbers = {key for key, value in rule.items() if mc._number(value)}
-    assert set(mc.RATE_ROWS.values()) | {"small_group_lost_questions"} == numbers
+    judged = set(mc.RATE_ROWS.values()) | {"small_group_lost_questions"}
+    assert judged | {"window_hours"} == numbers  # the window is the same-window hard row's
     assert isinstance(rule["lost_questions_block"], bool)
 
 
@@ -1627,10 +1666,12 @@ def test_every_row_compare_prints_is_a_rate_with_a_rule_or_a_named_hard_failure(
     register(lab, "L", contract_run(protocol, ids[:12]))
     register(lab, "A", contract_run(protocol, []), scorer="s0")
     good = write_run(lab["dir"] / "good.json", contract_run(protocol, []))
+    more = write_run(lab["dir"] / "more.json", contract_run(protocol, []))
     main = [write_run(lab["dir"] / f"b{n}.json", contract_run(protocol, [])) for n in (1, 2)]
     bare = write_run(lab["dir"] / "bare.json", run(protocol, stamp={}))
     seen = [
-        *mc.compare([good, good], ["A", "A0", "L"], {"long_tail": 0.95}, main),
+        *mc.compare([good, more], ["A", "A0", "L"], {"long_tail": 0.95}, main),
+        *mc.compare([good, good], ["L"], {}, main),
         *mc.compare(bare, ["L"], {}),
         *mc.compare(good, ["L"], {}, main),
         *mc.compare(str(lab["dir"] / "absent.json"), ["L"], {}),
@@ -1888,13 +1929,15 @@ def test_stored_same_code_comparisons_are_observed_each_way_at_a_size_they_can_f
     stored: dict[str, Any],
 ) -> None:
     main = group("main-b1", "main-b2")
-    assert mc.observed(main, (1, 1), stored) == [[], []]  # both directions, both pass
+    assert mc.observed(main, (1, 1), stored) == [[]]  # one pair: both ways round, both pass
     assert mc.observed(main, (2, 2), stored) == []  # four runs of one code are needed
     assert mc.observed(main, (1, 2), stored) == []
-    assert len(mc.observed([*main, *main], (2, 2), stored)) == 2
-    assert len(mc.observed([*main, *main[:1]], (1, 2), stored)) == 1  # unequal sides: one way
+    assert len(mc.observed([*main, *main], (2, 2), stored)) == 1
+    assert len(mc.observed([*main, *main[:1]], (1, 2), stored)) == 1
     damaged = broken(main[0], working(main[0], "long_tail", 8))
-    assert mc.observed([damaged, main[1]], (1, 1), stored)[0] != []
+    assert "long_tail trial rate" in mc.observed([damaged, main[1]], (1, 1), stored)[0]
+    # the damaged run fails only as the candidate; the pair still fails, whichever way it is given
+    assert "long_tail trial rate" in mc.observed([main[1], damaged], (1, 1), stored)[0]
 
 
 def test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_observed(
@@ -1905,7 +1948,8 @@ def test_the_noise_report_gives_each_rate_an_interval_and_says_what_cannot_be_ob
     assert mc.cmd_noise(paths, [(1, 1), (2, 2)], 40) == 0
     out = capsys.readouterr().out
     one, two = out.split("size 2x2")
-    assert "observed  unchanged code fails 0.000 [0.000, " in one.split("size 1x1")[1]
+    # two runs are one same-code pair, however many ways round it is judged
+    assert "observed  unchanged code fails 0.000 [0.000, 0.793] of 1 set(s)" in one
     assert "needs 4 runs of one code" in two and "2 more run(s)" in two
     for part in (one, two):
         assert part.count("simulated 29c0518  unchanged code fails 0.") == 1
@@ -1937,3 +1981,176 @@ def test_the_noise_command_reads_its_sizes(monkeypatch: pytest.MonkeyPatch) -> N
         (["a.json", "b.json"], [(1, 1), (2, 2)], 2000),
         (["a.json"], [(1, 2), (4, 4)], 50),
     ]
+
+
+# --- findings of the cold review of c531028 -------------------------------------------------
+
+
+def test_the_same_run_given_twice_is_not_two_runs(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "L", contract_run(protocol, []))
+    p1, p2, b1, b2 = (
+        write_run(lab["dir"] / f"{name}.json", contract_run(protocol, []))
+        for name in ("p1", "p2", "b1", "b2")
+    )
+    assert mc.verdict(mc.compare([p1, p2], [], {}, [b1, b2])) == "PASS"  # four runs: judged
+    copy = str(shutil.copy(p1, lab["dir"] / "copy-of-p1.json"))  # the same bytes, another name
+    for cands, main in (
+        ([p1, p1], [b1, b2]),  # one candidate run standing in for two
+        ([p1, copy], [b1, b2]),
+        ([p1, p2], [b1, b1]),  # one main run standing in for two
+        ([p1, p2], [b1, p1]),  # a candidate run offered as its own baseline
+        ([p1, p1], [p1, p1]),  # one measurement in all four places
+    ):
+        checks = mc.compare(cands, [], {}, main)
+        assert status(checks, "run identity", "B") == "FAIL", (cands, main)
+        assert not any(c.ref == "B" and c.kind == "rate" for c in checks)  # nothing was judged
+        assert mc.verdict(checks) == "FAIL"
+    alone = mc.compare([p1, copy], ["L"], {})  # and against L, with no base at all
+    assert status(alone, "run identity", "run") == "FAIL" and mc.verdict(alone) == "FAIL"
+
+
+def test_base_runs_must_measure_the_main_the_candidate_is_built_on(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register(lab, "L", contract_run(protocol, []))
+    older = {**STAMP, "head": "e" * 40}  # main as it was before a change the candidate contains
+    cands = [write_run(lab["dir"] / f"p{n}.json", contract_run(protocol, [])) for n in (1, 2)]
+    main = [
+        write_run(lab["dir"] / f"b{n}.json", with_contract(run(protocol, stamp=older)))
+        for n in (1, 2)
+    ]
+    asked: list[tuple[str, str]] = []
+    monkeypatch.setattr(mc, "_built_on", lambda base, cand: asked.append((base, cand)) or False)
+    checks = mc.compare(cands, [], {}, main)
+    assert asked == [("e" * 40, "f" * 40)]  # the base runs' head against the candidate's
+    assert status(checks, "same-window main", "B") == "FAIL"
+    assert not any(c.ref == "B" and c.kind == "rate" for c in checks)
+    monkeypatch.setattr(mc, "_built_on", lambda base, cand: True)
+    assert status(mc.compare(cands, [], {}, main), "long_tail trial rate", "B") == "PASS"
+
+
+def test_whether_a_candidate_is_built_on_a_base_is_asked_of_real_git(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(mc, "MAIN", "HEAD")  # this checkout is a branch, not main
+    head = mc._head()
+    assert mc._built_on(head, head)
+    assert not mc._built_on("0" * 40, head)  # a base that is not a commit
+    assert not mc._built_on(head, "0" * 40)  # a candidate with no merge base
+    seen: list[tuple[str, ...]] = []
+    monkeypatch.setattr(mc, "_git_status", lambda *args: seen.append(args) or 1)
+    assert not mc._built_on(head, head)  # the product code differs: not the candidate's base
+    assert set(mc.MEASURED) <= set(seen[0]) and seen[0][:2] == ("diff", "--quiet")
+
+
+def test_runs_collected_outside_the_window_are_not_same_window(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "L", contract_run(protocol, []))
+    window = protocol["rule"]["window_hours"]
+
+    def judged(*hours: float | None) -> list[mc.Check]:
+        files = [
+            write_run(lab["dir"] / f"w{n}.json", contract_run(protocol, []), at)
+            for n, at in enumerate(hours)
+        ]
+        return mc.compare(files[:2], [], {}, files[2:])
+
+    assert mc.verdict(judged(0, 1, 2, window)) == "PASS"  # the last starts exactly at the limit
+    late = judged(0, 1, 2, window + 0.1)  # a main run from another window
+    assert status(late, "same-window main", "B") == "FAIL" and mc.verdict(late) == "FAIL"
+    assert status(judged(window + 0.1, 1, 2, 0), "same-window main", "B") == "FAIL"
+    undated = write_run(lab["dir"] / "undated.json", contract_run(protocol, []))
+    body = json.loads(Path(undated).read_text())
+    del body["demo"]["generated_at"]
+    Path(undated).write_text(json.dumps(body))
+    dated = [write_run(lab["dir"] / f"d{n}.json", contract_run(protocol, [])) for n in range(3)]
+    checks = mc.compare(dated[:2], [], {}, [dated[2], undated])
+    assert status(checks, "same-window main", "B") == "FAIL"
+
+
+def test_a_reference_is_registered_only_from_clean_runs_of_the_head_it_names(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    good = write_run(lab["dir"] / "good.json", contract_run(protocol, []))
+    more = write_run(lab["dir"] / "more.json", contract_run(protocol, []))
+    other = with_contract(run(protocol, stamp={**STAMP, "head": "e" * 40}))
+    dirty = with_contract(run(protocol, stamp={**STAMP, "dirty": True}))
+    bare = with_contract(run(protocol, stamp={}))
+    paths = {
+        name: write_run(lab["dir"] / f"{name}.json", made)
+        for name, made in (("other", other), ("dirty", dirty), ("bare", bare))
+    }
+    assert mc.cmd_register("L", [good, more], "e" * 40, "another head") == 1  # not the runs' head
+    assert mc.cmd_register("L", [good, paths["other"]], "f" * 40, "two heads") == 1
+    assert mc.cmd_register("L", [good, paths["dirty"]], "f" * 40, "uncommitted code") == 1
+    assert mc.cmd_register("L", [good, paths["bare"]], "f" * 40, "no stamp") == 1
+    assert mc.cmd_register("L", [good, good], "f" * 40, "one run twice") == 1
+    assert mc.load_refs() == {}  # nothing was written by any refusal
+    assert mc.cmd_register("L", [good, more], "f" * 40, "two clean runs of f") == 0
+
+
+def test_a_legacy_run_is_registered_without_reading_the_protocol_at_its_head(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def no_protocol_then(head: str | None = None) -> str:
+        if head:  # the file did not exist at a head from before the protocol
+            raise mc.subprocess.CalledProcessError(128, "git show")
+        return "k1"
+
+    monkeypatch.setattr(mc, "collection_at", no_protocol_then)
+    old = write_run(lab["dir"] / "old.json", with_contract(run(protocol, stamp={})))
+    assert mc.cmd_register("A1", old, "a" * 40, "from before the protocol", legacy=True) == 0
+    entry = mc.load_refs()["A1"]
+    assert entry["hashes"]["protocol"] == "legacy" and "collection" not in entry["hashes"]
+    cand = write_run(lab["dir"] / "cand.json", contract_run(protocol, []))
+    assert status(mc.compare(cand, ["A1"], {}), "long_tail trial rate", "A1") == "PASS"
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_a_tolerance_that_is_not_a_finite_number_excuses_nothing(
+    protocol: dict[str, Any], monkeypatch: pytest.MonkeyPatch, bad: float
+) -> None:
+    ids = families_of(protocol, "long_tail", 40)
+    lower = run(protocol, losing("long_tail", ids[:12]))  # 30 points down
+    protocol["rule"]["rate_drop_max"] = float("nan")
+    assert (
+        status(mc.evaluate(lower, run(protocol), "B", protocol), "long_tail trial rate") == "FAIL"
+    )
+    protocol["rule"]["p95_rise_max_seconds"] = float("nan")  # the tolerance an exception uses
+    held = {**BUDGETS, "exception": [exception("p95_latency_seconds", 29.0)]}
+    monkeypatch.setattr(mc, "_budgets", lambda: held)
+    assert status(mc.absolute(run(protocol, seconds=29.0), protocol), "p95 ceiling") == "FAIL"
+    # an exception whose own baseline is not finite: nothing to be "no worse than"
+    protocol["rule"]["p95_rise_max_seconds"] = 2.5
+    wild = {**BUDGETS, "exception": [exception("p95_latency_seconds", bad)]}
+    assert mc.exception_problems(wild)
+    monkeypatch.setattr(mc, "_budgets", lambda: wild)
+    assert status(mc.absolute(run(protocol, seconds=29.0), protocol), "p95 ceiling") == "FAIL"
+
+
+def test_the_comparator_honours_a_one_run_waiver_as_the_budget_check_does(
+    protocol: dict[str, Any], lab: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mc, "_budgets", lambda: dict(BUDGETS))
+    slow = with_contract(run(protocol, seconds=25.472))
+    path = write_run(lab["dir"] / "slow.json", slow, hours=5)
+    at = (MIDNIGHT + timedelta(hours=5)).isoformat()
+    log = "# --- budget change log ---\n"
+    waiver = (
+        f"# 2026-11-11  [waiver] p95_latency_seconds {at} 25.472 CC-114 owner waives this run\n"
+    )
+    monkeypatch.setattr(mc, "_budgets_text", lambda: log)
+    assert status(mc.compare(path, ["L"], {}), "p95 ceiling") == "FAIL"  # no waiver on record
+    monkeypatch.setattr(mc, "_budgets_text", lambda: log + waiver)
+    checks = mc.compare(path, ["L"], {})
+    assert status(checks, "p95 ceiling") == "EXCEPTED"
+    assert "CC-114" in row(checks, "p95 ceiling").detail
+    for wrong in (waiver.replace("25.472", "25.9"), waiver.replace(at, MIDNIGHT.isoformat())):
+        monkeypatch.setattr(mc, "_budgets_text", lambda wrong=wrong: log + wrong)
+        assert status(mc.compare(path, ["L"], {}), "p95 ceiling") == "FAIL"  # another run or value
+    monkeypatch.setattr(mc, "_budgets_text", lambda: log + waiver)
+    twin = write_run(lab["dir"] / "twin.json", with_contract(run(protocol, seconds=25.472)))
+    assert status(mc.compare([path, twin], ["L"], {}), "p95 ceiling") == "FAIL"  # one run only

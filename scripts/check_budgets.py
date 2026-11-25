@@ -244,16 +244,7 @@ def _p95_waiver(run: str, p95: float) -> str:
         text = (ROOT / "budgets.toml").read_text(encoding="utf-8")
     except OSError:
         return ""
-    for words in budget_log.entries(text):
-        if len(words) < 6 or words[1:4] != ["[waiver]", "p95_latency_seconds", run]:
-            continue
-        try:
-            logged = float(words[4])
-        except ValueError:
-            continue
-        if abs(logged - p95) < 0.0005:
-            return " ".join(words[5:])
-    return ""
+    return budget_log.p95_waiver(text, run, p95)
 
 
 def _p95_check(budgets: dict) -> Check | None:

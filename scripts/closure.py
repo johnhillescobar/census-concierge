@@ -39,10 +39,12 @@ GitFn = Callable[..., subprocess.CompletedProcess[str]]
 HEX = set("0123456789abcdef")
 # A merged change that touches one of these can move what `make eval` and `make demo` measure, so
 # it owes a post-merge run: the product, the evals, and the run harness (the scripts those recipes
-# execute, the recipes themselves and the dependency pins). A trailing slash is a directory.
+# execute, the recipes themselves, the dependency pins, and the web build `make demo` makes and
+# run_demo.py checks is the one served). A trailing slash is a directory.
 E2E_PATHS = (
     "api/src/",
     "evals/",
+    "web/",
     "Makefile",
     "pyproject.toml",
     "api/pyproject.toml",

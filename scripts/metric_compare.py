@@ -48,6 +48,8 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+import budget_log
+
 ROOT = Path(__file__).resolve().parent.parent
 PROTOCOL = ROOT / "evals" / "metric_protocol.toml"
 METRICS = ROOT / "evidence" / "metrics"
@@ -85,6 +87,7 @@ RATE_ROWS = {
 }
 HARD_ROWS = (
     "candidate run file",
+    "run identity",
     "provenance",
     "answered_rate floor",
     "retrieval_at_10 floor",
@@ -142,6 +145,8 @@ class Run:
     scalars: dict[str, float]
     trials: list[dict[str, Any]]
     hashes: dict[str, Any] = field(default_factory=dict)
+    at: str = ""  # demo.generated_at: when the run was collected
+    identity: str = ""  # of a run read from a file: a copy or a second name is the same run
 
 
 @dataclass
@@ -315,6 +320,8 @@ def load_run(path: str | Path) -> Run:
             scalars=scalars,
             trials=trials,
             hashes={k: stamp[k] for k in PROVENANCE_KEYS} if whole else {},
+            at=str(demo.get("generated_at") or ""),
+            identity=_digest([demo.get("generated_at"), trials]),
         )
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise PlanError(f"{path}: not a usable run file ({type(exc).__name__}: {exc})") from exc
@@ -427,7 +434,8 @@ def judge_rows(cand: Sample, base: Sample, name: str, protocol: dict[str, Any]) 
     out: list[Check] = []
 
     def rate_row(row: str, worse: float, limit: float, detail: str) -> None:
-        status = "FAIL" if worse > limit + EPS else "PASS"
+        # written so that a tolerance that is not a number (nan) fails instead of passing
+        status = "PASS" if worse <= limit + EPS else "FAIL"
         out.append(Check(name, row, status, detail, kind="rate", worse=round(worse, 6)))
 
     for cohort_name, mine in cand.trials.items():
@@ -522,12 +530,17 @@ def paired_interval(diffs: list[Fraction], protocol: dict[str, Any]) -> tuple[fl
 # --- comparison ----------------------------------------------------------------------------------
 
 
+def _budgets_text() -> str:
+    return (ROOT / "budgets.toml").read_text(encoding="utf-8")
+
+
 def _budgets() -> dict[str, Any]:
-    return tomllib.loads((ROOT / "budgets.toml").read_text(encoding="utf-8"))
+    return tomllib.loads(_budgets_text())
 
 
 def _number(value: object) -> bool:
-    return isinstance(value, int | float) and not isinstance(value, bool)
+    """A finite number. A bool is not one, and nan or inf is not a limit or a baseline."""
+    return isinstance(value, int | float) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def _exceptions(budgets: dict[str, Any]) -> list[Any]:
@@ -573,8 +586,11 @@ def absolute(cands: Run | list[Run], protocol: dict[str, Any]) -> list[Check]:
     quality, ceiling = budgets["quality"], budgets["performance"]["p95_latency_seconds"]
     out: list[Check] = []
 
-    def limit_row(row: str, limit: str, value: float | None, ok: bool, shown: str) -> None:
+    def limit_row(
+        row: str, limit: str, value: float | None, ok: bool, shown: str, waiver: str = ""
+    ) -> None:
         note = "" if ok or value is None else excepted(limit, value, budgets, protocol["rule"])
+        note = note or (f"waived by the owner for this run: {waiver}" if waiver else "")
         status = "PASS" if ok else "EXCEPTED" if note else "FAIL"
         out.append(Check("floor", row, status, f"{shown}; {note}" if note else shown))
 
@@ -607,7 +623,10 @@ def absolute(cands: Run | list[Run], protocol: dict[str, Any]) -> list[Check]:
     out.append(Check("floor", "p95 matches trials", status, detail))
     pooled = percentile([float(t["latency_s"]) for run in cands for t in run.trials], 95)
     shown = f"{pooled:.3f}s vs {ceiling:g}s"
-    limit_row("p95 ceiling", "p95_latency_seconds", pooled, pooled <= ceiling, shown)
+    # the owner's `[waiver]` names one run and its p95, so it covers a pool of that one run only
+    one = cands[0] if len(cands) == 1 and pooled > ceiling else None
+    waiver = budget_log.p95_waiver(_budgets_text(), one.at, pooled) if one else ""
+    limit_row("p95 ceiling", "p95_latency_seconds", pooled, pooled <= ceiling, shown, waiver)
     # any tier, answered or not: data is data
     returned = [t for run in cands for t in run.trials if t.get("rows")]
     if returned and not all(k in t for t in returned for k in CONTRACT_KEYS):
@@ -788,6 +807,33 @@ def provenance_checks(
     return {**judged, "collection": actual["collection"]}, problems
 
 
+def _built_on(base_head: str, cand_head: str) -> bool:
+    """The main the candidate is built on (its merge base with MAIN) carries the product code,
+    harness and pins the base runs measured. An older run of main, from before a change the
+    candidate already contains, is not its baseline."""
+    fork = subprocess.run(
+        ["git", "merge-base", cand_head, MAIN], cwd=ROOT, capture_output=True, text=True
+    )
+    if fork.returncode or not fork.stdout.strip():
+        return False
+    return _git_status("diff", "--quiet", base_head, fork.stdout.strip(), "--", *MEASURED) == 0
+
+
+def spread_hours(runs: list[Run]) -> float | None:
+    """Hours between the earliest and the latest of the runs, or None if one does not say when it
+    was collected."""
+    try:
+        times = [datetime.fromisoformat(run.at) for run in runs]
+        return (max(times) - min(times)).total_seconds() / 3600
+    except (ValueError, TypeError):  # absent, malformed, or one zoned and one not
+        return None
+
+
+def duplicated(runs: list[Run]) -> bool:
+    """One run under two names, or a copy of it, is one measurement, not two."""
+    return len({run.identity for run in runs}) != len(runs)
+
+
 def blocks(protocol: dict[str, Any]) -> tuple[int, int]:
     """(candidate runs, main runs) one pre-merge judgment pools: the P and B of sampling.blocks."""
     plan = [block.strip() for block in str(protocol["sampling"]["blocks"]).split(",")]
@@ -814,11 +860,23 @@ def against_main(
         bases = [load_run(path) for path in base_paths]
     except PlanError as exc:
         return refuse("reference run file", str(exc))
+    if duplicated([*cands, *bases]):
+        why = "a run is given more than once; every planned block is its own run"
+        return refuse("run identity", why)
     heads = {str(run.hashes.get("head", "")) for run in bases}
     head = next(iter(heads))
     clean = all(run.hashes.get("dirty") is False for run in bases)
     if len(heads) != 1 or not head or not clean or not _reachable(head, MAIN):
         return refuse("same-window main", f"the base runs must record one clean head on {MAIN}")
+    mine = str(cands[0].hashes.get("head", ""))
+    if not mine or not _built_on(head, mine):
+        why = f"the base runs measured {head[:7]}, whose product code is not the main the candidate"
+        return refuse("same-window main", f"{why} is built on; run main again in this window")
+    hours, window = spread_hours([*cands, *bases]), protocol["rule"]["window_hours"]
+    if hours is None or not hours <= window + EPS:
+        found = "a run does not say when it was collected" if hours is None else f"{hours:.1f}h"
+        why = f"the runs must be collected within {window:g}h of each other ({found})"
+        return refuse("same-window main", why)
     try:
         theirs = judged_by(head)
     except (subprocess.CalledProcessError, OSError, ValueError, SyntaxError, KeyError) as exc:
@@ -861,6 +919,12 @@ def against_reference(
     return evaluate(cands, reference, name, protocol, label=label), reference
 
 
+def anchored(ref_names: list[str]) -> list[str]:
+    """The references a comparison is judged against: L always, whatever else is named. The fixed
+    anchor cannot be left out of a verdict by naming another reference."""
+    return ["L", *(name for name in ref_names if name != "L")]
+
+
 def compare(
     cand_paths: str | list[str],
     ref_names: list[str],
@@ -877,10 +941,13 @@ def compare(
         return [Check("run", "candidate run file", "FAIL", str(exc))]
     refs = load_refs()
     out = absolute(cands, protocol)
+    if duplicated(cands):
+        why = "a run is given more than once; a pool is independent runs"
+        out.append(Check("run", "run identity", "FAIL", why))
     judged, found = provenance_checks(cands, now)
     out += found
     # B is the name of the same-window base; a registered reference cannot take it over
-    named = [n for n in ref_names if not (n == "B" and base_paths)]
+    named = [n for n in anchored(ref_names) if not (n == "B" and base_paths)]
     for name in (["B"] if base_paths else []) + named:
         if name == "B" and base_paths:
             rows, reference = against_main(cands, base_paths, judged, protocol)
@@ -1006,16 +1073,19 @@ def _shown(hits: int, n: int) -> str:
 
 
 def observed(group: list[Run], size: tuple[int, int], protocol: dict[str, Any]) -> list[list[str]]:
-    """The rows that fail in each stored same-code comparison at `size`: disjoint sets of the
-    group's runs in the order given, each also judged the other way round when the sides match."""
+    """The rows that fail in each stored same-code comparison at `size`, one entry per disjoint
+    set of the group's runs in the order given. Equal sides are judged both ways round and stay
+    one observation: the two directions share their runs, so they are not two pieces of evidence."""
     step, out = sum(size), []
     for start in range(0, len(group) - step + 1, step):
         left, right = group[start : start + size[0]], group[start + size[0] : start + step]
+        failing: set[str] = set()
         for cands, refs in (
             [(left, right), (right, left)] if size[0] == size[1] else [(left, right)]
         ):
             checks = evaluate(cands, refs, "same", protocol)
-            out.append([c.name for c in checks if c.blocking and c.status != "PASS"])
+            failing |= {c.name for c in checks if c.blocking and c.status != "PASS"}
+        out.append(sorted(failing))
     return out
 
 
@@ -1060,8 +1130,10 @@ def cmd_noise(paths: list[str], sizes: list[tuple[int, int]], sims: int) -> int:
             failing = Counter(name for rows in seen for name in rows)
             why = f"; rows: {dict(failing)}" if failing else ""
             failed = sum(bool(rows) for rows in seen)
+            ways = ", each judged both ways" if size[0] == size[1] else ""
+            rate = _shown(failed, len(seen))
             print(
-                f"  observed  unchanged code fails {_shown(failed, len(seen))} of {len(seen)}{why}"
+                f"  observed  unchanged code fails {rate} of {len(seen)} set(s) of runs{ways}{why}"
             )
         else:
             print(
@@ -1127,6 +1199,7 @@ def cmd_freeze() -> int:
     print(f"  rate  {'trial rate, a small group':<28} {small} (under {minimum} questions)")
     adopted = "blocks" if rule["lost_questions_block"] else "reported, not adopted"
     print(f"  hard  {'lost questions':<28} lost_questions_block = {adopted}")
+    print(f"  hard  {'same-window main':<28} window_hours = {rule['window_hours']:g}")
     print(f"  hard  {', '.join(row for row in HARD_ROWS if row != 'lost questions')}")
     print(f"  report_only = {', '.join(rule['report_only'])} (printed, never blocking)")
     return 0
@@ -1140,6 +1213,12 @@ def build_entry(
     stated, not inferred from a label."""
     paths = _pool(run_paths)
     runs = [load_run(path) for path in paths]
+    if not legacy:  # a legacy run predates the stamp; any other must be what its entry says
+        stamps = [run.hashes for run in runs]
+        if not all(stamps) or any(s["head"] != head or s["dirty"] is not False for s in stamps):
+            raise PlanError(f"every run must record clean code at {head[:7]}, the head it is named")
+        if duplicated(runs):
+            raise PlanError("a run is given more than once; a reference pools independent runs")
     long_tail = [t for run in runs for t in run.trials if t.get("tier") == "long_tail"]
     shared = set.intersection(*(set(run.scalars) for run in runs))
     scalars = {k: round(sum(run.scalars[k] for run in runs) / len(runs), 4) for k in sorted(shared)}
@@ -1164,7 +1243,8 @@ def build_entry(
     ]
     if metrics["p95"] > budgets["performance"]["p95_latency_seconds"]:
         blockers.append(f"p95 {metrics['p95']} > {budgets['performance']['p95_latency_seconds']}")
-    now = judged_by(head)
+    # a legacy head may predate the protocol file: its collection settings are not looked up
+    now = hashes(head) if legacy else judged_by(head)
     return {
         "label": label,
         "head": head,
@@ -1196,7 +1276,11 @@ def cmd_register(
     if name in refs:
         print(f"{name} is already registered; references are immutable", file=sys.stderr)
         return 1
-    refs[name] = build_entry(run_paths, head, label, legacy=legacy)
+    try:
+        refs[name] = build_entry(run_paths, head, label, legacy=legacy)
+    except PlanError as exc:
+        print(f"not registered: {exc}", file=sys.stderr)
+        return 1
     write_refs(refs)
     entry = refs[name]
     blockers = entry["blockers"] or "none"
@@ -1239,7 +1323,7 @@ def run_compare(
             "head": _head(),
             "runs": [_file_record(path) for path in paths],
             "base": [_file_record(path) for path in base_paths],
-            "refs": names,
+            "refs": anchored(names),
             "verdict": final,
             "hashes": judged_by(),
             "checks": [c.__dict__ for c in checks],
@@ -1257,13 +1341,6 @@ def cmd_compare(
     record: bool,
     base_paths: list[str] | None = None,
 ) -> int:
-    report_only = load_protocol()["rule"]["report_only"]
-    if not base_paths and not any(name not in report_only for name in names):
-        # floors and report-only anchors are not a comparison, and must never write a PASS record
-        print(
-            "compare needs --base runs of main or a blocking reference (--refs L)", file=sys.stderr
-        )
-        return 2
     final, _checks = run_compare(_pool(run_paths), names, targets, record, list(base_paths or []))
     return 0 if final == "PASS" else 1
 
