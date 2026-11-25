@@ -19,6 +19,7 @@ import jira_gate_line as jg  # noqa: E402
 CONTRACT = "Metric progression and non-regression contract\nNo observed decrease against A."
 CLEARANCE = "Mandatory AC/TC clearance before shipping\nEvery merged change owes a run."
 AUDIT = "Existing AC/TC, earned floors, and the old uncertainty rule remain binding."
+REAL_PASTED = dict(jg.PASTED)  # read before any test stands in its own
 
 
 def para(text: str) -> dict[str, Any]:
@@ -157,7 +158,11 @@ def test_an_approved_edit_that_would_change_the_ids_is_still_not_written(
 
 @pytest.mark.parametrize(
     "reworded",
-    [CONTRACT + " An owner added this sentence.", AUDIT + " Except on one ticket."],
+    [
+        CONTRACT + " An owner added this sentence.",
+        CLEARANCE + " An owner added this sentence.",
+        AUDIT + " Except on one ticket.",
+    ],
 )
 def test_a_reworded_copy_refuses_the_whole_ticket(tmp_path: Path, reworded: str) -> None:
     jira = Jira(CC_1=doc(CLEARANCE, reworded, "AC1. a"), CC_2=ticket())
@@ -249,11 +254,12 @@ def test_new_snapshots_void_an_earlier_approval(tmp_path: Path) -> None:
     assert jira.writes == []
 
 
-def test_a_snapshot_changed_after_approval_writes_nothing(tmp_path: Path) -> None:
+@pytest.mark.parametrize("name", ["before.json", "after.json", "before.md", "after.md"])
+def test_a_snapshot_changed_after_approval_writes_nothing(tmp_path: Path, name: str) -> None:
     jira = Jira(CC_1=ticket())
     snapshot(jira, tmp_path)
     approve(tmp_path)
-    (tmp_path / "CC-1.after.json").write_bytes(jg._dump(doc("something else", "AC1. a")))
+    (tmp_path / f"CC-1.{name}").write_bytes(jg._dump(doc("something else", "AC1. a")))
     assert jg.apply(tmp_path, jira.api) == 2
     assert jira.writes == []
 
@@ -341,3 +347,132 @@ def test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_noth
     jira.writes.clear()
     assert jg.apply(first, jira.api) == 0
     assert jira.writes == []
+
+
+def test_a_formatting_only_edit_since_the_snapshot_is_left_alone(tmp_path: Path) -> None:
+    """A link added to the same words is the owner's edit too, and a write would remove it."""
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    link = {"type": "link", "attrs": {"href": "https://example.invalid"}}
+    jira.tickets["CC-1"]["content"][0]["content"][0]["marks"] = [link]
+    edited = copy.deepcopy(jira.tickets["CC-1"])
+    assert jg.apply(tmp_path, jira.api) == 1
+    assert jira.writes == []
+    assert jira.tickets["CC-1"] == edited
+
+
+def test_text_jira_stores_with_attributes_of_its_own_counts_as_written(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def annotating(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        done = jira.api(method, path, body)
+        if method == "PUT":
+            for node in jira.tickets[jira.writes[-1]]["content"]:
+                node["attrs"] = {"localId": "set-by-jira"}
+        return done
+
+    assert jg.apply(tmp_path, annotating) == 0
+    assert jira.writes == ["CC-1", "CC-2"]
+    assert jg.apply(tmp_path, annotating) == 0  # already reads as approved
+    assert jira.writes == ["CC-1", "CC-2"]
+
+
+def test_the_readable_files_put_a_blank_line_between_blocks(tmp_path: Path) -> None:
+    snapshot(Jira(CC_1=ticket()), tmp_path)
+    after = (tmp_path / "CC-1.after.md").read_text(encoding="utf-8")
+    assert after == f"Owned outcome\n\n{jg.GATE_LINE}\n\nAC1. a\nAC2. b\n\nTC1. c\n"
+
+
+def test_the_same_tickets_give_the_same_manifest_in_any_key_order(tmp_path: Path) -> None:
+    """The approval is a hash of the manifest, so key order must not reach it."""
+
+    def reversed_keys(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {key: reversed_keys(value[key]) for key in reversed(list(value))}
+        return [reversed_keys(item) for item in value] if isinstance(value, list) else value
+
+    snapshot(Jira(CC_1=ticket()), tmp_path / "one")
+    snapshot(Jira(CC_1=reversed_keys(ticket())), tmp_path / "two")
+    assert (tmp_path / "one" / "manifest.json").read_bytes() == (
+        tmp_path / "two" / "manifest.json"
+    ).read_bytes()
+
+
+def test_the_real_table_turns_each_snapshotted_ticket_into_its_after_side(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other tests stand in their own paragraphs. This one holds the real hashes and the
+    real line to the descriptions that were read from Jira."""
+    monkeypatch.setattr(jg, "PASTED", REAL_PASTED)
+    manifest = json.loads((jg.OUT / "manifest.json").read_bytes())
+    assert manifest["tickets"]
+    for key, entry in manifest["tickets"].items():
+        before, after = (
+            json.loads((jg.OUT / f"{key}.{side}.json").read_bytes()) for side in ("before", "after")
+        )
+        assert jg.edit(before) == (after, entry["replaced"]), key
+        assert jg.refusal(before, after) is None, key
+
+
+def never(*args: Any, **kwargs: Any) -> Any:
+    raise AssertionError("this command used a Jira client it must not")
+
+
+def test_the_dry_run_command_asks_for_open_tickets_and_only_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    requests: list[tuple[str, str, dict[str, Any]]] = []
+
+    def reading(method: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        requests.append((method, path, body))
+        return {"issues": [{"key": "CC-1", "fields": {"description": ticket()}}]}
+
+    monkeypatch.setattr(jg.jira_fetch, "_api", reading)
+    monkeypatch.setattr(jg.jira_transition, "_api", never)
+    monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
+    monkeypatch.setattr(jg, "OUT", tmp_path / "default")
+    out = tmp_path / "snapshots"
+    assert jg.main(["--dry-run", "--out", str(out)]) == 0
+    [(method, path, body)] = requests
+    assert (method, path) == ("POST", "/search/jql")  # Jira's search is a POST that only reads
+    assert body["jql"].startswith("project = CC AND statusCategory != Done ")
+    assert body["fields"] == ["description"]
+    manifest = json.loads((out / "manifest.json").read_bytes())
+    assert manifest["tickets"]["CC-1"]["ids"] == ["AC1", "AC2", "TC1"]
+
+
+def test_the_apply_command_writes_what_the_printed_hash_approves(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    printed = capsys.readouterr().out.strip().splitlines()[-1].rsplit(": ", 1)[1]
+    (tmp_path / "APPROVED").write_text(printed + "\n", encoding="utf-8")
+    loaded: list[bool] = []
+    monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: loaded.append(True))
+    monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
+    monkeypatch.setattr(jg.jira_fetch, "_api", never)
+    monkeypatch.setattr(jg.jira_fetch, "_search", never)
+    assert jg.main(["--apply", "--approved", str(tmp_path)]) == 0
+    assert jira.writes == ["CC-1"]
+    assert loaded == [True]
+
+
+def test_a_dry_run_and_an_apply_asked_at_once_write_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    jira.calls.clear()
+    monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
+    monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
+    monkeypatch.setattr(jg.jira_fetch, "_search", jira.search)
+    monkeypatch.setattr(jg, "OUT", tmp_path / "default")
+    with pytest.raises(SystemExit) as stopped:
+        jg.main(["--dry-run", "--apply", "--approved", str(tmp_path)])
+    assert stopped.value.code != 0
+    assert jira.calls == []

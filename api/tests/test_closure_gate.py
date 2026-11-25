@@ -409,7 +409,7 @@ def test_a_manifest_in_the_tree_with_a_bad_status_fails_the_invariants(
 ) -> None:
     (tmp_path / "evidence" / "closure").mkdir(parents=True)
     manifest_file = tmp_path / "evidence" / "closure" / "CC-1.toml"
-    manifest_file.write_text('[[row]]\nid = "AC1"\nstatus = "mostly"\n')
+    manifest_file.write_text('[[row]]\nid = "AC1"\nstatus = "mostly"\ncommand = "pytest"\n')
     monkeypatch.setattr(ci, "ROOT", tmp_path)
     monkeypatch.setattr(ci, "EVIDENCE", tmp_path / "evidence")
     assert ci.check_closure_manifests()
