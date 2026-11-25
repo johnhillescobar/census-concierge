@@ -633,6 +633,54 @@ def test_an_applied_ticket_that_has_since_lost_a_link_is_not_reported_done(tmp_p
     assert jira.writes == []
 
 
+@pytest.mark.parametrize("during", ["PUT", "GET"])
+def test_a_run_interrupted_before_the_write_is_confirmed_stays_stopped(
+    tmp_path: Path, during: str
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    put: list[bool] = []
+
+    def interrupted(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if method == "PUT":
+            put.append(True)
+        if method == during and put:
+            raise KeyboardInterrupt
+        return jira.api(method, path, body)
+
+    with pytest.raises(KeyboardInterrupt):
+        jg.apply(tmp_path, interrupted)
+    assert "CC-1" in (tmp_path / "FAILED").read_text(encoding="utf-8")
+    jira.calls.clear()
+    assert jg.apply(tmp_path, jira.api) == 2
+    assert jira.calls == []
+
+
+def test_a_confirmed_write_leaves_no_stop_file(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    assert jg.apply(tmp_path, jira.api) == 0
+    assert not (tmp_path / "FAILED").exists()
+
+
+@pytest.mark.parametrize("approval_kept", [True, False])
+@pytest.mark.parametrize("left", ["tickets to change", "nothing to change"])
+def test_a_dry_run_leaves_the_files_to_restore_from_alone(
+    tmp_path: Path, approval_kept: bool, left: str
+) -> None:
+    snapshot(Jira(CC_1=ticket()), tmp_path)
+    approve(tmp_path)
+    if not approval_kept:
+        (tmp_path / "APPROVED").unlink()
+    (tmp_path / "FAILED").write_text("CC-1: did not hold\n", encoding="utf-8")
+    kept = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    later = ticket() if left == "tickets to change" else doc("no wording here")
+    assert snapshot(Jira(CC_2=later), tmp_path) == 1
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
+
+
 def test_a_ticket_closed_after_the_snapshot_is_left_alone(tmp_path: Path) -> None:
     jira = Jira(CC_1=ticket(), CC_2=ticket())
     snapshot(jira, tmp_path)

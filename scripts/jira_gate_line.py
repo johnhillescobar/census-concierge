@@ -14,8 +14,9 @@ prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots 
 A ticket is left unchanged when its AC/TC IDs would differ, when a copy of the wording is not
 exact (reworded, formatted or linked), when a line would still point at the removed contract, when
 it was closed or its description changed after the snapshot, or when its after snapshot is not what
-this script's rule produces. A write that Jira cannot be shown to hold stops the run and leaves
-DIR/FAILED, which blocks every later --apply until a person deletes it. Auth as in
+this script's rule produces. A write that Jira cannot be shown to hold, or that was interrupted,
+stops the run and leaves DIR/FAILED. Until a person deletes it, no --apply of DIR runs and no
+--dry-run touches DIR, whose before snapshot is what to restore from. Auth as in
 jira_transition.py: ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN in .env.
 """
 
@@ -212,6 +213,13 @@ def dry_run(out: Path, search: SearchFn) -> int:
         f"{len(found) - len(ready)} refused"
     )
     failed = 1 if len(found) > len(ready) else 0
+    if (out / "FAILED").exists():
+        print(
+            f"{out} holds the snapshots to restore a failed write from and is not touched; "
+            "use --out for new ones",
+            file=sys.stderr,
+        )
+        return 1
     if (out / "APPROVED").exists():
         if not ready:
             return failed
@@ -347,13 +355,22 @@ def apply(folder: Path, api: ApiFn) -> int:
             print(f"REFUSED  {key}  {why}")
             refused += 1
             continue
+        restore = (
+            f"compare it with {folder / f'{key}.before.json'} and restore it from there if it "
+            "differs"
+        )
+        # there before the write, so that an interrupted run stays stopped too
+        stop.write_text(
+            f"{key}: a write was started and not confirmed; {restore}\n", encoding="utf-8"
+        )
         problem = _write(key, before, after, api)
         if problem:
             # stop at once, and stay stopped: what went wrong here would go wrong on the next
-            message = f"{key}: {problem}; restore it from {folder / f'{key}.before.json'}"
+            message = f"{key}: {problem}; {restore}"
             stop.write_text(message + "\n", encoding="utf-8")
             print(f"FAILED   {message}", file=sys.stderr)
             return 1
+        stop.unlink()
         written += 1
         print(f"written  {key}  IDs unchanged: {', '.join(criterion_ids(after)) or 'none'}")
     print(f"{written} written, {refused} refused")
