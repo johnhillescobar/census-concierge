@@ -1,0 +1,189 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nCertify final cumulative semantic release readiness.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\nAll earned per-story floors and AC/TC gates pass; >=98% joint interpretation overall and >=95% per category on regression AND sealed; >=95% overall confidence lower bound, >=200 independent families per suite and >=30/category. Both case and trial point targets apply. Supported determinate coverage >=95%, determinate accuracy >=98%. Report end-to-end semantic success separately; zero silent substitutions/fabrications in finite acceptance suite.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nFinal certification only, after CC-133, CC-39, CC-122 and CC-115 (transitively all scoped capability work). Early instrumentation moved to CC-133 to remove circular readiness.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Metric progression and non-regression contract (2026-11-08 refinement)\nTargets are release criteria, not predictions of unmeasured gains. Freeze each story's owned cohort, its denominator/independent family IDs, supported capability scope, scorer and thresholds before implementation. Separate interpretation, faithful execution, and end-to-end answers. An explicitly unsupported result may satisfy a negative-control case but cannot pass a supported positive case. No silent change to denominator, availability exclusions or metric definition.\nFor each story report B (same-window pre-change main), P (candidate), A (fixed post-CC-114 migration anchor) and L (latest accepted post-merge reference) on identical frozen cohorts/configuration at --repeat 3. L is the accepted reference, not the best cherry-picked run. Preserve achieved capability floors permanently. Instrument changes require old/new scorer runs on unchanged code and a versioned bridge; never reset away a loss. CC-42's required re-anchor adds a reference; it does not erase A or achieved floors.\nCommon protected outcomes: long_tail answered rate, retriever@10, selector@1, response-contract compliance, supported-request coverage, previously earned category success and all hard AC/TC tests. P must have no observed decrease against B, A and L on comparable outcomes, and meet existing absolute floors. For stochastic rates, require a paired 95% confidence lower bound for P-reference >= -0.02 (2 percentage points) as well as nonnegative point differences. This uncertainty bound is not permission to ship an observed decline; it tightens the former 3-point tolerance. Pair/resample independent question families, cluster paraphrases/repeats, report cases and trials separately. Insufficient precision means inconclusive, not PASS. Do not compare a new capability's initially unavailable score to unrelated legacy categories.\nFreeze a sampling/replication and stopping protocol in CC-133 before results. Baseline controls and candidate run in the same window/order-balanced blocks under the same concurrency, hashes and API settings. Retain every planned block, never rerun until green or exclude slow failures. Only one permitted sealed close look per story; aggregates only. No sealed exploration to repair a failure. No invented statistical certainty from small samples.\nFor owned stochastic cohorts require >=30 independent families, >=95% case AND trial success unless the story specifies the stronger 98% target. All deterministic behavior/AC/TC fixtures must pass 100%. If B is below the target, meet it and demonstrate positive paired improvement (95% lower bound >0); if B already meets it, preserve it and make no unsupported improvement claim. Improvements in one category cannot compensate for a decline in another.\nLatency remains an independent gate: real full-run demo.p95 <=20s and no observed p95 worsening against same-window B and comparable accepted references, plus latency-specific caps. Report confidence/uncertainty, provider outages, total request/model work and failures without hiding them. Uncertainty cannot be called a proven improvement. Faster failures or fewer rows do not count as speed gains. If baseline already exceeds 20s, the story is not ship-ready merely because it matches baseline; only an explicit existing run-specific owner waiver applies. CC-125/126 remain Phase 2 backlog and are NOT promised current-slice prerequisites or an implied waiver. Runtime repair cannot sacrifice quality to meet latency.\nAC/TC matrix includes expected target, B/P/A/L values, uncertainty, hashes, tested head, evidence, inherited floors and dependency evidence. Missing/failed/unrun checks block merge readiness and Done; owner-only scope amendments must be explicit. Post-merge main must satisfy the same gates before becoming L. Do not rewrite budgets.toml. Existing leakage, sealed-gap <=10 points, response and mutation requirements remain. CC-114 retains its already agreed scoped closeout; the new protocol applies prospectively after its closeout, not as a retroactive implementation rewrite.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope (the stricter metric contract above controls prospective migration; CC-114 keeps its scoped closeout)\nFinal semantic release certification; instrument and AC/TC gate implementation moved to CC-133.\nAC1. Satisfy the final metrics below on frozen regression and owner-held sealed suites, retaining the original sample/confidence requirements.\nAC2. Verify every capability story's AC/TC evidence, inherited floors, post-merge results and the instrument's mutation checks. No silent substitution, invented data or denominator changes.\nAC3. Report understanding, deterministic execution and actual end-to-end semantic answer rates separately. Meet the existing response, latency, budget and sealed-gap gates. No favorable average can hide a failing category.\nTC1. A single missing prior gate or failed category prevents certification.\nTC2. Wrong cells or coverage fail despite HTTP 200/right table.\nTC3. Independent-family confidence and coverage requirements cannot be replaced by model confidence or refusal.\nTC4. Missing sealed sample/interval or post-merge evidence is unverified, not PASS.\nRetain the model-owned-intent contract and mandatory AC/TC clearance already applied to CC-3. No new runtime implementation belongs in this certification story.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Interpretation accuracy, primary-answer correctness and recovery via alternatives are distinct outcomes. Certification must not infer one from another or let aggregate preference conceal factual errors.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing AC/TC, earned floors, family-based uncertainty, repeat-3 comparisons, mutation checks, cold review, post-merge evidence and sealed/E2E transcript protections remain binding. These additions do not lower a threshold, authorize a budget increase, reopen a Done story or claim implementation is complete. Refresh affected closure matrices before shipping.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. Publish separate metrics for joint interpretation, primary end-to-end semantic answer correctness, raw retrieval@10, correct-alternative offered rate, conditional alternative recovery and overall assisted-answer success. Define each numerator/denominator before results. Existing 98% interpretation targets are not relabeled as 98% final-answer success. Preserve all existing absolute quality floors and B/P/A/L non-regression gates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. Freeze a supported recoverable cohort whose correct permissible alternatives are independently labeled. Conditional recovery is successful correct-answer selections divided by all planned selections of a correct offered alternative after a failed primary answer; failed requests/timeouts stay in the denominator. Also report failures where no correct alternative was offered. Assisted success requires a correct primary answer or an actually executed correct alternative, not table presence or URL validity alone. Report cases/trials and family-clustered intervals separately; zero eligible cases means not applicable with counts, not 100%.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. Before evaluating implementation, freeze numerical acceptance targets and sampling/stop rules for the new alternative and claim metrics, with an explicit owner-approved metric amendment. At least 30 independent families for owned stochastic cohorts, repeat-3 initially and all deterministic fixtures passing; retain stronger final-suite requirements. Until those targets and sufficient evidence exist, the new criteria are unverified. No arbitrary target is inferred from retrieval@10 or invented after results.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC4. Certification includes CC-115 alternative-selection semantics, CC-130 candidate validity and CC-122/131 qualitative-claim grounding. Report material unsupported-claim rates and answer coverage; zero silent substitution/fabrication remains required in the finite acceptance suite. A model judge is supplemental and cannot override factual or metadata failures.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Test cases additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "TC1. Correct interpretation with wrong executed cells or unsupported prose is not a correct primary answer; a 98% interpretation score cannot satisfy the separate answer metric.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC2. Wrong primary/correct raw top-ten table/not offered yields no recovery. Wrong primary/correct offered alternative/failed execution also yields no recovery. Correct executed alternative yields assisted success while the primary remains a failure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC3. No eligible recovery cases, timed-out selections and repeated paraphrases preserve honest denominators and uncertainty. Easy cases cannot replace missing independent families or category coverage.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC4. Missing frozen thresholds, unsupported material claims, stale evidence or failed alternative semantics prevents certification even when HTTP validity and judge preference are high.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

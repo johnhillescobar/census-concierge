@@ -28,7 +28,7 @@ PR that has not been demonstrated is not finished, however good the diff looks.
 ## 1. Pre-flight: check the claims
 
 Both gates read the diff; neither checks the notes it was built from. Run every
-claim against the thing it names, before code depends on it.
+claim against the thing it names, before code depends on it. Every criterion names the command that proves it; `scripts/closure.py check` rejects a row without one (an amended row is exempt).
 
 | Claim | Settled by |
 | --- | --- |

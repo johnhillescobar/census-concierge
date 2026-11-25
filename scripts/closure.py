@@ -15,6 +15,7 @@ row. This cannot stop a human from closing a ticket in Jira directly.
     required = ["AC1", "TC1"]      the ids this manifest claims to cover; each needs a row
     [[row]]  id status command expected observed evidence tested_head affects
              new_tests mutation reviewer
+             (every row but an AMENDED one names its command)
              (a PASS row pins every evidence entry and its mutation check: {path, sha256})
     [[amendment]]  id date owner reason destination
     [post_merge]   e2e main_head
@@ -34,7 +35,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 STATUSES = {"PASS", "FAIL", "NOT RUN", "UNKNOWN", "AMENDED"}
-ROW_FIELDS = ("command", "expected", "observed", "tested_head", "reviewer")
+ROW_FIELDS = ("expected", "observed", "tested_head", "reviewer")  # what a PASS row also needs
 GitFn = Callable[..., subprocess.CompletedProcess[str]]
 HEX = set("0123456789abcdef")
 # A merged change that touches one of these can move what `make eval` and `make demo` measure, so
@@ -159,9 +160,11 @@ def _row_problems(
         return [f"{name}: status {status!r} is not one of {sorted(STATUSES)}"]
     if status == "AMENDED":
         return [] if name in amended else [f"{name}: AMENDED without an [[amendment]] for it"]
+    # every criterion names the command that proves it, whether or not it has been run
+    unnamed = [] if _text(row.get("command")) else [f"{name}: missing command"]
     if status != "PASS":
-        return [f"{name}: {status} blocks closure"] if readiness else []
-    out = [f"{name}: missing {field}" for field in ROW_FIELDS if not _text(row.get(field))]
+        return unnamed + ([f"{name}: {status} blocks closure"] if readiness else [])
+    out = unnamed + [f"{name}: missing {key}" for key in ROW_FIELDS if not _text(row.get(key))]
     evidence = row.get("evidence")
     if not isinstance(evidence, list) or not evidence:
         out.append(f"{name}: evidence must be a non-empty list")

@@ -1,0 +1,303 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nReject over-limit variable requests before HTTP.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n100% of deterministic cap/count/paired-column cases; every required live boundary case validated. Over-limit-as-success and fetch-after-rejection counts zero. Normal-sized requests retain outcomes. No expected increase in legacy answered rate is claimed.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-133 for baseline/manifest readiness; CC-102 is Done; feeds CC-82.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Metric progression and non-regression contract (2026-11-08 refinement)\nTargets are release criteria, not predictions of unmeasured gains. Freeze each story's owned cohort, its denominator/independent family IDs, supported capability scope, scorer and thresholds before implementation. Separate interpretation, faithful execution, and end-to-end answers. An explicitly unsupported result may satisfy a negative-control case but cannot pass a supported positive case. No silent change to denominator, availability exclusions or metric definition.\nFor each story report B (same-window pre-change main), P (candidate), A (fixed post-CC-114 migration anchor) and L (latest accepted post-merge reference) on identical frozen cohorts/configuration at --repeat 3. L is the accepted reference, not the best cherry-picked run. Preserve achieved capability floors permanently. Instrument changes require old/new scorer runs on unchanged code and a versioned bridge; never reset away a loss. CC-42's required re-anchor adds a reference; it does not erase A or achieved floors.\nCommon protected outcomes: long_tail answered rate, retriever@10, selector@1, response-contract compliance, supported-request coverage, previously earned category success and all hard AC/TC tests. P must have no observed decrease against B, A and L on comparable outcomes, and meet existing absolute floors. For stochastic rates, require a paired 95% confidence lower bound for P-reference >= -0.02 (2 percentage points) as well as nonnegative point differences. This uncertainty bound is not permission to ship an observed decline; it tightens the former 3-point tolerance. Pair/resample independent question families, cluster paraphrases/repeats, report cases and trials separately. Insufficient precision means inconclusive, not PASS. Do not compare a new capability's initially unavailable score to unrelated legacy categories.\nFreeze a sampling/replication and stopping protocol in CC-133 before results. Baseline controls and candidate run in the same window/order-balanced blocks under the same concurrency, hashes and API settings. Retain every planned block, never rerun until green or exclude slow failures. Only one permitted sealed close look per story; aggregates only. No sealed exploration to repair a failure. No invented statistical certainty from small samples.\nFor owned stochastic cohorts require >=30 independent families, >=95% case AND trial success unless the story specifies the stronger 98% target. All deterministic behavior/AC/TC fixtures must pass 100%. If B is below the target, meet it and demonstrate positive paired improvement (95% lower bound >0); if B already meets it, preserve it and make no unsupported improvement claim. Improvements in one category cannot compensate for a decline in another.\nLatency remains an independent gate: real full-run demo.p95 <=20s and no observed p95 worsening against same-window B and comparable accepted references, plus latency-specific caps. Report confidence/uncertainty, provider outages, total request/model work and failures without hiding them. Uncertainty cannot be called a proven improvement. Faster failures or fewer rows do not count as speed gains. If baseline already exceeds 20s, the story is not ship-ready merely because it matches baseline; only an explicit existing run-specific owner waiver applies. CC-125/126 remain Phase 2 backlog and are NOT promised current-slice prerequisites or an implied waiver. Runtime repair cannot sacrifice quality to meet latency.\nAC/TC matrix includes expected target, B/P/A/L values, uncertainty, hashes, tested head, evidence, inherited floors and dependency evidence. Missing/failed/unrun checks block merge readiness and Done; owner-only scope amendments must be explicit. Post-merge main must satisfy the same gates before becoming L. Do not rewrite budgets.toml. Existing leakage, sealed-gap <=10 points, response and mutation requirements remain. CC-114 retains its already agreed scoped closeout; the new protocol applies prospectively after its closeout, not as a retroactive implementation rewrite.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope (the stricter metric contract above controls prospective migration; CC-114 keeps its scoped closeout)\nCurrent owner alignment (2026-11-08)\nCount explicit selected columns including E/M and identifiers; no wording interpretation. Preserve the inspectable over-limit URL and structured limit error. CC-82 owns splitting/group().",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Mandatory AC/TC clearance before shipping\nAssign stable AC and TC IDs. Before requesting merge, attach an exhaustive AC/TC evidence matrix to the PR and Jira: exact criterion/case, expected behavior, test or reproducible command, observed result, evidence path/link, tested commit, scorer/fixture hashes and repeat count where relevant, mutation result for every new test, and reviewer verification. Every in-scope AC and TC must be PASS with evidence. A checkmark, passing pytest suite or aggregate score alone is insufficient.\nFAIL, NOT RUN, UNKNOWN, missing evidence or unresolved review findings block shipping and Done. Only a dated, explicit owner scope amendment can remove a requirement; record the reason and destination story, never relabel it PASS or silently mark it N/A. Authorize any actual waiver separately under existing rules; the agent cannot waive or lower a gate.\nGate 2 checks completeness of the matrix. Refresh affected evidence after code/scorer changes and identify the tested head. Owner-only merge remains. After merge, run the required E2E on merged main and refresh the closure matrix before Jira Done. A merged PR alone does not close the story. Existing valid evidence can be reused when its tested behavior/inputs remain applicable and this is explained. Never read sealed questions or E2E transcripts; use approved aggregate evidence.\nRetain the existing Gate 1 mutation checks, cold Gate 2, response contract, same-repeat regression floors, sealed-gap <=10 points, leakage invariant, and real demo.p95_latency_seconds <=20s gate unless an existing explicit owner waiver applies. No budgets are changed by this alignment.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)\n## Definition",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "`build_url` never reports success for a request whose `get` clause would exceed Census's 50-variable limit, counting `NAME` and `GEO_ID`.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Why it matters",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "The URL is the product. Today `build_url` reports `ok=True` for a URL the API rejects. Live evidence (ACS5 2023): 48 data columns plus `NAME` and `GEO_ID` succeed; 49 fail with HTTP 400 \"'get' is limited to 50 variables\". `build_url` always adds `NAME,GEO_ID` and pairs every E with its M, so the maximum is 24 estimates. Run through the real tools, 25 and 30 estimates both returned `ok=True` and then `fetch_data` failed with HTTP 400.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Scope",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Count the unique columns that will be sent (`NAME`, `GEO_ID`, every E and its paired M) before returning. Over the limit: return `ok=False` with a detail naming the requested count, the limit (50) and the maximum (24 estimates). The failed result still carries the over-limit URL for inspection, redacted as always. Splitting into legs and `group()` belong to the whole-table story under CC-82.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Out of scope",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Splitting into legs. `group()`. Changing how E/M pairing works. Raising any limit.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Dependencies",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "None.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance criteria",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] 24 estimates: `build_url` succeeds and `fetch_data` returns rows (live).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] 25 or more estimates: `build_url` returns a failure naming the limit and the maximum, and no fetch is attempted on it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The over-limit URL is shown with a warning, never silently dropped.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] A request that already includes M variables counts unique columns, not requested ones.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] No budget is raised.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Test cases",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Happy: 24 estimates, live 200.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Edge: 12 E plus 12 M requested explicitly (24 unique pairs).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Novel: a different table with 25 estimates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Regression: a 1-variable request and the CC-100 list are unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Failure: 30 estimates; the response states the limit and the model can retry with fewer.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Evaluation evidence",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Unit tests mutation-checked by removing the guard. One live run showing 24 passes and 25 fails at build time before any HTTP call.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Regression risks",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing demo questions that already request more than 24 estimates would now fail earlier; check the demo for any. `tools.py` line budget.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

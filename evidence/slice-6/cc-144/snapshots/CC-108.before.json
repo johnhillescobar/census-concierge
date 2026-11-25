@@ -1,0 +1,312 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nAdd a grounded measure as a separate result leg.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% case AND trial success on independent addition families, plus existing >=4/6 six-case floor and >=80% equivalence floor. Original leg retained; no universe/URL loss or silent join. Preserve swap and single-turn rates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-43; feeds CC-39.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Metric progression and non-regression contract (2026-11-08 refinement)\nTargets are release criteria, not predictions of unmeasured gains. Freeze each story's owned cohort, its denominator/independent family IDs, supported capability scope, scorer and thresholds before implementation. Separate interpretation, faithful execution, and end-to-end answers. An explicitly unsupported result may satisfy a negative-control case but cannot pass a supported positive case. No silent change to denominator, availability exclusions or metric definition.\nFor each story report B (same-window pre-change main), P (candidate), A (fixed post-CC-114 migration anchor) and L (latest accepted post-merge reference) on identical frozen cohorts/configuration at --repeat 3. L is the accepted reference, not the best cherry-picked run. Preserve achieved capability floors permanently. Instrument changes require old/new scorer runs on unchanged code and a versioned bridge; never reset away a loss. CC-42's required re-anchor adds a reference; it does not erase A or achieved floors.\nCommon protected outcomes: long_tail answered rate, retriever@10, selector@1, response-contract compliance, supported-request coverage, previously earned category success and all hard AC/TC tests. P must have no observed decrease against B, A and L on comparable outcomes, and meet existing absolute floors. For stochastic rates, require a paired 95% confidence lower bound for P-reference >= -0.02 (2 percentage points) as well as nonnegative point differences. This uncertainty bound is not permission to ship an observed decline; it tightens the former 3-point tolerance. Pair/resample independent question families, cluster paraphrases/repeats, report cases and trials separately. Insufficient precision means inconclusive, not PASS. Do not compare a new capability's initially unavailable score to unrelated legacy categories.\nFreeze a sampling/replication and stopping protocol in CC-133 before results. Baseline controls and candidate run in the same window/order-balanced blocks under the same concurrency, hashes and API settings. Retain every planned block, never rerun until green or exclude slow failures. Only one permitted sealed close look per story; aggregates only. No sealed exploration to repair a failure. No invented statistical certainty from small samples.\nFor owned stochastic cohorts require >=30 independent families, >=95% case AND trial success unless the story specifies the stronger 98% target. All deterministic behavior/AC/TC fixtures must pass 100%. If B is below the target, meet it and demonstrate positive paired improvement (95% lower bound >0); if B already meets it, preserve it and make no unsupported improvement claim. Improvements in one category cannot compensate for a decline in another.\nLatency remains an independent gate: real full-run demo.p95 <=20s and no observed p95 worsening against same-window B and comparable accepted references, plus latency-specific caps. Report confidence/uncertainty, provider outages, total request/model work and failures without hiding them. Uncertainty cannot be called a proven improvement. Faster failures or fewer rows do not count as speed gains. If baseline already exceeds 20s, the story is not ship-ready merely because it matches baseline; only an explicit existing run-specific owner waiver applies. CC-125/126 remain Phase 2 backlog and are NOT promised current-slice prerequisites or an implied waiver. Runtime repair cannot sacrifice quality to meet latency.\nAC/TC matrix includes expected target, B/P/A/L values, uncertainty, hashes, tested head, evidence, inherited floors and dependency evidence. Missing/failed/unrun checks block merge readiness and Done; owner-only scope amendments must be explicit. Post-merge main must satisfy the same gates before becoming L. Do not rewrite budgets.toml. Existing leakage, sealed-gap <=10 points, response and mutation requirements remain. CC-114 retains its already agreed scoped closeout; the new protocol applies prospectively after its closeout, not as a retroactive implementation rewrite.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope (the stricter metric contract above controls prospective migration; CC-114 keeps its scoped closeout)\nCurrent owner alignment (2026-11-08)\nApply a model-composed measure addition to the shared intent, keeping separate table legs, source URLs and universes. Use CC-130 for semantic cell discovery. No add phrase routing or silent join.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Mandatory AC/TC clearance before shipping\nAssign stable AC and TC IDs. Before requesting merge, attach an exhaustive AC/TC evidence matrix to the PR and Jira: exact criterion/case, expected behavior, test or reproducible command, observed result, evidence path/link, tested commit, scorer/fixture hashes and repeat count where relevant, mutation result for every new test, and reviewer verification. Every in-scope AC and TC must be PASS with evidence. A checkmark, passing pytest suite or aggregate score alone is insufficient.\nFAIL, NOT RUN, UNKNOWN, missing evidence or unresolved review findings block shipping and Done. Only a dated, explicit owner scope amendment can remove a requirement; record the reason and destination story, never relabel it PASS or silently mark it N/A. Authorize any actual waiver separately under existing rules; the agent cannot waive or lower a gate.\nGate 2 checks completeness of the matrix. Refresh affected evidence after code/scorer changes and identify the tested head. Owner-only merge remains. After merge, run the required E2E on merged main and refresh the closure matrix before Jira Done. A merged PR alone does not close the story. Existing valid evidence can be reused when its tested behavior/inputs remain applicable and this is explained. Never read sealed questions or E2E transcripts; use approved aggregate evidence.\nRetain the existing Gate 1 mutation checks, cold Gate 2, response contract, same-repeat regression floors, sealed-gap <=10 points, leakage invariant, and real demo.p95_latency_seconds <=20s gate unless an existing explicit owner waiver applies. No budgets are changed by this alignment.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)\n## Context",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Split from CC-43. A follow-up that adds a measure keeps the place and asks for another table. Built on CC-43 and measured with CC-42.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Owner decision (2026-10-01)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Separate result legs, no join: each table keeps its own full Census URL, MOE and universe. A joined view is phase 2. The criteria below are final.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance Criteria",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] After \"population of Chicago\", the follow-up \"add median income\" returns the prior table and the new table for the same GEOID, each with its own full Census URL, MOE and universe.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The new table is fetched at the same geography level as the prior one. If it is not published at that level, the response is a warning with the nearest available level, never a silent change of level.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The universe difference between the two tables is visible in the response (the two `universe` values are both present). The response keeps the GEOID and alternative tables for the new measure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The prior table's result is unchanged and still restorable from the stored turn.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] No regex or keyword table detects \"add\" phrasing; the model emits the new plan through the existing tools and code only validates it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Case-level rate over the 6 variable-addition cases in the CC-42 set at `--repeat 3` is above the CC-42 baseline by more than one case's worth at case level (a case passes when the final plan is right in at least 2 of 3 repeats); the number is quoted in the PR next to the baseline.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make demo --repeat 3` single-turn long_tail answered_rate, at the same `--repeat` and the geography-level scorer, is no more than 3 points below the 0.742 baseline (>= 0.712) and no more than 3 points below this ticket's own pre-run; both runs are reported. Same-code runs vary by about 2 points (0.725 vs 0.742), so one run is not a verdict.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make check` passes with `budgets.toml` unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Not in this ticket",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Geography swaps (CC-107), unresolvable references (CC-39), any join or computed column (phase 2).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Related",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Epic: CC-3",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Depends on: CC-42, CC-43",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Generalization criteria (added 2026-10-01, see CC-3 AC6-AC11)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Replaces \"above the CC-42 baseline by more than one case\": at least 4 of 6 regression addition cases pass (a case passes when right in at least 2 of 3 repeats), and the sealed addition rate is within 10 points of it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- At least 80% agreement with the standalone-equivalent plan on generated measure pairs that appear in no dev case (owner accepted 2026-10-01).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Test cases",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Happy: a variable-addition follow-up preserves the original result leg and adds the requested table as a separate leg with its own URL, MOE, and universe.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Edge: an added measure with a different universe remains separate and is not joined or described as directly comparable.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Novel: a table absent from visible examples is found through retrieval and selector rather than a phrase rule.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Regression: the original leg, chart, table, and export remain intact when the additional leg is added.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Failure: an unavailable or incompatible added measure is warned and never fabricated or silently joined.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

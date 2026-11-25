@@ -1,0 +1,285 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nHandle genuinely unresolved follow-ups without false alarms.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% correct unresolved-reference/candidate outcomes, plus existing >=5/6 floor. Preserve false-positive caps (<=1/36 regression resolvable trials, <=1 sealed resolvable trial, zero single-turn flags) and supported-request coverage; blanket warnings fail.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-107 and CC-108 plus existing CC-43/42; feeds CC-132.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nCurrent owner alignment (2026-11-08)\nUse model-reported unresolved reference plus grounded candidate interpretations; retain warning/candidate-result behavior and false-positive limits. Never let missing context trigger a keyword parser.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)\n## Context",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "A follow-up that cannot be resolved gets options and a warning, never a blocking question. Users who do not know the ecosystem cannot answer one.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance Criteria",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] For a follow-up with no resolvable referent (for example \"and the other one\" after a result with one geography), the response is 200 with a warning whose `code` is `unresolved_reference`, a one-sentence `detail`, and up to 3 `candidates` (the existing `GeoSpec` shape) ranked most likely first.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The response still renders the full Census URL for the best candidate, including when its fetch fails. The best candidate's result carries MOE, GEOID and universe, and the response lists alternative tables.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The response contains no field that asks the user a question they must answer before getting a result (checked on structured fields, not prose).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Choosing a candidate through the plan strip sends a normal plan override and returns a normal answer with MOE, GEOID and universe.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] The 6 unresolvable cases in the CC-42 set pass at `--repeat 3` at a case-level rate recorded in the PR (a case passes when right in at least 2 of 3 repeats).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] Existing warning codes and `ambiguous_place` behavior are unchanged (existing tests pass unmodified).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make demo --repeat 3` single-turn long_tail answered_rate, at the same `--repeat` and the geography-level scorer, is no more than 3 points below the 0.742 baseline (>= 0.712) and no more than 3 points below this ticket's own pre-run; both runs are reported. Same-code runs vary by about 2 points (0.725 vs 0.742), so one run is not a verdict.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- [ ] `make check` passes with `budgets.toml` unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Not in this ticket",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Geography swaps (CC-107), variable additions (CC-108), any blocking clarification.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Related",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Epic: CC-3",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Depends on: CC-42, CC-43",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Generalization criteria (added 2026-10-01, see CC-3 AC6-AC11)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Replaces \"a case-level rate recorded in the PR\": at least 5 of 6 regression unresolvable cases pass, and the sealed unresolvable rate is within 10 points of it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- False positives: `unresolved_reference` fires on at most 1 of the 36 regression swap and addition trials, at most 1 of the sealed resolvable trials, and never on a single-turn question. Warning on everything must fail this ticket.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Test cases",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Happy: an unresolved follow-up returns HTTP 200, unresolved_reference, ranked candidates, and executes the best candidate with URL, MOE, GEOID, universe, and alternatives.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Edge: the prior turn exposes only one plausible referent; the response still returns a result and warning rather than asking a blocking question.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Novel: a prior plan built from metadata-only geographies not named in prompts or visible examples produces at most three deterministically ranked candidates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Regression: existing ambiguous_place and other warning behavior remains unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Failure: no structured field requires a user reply before a result, and an invalid selected candidate fails safely through normal plan validation.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

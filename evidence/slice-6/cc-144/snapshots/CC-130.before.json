@@ -1,0 +1,225 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nSelect the cells that actually answer the measure.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n>=95% exact required cell-set/universe selection on the semantic-variable cohort; 100% metadata-ID and explicit-total/full-table fixtures. Report wrong-total rate separately. Preserve table retrieval/selection and existing geography/time rates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-104; feeds CC-82, CC-122 and CC-131.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Metric progression and non-regression contract (2026-11-08 refinement)\nTargets are release criteria, not predictions of unmeasured gains. Freeze each story's owned cohort, its denominator/independent family IDs, supported capability scope, scorer and thresholds before implementation. Separate interpretation, faithful execution, and end-to-end answers. An explicitly unsupported result may satisfy a negative-control case but cannot pass a supported positive case. No silent change to denominator, availability exclusions or metric definition.\nFor each story report B (same-window pre-change main), P (candidate), A (fixed post-CC-114 migration anchor) and L (latest accepted post-merge reference) on identical frozen cohorts/configuration at --repeat 3. L is the accepted reference, not the best cherry-picked run. Preserve achieved capability floors permanently. Instrument changes require old/new scorer runs on unchanged code and a versioned bridge; never reset away a loss. CC-42's required re-anchor adds a reference; it does not erase A or achieved floors.\nCommon protected outcomes: long_tail answered rate, retriever@10, selector@1, response-contract compliance, supported-request coverage, previously earned category success and all hard AC/TC tests. P must have no observed decrease against B, A and L on comparable outcomes, and meet existing absolute floors. For stochastic rates, require a paired 95% confidence lower bound for P-reference >= -0.02 (2 percentage points) as well as nonnegative point differences. This uncertainty bound is not permission to ship an observed decline; it tightens the former 3-point tolerance. Pair/resample independent question families, cluster paraphrases/repeats, report cases and trials separately. Insufficient precision means inconclusive, not PASS. Do not compare a new capability's initially unavailable score to unrelated legacy categories.\nFreeze a sampling/replication and stopping protocol in CC-133 before results. Baseline controls and candidate run in the same window/order-balanced blocks under the same concurrency, hashes and API settings. Retain every planned block, never rerun until green or exclude slow failures. Only one permitted sealed close look per story; aggregates only. No sealed exploration to repair a failure. No invented statistical certainty from small samples.\nFor owned stochastic cohorts require >=30 independent families, >=95% case AND trial success unless the story specifies the stronger 98% target. All deterministic behavior/AC/TC fixtures must pass 100%. If B is below the target, meet it and demonstrate positive paired improvement (95% lower bound >0); if B already meets it, preserve it and make no unsupported improvement claim. Improvements in one category cannot compensate for a decline in another.\nLatency remains an independent gate: real full-run demo.p95 <=20s and no observed p95 worsening against same-window B and comparable accepted references, plus latency-specific caps. Report confidence/uncertainty, provider outages, total request/model work and failures without hiding them. Uncertainty cannot be called a proven improvement. Faster failures or fewer rows do not count as speed gains. If baseline already exceeds 20s, the story is not ship-ready merely because it matches baseline; only an explicit existing run-specific owner waiver applies. CC-125/126 remain Phase 2 backlog and are NOT promised current-slice prerequisites or an implied waiver. Runtime repair cannot sacrifice quality to meet latency.\nAC/TC matrix includes expected target, B/P/A/L values, uncertainty, hashes, tested head, evidence, inherited floors and dependency evidence. Missing/failed/unrun checks block merge readiness and Done; owner-only scope amendments must be explicit. Post-merge main must satisfy the same gates before becoming L. Do not rewrite budgets.toml. Existing leakage, sealed-gap <=10 points, response and mutation requirements remain. CC-114 retains its already agreed scoped closeout; the new protocol applies prospectively after its closeout, not as a retroactive implementation rewrite.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope (the stricter metric contract above controls prospective migration; CC-114 keeps its scoped closeout)\nSemantic variable selection",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Scope and ownership\nExisting tools expose bounded, navigable candidate and variable metadata BEFORE URL composition. CC-82 owns full-table transport, not meaning.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Acceptance criteria\nAC1. Expose candidate titles/universes and cell IDs/labels/concepts/units where available, with dataset/vintage provenance; alternative counts alone are insufficient.\nAC2. Select grounded cells or explicit full-table mode. Empty variables cannot silently mean _001E unless intent selected the total.\nAC3. A subgroup/distribution selects its actual cells; a rate uses a grounded published rate or explicit numerator/denominator operation. Check historical availability in requested vintages, not latest only.\nAC4. Semantic cell identities, universe and definition compatibility pass CC-133; measure payload size, latency and repair behavior within existing budgets.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Test cases\nTC1. Total, subgroup and full distribution choose different appropriate cells.\nTC2. A valid but semantically wrong cell fails the oracle.\nTC3. Historical table absent in latest remains discoverable for its published vintage.\nTC4. Unavailable variables return evidence-backed alternatives, never fabricated IDs.\nTC5. Unseen tables and paraphrases follow the same path.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependencies\nCC-104; CC-133; feeds CC-82 and CC-122.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Mandatory AC/TC clearance before shipping\nAssign stable AC and TC IDs. Before requesting merge, attach an exhaustive AC/TC evidence matrix to the PR and Jira: exact criterion/case, expected behavior, test or reproducible command, observed result, evidence path/link, tested commit, scorer/fixture hashes and repeat count where relevant, mutation result for every new test, and reviewer verification. Every in-scope AC and TC must be PASS with evidence. A checkmark, passing pytest suite or aggregate score alone is insufficient.\nFAIL, NOT RUN, UNKNOWN, missing evidence or unresolved review findings block shipping and Done. Only a dated, explicit owner scope amendment can remove a requirement; record the reason and destination story, never relabel it PASS or silently mark it N/A. Authorize any actual waiver separately under existing rules; the agent cannot waive or lower a gate.\nGate 2 checks completeness of the matrix. Refresh affected evidence after code/scorer changes and identify the tested head. Owner-only merge remains. After merge, run the required E2E on merged main and refresh the closure matrix before Jira Done. A merged PR alone does not close the story. Existing valid evidence can be reused when its tested behavior/inputs remain applicable and this is explained. Never read sealed questions or E2E transcripts; use approved aggregate evidence.\nRetain the existing Gate 1 mutation checks, cold Gate 2, response contract, same-repeat regression floors, sealed-gap <=10 points, leakage invariant, and real demo.p95_latency_seconds <=20s gate unless an existing explicit owner waiver applies. No budgets are changed by this alignment.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Retrieval@10 measures table presence; users need inspectable and semantically appropriate cells and URLs to benefit from that presence.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing AC/TC, earned floors, family-based uncertainty, repeat-3 comparisons, mutation checks, cold review, post-merge evidence and sealed/E2E transcript protections remain binding. These additions do not lower a threshold, authorize a budget increase, reopen a Done story or claim implementation is complete. Refresh affected closure matrices before shipping.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. For offered alternatives expose grounded table identity, title, universe and available cell/definition metadata with dataset/vintage provenance. Distinguish a catalog candidate from an alternative validated for the current request. Do not imply every retrieved table answers the question.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. Provide the metadata-backed cell/universe and availability checks consumed by CC-115. An alternative represented as executable must match requested measure, compatible units/denominator, geography and vintage, or explicitly disclose a changed interpretation requiring user selection. No empty-cell total fallback.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. Report retrieved-table presence separately from offered-correct-alternative presence and executable semantic suitability. Freeze independent expected permissible alternatives; do not define correctness from whichever candidates the model happened to produce. Feed the CC-132 recovery instrument.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Test cases additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "TC1. A correct table retrieved in the raw top ten but omitted from the offered list counts as retrieval success and offered-alternative failure, not end-to-end recovery.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC2. Sibling tables with different universes or breakdowns expose those differences; a superficially matching title cannot certify the wrong denominator/cells.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC3. A historically available candidate and an incompatible-current-vintage candidate receive distinct provenance/validation states; selecting the former uses its actual supported cells without changing requested time.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

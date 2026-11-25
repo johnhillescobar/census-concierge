@@ -1,0 +1,599 @@
+{
+ "content": [
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved sequence, 2026-11-19",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "1. ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "attrs": {
+        "href": "https://johnhillescobar.atlassian.net/browse/CC-137"
+       },
+       "type": "link"
+      }
+     ],
+     "text": "CC-137",
+     "type": "text"
+    },
+    {
+     "text": " completes the two pending model tests and produces an evidence-only PR and a testing recommendation.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "2. ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "attrs": {
+        "href": "https://johnhillescobar.atlassian.net/browse/CC-138"
+       },
+       "type": "link"
+      }
+     ],
+     "text": "CC-138",
+     "type": "text"
+    },
+    {
+     "text": " integrates the chosen configuration and applies the existing regression and implementation gates.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "3. ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "attrs": {
+        "href": "https://johnhillescobar.atlassian.net/browse/CC-3"
+       },
+       "type": "link"
+      }
+     ],
+     "text": "CC-3",
+     "type": "text"
+    },
+    {
+     "text": " completes the enabling retrieval, scoring, infrastructure and application fixes under their existing implementation tickets. Capture regressions early in each implementation story.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "4. ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "attrs": {
+        "href": "https://johnhillescobar.atlassian.net/browse/CC-139"
+       },
+       "type": "link"
+      }
+     ],
+     "text": "CC-139",
+     "type": "text"
+    },
+    {
+     "text": " runs one final model grading experiment after the linked implementations land. ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "attrs": {
+        "href": "https://johnhillescobar.atlassian.net/browse/CC-132"
+       },
+       "type": "link"
+      }
+     ],
+     "text": "CC-132",
+     "type": "text"
+    },
+    {
+     "text": " retains release certification.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "The two grading stories are experiments with evidence-only PRs. They use temporary tooling, make no permanent software changes and have no software gates. This sequence supersedes the earlier two-story layout and experimental gate requirements. Existing implementation gates, budgets, and owner-only merge rules still apply to software changes.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Historical scope from 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Description",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Resolve model selection as a bounded enabling effort, then return to CC-104 and complete its structured-geography migration before continuing the remaining CC-3 work. The owner reports substantial regression after semantic regex reduction on cc-104/structured-geography. This epic evaluates whether a newer model/configuration can reliably interpret intent, use ranked Census tables, and reason over grounded results. It does not claim the LLM is the only source of failure and does not absorb unrelated CC-3 fixes.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Exactly two main stories: (1) controlled experimentation, Decisions judge/rubric assessment and selection; (2) selected-model integration, instrumentation, metric bridging and evidence-based budget setup. Decisions is an offline comparison judge, not the application model.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Continuing CC-3 without resolving model suitability mixes model limitations with retrieval, selection, geography and execution defects. A controlled decision establishes a dependable model configuration and makes the remaining CC-104/CC-3 failures actionable. Stronger models may increase per-call latency yet reduce repairs; measure actual end-to-end outcomes rather than assume either a speedup or slowdown.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Scope and sequencing",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Use a separate experimental branch from a pinned cc-104/structured-geography commit (observed 2026-11-13: f6fa608827acb117f016d404d1ea72aa1d422af7; confirm at freeze). Preserve CC-133 B/P/A/L controls and existing earned floors.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "GitHub PR #132 is CC-118's 50-variable-limit fix, not Jira CC-132 certification. It is currently draft with blocked E2E and an inherited quality-floor failure. Do not merge it to unblock this epic. If it becomes gate-cleared and the owner merges before protocol freeze, rebase CC-104 onto that main, verify conflicts and freeze the new commit. If it merges after freeze, keep the experiment fixed and validate the selected configuration on the integrated head afterward. No merge/rebase is authorized merely by this planning ticket.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Story 1 precedes Story 2. The integration handoff enables CC-104 completion; CC-104 retains its own AC/TC, gates and closure. Then continue remaining CC-3 work. CC-133 owns measurement contracts; reuse them rather than invent a parallel certification system. This special epic does not reopen closed slices.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. Both child stories have complete linked AC/TC evidence and a reproducible decision identifies the selected model/version/settings, alternatives, uncertainty, residual failure categories and cost/latency tradeoffs.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. Decisions rubric validity, order sensitivity and agreement with human labels are measured; deterministic correctness and inherited quality gates remain authoritative. Judge scores cannot make incorrect outputs pass.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. End-to-end and component latency, retries, failures, tokens and costs are reported; offline judge overhead is separate from application performance.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC4. Selected configuration is integrated and validated under explicit budgets. Any latency increase is justified by experiment evidence and a standalone human budget commit; no quality-floor reduction or implicit waiver occurs.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC5. Handoff to CC-104 records exact integration head, rerun evidence and residual issues. CC-104 remains open until its own acceptance criteria and pre/post-merge gates pass; model selection alone cannot close it. Remaining CC-3 issues stay in CC-3.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC6. Baselines, scorer versions, sampling protocol and leakage protections are preserved. No sealed exploration or reading E2E transcripts; approved aggregate evidence only. No blanket success claim if the experiment is inconclusive.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Out of scope",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "General retrieval redesign, unrelated geography fixes, new product capabilities, production Decisions routing, automatic budget raises, and automatic closure of CC-104 or CC-3. If no candidate qualifies, record the decision and an explicit owner follow-up; do not invent a winner or mark implementation complete.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Owner rationale and architectural direction (2026-11-13)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "The overarching goal is to eliminate regex-based interpretation, validation and repair of user meaning, and replace it with more robust mechanisms. A newer model is an enabling choice, not the final architectural outcome. The owner's practical observation is that Googling questions and asking for the corresponding Census API shape often produces better results than the application's regex-heavy workflow. This is qualitative motivation for a controlled comparison, not a measured benchmark or a claim that the LLM is the only problem.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Target behavior: the model derives explicit structured intent from the question and grounded table/API metadata; deterministic code checks types, enums, required geography parents, valid identifiers, dataset/vintage availability, cell/universe consistency, variable limits and faithful execution. Missing or invalid intent receives bounded model repair with concrete structured feedback. No regex, keyword scan, substring heuristic or equivalent prose parser may supply or repair meaning. Removing regex must not remove correctness checks or recreate the same heuristics in another form.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Zero refers to semantic regex validation in the question-to-answer path. Separately inventory any remaining regex for purely syntactic identifiers/redaction or other nonsemantic uses and justify or replace it with ordinary parsing where appropriate; do not claim repository-wide zero regex from semantic isolation alone. Preserve security/redaction and explicit-field validation. The experiment must establish what evidence the model needs, not merely select the best prose generator.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "The primary hypothesis is that replacing gpt-4o-mini alone materially improves the regex-reduced workflow. Better tools/grounding are a secondary hypothesis and must not obscure the model-only effect. This epic enables completion of CC-104, then remaining CC-3 work; it does not absorb their unfinished capabilities.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing AC/TC, earned floors, family-based uncertainty, repeat-3 comparisons, mutation checks, cold review, post-merge evidence and sealed/E2E transcript protections remain binding. These additions do not lower a threshold, authorize a budget increase, reopen a Done story or claim implementation is complete. Refresh affected closure matrices before shipping.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC7. The decision distinguishes model-only improvement from additional evidence/tooling, and primary-answer correctness from interpretation, offered alternatives, executed recovery and qualitative-claim support. Search-assisted experiments remain separate secondary arms.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC8. Experimental and integration reports identify current capability gaps owned by CC-115/130/122/131 and final measurement ownership in CC-132. A new model cannot claim those future capabilities complete or block its own handoff on implementing all downstream CC-3 work; all currently applicable inherited quality gates remain binding.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Floor-restoring stories added 2026-11-25",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "Two stories added at the owner's request. Each backs a ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "type": "code"
+      }
+     ],
+     "text": "budgets.toml",
+     "type": "text"
+    },
+    {
+     "text": " ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "type": "code"
+      }
+     ],
+     "text": "[[exception]]",
+     "type": "text"
+    },
+    {
+     "text": " for a floor that main 29c0518 already misses, under the mechanism added by ",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "attrs": {
+        "href": "https://johnhillescobar.atlassian.net/browse/CC-143"
+       },
+       "type": "link"
+      }
+     ],
+     "text": "CC-143",
+     "type": "text"
+    },
+    {
+     "text": " (",
+     "type": "text"
+    },
+    {
+     "marks": [
+      {
+       "type": "code"
+      }
+     ],
+     "text": "evidence/slice-6/cc-143/owner-commits.md",
+     "type": "text"
+    },
+    {
+     "text": ", commit 1). Each is done when its floor is met again and the owner deletes its exception.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "content": [
+      {
+       "content": [
+        {
+         "marks": [
+          {
+           "attrs": {
+            "href": "https://johnhillescobar.atlassian.net/browse/CC-148"
+           },
+           "type": "link"
+          }
+         ],
+         "text": "CC-148",
+         "type": "text"
+        },
+        {
+         "text": " restores ",
+         "type": "text"
+        },
+        {
+         "marks": [
+          {
+           "type": "code"
+          }
+         ],
+         "text": "answered_rate_min",
+         "type": "text"
+        },
+        {
+         "text": ": the long_tail answered rate, floor 0.70, main pooled 0.683.",
+         "type": "text"
+        }
+       ],
+       "type": "paragraph"
+      }
+     ],
+     "type": "listItem"
+    },
+    {
+     "content": [
+      {
+       "content": [
+        {
+         "marks": [
+          {
+           "attrs": {
+            "href": "https://johnhillescobar.atlassian.net/browse/CC-149"
+           },
+           "type": "link"
+          }
+         ],
+         "text": "CC-149",
+         "type": "text"
+        },
+        {
+         "text": " restores ",
+         "type": "text"
+        },
+        {
+         "marks": [
+          {
+           "type": "code"
+          }
+         ],
+         "text": "selector_at_1_min",
+         "type": "text"
+        },
+        {
+         "text": ": selector@1, floor 0.70, main pooled 0.5875 from 0.750 and 0.425 on the same code.",
+         "type": "text"
+        }
+       ],
+       "type": "paragraph"
+      }
+     ],
+     "type": "listItem"
+    }
+   ],
+   "type": "bulletList"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}

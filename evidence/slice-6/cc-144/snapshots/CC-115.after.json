@@ -1,0 +1,486 @@
+{
+ "content": [
+  {
+   "content": [
+    {
+     "text": "Owned outcome\nPreserve the same structured selection through plan-strip overrides.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Expected progression / shipping target\n100% deterministic valid override round-trips and invalid-override rejection; all valid named/wildcard/multi-parent acceptance journeys complete without unexpected 422. Zero loss of scope or variables. Preserve URL-grid coverage.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Dependency handoff\nCC-119; feeds final CC-132.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Gate: docs/playbooks/run-slice.md; scripts/closure.py checks the AC/TC record, and scripts/metric_compare.py judges measured runs by evals/metric_protocol.toml.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Existing scope\nCurrent owner alignment (2026-11-08)\nRound-trip structured wildcard scope and metadata-backed parent chains through overrides without requiring a nonexistent single GEOID. Preserve requested intent and CC-114 substitution checks. Integrate after CC-104/119 contract changes.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Retained scope and acceptance criteria (read with the binding alignment above)\n## Problem",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "In the UI, clicking one of the alternative (\"close\") tables after a listing question fails with `422 Unprocessable Entity` on `POST /conversations/{id}/turns` (and `POST /ask` with a plan). The server's message is `geography override requires an executable GEOID`. After a single-place question the same click works (200).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Found while preparing a demo after CC-103 merged. Not caused by CC-103: it reproduces on the pre-CC-103 baseline (`7b406f2`, which has no split call), and CC-103 changed neither `api/src/contract.py` nor the front end. CC-103 only makes listing results (all-wildcard plans) more common, so more people will hit it.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Reproduction (live API, TestClient, mirrors `tableOverride` in `web/src/plan.ts`)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Build",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Question",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Click an alternative table",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "`7b406f2` (before CC-103)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Median household income for all counties in Oregon",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "422",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "`0cab7fe` (main)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Median household income for Cook County, Illinois",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "200",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "`0cab7fe` (main)",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Show all counties in Texas and Louisiana",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "422",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Cause",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "`web/src/PlanStrip.tsx` calls `applyPlan(tableOverride(result.plan, alt.table_id))`. `tableOverride` (`web/src/plan.ts`) spreads the whole previous plan, including `geographies`. `AskRequest.bind_plan_geographies` then calls `bind_override_geographies` (`api/src/contract.py`), which rejects any geography whose `geoid` is not a single executable GEOID. A wildcard geography (`for_spec` ending in `:*`) has an empty `geoid`, so the model validator raises and FastAPI returns 422.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Options",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "1. Front end: when only the table changes, do not resend wildcard geographies; the server re-resolves them from the question.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "2. Server: let `bind_override_geographies` accept a wildcard geography by binding it from its `for_spec`/`in_spec` when the GEOID is empty. This fixes every client at once and is the recommended direction.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Acceptance",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Clicking an alternative table after (a) a one-parent listing, (b) a multi-parent listing, and (c) a single place all return 200, with the new table and the same geographies.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- A regression test for each case, mutation-checked (it must fail if the empty-GEOID wildcard is rejected again).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- A UI test if the front end changes.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Gate 2 (cold review) and `make demo`/E2E scoreboard in the PR; no budget raised.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- No regex added (CLAUDE.md: regex is a last resort).",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Links",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "Surfaced after CC-103 (PR #99). Related follow-ups: CC-104.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "## Test cases",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Happy: choosing an alternative table after a legal wildcard listing returns a normal answer rather than 422.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Edge: a multi-parent wildcard plan remains executable after the table override and preserves every request leg.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Novel: a metadata-valid listing shape absent from visible examples follows the same override validation path.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Regression: an alternative-table override for a named executable GEOID remains unchanged.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "- Failure: an incompatible wildcard or parent chain fails with a clear validation result and is never silently rewritten to another geography.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 2
+   },
+   "content": [
+    {
+     "text": "Owner-approved audit tightening — 2026-11-13",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Why this is important",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "A selectable alternative must recover a useful answer, not merely return HTTP 200 or avoid the wildcard 422. A new table may require different cells; blindly preserving old variable identifiers can produce a valid-looking wrong answer.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Acceptance criteria additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "AC1. Alternative selection preserves unaffected requested meaning: geography identities, scope, parent chains, product and years. Validate or reselect cells against the selected table's metadata and measure/universe intent; do not reuse incompatible old-table variable IDs or silently substitute a total. Preserve a variable only when its semantic compatibility is established. This clarifies older 'zero loss of variables' wording.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC2. Before executing an alternative, validate its table/cells, universe, vintage availability and geography chain. A displayed executable alternative URL must have these checks and match the request actually sent. A discovery-only candidate is explicitly not yet validated; unavailable/incompatible alternatives disclose the limitation and never masquerade as an answer. Live prefetch of every candidate is not required.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "AC3. Add end-to-end alternative recovery journeys: wrong primary choice with a correct offered alternative, selecting that alternative, and receiving the independently expected data/answer. Record all attempted selections, failures and elapsed time from selection to result. Coordinate scoring with CC-132; passing an override transport test alone is insufficient.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "attrs": {
+    "level": 3
+   },
+   "content": [
+    {
+     "text": "Test cases additions",
+     "type": "text"
+    }
+   ],
+   "type": "heading"
+  },
+  {
+   "content": [
+    {
+     "text": "TC1. Select the correct offered alternative after an incorrect primary answer for named, wildcard and multi-parent geography; assert expected cells/data, every requested leg and faithful vintage/product, not just status 200.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC2. Switch to a table with incompatible cell identifiers or universe; grounded reselection succeeds or a specific limitation appears, without reusing stale cells or silently returning the total.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  },
+  {
+   "content": [
+    {
+     "text": "TC3. An alternative exists in the catalog but not the requested vintage/geography: distinguish discovery from executable status, preserve requested intent and never label the incompatible URL validated. A validated URL and executed HTTP request agree.",
+     "type": "text"
+    }
+   ],
+   "type": "paragraph"
+  }
+ ],
+ "type": "doc",
+ "version": 1
+}
