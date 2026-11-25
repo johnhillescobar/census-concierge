@@ -1,0 +1,45 @@
+$ uv run python scripts/metric_compare.py freeze
+protocol c1cea139d1db2943  collection 13c3508d73f8ef25  scorer 6054312479188110
+  long_tail   40 cases  hash ab5c9c2ffa0bbb1c
+  trap        18 cases  hash ab22fe0065a4b319
+  core         4 cases  hash 622f5f5937db5bac
+rule: 2 candidate run(s) pooled against 2 of main, and against L
+  rate  trial rate                   rate_drop_max = 0.07
+  rate  empty answers (long_tail)    empty_rise_max = 0.03
+  rate  rows per question            rows_lost_questions_max = 1
+  rate  retrieval_at_10              retrieval_drop_max = 0
+  rate  selector_at_1                selector_drop_max = 0.33
+  rate  p95 vs reference             p95_rise_max_seconds = 2.5
+  rate  trial rate, a small group    small_group_lost_questions = 1 (under 30 questions)
+  hard  lost questions               lost_questions_min_runs = 2 (runs per side from which it blocks)
+  selector_drop_max is divided by the runs pooled on the smaller side
+  hard  same-window main             window_hours = 12
+  hard  candidate run file, run identity, provenance, answered_rate floor, retrieval_at_10 floor, selector_at_1 floor, answered_rate matches trials, p95 matches trials, p95 ceiling, response contract, run count, same-window main, reference, reference file, reference run file, collection settings, scorer / cohort hashes, bridge, repeat, index, planned trials, reference label
+  report_only = A, A0 (printed, never blocking)
+[exit 0]
+
+$ uv run pytest api/tests/test_metric_compare.py::test_freeze_prints_the_hashes_and_every_rule_number api/tests/test_metric_compare.py::test_every_rate_row_is_judged_by_a_number_in_the_committed_rule api/tests/test_metric_compare.py::test_every_row_compare_prints_is_a_rate_with_a_rule_or_a_named_hard_failure api/tests/test_metric_compare.py::test_a_fall_inside_the_tolerance_passes_and_one_past_it_fails api/tests/test_metric_compare.py::test_more_empty_answers_than_the_tolerance_fail api/tests/test_metric_compare.py::test_questions_returning_fewer_rows_when_answered_fail_past_their_limit api/tests/test_metric_compare.py::test_a_retrieval_or_selector_drop_fails_past_its_tolerance api/tests/test_metric_compare.py::test_a_p95_rise_past_its_tolerance_fails_and_one_inside_it_passes api/tests/test_metric_compare.py::test_a_group_under_the_minimum_gets_a_verdict_from_the_small_group_number api/tests/test_metric_compare.py::test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side api/tests/test_metric_compare.py::test_a_tolerance_that_is_not_a_finite_number_excuses_nothing -q -rA -p no:cacheprovider
+.............                                                            [100%]
+============================== warnings summary ===============================
+api/tests/test_metric_compare.py::test_freeze_prints_the_hashes_and_every_rule_number
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-143\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED api/tests/test_metric_compare.py::test_freeze_prints_the_hashes_and_every_rule_number
+PASSED api/tests/test_metric_compare.py::test_every_rate_row_is_judged_by_a_number_in_the_committed_rule
+PASSED api/tests/test_metric_compare.py::test_every_row_compare_prints_is_a_rate_with_a_rule_or_a_named_hard_failure
+PASSED api/tests/test_metric_compare.py::test_a_fall_inside_the_tolerance_passes_and_one_past_it_fails
+PASSED api/tests/test_metric_compare.py::test_more_empty_answers_than_the_tolerance_fail
+PASSED api/tests/test_metric_compare.py::test_questions_returning_fewer_rows_when_answered_fail_past_their_limit
+PASSED api/tests/test_metric_compare.py::test_a_retrieval_or_selector_drop_fails_past_its_tolerance[retrieval_at_10-retrieval_drop_max]
+PASSED api/tests/test_metric_compare.py::test_a_retrieval_or_selector_drop_fails_past_its_tolerance[selector_at_1-selector_drop_max]
+PASSED api/tests/test_metric_compare.py::test_a_p95_rise_past_its_tolerance_fails_and_one_inside_it_passes
+PASSED api/tests/test_metric_compare.py::test_a_group_under_the_minimum_gets_a_verdict_from_the_small_group_number
+PASSED api/tests/test_metric_compare.py::test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side
+PASSED api/tests/test_metric_compare.py::test_a_tolerance_that_is_not_a_finite_number_excuses_nothing[nan]
+PASSED api/tests/test_metric_compare.py::test_a_tolerance_that_is_not_a_finite_number_excuses_nothing[inf]
+13 passed, 1 warning in 3.08s
+[exit 0]

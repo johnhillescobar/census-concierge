@@ -1,0 +1,23 @@
+CC-143 Gate 2 | Fresh-context generic bug review | 2026-11-24
+Base 29c051860b8430d4319ad918669e18351dc9e779
+Head c53102822b7554b43fc3e93f92372d1e218eea22
+Scope included the untracked evidence/slice-6/cc-143/closure_run.py.
+Verdict: Not yet.
+
+1. High. scripts/metric_compare.py:809 counts arguments, not independent runs. A synthetic call to against_main with the same candidate twice and the same base path twice yielded PASS. A repeated filename, alias, or byte-for-byte copy can substitute for a missing block. Validate distinct run identities for all planned blocks before pooling.
+
+2. High. scripts/metric_compare.py:1261 permits recording a pre-merge PASS without comparing to L. With --base and --refs A, cmd_compare forwarded only A to run_compare, which judges B and the report-only A. A regression against L is invisible. Require L for an official recorded verdict whenever it is the fixed anchor.
+
+3. High. scripts/metric_compare.py:820 accepts any clean ancestor of origin/main with matching scorer, cohorts, collection settings and index. Changes to product behavior between that ancestor and the candidate's true base are not checked. Older baseline runs can therefore be credited as same-window measurements even after a product improvement on main. Bind the baseline to the planned base revision and collection window.
+
+4. High. scripts/metric_compare.py:1167 stamps a pooled reference with the caller's --head. Neither register nor build_entry checks that the run provenance names that head, that all contributing runs measured the same head, or that a nonlegacy L seed measured clean code. Pinned file bytes do not establish that the stamped revision generated them. Validate the individual run records when registering L.
+
+5. High. scripts/closure.py:43 omits the frontend build inputs from E2E_PATHS. A web/index.html-only merge can remove the root element and qualify for closure without a post-merge run. Makefile:36-37 builds this file and scripts/run_demo.py:615-630 checks the served page. The predicate returned False for web/index.html in a direct check.
+
+6. Medium. scripts/metric_compare.py:1167 calls judged_by(head) even for register --legacy. That function loads the metric protocol from the historical commit, although legacy runs may predate the file. With the actual registered A and A0 heads, the lookup exited 128 for both. Existing registrations can be read, but attempting to register another comparable historical run fails before the legacy flag is applied.
+
+7. High. scripts/check_invariants.py:791 accepts TOML nan as a replacement for a finite rule tolerance. Neither after > before nor worse > nan is true. In a synthetic cohort with a 30-percentage-point loss, rate_drop_max=nan made the trial-rate row PASS. Reject nonfinite rule numbers when loading or validating the protocol.
+
+8. Medium. evidence/slice-6/cc-143/closure_run.py:229 discards every nonzero exit from the AC4 invariants command. An unrelated violation or a Python traceback still lets the row print ok when its pytest command succeeds. Check the expected exit and full set of known diagnostics before crediting AC4.
+
+Method: reviewed code and diffs, exercised comparator decisions with synthetic test data, inspected historical protocol availability using Git metadata. No E2E transcripts or sealed sets were opened. The separate machine/invariants review follows this pass.

@@ -1,0 +1,103 @@
+$ git rev-parse HEAD
+cf74bae8f47e26c65015c9c9d1d7b230a5ff6f9c
+$ uv run python evidence/slice-6/cc-143/stored_runs.py
+L seeded from the two stored runs of main:
+  metrics  {"long_tail_trial_rate": 0.683, "p95": 28.844, "answered_rate": 0.6835, "retrieval_at_10": 0.9, "selector_at_1": 0.5875}
+  blockers ['answered_rate 0.6835 < 0.7', 'selector_at_1 0.5875 < 0.7', 'p95 28.844 > 20.0']
+  hashes   {"scorer": "6054312479188110", "cohorts": {"long_tail": "ab5c9c2ffa0bbb1c", "trap": "ab22fe0065a4b319", "core": "622f5f5937db5bac"}, "protocol": "c1cea139d1db2943", "collection": "13c3508d73f8ef25"}
+
+same code, main-b1.json against main-b2.json: VERDICT PASS
+  PASS       rate long_tail trial rate         0.692 vs 0.675, may fall 0.070
+  PASS       rate trap trial rate              0.796 vs 0.778, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.750 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  PASS       rate empty answers (long_tail)    0.050 vs 0.033, may rise 0.030
+  PASS       rate rows per question            0 questions returned fewer rows when answered, limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.750 vs 0.425, may fall 0.330
+  PASS       rate p95 vs reference             30.204s vs 28.275s, may rise 2.5s
+  (PASS)     hard lost questions               0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+
+same code, main-b2.json against main-b1.json: VERDICT PASS
+  PASS       rate long_tail trial rate         0.675 vs 0.692, may fall 0.070
+  PASS       rate trap trial rate              0.778 vs 0.796, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.750 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  PASS       rate empty answers (long_tail)    0.033 vs 0.050, may rise 0.030
+  PASS       rate rows per question            0 questions returned fewer rows when answered, limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.425 vs 0.750, may fall 0.330
+  PASS       rate p95 vs reference             28.275s vs 30.204s, may rise 2.5s
+  (FAIL)     hard lost questions               1 answered in every reference trial and in no candidate trial: q20; blocks from 2 runs per side
+
+same code, cc104-p1.json against cc104-p2.json: VERDICT PASS
+  PASS       rate long_tail trial rate         0.633 vs 0.700, may fall 0.070
+  PASS       rate trap trial rate              0.704 vs 0.722, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.750 vs 0.583, may fall 0.250 (1 of its 4 questions)
+  PASS       rate empty answers (long_tail)    0.108 vs 0.092, may rise 0.030
+  PASS       rate rows per question            0 questions returned fewer rows when answered, limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.425 vs 0.425, may fall 0.330
+  PASS       rate p95 vs reference             29.491s vs 29.387s, may rise 2.5s
+  (PASS)     hard lost questions               0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+
+same code, cc104-p2.json against cc104-p1.json: VERDICT PASS
+  PASS       rate long_tail trial rate         0.700 vs 0.633, may fall 0.070
+  PASS       rate trap trial rate              0.722 vs 0.704, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.583 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  PASS       rate empty answers (long_tail)    0.092 vs 0.108, may rise 0.030
+  PASS       rate rows per question            1 questions returned fewer rows when answered (t17), limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.425 vs 0.425, may fall 0.330
+  PASS       rate p95 vs reference             29.387s vs 29.491s, may rise 2.5s
+  (PASS)     hard lost questions               0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+
+stored CC-104 pool against stored main pool (2x2): VERDICT FAIL
+  PASS       rate long_tail trial rate         0.667 vs 0.683, may fall 0.070
+  FAIL       rate trap trial rate              0.713 vs 0.787, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.667 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  FAIL       rate empty answers (long_tail)    0.100 vs 0.042, may rise 0.030
+  FAIL       rate rows per question            3 questions returned fewer rows when answered (t01, t05, t17), limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.425 vs 0.588, may fall 0.165
+  PASS       rate p95 vs reference             29.491s vs 28.844s, may rise 2.5s
+  FAIL       hard lost questions               1 answered in every reference trial and in no candidate trial: t10
+
+one main run against the L seed (1x2), main-b1.json: VERDICT PASS
+  PASS       rate long_tail trial rate         0.692 vs 0.683, may fall 0.070
+  PASS       rate trap trial rate              0.796 vs 0.787, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.750 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  PASS       rate empty answers (long_tail)    0.050 vs 0.042, may rise 0.030
+  PASS       rate rows per question            0 questions returned fewer rows when answered, limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.750 vs 0.588, may fall 0.330
+  PASS       rate p95 vs reference             30.204s vs 28.844s, may rise 2.5s
+  (PASS)     hard lost questions               0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+
+one main run against the L seed (1x2), main-b2.json: VERDICT PASS
+  PASS       rate long_tail trial rate         0.675 vs 0.683, may fall 0.070
+  PASS       rate trap trial rate              0.778 vs 0.787, may fall 0.056 (1 of its 18 questions)
+  PASS       rate core trial rate              0.750 vs 0.750, may fall 0.250 (1 of its 4 questions)
+  PASS       rate empty answers (long_tail)    0.033 vs 0.042, may rise 0.030
+  PASS       rate rows per question            0 questions returned fewer rows when answered, limit 1
+  PASS       rate retrieval_at_10              0.900 vs 0.900, may fall 0.000
+  PASS       rate selector_at_1                0.425 vs 0.588, may fall 0.330
+  PASS       rate p95 vs reference             28.275s vs 28.844s, may rise 2.5s
+  (PASS)     hard lost questions               0 answered in every reference trial and in no candidate trial; blocks from 2 runs per side
+
+$ uv run python scripts/metric_compare.py freeze
+protocol c1cea139d1db2943  collection 13c3508d73f8ef25  scorer 6054312479188110
+  long_tail   40 cases  hash ab5c9c2ffa0bbb1c
+  trap        18 cases  hash ab22fe0065a4b319
+  core         4 cases  hash 622f5f5937db5bac
+rule: 2 candidate run(s) pooled against 2 of main, and against L
+  rate  trial rate                   rate_drop_max = 0.07
+  rate  empty answers (long_tail)    empty_rise_max = 0.03
+  rate  rows per question            rows_lost_questions_max = 1
+  rate  retrieval_at_10              retrieval_drop_max = 0
+  rate  selector_at_1                selector_drop_max = 0.33
+  rate  p95 vs reference             p95_rise_max_seconds = 2.5
+  rate  trial rate, a small group    small_group_lost_questions = 1 (under 30 questions)
+  hard  lost questions               lost_questions_min_runs = 2 (runs per side from which it blocks)
+  selector_drop_max is divided by the runs pooled on the smaller side
+  hard  same-window main             window_hours = 12
+  hard  candidate run file, run identity, provenance, answered_rate floor, retrieval_at_10 floor, selector_at_1 floor, answered_rate matches trials, p95 matches trials, p95 ceiling, response contract, run count, same-window main, reference, reference file, reference run file, collection settings, scorer / cohort hashes, bridge, repeat, index, planned trials, reference label
+  report_only = A, A0 (printed, never blocking)

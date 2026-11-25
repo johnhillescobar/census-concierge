@@ -319,6 +319,40 @@ def test_a_waiver_added_since_the_base_fails_the_check(tmp_path: Path, monkeypat
     assert "[waiver]" in found[0].message
 
 
+EXCEPTION = (
+    '[[exception]]\nmetric = "p95_latency_seconds"\nbaseline = 29.0\n'
+    'approved = "2026-11-24 owner"\nticket = "CC-9"\n'
+)
+
+
+def test_a_floor_exception_added_in_a_change_fails_the_check(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    head = "[size]\nx = 1\n"
+    _budgets(tmp_path, monkeypatch, head + EXCEPTION)
+    _base_has(monkeypatch, {"budgets.toml": head})
+    found = inv.check_no_new_exemptions("origin/main")
+    assert [v.where for v in found] == ["budgets.toml"]
+    assert "exception" in found[0].message and "p95_latency_seconds" in found[0].message
+    _base_has(monkeypatch, {"budgets.toml": head + EXCEPTION})  # main already holds it
+    assert inv.check_no_new_exemptions("origin/main") == []
+
+
+def test_an_exception_whose_baseline_or_ticket_changed_is_a_new_exception(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    head = "[size]\nx = 1\n"
+    _base_has(monkeypatch, {"budgets.toml": head + EXCEPTION})
+    for old, new in (("29.0", "35.0"), ("CC-9", "CC-10"), ("p95_latency_seconds", "doc_lines")):
+        _budgets(tmp_path, monkeypatch, head + EXCEPTION.replace(old, new))
+        assert inv.check_no_new_exemptions("origin/main"), new
+    second = EXCEPTION.replace("p95_latency_seconds", "selector_at_1_min")
+    _budgets(tmp_path, monkeypatch, head + EXCEPTION + second)
+    assert len(inv.check_no_new_exemptions("origin/main")) == 1  # one more beside the old one
+    _budgets(tmp_path, monkeypatch, head)  # removing one restores the floor: anyone may
+    assert inv.check_no_new_exemptions("origin/main") == []
+
+
 def test_a_leakage_baseline_entry_added_since_the_base_fails_the_check(
     tmp_path: Path, monkeypatch: Any
 ) -> None:

@@ -202,3 +202,99 @@ def test_doc_lines_counts_each_agent_catalog(tmp_path: Path, monkeypatch: Any) -
         _write_lines(path, 7)
         assert bud._doc_lines() == expected + 7, name
         path.unlink()
+
+
+# --- exceptions: a floor main already misses, recorded by the owner ----------------------------
+
+EXCEPTION = {
+    "metric": "p95_latency_seconds",
+    "baseline": 29.0,
+    "approved": "2026-11-24 owner",
+    "ticket": "CC-9",
+}
+
+
+def _rule() -> dict[str, Any]:
+    text = (ROOT / "evals" / "metric_protocol.toml").read_text(encoding="utf-8")
+    return tomllib.loads(text)["rule"]
+
+
+def _exception_toml(**changed: Any) -> str:
+    entry = {**EXCEPTION, **changed}
+    lines = [f"{key} = {json.dumps(value)}" for key, value in entry.items()]
+    return "\n[[exception]]\n" + "\n".join(lines) + "\n"
+
+
+def test_an_over_ceiling_p95_is_excepted_while_no_worse_than_the_owners_baseline(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    budgets = {**BUDGETS, "exception": [EXCEPTION]}
+    step = _rule()["p95_rise_max_seconds"]
+    _latest(tmp_path, monkeypatch, {"demo": _demo(29.0 + step)})
+    check = bud._p95_check(budgets)
+    assert check is not None and check.ok and not check.within
+    assert "CC-9" in check.excepted and "29" in check.excepted
+    assert not bud._p95_check(BUDGETS).ok  # the same run with no exception on record
+    _latest(tmp_path, monkeypatch, {"demo": _demo(29.0 + step + 0.01)})
+    worse = bud._p95_check(budgets)
+    assert worse is not None and not worse.ok and not worse.excepted  # worse, by the rule
+
+
+def test_a_waived_run_is_reported_as_waived_not_excepted(tmp_path: Path, monkeypatch: Any) -> None:
+    _latest(tmp_path, monkeypatch, {"demo": _demo(21.701)}, log=WAIVER)
+    check = bud._p95_check({**BUDGETS, "exception": [EXCEPTION]})
+    assert check is not None and check.waived and not check.excepted
+
+
+def _main_with(tmp_path: Path, monkeypatch: Any, extra: str, **latest: float) -> int:
+    payload = {"demo": _demo(19.0), "retrieval_at_10": 0.9, "answered_rate": 0.72, **latest}
+    _latest(tmp_path, monkeypatch, payload)
+    _empty_sources(tmp_path, monkeypatch)
+    real = (ROOT / "budgets.toml").read_text(encoding="utf-8")
+    kept = real.split("[[exception]]")[0]  # the owner's own exceptions are not this test's
+    (tmp_path / "budgets.toml").write_text(kept + extra, encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["check_budgets.py"])
+    return bud.main()
+
+
+def test_main_labels_an_excepted_quality_floor_and_counts_it(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    held = _exception_toml(metric="selector_at_1_min", baseline=0.5)
+    assert _main_with(tmp_path, monkeypatch, "", selector_at_1=0.425) == 1  # a plain miss
+    assert "FAIL  selector_at_1" in capsys.readouterr().out
+    assert _main_with(tmp_path, monkeypatch, held, selector_at_1=0.425) == 0
+    out = capsys.readouterr().out
+    assert "excpt selector_at_1" in out and "CC-9 restores it" in out
+    assert "1 excepted by the owner" in out
+
+
+def test_main_fails_a_floor_that_fell_past_its_exception(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    drop = _rule()["selector_drop_max"]
+    held = _exception_toml(metric="selector_at_1_min", baseline=round(0.425 + drop + 0.02, 3))
+    assert _main_with(tmp_path, monkeypatch, held, selector_at_1=0.425) == 1
+    assert "FAIL  selector_at_1" in capsys.readouterr().out
+
+
+def test_an_exception_for_one_floor_does_not_cover_another(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    held = _exception_toml(metric="selector_at_1_min", baseline=0.5)
+    assert _main_with(tmp_path, monkeypatch, held, selector_at_1=0.8, answered_rate=0.6) == 1
+    assert "FAIL  answered_rate" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "changed", [{"ticket": ""}, {"baseline": "0.5"}, {"metric": "doc_lines"}, {"approved": " "}]
+)
+def test_a_malformed_exception_is_itself_a_failure_and_excuses_nothing(
+    tmp_path: Path, monkeypatch: Any, capsys: Any, changed: dict[str, Any]
+) -> None:
+    good = _exception_toml(metric="selector_at_1_min", baseline=0.5)
+    bad = _exception_toml(**{"metric": "selector_at_1_min", "baseline": 0.5, **changed})
+    assert _main_with(tmp_path, monkeypatch, good + bad, selector_at_1=0.425) == 1
+    out = capsys.readouterr().out
+    assert "FAIL  malformed exceptions" in out and "FAIL  selector_at_1" in out
+    assert _main_with(tmp_path, monkeypatch, bad, selector_at_1=0.8) == 1  # even when unused

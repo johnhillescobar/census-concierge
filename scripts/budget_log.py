@@ -21,3 +21,21 @@ def entries(text: str) -> list[list[str]]:
         if in_log and line.startswith("#"):
             found.extend(entry.split() for entry in line.split("# ")[1:])
     return found
+
+
+def p95_waiver(text: str, run: str, p95: float) -> str:
+    """The reason from `[waiver] p95_latency_seconds <run> <value> <ticket> <why>`, or "".
+
+    The owner writes that line in budgets.toml. It is bound to one run id (demo.generated_at) and
+    value, so the next over-ceiling run is unwaived until the owner decides again.
+    """
+    for words in entries(text):
+        if len(words) < 6 or words[1:4] != ["[waiver]", "p95_latency_seconds", run]:
+            continue
+        try:
+            logged = float(words[4])
+        except ValueError:
+            continue
+        if abs(logged - p95) < 0.0005:
+            return " ".join(words[5:])
+    return ""

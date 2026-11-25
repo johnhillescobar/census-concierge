@@ -7,6 +7,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -431,7 +432,6 @@ def loosened(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, edit: tuple[str, s
     [
         ("min_families = 30", "min_families = 20"),
         ("confidence = 0.95", "confidence = 0.90"),
-        ("max_regression = 0.02", "max_regression = 0.05"),
         ("repeat = 3", "repeat = 1"),
         ("seed = 20261109", "seed = 7"),
         ('case_rule = "all_repeats"', 'case_rule = "any_repeat"'),
@@ -453,7 +453,87 @@ def test_tightening_the_frozen_protocol_is_allowed(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     assert loosened(monkeypatch, tmp_path, ("min_families = 30", "min_families = 40")) == []
-    assert loosened(monkeypatch, tmp_path, ("max_regression = 0.02", "max_regression = 0.01")) == []
+    assert loosened(monkeypatch, tmp_path, ("resamples = 10000", "resamples = 20000")) == []
+
+
+def protocol_text() -> str:
+    return (ROOT / ci.PROTOCOL).read_text(encoding="utf-8")
+
+
+def rule_line(key: str) -> tuple[str, Any]:
+    """A [rule] parameter's line in the committed protocol, and its value."""
+    line = next(text for text in protocol_text().splitlines() if text.startswith(f"{key} = "))
+    return line, tomllib.loads(line)[key]
+
+
+def guarded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, base: str, now: str) -> list[Any]:
+    (tmp_path / "evals").mkdir(exist_ok=True)
+    (tmp_path / ci.PROTOCOL).write_text(now, encoding="utf-8")
+    monkeypatch.setattr(ci, "ROOT", tmp_path)
+    monkeypatch.setattr(ci, "_text_at", lambda ref, rel: base)
+    return ci.check_protocol_not_weakened("origin/main")
+
+
+def test_every_rule_parameter_in_the_committed_protocol_is_guarded() -> None:
+    rule = tomllib.loads(protocol_text())["rule"]
+    assert set(rule) == ci.RULE_GUARDED
+    assert {key for key, value in rule.items() if isinstance(value, int | float)} - {
+        key for key in rule if isinstance(rule[key], bool)
+    } == set(ci.RULE_NOT_HIGHER)
+
+
+@pytest.mark.parametrize("key", ci.RULE_NOT_HIGHER)
+def test_raising_a_rule_tolerance_fails_and_lowering_it_is_allowed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, key: str
+) -> None:
+    line, value = rule_line(key)
+    found = loosened(monkeypatch, tmp_path, (line, f"{key} = {value + 1}"))
+    assert [v.where for v in found] == [f"{ci.PROTOCOL} [rule] {key}"]
+    assert loosened(monkeypatch, tmp_path, (line, f"{key} = {value / 2}")) == []
+    assert loosened(monkeypatch, tmp_path, (line, f"{key} = {value}")) == []
+
+
+@pytest.mark.parametrize("key", ci.RULE_NOT_HIGHER)
+def test_a_rule_number_that_is_removed_or_not_a_number_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, key: str
+) -> None:
+    line, _value = rule_line(key)
+    assert loosened(monkeypatch, tmp_path, (line, ""))
+    assert loosened(monkeypatch, tmp_path, (line, f'{key} = "none"'))
+    assert loosened(monkeypatch, tmp_path, (line, f"{key} = true"))
+    for wild in ("nan", "inf"):  # a tolerance nothing can exceed switches its row off
+        found = loosened(monkeypatch, tmp_path, (line, f"{key} = {wild}"))
+        assert [v.where for v in found] == [f"{ci.PROTOCOL} [rule] {key}"], wild
+
+
+def test_a_rule_parameter_the_guard_does_not_know_is_a_violation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    text = protocol_text()
+    added = text.replace("[rule]\n", "[rule]\nskip_rows = 2\n")
+    assert added != text
+    found = guarded(monkeypatch, tmp_path, added, added)  # even when main already carries it
+    assert [v.where for v in found] == [f"{ci.PROTOCOL} [rule] skip_rows"]
+
+
+def test_a_rule_number_main_does_not_have_yet_is_the_owners_to_ratify(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    text = protocol_text()
+    without = text[: text.index("\n[rule]\n")] + "\n[rule]\n"
+    found = guarded(monkeypatch, tmp_path, without, text)
+    flagged = {v.where.rsplit(" ", 1)[1] for v in found}
+    assert flagged == ci.RULE_GUARDED  # every number, the switch and the report-only list
+    assert guarded(monkeypatch, tmp_path, text, text) == []  # once main has it: nothing to say
+
+
+def test_a_reference_may_leave_the_report_only_list_and_never_join_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    line, value = rule_line("report_only")
+    assert value == ["A", "A0"]
+    assert loosened(monkeypatch, tmp_path, (line, 'report_only = ["A", "A0", "L"]'))
+    assert loosened(monkeypatch, tmp_path, (line, 'report_only = ["A"]')) == []
 
 
 def test_a_tested_head_that_is_not_a_commit_blocks(repo: Path) -> None:
@@ -499,52 +579,43 @@ def test_a_registered_reference_cannot_be_edited_and_a_new_one_may_be_added(
     assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(L=reference_l("r2.json")))})
 
 
-def promoted(
-    run: str,
-    verdict: str = "PASS",
-    head: str = "h3",
-    sha: str = "s3",
-    refs: tuple[str, ...] = ("A", "L"),
-) -> str:
-    # `head` is the head that produced the run; the checkout's own head is deliberately another
-    row = {"run": run, "verdict": verdict, "run_head": head, "head": "c" * 40, "run_sha256": sha}
-    return json.dumps({**row, "refs": list(refs)}) + chr(10)
+def promoted(run: str, verdict: str = "PASS", refs: tuple[str, ...] = ("L",)) -> str:
+    """A ledger line as `promote` appends it."""
+    files = [{"run": run, "run_sha256": "s3", "run_head": "h3"}]
+    return json.dumps({"runs": files, "verdict": verdict, "refs": list(refs)}) + chr(10)
 
 
-def test_l_moves_only_with_a_pass_record_that_names_the_same_run_file_and_head(
+def test_a_change_to_l_outside_the_owners_own_commit_is_rejected(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     before = refs_json(A={"head": "1"}, L=reference_l("r2.json"))
     moved = refs_json(A={"head": "1"}, L=reference_l("r3.json", "h3", "s3"))
-    old_ledger = promoted("r2.json", head="h2", sha="s2")
+    old_ledger = promoted("r2.json")
 
-    def moves(ledger_now: str, refs_now: str = moved) -> list[Any]:
+    def change(refs_now: str, ledger_now: str = "") -> list[Any]:
         files = {REFS: (before, refs_now), LEDGER: (old_ledger, old_ledger + ledger_now)}
         return records(monkeypatch, tmp_path, files)
 
-    assert moves(promoted("r3.json")) == []
-    assert moves("")  # a hand edit: nothing in the ledger says promote ran
-    assert moves(promoted("r3.json", "FAIL"))  # the run did not pass
-    assert moves(promoted("other.json"))  # a PASS, but for a different run
-    assert moves(promoted("r3.json", head="other"))  # a different head
-    assert moves(promoted("r3.json", sha="other"))  # a different file
-    assert moves(promoted("r3.json", refs=("A",)))  # not judged against the L it replaces
-    assert moves(promoted("r3.json", refs=("B",)))  # a compare against some other reference
-    assert moves(promoted("r3.json", refs=("L",)))  # not judged against A
-    spelled = promoted("r3.json").replace('"refs": ["A", "L"]', '"refs": "AL"')
-    assert spelled != promoted("r3.json") and moves(spelled)  # a string is not a list of refs
-    assert records(monkeypatch, tmp_path, {REFS: (before, refs_json(A={"head": "1"}))})  # removed
+    assert change(before) == []
+    assert change(before, promoted("r3.json")) == []  # a recorded compare alone moves nothing
+    assert change(moved)  # a hand edit
+    assert change(moved, promoted("r3.json"))  # and what `promote` wrote after a recorded pass
+    assert change(refs_json(A={"head": "1"}))  # removed
+    for bad in ("null", "5", "[]", '{"run": "r2.json"}'):
+        assert change('{"A": {"head": "1"}, "L": ' + bad + "}"), bad
+    found = change(moved)
+    assert [v.where for v in found] == [REFS] and "owner" in found[0].message
 
 
-@pytest.mark.parametrize("bad", ["null", "5", '{"verdict": "PASS"}', '{"run": "r3.json"}', "[]"])
-def test_an_l_that_is_not_a_complete_entry_cannot_slip_past_a_bare_ledger_line(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, bad: str
+def test_seeding_l_is_the_owners_own_commit_too(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    before = refs_json(L=reference_l("r2.json"))
-    now_refs = '{"L": ' + bad + "}"
-    ledger = promoted("r2.json", head="h2", sha="s2") + json.dumps({"verdict": "PASS"}) + chr(10)
-    old = promoted("r2.json", head="h2", sha="s2")
-    assert records(monkeypatch, tmp_path, {REFS: (before, now_refs), LEDGER: (old, ledger)})
+    anchors = refs_json(A={"head": "1"})
+    seeded = refs_json(A={"head": "1"}, L=reference_l("r.json"))
+    assert records(monkeypatch, tmp_path, {REFS: (anchors, seeded)})
+    assert records(monkeypatch, tmp_path, {REFS: (None, seeded)})  # a store new at the base
+    assert records(monkeypatch, tmp_path, {REFS: (None, anchors)}) == []
+    assert records(monkeypatch, tmp_path, {REFS: (seeded, seeded)}) == []  # landed: no change
 
 
 def test_a_base_ledger_with_windows_line_endings_still_prefixes_the_current_one(
@@ -807,12 +878,223 @@ def test_done_is_still_gated_whatever_the_comment(monkeypatch: pytest.MonkeyPatc
     assert jt.main() == 0 and gated == ["CC-9"]
 
 
-def test_the_records_guard_checks_a_store_that_is_new_at_the_base(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+# --- a post-merge run is owed by what was merged, read from the diff ----------------------------
+
+# what a merged change may touch, and whether it then owes a post-merge run
+OWES = {
+    "api/src/geo.py": True,
+    "evals/golden_questions.toml": True,
+    "evals/metric_protocol.toml": True,
+    "scripts/run_demo.py": True,
+    "scripts/run_grid.py": True,
+    "scripts/metric_compare.py": True,
+    "scripts/budget_log.py": True,  # metric_compare imports it, and run_demo imports that
+    "scripts/build_index.py": True,
+    "data/synthetic_questions.json": True,
+    "Makefile": True,
+    "uv.lock": True,
+    "api/pyproject.toml": True,
+    "web/index.html": True,  # `make demo` builds it and run_demo checks the served page
+    "web/src/App.tsx": True,
+    "api/tests/test_geo.py": False,
+    "scripts/jira_fetch.py": False,
+    "scripts/closure.py": False,
+    "docs/ARCHITECTURE.md": False,
+    "evidence/slice-6/notes.txt": False,
+    "api/src_notes.md": False,  # beside api/src, not in it
+    "Makefile.bak": False,
+    "database/notes.md": False,  # beside data/, not in it
+}
+
+
+def ticket(number: int) -> str:
+    return f"evidence/closure/CC-{number}.toml"
+
+
+def merge(
+    repo: Path, branch: str, files: dict[str, str], moves: dict[str, str] | None = None
+) -> str:
+    """Commit `files` (and `moves`, old path to new) on a branch and merge it into main with a
+    merge commit, as a pull request lands. Returns the branch tip: the head a row was tested at."""
+    git(repo, "checkout", "-q", "-b", branch)
+    for old, new in (moves or {}).items():
+        (repo / new).parent.mkdir(parents=True, exist_ok=True)
+        git(repo, "mv", old, new)
+    tip = commit(repo, branch, files)
+    git(repo, "checkout", "-q", "main")
+    git(repo, "merge", "-q", "--no-ff", "-m", f"Merge {branch}", branch)
+    return tip
+
+
+def commit(repo: Path, message: str, files: dict[str, str]) -> str:
+    for rel, text in files.items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", message)
+    return sha(repo)
+
+
+@pytest.fixture(scope="module")
+def landed(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    """One history, built once and only read by its tests (git is slow to start here). Each key is
+    the head a row would have been tested at: the tip of a merged branch, or a commit on main."""
+    repo = make_repo(tmp_path_factory.mktemp("landed"))
+    heads: dict[str, Any] = {"repo": repo}
+    heads["docs"] = merge(repo, "docs", {"docs/playbook.md": "rule\n", ticket(1): "m\n"})
+    both = {"docs/more.md": "x\n", "api/src/ask.py": "code\n", ticket(2): "m\n"}
+    heads["feature"] = merge(repo, "feature", both)
+    heads["paths"] = merge(repo, "paths", {**dict.fromkeys(OWES, "x\n"), ticket(3): "m\n"})
+    heads["code"] = merge(repo, "code", {"api/src/other.py": "code\n"})  # no manifest in it
+    heads["evidence"] = merge(repo, "evidence", {ticket(4): "m\n", "evidence/gate1.txt": "ok\n"})
+    moved = {"api/src/other.py": "api/lib/other.py"}  # a module leaves the product tree
+    heads["moved"] = merge(repo, "moved", {ticket(5): "m\n"}, moved)
+    heads["straight"] = commit(repo, "straight onto main", {"evals/golden.toml": "q\n"})
+    heads["on top"] = commit(repo, "an unrelated commit on top", {"notes.txt": "later\n"})
+    heads["later"] = merge(repo, "later", {"docs/later.md": "x\n"})
+    # a branch of two commits that lands as a fast-forward: no merge commit marks where it began
+    git(repo, "checkout", "-q", "-b", "series")
+    commit(repo, "the product change", {"api/src/series.py": "code\n"})
+    heads["series"] = commit(repo, "its evidence", {"evidence/series.txt": "ok\n"})
+    git(repo, "checkout", "-q", "main")
+    git(repo, "merge", "-q", "--ff-only", "series")
+    heads["last"] = merge(repo, "last", {"docs/last.md": "x\n"})
+    heads["note"] = commit(repo, "a note straight onto main", {"docs/note.md": "x\n"})
+    git(repo, "checkout", "-q", "-b", "unmerged")
+    heads["unmerged"] = commit(repo, "unmerged docs", {"docs/unmerged.md": "x\n"})
+    git(repo, "checkout", "-q", "main")
+    return heads
+
+
+def closing(
+    landed: dict[str, Any], tested: str, manifest_path: str | None, **kwargs: Any
+) -> list[str]:
+    """What blocks a closure that records no post-merge run. `tested` is a key of `landed`, or a
+    hash spelled some other way."""
+    repo = landed["repo"]
+    head = landed.get(tested, tested)
+    body = manifest(repo, row(repo, tested_head=head, affects=["gate1.txt"]))
+    del body["post_merge"]
+    kwargs.setdefault("base", "main")
+    return closure.problems(body, repo, path=manifest_path, **kwargs)
+
+
+def test_a_ticket_that_merged_no_product_eval_or_harness_file_closes_without_a_post_merge_run(
+    landed: dict[str, Any],
 ) -> None:
-    keep = {"run": "r.json", "head": "h", "run_sha256": "s"}
-    with_l = refs_json(A={"head": "1"}, L=keep)
-    assert records(monkeypatch, tmp_path, {REFS: (None, with_l)})  # L with no PASS record
-    assert records(monkeypatch, tmp_path, {REFS: (None, refs_json(A={"head": "1"}))}) == []
-    ledger = promoted("r.json", head="h", sha="s")
-    assert records(monkeypatch, tmp_path, {REFS: (None, with_l), LEDGER: (None, ledger)}) == []
+    assert closing(landed, "docs", ticket(1)) == []
+    assert closing(landed, "note", None) == []  # and one committed straight onto main
+
+
+def test_a_ticket_whose_merge_touched_api_src_still_owes_its_post_merge_run(
+    landed: dict[str, Any],
+) -> None:
+    found = closing(landed, "feature", ticket(2))  # its row covers gate1.txt: the diff decides
+    assert len(found) == 1 and "post_merge" in found[0] and "api/src/ask.py" in found[0]
+    assert closing(landed, "feature", None) == found  # the tested head alone finds the merge
+    assert closing(landed, "feature", ticket(2), done=False) == []  # before the merge: not yet
+
+
+def test_what_owes_a_post_merge_run_is_the_product_the_evals_and_the_run_harness(
+    landed: dict[str, Any],
+) -> None:
+    repo = landed["repo"]
+    owed = closure.merged_e2e_paths(repo, ticket(3), [landed["paths"]], "main", closure._git)
+    assert owed == sorted(rel for rel, owes in OWES.items() if owes)
+    assert closure.merged_e2e_paths(repo, ticket(1), [landed["docs"]], "main", closure._git) == []
+
+
+def test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_another(
+    landed: dict[str, Any],
+) -> None:
+    assert any("api/src/other.py" in line for line in closing(landed, "code", ticket(4)))
+    # a row tested later, on the evidence branch, names only the evidence merge: a pull request
+    # with neither the manifest nor a tested head is not seen, which the docstring owns up to
+    assert closing(landed, "evidence", ticket(4)) == []
+
+
+def test_a_file_moved_out_of_the_product_tree_owes_the_run(landed: dict[str, Any]) -> None:
+    found = closing(landed, "moved", ticket(5))
+    assert len(found) == 1 and "api/src/other.py" in found[0]  # the path it left, not only the new
+
+
+def test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in(
+    landed: dict[str, Any],
+) -> None:
+    at_the_tip = closing(landed, "straight", None, base=landed["straight"])
+    assert any("evals/golden.toml" in line for line in at_the_tip)
+    assert any("evals/golden.toml" in line for line in closing(landed, "straight", None))
+    # the commit on top of it landed in the same series, and a merge came after: neither hides it
+    assert any("evals/golden.toml" in line for line in closing(landed, "on top", None))
+
+
+def test_a_branch_that_landed_as_a_fast_forward_is_read_whole(landed: dict[str, Any]) -> None:
+    found = closing(landed, "series", None)  # tested at its last commit, which is evidence only
+    assert len(found) == 1 and "api/src/series.py" in found[0]
+
+
+def test_a_tested_head_spelled_short_or_in_capitals_is_the_same_commit(
+    landed: dict[str, Any],
+) -> None:
+    # a commit made straight onto main and followed by a merge: read as another commit, it
+    # would be taken for that merge, which changed docs only
+    head = landed["on top"]
+    full = closing(landed, head, None)
+    assert full and "evals/golden.toml" in full[0]
+    for spelled in (head[:10], head.upper(), head[:8].upper()):
+        assert closing(landed, spelled, None) == full, spelled
+    assert closing(landed, landed["feature"][:12].upper(), None) == closing(landed, "feature", None)
+
+
+def test_work_that_is_not_on_the_base_cannot_close_without_a_run(landed: dict[str, Any]) -> None:
+    found = closing(landed, "unmerged", ticket(1))
+    assert len(found) == 1 and "not on main" in found[0]
+
+
+def test_a_merge_git_cannot_diff_owes_the_run(landed: dict[str, Any]) -> None:
+    def no_diff(root: Path, *args: str) -> Any:
+        if args[0] == "diff" and "--no-renames" in args:  # what a landed commit changed
+            return subprocess.CompletedProcess(args, 128, "", "bad object")
+        return closure._git(root, *args)
+
+    found = closing(landed, "docs", ticket(1), git=no_diff)
+    assert len(found) == 1 and "E2E is required" in found[0]
+
+    def no_parents(root: Path, *args: str) -> Any:
+        if args[:2] == ("rev-list", "--parents"):  # what it landed on
+            return subprocess.CompletedProcess(args, 128, "", "bad object")
+        return closure._git(root, *args)
+
+    found = closing(landed, "docs", ticket(1), git=no_parents)
+    assert len(found) == 1 and "E2E is required" in found[0]
+
+
+def test_a_half_recorded_post_merge_run_is_not_waved_through(landed: dict[str, Any]) -> None:
+    repo = landed["repo"]
+    body = manifest(repo, row(repo, tested_head=landed["docs"], affects=["gate1.txt"]))
+    body["post_merge"] = {"e2e": pinned(repo)}  # a run with no head: recorded wrongly, not absent
+    found = closure.problems(body, repo, base="main", path=ticket(1))
+    assert any("post_merge" in line for line in found)
+
+
+def test_check_file_names_the_manifest_whose_merges_are_diffed(landed: dict[str, Any]) -> None:
+    repo = landed["repo"]
+    digest = hashlib.sha256((repo / "gate1.txt").read_bytes()).hexdigest()
+    lines = [
+        'required = ["AC1"]',
+        "[[row]]",
+        'id = "AC1"',
+        'status = "PASS"',
+        'command = "pytest"',
+        'expected = "passes"',
+        'observed = "passed"',
+        'reviewer = "gate2.txt"',
+        'affects = ["gate1.txt"]',
+        f'tested_head = "{landed["evidence"]}"',  # a head whose own merge is evidence only, so
+        f'evidence = [{{path = "gate1.txt", sha256 = "{digest}"}}]',  # the manifest alone decides
+    ]
+    for number, owed in ((1, False), (2, True)):
+        (repo / ticket(number)).write_text("\n".join(lines) + "\n")
+        found = closure.check_file(repo / ticket(number), root=repo, base="main")
+        assert bool(found) is owed, number
+        assert all("api/src/ask.py" in line for line in found)

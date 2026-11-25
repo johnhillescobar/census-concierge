@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import budget_log
+import metric_compare
 
 ROOT = Path(__file__).resolve().parent.parent
 API_SRC = ROOT / "api" / "src"
@@ -37,6 +38,8 @@ class Check:
     direction: str = "max"
     # A logged owner waiver for this one run; the row still prints, as "waive".
     waived: str = ""
+    # The owner's standing [[exception]] for a floor main already misses; prints as "excpt".
+    excepted: str = ""
     note: str = ""
 
     @property
@@ -45,7 +48,7 @@ class Check:
 
     @property
     def ok(self) -> bool:
-        return self.within or bool(self.waived)
+        return self.within or bool(self.waived) or bool(self.excepted)
 
 
 def _py_files(root: Path) -> list[Path]:
@@ -241,16 +244,7 @@ def _p95_waiver(run: str, p95: float) -> str:
         text = (ROOT / "budgets.toml").read_text(encoding="utf-8")
     except OSError:
         return ""
-    for words in budget_log.entries(text):
-        if len(words) < 6 or words[1:4] != ["[waiver]", "p95_latency_seconds", run]:
-            continue
-        try:
-            logged = float(words[4])
-        except ValueError:
-            continue
-        if abs(logged - p95) < 0.0005:
-            return " ".join(words[5:])
-    return ""
+    return budget_log.p95_waiver(text, run, p95)
 
 
 def _p95_check(budgets: dict) -> Check | None:
@@ -286,7 +280,18 @@ def _p95_check(budgets: dict) -> Check | None:
     if slowest is not None:
         note += f"; slowest trial {slowest:g}s (p95 leaves out the top 5%)"
     waived = _p95_waiver(run, p95) if p95 > limit else ""
-    return Check("p95 latency (s)", p95, limit, waived=waived, note=note)
+    excepted = "" if p95 <= limit or waived else _excepted("p95_latency_seconds", p95, budgets)
+    return Check("p95 latency (s)", p95, limit, waived=waived, excepted=excepted, note=note)
+
+
+def _excepted(limit: str, value: float, budgets: dict) -> str:
+    """The owner's `[[exception]]` for a floor main already misses, while `value` is no worse than
+    its baseline by the ratified rule in evals/metric_protocol.toml; "" when the miss blocks."""
+    try:
+        rule = metric_compare.load_protocol()["rule"]
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        return ""
+    return metric_compare.excepted(limit, value, budgets, rule)
 
 
 def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
@@ -354,7 +359,14 @@ def collect(budgets: dict, structural_only: bool = False) -> list[Check]:
     ):
         value = _latest_evidence(key)
         if value is not None:
-            checks.append(Check(key, value, budgets["quality"][limit_key], direction="min"))
+            floor = budgets["quality"][limit_key]
+            can = value < floor and limit_key in metric_compare.EXCEPTABLE
+            excepted = _excepted(limit_key, value, budgets) if can else ""
+            checks.append(Check(key, value, floor, direction="min", excepted=excepted))
+
+    # a malformed exception excuses nothing and is itself a failure, so a typo cannot hide a miss
+    if problems := metric_compare.exception_problems(budgets):
+        checks.append(Check("malformed exceptions", len(problems), 0, note="; ".join(problems)))
 
     return checks
 
@@ -376,7 +388,9 @@ def main() -> int:
 
     print("\nBUDGETS\n")
     for check in checks:
-        status = "ok  " if check.within else ("waive" if check.ok else "FAIL")
+        status = "ok  " if check.within else "FAIL"
+        if not check.within and check.ok:
+            status = "waive" if check.waived else "excpt"
         comparator = "<=" if check.direction == "max" else ">="
         actual = f"{check.actual:>8.6g}"
         print(f"  {status:<5} {check.name:<{width}}  {actual} {comparator} {check.limit:g}")
@@ -384,11 +398,16 @@ def main() -> int:
             print(f"        {check.note}")
         if check.waived:
             print(f"        waived by owner: {check.waived}")
+        if check.excepted:
+            print(f"        {check.excepted}")
 
     failed = [c for c in checks if not c.ok]
     if not failed:
         waived = sum(1 for c in checks if c.waived and not c.within)
-        print(f"\nAll budgets met{f' ({waived} waived by the owner)' if waived else ''}.\n")
+        excepted = sum(1 for c in checks if c.excepted and not c.within)
+        counts = ((waived, "waived"), (excepted, "excepted"))
+        notes = ", ".join(f"{n} {word} by the owner" for n, word in counts if n)
+        print(f"\nAll budgets met{f' ({notes})' if notes else ''}.\n")
         return 0
 
     print(f"\n{len(failed)} budget(s) exceeded:\n")
@@ -401,6 +420,11 @@ def main() -> int:
             "in budgets.toml. It covers that one run only, and goes in its own commit: a waiver\n"
             "added in the same change as code fails 'new exemptions' in check_invariants."
         )
+    print(
+        "\nA floor that main already misses is excepted only by the owner, in its own commit:\n"
+        "an [[exception]] table in budgets.toml with metric, baseline, approved and ticket. It\n"
+        "holds while the value is no worse than the baseline by the rule in metric_protocol.toml."
+    )
     print(
         "\n"
         "STOP. Do not edit budgets.toml to make this pass.\n"
