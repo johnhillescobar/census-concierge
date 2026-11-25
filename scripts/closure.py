@@ -56,6 +56,9 @@ E2E_PATHS = (
     "scripts/score_synthetic.py",
     "scripts/verify_golden_places.py",
     "scripts/metric_compare.py",
+    "scripts/budget_log.py",  # metric_compare, and so run_demo, imports it
+    "scripts/build_index.py",  # builds the index both recipes read
+    "data/",  # the synthetic questions score_synthetic.py scores
 )
 LINE_NODES = {
     "paragraph",
@@ -198,6 +201,21 @@ def _row_problems(
     return out
 
 
+def _landed_on(root: Path, commit: str, git: GitFn) -> str | None:
+    """What a landed commit is diffed against, or None if git cannot say. A merge commit: the base
+    it merged into. A commit made straight onto the base (a fast-forward, an owner's own commit):
+    the last merge before it, so that a series which landed together is read whole. Its last
+    commit alone would hide the product change in its first."""
+    parents = git(root, "rev-list", "--parents", "-n", "1", commit)
+    words = parents.stdout.split()
+    if parents.returncode or not words:
+        return None
+    if len(words) > 2:
+        return words[1]
+    merge = git(root, "rev-list", "--first-parent", "--min-parents=2", "-n", "1", commit)
+    return merge.stdout.strip() or None
+
+
 def merged_e2e_paths(
     root: Path, manifest: str | None, tested: list[str], base: str, git: GitFn
 ) -> list[str] | None:
@@ -212,7 +230,12 @@ def merged_e2e_paths(
         if log.returncode:
             return None
         landed.update(log.stdout.split())
-    for commit in tested:
+    for given in tested:
+        # the full hash: a short or upper-case spelling must not read as a different commit
+        full = git(root, "rev-parse", "--verify", "--quiet", f"{given}^{{commit}}")
+        commit = full.stdout.strip()
+        if full.returncode or not commit:
+            return None
         after = git(root, "rev-list", "--first-parent", "--ancestry-path", f"{commit}..{base}")
         if after.returncode:
             return None
@@ -223,7 +246,11 @@ def merged_e2e_paths(
         landed.add(commit if first.stdout.strip() == commit or merge == commit else merge)
     changed: set[str] = set()
     for commit in sorted(landed):
-        diff = git(root, "diff", "--name-only", f"{commit}^1", commit)
+        since = _landed_on(root, commit, git)
+        if since is None:
+            return None
+        # --no-renames: a file moved out of api/src is a file that left api/src
+        diff = git(root, "diff", "--name-only", "--no-renames", since, commit)
         if diff.returncode:
             return None
         changed.update(diff.stdout.splitlines())

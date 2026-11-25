@@ -54,6 +54,9 @@ ROWS: dict[str, list[object]] = {
                 "test_the_compare_command_takes_pooled_files_and_judges_against_l_by_default",
                 "test_the_stored_candidate_runs_are_pooled_against_the_stored_main_runs",
                 "test_pooled_candidate_runs_must_have_measured_one_head",
+                "test_the_same_run_given_twice_is_not_two_runs",
+                "test_base_runs_must_measure_the_main_the_candidate_is_built_on",
+                "test_runs_collected_outside_the_window_are_not_same_window",
                 "test_the_ledger_row_names_every_run_file_by_hash",
             ],
         ),
@@ -72,6 +75,8 @@ ROWS: dict[str, list[object]] = {
                 "test_a_retrieval_or_selector_drop_fails_past_its_tolerance",
                 "test_a_p95_rise_past_its_tolerance_fails_and_one_inside_it_passes",
                 "test_a_group_under_the_minimum_gets_a_verdict_from_the_small_group_number",
+                "test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side",
+                "test_a_tolerance_that_is_not_a_finite_number_excuses_nothing",
             ],
         ),
     ],
@@ -85,7 +90,6 @@ ROWS: dict[str, list[object]] = {
                 "test_a_rule_number_that_is_removed_or_not_a_number_fails",
                 "test_a_rule_parameter_the_guard_does_not_know_is_a_violation",
                 "test_a_rule_number_main_does_not_have_yet_is_the_owners_to_ratify",
-                "test_a_blocking_rule_may_be_turned_on_and_never_off",
                 "test_a_reference_may_leave_the_report_only_list_and_never_join_it",
                 "test_loosening_the_frozen_protocol_fails",
                 "test_tightening_the_frozen_protocol_is_allowed",
@@ -120,8 +124,9 @@ ROWS: dict[str, list[object]] = {
             MC,
             [
                 "test_the_question_level_rule_names_every_question_of_a_broken_geography",
-                "test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main",
-                "test_the_question_level_rule_blocks_once_the_owner_adopts_it",
+                "test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side",
+                "test_the_question_level_rule_blocks_when_each_side_pools_two_runs",
+                "test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass",
             ],
         ),
     ],
@@ -132,7 +137,10 @@ ROWS: dict[str, list[object]] = {
                 "test_a_ticket_that_merged_no_product_eval_or_harness_file_closes_without_a_post_merge_run",
                 "test_what_owes_a_post_merge_run_is_the_product_the_evals_and_the_run_harness",
                 "test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_another",
-                "test_a_change_committed_straight_onto_the_base_is_diffed_as_itself",
+                "test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in",
+                "test_a_branch_that_landed_as_a_fast_forward_is_read_whole",
+                "test_a_file_moved_out_of_the_product_tree_owes_the_run",
+                "test_a_tested_head_spelled_short_or_in_capitals_is_the_same_commit",
                 "test_work_that_is_not_on_the_base_cannot_close_without_a_run",
                 "test_a_merge_git_cannot_diff_owes_the_run",
                 "test_a_half_recorded_post_merge_run_is_not_waved_through",
@@ -166,7 +174,7 @@ ROWS: dict[str, list[object]] = {
             [
                 "test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict",
                 "test_a_failing_blocking_reference_still_fails_beside_a_passing_anchor",
-                "test_compare_without_a_blocking_reference_is_refused_and_writes_no_record",
+                "test_l_is_judged_whatever_references_are_named",
             ],
         )
     ],
@@ -234,8 +242,10 @@ def main() -> int:
         for command in commands:
             if isinstance(command, tuple):
                 path, tests = command
-                keys = " or ".join(tests)
-                command = ["uv", "run", "pytest", path, "-q", "-rA", "-k", keys]
+                # by node id: pytest exits non-zero when a named test does not exist, where
+                # `-k` would quietly run the ones that do
+                nodes = [f"{path}::{test}" for test in tests]
+                command = ["uv", "run", "pytest", *nodes, "-q", "-rA", "-p", "no:cacheprovider"]
             code, text = run(list(command))  # type: ignore[arg-type]
             parts.append(text)
             if "check_invariants.py" in " ".join(command):

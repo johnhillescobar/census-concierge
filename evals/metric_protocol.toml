@@ -10,7 +10,9 @@
 # again as it is. A changed scorer or cohort still needs a bridge in evidence/metrics/bridges.json.
 #
 # PROPOSED, NOT RATIFIED. The [rule] numbers come from evidence/slice-6/cc-143/noise.txt and bind
-# nothing until the owner commits this file (CC-143 AC9) and replaces this paragraph.
+# nothing until the owner commits this file (CC-143 AC9) and replaces this paragraph. Decided by
+# the owner on 2026-11-25: the selector tolerance scales with the pool, and a lost question blocks
+# from two runs per side.
 
 version = 1
 
@@ -57,12 +59,15 @@ small_group_lost_questions = 1.0   # a cohort under min_families may lose this m
 empty_rise_max = 0.03              # long_tail trials with no rows may rise this far
 rows_lost_questions_max = 1        # questions that return fewer rows when they do answer
 retrieval_drop_max = 0.0           # retrieval@10 is deterministic: any drop fails
-selector_drop_max = 0.33           # selector@1 moved 0.75 -> 0.425 between two runs of unchanged
-                                   # main; tighten when more same-code runs exist
+selector_drop_max = 0.33           # one run against one: selector@1 moved 0.75 -> 0.425 between
+                                   # two runs of unchanged main. Divided by the runs pooled on
+                                   # the smaller side (0.165 at 2x2): order-balanced blocks halve
+                                   # such a step. Tighten when more same-code runs exist.
 p95_rise_max_seconds = 2.5         # pooled p95 over every trial
 window_hours = 12                  # every candidate and main run of one judgment is collected
                                    # within this many hours: "same-window" as a number
-lost_questions_block = false       # a question answered in every reference trial and in no
-                                   # candidate trial is reported, not blocking: at one run per
-                                   # side it fired on unchanged main (CC-143 AC10)
+lost_questions_min_runs = 2        # a question answered in every reference trial and in no
+                                   # candidate trial blocks when each side pools at least this
+                                   # many runs. At one run per side it fired on unchanged main
+                                   # (q20) and is only reported (CC-143 AC10).
 report_only = ["A", "A0"]          # anchors from before this rule: printed, never blocking

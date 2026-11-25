@@ -739,13 +739,13 @@ PROTOCOL_NOT_LOWER += (("sampling", "repeat"), ("sampling", "resamples"))
 RULE_NOT_HIGHER = ("rate_drop_max", "small_group_lost_questions", "empty_rise_max")
 RULE_NOT_HIGHER += ("rows_lost_questions_max", "retrieval_drop_max", "selector_drop_max")
 RULE_NOT_HIGHER += ("p95_rise_max_seconds", "window_hours")
-RULE_STAYS_ON = ("lost_questions_block",)  # a blocking rule may not become report-only
+RULE_NOT_HIGHER += ("lost_questions_min_runs",)  # more runs needed means it blocks less often
 PROTOCOL_UNCHANGED = tuple(("sampling", k) for k in ("case_rule", "stopping", "seed", "blocks"))
 PROTOCOL_UNCHANGED += (("scorer", "source"), ("", "version"))
 PROTOCOL_KEEP = (("scorer", "symbols"),)  # the old names must all remain
 PROTOCOL_NO_NEW = (("sampling", "exclusions"), ("selection", "exclude_flags"))
 PROTOCOL_NO_NEW += (("rule", "report_only"),)  # a reference added here stops blocking
-RULE_GUARDED = {*RULE_NOT_HIGHER, *RULE_STAYS_ON, "report_only"}
+RULE_GUARDED = {*RULE_NOT_HIGHER, "report_only"}
 
 
 def check_protocol_not_weakened(base: str) -> list[Violation]:
@@ -791,12 +791,6 @@ def check_protocol_not_weakened(base: str) -> list[Violation]:
             flag(f"[rule] {key}", f"new rule number {after:g}: the owner ratifies it")
         elif after > before:
             flag(f"[rule] {key}", f"{before:g} -> {after:g} loosens the rule")
-    for key in RULE_STAYS_ON:
-        before, after = old.get("rule", {}).get(key), new.get("rule", {}).get(key)
-        if not isinstance(after, bool):
-            flag(f"[rule] {key}", "the switch is missing or not true/false")
-        elif before is not after and not after:
-            flag(f"[rule] {key}", f"{before!r} -> false: the owner decides what does not block")
     for section, key in PROTOCOL_UNCHANGED:
         before = (old.get(section, {}) if section else old).get(key)
         after = (new.get(section, {}) if section else new).get(key)

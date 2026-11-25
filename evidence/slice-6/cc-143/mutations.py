@@ -21,7 +21,7 @@ MC, CI = "scripts/metric_compare.py", "scripts/check_invariants.py"
 CL, CB, PR = "scripts/closure.py", "scripts/check_budgets.py", "evals/metric_protocol.toml"
 M, G = "api/tests/test_metric_compare.py", "api/tests/test_closure_gate.py"
 B, I = "api/tests/test_budgets.py", "api/tests/test_invariants.py"  # noqa: E741
-RATE = 'status = "PASS" if worse <= limit + EPS else "FAIL"'
+RATE = 'status = "PASS" if _number(limit) and worse <= limit + EPS else "FAIL"'
 EXCUSE = (
     'if entry["metric"] == limit and sign * (value - entry["baseline"]) <= rule[tolerance] + EPS:'
 )
@@ -241,7 +241,7 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
         {
             M: [
                 "test_a_missing_or_failing_a_or_a0_does_not_change_the_verdict",
-                "test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main",
+                "test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side",
             ]
         },
     ),
@@ -366,30 +366,98 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
         {M: ["test_the_comparator_honours_a_one_run_waiver_as_the_budget_check_does"]},
     ),
     (
-        "the question-level rule always blocks",
+        "the question-level rule blocks at one run per side too",
         MC,
-        'blocking=bool(rule["lost_questions_block"]),',
-        "blocking=True,",
+        "    blocks = not _number(needed) or min(cand.runs, base.runs) >= needed",
+        "    blocks = True",
         {
             M: [
-                "test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main",
+                "test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side",
                 "test_both_stored_same_code_pairs_pass_either_way_round",
+                "test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass",
             ]
         },
     ),
     (
         "the question-level rule never blocks",
         MC,
-        'blocking=bool(rule["lost_questions_block"]),',
-        "blocking=False,",
-        {M: ["test_the_question_level_rule_blocks_once_the_owner_adopts_it"]},
+        "    blocks = not _number(needed) or min(cand.runs, base.runs) >= needed",
+        "    blocks = False",
+        {
+            M: [
+                "test_the_question_level_rule_blocks_when_each_side_pools_two_runs",
+                "test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass",
+            ]
+        },
+    ),
+    (
+        "the question-level rule blocks when either side pools two runs",
+        MC,
+        "    blocks = not _number(needed) or min(cand.runs, base.runs) >= needed",
+        "    blocks = not _number(needed) or max(cand.runs, base.runs) >= needed",
+        {M: ["test_the_question_level_rule_blocks_when_each_side_pools_two_runs"]},
+    ),
+    (
+        "a run threshold that is not a number switches the question-level rule off",
+        MC,
+        "    blocks = not _number(needed) or min(cand.runs, base.runs) >= needed",
+        "    blocks = _number(needed) and min(cand.runs, base.runs) >= needed",
+        {M: ["test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass"]},
+    ),
+    (
+        "the selector tolerance is the same at every pool size",
+        MC,
+        "            limit = limit / min(cand.runs, base.runs)",
+        "            limit = limit / 1",
+        {M: ["test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side"]},
+    ),
+    (
+        "the selector tolerance is divided by the larger side's runs",
+        MC,
+        "            limit = limit / min(cand.runs, base.runs)",
+        "            limit = limit / max(cand.runs, base.runs)",
+        {M: ["test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side"]},
+    ),
+    (
+        "a pool does not say how many runs it holds",
+        MC,
+        "        runs=len(runs),\n",
+        "",
+        {
+            M: [
+                "test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side",
+                "test_the_question_level_rule_blocks_when_each_side_pools_two_runs",
+            ]
+        },
+    ),
+    (
+        "an exception is judged by a tolerance that is not a finite number",
+        MC,
+        '    if not _number(rule[tolerance]):  # no finite rule says what "no worse" is\n'
+        '        return ""\n',
+        "",
+        {M: ["test_a_tolerance_that_is_not_a_finite_number_excuses_nothing"]},
+    ),
+    (
+        "a mean that float arithmetic puts just under a floor misses it",
+        MC,
+        "ok = value is not None and value >= floor - EPS",
+        "ok = value is not None and value >= floor",
+        {M: ["test_a_pool_whose_mean_sits_exactly_on_a_floor_meets_it"]},
+    ),
+    (
+        "promotion looks only at the answered rates when asking whether L would fall",
+        MC,
+        'below = [c.name for c in checks if c.kind == "rate" and (c.worse or 0) > EPS]',
+        'below = [c.name for c in checks if c.name.endswith("trial rate") and (c.worse or 0) > EPS]',
+        {M: ["test_promotion_never_lowers_l_on_any_rate_row"]},
     ),
     (
         "one answered reference trial is enough to call a question lost",
         MC,
         LOST,
         LOST.replace("if all(map(", "if any(map(", 1),
-        {M: ["test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main"]},
+        {M: ["test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side"]},
     ),
     (
         "lost questions are looked for in the long tail only",
@@ -771,16 +839,9 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
     (
         "the report-only list is not among the guarded parameters",
         CI,
-        'RULE_GUARDED = {*RULE_NOT_HIGHER, *RULE_STAYS_ON, "report_only"}',
-        "RULE_GUARDED = {*RULE_NOT_HIGHER, *RULE_STAYS_ON}",
+        'RULE_GUARDED = {*RULE_NOT_HIGHER, "report_only"}',
+        "RULE_GUARDED = set(RULE_NOT_HIGHER)",
         {G: ["test_every_rule_parameter_in_the_committed_protocol_is_guarded"]},
-    ),
-    (
-        "a blocking rule may be turned off",
-        CI,
-        "        elif before is not after and not after:",
-        "        elif False:",
-        {G: ["test_a_blocking_rule_may_be_turned_on_and_never_off"]},
     ),
     (
         "a reference may join the report-only list",
@@ -831,7 +892,7 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
             G: [
                 "test_a_ticket_whose_merge_touched_api_src_still_owes_its_post_merge_run",
                 "test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_another",
-                "test_a_change_committed_straight_onto_the_base_is_diffed_as_itself",
+                "test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in",
                 "test_check_file_names_the_manifest_whose_merges_are_diffed",
             ]
         },
@@ -844,7 +905,6 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
         {
             G: [
                 "test_a_ticket_that_merged_no_product_eval_or_harness_file_closes_without_a_post_merge_run",
-                "test_a_change_committed_straight_onto_the_base_is_diffed_as_itself",
             ]
         },
     ),
@@ -872,12 +932,12 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
     (
         "the merge that brought in a tested head is not looked up",
         CL,
-        "    for commit in tested:",
-        "    for commit in []:",
+        "    for given in tested:",
+        "    for given in []:",
         {
             G: [
                 "test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_another",
-                "test_a_change_committed_straight_onto_the_base_is_diffed_as_itself",
+                "test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in",
             ]
         },
     ),
@@ -893,7 +953,11 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
         CL,
         "landed.add(commit if first.stdout.strip() == commit or merge == commit else merge)",
         "landed.add(merge)",
-        {G: ["test_a_change_committed_straight_onto_the_base_is_diffed_as_itself"]},
+        {
+            G: [
+                "test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in"
+            ]
+        },
     ),
     (
         "work that is not on the base may close without a run",
@@ -905,11 +969,51 @@ MUTATIONS: list[tuple[str, str, str, str, dict[str, list[str]]]] = [
     (
         "a merge git cannot diff counts as having merged nothing",
         CL,
-        '        diff = git(root, "diff", "--name-only", f"{commit}^1", commit)\n'
+        '        diff = git(root, "diff", "--name-only", "--no-renames", since, commit)\n'
         "        if diff.returncode:\n            return None",
-        '        diff = git(root, "diff", "--name-only", f"{commit}^1", commit)\n'
+        '        diff = git(root, "diff", "--name-only", "--no-renames", since, commit)\n'
         "        if diff.returncode:\n            continue",
         {G: ["test_a_merge_git_cannot_diff_owes_the_run"]},
+    ),
+    (
+        "a landed commit git cannot place counts as having merged nothing",
+        CL,
+        "        if since is None:\n            return None",
+        "        if since is None:\n            continue",
+        {G: ["test_a_merge_git_cannot_diff_owes_the_run"]},
+    ),
+    (
+        "a renamed file is listed only under its new path",
+        CL,
+        'git(root, "diff", "--name-only", "--no-renames", since, commit)',
+        'git(root, "diff", "--name-only", since, commit)',
+        {G: ["test_a_file_moved_out_of_the_product_tree_owes_the_run"]},
+    ),
+    (
+        "a tested head is used as it is spelled",
+        CL,
+        "        commit = full.stdout.strip()",
+        "        commit = given",
+        {G: ["test_a_tested_head_spelled_short_or_in_capitals_is_the_same_commit"]},
+    ),
+    (
+        "a commit made straight onto the base is diffed against its parent alone",
+        CL,
+        "    return merge.stdout.strip() or None",
+        "    return words[1] if len(words) > 1 else None",
+        {
+            G: [
+                "test_a_branch_that_landed_as_a_fast_forward_is_read_whole",
+                "test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in",
+            ]
+        },
+    ),
+    (
+        "a change to the data the evals score owes no run",
+        CL,
+        '    "data/",  # the synthetic questions score_synthetic.py scores\n',
+        "",
+        {G: ["test_what_owes_a_post_merge_run_is_the_product_the_evals_and_the_run_harness"]},
     ),
     (
         "a half-recorded post-merge run counts as none recorded",

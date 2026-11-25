@@ -156,6 +156,7 @@ class Sample:
     trials: Trials
     seconds: list[float]
     scalars: dict[str, float]  # the mean over the runs of each scalar every run reports
+    runs: int = 1  # how many runs are pooled
 
 
 # --- hashes ------------------------------------------------------------------------------------
@@ -390,6 +391,7 @@ def sample(runs: list[Run], protocol: dict[str, Any]) -> Sample:
         trials=trials,
         seconds=[float(t["latency_s"]) for run in runs for t in run.trials],
         scalars={k: sum(run.scalars[k] for run in runs) / len(runs) for k in sorted(shared)},
+        runs=len(runs),
     )
 
 
@@ -434,8 +436,8 @@ def judge_rows(cand: Sample, base: Sample, name: str, protocol: dict[str, Any]) 
     out: list[Check] = []
 
     def rate_row(row: str, worse: float, limit: float, detail: str) -> None:
-        # written so that a tolerance that is not a number (nan) fails instead of passing
-        status = "PASS" if worse <= limit + EPS else "FAIL"
+        # a tolerance that is not a finite number (nan, inf) judges nothing: the row fails
+        status = "PASS" if _number(limit) and worse <= limit + EPS else "FAIL"
         out.append(Check(name, row, status, detail, kind="rate", worse=round(worse, 6)))
 
     for cohort_name, mine in cand.trials.items():
@@ -483,6 +485,10 @@ def judge_rows(cand: Sample, base: Sample, name: str, protocol: dict[str, Any]) 
     )
     for key in ("retrieval_at_10", "selector_at_1"):
         limit = rule[RATE_ROWS[key]]
+        if key == "selector_at_1":
+            # selector@1 is one number per run and a provider's bad hour moves a whole run. The
+            # tolerance is for one run against one; order-balanced pooled runs divide such a step
+            limit = limit / min(cand.runs, base.runs)
         if key in cand.scalars and key not in base.scalars:
             unknown = Check(name, key, "UNKNOWN", "the reference does not report it", kind="rate")
             out.append(unknown)
@@ -500,14 +506,20 @@ def judge_rows(cand: Sample, base: Sample, name: str, protocol: dict[str, Any]) 
         f"{c95:.3f}s vs {r95:.3f}s, may rise {limit:g}s{credited}",
     )
     lost = lost_questions(cand, base)
+    # at one run per side unchanged main lost a question this way (q20), so it blocks only when
+    # each side pools enough runs that one bad hour cannot produce it
+    needed = rule["lost_questions_min_runs"]
+    # a number that is not finite sets no size at which it may be ignored: it blocks
+    blocks = not _number(needed) or min(cand.runs, base.runs) >= needed
     out.append(
         Check(
             name,
             "lost questions",
             "FAIL" if lost else "PASS",
             f"{len(lost)} answered in every reference trial and in no candidate trial"
-            f"{': ' + ', '.join(lost) if lost else ''}",
-            blocking=bool(rule["lost_questions_block"]),
+            f"{': ' + ', '.join(lost) if lost else ''}"
+            f"{'' if blocks else f'; blocks from {needed:g} runs per side'}",
+            blocking=blocks,
         )
     )
     return out
@@ -570,6 +582,8 @@ def excepted(limit: str, value: float, budgets: dict[str, Any], rule: dict[str, 
     if exception_problems(budgets):
         return ""
     _section, tolerance, sign = EXCEPTABLE[limit]
+    if not _number(rule[tolerance]):  # no finite rule says what "no worse" is
+        return ""
     for entry in _exceptions(budgets):
         if entry["metric"] == limit and sign * (value - entry["baseline"]) <= rule[tolerance] + EPS:
             return (
@@ -598,7 +612,7 @@ def absolute(cands: Run | list[Run], protocol: dict[str, Any]) -> list[Check]:
         floor = quality[f"{key}_min"]
         values = [run.scalars.get(key) for run in cands]
         value = None if None in values else sum(values) / len(values)  # type: ignore[arg-type]
-        ok = value is not None and value >= floor
+        ok = value is not None and value >= floor - EPS  # a mean of 0.85 and 0.95 is 0.9
         shown = f"{value if value is None else round(value, 3)} vs floor {floor}"
         limit_row(f"{key} floor", f"{key}_min", value, ok, shown)
     rates, clocks = [], []
@@ -1030,6 +1044,7 @@ def draw(
         trials=trials,
         seconds=seconds,
         scalars={k: sum(scalars[k] for scalars in picked) / runs for k in sorted(shared)},
+        runs=runs,
     )
 
 
@@ -1197,8 +1212,9 @@ def cmd_freeze() -> int:
     small = f"small_group_lost_questions = {rule['small_group_lost_questions']:g}"
     minimum = protocol["sampling"]["min_families"]
     print(f"  rate  {'trial rate, a small group':<28} {small} (under {minimum} questions)")
-    adopted = "blocks" if rule["lost_questions_block"] else "reported, not adopted"
-    print(f"  hard  {'lost questions':<28} lost_questions_block = {adopted}")
+    needed = f"lost_questions_min_runs = {rule['lost_questions_min_runs']:g}"
+    print(f"  hard  {'lost questions':<28} {needed} (runs per side from which it blocks)")
+    print("  selector_drop_max is divided by the runs pooled on the smaller side")
     print(f"  hard  {'same-window main':<28} window_hours = {rule['window_hours']:g}")
     print(f"  hard  {', '.join(row for row in HARD_ROWS if row != 'lost questions')}")
     print(f"  report_only = {', '.join(rule['report_only'])} (printed, never blocking)")
@@ -1239,7 +1255,7 @@ def build_entry(
             ("retrieval_at_10", budgets["quality"]["retrieval_at_10_min"]),
             ("selector_at_1", budgets["quality"]["selector_at_1_min"]),
         )
-        if key in scalars and scalars[key] < floor
+        if key in scalars and scalars[key] < floor - EPS
     ]
     if metrics["p95"] > budgets["performance"]["p95_latency_seconds"]:
         blockers.append(f"p95 {metrics['p95']} > {budgets['performance']['p95_latency_seconds']}")
@@ -1347,9 +1363,10 @@ def cmd_compare(
 
 def cmd_promote(run_paths: str | list[str]) -> int:
     """Write the entry that moves L to runs of merged main. It needs a recorded pass against the L
-    it replaces and no answered rate below that L's: L never moves while a row is red, and never
-    down, so a run of small losses each inside the tolerance cannot walk it away. Committing the
-    result is the owner's: check_invariants rejects any change to L on a branch."""
+    it replaces and no rate row worse than that L's, by any amount: L never moves while a row is
+    red, and never down on any rate, so a run of small losses each inside its tolerance cannot
+    walk it away. Committing the result is the owner's: check_invariants rejects any change to L
+    on a branch."""
     paths = _pool(run_paths)
     refs = load_refs()
     if "L" not in refs:
@@ -1361,7 +1378,7 @@ def cmd_promote(run_paths: str | list[str]) -> int:
         print(f"not promoted: the runs' one head is not recorded or not on {MAIN}", file=sys.stderr)
         return 1
     final, checks = run_compare(paths, ["L"], {}, True, [])
-    below = [c.name for c in checks if c.name.endswith("trial rate") and (c.worse or 0) > EPS]
+    below = [c.name for c in checks if c.kind == "rate" and (c.worse or 0) > EPS]
     if final != "PASS" or below:
         why = f": below L on {', '.join(below)}" if final == "PASS" else ""
         print(f"not promoted{why}", file=sys.stderr)

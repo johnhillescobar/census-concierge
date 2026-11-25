@@ -993,10 +993,14 @@ def test_a_malformed_exception_excuses_nothing(
 def test_an_exception_covers_only_its_own_metric(
     protocol: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    held = {**BUDGETS, "exception": [exception("selector_at_1_min", 0.4)]}
+    # the baseline is one that would excuse a 29 s p95 if it were read as the p95's
+    held = {**BUDGETS, "exception": [exception("answered_rate_min", 29.0)]}
     monkeypatch.setattr(mc, "_budgets", lambda: held)
     assert mc.exception_problems(held) == []
     assert status(mc.absolute(run(protocol, seconds=29.0), protocol), "p95 ceiling") == "FAIL"
+    mine = {**BUDGETS, "exception": [exception("p95_latency_seconds", 29.0)]}
+    monkeypatch.setattr(mc, "_budgets", lambda: mine)
+    assert status(mc.absolute(run(protocol, seconds=29.0), protocol), "p95 ceiling") == "EXCEPTED"
 
 
 # --- story targets --------------------------------------------------------------------------------
@@ -1650,8 +1654,8 @@ def test_every_rate_row_is_judged_by_a_number_in_the_committed_rule() -> None:
     rule = mc.load_protocol()["rule"]
     numbers = {key for key, value in rule.items() if mc._number(value)}
     judged = set(mc.RATE_ROWS.values()) | {"small_group_lost_questions"}
-    assert judged | {"window_hours"} == numbers  # the window is the same-window hard row's
-    assert isinstance(rule["lost_questions_block"], bool)
+    # the last two are the numbers of the hard rows "same-window main" and "lost questions"
+    assert judged | {"window_hours", "lost_questions_min_runs"} == numbers
 
 
 def test_every_row_compare_prints_is_a_rate_with_a_rule_or_a_named_hard_failure(
@@ -1840,7 +1844,7 @@ def test_the_question_level_rule_names_every_question_of_a_broken_geography(
     assert set(seeded) <= set(lost)
 
 
-def test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_main(
+def test_the_question_level_rule_fires_on_unchanged_main_at_one_run_per_side(
     stored: dict[str, Any],
 ) -> None:
     alarms = {
@@ -1851,8 +1855,8 @@ def test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_ma
     }
     # unchanged main answered q20 in all three trials of one run and in none of the other
     assert alarms == {**dict.fromkeys(SAME_CODE, []), ("main-b2", "main-b1"): ["q20"]}
-    adopted = not any(alarms.values())  # it catches the seeded defect; this is the other half
-    assert mc.load_protocol()["rule"]["lost_questions_block"] is adopted
+    # so at one run per side it is not adopted (AC10): it is reported there, and blocks from two
+    assert mc.load_protocol()["rule"]["lost_questions_min_runs"] == 2
     checks = mc.evaluate(stored_run("main-b2"), stored_run("main-b1"), "B", stored)
     assert (
         status(checks, "lost questions") == "FAIL" and "q20" in row(checks, "lost questions").detail
@@ -1861,10 +1865,62 @@ def test_the_question_level_rule_is_not_adopted_because_it_fires_on_unchanged_ma
     assert mc.verdict(checks) == "PASS"  # reported, and the unchanged code still passes
 
 
-def test_the_question_level_rule_blocks_once_the_owner_adopts_it(stored: dict[str, Any]) -> None:
-    stored["rule"]["lost_questions_block"] = True
-    checks = mc.evaluate(stored_run("main-b2"), stored_run("main-b1"), "B", stored)
-    assert row(checks, "lost questions").blocking and mc.verdict(checks) == "FAIL"
+def test_the_question_level_rule_blocks_when_each_side_pools_two_runs(
+    stored: dict[str, Any],
+) -> None:
+    main = [stored_run("main-b1"), stored_run("main-b2")]
+    seeded = sorted(q["id"] for q in PLAN if q["expect_geo_level"] == ZCTA)
+    damaged = [broken(stored_run(name), seeded) for name in ("cc104-p1", "cc104-p2")]
+    checks = mc.evaluate(damaged, main, "B", stored)
+    lost = row(checks, "lost questions")
+    assert lost.blocking and lost.status == "FAIL" and all(q in lost.detail for q in seeded)
+    assert mc.verdict(checks) == "FAIL"
+    for cands, refs in ((damaged[:1], main), (damaged, main[:1]), (damaged[:1], main[:1])):
+        one_sided = row(mc.evaluate(cands, refs, "B", stored), "lost questions")
+        assert one_sided.status == "FAIL" and not one_sided.blocking  # one run on a side: reported
+    # the question unchanged main lost between its two runs is not lost against their pool
+    pooled, later = mc.sample(main, stored), mc.sample(main[1:], stored)
+    assert "q20" not in mc.lost_questions(later, pooled)
+
+
+def test_a_question_lost_in_both_pooled_runs_fails_a_verdict_the_rates_would_pass(
+    protocol: dict[str, Any],
+) -> None:
+    one = families_of(protocol, "long_tail", 1)  # 2.5 points: inside every rate tolerance
+    whole = [run(protocol), run(protocol)]
+    lost = [wrong_table_run(protocol, one), wrong_table_run(protocol, one)]
+    pooled = mc.evaluate(lost, whole, "B", protocol)
+    assert [c.name for c in pooled if c.blocking and c.status != "PASS"] == ["lost questions"]
+    assert mc.verdict(pooled) == "FAIL"
+    single = mc.evaluate(lost[0], whole[0], "B", protocol)
+    assert status(single, "lost questions") == "FAIL" and mc.verdict(single) == "PASS"
+    protocol["rule"]["lost_questions_min_runs"] = 1  # the owner may tighten it to every size
+    assert mc.verdict(mc.evaluate(lost[0], whole[0], "B", protocol)) == "FAIL"
+    protocol["rule"]["lost_questions_min_runs"] = float("nan")  # not a number: it blocks anyway
+    assert row(mc.evaluate(lost[0], whole[0], "B", protocol), "lost questions").blocking
+    protocol["rule"]["lost_questions_min_runs"] = 3  # more runs than either side pools
+    assert not row(mc.evaluate(lost, whole, "B", protocol), "lost questions").blocking
+
+
+def test_the_selector_tolerance_is_divided_by_the_runs_pooled_on_the_smaller_side(
+    protocol: dict[str, Any],
+) -> None:
+    limit = protocol["rule"]["selector_drop_max"]
+
+    def scored(value: float) -> mc.Run:
+        scalars = {"retrieval_at_10": 0.9, "selector_at_1": value, "answered_rate": 1.0}
+        return run(protocol, scalars=scalars)
+
+    def judged(cands: int, refs: int, drop: float) -> str:
+        checks = mc.evaluate([scored(0.9 - drop)] * cands, [scored(0.9)] * refs, "B", protocol)
+        return status(checks, "selector_at_1")
+
+    assert judged(1, 1, limit) == "PASS" and judged(1, 1, limit + 0.01) == "FAIL"
+    assert judged(2, 2, limit / 2) == "PASS" and judged(2, 2, limit / 2 + 0.01) == "FAIL"
+    assert judged(4, 4, limit / 4) == "PASS" and judged(4, 4, limit / 4 + 0.01) == "FAIL"
+    # one post-merge run against a pooled L, or two against one: the smaller side decides
+    assert judged(1, 2, limit) == "PASS" and judged(1, 2, limit + 0.01) == "FAIL"
+    assert judged(2, 1, limit) == "PASS" and judged(2, 1, limit + 0.01) == "FAIL"
 
 
 def test_a_stored_run_collected_before_the_rule_existed_is_judged_under_todays_rule(
@@ -2115,11 +2171,11 @@ def test_a_tolerance_that_is_not_a_finite_number_excuses_nothing(
 ) -> None:
     ids = families_of(protocol, "long_tail", 40)
     lower = run(protocol, losing("long_tail", ids[:12]))  # 30 points down
-    protocol["rule"]["rate_drop_max"] = float("nan")
+    protocol["rule"]["rate_drop_max"] = bad
     assert (
         status(mc.evaluate(lower, run(protocol), "B", protocol), "long_tail trial rate") == "FAIL"
     )
-    protocol["rule"]["p95_rise_max_seconds"] = float("nan")  # the tolerance an exception uses
+    protocol["rule"]["p95_rise_max_seconds"] = bad  # the tolerance an exception uses
     held = {**BUDGETS, "exception": [exception("p95_latency_seconds", 29.0)]}
     monkeypatch.setattr(mc, "_budgets", lambda: held)
     assert status(mc.absolute(run(protocol, seconds=29.0), protocol), "p95 ceiling") == "FAIL"
@@ -2154,3 +2210,46 @@ def test_the_comparator_honours_a_one_run_waiver_as_the_budget_check_does(
     monkeypatch.setattr(mc, "_budgets_text", lambda: log + waiver)
     twin = write_run(lab["dir"] / "twin.json", with_contract(run(protocol, seconds=25.472)))
     assert status(mc.compare([path, twin], ["L"], {}), "p95 ceiling") == "FAIL"  # one run only
+
+
+# --- findings of the /code-review of 2547155 -------------------------------------------------
+
+
+def test_a_pool_whose_mean_sits_exactly_on_a_floor_meets_it(
+    protocol: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mc, "_budgets", lambda: dict(BUDGETS))
+
+    def scored(key: str, value: float) -> mc.Run:
+        scalars = {"retrieval_at_10": 0.95, "selector_at_1": 0.95, "answered_rate": 1.0}
+        return run(protocol, scalars={**scalars, key: value})
+
+    assert (0.85 + 0.95) / 2 < 0.9  # what float arithmetic makes of 34/40 and 38/40
+    pool = [scored("retrieval_at_10", 0.85), scored("retrieval_at_10", 0.95)]
+    assert status(mc.absolute(pool, protocol), "retrieval_at_10 floor") == "PASS"
+    thirds = [scored("selector_at_1", 0.7)] * 3  # three runs exactly on the 0.70 floor
+    assert status(mc.absolute(thirds, protocol), "selector_at_1 floor") == "PASS"
+    under = [scored("retrieval_at_10", 0.85), scored("retrieval_at_10", 0.94)]
+    assert status(mc.absolute(under, protocol), "retrieval_at_10 floor") == "FAIL"
+
+
+def test_promotion_never_lowers_l_on_any_rate_row(
+    protocol: dict[str, Any], lab: dict[str, Any]
+) -> None:
+    register(lab, "L", contract_run(protocol, []))
+    before = (lab["dir"] / "references.json").read_bytes()
+    slower = with_contract(run(protocol, seconds=10.5))  # half a second: far inside the tolerance
+    path = write_run(lab["dir"] / "slower.json", slower)
+    assert mc.cmd_compare(path, ["L"], {}, record=False) == 0  # it passes against L
+    assert mc.cmd_promote(path) == 1  # and still may not become L: the anchor would get slower
+    scalars = {"retrieval_at_10": 0.9, "selector_at_1": 0.8, "answered_rate": 1.0}
+    made = with_contract(run(protocol, scalars=scalars))
+    body_path = write_run(lab["dir"] / "selector.json", made)
+    body = json.loads(Path(body_path).read_text())
+    body["selector_at_1"] = 0.75  # five points under L's: inside the tolerance too
+    Path(body_path).write_text(json.dumps(body))
+    assert mc.cmd_compare(body_path, ["L"], {}, record=False) == 0
+    assert mc.cmd_promote(body_path) == 1
+    assert (lab["dir"] / "references.json").read_bytes() == before
+    faster = write_run(lab["dir"] / "faster.json", with_contract(run(protocol, seconds=9.0)))
+    assert mc.cmd_promote(faster) == 0  # no row worse than L: it may move

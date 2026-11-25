@@ -527,19 +527,6 @@ def test_a_rule_number_main_does_not_have_yet_is_the_owners_to_ratify(
     assert guarded(monkeypatch, tmp_path, text, text) == []  # once main has it: nothing to say
 
 
-def test_a_blocking_rule_may_be_turned_on_and_never_off(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    line, value = rule_line("lost_questions_block")
-    off = protocol_text().replace(line, "lost_questions_block = false")
-    on = protocol_text().replace(line, "lost_questions_block = true")
-    assert on != off and isinstance(value, bool)
-    assert guarded(monkeypatch, tmp_path, on, off)
-    assert guarded(monkeypatch, tmp_path, off, on) == []
-    assert guarded(monkeypatch, tmp_path, off, off) == []
-    assert guarded(monkeypatch, tmp_path, on, on.replace("= true", "= 1"))  # not a switch
-
-
 def test_a_reference_may_leave_the_report_only_list_and_never_join_it(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -901,6 +888,9 @@ OWES = {
     "scripts/run_demo.py": True,
     "scripts/run_grid.py": True,
     "scripts/metric_compare.py": True,
+    "scripts/budget_log.py": True,  # metric_compare imports it, and run_demo imports that
+    "scripts/build_index.py": True,
+    "data/synthetic_questions.json": True,
     "Makefile": True,
     "uv.lock": True,
     "api/pyproject.toml": True,
@@ -913,6 +903,7 @@ OWES = {
     "evidence/slice-6/notes.txt": False,
     "api/src_notes.md": False,  # beside api/src, not in it
     "Makefile.bak": False,
+    "database/notes.md": False,  # beside data/, not in it
 }
 
 
@@ -920,10 +911,15 @@ def ticket(number: int) -> str:
     return f"evidence/closure/CC-{number}.toml"
 
 
-def merge(repo: Path, branch: str, files: dict[str, str]) -> str:
-    """Commit `files` on a branch and merge it into main with a merge commit, as a pull request
-    lands. Returns the branch tip: the head a row was tested at."""
+def merge(
+    repo: Path, branch: str, files: dict[str, str], moves: dict[str, str] | None = None
+) -> str:
+    """Commit `files` (and `moves`, old path to new) on a branch and merge it into main with a
+    merge commit, as a pull request lands. Returns the branch tip: the head a row was tested at."""
     git(repo, "checkout", "-q", "-b", branch)
+    for old, new in (moves or {}).items():
+        (repo / new).parent.mkdir(parents=True, exist_ok=True)
+        git(repo, "mv", old, new)
     tip = commit(repo, branch, files)
     git(repo, "checkout", "-q", "main")
     git(repo, "merge", "-q", "--no-ff", "-m", f"Merge {branch}", branch)
@@ -951,8 +947,19 @@ def landed(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     heads["paths"] = merge(repo, "paths", {**dict.fromkeys(OWES, "x\n"), ticket(3): "m\n"})
     heads["code"] = merge(repo, "code", {"api/src/other.py": "code\n"})  # no manifest in it
     heads["evidence"] = merge(repo, "evidence", {ticket(4): "m\n", "evidence/gate1.txt": "ok\n"})
+    moved = {"api/src/other.py": "api/lib/other.py"}  # a module leaves the product tree
+    heads["moved"] = merge(repo, "moved", {ticket(5): "m\n"}, moved)
     heads["straight"] = commit(repo, "straight onto main", {"evals/golden.toml": "q\n"})
     heads["on top"] = commit(repo, "an unrelated commit on top", {"notes.txt": "later\n"})
+    heads["later"] = merge(repo, "later", {"docs/later.md": "x\n"})
+    # a branch of two commits that lands as a fast-forward: no merge commit marks where it began
+    git(repo, "checkout", "-q", "-b", "series")
+    commit(repo, "the product change", {"api/src/series.py": "code\n"})
+    heads["series"] = commit(repo, "its evidence", {"evidence/series.txt": "ok\n"})
+    git(repo, "checkout", "-q", "main")
+    git(repo, "merge", "-q", "--ff-only", "series")
+    heads["last"] = merge(repo, "last", {"docs/last.md": "x\n"})
+    heads["note"] = commit(repo, "a note straight onto main", {"docs/note.md": "x\n"})
     git(repo, "checkout", "-q", "-b", "unmerged")
     heads["unmerged"] = commit(repo, "unmerged docs", {"docs/unmerged.md": "x\n"})
     git(repo, "checkout", "-q", "main")
@@ -962,9 +969,11 @@ def landed(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
 def closing(
     landed: dict[str, Any], tested: str, manifest_path: str | None, **kwargs: Any
 ) -> list[str]:
-    """What blocks a closure that records no post-merge run."""
+    """What blocks a closure that records no post-merge run. `tested` is a key of `landed`, or a
+    hash spelled some other way."""
     repo = landed["repo"]
-    body = manifest(repo, row(repo, tested_head=landed[tested], affects=["gate1.txt"]))
+    head = landed.get(tested, tested)
+    body = manifest(repo, row(repo, tested_head=head, affects=["gate1.txt"]))
     del body["post_merge"]
     kwargs.setdefault("base", "main")
     return closure.problems(body, repo, path=manifest_path, **kwargs)
@@ -974,6 +983,7 @@ def test_a_ticket_that_merged_no_product_eval_or_harness_file_closes_without_a_p
     landed: dict[str, Any],
 ) -> None:
     assert closing(landed, "docs", ticket(1)) == []
+    assert closing(landed, "note", None) == []  # and one committed straight onto main
 
 
 def test_a_ticket_whose_merge_touched_api_src_still_owes_its_post_merge_run(
@@ -1003,13 +1013,34 @@ def test_code_merged_in_one_pull_request_is_seen_when_the_manifest_lands_in_anot
     assert closing(landed, "evidence", ticket(4)) == []
 
 
-def test_a_change_committed_straight_onto_the_base_is_diffed_as_itself(
+def test_a_file_moved_out_of_the_product_tree_owes_the_run(landed: dict[str, Any]) -> None:
+    found = closing(landed, "moved", ticket(5))
+    assert len(found) == 1 and "api/src/other.py" in found[0]  # the path it left, not only the new
+
+
+def test_a_change_committed_straight_onto_the_base_is_read_with_the_series_it_landed_in(
     landed: dict[str, Any],
 ) -> None:
     at_the_tip = closing(landed, "straight", None, base=landed["straight"])
     assert any("evals/golden.toml" in line for line in at_the_tip)
     assert any("evals/golden.toml" in line for line in closing(landed, "straight", None))
-    assert closing(landed, "on top", None) == []  # the later commit touched nothing that counts
+    # the commit on top of it landed in the same series, and a merge came after: neither hides it
+    assert any("evals/golden.toml" in line for line in closing(landed, "on top", None))
+
+
+def test_a_branch_that_landed_as_a_fast_forward_is_read_whole(landed: dict[str, Any]) -> None:
+    found = closing(landed, "series", None)  # tested at its last commit, which is evidence only
+    assert len(found) == 1 and "api/src/series.py" in found[0]
+
+
+def test_a_tested_head_spelled_short_or_in_capitals_is_the_same_commit(
+    landed: dict[str, Any],
+) -> None:
+    full = closing(landed, "straight", None)
+    assert full and "evals/golden.toml" in full[0]
+    for spelled in (landed["straight"][:10], landed["straight"].upper(), landed["straight"][:8]):
+        assert closing(landed, spelled, None) == full, spelled
+    assert closing(landed, landed["feature"][:12].upper(), None) == closing(landed, "feature", None)
 
 
 def test_work_that_is_not_on_the_base_cannot_close_without_a_run(landed: dict[str, Any]) -> None:
@@ -1019,11 +1050,19 @@ def test_work_that_is_not_on_the_base_cannot_close_without_a_run(landed: dict[st
 
 def test_a_merge_git_cannot_diff_owes_the_run(landed: dict[str, Any]) -> None:
     def no_diff(root: Path, *args: str) -> Any:
-        if args[:2] == ("diff", "--name-only") and len(args) == 4:  # a commit against its parent
+        if args[0] == "diff" and "--no-renames" in args:  # what a landed commit changed
             return subprocess.CompletedProcess(args, 128, "", "bad object")
         return closure._git(root, *args)
 
     found = closing(landed, "docs", ticket(1), git=no_diff)
+    assert len(found) == 1 and "E2E is required" in found[0]
+
+    def no_parents(root: Path, *args: str) -> Any:
+        if args[:2] == ("rev-list", "--parents"):  # what it landed on
+            return subprocess.CompletedProcess(args, 128, "", "bad object")
+        return closure._git(root, *args)
+
+    found = closing(landed, "docs", ticket(1), git=no_parents)
     assert len(found) == 1 and "E2E is required" in found[0]
 
 
@@ -1048,8 +1087,8 @@ def test_check_file_names_the_manifest_whose_merges_are_diffed(landed: dict[str,
         'observed = "passed"',
         'reviewer = "gate2.txt"',
         'affects = ["gate1.txt"]',
-        f'tested_head = "{landed["on top"]}"',  # on main, and after every merge: only the
-        f'evidence = [{{path = "gate1.txt", sha256 = "{digest}"}}]',  # manifest names the ticket
+        f'tested_head = "{landed["evidence"]}"',  # a head whose own merge is evidence only, so
+        f'evidence = [{{path = "gate1.txt", sha256 = "{digest}"}}]',  # the manifest alone decides
     ]
     for number, owed in ((1, False), (2, True)):
         (repo / ticket(number)).write_text("\n".join(lines) + "\n")
