@@ -295,6 +295,15 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
                 else:
                     render_node(child, indent=f"{indent}  ")
             return
+        if node_type == "codeBlock":
+            chunks.extend(["```", _render_inline(node.get("content") or []), "```", ""])
+            return
+        if node_type in ("taskItem", "decisionItem"):  # their text sits inline, not in a paragraph
+            mark = "- [x] " if (node.get("attrs") or {}).get("state") == "DONE" else "- [ ] "
+            mark = mark if node_type == "taskItem" else "- "
+            text = _render_inline(node.get("content") or [])
+            chunks.extend([f"{indent}{mark}{text.strip()}"] if text.strip() else [])
+            return
 
         # Fallback: try rendering children.
         for child in node.get("content") or []:
@@ -316,6 +325,11 @@ def _adf_to_markdown(doc: dict[str, Any]) -> str:
                     parts.append(text)
             elif child.get("type") == "hardBreak":
                 parts.append("\n")
+            elif child.get("type") in ("mention", "emoji", "inlineCard", "date", "status"):
+                attrs = child.get("attrs") or {}  # a node with no text of its own
+                parts.append(
+                    str(attrs.get("text") or attrs.get("url") or attrs.get("timestamp") or "")
+                )
             else:
                 inner = child.get("content")
                 if isinstance(inner, list):

@@ -3,6 +3,7 @@
 
     python scripts/closure.py check evidence/closure/CC-133.toml [--pre-merge] [--head SHA]
                                     [--require AC1,TC1] [--ref origin/main]
+    python scripts/closure.py ticket feat/cc-145-one-source      prints CC-145, or exits 1
 
 A manifest is evidence/closure/<KEY>.toml: one [[row]] per AC and TC, an optional [[amendment]]
 per row the owner removed from scope, and one [post_merge] block. This checks that the record is
@@ -13,11 +14,14 @@ post-merge E2E ran on a commit that is on the base ref. Reviewers still verify t
 row. This cannot stop a human from closing a ticket in Jira directly.
 
     required = ["AC1", "TC1"]      the ids this manifest claims to cover; each needs a row
+    approved_ids, approved_sha256  the criteria approved at pre-flight (scripts/brief.py); each
+                                   approved id needs a row too
     [[row]]  id status command expected observed evidence tested_head affects
              new_tests mutation reviewer
              (every row but an AMENDED one names its command)
              (a PASS row pins every evidence entry and its mutation check: {path, sha256})
-    [[amendment]]  id date owner reason destination
+    [[amendment]]  id date owner reason destination [criteria_sha256]
+             (with criteria_sha256 it re-approves the criteria text; it removes no row from scope)
     [post_merge]   e2e main_head
 """
 
@@ -130,11 +134,83 @@ def required_ids(text: str) -> list[str]:
     return found
 
 
-def criteria_fingerprint(text: str) -> str:
-    """sha256 of the criterion lines only (each line `required_ids` reads an id from), whitespace
-    collapsed: rewording a criterion changes it, editing a decision paragraph does not."""
-    lines = [" ".join(line.split()) for line in text.splitlines() if required_ids(line)]
-    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+ITEM_NODES = {"paragraph", "listItem", "taskItem", "decisionItem", "codeBlock", "blockquote"}
+
+
+def _first_line(text: str) -> str:
+    return (text.strip().splitlines() or [""])[0]
+
+
+def criteria_blocks(description: object) -> list[str]:
+    """Each criterion's whole text, whitespace collapsed, in order. A criterion is the block whose
+    first line carries its id: a paragraph with its hard breaks, a list item with its sub-items,
+    a table row whose first cell is the id, or a heading and everything under it up to the next
+    heading or criterion. A paragraph after a paragraph criterion is not part of it, so editing
+    a decision paragraph does not move the fingerprint. A plain string is read line by line."""
+    if isinstance(description, str):
+        return [" ".join(line.split()) for line in description.splitlines() if required_ids(line)]
+    out: list[list[str]] = []
+
+    def walk(nodes: list[Any]) -> None:
+        section: list[str] | None = None  # the criterion an id heading opened
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            kind, text = node.get("type"), adf_text(node)
+            if kind == "heading":
+                section = [text] if required_ids(_first_line(text)) else None
+                out.extend([section] if section else [])
+                continue
+            cells = node.get("content") or [] if kind == "tableRow" else []
+            starts = adf_text(cells[0]) if cells else text
+            if (kind in ITEM_NODES or kind == "tableRow") and required_ids(_first_line(starts)):
+                section = None
+                out.append([" | ".join(adf_text(c) for c in cells) if cells else text])
+            elif section is not None:
+                section.append(text)
+            else:  # a container, or an item with a criterion further in
+                walk(node.get("content") or [])
+
+    walk(description.get("content") or [] if isinstance(description, dict) else [])
+    return [" ".join(" ".join(parts).split()) for parts in out]
+
+
+def criteria_fingerprint(description: object) -> str:
+    """sha256 of the criteria's whole text (`criteria_blocks`): rewording any part of a criterion
+    changes it, editing a paragraph that is not one does not."""
+    return hashlib.sha256("\n".join(criteria_blocks(description)).encode("utf-8")).hexdigest()
+
+
+BRANCH_TYPES = ("feat", "fix", "docs", "chore", "test", "refactor", "perf", "ci", "build", "style")
+BRANCH_TYPES += ("revert", "evidence")  # conventional commits, plus this repo's evidence PRs
+
+
+def branch_ticket(branch: str) -> tuple[str | None, str]:
+    """The Jira key a branch names, or None and why not. A branch is `<type>/...`, its type a
+    conventional-commit type, and carries one ticket key anywhere after it: feat/cc-145-x,
+    fix/x-CC-145, evidence/cc145-post all name CC-145. Words are runs of letters and digits."""
+    kind, _, rest = branch.partition("/")
+    if kind.lower() not in BRANCH_TYPES or not rest:
+        types = ", ".join(BRANCH_TYPES)
+        return None, f"branch {branch!r} does not start with a conventional type ({types})/"
+    words = "".join(ch.lower() if ch.isalnum() else " " for ch in rest).split()
+    pairs = zip(words, [*words[1:], ""], strict=True)
+    keys = {f"CC-{int(n)}" for w, n in pairs if w == "cc" and n.isdigit()}
+    keys |= {f"CC-{int(w[2:])}" for w in words if w[:2] == "cc" and w[2:].isdigit()}
+    if len(keys) != 1:
+        found = ", ".join(sorted(keys)) or "none"
+        return None, f"branch {branch!r} must name exactly one ticket (found {found})"
+    return keys.pop(), ""
+
+
+def amendment_problems(amendment: dict[str, Any]) -> list[str]:
+    """The fields an owner amendment lacks: id, ISO date, owner, reason, destination."""
+    missing = [k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)]
+    try:
+        date.fromisoformat(str(amendment.get("date")))
+    except ValueError:
+        missing.append("date (ISO)")
+    return missing
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -292,19 +368,15 @@ def problems(
     out += [f"{i}: listed more than once" for i in sorted({i for i in ids if ids.count(i) > 1})]
     amendments = [a for a in manifest.get("amendment") or [] if isinstance(a, dict)]
     for amendment in amendments:
-        missing = [
-            k for k in ("id", "date", "owner", "reason", "destination") if not amendment.get(k)
-        ]
-        try:
-            date.fromisoformat(str(amendment.get("date")))
-        except ValueError:
-            missing.append("date (ISO)")
+        missing = amendment_problems(amendment)
         out += (
             [f"amendment {amendment.get('id', '?')}: missing {', '.join(missing)}"]
             if missing
             else []
         )
-    amended = {str(a.get("id")) for a in amendments}
+    # An amendment that re-approves the criteria text (criteria_sha256) adds or rewords scope; it
+    # does not remove its id, so it cannot stand in for that row's evidence.
+    amended = {str(a.get("id")) for a in amendments if not a.get("criteria_sha256")}
     for row in rows:
         out += _row_problems(row, root, head, amended, readiness, git)
     if not readiness:
@@ -315,7 +387,9 @@ def problems(
     if not isinstance(declared, list) or not declared or not all(_text(i) for i in declared):
         out.append("the manifest must declare `required`, the AC/TC ids it covers")
         declared = []
-    wanted = list(dict.fromkeys([*declared, *(required or [])]))
+    approved = manifest.get("approved_ids")  # approved at pre-flight (scripts/brief.py)
+    approved = [str(i) for i in approved] if isinstance(approved, list) else []
+    wanted = list(dict.fromkeys([*declared, *approved, *(required or [])]))
     out += [f"{i}: absent from the manifest" for i in wanted if i not in ids]
     block = manifest.get("post_merge") or {}
     if done:
@@ -380,7 +454,13 @@ def main() -> int:
     check.add_argument("--ref", default="origin/main")
     check.add_argument("--require", default="")
     check.add_argument("--pre-merge", action="store_true", help="skip the post-merge E2E")
+    ticket = sub.add_parser("ticket", help="print the ticket key a branch names; exit 1 if none")
+    ticket.add_argument("branch")
     args = parser.parse_args()
+    if args.command == "ticket":
+        key, why = branch_ticket(args.branch)
+        print(key or why, file=sys.stdout if key else sys.stderr)
+        return 0 if key else 1
     found = check_file(
         args.manifest,
         required=[i for i in args.require.split(",") if i],

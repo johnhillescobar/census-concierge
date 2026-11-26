@@ -162,3 +162,37 @@ def test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree(
     monkeypatch.setattr(jt, "ROOT", worktree)
     jt._load_env()
     assert os.environ.get("JIRA_FETCH_TEST_VALUE") == "from-main"
+
+
+def node(kind: str, *content: dict[str, Any], **attrs: Any) -> dict[str, Any]:
+    return {"type": kind, "content": list(content), "attrs": attrs}
+
+
+def text(value: str) -> dict[str, Any]:
+    return {"type": "text", "text": value}
+
+
+@pytest.mark.parametrize(
+    ("body", "shown"),
+    [
+        (node("doc", node("codeBlock", text("make check"))), "make check"),
+        (
+            node("doc", node("taskList", node("taskItem", text("rerun AC4"), state="TODO"))),
+            "rerun AC4",
+        ),
+        (
+            node("doc", node("decisionList", node("decisionItem", text("keep the waiver")))),
+            "keep the waiver",
+        ),
+        (node("doc", node("paragraph", text("ask "), node("mention", text="@Owner"))), "@Owner"),
+        (
+            node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
+            "https://example.com/pr/1",
+        ),
+    ],
+)
+def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(
+    body: dict[str, Any], shown: str
+) -> None:
+    out = jf.issue_markdown(ISSUE, [{"created": "2026-11-26", "author": {}, "body": body}])
+    assert shown in out and "(empty)" not in out

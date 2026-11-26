@@ -13,7 +13,8 @@ Live ask-path behavior: `docs/ask-path.md`. Retrieval measurements:
 budgets.toml                 enforced complexity limits
 scripts/check_budgets.py     exits 1 on violation
 scripts/check_invariants.py  named anti-patterns; --base catches a weakened budget
-scripts/closure.py           AC/TC closure manifest check (evidence/closure/CC-N.toml)
+scripts/closure.py           AC/TC closure manifest check (evidence/closure/CC-N.toml); `ticket`
+                             reads the key from a <type>/...cc-N... branch for CI
 scripts/brief.py             one phase's brief for a ticket; opens with the two status commands,
                              stops when the Jira criteria differ from the ones approved at pre-flight
 scripts/fetch_metadata.py    ACS metadata → data/raw/ (no key)

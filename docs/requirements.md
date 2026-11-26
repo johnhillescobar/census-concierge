@@ -21,12 +21,13 @@ A silently short series is the same failure as a wrong one: dropped years, geogr
 A question must carry the minimum its level takes (`finish._NEEDS`, measured live): every tract or block
 group needs the state; one county or place by number, the state; one tract, state and county; one block
 group, state, county and tract. One that carries less, or points at a place without naming it ("my county"),
-is not answered: `geography_unsupported`, an answer saying what is missing, and empty `urls[]`, `rows` and
-`alternatives`. No search, fetch or blocking question. A question asking which table holds something is
-answered. The model reports level, places, county, pointing phrases and ask; code compares, no word scan.
-Known limit (owner, 2026-10-25): a county named without its state still resolves, because the model adds
-the state and only the banned word scan would catch it. A follow-up is a question typed after an answer in
-the same chat; a question on its own is never one.
+is not answered: `geography_unsupported`, an answer saying what is missing and asking for it, and empty
+`urls[]`, `rows` and `alternatives`. No guess, table search or fetch. The same holds for a place name several
+states share with no state the user wrote ("population of Springfield", Cook County; a state the model adds
+is not the user's) and for a question whose geography level is unclear. A unique place (Chicago, Washington
+DC) needs nothing more. A question asking which table holds something is answered. The model reports
+level, places, county, pointing phrases and ask; code compares, no word scan. A follow-up is a question
+typed after an answer in the same chat; a question on its own is never one.
 
 ## Slice 1 warning codes
 
@@ -36,7 +37,7 @@ the same chat; a question on its own is never one.
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
 | `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
-| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Never guessed: no largest match, no population dominance, and a state the model adds is not the user's; no URL and no fetch until the user names one. Eval labels: `scripts/label_grid_ambiguity.py`. |
+| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the user wrote no state. It is an incomplete question (Geography completeness, above): never guessed (no largest match, no population dominance), no table search, no URL, no fetch. Scope ("which counties?") is not ambiguity. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 | `answer_figures_unverified` | The model's text or chart title stated a number the response does not carry; the rendered figures (or the table ID, for a title) replace it. |
 

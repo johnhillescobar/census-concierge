@@ -59,8 +59,11 @@ A question must carry what Census requires for the geography **level** it asks a
 minimum for that kind of question: every tract or block group in a state needs the state; one
 county by number needs the state; one tract by number needs state and county; one block group
 by number needs state, county and tract. A code such as a tract number identifies nothing
-without its parents. A question that carries less cannot be answered: say immediately that it
-is incomplete and cannot be searched, name what is missing, and return **no URL**, no
+without its parents. A place name several states share with no state the user wrote (Springfield,
+Cook County; a state the model adds is not the user's), or a question whose level is unclear, carries
+less too; a unique place (Chicago, Washington DC) does not. A question that carries less
+cannot be answered: say immediately that it is incomplete and cannot be searched, name what
+is missing, and return **no URL**, no
 candidates and no fetch; a refusal returns no rows, so the four fields above do not apply to
 it. A question asking which table holds something is not a search by geography: answer it. The
 model reports the level, what the question names and what it asks for; code compares that

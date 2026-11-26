@@ -16,7 +16,8 @@ steps it prescribes (gates, E2E) without asking; ask only the owner's decisions.
 0  trust        complete the selected host's workspace trust setup.
                 Cursor CLI: `agent --trust`, then `agent status`.
 1  pre-flight   run every technical claim before writing code (table below)
-2  implement    interactive session only. Ends at one commit.
+2  implement    interactive session only, on a branch `<type>/cc-N-<slug>` (a conventional
+                type and the ticket key, which CI reads). Ends at one commit.
 3  Gate 1       tests for the adversarial matrix; every new test mutation-checked
 4  Gate 2       cold bug review of the diff, then review-pr.md
 5  fix          each fix is new code: tests + mutation check. Re-run Gate 2 once
@@ -123,8 +124,8 @@ Every close comment carries the **close card**, all at the same `--repeat`: long
 Every phase **persists its output before the next begins** - to git, the PR body,
 `evidence/`, **Jira** (project `CC`), or `docs/process-evidence.md`. A phase that has
 not persisted has not finished. A fresh context in any host **reconstructs state from
-the brief's two status commands, never from conversation history**. Status lives in
-Jira and the closure file only; what `.claude/PLAN.md` may hold is the rule at its top.
+the brief's two status commands, never from conversation history**. Where status
+lives, and what `.claude/PLAN.md` may hold: the rule at its top.
 
 ## Session rules for long reviews and multi-write sessions
 

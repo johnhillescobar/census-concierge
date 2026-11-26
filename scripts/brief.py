@@ -29,13 +29,14 @@ PHASES = ("preflight", "implement", "gate1", "gate2", "final")
 COLD = "gate2-cold"  # .claude/agents/gate2-cold.md; .claude/hooks/ctx.py holds the name too
 
 
-def status_commands(key: str, *, closed: bool = False) -> list[str]:
-    """The ticket, then its closure record: an open ticket's judged on this checkout, before
-    the merge; a closed one's on main, post-merge rule included, whatever branch is checked out."""
+def status_commands(key: str, *, landed: str | None = None) -> list[str]:
+    """The ticket, then its closure record. An open ticket's record is judged on this checkout,
+    before the merge. A closed ticket stays closed: its record is judged as it stood at `landed`,
+    the main commit that last changed it, so later work elsewhere cannot make it read as broken."""
     check = f"uv run python scripts/closure.py check evidence/closure/{key}.toml"
     return [
         f"uv run python scripts/jira_fetch.py issue {key} --md",
-        f"{check} --head origin/main" if closed else f"{check} --pre-merge",
+        f"{check} --head {landed}" if landed else f"{check} --pre-merge",
     ]
 
 
@@ -45,23 +46,42 @@ def is_closed(fields: dict[str, Any]) -> bool:
     return category == "done"
 
 
-def closed_status(key: str, status: str) -> str:
-    first, second = status_commands(key, closed=True)
+def landed_at(key: str, base: str) -> str | None:
+    """The commit on `base` that last changed the ticket's closure file, or None."""
+    done = subprocess.run(
+        ["git", "log", "-1", "--format=%H", base, "--", f"evidence/closure/{key}.toml"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    found = done.stdout.strip()
+    return found if done.returncode == 0 and closure._is_commit_hash(found) else None
+
+
+def closed_status(key: str, status: str, landed: str | None) -> str:
+    first, second = status_commands(key, landed=landed or "<none>")
     lines = [
-        f"{key} is {status} in Jira: no phase may start on it. Its status comes from these two",
-        "commands, never from chat or memory:",
+        f"{key} is {status} in Jira and stays closed: no phase may start on it. Its status comes",
+        "from these two commands, never from chat or memory. Run the second from a checkout of",
+        "main (`git worktree add --detach <dir> origin/main`):",
         f"  {first}",
-        f"  {second}",
-        "From them state: the approved criteria and decisions, the commit tested, which",
-        "evidence is stale or missing, and what, if anything, is left for the owner.",
+        f"  {second}"
+        if landed
+        else "  (no closure file on main: Jira's close comment is the record)",
+        "From them state: the approved criteria and decisions, the commit tested, and what, if",
+        "anything, is left for the owner. A regression in what it shipped is caught by its tests",
+        "in `make check`; the change that caused it fixes it.",
     ]
     return "\n".join(lines) + "\n"
 
 
-def compare(manifest: dict[str, Any] | None, description: str, phase: str) -> list[str]:
+def compare(manifest: dict[str, Any] | None, description: object, phase: str) -> list[str]:
     """Why the live criteria may not be worked on: they differ from the approved ones with no
-    owner amendment for the new text, or (after pre-flight) nothing was approved."""
-    ids, sha = closure.required_ids(description), closure.criteria_fingerprint(description)
+    owner amendment for the new text, or (after pre-flight) nothing was approved. `description`
+    is the Jira document (or plain text, line by line)."""
+    ids = closure.required_ids(closure.adf_text(description))
+    sha = closure.criteria_fingerprint(description)
     approved = (manifest or {}).get("approved_ids")
     approved_sha = (manifest or {}).get("approved_sha256")
     if not isinstance(approved, list) or not approved_sha:
@@ -71,7 +91,8 @@ def compare(manifest: dict[str, Any] | None, description: str, phase: str) -> li
     if ids == approved and sha == approved_sha:
         return []
     amendments = [a for a in (manifest or {}).get("amendment") or [] if isinstance(a, dict)]
-    if any(a.get("criteria_sha256") == sha for a in amendments):
+    whole = [a for a in amendments if not closure.amendment_problems(a)]  # dated, owned, reasoned
+    if any(a.get("criteria_sha256") == sha for a in whole):
         return []
     out = [f"criterion {i} is in Jira but was not approved" for i in ids if i not in approved]
     out += [f"criterion {i} was approved but is gone from Jira" for i in approved if i not in ids]
@@ -87,15 +108,16 @@ def compare(manifest: dict[str, Any] | None, description: str, phase: str) -> li
 
 
 def changed_files(base: str) -> list[str] | None:
-    """The paths this branch changes against `base`, or None when git cannot say."""
+    """The paths this branch changes against `base`, or None when git cannot say. Renames are
+    split into a deletion and an addition, so a rule file moved out of the rule set is seen."""
     done = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...HEAD"],
+        ["git", "diff", "--name-only", "--no-renames", "-z", f"{base}...HEAD"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
-    return done.stdout.split() if done.returncode == 0 else None
+    return [p for p in done.stdout.split("\0") if p] if done.returncode == 0 else None
 
 
 def evidence_dir(key: str) -> str:
@@ -193,16 +215,24 @@ def main() -> int:
     parser.add_argument("--base", default="origin/main")
     parser.add_argument("--after-merge", action="store_true", help="final: the post-merge run")
     args = parser.parse_args()
+    if args.after_merge and args.phase != "final":
+        parser.error("--after-merge belongs to the final phase only")
     key = args.key.upper()
     path = ROOT / "evidence" / "closure" / f"{key}.toml"
-    manifest = closure.load(path) if path.is_file() else None
+    try:
+        manifest = closure.load(path) if path.is_file() else None
+    except (OSError, ValueError) as exc:  # tomllib.TOMLDecodeError is a ValueError
+        print(f"  STOP  {path.name} cannot be read: {exc}", file=sys.stderr)
+        return 1
     jira_fetch.load_env()
     fields = jira_fetch._issue(key).get("fields") or {}
-    description = closure.adf_text(fields.get("description"))
+    description = fields.get("description")
     if is_closed(fields):
-        print(closed_status(key, str((fields.get("status") or {}).get("name") or "closed")), end="")
+        status = str((fields.get("status") or {}).get("name") or "closed")
+        print(closed_status(key, status, landed_at(key, args.base)), end="")
         return 1
-    ids, sha = closure.required_ids(description), closure.criteria_fingerprint(description)
+    ids = closure.required_ids(closure.adf_text(description))
+    sha = closure.criteria_fingerprint(description)
     if problems := compare(manifest, description, args.phase):
         for line in problems:
             print(f"  STOP  {line}", file=sys.stderr)

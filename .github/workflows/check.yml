@@ -88,19 +88,16 @@ jobs:
           fi
 
       - name: closure (the ticket the branch names)
-        # A pull request from a cc-N/... branch is red until every AC/TC row of
-        # evidence/closure/CC-N.toml is PASS on the branch tip (CC-145). A branch
-        # that names no ticket, such as chore/..., has no manifest to check.
+        # A branch is <conventional type>/... and names one ticket anywhere in it
+        # (feat/cc-145-x). The pull request is red until every AC/TC row of
+        # evidence/closure/CC-N.toml, and every id approved at pre-flight, is PASS
+        # on the branch tip (CC-145). A branch of any other shape is red.
         if: github.event_name == 'pull_request'
         env:
           BRANCH: ${{ github.head_ref }}
           TIP: ${{ github.event.pull_request.head.sha }}
         run: |
-          first="${BRANCH%%/*}"
-          case "$first" in
-            [cC][cC]-[0-9]*) key="$(echo "$first" | tr '[:lower:]' '[:upper:]')" ;;
-            *) echo "branch $BRANCH names no ticket: no closure check"; exit 0 ;;
-          esac
+          key="$(uv run python scripts/closure.py ticket "$BRANCH")"
           uv run python scripts/closure.py check "evidence/closure/$key.toml" --pre-merge --head "$TIP"
 
   scoreboard:

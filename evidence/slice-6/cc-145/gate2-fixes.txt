@@ -1,0 +1,91 @@
+CC-145 Gate 2 fixes, 2026-11-26. Findings: gate2-cold.txt (cold bug pass at 1f38280) and gate2.txt
+(invariants pass at 702f2a6, verdict Not yet). Fixes are one commit after 556947b; the mutation
+check of every new test is gate2-fixes-mutations.txt, and the one permitted Gate 2 re-run reads
+this fix commit.
+
+== Owner decisions in chat, 2026-11-26 (verbatim substance) ==
+owner  Requirements state the product we want, not what the code does today. The rule: the agent
+       verifies the user gave what it needs. A county name several states share (Springfield,
+       Cook) or an unclear geography level: the agent stops and asks for clarification; unique
+       entities (Chicago, Washington DC) need no more. For an improper question ("What's the
+       population of Springfield") it does not guess and does not run the RAG component.
+owner  Branches must match conventional commits with the ticket name; the implementation finds
+       the ticket number in the branch name whatever its position.
+owner  Closed tickets remain closed. A regression in a closed ticket's work is the fault of the
+       agent whose change caused it, who fixes it at once; no coding agent may degrade what was
+       achieved.
+owner  No Jira writes until the epic is finished ("focus on this ticket").
+
+== Finding -> fix -> test ==
+M1  criteria fingerprint covered only the id line.
+    closure.criteria_blocks: a criterion is its whole block (paragraph with hard breaks, list item
+    with sub-items, table row whose first cell is the id, heading plus what follows to the next
+    heading or criterion); a paragraph after a paragraph criterion is not part of it.
+    brief.compare now takes the Jira document, not flattened text. CC-145's approved fingerprint
+    is unchanged (c38c9650...; recomputed from the live description).
+    tests: test_brief.py test_rewording_any_part_of_a_criterion_moves_the_fingerprint[4 shapes],
+    test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it,
+    test_a_heading_section_ends_at_the_next_heading,
+    test_a_plain_paragraph_description_keeps_its_line_fingerprint.
+    Known limit: a paragraph continuing a paragraph criterion is outside it (so that decision
+    paragraphs the owner adds after pre-flight do not stop a phase).
+M2  CI keyed on a cc-N/ branch shape and skipped the common shapes. Owner rule above.
+    closure.branch_ticket / `closure.py ticket <branch>`: a conventional type before the first `/`
+    (feat fix docs chore test refactor perf ci build style revert evidence) and exactly one CC key
+    anywhere after it (cc-145, CC-145, cc145, cc_145); any other branch is red in CI, with the
+    reason. check.yml calls it, then the readiness check. This branch is renamed
+    feat/cc-145-one-source. Not changed: a ticket split across PRs still needs every row PASS on
+    each PR (the owner chose readiness; the multi-PR question is open).
+    tests: test_closure_gate.py test_a_conventional_branch_names_its_ticket_wherever_the_key_sits[5],
+    test_any_other_branch_names_no_ticket_and_says_why[6]; test_process.py the CI step run under
+    bash -e with uv stubbed (ticket call real), 4 cases.
+M3  the CI readiness call ignored approved_ids.
+    closure.problems: every approved id needs a row, with `required`.
+    test: test_closure_gate.py test_the_readiness_check_requires_every_id_approved_at_pre_flight.
+M4  a closed ticket's record was judged against today's main and the checked-out branch.
+    Owner rule above. brief.landed_at: the commit on main that last changed the closure file;
+    the closed brief prints `closure.py check ... --head <that commit>`, says to run it from a
+    main checkout, and says a regression is caught by the ticket's tests in make check and fixed
+    by the change that caused it. Judged that way, all seven closed manifests read CLOSURE OK
+    (CC-125, 126, 133, 138, 141, 143, 144; six were BLOCKED against today's main).
+    tests: test_brief.py test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed,
+    test_a_closed_ticket_with_no_record_on_main_points_at_jira,
+    test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record.
+G1  the CI-step test took the WSL bash from PowerShell and failed.
+    working_bash(): a bash that passes the environment through, else skip. 5 passed from
+    PowerShell and from Git Bash.
+L1  renames hid a rule file moved out of the set; paths split on spaces.
+    changed_files: --no-renames -z. tests: test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change,
+    test_a_path_with_a_space_is_one_path.
+L2  comments that are a code block, task or decision item, mention or smart link printed (empty).
+    jira_fetch renders them. test: test_a_comment_keeps_text_that_is_not_a_plain_paragraph[5].
+L5  an amendment row was trusted on criteria_sha256 alone, and it also licensed AMENDED.
+    brief.compare accepts only a complete amendment (closure.amendment_problems); an amendment
+    with criteria_sha256 removes no row from scope.
+    tests: test_an_incomplete_amendment_does_not_let_new_criteria_through[4],
+    test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row.
+L6  is_prescriptive let `*` cross `/`. Segment-by-segment match now; test extended (3 paths).
+N2  a manifest that is not TOML: STOP with the reason. test_a_manifest_that_is_not_toml_stops_with_a_reason.
+N3  --after-merge outside final: argparse error. test_after_merge_belongs_to_the_final_phase_only.
+U1  not reproduced, now settled live (read-only), 2026-11-26, CC-144 (5 comments):
+      _comments(3) created: 11:25:17, 12:41:00, 12:56:36 = the newest three, oldest first: MATCH.
+C1  docs/requirements.md said ambiguous places get "no URL until the user names one" beside
+    rules saying candidates. Now the owner's rule above, in requirements.md (Geography
+    completeness and the ambiguous_place row), CLAUDE.md "Geography is level-complete" and
+    40-census-domain.mdc. Not changed: 10-api-python.mdc:219 describes the prompt's ambiguity
+    rule (candidates as results), which is api/src, outside this ticket; CC-104 owns it.
+C2  the county "known limit" line described today's code; removed (owner: requirements are the
+    product we want).
+C3  run-slice.md and 00-guardrails.mdc restated where status lives; both now point at PLAN.md.
+
+== Not changed, with the reason ==
+L3  status words: the rule is the owner's (Done, To Do, In Progress, closed, decimals). It flags
+    "fails closed" and "AC6.2"; it misses "Finished", "In Review", "74%". Reported for the owner.
+L4  status file names: the owner's rule (STATE.md, plan.md, *-plan.md); cc-138/plan.md renamed on
+    the owner's decision. Reported.
+N1  evidence_dir falls back to evidence/cc-N: harmless; unchanged.
+C4  "(CC-2 Done)" in ask-path.md: ask-path is not a plan doc; unchanged.
+C5  one or more PRs per slice vs every row PASS per PR: the multi-PR question is open (M2).
+C6-C8  pre-existing: 30-evals-and-tests.mdc baseline, transcript folder wording, PLAN route
+    ownership. Unchanged; outside this ticket.
+Jira: the AC10 correction comment and the AC12 list wait until the epic closes (owner).

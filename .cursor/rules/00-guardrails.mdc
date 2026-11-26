@@ -67,8 +67,8 @@ geography level; say so and ship no URL (`40-census-domain.mdc`, Geography).
 - Do not introduce an abstraction before a second caller exists; inline it.
 - Do not work ahead of the current slice in `.claude/PLAN.md`. If something belongs to a
   later slice, say which one and stop.
-- Do not carry ticket state in the conversation or in a file under `evidence/`: status is
-  in Jira and the closure file, read by the two status commands (`scripts/brief.py`).
+- Do not carry ticket state in the conversation or in a file under `evidence/`; read it with
+  the two status commands of `scripts/brief.py` (where status lives: `.claude/PLAN.md`, top).
 - Do not ship a new test without mutation-checking it: revert the behaviour it covers,
   confirm the test fails, restore.
 - Do not read the sealed eval set or tune against its misses (owner-held, outside the

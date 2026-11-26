@@ -3,6 +3,7 @@ criteria that differ from the ones approved at pre-flight."""
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,9 +19,9 @@ import closure  # noqa: E402
 DESCRIPTION = "Why. Context.\nAC1. The thing works.\nAC2. It fails closed.\nTC1. A test.\nDecisions"
 
 
-def approved(text: str = DESCRIPTION, **extra: Any) -> dict[str, Any]:
+def approved(text: object = DESCRIPTION, **extra: Any) -> dict[str, Any]:
     return {
-        "approved_ids": closure.required_ids(text),
+        "approved_ids": closure.required_ids(closure.adf_text(text)),
         "approved_sha256": closure.criteria_fingerprint(text),
         **extra,
     }
@@ -177,14 +178,188 @@ DONE = {"name": "Done", "statusCategory": {"key": "done"}}
 OPEN = {"name": "In Progress", "statusCategory": {"key": "indeterminate"}}
 
 
-def test_a_closed_ticket_gets_its_status_judged_on_main_and_no_brief(
+LANDED = "a" * 40
+
+
+def test_a_closed_ticket_stays_closed_judged_at_the_commit_its_record_landed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     fields = {"status": DONE, "description": doc(DESCRIPTION)}
+    monkeypatch.setattr(brief, "landed_at", lambda key, base: LANDED)
     assert run_main(tmp_path, monkeypatch, fields, None, "final", "CC-9", "--after-merge") == 1
     out = capsys.readouterr().out
-    assert "brief." not in out and "no phase may start" in out
-    assert "evidence/closure/CC-9.toml --head origin/main" in out and "--pre-merge" not in out
+    assert "brief." not in out and "no phase may start" in out and "stays closed" in out
+    assert f"evidence/closure/CC-9.toml --head {LANDED}" in out
+    assert "--pre-merge" not in out and "origin/main`)" in out  # run from a main checkout
+
+
+def test_a_closed_ticket_with_no_record_on_main_points_at_jira(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fields = {"status": DONE, "description": doc(DESCRIPTION)}
+    monkeypatch.setattr(brief, "landed_at", lambda key, base: None)
+    assert run_main(tmp_path, monkeypatch, fields, None, "gate1", "CC-9") == 1
+    out = capsys.readouterr().out
+    assert "closure.py check" not in out and "close comment is the record" in out
+
+
+def git(cwd: Path, *args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+@pytest.fixture
+def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    git(tmp_path, "init", "-q", "-b", "main")
+    git(tmp_path, "config", "user.email", "t@example.com")
+    git(tmp_path, "config", "user.name", "t")
+    (tmp_path / "docs" / "playbooks").mkdir(parents=True)
+    (tmp_path / "docs" / "playbooks" / "old.md").write_text("rule\n", encoding="utf-8")
+    (tmp_path / "evidence" / "closure").mkdir(parents=True)
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-q", "-m", "base")
+    monkeypatch.setattr(brief, "ROOT", tmp_path)
+    return tmp_path
+
+
+def test_the_landing_commit_is_the_last_one_on_main_that_changed_the_record(repo: Path) -> None:
+    assert brief.landed_at("CC-9", "main") is None
+    (repo / "evidence" / "closure" / "CC-9.toml").write_text("x = 1\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "record")
+    landed = git(repo, "rev-parse", "HEAD")
+    (repo / "later.txt").write_text("later\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "later work")
+    assert brief.landed_at("CC-9", "main") == landed
+
+
+def test_a_rule_file_moved_out_of_the_rule_set_counts_as_a_rule_change(repo: Path) -> None:
+    git(repo, "checkout", "-q", "-b", "work")
+    (repo / "docs" / "archive").mkdir()
+    git(repo, "mv", "docs/playbooks/old.md", "docs/archive/old.md")
+    git(repo, "commit", "-q", "-m", "move")
+    changed = brief.changed_files("main")
+    assert changed is not None and "docs/playbooks/old.md" in changed
+    assert contradiction(brief.brief("gate2", "CC-9", changed, "e"))
+
+
+def test_a_path_with_a_space_is_one_path(repo: Path) -> None:
+    git(repo, "checkout", "-q", "-b", "work")
+    (repo / "docs" / "playbooks" / "two words.md").write_text("x\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "space")
+    assert brief.changed_files("main") == ["docs/playbooks/two words.md"]
+
+
+def table_row(first: str, second: str) -> dict[str, Any]:
+    cell = lambda text: {"type": "tableCell", "content": [para(text)]}  # noqa: E731
+    return {"type": "tableRow", "content": [cell(first), cell(second)]}
+
+
+def para(text: str) -> dict[str, Any]:
+    return {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+
+
+def bullet(text: str, *subs: str) -> dict[str, Any]:
+    nested = [{"type": "bulletList", "content": [bullet(s) for s in subs]}] if subs else []
+    return {"type": "listItem", "content": [para(text), *nested]}
+
+
+SHAPES = {
+    "a table cell": lambda v: {
+        "type": "doc",
+        "content": [{"type": "table", "content": [table_row("AC1", f"p95 under {v} seconds")]}],
+    },
+    "a sub-bullet": lambda v: {
+        "type": "doc",
+        "content": [{"type": "bulletList", "content": [bullet("AC1. Latency", f"under {v}s")]}],
+    },
+    "a hard break": lambda v: {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "AC1. Latency"},
+                    {"type": "hardBreak"},
+                    {"type": "text", "text": f"under {v}s"},
+                ],
+            }
+        ],
+    },
+    "the paragraph under an id heading": lambda v: {
+        "type": "doc",
+        "content": [
+            {
+                "type": "heading",
+                "attrs": {"level": 3},
+                "content": [{"type": "text", "text": "AC1"}],
+            },
+            para(f"p95 under {v} seconds"),
+            {
+                "type": "heading",
+                "attrs": {"level": 3},
+                "content": [{"type": "text", "text": "Notes"}],
+            },
+            para("not a criterion"),
+        ],
+    },
+}
+
+
+@pytest.mark.parametrize("shape", SHAPES)
+def test_rewording_any_part_of_a_criterion_moves_the_fingerprint(shape: str) -> None:
+    before, after = SHAPES[shape]("20"), SHAPES[shape]("200")
+    assert closure.required_ids(closure.adf_text(before)) == ["AC1"]
+    assert closure.criteria_fingerprint(before) != closure.criteria_fingerprint(after)
+    assert brief.compare(approved(before), after, "gate1") != []
+
+
+def test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it() -> None:
+    before = {"type": "doc", "content": [para("AC1. It works."), para("Decisions: one.")]}
+    after = {"type": "doc", "content": [para("AC1. It works."), para("Decisions: two.")]}
+    assert closure.criteria_fingerprint(before) == closure.criteria_fingerprint(after)
+
+
+def test_a_heading_section_ends_at_the_next_heading() -> None:
+    before, after = (
+        SHAPES["the paragraph under an id heading"]("20"),
+        SHAPES["the paragraph under an id heading"]("20"),
+    )
+    after["content"][3] = para("edited, still not a criterion")
+    assert closure.criteria_fingerprint(before) == closure.criteria_fingerprint(after)
+
+
+def test_a_plain_paragraph_description_keeps_its_line_fingerprint() -> None:
+    assert closure.criteria_fingerprint(doc(DESCRIPTION)) == closure.criteria_fingerprint(
+        DESCRIPTION
+    )
+
+
+@pytest.mark.parametrize("missing", ["date", "owner", "reason", "destination"])
+def test_an_incomplete_amendment_does_not_let_new_criteria_through(missing: str) -> None:
+    live = DESCRIPTION + "\nAC3. A new one."
+    row = amendment(live)
+    del row[missing]
+    assert brief.compare(approved(amendment=[row]), live, "gate2") != []
+
+
+def test_a_manifest_that_is_not_toml_stops_with_a_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fields = {"status": OPEN, "description": doc(DESCRIPTION)}
+    assert run_main(tmp_path, monkeypatch, fields, "approved_ids = [", "gate1", "CC-9") == 1
+    assert "cannot be read" in capsys.readouterr().err
+
+
+def test_after_merge_belongs_to_the_final_phase_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fields = {"status": OPEN, "description": doc(DESCRIPTION)}
+    with pytest.raises(SystemExit) as stopped:
+        run_main(tmp_path, monkeypatch, fields, None, "gate1", "CC-9", "--after-merge")
+    assert stopped.value.code == 2
 
 
 def test_an_open_ticket_is_judged_before_the_merge(
@@ -238,4 +413,7 @@ def test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_count
     assert {".cursor/rules/00-guardrails.mdc", ".claude/skills/run-slice/SKILL.md"} <= counted
     assert all(check_budgets.is_prescriptive(rel) for rel in counted)
     for rel in ("api/src/ask.py", "docs/ARCHITECTURE.md", ".claude/agents/gate2-cold.md"):
+        assert not check_budgets.is_prescriptive(rel), rel
+    # a `*` stops at a `/`, as the glob that counts the lines does
+    for rel in ("docs/playbooks/archive/old.md", ".claude/skills/a/b/SKILL.md", "x/AGENTS.md"):
         assert not check_budgets.is_prescriptive(rel), rel

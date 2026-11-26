@@ -164,8 +164,14 @@ DOC_PATTERNS = (
 
 
 def is_prescriptive(rel: str) -> bool:
-    """Whether a repository path (posix, relative) is one of the files `doc_lines` counts."""
-    return any(fnmatch.fnmatchcase(rel, pattern) for pattern in DOC_PATTERNS)
+    """Whether a repository path (posix, relative) is one of the files `doc_lines` counts: the
+    same segments as a pattern, each matching its glob, so a `*` never crosses a `/`."""
+    parts = rel.split("/")
+    return any(
+        len(parts) == len(pattern.split("/"))
+        and all(fnmatch.fnmatchcase(p, g) for p, g in zip(parts, pattern.split("/"), strict=True))
+        for pattern in DOC_PATTERNS
+    )
 
 
 def _doc_lines() -> int:

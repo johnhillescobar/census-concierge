@@ -439,42 +439,65 @@ def closure_step() -> dict[str, Any]:
     return steps[0]
 
 
+def working_bash() -> str:
+    """A bash that sees the environment it is given. From PowerShell the first `bash` on PATH
+    can be the WSL launcher, which does not pass variables through: that is no bash here."""
+    for candidate in (shutil.which("bash"), "C:/Program Files/Git/bin/bash.exe"):
+        if not candidate or not Path(candidate).exists():
+            continue
+        env = {**os.environ, "PROBE": "seen"}
+        probe = subprocess.run(
+            [candidate, "-c", 'printf %s "$PROBE"'], env=env, capture_output=True, text=True
+        )
+        if probe.returncode == 0 and probe.stdout == "seen":
+            return candidate
+    pytest.skip("no bash on this machine that passes the environment through")
+
+
 def run_closure_step(tmp_path: Path, branch: str, verdict: int) -> tuple[int, str]:
-    bash = shutil.which("bash")
-    if bash is None or subprocess.run([bash, "-c", "exit 0"], check=False).returncode != 0:
-        pytest.skip("no working bash on this machine")
+    """Run the workflow step under bash -e with `uv` stubbed: the ticket call runs the real
+    closure.py, the check call is recorded and answers `verdict`."""
+    bash = working_bash()
+    python = Path(sys.executable).as_posix()
+    script = (ROOT / "scripts" / "closure.py").as_posix()
+    called = tmp_path / "called"
     stub = tmp_path / "uv"
-    stub.write_text(f'#!/bin/sh\necho "$@" > "{tmp_path.as_posix()}/called"\nexit {verdict}\n')
+    lines = [
+        "#!/bin/sh",
+        f'if [ "$4" = ticket ]; then exec "{python}" "{script}" ticket "$5"; fi',
+        f'echo "$@" >> "{called.as_posix()}"',
+        f"exit {verdict}",
+    ]
+    stub.write_text("\n".join(lines) + "\n", newline="\n")
     stub.chmod(0o755)
     env = {
         **os.environ,
         "BRANCH": branch,
         "TIP": "abc1234",
-        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "PATH": f"{tmp_path.as_posix()}{os.pathsep}{os.environ['PATH']}",
     }
     done = subprocess.run(
-        [bash, "-e", "-c", closure_step()["run"]],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
+        [bash, "-e", "-c", closure_step()["run"]], env=env, capture_output=True, text=True
     )
-    called = tmp_path / "called"
     return done.returncode, called.read_text().strip() if called.exists() else ""
 
 
+MANIFEST_CHECK = "run python scripts/closure.py check evidence/closure/CC-145.toml"
+
+
 def test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names(tmp_path: Path) -> None:
-    step = closure_step()
-    assert step["if"] == "github.event_name == 'pull_request'"
-    code, called = run_closure_step(tmp_path, "cc-145/one-source", verdict=0)
-    assert code == 0
-    manifest = "evidence/closure/CC-145.toml"
-    assert called == f"run python scripts/closure.py check {manifest} --pre-merge --head abc1234"
+    assert closure_step()["if"] == "github.event_name == 'pull_request'"
+    code, called = run_closure_step(tmp_path, "feat/cc-145-one-source", verdict=0)
+    assert (code, called) == (0, f"{MANIFEST_CHECK} --pre-merge --head abc1234")
 
 
 def test_ci_fails_when_the_closure_check_does(tmp_path: Path) -> None:
-    assert run_closure_step(tmp_path, "cc-145/one-source", verdict=1)[0] != 0
+    assert run_closure_step(tmp_path, "feat/cc-145-one-source", verdict=1)[0] != 0
 
 
-def test_ci_skips_the_closure_check_for_a_branch_that_names_no_ticket(tmp_path: Path) -> None:
-    assert run_closure_step(tmp_path, "chore/launch-inspect-ask", verdict=1) == (0, "")
+@pytest.mark.parametrize("branch", ["cc-145/one-source", "chore/launch-inspect-ask"])
+def test_ci_fails_a_branch_without_a_type_or_a_ticket_and_runs_no_check(
+    tmp_path: Path, branch: str
+) -> None:
+    code, called = run_closure_step(tmp_path, branch, verdict=0)
+    assert code != 0 and called == ""

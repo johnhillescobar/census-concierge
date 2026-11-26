@@ -1115,3 +1115,59 @@ def test_check_file_names_the_manifest_whose_merges_are_diffed(landed: dict[str,
         found = closure.check_file(repo / ticket(number), root=repo, base="main")
         assert bool(found) is owed, number
         assert all("api/src/ask.py" in line for line in found)
+
+
+@pytest.mark.parametrize(
+    ("branch", "key"),
+    [
+        ("feat/cc-145-one-source", "CC-145"),
+        ("fix/one-source-CC-145", "CC-145"),
+        ("evidence/cc145-post-merge", "CC-145"),
+        ("docs/slice-6_cc_32_notes", "CC-32"),
+        ("chore/cc-07-x", "CC-7"),
+    ],
+)
+def test_a_conventional_branch_names_its_ticket_wherever_the_key_sits(
+    branch: str, key: str
+) -> None:
+    assert closure.branch_ticket(branch) == (key, "")
+
+
+@pytest.mark.parametrize(
+    "branch",
+    [
+        "cc-145/one-source",  # no conventional type
+        "feature/cc-145-x",  # not a conventional type
+        "feat/one-source",  # no ticket
+        "feat/cc-145-and-cc-146",  # two tickets
+        "feat",  # nothing after the type
+        "chore/launch-inspect-ask",
+    ],
+)
+def test_any_other_branch_names_no_ticket_and_says_why(branch: str) -> None:
+    key, why = closure.branch_ticket(branch)
+    assert key is None and branch in why
+
+
+def test_the_readiness_check_requires_every_id_approved_at_pre_flight(tmp_path: Path) -> None:
+    manifest = {
+        "required": ["AC1"],
+        "approved_ids": ["AC1", "AC2", "TC1"],
+        "row": [],
+    }
+    found = closure.problems(manifest, tmp_path, readiness=True, done=False)
+    assert "AC2: absent from the manifest" in found and "TC1: absent from the manifest" in found
+
+
+def test_an_amendment_that_reapproves_criteria_text_does_not_excuse_a_row() -> None:
+    amendment = {
+        "id": "AC3",
+        "date": "2026-11-26",
+        "owner": "owner",
+        "reason": "added",
+        "destination": "this ticket",
+        "criteria_sha256": "0" * 64,
+    }
+    manifest = {"amendment": [amendment], "row": [{"id": "AC3", "status": "AMENDED"}]}
+    found = closure.problems(manifest, ROOT, readiness=False)
+    assert "AC3: AMENDED without an [[amendment]] for it" in found
