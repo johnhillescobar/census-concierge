@@ -8,8 +8,9 @@
                             1000000 tokens), tell the agent to finish the phase, update STATE.md,
                             commit, and ask the user to run /clear. Once per 10% step.
     ctx.py agent-gate       PreToolUse on the Agent tool: a subagent call labelled Gate 2 is
-                            denied unless it goes to the gate2-cold agent, on the model that
-                            agent's file names, or is only the invariants pass.
+                            denied unless it goes to the gate2-cold agent or is only the
+                            invariants pass. That agent runs on the model its file names, or
+                            on GATE2_FALLBACK when the calling session runs on that model.
 
 A hook cannot run /clear; only the user can. The transcript's line format is not documented, so
 the token count is read defensively and a failure prints nothing, never an error.
@@ -29,6 +30,8 @@ WINDOW = int(os.environ.get("CLAUDE_CONTEXT_WINDOW", "1000000"))
 WARN = float(os.environ.get("CLAUDE_CONTEXT_WARN", "0.8"))
 TAIL = 400_000  # bytes of the transcript to scan: the newest assistant message is at the end
 GATE2_AGENT = "gate2-cold"  # .claude/agents/gate2-cold.md
+GATE2_MODEL = "opus"  # the model that file names; a test holds the two together
+GATE2_FALLBACK = "fable"  # the reviewer's model when the calling session runs on GATE2_MODEL
 # Whole words only: with the spaces removed, "investigate 2 tests" read as "gate2".
 GATE2_LABEL = re.compile(r"\bgate[\s-]*2\b")
 # The one other Gate 2 call let through is the invariants pass, and only under a label made of
@@ -66,18 +69,38 @@ def session_start() -> None:
     print("\n".join(lines))
 
 
-def used_tokens(transcript: str | None) -> int | None:
-    """Tokens in context at the newest main-thread assistant message, or None if unreadable."""
-    if not transcript:
-        return None
+def newest_rows(transcript: object) -> list[str]:
+    """The transcript's last TAIL bytes as rows, newest first; none if it cannot be read."""
+    if not transcript or not isinstance(transcript, str):
+        return []
     try:
         with open(transcript, "rb") as handle:
             handle.seek(0, os.SEEK_END)
             handle.seek(max(0, handle.tell() - TAIL))
-            rows = handle.read().decode("utf-8", "replace").splitlines()[1:]
+            # split on the newline only: a row may hold U+2028 or U+0085 unescaped
+            return handle.read().decode("utf-8", "replace").split("\n")[:0:-1]
     except OSError:
-        return None
-    for row in reversed(rows):
+        return []
+
+
+def caller_model(transcript: object) -> str | None:
+    """The model id of the newest main-thread assistant message, or None if unreadable."""
+    for row in newest_rows(transcript):
+        try:
+            entry = json.loads(row)
+            model = entry["message"]["model"]
+            # "<synthetic>" marks a message no model wrote
+            if entry.get("isSidechain") or not model[:1].isalpha():
+                continue
+            return model.lower()
+        except (ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return None
+
+
+def used_tokens(transcript: str | None) -> int | None:
+    """Tokens in context at the newest main-thread assistant message, or None if unreadable."""
+    for row in newest_rows(transcript):
         try:
             entry = json.loads(row)
             usage = entry["message"]["usage"]
@@ -117,21 +140,32 @@ def context_watch(payload: dict) -> None:
 
 def agent_gate(payload: dict) -> None:
     """Deny a subagent call labelled Gate 2 that is neither the cold-review agent nor only the
-    invariants pass, and a call to that agent that sets its own model or effort.
+    invariants pass, and a call to that agent that would run on the calling session's model or
+    that sets a model or effort of its own.
 
     It is a tripwire on the label the caller wrote, not a guarantee: a review under another
-    label, or one done without a subagent, is not seen. It does not check which model the
-    calling session runs on, so a session on the agent's own model gets a same-model review."""
+    label, or one done without a subagent, is not seen. The caller's model is read from the
+    newest main-thread message of the transcript; when that cannot be read, the agent file's
+    model stands. Code written earlier in the session by another model is not seen."""
     call = payload.get("tool_input")
     if not isinstance(call, dict):
         return
     if call.get("subagent_type") == GATE2_AGENT:
-        if not (call.get("model") or call.get("effort")):
+        same = GATE2_MODEL in (caller_model(payload.get("transcript_path")) or "")
+        want = GATE2_FALLBACK if same else None
+        if (call.get("model") or None) == want and not call.get("effort"):
             return
-        reason = (
-            f"The `{GATE2_AGENT}` agent names its own model and effort in "
-            f".claude/agents/{GATE2_AGENT}.md. Call it again without `model` and `effort`."
-        )
+        if same:
+            reason = (
+                f"This session runs on {GATE2_MODEL}, the model the `{GATE2_AGENT}` agent's file "
+                "names, so the review would run on the model that wrote the code. Call it "
+                f"again with `model` set to `{GATE2_FALLBACK}` and without `effort`."
+            )
+        else:
+            reason = (
+                f"The `{GATE2_AGENT}` agent names its own model and effort in "
+                f".claude/agents/{GATE2_AGENT}.md. Call it again without `model` and `effort`."
+            )
     else:
         label = str(call.get("description") or "").lower().replace("_", " ")
         if not GATE2_LABEL.search(label):
@@ -149,6 +183,11 @@ def agent_gate(payload: dict) -> None:
             "invariants pass (docs/playbooks/review-pr.md) goes through when its description is "
             "`Gate 2 invariants pass`, with a ticket key if you want one and nothing else."
         )
+        if GATE2_MODEL in (caller_model(payload.get("transcript_path")) or ""):
+            reason += (
+                f" This session runs on {GATE2_MODEL}, the agent's own model: on that call set "
+                f"`model` to `{GATE2_FALLBACK}`."
+            )
     decision = {
         "hookEventName": "PreToolUse",
         "permissionDecision": "deny",

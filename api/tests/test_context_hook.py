@@ -163,10 +163,29 @@ def test_the_warning_is_addressed_to_the_event_that_fired(
     assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["hookEventName"]
 
 
-def gate(capsys: pytest.CaptureFixture[str], call: Any) -> dict[str, Any] | None:
-    ctx.agent_gate({"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": call})
+def gate(
+    capsys: pytest.CaptureFixture[str], call: Any, session: object = None
+) -> dict[str, Any] | None:
+    payload = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": call}
+    ctx.agent_gate(payload | {"transcript_path": session})
     out = capsys.readouterr().out
     return json.loads(out)["hookSpecificOutput"] if out else None
+
+
+def session_on(path: Path, *rows: dict[str, Any]) -> str:
+    """A transcript whose rows are the given entries, oldest first."""
+    path.write_text(
+        "".join(json.dumps(row) + "\n" for row in [{"type": "summary"}, *rows]), "utf-8"
+    )
+    return str(path)
+
+
+def said(model: object, **entry: Any) -> dict[str, Any]:
+    return {"message": {"model": model, "usage": {"input_tokens": 1}}, **entry}
+
+
+OPUS, SONNET = "claude-opus-5-5", "claude-sonnet-5-5"
+COLD = {"subagent_type": ctx.GATE2_AGENT, "description": "Gate 2 cold review", "prompt": "p"}
 
 
 @pytest.mark.parametrize(
@@ -240,6 +259,76 @@ def test_the_cold_agent_called_with_its_own_model_or_effort_is_denied(
     assert decision is not None and decision["permissionDecision"] == "deny"
 
 
+def test_a_session_on_the_reviewers_own_model_must_move_the_review_to_the_fallback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = session_on(tmp_path / "t.jsonl", said(SONNET), said(OPUS))
+    decision = gate(capsys, COLD, session)
+    assert decision is not None and decision["permissionDecision"] == "deny"
+    assert ctx.GATE2_FALLBACK in decision["permissionDecisionReason"]
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK}, session) is None
+    # not to any other model, not back to its own, and still at the agent file's effort
+    for override in ({"model": "haiku"}, {"model": ctx.GATE2_MODEL}):
+        assert gate(capsys, COLD | override, session) is not None
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK, "effort": "low"}, session) is not None
+
+
+def test_the_first_denial_already_names_the_fallback_to_a_session_that_needs_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    call = {"subagent_type": "general-purpose", "description": "Gate 2 review"}
+    for model, named in ((OPUS, True), (SONNET, False)):
+        decision = gate(capsys, call, session_on(tmp_path / "t.jsonl", said(model)))
+        assert decision is not None
+        assert (f"`{ctx.GATE2_FALLBACK}`" in decision["permissionDecisionReason"]) is named
+
+
+def test_a_row_holding_a_unicode_line_separator_is_still_one_row(tmp_path: Path) -> None:
+    newest = {"message": {"model": OPUS, "usage": {"input_tokens": 7}, "text": "a\u2028b\x85c"}}
+    path = tmp_path / "t.jsonl"
+    rows = [{"type": "summary"}, said(SONNET), newest]
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8")
+    assert ctx.caller_model(str(path)) == OPUS
+    assert ctx.used_tokens(str(path)) == 7
+
+
+def test_a_session_on_another_model_gets_the_agent_files_model_and_no_fallback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = session_on(tmp_path / "t.jsonl", said(OPUS), said(SONNET))  # the newest decides
+    assert gate(capsys, COLD, session) is None
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK}, session) is not None
+
+
+def test_the_callers_model_is_the_newest_main_thread_message_a_model_wrote(
+    tmp_path: Path,
+) -> None:
+    rows = [said(SONNET), said("Claude-Opus-5-5"), said(SONNET, isSidechain=True)]
+    rows += [said("<synthetic>"), said(None), said(7), {"message": "text"}, {"type": "user"}]
+    assert ctx.caller_model(session_on(tmp_path / "t.jsonl", *rows)) == "claude-opus-5-5"
+
+
+@pytest.mark.parametrize("session", [None, "", 7, "/no/such/file"])
+def test_a_session_whose_model_cannot_be_read_gets_the_agent_files_model(
+    capsys: pytest.CaptureFixture[str], session: object
+) -> None:
+    assert ctx.caller_model(session) is None
+    assert gate(capsys, COLD, session) is None
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK}, session) is not None
+
+
+def test_the_caller_check_is_for_the_gate_2_agent_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = session_on(tmp_path / "t.jsonl", said(OPUS))
+    for call in (
+        {"subagent_type": "general-purpose", "description": "Read a file", "model": "opus"},
+        {"subagent_type": "general-purpose", "description": "Gate 2 invariants pass"},
+        {"subagent_type": "general-purpose", "description": "Gate 1 mutation check"},
+    ):
+        assert gate(capsys, call, session) is None
+
+
 def test_a_label_that_is_not_text_is_still_read(capsys: pytest.CaptureFixture[str]) -> None:
     assert gate(capsys, {"description": ["Gate 2"]}) is not None
 
@@ -275,8 +364,8 @@ def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effor
         line.split(": ", 1) for line in text.split("---")[1].strip().splitlines() if ": " in line
     )
     assert head["name"] == ctx.GATE2_AGENT
-    # A named model. The hook does not check which model the caller runs on.
-    assert head["model"] not in ("", "inherit")
+    # The hook compares the caller's model with this one, so the two must name the same model.
+    assert head["model"] == ctx.GATE2_MODEL != ctx.GATE2_FALLBACK
     assert head["effort"]  # without one, the agent need not run at the session's level
 
 
