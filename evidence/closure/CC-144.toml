@@ -15,7 +15,7 @@ tested_head = "1957a77c06f7c2fb285eac3581a8637357c96527"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate2-r5-rerun-earlier-sets.txt", sha256 = "65b7c0dee90299fb353b6418f2de946fb98929444043d0aa6b99643af896e2b9" }
-reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold review has read 6f054c5, the fix of the re-run's findings, and the invariants review has not read the final code"
+reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed AC1: its replay of the final script over a fake Jira holding the pre-apply state reproduced all 81 snapshot files byte for byte (V9, V10)"
 
 [[row]]
 id = "AC2"
@@ -28,19 +28,19 @@ tested_head = "1957a77c06f7c2fb285eac3581a8637357c96527"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate2-r5-rerun-earlier-sets.txt", sha256 = "65b7c0dee90299fb353b6418f2de946fb98929444043d0aa6b99643af896e2b9" }
-reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold review has read 6f054c5, the fix of the re-run's findings, and the invariants review has not read the final code"
+reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed AC2: 428 passed, and its own two mutations of the ID check were caught"
 
 [[row]]
 id = "AC3"
 status = "PASS"
 command = "uv run python scripts/jira_gate_line.py --apply --approved <snapshot dir>"
 expected = "the owner approves the snapshots; only then does the script write; each edited ticket has the same criterion IDs before and after"
-observed = "The owner approved in chat on 2026-11-26; the agent wrote APPROVED on that instruction. Before the write a fresh dry run was identical to the approved snapshots. The apply gave 20 written, 0 refused, exit 0, no FAILED file, IDs unchanged on each. A separate read-back of the 20 live descriptions: each equals its approved after.json and holds the gate line once. Its ID comparison (apply-readback.txt) dropped repeats; a second read-back (apply-readback-2.txt) compared all 154 IDs in order, 26 of them repeats: equal on all 20."
-evidence = [{ path = "evidence/slice-6/cc-144/apply.txt", sha256 = "4f449032d710f9881f3a0e3d69a557e329f4522d23fb1d2a9fa3ad80a59bbfe4" }, { path = "evidence/slice-6/cc-144/apply-readback.txt", sha256 = "79f8b02bf2d32eae83c0664899fac57f5473f32fa5238eb05f5d6b3158f6b144" }, { path = "evidence/slice-6/cc-144/apply-readback.py.txt", sha256 = "0f4adab8eb99def4932d13473c1438f1cd23684906be69da2e2ce973f539d578" }, { path = "evidence/slice-6/cc-144/apply-readback-2.txt", sha256 = "2ad6b1952c8835f556b4c91195095f5b0aa67944b23b1105c72bebbdd7e12083" }, { path = "evidence/slice-6/cc-144/apply-readback-2.py.txt", sha256 = "4db708e7af982e0dd2f848c253e6d8840b36eebc16b85f2ec090bcc975352885" }, { path = "evidence/slice-6/cc-144/snapshots/manifest.json", sha256 = "b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05" }, { path = "evidence/slice-6/cc-144/snapshots/APPROVED", sha256 = "978b91db3f5d0e0cd477bae2193115eaa2fa1093667cd3325534e04a6f548703" }]
+observed = "Before the write the owner approved in chat on 2026-11-26 ('re-writes approved'); the agent wrote APPROVED on that instruction. After the write the owner's CC-144 comment 10994 recorded approval of manifest b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05 and accepted removing the rule 'unresolved review findings block shipping and Done'. The apply gave 20 written, 0 refused, exit 0, no FAILED file, IDs unchanged on each. A separate read-back of the 20 live descriptions: each equals its approved after.json and holds the gate line once. Its ID comparison (apply-readback.txt) dropped repeats; a second read-back (apply-readback-2.txt) compared all 154 IDs in order, 26 of them repeats: equal on all 20."
+evidence = [{ path = "evidence/slice-6/cc-144/owner-approval.txt", sha256 = "f50d630f1bb96111929523b45ae86b9cc6bb3de9d988a2eeb87ae394fc118099" }, { path = "evidence/slice-6/cc-144/gate2-r6-invariants.txt", sha256 = "8fbab93fd63e7a0335df1dcc41003d69685ca9b09e8652361aafda4e9d795a61" }, { path = "evidence/slice-6/cc-144/apply.txt", sha256 = "4f449032d710f9881f3a0e3d69a557e329f4522d23fb1d2a9fa3ad80a59bbfe4" }, { path = "evidence/slice-6/cc-144/apply-readback.txt", sha256 = "79f8b02bf2d32eae83c0664899fac57f5473f32fa5238eb05f5d6b3158f6b144" }, { path = "evidence/slice-6/cc-144/apply-readback.py.txt", sha256 = "0f4adab8eb99def4932d13473c1438f1cd23684906be69da2e2ce973f539d578" }, { path = "evidence/slice-6/cc-144/apply-readback-2.txt", sha256 = "2ad6b1952c8835f556b4c91195095f5b0aa67944b23b1105c72bebbdd7e12083" }, { path = "evidence/slice-6/cc-144/apply-readback-2.py.txt", sha256 = "4db708e7af982e0dd2f848c253e6d8840b36eebc16b85f2ec090bcc975352885" }, { path = "evidence/slice-6/cc-144/snapshots/manifest.json", sha256 = "b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05" }, { path = "evidence/slice-6/cc-144/snapshots/APPROVED", sha256 = "978b91db3f5d0e0cd477bae2193115eaa2fa1093667cd3325534e04a6f548703" }]
 tested_head = "1d5af21f606a06c13f58952c6dc6a483072c4e96"
 affects = ["scripts/jira_gate_line.py"]
 new_tests = false
-reviewer = "No separate reviewer has read this run. The owner approved the writes in chat on 2026-11-26; the session that ran it also ran the read-back check"
+reviewer = "evidence/slice-6/cc-144/gate2-r6-invariants.txt (3dfc74b) read Jira with its own client: it passed the writes and the ID comparison (V1 to V7) and could not verify the owner's approval (F1). The owner's CC-144 comment 10994 records that approval (evidence/slice-6/cc-144/owner-approval.txt); the reviewer has not seen it"
 
 [[row]]
 id = "AC4"
@@ -53,7 +53,7 @@ tested_head = "1957a77c06f7c2fb285eac3581a8637357c96527"
 affects = ["scripts/closure.py", "api/tests/test_closure_gate.py", "docs/playbooks/run-slice.md"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1-r5.txt", sha256 = "81425a1746d92f4d6e2dc7fada12c254afdace2328cdd2e6657d70bb475f25cf" }
-reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold review has read 6f054c5, the fix of the re-run's findings, and the invariants review has not read the final code"
+reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed AC4: 9 cases passed, and its own mutation was caught"
 
 [[row]]
 id = "TC1"
@@ -65,8 +65,8 @@ evidence = [{ path = "evidence/slice-6/cc-144/closure-run-five/TC1.txt", sha256 
 tested_head = "1957a77c06f7c2fb285eac3581a8637357c96527"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-144/gate1-r5.txt", sha256 = "81425a1746d92f4d6e2dc7fada12c254afdace2328cdd2e6657d70bb475f25cf" }
-reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold review has read 6f054c5, the fix of the re-run's findings, and the invariants review has not read the final code"
+mutation = { path = "evidence/slice-6/cc-144/gate2-r6-invariants.txt", sha256 = "8fbab93fd63e7a0335df1dcc41003d69685ca9b09e8652361aafda4e9d795a61" }
+reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed TC1: 4 passed, and this selection catches its two mutations of the ID check"
 
 [[row]]
 id = "TC2"
@@ -78,8 +78,8 @@ evidence = [{ path = "evidence/slice-6/cc-144/closure-run-five/TC2.txt", sha256 
 tested_head = "1957a77c06f7c2fb285eac3581a8637357c96527"
 affects = ["scripts/jira_gate_line.py", "api/tests/test_jira_gate_line.py", "api/tests/fixtures/gate_wording"]
 new_tests = true
-mutation = { path = "evidence/slice-6/cc-144/gate1-r5.txt", sha256 = "81425a1746d92f4d6e2dc7fada12c254afdace2328cdd2e6657d70bb475f25cf" }
-reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold review has read 6f054c5, the fix of the re-run's findings, and the invariants review has not read the final code"
+mutation = { path = "evidence/slice-6/cc-144/gate2-r6-invariants.txt", sha256 = "8fbab93fd63e7a0335df1dcc41003d69685ca9b09e8652361aafda4e9d795a61" }
+reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed TC2 with fakes only (it did not run the real command); with the approval hash not compared, 12 tests failed"
 
 [[row]]
 id = "TC3"
@@ -87,8 +87,8 @@ status = "PASS"
 command = "uv run python scripts/jira_gate_line.py --dry-run"
 expected = "a second --dry-run after --apply finds no ticket left to change"
 observed = "54 open ticket(s) read: 0 ticket(s) left to change, 0 refused, exit 0. A separate Jira search for open tickets listed 54 on one page, counted by the session and not saved to a file."
-evidence = [{ path = "evidence/slice-6/cc-144/tc3.txt", sha256 = "6e004d920c3243bed3290bcd57184802697b263fc0202c8c6e1e13bf1562707e" }]
+evidence = [{ path = "evidence/slice-6/cc-144/gate2-r6-invariants.txt", sha256 = "8fbab93fd63e7a0335df1dcc41003d69685ca9b09e8652361aafda4e9d795a61" }, { path = "evidence/slice-6/cc-144/tc3.txt", sha256 = "6e004d920c3243bed3290bcd57184802697b263fc0202c8c6e1e13bf1562707e" }]
 tested_head = "1d5af21f606a06c13f58952c6dc6a483072c4e96"
 affects = ["scripts/jira_gate_line.py"]
 new_tests = false
-reviewer = "No separate reviewer has read this run. The owner approved the writes in chat on 2026-11-26; the session that ran it also ran the read-back check"
+reviewer = "evidence/slice-6/cc-144/gate2-r6-invariants.txt (3dfc74b) reran the live dry run: 54 read, 0 left to change, 0 refused (V11)"
