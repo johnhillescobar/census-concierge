@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -159,3 +160,90 @@ def test_the_warning_is_addressed_to_the_event_that_fired(
     assert note is not None and note["hookEventName"] == "PostToolUse"
     ctx.context_watch({"transcript_path": path, "session_id": "bare"})  # no event named
     assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["hookEventName"]
+
+
+def gate(capsys: pytest.CaptureFixture[str], call: Any) -> dict[str, Any] | None:
+    ctx.agent_gate({"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": call})
+    out = capsys.readouterr().out
+    return json.loads(out)["hookSpecificOutput"] if out else None
+
+
+@pytest.mark.parametrize(
+    ("agent", "label"),
+    [
+        ("general-purpose", "Gate 2 cold review, CC-1"),
+        ("general-purpose", "gate2 re-run on fixes"),
+        ("fork", "Gate-2 review"),
+        (None, "GATE 2"),
+    ],
+)
+def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
+    capsys: pytest.CaptureFixture[str], agent: str | None, label: str
+) -> None:
+    decision = gate(capsys, {"subagent_type": agent, "description": label, "prompt": "p"})
+    assert decision is not None and decision["hookEventName"] == "PreToolUse"
+    assert decision["permissionDecision"] == "deny"
+    assert ctx.GATE2_AGENT in decision["permissionDecisionReason"]
+
+
+@pytest.mark.parametrize(
+    ("agent", "label"),
+    [
+        (ctx.GATE2_AGENT, "Gate 2 cold review, CC-1"),
+        ("general-purpose", "Gate 1 mutation check"),
+        ("general-purpose", "Gate 2 invariants pass"),
+        ("general-purpose", "Gate 2, review-pr pass"),
+        ("general-purpose", "Read a file"),
+    ],
+)
+def test_the_cold_agent_the_invariants_pass_and_other_work_go_through(
+    capsys: pytest.CaptureFixture[str], agent: str, label: str
+) -> None:
+    call = {"subagent_type": agent, "description": label, "prompt": "Gate 2 is named here too"}
+    assert gate(capsys, call) is None
+
+
+@pytest.mark.parametrize("call", [None, "text", [], {}, {"description": None}])
+def test_a_call_the_gate_cannot_read_goes_through_without_an_error(
+    capsys: pytest.CaptureFixture[str], call: Any
+) -> None:
+    assert gate(capsys, call) is None
+
+
+def test_a_label_that_is_not_text_is_still_read(capsys: pytest.CaptureFixture[str]) -> None:
+    assert gate(capsys, {"description": ["Gate 2"]}) is not None
+
+
+def test_the_hook_command_denies_on_stdout_and_exits_zero() -> None:
+    call = {"tool_input": {"subagent_type": "general-purpose", "description": "Gate 2 review"}}
+    done = subprocess.run(
+        [sys.executable, str(ROOT / ".claude" / "hooks" / "ctx.py"), "agent-gate"],
+        input=json.dumps(call),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0
+    assert json.loads(done.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_the_committed_settings_put_the_gate_before_every_agent_call() -> None:
+    hooks = json.loads((ROOT / ".claude" / "settings.json").read_text("utf-8"))["hooks"]
+    commands = [
+        h["command"]
+        for group in hooks["PreToolUse"]
+        if "Agent" in group["matcher"].split("|")
+        for h in group["hooks"]
+    ]
+    # `|| true`: a checkout without the script must not block every subagent with python's exit 2
+    assert any(".claude/hooks/ctx.py" in c and c.endswith("agent-gate || true") for c in commands)
+
+
+def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effort() -> None:
+    text = (ROOT / ".claude" / "agents" / f"{ctx.GATE2_AGENT}.md").read_text("utf-8")
+    head = dict(
+        line.split(": ", 1) for line in text.split("---")[1].strip().splitlines() if ": " in line
+    )
+    assert head["name"] == ctx.GATE2_AGENT
+    assert head["model"] not in ("", "inherit", "sonnet")  # not the model that writes the code
+    assert head["effort"]  # a subagent on another model does not take the session's level
