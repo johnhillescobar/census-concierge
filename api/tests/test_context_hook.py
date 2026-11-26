@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -175,6 +176,13 @@ def gate(capsys: pytest.CaptureFixture[str], call: Any) -> dict[str, Any] | None
         ("general-purpose", "gate2 re-run on fixes"),
         ("fork", "Gate-2 review"),
         (None, "GATE 2"),
+        ("general-purpose", "Gate_2 review"),
+        ("general-purpose", "Gate II review"),
+        ("general-purpose", "gate two review"),
+        # the invariants words do not excuse a call that also names the bug pass
+        ("general-purpose", "Gate 2 bug pass and invariants"),
+        ("general-purpose", "Gate 2 cold review, then review-pr"),
+        ("general-purpose", "Gate 2: review PR 151"),
     ],
 )
 def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
@@ -194,6 +202,12 @@ def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
         ("general-purpose", "Gate 2 invariants pass"),
         ("general-purpose", "Gate 2, review-pr pass"),
         ("general-purpose", "Read a file"),
+        # "gate" then "2" only across a word edge: none of these names Gate 2
+        ("general-purpose", "Investigate 2 failing tests"),
+        ("general-purpose", "Aggregate 2 eval runs"),
+        ("general-purpose", "Delegate 2 lookups"),
+        ("general-purpose", "Gate 20 smoke"),
+        ("general-purpose", "Gate 2nd look"),
     ],
 )
 def test_the_cold_agent_the_invariants_pass_and_other_work_go_through(
@@ -208,6 +222,17 @@ def test_a_call_the_gate_cannot_read_goes_through_without_an_error(
     capsys: pytest.CaptureFixture[str], call: Any
 ) -> None:
     assert gate(capsys, call) is None
+
+
+@pytest.mark.parametrize("override", [{"model": "fable"}, {"effort": "low"}])
+def test_the_cold_agent_called_with_its_own_model_or_effort_is_denied(
+    capsys: pytest.CaptureFixture[str], override: dict[str, str]
+) -> None:
+    # a `model` on the call beats the agent file's, so the review would run on the caller's choice
+    call = {"subagent_type": ctx.GATE2_AGENT, "description": "Read a file", **override}
+    decision = gate(capsys, call)
+    assert decision is not None and decision["permissionDecision"] == "deny"
+    assert "without `model` and `effort`" in decision["permissionDecisionReason"]
 
 
 def test_a_label_that_is_not_text_is_still_read(capsys: pytest.CaptureFixture[str]) -> None:
@@ -245,15 +270,40 @@ def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effor
         line.split(": ", 1) for line in text.split("---")[1].strip().splitlines() if ": " in line
     )
     assert head["name"] == ctx.GATE2_AGENT
-    assert head["model"] not in ("", "inherit", "sonnet")  # not the model that writes the code
+    # A named model, never the caller's. The hook cannot see which model the caller runs on.
+    assert head["model"] not in ("", "inherit")
     assert head["effort"]  # a subagent on another model does not take the session's level
 
 
 @pytest.mark.parametrize(
-    "rel", ["docs/playbooks/run-slice.md", ".claude/skills/run-slice/SKILL.md"]
+    "rel",
+    [
+        "docs/playbooks/run-slice.md",
+        ".claude/skills/run-slice/SKILL.md",
+        "scripts/gate.sh",
+        "scripts/gate.ps1",
+    ],
 )
-def test_the_instructions_that_send_gates_to_a_subagent_name_the_agent_the_gate_allows(
+def test_everything_that_sends_gates_to_a_subagent_names_the_agent_the_gate_allows(
     rel: str,
 ) -> None:
-    # Both files send each gate to a general-purpose subagent, which the gate denies for Gate 2.
-    assert f"`{ctx.GATE2_AGENT}`" in (ROOT / rel).read_text("utf-8")
+    # Each one sends gates to a general-purpose subagent, which the gate denies for Gate 2.
+    assert ctx.GATE2_AGENT in (ROOT / rel).read_text("utf-8")
+
+
+def test_the_gate_2_handoff_names_the_cold_agent_and_the_other_phases_do_not() -> None:
+    def handoff(phase: str) -> str:
+        shell = shutil.which("bash")
+        if shell is None:
+            pytest.skip("no bash on this machine")
+        done = subprocess.run(
+            [shell, "scripts/gate.sh", phase, "9"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return done.stdout
+
+    assert ctx.GATE2_AGENT in handoff("gate2")
+    assert ctx.GATE2_AGENT not in handoff("gate1")

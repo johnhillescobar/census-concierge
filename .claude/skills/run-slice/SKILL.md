@@ -9,5 +9,5 @@ Read `CLAUDE.md` and **`docs/playbooks/run-slice.md`**, the canonical procedure.
 Use the phase-specific prompt from `scripts/gate.ps1` or `scripts/gate.sh`.
 In Claude Code, delegate each gate to a fresh `general-purpose` subagent, not
 `fork`; use `isolation: worktree` when needed. Follow the playbook's cold-review
-ordering, mutation checks, persisted handoffs and evidence/reporting limits.
-Use `/code-review` for the generic bug pass, or the `gate2-cold` agent when it is delegated (a hook denies any other agent for it), then the canonical invariants pass.
+ordering, mutation checks, persisted handoffs and evidence/reporting limits. Bug
+pass: `/code-review`, or the `gate2-cold` agent when delegated; then invariants.

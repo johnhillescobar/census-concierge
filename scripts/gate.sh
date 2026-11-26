@@ -54,9 +54,12 @@ case "$phase" in
     ;;
 esac
 
+claude="general-purpose, not fork."
+if [ "$phase" = gate2 ]; then claude="bug pass to the gate2-cold agent first, its transcript beside the file below; then this to general-purpose for the invariants pass."; fi
+
 cat <<EOF
 Hand this to a fresh subagent without caller history, or a fresh session.
-Claude Code: general-purpose, not fork. Cursor: fresh Task / New Chat.
+Claude Code: $claude Cursor: fresh Task / New Chat.
 Codex: fork_context: false when supported. Use an explicit worktree when needed.
 
   You have no context from the caller. Work from the repo and persisted evidence.

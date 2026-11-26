@@ -70,7 +70,7 @@ Read the code with no knowledge of intent. Not a duplicate of Gate 1: a test fro
 the same mental model as the implementation cannot falsify that model. Two passes:
 
 - **generic bugs**: `/code-review` (Claude Code) or the same cold read in a fresh
-  subagent/session in any host (in Claude Code that subagent is `gate2-cold`) — code only, no implementation intent. Do not read
+  subagent/session in any host — code only, no implementation intent. Do not read
   the slice plan, implementation notes or the caller's explanation until this
   pass has recorded its findings. Shared project rules still apply.
 - **project invariants**: `docs/playbooks/review-pr.md`. Run the machines first; a
@@ -145,7 +145,7 @@ stay resident for the rest of the slice.
 
 | | Claude Code | Cursor | Codex / other hosts |
 | --- | --- | --- | --- |
-| gate phase | fresh `general-purpose` subagent, **not** `fork`; Gate 2's bug pass goes to the `gate2-cold` agent, and a hook denies any other agent for it | fresh Task subagent or New Chat | fresh subagent without caller history; Codex `fork_context: false` when supported, otherwise a fresh session |
+| gate phase | fresh `general-purpose` subagent, **not** `fork`; Gate 2's bug pass: the `gate2-cold` agent | fresh Task subagent or New Chat | fresh subagent without caller history; Codex `fork_context: false` when supported, otherwise a fresh session |
 | isolated checkout | subagent `isolation: worktree` | worktree when needed | explicit worktree when needed; do not assume subagents isolate files |
 
 `scripts/gate.sh` / `scripts/gate.ps1` print the same host-neutral handoff;

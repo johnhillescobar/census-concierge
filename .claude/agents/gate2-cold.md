@@ -1,6 +1,6 @@
 ---
 name: gate2-cold
-description: Gate 2, generic-bugs pass - a cold bug review of a branch diff, run on a different model from the session that wrote the code. Use for pass 1 of Gate 2 in docs/playbooks/run-slice.md, and for its one re-run on the fix commits. Give it only the repo path, the review base and head, and the evidence path.
+description: Gate 2, generic-bugs pass - a cold bug review of a branch diff, run on the model this file names, whatever model the caller runs on. Use for pass 1 of Gate 2 in docs/playbooks/run-slice.md, and for its one re-run on the fix commits. Give it only the repo path, the review base and head, and the evidence path.
 model: opus
 effort: xhigh
 disallowedTools: Edit, NotebookEdit
