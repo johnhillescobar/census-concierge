@@ -1,0 +1,409 @@
+GATE 2, PASS 1 (generic bugs, cold) - transcript
+================================================
+
+Reviewer        : gate2-cold agent, no caller context
+Written         : 2026-11-26T22:07Z
+Repository      : C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145
+Branch          : cc-145/one-source
+HEAD            : 1f38280e6b54156e2b1856b8ccdcb293a3980c64
+Review base     : origin/main  ab4c27d8286f3bf694c0660709a05940fd48a0cf  (also the merge base)
+Review head     : 1f38280e6b54156e2b1856b8ccdcb293a3980c64  (11 commits ahead of base)
+git status --short at start : (empty)
+git status --short before this file was written : (empty)
+
+Scope read      : the code in `git diff origin/main...HEAD`:
+                  scripts/brief.py (new), scripts/closure.py, scripts/jira_fetch.py,
+                  scripts/jira_transition.py, scripts/check_invariants.py, scripts/check_budgets.py,
+                  .claude/hooks/ctx.py, .claude/settings.json, .github/workflows/check.yml, Makefile,
+                  the deleted scripts/gate.sh and scripts/gate.ps1, and the five changed test files.
+Not read before the findings below were written: .claude/PLAN.md, the ticket, anything under
+                  evidence/slice-6/cc-145/, evidence/closure/CC-145.toml, the caller's explanation,
+                  and the prose (docs) part of the diff. Other tickets' closure manifests were run
+                  through closure.py, which is a local, read-only git check.
+Nothing was run against Jira or any other live system. Every reproduction used a fake, a stub or a
+scratch git repository under the session scratchpad. No product or test file was changed.
+
+VERDICT: NOT CLEAN. 0 high, 4 medium, 6 low, 3 nits, 1 unreproduced. No finding is a crash on the
+happy path; the medium ones are four places where a guard this diff adds says "fine" when it is not.
+
+
+MACHINES (context for the review, not the invariants pass)
+----------------------------------------------------------
+$ uv run --frozen pytest -q -p no:cacheprovider api/tests/test_brief.py api/tests/test_jira_fetch.py \
+    api/tests/test_context_hook.py api/tests/test_invariants.py api/tests/test_process.py -rs
+228 passed, 1 warning in 27.09s          (no skips: the bash-stub CI tests ran on this machine)
+$ uv run --frozen ruff check .                               -> All checks passed!
+$ uv run --frozen ruff format --check .                      -> 318 files already formatted
+$ uv run --frozen python scripts/check_invariants.py --base origin/main
+  21 rows ok, including "status or plan files" and "status in PLAN.md and slices.md";
+  info  api/src regex call sites: 55 (base 55, delta +0);  All invariants held.  exit 0
+$ uv run --frozen python scripts/check_budgets.py --structural-only
+  all ok; doc lines 1786 <= 1820;  All budgets met.  exit 0
+budgets.toml is not in the diff. api/src is not in the diff.
+
+
+ADVERSARIAL MATRIX (docs/process-evidence.md), row by row
+---------------------------------------------------------
+1. Identical inputs ranked by float noise        - does not apply: no index, embedding or ranking code
+                                                   is touched (api/src and evals/ are not in the diff).
+2. A family returned by one member               - does not apply, same reason.
+3. A ranking change measured on the tuning set   - does not apply: nothing is measured or ranked.
+4. "Expect the largest jump" checked against the - does not apply as written. Its general form (a claim
+   number                                          checked against real output, not intuition) is what
+                                                   the probes below do to the docstring claims of the
+                                                   new code; see M1, M4 and U1.
+The CLAUDE.md trap nearest to this diff, "a fake that returns the same thing for any input tests
+nothing", was tried against the new tests: see U1.
+
+
+FINDINGS, most severe first
+===========================
+
+M1  MEDIUM  The criteria fingerprint covers only the line an id starts on
+----------------------------------------------------------------------------
+Where : scripts/closure.py:133-137 (criteria_fingerprint), used by scripts/brief.py:61-86 (compare)
+What  : `lines = [... for line in text.splitlines() if required_ids(line)]`. Only a line that itself
+        begins with AC<n>/TC<n> is hashed. Everything else that belongs to a criterion is not: a
+        continuation line or sub-bullet, a hard break inside the paragraph, the text cell of a Jira
+        table whose first cell holds the id, the paragraph under a heading that holds the id, and any
+        inline node that is not text (smart link, date, mention). The docstring says "rewording a
+        criterion changes it"; for these shapes it does not, and brief.py prints the phase brief with
+        no STOP.
+Failure scenario: a ticket whose criteria are a two-column Jira table ("AC1 | p95 stays under 20
+        seconds"). After pre-flight approval someone edits the cell to "under 200 seconds". ids are
+        unchanged, the fingerprint is unchanged, `brief.py gate1 CC-N` starts the phase on criteria
+        the owner never approved - the exact case the comparison exists to stop.
+Reproduced (scratchpad probe1.py, section A; pure functions, no network):
+    A1 description, before -> after (one sub-bullet reworded):
+         AC1. The brief refuses to start a phase when:
+         - the live criteria differ from the approved ones    ->  - never; a difference is only reported
+         - nothing was approved at pre-flight
+         TC1. A test proves AC1.
+       ids before/after      : ['AC1', 'TC1'] ['AC1', 'TC1']
+       fingerprint identical : True
+       compare() problems    : []
+    A2 ADF table, cells (AC1 | p95 latency stays under 20 seconds), (TC1 | a test)
+         -> (AC1 | p95 latency stays under 200 seconds), (TC1 | no test)
+       adf_text before       : 'AC1\np95 latency stays under 20 seconds\nTC1\na test\n'
+       fingerprint identical : True
+       compare() problems    : []
+    A3 ADF heading "AC1" + paragraph "Every answer renders the full URL." -> "No answer needs a URL."
+       fingerprint identical : True
+       compare() problems    : []
+    A4 control, the id line itself reworded:
+       compare() problems    : ['the criteria text changed with the same ids (274ccac7d571, approved
+                                3d7acfa8e57d)', 'no [[amendment]] row has criteria_sha256 = 274ccac7...']
+Note  : the existing tests (test_brief.py) reword only the id line, so they pass against this gap.
+
+
+M2  MEDIUM  The CI closure step is keyed on a branch-name shape; the common shape skips it
+--------------------------------------------------------------------------------------------
+Where : .github/workflows/check.yml:90-104
+What  : `first="${BRANCH%%/*}"`, then `[cC][cC]-[0-9]*` or "names no ticket: no closure check; exit 0".
+        (a) Fails open: a branch that names its ticket anywhere but the first path segment is skipped
+            with a green step - feat/cc-95-..., fix/CC-145, evidence/cc-32-e2e-post, claude/cc-145-...,
+            cc145/x.
+        (b) A branch `cc-N-slug` (no slash) is read as key `CC-N-SLUG`; closure.py then reports
+            "malformed manifest (FileNotFoundError ...)", which is red but names the wrong cause.
+        (c) Every pull request from a `cc-N/...` branch is red until every row is PASS, so a ticket
+            that lands in several pull requests cannot merge its first one under that name; the way
+            out is to rename the branch to shape (a), which turns the check off.
+Failure scenario: an implementation PR opened from `feat/cc-150-new-thing` (or by a host that prefixes
+        its own segment, e.g. `claude/cc-150-...`) with NOT RUN rows in evidence/closure/CC-150.toml
+        shows a green "closure" step that printed "names no ticket". The step comment says such a PR is
+        red until every row is PASS.
+History on origin/main (merge commits, `git log --merges`): 150 carry a branch name, 122 of those name
+        a ticket; 20 have the shape cc-N/slug (the step checks them), 91 have the shape prefix/cc-N-...
+        (the step skips them: feat/cc-121-answer-figures, fix/cc-102-original-question-parent-guard,
+        feat/cc-117-no-table-pins, budget/cc-114-api-src-loc, evidence/cc-143-e2e-post ...), 0 have the
+        shape cc-N-slug. Tickets landed in several cc-N/ pull requests: CC-141 five (golden-state,
+        bridge, post-merge, ac4, ac4-affects), CC-138 three, CC-133, CC-125 and CC-114 two each, and
+        cc-104/api-src-budget while CC-104 is still open.
+Reproduced (scratchpad probe3.py: the step's `run:` text loaded from check.yml with yaml, executed with
+        `bash -e -c`, a stub `uv` on PATH that records its arguments and exits 1):
+    branch                                     exit  closure.py called with
+    cc-145/one-source                          1     run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge --head abc1234
+    CC-145/one-source                          1     ... evidence/closure/CC-145.toml ...
+    cc-145                                     1     ... evidence/closure/CC-145.toml ...
+    cc-121-answer-figures                      1     ... evidence/closure/CC-121-ANSWER-FIGURES.toml ...
+    cc-99-e2e-post                             1     ... evidence/closure/CC-99-E2E-POST.toml ...
+    feat/cc-95-ambiguous-place-candidates      0     (not called) branch ... names no ticket: no closure check
+    evidence/cc-32-e2e-post                    0     (not called)
+    docs/cc-96-informal-regions                0     (not called)
+    chore/cc-100-e2e-post                      0     (not called)
+    claude/cc-145-one-source                   0     (not called)
+    fix/CC-145                                 0     (not called)
+    cc145/one-source                           0     (not called)
+    chore/launch-inspect-ask                   0     (not called)
+    $ uv run --frozen python scripts/closure.py check evidence/closure/CC-121-ANSWER-FIGURES.toml --pre-merge --head HEAD
+      BLOCKED  CC-121-ANSWER-FIGURES.toml: malformed manifest (FileNotFoundError: [Errno 2] No such file ...)
+      CLOSURE BLOCKED: 1 problem(s)
+Note  : test_process.py tests one checked name and one skipped name (chore/launch-inspect-ask); no test
+        feeds the step a skipped name that carries a ticket key.
+
+
+M3  MEDIUM  The CI readiness call does not know the approved criteria
+----------------------------------------------------------------------
+Where : .github/workflows/check.yml:104 (`closure.py check ... --pre-merge --head "$TIP"`, no --require);
+        scripts/closure.py:314-319 (`required` is whatever the manifest declares);
+        scripts/brief.py (approved_ids is read by brief.compare only)
+What  : this diff adds `approved_ids` to the manifest and a CI step that says every AC/TC row is PASS.
+        Nothing ties the two: closure.py still judges only the ids the manifest lists under `required`.
+        A manifest whose `required` is shorter than `approved_ids` is "CLOSURE OK" in CI.
+Failure scenario: approved_ids = [AC1, AC2, TC1]; the manifest is written (or trimmed) with
+        required = ["AC1"] and one PASS row. brief.py is satisfied (the criteria match the approved
+        ones), CI is green, the PR merges with AC2 and TC1 never run. Only the Done gate
+        (jira_transition.py, which passes the live ids as `required`) refuses, after the merge.
+Reproduced (scratchpad probe2.py, section C; scratch git repo, one commit, one pinned evidence file):
+    manifest: approved_ids = ["AC1","AC2","TC1"], approved_sha256 = <fingerprint>, required = ["AC1"],
+              one PASS row for AC1 (command, expected, observed, tested_head, reviewer, affects, evidence+sha)
+    brief.compare (criteria vs approved)         : []
+    closure --pre-merge --head HEAD (the CI call): CLOSURE OK
+      ... with the live ids required (Done gate)  : ['AC2: absent from the manifest', 'TC1: absent from the manifest']
+
+
+M4  MEDIUM  The closed-ticket status command is red for six of the seven other manifests, and reads the checkout
+---------------------------------------------------------------------------------------------------------------
+Where : scripts/brief.py:32-39 (status_commands, closed=True) and :48-58 (closed_status)
+What  : for a ticket Jira files under Done the brief prints
+        `closure.py check evidence/closure/CC-N.toml --head origin/main` and asks the agent to state
+        "which evidence is stale or missing, and what, if anything, is left for the owner".
+        (a) `--head origin/main` diffs every PASS row's `affects` from its tested_head to today's main,
+            so the record of a finished ticket turns "CLOSURE BLOCKED ... stale" as soon as any later
+            ticket touches a covered file. That is drift of main, not a defect in the closed ticket.
+        (b) The docstring says a closed ticket is judged "on main ... whatever branch is checked out".
+            Only the diff uses origin/main: the manifest, the evidence hashes and the `affects`
+            existence check are read from the working tree.
+Failure scenario: a fresh session is pointed at a finished ticket; the status command prints
+        "CLOSURE BLOCKED: 13 problem(s)" and the agent, told that status comes only from these two
+        commands, reports stale evidence and work left for the owner on a ticket that closed cleanly.
+        From a branch cut before the closing record merged, the same command reports NOT RUN rows.
+Reproduced (a), the real command on this checkout for every manifest but this ticket's
+        (whether each ticket is Done in Jira was not checked; Jira was not contacted):
+    $ uv run --frozen python scripts/closure.py check evidence/closure/<KEY>.toml --head origin/main
+    CC-125  BLOCKED  AC5: stale, 1 covered file(s) changed since 989f2b4            CLOSURE BLOCKED: 1
+    CC-126  BLOCKED  AC6: stale, 1 covered file(s) changed since 9a36dff            CLOSURE BLOCKED: 1
+    CC-133  BLOCKED  AC1..AC6, TC1..TC7: stale, 39 covered file(s) changed since 0853a63   BLOCKED: 13
+    CC-138  BLOCKED  AC2.1, TC2: stale, 19 ...; AC3, TC3: stale, 4 ... since 89396f4       BLOCKED: 4
+    CC-141  BLOCKED  AC1, AC2, AC4, TC1, TC2: stale, 1 ...; AC3, TC3: stale, 3 ...         BLOCKED: 7
+    CC-143  BLOCKED  AC4, AC12, TC7: stale, 1 ...; AC11, TC8: stale, 2 ... since f0c1e6b   BLOCKED: 5
+    CC-144  CLOSURE OK
+Reproduced (b) (scratchpad probe2.py, section H2; scratch repo: commit 1 holds a NOT RUN row, commit 2
+        on main holds the PASS row; the post_merge line is the same in both and is an artefact of the
+        scratch repo having no merges):
+    on main        , --head main: ['post_merge: git cannot show what was merged; the E2E is required']
+    on older branch, --head main: ['AC1: NOT RUN blocks closure', 'post_merge: git cannot show ...']
+
+
+L1  LOW  A rule file moved or renamed out of the rule set does not trigger the contradiction read
+---------------------------------------------------------------------------------------------------
+Where : scripts/brief.py:89-98 (changed_files)
+What  : `git diff --name-only base...HEAD` runs with rename detection on, so a moved file is listed
+        under its new path only; `done.stdout.split()` also breaks any path that contains a space.
+        closure.py:262-263 already passes --no-renames for this reason ("a file moved out of api/src
+        is a file that left api/src").
+Failure scenario: a branch retires or relocates a playbook (docs/playbooks/x.md -> docs/archive/x.md).
+        A rule every other rule file points at is gone, and the Gate 2 brief does not ask for the
+        contradiction read.
+Reproduced (scratchpad probe2.py, section D2; scratch repo, `git mv docs/playbooks/review-pr.md
+        docs/archive/review-pr.md`, git 2.52):
+    git diff --name-only main...HEAD              : ['docs/archive/review-pr.md']
+    git diff --name-only --no-renames main...HEAD : ['docs/archive/review-pr.md', 'docs/playbooks/review-pr.md']
+    brief.changed_files('main')                   : ['docs/archive/review-pr.md']
+    Gate 2 brief asks for the contradiction read  : False
+    and (probe1.py, M3): ".cursor/rules/my rule.mdc".split() -> ['.cursor/rules/my', 'rule.mdc'];
+    any prescriptive: False
+
+
+L2  LOW  `jira_fetch.py issue --md` prints "(empty)" for a comment that is a code block, a task or a decision
+--------------------------------------------------------------------------------------------------------------
+Where : scripts/jira_fetch.py:225-247 (_body_markdown, issue_markdown), which send comment bodies
+        through _adf_to_markdown (250-333, not new)
+What  : the renderer writes headings, paragraphs and lists. Text inside codeBlock, taskItem and
+        decisionItem is dropped, and so are mention and inlineCard (smart link) nodes. The diff makes
+        this output the first of the two status commands and sends "decisions" to Jira comments, so a
+        dropped comment is now dropped status. closure.adf_text, which the brief fingerprints from,
+        does read codeBlock, taskItem and decisionItem, so the two disagree about the same ticket.
+Failure scenario: the owner records a decision in a Jira decision or code block, or pastes the PR as a
+        smart link; the status command shows "(empty)" or "Evidence:  approved by". A criterion kept as
+        a Jira task item is approved and fingerprinted by brief.py but never shown to the agent that
+        reads the ticket.
+Reproduced (scratchpad probe1.py, section G1; a fake issue and three fake comments, no network):
+    description = paragraph "AC1. it works" + taskItem "AC2. it also fails closed"
+    comment 1 = codeBlock "DECISION (owner): AC4 is out of scope"
+    comment 2 = decisionItem "Use the fallback model"
+    comment 3 = paragraph: text "Evidence: ", inlineCard(url), text " approved by ", mention "@Owner"
+    output of jf.issue_markdown(issue, comments):
+        ### Description
+        AC1. it works
+        ### Last 3 comment(s), oldest first
+        #### 2026-11-26T10:00:00.000+0000 - Owner
+        (empty)
+        #### 2026-11-26T10:00:00.000+0000 - Owner
+        (empty)
+        #### 2026-11-26T10:00:00.000+0000 - Owner
+        Evidence:  approved by
+    ids the brief fingerprints from the same description: ['AC1', 'AC2']
+
+
+L3  LOW  The status-word check on PLAN.md and slices.md fails ordinary scope prose and passes plain status
+-----------------------------------------------------------------------------------------------------------
+Where : scripts/check_invariants.py:892-939 (STATUS_WORDS, STATUS_EXACT, _has_decimal, plan_doc_problems)
+What  : whole-word "done", "closed", "in progress", exact-case "To Do", and any digit.digit. Both
+        directions are wrong often enough to matter: `make check` goes red on scope text that carries
+        no status, and stays green on a status column written with any other word.
+Failure scenario (red): a slice scope line "the export guard fails closed", a criterion id "AC6.2"
+        (an id shape closure.required_ids documents), "Python 3.12", a model name with a version, or
+        the `--done` flag. (green): "CC-125 and CC-126 are finished", a column of "To do", "Won't Do",
+        "Resolved", "In Review", and "answered_rate 74%, p95 22s".
+Reproduced (scratchpad probe1.py, sections E1 and E2):
+    ['line 1: closed']           <- Slice 7: the export guard fails closed when the fetch errors.
+    ['line 1: a decimal number'] <- CC-3 AC6.2 moves to slice 7.
+    ['line 1: a decimal number'] <- Python 3.12 only; DESIGN section 8.6 holds the sealed-set rule.
+    ['line 1: a decimal number'] <- Model: gpt-4.1-mini for the selector.
+    ['line 1: done']             <- Close a ticket with `scripts/jira_transition.py CC-N --done`.
+    ['line 1: closed']           <- A half-closed connection is retried once.
+    ['line 1: in progress']      <- Work in-progress branches are not listed here.
+    ['line 1: done']             <- What must be done before slice 8 can start: nothing.
+    []  <- CC-125 and CC-126 are finished.
+    []  <- CC-125 and CC-126 are complete; CC-127 merged; CC-128 shipped.
+    []  <- | CC-10 | 7 PDF export | To do |
+    []  <- | CC-10 | 7 PDF export | TODO |
+    []  <- | CC-11 | 8 | Won't Do |
+    []  <- | CC-12 | 9 | In Review |
+    []  <- | CC-13 | 9 | Resolved |
+    []  <- | CC-14 | 9 | Blocked |
+    []  <- Baseline: long_tail answered_rate 74%, p95 22s, retriever@10 93%.
+    []  <- Baseline: answered_rate .742, p95 21,701 ms.
+    []  <- CC-103: see evidence\slice-6\cc-103-e2e-post.txt          (PLAN.md, backslash path)
+
+
+L4  LOW  The status-file check is by exact file name, and this diff keeps one plan file by renaming it
+-------------------------------------------------------------------------------------------------------
+Where : scripts/check_invariants.py:892, 900-907 (check_no_status_files)
+What  : flags only `STATE.md`, `plan.md` and `*-plan.md`, case-sensitively, under evidence/ only.
+        The diff itself contains `R100 evidence/slice-6/cc-138/plan.md ->
+        evidence/slice-6/cc-138/scope-record.md` (content byte-identical, sha256 975c68ae... re-pinned
+        in two rows of evidence/closure/CC-138.toml), and test_invariants.py lists "scope-record.md"
+        as a name that must pass. So the check is satisfied by a rename, and the branch shows how.
+Failure scenario: the next agent that wants a state file writes evidence/slice-7/cc-150/status.md,
+        handoff.md, state.md or STATE.txt, or .claude/STATE.md; `make check` is green.
+Reproduced (scratchpad probe2.py section F and probe4.py section F2; scratch evidence folder):
+    on disk : ['STATE.md', 'STATE.txt', 'cc-102-plan.md', 'cc-102-plan.txt', 'handoff.md',
+               'plan-v2.md', 'plan.md', 'scope-record.md', 'status.md']
+    flagged : ['STATE.md', 'cc-102-plan.md', 'plan.md']
+    passes  : ['STATE.txt', 'cc-102-plan.txt', 'handoff.md', 'plan-v2.md', 'scope-record.md', 'status.md']
+    a folder holding only `state.md` -> flagged: []
+Merge fallout seen while checking this (information, not a defect): origin/cc-104/structured-geography
+        adds evidence/slice-6/cc-104-plan.md and evidence/slice-6/cc-104/STATE.md, and
+        origin/cc-118/variable-limit adds evidence/slice-6/cc-118-plan.md; each goes red on this check
+        once main is merged in. api/tests/fixtures/gate_wording/CC-104.*.json quote the CC-104 ticket
+        saying "Current status lives in evidence/slice-6/cc-104/STATE.md".
+
+
+L5  LOW  Amendment rows are trusted on one field, and an amendment that adds a criterion also excuses it
+---------------------------------------------------------------------------------------------------------
+Where : scripts/brief.py:74-76; scripts/closure.py:307 (`amended` is every amendment's id)
+What  : (a) compare() lets a changed description through when any [[amendment]] row has the new
+            criteria_sha256, whatever else the row lacks (no id, date, owner or reason). closure.py
+            does flag such a row, but only when the second status command is run and read.
+        (b) the same [[amendment]] table now means two things. A row that records an ADDED criterion
+            (id = "AC3", as test_brief.py builds it) also puts AC3 in closure.py's `amended` set, so a
+            row `id = "AC3", status = "AMENDED"` with no evidence is accepted as closure.
+Failure scenario: the owner adds AC3 after pre-flight; the manifest records the amendment and marks
+        AC3 AMENDED; brief.py and the CI closure call both pass and AC3 is never proven.
+Reproduced (probe1.py M2; probe2.py section B):
+    M2 amendment = [{criteria_sha256 = <fingerprint of the live text>}]   compare() problems: []
+    B  required = ["AC1","AC3"], PASS row AC1, row AC3 status AMENDED, amendment id AC3 with
+       criteria_sha256 of the live text:
+       brief.compare with the amendment : []
+       closure --pre-merge              : CLOSURE OK
+
+
+L6  LOW  is_prescriptive is wider than the files doc_lines counts
+------------------------------------------------------------------
+Where : scripts/check_budgets.py:166-168
+What  : fnmatch's `*` crosses "/", Path.glob's does not. `docs/playbooks/*.md` matches
+        docs/playbooks/archive/old.md, `.claude/skills/*/SKILL.md` matches .claude/skills/a/b/c/SKILL.md.
+        The direction is harmless (an extra contradiction read), but the docstring ("one of the files
+        doc_lines counts") and the test name ("covers exactly the files the doc budget counts") are not
+        true, and that test only checks counted files are matched plus three negatives.
+Reproduced (probe1.py D1):
+    is_prescriptive=True  docs/playbooks/archive/old.md
+    is_prescriptive=True  .cursor/rules/sub/dir/x.mdc
+    is_prescriptive=True  .claude/skills/a/b/c/SKILL.md
+
+
+NITS
+----
+N1  scripts/brief.py:100-102 (evidence_dir). A ticket with no folder yet, or with folders in two
+    slices, is sent to `evidence/cc-N`, a path the slice layout does not use. Reproduced (probe4.py N1):
+      no folder yet -> evidence/cc-150 ; one slice folder -> evidence/slice-6/cc-150 ;
+      folders in two slices -> evidence/cc-150
+N2  scripts/brief.py:201. A manifest that is not valid TOML ends brief.py with an uncaught traceback
+    (exit 1, so it fails closed) where closure.check_file reports "malformed manifest". Reproduced
+    (probe4.py N2, fake _issue): uncaught: tomllib.TOMLDecodeError: Unclosed array (at end of document)
+N3  scripts/brief.py:104-112, 196. `--after-merge` on any phase but `final` is accepted and ignored.
+    Reproduced (probe1.py M1): brief("gate1", after_merge=True) == brief("gate1") -> True.
+    `make brief` passes neither --base nor --after-merge.
+
+
+UNREPRODUCED
+------------
+U1  scripts/jira_fetch.py:216-222 (_comments). "The ticket's newest `last` comments" rests on Jira
+    honouring `orderBy=-created` together with `maxResults`. The fake in test_jira_fetch.py returns the
+    same newest-first list whatever query it is sent and the test asserts only that the query string
+    was built, so nothing in the repo's tests would notice if Jira ignored the parameter and returned
+    the OLDEST N under the heading "Last N comment(s)". Not reproduced: confirming it needs one read
+    of a live ticket, which this pass does not do. If the pre-flight file already holds that output,
+    this is closed; if not, it is one command to run.
+
+
+NOTHING FOUND
+-------------
+- .claude/hooks/ctx.py: session-start and context-watch changes do what they say; the agent gate is
+  untouched; brief.COLD and ctx.GATE2_AGENT are held together by a test.
+- .claude/settings.json: valid JSON, hooks unchanged. `autoCompactEnabled` and `autoMemoryEnabled`
+  are both documented Claude Code settings that apply from a project settings file (checked by a
+  documentation lookup through a subagent, not by running the client; the committed test asserts only
+  that the keys are present).
+- scripts/jira_fetch.py env_file / load_env, and scripts/jira_transition.py: own .env first, main
+  checkout's from a worktree, None with neither; behaves as the tests say on git 2.52.
+- scripts/jira_fetch.py _api: a URLError, a timeout and a non-JSON body exit 1 before any ticket text
+  is printed (the output is built whole first).
+- Makefile, and the deleted scripts/gate.sh and scripts/gate.ps1: no reference to either script or to
+  `make gate` remains outside test strings and two fixture files.
+- scripts/check_budgets.py: DOC_PATTERNS moved to module level with the same members; doc_lines
+  counts the same files.
+- No test in the diff is named after a ticket; no new `re.*` call in api/src; no budget changed.
+
+
+AFTER THE FINDINGS WERE WRITTEN (three checks that needed files this pass could not read earlier)
+==================================================================================================
+These were run only after everything above was on disk. They change no severity.
+
+P1  U1 stays open. `grep -n -E "orderBy|-created|maxResults" evidence/slice-6/cc-145/preflight.txt`
+    returns nothing: the pre-flight file records no live output showing that Jira returns the newest
+    comments for `orderBy=-created`. (The same file does record the two settings keys as checked
+    against the Claude Code documentation, which agrees with the "nothing found" line above.)
+
+P2  M2 is not softened by a rule elsewhere.
+    $ git grep -n -I -E "cc-N/|cc-<N>/|branch (name|names|naming)|head_ref" -- AGENTS.md CLAUDE.md docs \
+        .claude/skills .cursor .agents scripts .github
+    .github/workflows/check.yml:90, :91, :96 only. No rule file states the `cc-N/...` branch shape and
+    no check enforces it; the workflow comment is the only place it is written.
+
+P3  What the new CI step says for this branch at the reviewed head (information for the caller; rows
+    are expected to be filled in later phases):
+    $ uv run --frozen python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge --head HEAD
+      BLOCKED  AC1 .. AC16: NOT RUN blocks closure
+      BLOCKED  TC1 .. TC8 : NOT RUN blocks closure
+      CLOSURE BLOCKED: 24 problem(s)
+    A pull request opened from cc-145/one-source at 1f38280 is red on that step until all 24 are PASS.
+
+Helper scripts (session scratchpad, not in the repository; each finding above carries its own inputs
+so it can be rebuilt without them): probe1.py (pure functions), probe2.py (scratch git repositories),
+probe3.py (the CI step with a stub uv), probe4.py (edge cases).
+
+git status --short at end : ?? evidence/slice-6/cc-145/gate2-cold.txt   (this file; nothing else)
+HEAD at end               : 1f38280e6b54156e2b1856b8ccdcb293a3980c64
