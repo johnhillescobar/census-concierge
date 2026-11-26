@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -162,10 +163,29 @@ def test_the_warning_is_addressed_to_the_event_that_fired(
     assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["hookEventName"]
 
 
-def gate(capsys: pytest.CaptureFixture[str], call: Any) -> dict[str, Any] | None:
-    ctx.agent_gate({"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": call})
+def gate(
+    capsys: pytest.CaptureFixture[str], call: Any, session: object = None
+) -> dict[str, Any] | None:
+    payload = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": call}
+    ctx.agent_gate(payload | {"transcript_path": session})
     out = capsys.readouterr().out
     return json.loads(out)["hookSpecificOutput"] if out else None
+
+
+def session_on(path: Path, *rows: dict[str, Any]) -> str:
+    """A transcript whose rows are the given entries, oldest first."""
+    path.write_text(
+        "".join(json.dumps(row) + "\n" for row in [{"type": "summary"}, *rows]), "utf-8"
+    )
+    return str(path)
+
+
+def said(model: object, **entry: Any) -> dict[str, Any]:
+    return {"message": {"model": model, "usage": {"input_tokens": 1}}, **entry}
+
+
+OPUS, SONNET = "claude-opus-5-5", "claude-sonnet-5-5"
+COLD = {"subagent_type": ctx.GATE2_AGENT, "description": "Gate 2 cold review", "prompt": "p"}
 
 
 @pytest.mark.parametrize(
@@ -175,6 +195,16 @@ def gate(capsys: pytest.CaptureFixture[str], call: Any) -> dict[str, Any] | None
         ("general-purpose", "gate2 re-run on fixes"),
         ("fork", "Gate-2 review"),
         (None, "GATE 2"),
+        ("general-purpose", "Gate_2 review"),
+        # the invariants pass goes through only when the label says nothing else
+        ("general-purpose", "Gate 2 bug pass and invariants"),
+        ("general-purpose", "Gate 2 cold review, then review-pr"),
+        ("general-purpose", "Gate 2: review PR 151"),
+        ("general-purpose", "Gate 2: /code-review then review-pr"),
+        ("general-purpose", "Gate 2 code review, then invariants"),
+        ("general-purpose", "Gate 2 full review incl. invariants"),
+        ("general-purpose", "Gate 2 re-run on fixes (invariants too)"),
+        ("general-purpose", "Gate 2 pass on the fixes"),
     ],
 )
 def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
@@ -192,8 +222,17 @@ def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
         (ctx.GATE2_AGENT, "Gate 2 cold review, CC-1"),
         ("general-purpose", "Gate 1 mutation check"),
         ("general-purpose", "Gate 2 invariants pass"),
-        ("general-purpose", "Gate 2, review-pr pass"),
+        ("general-purpose", "Gate-2 review-pr invariants pass, CC-1"),
+        ("general-purpose", "gate2 project invariants: re-run on the fix commit for slice 6"),
         ("general-purpose", "Read a file"),
+        # "gate two" is also an ordinary verb and number
+        ("general-purpose", "Gate two endpoints behind auth"),
+        # "gate" then "2" only across a word edge: none of these names Gate 2
+        ("general-purpose", "Investigate 2 failing tests"),
+        ("general-purpose", "Aggregate 2 eval runs"),
+        ("general-purpose", "Delegate 2 lookups"),
+        ("general-purpose", "Gate 20 smoke"),
+        ("general-purpose", "Gate 2nd look"),
     ],
 )
 def test_the_cold_agent_the_invariants_pass_and_other_work_go_through(
@@ -208,6 +247,86 @@ def test_a_call_the_gate_cannot_read_goes_through_without_an_error(
     capsys: pytest.CaptureFixture[str], call: Any
 ) -> None:
     assert gate(capsys, call) is None
+
+
+@pytest.mark.parametrize("override", [{"model": "fable"}, {"effort": "low"}])
+def test_the_cold_agent_called_with_its_own_model_or_effort_is_denied(
+    capsys: pytest.CaptureFixture[str], override: dict[str, str]
+) -> None:
+    # a `model` on the call beats the agent file's, so the review would run on the caller's choice
+    call = {"subagent_type": ctx.GATE2_AGENT, "description": "Read a file", **override}
+    decision = gate(capsys, call)
+    assert decision is not None and decision["permissionDecision"] == "deny"
+
+
+def test_a_session_on_the_reviewers_own_model_must_move_the_review_to_the_fallback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = session_on(tmp_path / "t.jsonl", said(SONNET), said(OPUS))
+    decision = gate(capsys, COLD, session)
+    assert decision is not None and decision["permissionDecision"] == "deny"
+    assert ctx.GATE2_FALLBACK in decision["permissionDecisionReason"]
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK}, session) is None
+    # not to any other model, not back to its own, and still at the agent file's effort
+    for override in ({"model": "haiku"}, {"model": ctx.GATE2_MODEL}):
+        assert gate(capsys, COLD | override, session) is not None
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK, "effort": "low"}, session) is not None
+
+
+def test_the_first_denial_already_names_the_fallback_to_a_session_that_needs_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    call = {"subagent_type": "general-purpose", "description": "Gate 2 review"}
+    for model, named in ((OPUS, True), (SONNET, False)):
+        decision = gate(capsys, call, session_on(tmp_path / "t.jsonl", said(model)))
+        assert decision is not None
+        assert (f"`{ctx.GATE2_FALLBACK}`" in decision["permissionDecisionReason"]) is named
+
+
+def test_a_row_holding_a_unicode_line_separator_is_still_one_row(tmp_path: Path) -> None:
+    newest = {"message": {"model": OPUS, "usage": {"input_tokens": 7}, "text": "a\u2028b\x85c"}}
+    path = tmp_path / "t.jsonl"
+    rows = [{"type": "summary"}, said(SONNET), newest]
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8")
+    assert ctx.caller_model(str(path)) == OPUS
+    assert ctx.used_tokens(str(path)) == 7
+
+
+def test_a_session_on_another_model_gets_the_agent_files_model_and_no_fallback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = session_on(tmp_path / "t.jsonl", said(OPUS), said(SONNET))  # the newest decides
+    assert gate(capsys, COLD, session) is None
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK}, session) is not None
+
+
+def test_the_callers_model_is_the_newest_main_thread_message_a_model_wrote(
+    tmp_path: Path,
+) -> None:
+    rows = [said(SONNET), said("Claude-Opus-5-5"), said(SONNET, isSidechain=True)]
+    rows += [said("<synthetic>"), said(None), said(7), {"message": "text"}, {"type": "user"}]
+    assert ctx.caller_model(session_on(tmp_path / "t.jsonl", *rows)) == "claude-opus-5-5"
+
+
+@pytest.mark.parametrize("session", [None, "", 7, "/no/such/file"])
+def test_a_session_whose_model_cannot_be_read_gets_the_agent_files_model(
+    capsys: pytest.CaptureFixture[str], session: object
+) -> None:
+    assert ctx.caller_model(session) is None
+    assert gate(capsys, COLD, session) is None
+    assert gate(capsys, COLD | {"model": ctx.GATE2_FALLBACK}, session) is not None
+
+
+def test_the_caller_check_is_for_the_gate_2_agent_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    session = session_on(tmp_path / "t.jsonl", said(OPUS))
+    for call in (
+        {"subagent_type": "general-purpose", "description": "Read a file", "model": "opus"},
+        {"subagent_type": "general-purpose", "description": "Gate 2 invariants pass"},
+        {"subagent_type": "general-purpose", "description": "Gate 1 mutation check"},
+    ):
+        assert gate(capsys, call, session) is None
 
 
 def test_a_label_that_is_not_text_is_still_read(capsys: pytest.CaptureFixture[str]) -> None:
@@ -245,5 +364,57 @@ def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effor
         line.split(": ", 1) for line in text.split("---")[1].strip().splitlines() if ": " in line
     )
     assert head["name"] == ctx.GATE2_AGENT
-    assert head["model"] not in ("", "inherit", "sonnet")  # not the model that writes the code
-    assert head["effort"]  # a subagent on another model does not take the session's level
+    # The hook compares the caller's model with this one, so the two must name the same model.
+    assert head["model"] == ctx.GATE2_MODEL != ctx.GATE2_FALLBACK
+    assert head["effort"]  # without one, the agent need not run at the session's level
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        "docs/playbooks/run-slice.md",
+        ".claude/skills/run-slice/SKILL.md",
+        "scripts/gate.sh",
+        "scripts/gate.ps1",
+    ],
+)
+def test_everything_that_sends_gates_to_a_subagent_names_the_agent_the_gate_allows(
+    rel: str,
+) -> None:
+    # Each one sends gates to a general-purpose subagent, which the gate denies for Gate 2.
+    assert ctx.GATE2_AGENT in (ROOT / rel).read_text("utf-8")
+
+
+@pytest.mark.parametrize(
+    ("shells", "probe", "run"),
+    [
+        (["bash"], ["-c", "exit 0"], ["scripts/gate.sh"]),
+        (
+            ["pwsh", "powershell"],
+            ["-NoProfile", "-Command", "exit 0"],
+            ["-NoProfile", "-File", "scripts/gate.ps1"],
+        ),
+    ],
+)
+def test_the_gate_2_handoff_sends_the_bug_pass_to_the_cold_agent_and_no_other_phase_does(
+    shells: list[str], probe: list[str], run: list[str]
+) -> None:
+    shell = next((found for name in shells if (found := shutil.which(name))), None)
+    # `bash` on Windows can be a launcher with nothing behind it: that is no shell, not a failure
+    if shell is None or subprocess.run([shell, *probe], check=False).returncode != 0:
+        pytest.skip(f"no working {shells[0]} on this machine")
+
+    def handoff(phase: str) -> str:
+        done = subprocess.run(
+            [shell, *run, phase, "9"], cwd=ROOT, capture_output=True, text=True, check=True
+        )
+        return " ".join(done.stdout.split())
+
+    gate2 = handoff("gate2")
+    assert (
+        f"first the {ctx.GATE2_AGENT} agent" in gate2 and "general-purpose, not fork" not in gate2
+    )
+    # the cold transcript has a named file, and the second agent is told not to redo that pass
+    assert gate2.count("gate2-cold.txt") == 2
+    gate1 = handoff("gate1")
+    assert ctx.GATE2_AGENT not in gate1 and "general-purpose, not fork" in gate1

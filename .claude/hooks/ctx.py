@@ -8,8 +8,9 @@
                             1000000 tokens), tell the agent to finish the phase, update STATE.md,
                             commit, and ask the user to run /clear. Once per 10% step.
     ctx.py agent-gate       PreToolUse on the Agent tool: a subagent call labelled Gate 2 is
-                            denied unless it goes to the gate2-cold agent, which runs on
-                            another model, or is the invariants pass.
+                            denied unless it goes to the gate2-cold agent or is only the
+                            invariants pass. That agent runs on the model its file names, or
+                            on GATE2_FALLBACK when the calling session runs on that model.
 
 A hook cannot run /clear; only the user can. The transcript's line format is not documented, so
 the token count is read defensively and a failure prints nothing, never an error.
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -28,6 +30,34 @@ WINDOW = int(os.environ.get("CLAUDE_CONTEXT_WINDOW", "1000000"))
 WARN = float(os.environ.get("CLAUDE_CONTEXT_WARN", "0.8"))
 TAIL = 400_000  # bytes of the transcript to scan: the newest assistant message is at the end
 GATE2_AGENT = "gate2-cold"  # .claude/agents/gate2-cold.md
+GATE2_MODEL = "opus"  # the model that file names; a test holds the two together
+GATE2_FALLBACK = "fable"  # the reviewer's model when the calling session runs on GATE2_MODEL
+# Whole words only: with the spaces removed, "investigate 2 tests" read as "gate2".
+GATE2_LABEL = re.compile(r"\bgate[\s-]*2\b")
+# The one other Gate 2 call let through is the invariants pass, and only under a label made of
+# these words, numbers and a ticket key. Any other word sends the call to the cold agent: a list
+# of the words to refuse ("bug", "cold") let "code review, then invariants" through.
+INVARIANTS_WORDS = frozenset(
+    [
+        "gate",
+        "gate2",
+        "invariants",
+        "pass",
+        "project",
+        "review-pr",
+        "re-run",
+        "rerun",
+        "on",
+        "the",
+        "fix",
+        "fixes",
+        "commit",
+        "for",
+        "slice",
+    ]
+)
+LABEL_WORD = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+TICKET_OR_NUMBER = re.compile(r"(?:[a-z]+-)?\d+")
 
 
 def session_start() -> None:
@@ -39,18 +69,38 @@ def session_start() -> None:
     print("\n".join(lines))
 
 
-def used_tokens(transcript: str | None) -> int | None:
-    """Tokens in context at the newest main-thread assistant message, or None if unreadable."""
-    if not transcript:
-        return None
+def newest_rows(transcript: object) -> list[str]:
+    """The transcript's last TAIL bytes as rows, newest first; none if it cannot be read."""
+    if not transcript or not isinstance(transcript, str):
+        return []
     try:
         with open(transcript, "rb") as handle:
             handle.seek(0, os.SEEK_END)
             handle.seek(max(0, handle.tell() - TAIL))
-            rows = handle.read().decode("utf-8", "replace").splitlines()[1:]
+            # split on the newline only: a row may hold U+2028 or U+0085 unescaped
+            return handle.read().decode("utf-8", "replace").split("\n")[:0:-1]
     except OSError:
-        return None
-    for row in reversed(rows):
+        return []
+
+
+def caller_model(transcript: object) -> str | None:
+    """The model id of the newest main-thread assistant message, or None if unreadable."""
+    for row in newest_rows(transcript):
+        try:
+            entry = json.loads(row)
+            model = entry["message"]["model"]
+            # "<synthetic>" marks a message no model wrote
+            if entry.get("isSidechain") or not model[:1].isalpha():
+                continue
+            return model.lower()
+        except (ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return None
+
+
+def used_tokens(transcript: str | None) -> int | None:
+    """Tokens in context at the newest main-thread assistant message, or None if unreadable."""
+    for row in newest_rows(transcript):
         try:
             entry = json.loads(row)
             usage = entry["message"]["usage"]
@@ -89,23 +139,55 @@ def context_watch(payload: dict) -> None:
 
 
 def agent_gate(payload: dict) -> None:
-    """Deny a subagent call labelled Gate 2 that is neither the cold-review agent nor the
-    invariants pass. It reads the label the caller gave the call, nothing else: a review under
-    another label, or one done without a subagent, is not seen."""
+    """Deny a subagent call labelled Gate 2 that is neither the cold-review agent nor only the
+    invariants pass, and a call to that agent that would run on the calling session's model or
+    that sets a model or effort of its own.
+
+    It is a tripwire on the label the caller wrote, not a guarantee: a review under another
+    label, or one done without a subagent, is not seen. The caller's model is read from the
+    newest main-thread message of the transcript; when that cannot be read, the agent file's
+    model stands. Code written earlier in the session by another model is not seen."""
     call = payload.get("tool_input")
-    if not isinstance(call, dict) or call.get("subagent_type") == GATE2_AGENT:
+    if not isinstance(call, dict):
         return
-    label = "".join(str(call.get("description") or "").lower().split()).replace("-", "")
-    if "gate2" not in label or "invariant" in label or "reviewpr" in label:
-        return
-    reason = (
-        f"Gate 2's cold bug pass goes to the `{GATE2_AGENT}` agent "
-        f"(.claude/agents/{GATE2_AGENT}.md), which runs on a different model from the session "
-        f"that wrote the code. Call the Agent tool again with subagent_type `{GATE2_AGENT}` and "
-        "pass only the repo path, the review base and head, and the evidence path. The invariants "
-        "pass (docs/playbooks/review-pr.md) is not affected: name it `invariants` in the "
-        "description."
-    )
+    if call.get("subagent_type") == GATE2_AGENT:
+        same = GATE2_MODEL in (caller_model(payload.get("transcript_path")) or "")
+        want = GATE2_FALLBACK if same else None
+        if (call.get("model") or None) == want and not call.get("effort"):
+            return
+        if same:
+            reason = (
+                f"This session runs on {GATE2_MODEL}, the model the `{GATE2_AGENT}` agent's file "
+                "names, so the review would run on the model that wrote the code. Call it "
+                f"again with `model` set to `{GATE2_FALLBACK}` and without `effort`."
+            )
+        else:
+            reason = (
+                f"The `{GATE2_AGENT}` agent names its own model and effort in "
+                f".claude/agents/{GATE2_AGENT}.md. Call it again without `model` and `effort`."
+            )
+    else:
+        label = str(call.get("description") or "").lower().replace("_", " ")
+        if not GATE2_LABEL.search(label):
+            return
+        words = LABEL_WORD.findall(label)
+        if "invariants" in words and all(
+            w in INVARIANTS_WORDS or TICKET_OR_NUMBER.fullmatch(w) for w in words
+        ):
+            return
+        reason = (
+            f"Gate 2's cold bug pass goes to the `{GATE2_AGENT}` agent "
+            f"(.claude/agents/{GATE2_AGENT}.md), which runs on the model its file names. Call "
+            f"the Agent tool again with subagent_type `{GATE2_AGENT}` and pass only the repo "
+            "path, the review base and head, and the evidence path. A call that is only the "
+            "invariants pass (docs/playbooks/review-pr.md) goes through when its description is "
+            "`Gate 2 invariants pass`, with a ticket key if you want one and nothing else."
+        )
+        if GATE2_MODEL in (caller_model(payload.get("transcript_path")) or ""):
+            reason += (
+                f" This session runs on {GATE2_MODEL}, the agent's own model: on that call set "
+                f"`model` to `{GATE2_FALLBACK}`."
+            )
     decision = {
         "hookEventName": "PreToolUse",
         "permissionDecision": "deny",

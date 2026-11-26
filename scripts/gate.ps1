@@ -31,10 +31,11 @@ $Phase = switch ($Phase) {
 
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root "evidence/slice-$Slice/$Phase.txt"
+$cold = Join-Path $root "evidence/slice-$Slice/gate2-cold.txt"
 
 $task = switch ($Phase) {
   'gate1' { 'run Gate 1 for the current slice per docs/playbooks/run-slice.md: tests for the adversarial matrix, and mutation-check every new test. Paste the mutation transcript with GOOD/BAD labels.' }
-  'gate2' { 'review the current branch diff for bugs, code only, no knowledge of intent; then run docs/playbooks/review-pr.md. State what each pass found, including nothing.' }
+  'gate2' { "review the current branch diff for bugs, code only, no knowledge of intent; then run docs/playbooks/review-pr.md. If $cold exists, another agent recorded the bug review there: do not repeat it, name that file in your transcript and go on to review-pr.md. State what each pass found, including nothing." }
   'e2e-pre' { 'run make eval and make demo against the real system, before the PR. Repeat 3 is already in the make demo recipe.' }
   'e2e-post' { 'run make eval and make demo against merged main, after the merge. Repeat 3 is already in the make demo recipe. Then run scripts/metric_compare.py compare evidence/latest.json --record and scripts/closure.py check evidence/closure/<KEY>.toml; a non-zero exit blocks Done.' }
 }
@@ -58,9 +59,15 @@ $report = if ($e2e) {
   "Report back only: the path $out and a one-line verdict."
 }
 
+$claude = if ($Phase -eq 'gate2') {
+  "first the gate2-cold agent for the bug pass (give it the repo path, review base and head, and $cold); then this to general-purpose, described as 'Gate 2 invariants pass'."
+} else {
+  'general-purpose, not fork.'
+}
+
 @"
 Hand this to a fresh subagent without caller history, or a fresh session.
-Claude Code: general-purpose, not fork. Cursor: fresh Task / New Chat.
+Claude Code: $claude Cursor: fresh Task / New Chat.
 Codex: fork_context: false when supported. Use an explicit worktree when needed.
 
   You have no context from the caller. Work from the repo and persisted evidence.

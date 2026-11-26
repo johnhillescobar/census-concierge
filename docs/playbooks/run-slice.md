@@ -145,7 +145,7 @@ stay resident for the rest of the slice.
 
 | | Claude Code | Cursor | Codex / other hosts |
 | --- | --- | --- | --- |
-| gate phase | fresh `general-purpose` subagent, **not** `fork` | fresh Task subagent or New Chat | fresh subagent without caller history; Codex `fork_context: false` when supported, otherwise a fresh session |
+| gate phase | fresh `general-purpose` subagent, **not** `fork`; Gate 2's bug pass: the `gate2-cold` agent | fresh Task subagent or New Chat | fresh subagent without caller history; Codex `fork_context: false` when supported, otherwise a fresh session |
 | isolated checkout | subagent `isolation: worktree` | worktree when needed | explicit worktree when needed; do not assume subagents isolate files |
 
 `scripts/gate.sh` / `scripts/gate.ps1` print the same host-neutral handoff;
