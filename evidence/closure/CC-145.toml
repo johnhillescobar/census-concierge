@@ -1,0 +1,127 @@
+ticket = "CC-145"
+required = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
+# Approved at pre-flight 2026-11-26 (evidence/slice-6/cc-145/preflight.txt). Each phase's brief compares
+# the live Jira description with these two; a difference with no [[amendment]] row stops the phase.
+approved_ids = ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8", "AC9", "AC10", "AC11", "AC12", "AC13", "AC14", "AC15", "AC16", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "TC7", "TC8"]
+approved_sha256 = "c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f"
+# No post-merge run is expected: no api/src, evals/ or run-harness file changes (CC-143 AC11).
+
+[[row]]
+id = "AC1"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_jira_fetch.py -q"
+
+[[row]]
+id = "AC2"
+status = "NOT RUN"
+command = "uv run python scripts/brief.py preflight CC-145"
+
+[[row]]
+id = "AC3"
+status = "NOT RUN"
+command = "uv run python scripts/brief.py gate2 CC-145"
+
+[[row]]
+id = "AC4"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_process.py -q"
+
+[[row]]
+id = "AC5"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_context_hook.py -q"
+
+[[row]]
+id = "AC6"
+status = "NOT RUN"
+command = "uv run python scripts/jira_fetch.py issue CC-N --md; uv run python scripts/closure.py check evidence/closure/CC-N.toml --pre-merge (fresh agent, fresh worktree, CC-145 and CC-144)"
+
+[[row]]
+id = "AC7"
+status = "NOT RUN"
+command = "uv run python scripts/check_invariants.py --base origin/main"
+
+[[row]]
+id = "AC8"
+status = "NOT RUN"
+command = "uv run python scripts/check_invariants.py --base origin/main"
+
+[[row]]
+id = "AC9"
+status = "NOT RUN"
+command = "the check workflow on the PR"
+
+[[row]]
+id = "AC10"
+status = "NOT RUN"
+command = "uv run python scripts/check_budgets.py --structural-only"
+
+[[row]]
+id = "AC11"
+status = "NOT RUN"
+command = "uv run python scripts/check_budgets.py --structural-only"
+
+[[row]]
+id = "AC12"
+status = "NOT RUN"
+command = "git worktree list"
+
+[[row]]
+id = "AC13"
+status = "NOT RUN"
+command = "uv run python scripts/brief.py preflight CC-145"
+
+[[row]]
+id = "AC14"
+status = "NOT RUN"
+command = "uv run python scripts/brief.py gate2 CC-145"
+
+[[row]]
+id = "AC15"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_process.py -q"
+
+[[row]]
+id = "AC16"
+status = "NOT RUN"
+command = "uv run python scripts/check_invariants.py --base origin/main"
+
+[[row]]
+id = "TC1"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_invariants.py -q (a new evidence/slice-9/cc-999/STATE.md fails)"
+
+[[row]]
+id = "TC2"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_invariants.py -q (a metric number added to .claude/PLAN.md fails)"
+
+[[row]]
+id = "TC3"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_jira_fetch.py -q (Jira unreachable: non-zero exit, no ticket text)"
+
+[[row]]
+id = "TC4"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_brief.py -q (an ID added in Jira without an amendment row fails)"
+
+[[row]]
+id = "TC5"
+status = "NOT RUN"
+command = "make check"
+
+[[row]]
+id = "TC6"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_brief.py -q (a criterion reworded with its ID unchanged fails)"
+
+[[row]]
+id = "TC7"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_brief.py -q (contradiction instruction for CLAUDE.md, not for api/src only)"
+
+[[row]]
+id = "TC8"
+status = "NOT RUN"
+command = "uv run pytest api/tests/test_invariants.py -q (a PLAN.md closure line with an evidence/ path fails; the key and Jira link passes)"
