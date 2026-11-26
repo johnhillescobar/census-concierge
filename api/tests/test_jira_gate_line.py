@@ -1784,7 +1784,7 @@ def reshaped(answer: dict[str, Any], fault: str) -> Any:
     elif fault == "a category not in text":
         answer["fields"]["status"] = {"statusCategory": {"key": None}}
     elif fault == "entries that are not a list":
-        answer["values"] = {}
+        answer["values"], answer["total"] = {}, 0  # would otherwise read as no history at all
     elif fault == "an entry that is not an object":
         answer["values"][-1] = "x"
     elif fault == "an entry without items":
