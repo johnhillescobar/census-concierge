@@ -47,13 +47,13 @@ id = "AC4"
 status = "PASS"
 command = "uv run python scripts/closure.py check evidence/closure/<KEY>.toml --pre-merge"
 expected = "the playbook's pre-flight step says every criterion names a command, and the closure check rejects a row without one"
-observed = "A NOT RUN row with no command is reported as 'AC1: missing command'; 9 cases pass; the 6 other manifests stay well formed; doc lines 1820 of 1820. AMENDED rows are exempt (a default)."
-evidence = [{ path = "evidence/slice-6/cc-144/closure-run-five/AC4.txt", sha256 = "c861aa3b473c239889b709670973dacfa25066bb2c8fc96894b441ad74264694" }]
-tested_head = "1957a77c06f7c2fb285eac3581a8637357c96527"
+observed = "A NOT RUN row with no command is reported as 'AC1: missing command'; 9 cases pass; the 6 other manifests stay well formed; doc lines 1820 of 1820. AMENDED rows are exempt (a default). Rerun at 5931fb4 after merging main, which had changed run-slice.md."
+evidence = [{ path = "evidence/slice-6/cc-144/closure-run-six/AC4.txt", sha256 = "cbcf5d762665593b83e01a234d3f2f59ac0c1d9f643050df781589ab08b7c031" }]
+tested_head = "5931fb419ebf818c38792b6470351019a886c992"
 affects = ["scripts/closure.py", "api/tests/test_closure_gate.py", "docs/playbooks/run-slice.md"]
 new_tests = true
 mutation = { path = "evidence/slice-6/cc-144/gate1-r5.txt", sha256 = "81425a1746d92f4d6e2dc7fada12c254afdace2328cdd2e6657d70bb475f25cf" }
-reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed AC4: 9 cases passed, and its own mutation was caught"
+reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice-6/cc-144/gate2-r5-code-review.txt (7f34a67); evidence/slice-6/cc-144/gate2-r5-invariants.txt (0b2088c, not yet); evidence/slice-6/cc-144/gate2-r5-rerun.txt (the one cold re-run, 16d510d). No cold bug review has read 6f054c5, the fix of the re-run's findings. evidence/slice-6/cc-144/gate2-r6-invariants.txt (invariants review of the final code, 3dfc74b; its overall verdict then was not yet, on F1 to F3) read the 6f054c5 diff, found no new defect, and passed AC4: 9 cases passed, and its own mutation was caught. That review was before main was merged; no separate reviewer has read the rerun at 5931fb4"
 
 [[row]]
 id = "TC1"
