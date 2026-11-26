@@ -10,9 +10,9 @@ stores it) and DIR/manifest.json. Without --out, DIR is a folder in the system's
 directory, so that a routine run leaves a committed set alone. Jira's search can lag behind an
 edit, so every ticket the search lists is read again from its own record; one that the search does
 not list is not read, and jira_fetch._search can return a short list without an error when a later
-page is malformed or a page token repeats. A listed ticket that cannot be judged is refused: its
-record answers under another key, as a moved ticket's can, or its description is neither a
-document nor empty.
+page is malformed or a page token repeats. A listed ticket that cannot be judged is refused: a
+reply about it does not parse or is not the shape read from it, its record answers under another
+key, as a moved ticket's can, or its description is neither a document nor empty.
 
 The owner approves a set of snapshots by writing the sha256 of its manifest.json, which --dry-run
 prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots void it.
@@ -21,12 +21,13 @@ A ticket is left unchanged when its AC/TC IDs would differ, when part of the pas
 would remain (the opening words of a paragraph, or any sentence of SENTENCE_MIN characters or more,
 as in a reworded, formatted or linked copy; a copy rewritten in all of those is not recognised),
 when a line would still point at the removed contract, when
-it was closed or its description changed after the snapshot, when a read before the write answers
-under another key or has no text, or when its after snapshot is not what this script's rule
-produces. A write that Jira cannot be shown to hold, that finds the ticket closed afterwards, or
-that was interrupted, stops the run and leaves DIR/FAILED. Until a person deletes it, no --apply
-of DIR runs and no --dry-run touches DIR, whose before snapshot is what to restore from. One
---apply of DIR runs at a time (DIR/APPLYING). Only CC tickets are listed or written.
+it was closed or its description changed after the snapshot, when a reply to a read before the
+write cannot be used, answers under another key or has no text, or when its after snapshot is not
+what this script's rule produces. A write that Jira cannot be shown to hold, that finds the
+ticket closed afterwards, or that was interrupted, stops the run and leaves DIR/FAILED. Until a
+person deletes it, no --apply of DIR runs and no --dry-run touches DIR, whose before snapshot is
+what to restore from. One --apply of DIR runs at a time (DIR/APPLYING). Only CC tickets are
+listed or written.
 
 No way was found to make a Jira write conditional on what was read, so an edit made between the
 last read and the write is overwritten. It cannot be prevented here, only caught; the same holds
@@ -116,6 +117,8 @@ ff6ff4818d83f638
 SENTENCES = frozenset(_SENTENCE_MARKS.split())
 NEW_POINTER = "Existing scope"
 POINTER_PHRASE = "the stricter metric contract above"
+# what a reply that does not parse, or lacks the shape read from it, raises
+UNUSABLE = (ValueError, KeyError, TypeError, AttributeError)
 
 Doc = dict[str, Any]
 ApiFn = Callable[..., dict[str, Any]]
@@ -293,6 +296,13 @@ def _is_document(value: Any) -> bool:
     )
 
 
+def _why(exc: Exception) -> str:
+    """A KeyError's own text is only the name it did not find, so the kind of error goes too."""
+    if isinstance(exc, ValueError):
+        return str(exc)
+    return f"unusable reply ({type(exc).__name__}: {exc})"
+
+
 def _read_each(
     listed: list[dict[str, Any]], api: ApiFn
 ) -> tuple[list[dict[str, Any]], dict[str, str]]:
@@ -309,8 +319,8 @@ def _read_each(
             description, closed = _issue(key, api)
             if not closed and description is not None and not _is_document(description):
                 raise ValueError("the description is neither a document nor empty")
-        except ValueError as exc:
-            unjudged[key] = str(exc)
+        except UNUSABLE as exc:
+            unjudged[key] = _why(exc)
             continue
         if not closed:
             now.append({"key": key, "fields": {"description": description}})
@@ -434,7 +444,10 @@ def _fields(key: str, path: str, api: ApiFn) -> Doc:
 def _issue(key: str, api: ApiFn) -> tuple[Doc, bool]:
     """The description as Jira stores it now, and whether the ticket is closed."""
     fields = _fields(key, f"/issue/{key}?fields=description,status", api)
-    return fields["description"], fields["status"]["statusCategory"]["key"] == "done"
+    category = fields["status"]["statusCategory"]["key"]
+    if not isinstance(category, str):  # anything else would read as open
+        raise ValueError(f"the status category is not text: {type(category).__name__}")
+    return fields["description"], category == "done"
 
 
 def _text(key: str, api: ApiFn) -> str:
@@ -448,22 +461,31 @@ def _text(key: str, api: ApiFn) -> str:
 
 def _description_changes(key: str, api: ApiFn) -> dict[str, list[tuple[Any, Any]]]:
     """The entries in the ticket's history that changed its description, by id: the text each of
-    an entry's description changes went from and to. An entry met on two pages is kept once."""
+    an entry's description changes went from and to. An entry met on two pages is kept once.
+    ValueError when a page cannot be read as one, or ends before the total it gives."""
     found: dict[str, list[tuple[Any, Any]]] = {}
     start = 0
     while True:
         page = api("GET", f"/issue/{key}/changelog?startAt={start}&maxResults=100")
-        for history in page["values"]:
+        entries = page["values"]
+        if not isinstance(entries, list):
+            raise ValueError("a history page does not hold a list of entries")
+        for history in entries:
+            items = history["items"]
+            if not isinstance(items, list):
+                raise ValueError("a history entry does not hold a list of items")
             changed = [
                 (item.get("fromString"), item.get("toString"))
-                for item in history["items"]
+                for item in items
                 if item.get("fieldId") == "description"
             ]
             if changed:
                 found[str(history["id"])] = changed
-        start += len(page["values"])
-        if not page["values"] or start >= page["total"]:
+        start += len(entries)
+        if start >= page["total"]:
             return found
+        if not entries:
+            raise ValueError(f"the history stops at {start} of {page['total']} entries")
 
 
 def _write(key: str, after: Doc, earlier: set[str], was: str, api: ApiFn) -> str | None:
@@ -479,10 +501,8 @@ def _write(key: str, after: Doc, earlier: set[str], was: str, api: ApiFn) -> str
         # nothing may be read after this: "written" is about what the ticket held here
         stored, closed = _issue(key, api)
     except (
+        *UNUSABLE,
         OSError,
-        ValueError,
-        KeyError,
-        TypeError,
         http.client.HTTPException,
         SystemExit,  # jira_transition._api exits on an HTTP error
     ) as exc:
@@ -553,8 +573,8 @@ def _apply_approved(
             earlier = set(_description_changes(key, api))
             was = _text(key, api)
             live, closed = _issue(key, api)
-        except ValueError as exc:  # a reply that cannot be used: this ticket is not written
-            print(f"REFUSED  {key}  {exc}")
+        except UNUSABLE as exc:  # a reply that cannot be used: this ticket is not written
+            print(f"REFUSED  {key}  {_why(exc)}")
             refused += 1
             continue
         if _stored_form(live) == _stored_form(after):

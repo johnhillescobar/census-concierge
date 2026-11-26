@@ -1742,3 +1742,161 @@ def test_limit_another_history_entry_with_the_same_two_texts_passes_for_this_wri
         return answer
 
     assert jg.apply(tmp_path, look_alike) == 0
+
+
+# --- a reply that parses but is not the shape the script reads ---------------------------------
+
+ANY_REPLY = ("a list", "a string", "nothing at all", "an empty object")
+ISSUE_REPLY = (*ANY_REPLY, "fields that are not an object", "no description")
+TICKET_REPLY = (
+    *ISSUE_REPLY,
+    "no status",
+    "a status that is not an object",
+    "a category not in text",
+)
+HISTORY_REPLY = (
+    *ANY_REPLY,
+    "entries that are not a list",
+    "an entry that is not an object",
+    "an entry without items",
+    "items that are not a list",
+    "an item that is not an object",
+    "a description entry without an id",
+    "no total",
+    "a total that is not a number",
+    "a page that ends before the total",
+)
+SHAPES = {"history": HISTORY_REPLY, "text": ISSUE_REPLY, "ticket": TICKET_REPLY}
+
+
+def reshaped(answer: dict[str, Any], fault: str) -> Any:
+    whole = {"a list": [answer], "a string": "x", "nothing at all": None, "an empty object": {}}
+    if fault in whole:
+        return whole[fault]
+    if fault == "fields that are not an object":
+        answer["fields"] = None
+    elif fault == "no description":
+        del answer["fields"]["description"]
+    elif fault == "no status":
+        del answer["fields"]["status"]
+    elif fault == "a status that is not an object":
+        answer["fields"]["status"] = None
+    elif fault == "a category not in text":
+        answer["fields"]["status"] = {"statusCategory": {"key": None}}
+    elif fault == "entries that are not a list":
+        answer["values"] = {}
+    elif fault == "an entry that is not an object":
+        answer["values"][-1] = "x"
+    elif fault == "an entry without items":
+        del answer["values"][-1]["items"]
+    elif fault == "items that are not a list":
+        answer["values"][-1]["items"] = {}
+    elif fault == "an item that is not an object":
+        answer["values"][-1]["items"] = ["x"]
+    elif fault == "a description entry without an id":
+        del answer["values"][-1]["id"]
+    elif fault == "no total":
+        del answer["total"]
+    elif fault == "a total that is not a number":
+        answer["total"] = "1"
+    else:
+        assert fault == "a page that ends before the total"
+        answer["values"] = []
+    return answer
+
+
+@pytest.mark.parametrize(
+    ("position", "fault"),
+    [
+        (position, fault)
+        for position, kind in enumerate(REQUESTS)
+        if kind != "write"  # the script reads nothing from the reply to its write
+        for fault in SHAPES[kind]
+    ],
+)
+def test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], position: int, fault: str
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    jira.changed("CC-1")  # so that the history read before the write has an entry to spoil
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    count = [0]
+
+    def faulty(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+        answer = jira.api(method, path, body)
+        if about_cc1(path):
+            if count[0] == position:
+                answer = reshaped(answer, fault)
+            count[0] += 1
+        return answer
+
+    capsys.readouterr()
+    assert jg.apply(tmp_path, faulty) == 1
+    out = capsys.readouterr().out
+    assert "written  CC-1" not in out
+    if position < JUST_BEFORE_THE_WRITE:
+        assert jira.writes == ["CC-2"] and "REFUSED  CC-1" in out
+        assert not (tmp_path / "FAILED").exists()
+    else:
+        assert jira.writes == ["CC-1"]
+        stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
+        assert stopped.startswith("CC-1:") and "could not be confirmed" in stopped
+
+
+@pytest.mark.parametrize("fault", TICKET_REPLY)
+def test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fault: str
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+
+    def faulty(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+        answer = jira.api(method, path, body)
+        return reshaped(answer, fault) if about_cc1(path) else answer
+
+    assert jg.dry_run(tmp_path, jira.search, faulty) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1" in out
+    assert "1 open ticket(s) read: 1 ticket(s) left to change, 1 refused" in out
+    manifest = json.loads((tmp_path / "manifest.json").read_bytes())
+    assert list(manifest["tickets"]) == ["CC-2"] and list(manifest["refused"]) == ["CC-1"]
+
+
+# --- the stand-in answers in the shapes read from Jira -----------------------------------------
+
+
+def test_the_stand_in_answers_in_the_shapes_read_from_jira() -> None:
+    """As real replies read on 2026-11-25 (evidence/slice-6/cc-144/preflight-599a57d-live.txt).
+    The script reads only some of these fields, so no other test would notice the rest drifting.
+    Real issue and search replies also carry expand and self, which the stand-in leaves out."""
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    jira.tickets["CC-2"] = None  # type: ignore[assignment]
+    listed = jira.search("any", fields="status")
+    assert [set(entry) for entry in listed] == [{"id", "key", "fields"}] * 2
+    assert all("description" not in entry["fields"] for entry in listed)
+    with pytest.raises(AssertionError):
+        jira.search("any", fields="status,description")
+
+    for path, asked in (
+        ("/issue/CC-1?fields=description,status", {"description", "status"}),
+        (f"{jg.TEXT_API}/issue/CC-1?fields=description", {"description"}),
+    ):
+        reply = jira.api("GET", path)
+        assert set(reply) == {"id", "key", "fields"} and reply["key"] == "CC-1"
+        assert set(reply["fields"]) == asked
+        empty = jira.api("GET", path.replace("CC-1", "CC-2"))
+        assert empty["fields"]["description"] is None
+
+    jira.owner_adds_a_note("CC-1")
+    jira.owner_adds_a_note("CC-1")
+    path = "/issue/CC-1/changelog?startAt=0&maxResults=100"
+    page = jira.api("GET", path)
+    assert set(page) == {"isLast", "maxResults", "startAt", "total", "values"}
+    assert [set(entry) for entry in page["values"]] == [{"author", "created", "id", "items"}] * 2
+    item_fields = {"field", "fieldId", "fieldtype", "from", "fromString", "to", "toString"}
+    assert all(set(item) == item_fields for entry in page["values"] for item in entry["items"])
+    ids = [entry["id"] for entry in page["values"]]
+    assert all(number.isdigit() for number in ids) and len(set(ids)) == 2
+    kept = copy.deepcopy(page)
+    page["values"][0]["items"].clear()  # a reply is the reader's own copy, as over HTTP
+    assert jira.api("GET", path) == kept
