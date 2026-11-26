@@ -176,6 +176,43 @@
       "justMyCode": false
     },
     {
+      // Start this profile and submit one POST /ask at http://127.0.0.1:8001/docs.
+      // Add breakpoints on the listed executable lines. Use Step Over to see
+      // assignments take effect. The request can take the finish path after the loop.
+      // api/src/main.py:81   Request body. Inspect body.question and body.plan.
+      // api/src/ask.py:415   Model turn. Inspect turn_no, messages and openai_tools.
+      // api/src/ask.py:295   Chat Completions request. Inspect MODEL, messages and openai_tools.
+      // api/src/finish.py:144 Split-planning call. It reaches the provider breakpoint with no tools.
+      // api/src/ask.py:307   Raw model tool call. Inspect function.name and function.arguments.
+      // api/src/ask.py:263   Tool dispatch. Inspect name, call.get("args") and record.override.
+      //                     Step Over and inspect args to see the values passed to the tool.
+      // api/src/tools.py:202 Search. Inspect question, topic, dataset and k.
+      // api/src/geo.py:176   Resolve. Inspect query, places, parents, level, levels, dataset and vintage.
+      // api/src/tools.py:269 Build. Inspect table_id, variables, dataset, vintage and for_spec/in_spec.
+      // api/src/tools.py:330 Built URL. Inspect paired, for_clause, in_clause and then result.url.
+      // api/src/fetch.py:371 Fetch. Inspect years, requested, plan and geos.
+      // api/src/fetch.py:264 Census request. Inspect str(census_url), year and for_spec.
+      // api/src/ask.py:273   Tool result. Inspect artifact and content, then Step Over to inspect record.
+      // api/src/finish.py:354 Finish. Inspect found, redo, url and record before any repair dispatch.
+      // api/src/ask.py:202   Assembly. Inspect record.table_id, record.rows, record.fetch and record.pool.
+      "name": "api: inspect /ask arguments",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["src.main:app", "--host", "127.0.0.1", "--port", "8001"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/api",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "DATABASE_URL": "",
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "${workspaceFolder}/api",
+        "INDEX_STORE": "${workspaceFolder}/index_store"
+      },
+      "justMyCode": false
+    },
+    {
       // Scripted model + fake tools: no live keys, no network.
       // Good default breakpoints: src/ask.py:run_ask, src/ask.py:dispatch, src/tools.py, src/fetch.py
       "name": "api: ask loop (offline, scripted)",
