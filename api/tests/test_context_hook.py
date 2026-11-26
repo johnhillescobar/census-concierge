@@ -247,3 +247,13 @@ def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effor
     assert head["name"] == ctx.GATE2_AGENT
     assert head["model"] not in ("", "inherit", "sonnet")  # not the model that writes the code
     assert head["effort"]  # a subagent on another model does not take the session's level
+
+
+@pytest.mark.parametrize(
+    "rel", ["docs/playbooks/run-slice.md", ".claude/skills/run-slice/SKILL.md"]
+)
+def test_the_instructions_that_send_gates_to_a_subagent_name_the_agent_the_gate_allows(
+    rel: str,
+) -> None:
+    # Both files send each gate to a general-purpose subagent, which the gate denies for Gate 2.
+    assert f"`{ctx.GATE2_AGENT}`" in (ROOT / rel).read_text("utf-8")
