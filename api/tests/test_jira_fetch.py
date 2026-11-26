@@ -189,6 +189,9 @@ def text(value: str) -> dict[str, Any]:
             node("doc", node("paragraph", node("inlineCard", url="https://example.com/pr/1"))),
             "https://example.com/pr/1",
         ),
+        (node("doc", node("paragraph", node("emoji", shortName=":x:", text=":x:"))), ":x:"),
+        (node("doc", node("paragraph", node("date", timestamp="1764115200000"))), "1764115200000"),
+        (node("doc", node("paragraph", node("status", text="BLOCKED", color="red"))), "BLOCKED"),
     ],
 )
 def test_a_comment_keeps_text_that_is_not_a_plain_paragraph(

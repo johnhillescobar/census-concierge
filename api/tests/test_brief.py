@@ -313,7 +313,18 @@ def test_rewording_any_part_of_a_criterion_moves_the_fingerprint(shape: str) -> 
     before, after = SHAPES[shape]("20"), SHAPES[shape]("200")
     assert closure.required_ids(closure.adf_text(before)) == ["AC1"]
     assert closure.criteria_fingerprint(before) != closure.criteria_fingerprint(after)
+    assert brief.compare(approved(before), before, "gate1") == []  # compare reads the document
     assert brief.compare(approved(before), after, "gate1") != []
+
+
+def test_preflight_records_the_fingerprint_of_the_document_it_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    live = SHAPES["a table cell"]("20")
+    fields = {"status": OPEN, "description": live}
+    assert run_main(tmp_path, monkeypatch, fields, None, "preflight", "CC-9") == 0
+    out = capsys.readouterr().out
+    assert f'approved_sha256 = "{closure.criteria_fingerprint(live)}"' in out
 
 
 def test_a_paragraph_after_a_paragraph_criterion_is_not_part_of_it() -> None:
@@ -416,4 +427,7 @@ def test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_count
         assert not check_budgets.is_prescriptive(rel), rel
     # a `*` stops at a `/`, as the glob that counts the lines does
     for rel in ("docs/playbooks/archive/old.md", ".claude/skills/a/b/SKILL.md", "x/AGENTS.md"):
+        assert not check_budgets.is_prescriptive(rel), rel
+    # a path that is only a pattern's leading directories is not one of its files
+    for rel in ("docs/playbooks", ".claude/skills/run-slice"):
         assert not check_budgets.is_prescriptive(rel), rel
