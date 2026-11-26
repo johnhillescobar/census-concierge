@@ -2004,7 +2004,7 @@ def test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on(
     capsys.readouterr()
     assert jg.apply(tmp_path, failing) == 1
     out = capsys.readouterr().out
-    assert "REFUSED  CC-1  no answer from Jira" in out
+    assert "REFUSED  CC-1  the request to Jira failed" in out
     assert jira.writes == ["CC-2"] and "1 written, 1 refused" in out
     assert not (tmp_path / "FAILED").exists() and not (tmp_path / "APPLYING").exists()
 
@@ -2025,7 +2025,7 @@ def test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was(
 
     assert jg.dry_run(tmp_path, jira.search, failing) == 1
     out, err = capsys.readouterr()
-    assert "CC-1: no answer from Jira" in err and "nothing changed" in err
+    assert "CC-1: the request to Jira failed" in err and "nothing changed" in err
     assert "open ticket(s) read" not in out
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
 
@@ -2160,3 +2160,129 @@ def test_attributes_that_are_not_an_object_never_crash_an_apply(
         assert "written  CC-1" not in out and jira.writes == ["CC-1"]
         stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
         assert "does not hold the approved description" in stopped
+
+
+# --- a description nested too deeply to walk ---------------------------------------------------
+
+
+def nested(levels: int) -> dict[str, Any]:
+    node: dict[str, Any] = {"type": "text", "text": "x"}
+    for _ in range(levels):
+        node = {"type": "bulletList", "content": [node]}
+    return node
+
+
+def deepening(jira: Jira, position: int, levels: int) -> Any:
+    """CC-1's reply number `position` comes back with a very deep block. It is added to the
+    reply, so that the stand-in itself never has to walk it."""
+    count = [0]
+
+    def api(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if about_cc1(path):
+            if count[0] == position:
+                answer["fields"]["description"]["content"].append(nested(levels))
+            count[0] += 1
+        return answer
+
+    return api
+
+
+# 350 nodes deep, the shape check passes and copying the description fails; 5000, the check does
+@pytest.mark.parametrize("levels", [350, 5000])
+def test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], levels: int
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+
+    assert jg.dry_run(tmp_path, jira.search, deepening(jira, 0, levels)) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1  unusable reply (RecursionError" in out
+    assert "1 open ticket(s) read: 1 ticket(s) left to change, 1 refused" in out
+    manifest = json.loads((tmp_path / "manifest.json").read_bytes())
+    assert list(manifest["tickets"]) == ["CC-2"]
+
+
+@pytest.mark.parametrize("position", [2, 6], ids=["before the write", "after the write"])
+def test_a_description_nested_too_deeply_never_crashes_an_apply(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], position: int
+) -> None:
+    jira = two_tickets(tmp_path)
+    capsys.readouterr()
+
+    assert jg.apply(tmp_path, deepening(jira, position, 5000)) == 1
+    out = capsys.readouterr().out
+    if position < JUST_BEFORE_THE_WRITE:
+        assert "REFUSED  CC-1  unusable reply (RecursionError" in out
+        assert jira.writes == ["CC-2"] and not (tmp_path / "FAILED").exists()
+    else:
+        assert "written  CC-1" not in out and jira.writes == ["CC-1"]
+        stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
+        assert "could not be confirmed (RecursionError" in stopped
+
+
+@pytest.mark.parametrize("command", ["dry run", "apply"])
+def test_a_manifest_nested_too_deeply_changes_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    (tmp_path / "manifest.json").write_text("[" * 100_000, encoding="utf-8")
+    jira = Jira(CC_1=ticket())
+    if command == "dry run":
+        assert snapshot(jira, tmp_path) == 1
+        assert [p.name for p in tmp_path.iterdir()] == ["manifest.json"]
+    else:
+        approve(tmp_path)
+        assert jg.apply(tmp_path, jira.api) == 2
+        assert jira.writes == [] and not (tmp_path / "APPLYING").exists()
+    assert "nothing" in capsys.readouterr().err
+
+
+# --- what a stopped dry run says, and what it leaves behind ------------------------------------
+
+
+def test_a_search_cut_off_by_the_network_is_named_as_the_search(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A ConnectionError of its own, which must not be taken for a ticket's, already named."""
+
+    def search(*args: Any, **kwargs: Any) -> Any:
+        raise ConnectionResetError("reset by peer")
+
+    assert jg.dry_run(tmp_path, search, never) == 1
+    said = capsys.readouterr().err
+    assert "the search for open tickets: the request to Jira failed" in said
+    assert "nothing changed" in said
+
+
+@pytest.mark.parametrize("run", ["nothing to change", "no answer", "a change to make"])
+def test_the_default_folder_stays_only_when_it_holds_something(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, run: str
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    jira = Jira(CC_1=ticket() if run != "nothing to change" else doc("clean"))
+
+    def failing(*args: Any, **kwargs: Any) -> Any:
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
+    monkeypatch.setattr(jg.jira_transition, "_api", failing if run == "no answer" else jira.api)
+    monkeypatch.setattr(jg.jira_fetch, "_search", jira.search)
+
+    assert jg.main(["--dry-run"]) == (1 if run == "no answer" else 0)
+    left = [p for p in tmp_path.iterdir()]
+    assert len(left) == (1 if run == "a change to make" else 0)
+    assert all((p / "manifest.json").is_file() for p in left)
+
+
+def test_a_folder_the_caller_named_is_never_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = tmp_path / "named"
+    out.mkdir()
+    jira = Jira(CC_1=doc("clean"))
+    monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
+    monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
+    monkeypatch.setattr(jg.jira_fetch, "_search", jira.search)
+
+    assert jg.main(["--dry-run", "--out", str(out)]) == 0
+    assert out.is_dir()
