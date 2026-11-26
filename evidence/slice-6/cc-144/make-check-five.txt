@@ -1,0 +1,175 @@
+The recipe lines of 'make check', run one by one. HEAD f356193fe586bca9aa6c8cac28574759c28cd0a2
+
+$ uv run ruff check .
+All checks passed!
+exit 0
+
+$ uv run ruff format --check .
+327 files already formatted
+exit 0
+
+$ uv run mypy api/src
+Success: no issues found in 30 source files
+exit 0
+
+$ uv run pytest -q -m not integration -p no:warnings
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 19%]
+........................................................................ [ 23%]
+.................sssssssssssssssss..sss................................. [ 26%]
+...............................xxxxxxx...x.............................. [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 39%]
+........................................................................ [ 43%]
+........................................................................ [ 46%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 86%]
+...................................................................sssss [ 89%]
+ssssss..s.ss............................................................ [ 92%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+..........                                                               [100%]
+2128 passed, 34 skipped, 8 xfailed in 253.10s (0:04:13)
+exit 0
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+exit 0
+
+$ npm --prefix web ci
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 258 packages, and audited 259 packages in 15s
+
+44 packages are looking for funding
+  run `npm fund` for details
+
+6 vulnerabilities (1 moderate, 3 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+exit 0
+
+$ npm --prefix web test
+
+> test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-144/web[39m
+
+ [32m✓[39m src/csv.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/ask.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/plan.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/display.test.ts [2m([22m[2m28 tests[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m src/chart.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[32m 213[2mms[22m[39m
+ [32m✓[39m src/PlanStrip.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1462[2mms[22m[39m
+   [33m[2m✓[22m[39m PlanStrip[2m > [22mdoes not apply with every geography unchecked [33m 406[2mms[22m[39m
+ [32m✓[39m src/restore.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 1335[2mms[22m[39m
+   [33m[2m✓[22m[39m restore in App[2m > [22mrenders a stored turn with the same elements as a freshly asked one [33m 795[2mms[22m[39m
+ [32m✓[39m src/App.plan.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 3507[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mposts a table edit with the original question, not rewritten prompt text [33m 861[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mposts a geography pick from returned candidates [33m 477[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mposts dataset, year list, and overlapping-ACS5 together [33m 482[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mkeeps the prior result when the override is rejected and shows the field error [33m 308[2mms[22m[39m
+ [32m✓[39m src/App.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 4627[2mms[22m[39m
+   [33m[2m✓[22m[39m App pane states[2m > [22mshows a loading state distinct from idle while the request is in flight [33m 316[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mrenders URL, estimate with MOE, GEOID, universe, and an alternative [33m 481[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mreplaces every previous table row when a new result arrives [33m 319[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m112 passed[39m[22m[90m (112)[39m
+[2m   Start at [22m 00:32:10
+[2m   Duration [22m 16.12s[2m (transform 4.20s, setup 10.86s, collect 11.19s, tests 11.25s, environment 46.50s, prepare 3.66s)[22m
+
+exit 0
+
+$ npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+
+exit 0
+
+$ uv run python scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmp_qtgh8fw\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmp_qtgh8fw\schema.d.ts [86.3ms]
+packages/client is up to date.
+exit 0
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+
+exit 0
+HEAD at end f356193fe586bca9aa6c8cac28574759c28cd0a2
