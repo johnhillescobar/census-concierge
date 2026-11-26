@@ -1,0 +1,47 @@
+"""Read-only check of the 20 edited descriptions against the approved snapshots.
+
+Does not import jira_gate_line. GET requests only. Run from the worktree root.
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+import httpx
+
+sys.path.insert(0, "scripts")
+from closure import adf_text, required_ids
+
+SNAP = Path("evidence/slice-6/cc-144/snapshots")
+manifest = json.loads((SNAP / "manifest.json").read_text("utf-8"))
+gate = manifest["gate_line"]
+auth = (os.environ["ATLASSIAN_EMAIL"], os.environ["ATLASSIAN_API_TOKEN"])
+
+def all_ids(doc):
+    # per line: required_ids drops repeats within the text it is given
+    return [i for line in adf_text(doc).splitlines() for i in required_ids(line)]
+
+
+bad = 0
+total = repeated = 0
+with httpx.Client(base_url="https://johnhillescobar.atlassian.net", auth=auth, timeout=30) as c:
+    for key in manifest["tickets"]:
+        reply = c.get(f"/rest/api/3/issue/{key}", params={"fields": "description"})
+        reply.raise_for_status()
+        live = reply.json()["fields"]["description"]
+        before = json.loads((SNAP / f"{key}.before.json").read_text("utf-8"))
+        after = json.loads((SNAP / f"{key}.after.json").read_text("utf-8"))
+        checks = {
+            "live==approved": live == after,
+            "same_ids_with_repeats": all_ids(live) == all_ids(before),
+            "gate_line_once": adf_text(live).count(gate) == 1,
+        }
+        bad += not all(checks.values())
+        ids = all_ids(before)
+        total += len(ids)
+        repeated += len(ids) - len(set(ids))
+        print(key, " ".join(f"{name}={ok}" for name, ok in checks.items()))
+print(f"{len(manifest['tickets'])} ticket(s) read back, {bad} with a failed check")
+print(f"{total} criterion ids compared, {repeated} of them repeats")
+sys.exit(1 if bad else 0)
