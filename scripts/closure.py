@@ -130,6 +130,13 @@ def required_ids(text: str) -> list[str]:
     return found
 
 
+def criteria_fingerprint(text: str) -> str:
+    """sha256 of the criterion lines only (each line `required_ids` reads an id from), whitespace
+    collapsed: rewording a criterion changes it, editing a decision paragraph does not."""
+    lines = [" ".join(line.split()) for line in text.splitlines() if required_ids(line)]
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
 

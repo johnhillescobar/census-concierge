@@ -4,7 +4,7 @@
 # uv manages the environment. `uv run` syncs it first, so there is no venv to
 # activate and no "works on my machine" gap with CI, which runs the same lines.
 
-.PHONY: check eval demo url-grid e2e latency-chart gate lint types test fmt invariants hooks metadata index serve web-test client
+.PHONY: check eval demo url-grid e2e latency-chart brief lint types test fmt invariants hooks metadata index serve web-test client
 
 ## Fast gate. Must stay under 60 seconds or it stops getting run.
 check: lint types test invariants web-test
@@ -68,10 +68,10 @@ web-test:
 client:
 	uv run python scripts/generate_client.py
 
-## Run one gate phase in a fresh context, transcript to evidence/slice-<N>/.
-## Usage: make gate PHASE=gate2 SLICE=0. Prints a host-neutral handoff, not an agent launch.
-gate:
-	bash scripts/gate.sh $(PHASE) $(SLICE)
+## Print one phase's brief for a ticket; it opens with the two status commands.
+## Usage: make brief PHASE=gate2 TICKET=CC-145. Prints a host-neutral prompt, not an agent launch.
+brief:
+	uv run python scripts/brief.py $(PHASE) $(TICKET)
 
 ## Mechanically checkable project rules. --base adds the budget-diff check.
 invariants:

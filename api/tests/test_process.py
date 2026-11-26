@@ -266,9 +266,39 @@ def test_the_trio_pointers_resolve(name: str) -> None:
     assert playbook.is_file(), f"missing canonical playbook {playbook}"
     for pointer in (skill, command, codex_skill):
         assert pointer.is_file(), f"missing trio pointer {pointer}"
+        if name == "run-slice":  # these point at AGENTS.md and the brief; see the next test
+            continue
         assert f"docs/playbooks/{name}.md" in pointer.read_text(encoding="utf-8"), (
             f"{pointer} does not point at docs/playbooks/{name}.md"
         )
+
+
+RUN_SLICE_POINTER = (
+    "Read `AGENTS.md`. Print the brief, `uv run python scripts/brief.py <phase> CC-N`, "
+    "and follow it."
+)
+
+
+def pointer_body(path: Path) -> str:
+    """A host pointer without its frontmatter and title: the instruction itself."""
+    text = path.read_text(encoding="utf-8")
+    if text.startswith("---"):
+        text = text.split("---", 2)[2]
+    lines = [line for line in text.splitlines() if line.strip() and not line.startswith("# ")]
+    return " ".join(" ".join(lines).split())
+
+
+@pytest.mark.parametrize(
+    "rel",
+    [
+        ".claude/skills/run-slice/SKILL.md",
+        ".cursor/commands/run-slice.md",
+        ".agents/skills/run-slice/SKILL.md",
+    ],
+)
+def test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it(rel: str) -> None:
+    assert pointer_body(ROOT / rel) == RUN_SLICE_POINTER
+    assert (ROOT / "AGENTS.md").is_file() and (ROOT / "scripts" / "brief.py").is_file()
 
 
 def test_run_slice_playbook_states_the_handoff_rule() -> None:

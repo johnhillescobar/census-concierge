@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Claude Code hooks that keep a long slice from losing its rules (stdlib only).
 
-    ctx.py session-start    SessionStart (startup, resume, clear, compact): print the newest
-                            evidence/slice-*/*/STATE.md and a reminder (added to context)
+    ctx.py session-start    SessionStart (startup, resume, clear, compact): print a reminder to
+                            read AGENTS.md and print the phase brief (added to context)
     ctx.py context-watch    UserPromptSubmit and PostToolUse: when the conversation is at or past
                             CLAUDE_CONTEXT_WARN (default 0.8) of CLAUDE_CONTEXT_WINDOW (default
-                            1000000 tokens), tell the agent to finish the phase, update STATE.md,
-                            commit, and ask the user to run /clear. Once per 10% step.
+                            1000000 tokens), tell the agent to finish the step, commit, record
+                            what is open on the Jira ticket, and ask the user to run /clear.
+                            Once per 10% step.
     ctx.py agent-gate       PreToolUse on the Agent tool: a subagent call labelled Gate 2 is
                             denied unless it goes to the gate2-cold agent or is only the
                             invariants pass. That agent runs on the model its file names, or
@@ -60,13 +61,15 @@ LABEL_WORD = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 TICKET_OR_NUMBER = re.compile(r"(?:[a-z]+-)?\d+")
 
 
+REMINDER = (
+    "Before acting: read AGENTS.md. For ticket work, print the brief with "
+    "`uv run python scripts/brief.py <phase> CC-N` and follow it. Status comes from the two "
+    "commands it opens with (Jira and the closure file), never from a file in evidence/."
+)
+
+
 def session_start() -> None:
-    states = list(ROOT.glob("evidence/slice-*/*/STATE.md"))
-    lines = ["Before acting: read CLAUDE.md and docs/playbooks/run-slice.md, then the state below."]
-    if states:
-        newest = max(states, key=lambda p: p.stat().st_mtime)
-        lines += [f"--- {newest.relative_to(ROOT).as_posix()} ---", newest.read_text("utf-8")]
-    print("\n".join(lines))
+    print(REMINDER)
 
 
 def newest_rows(transcript: object) -> list[str]:
@@ -130,9 +133,9 @@ def context_watch(payload: dict) -> None:
     marker.write_text(str(step))
     note = (
         f"Context is about {tokens / WINDOW:.0%} full ({tokens:,} of {WINDOW:,} tokens). Do not "
-        "start a new phase. Finish the current step, update the slice's STATE.md (phase, what is "
-        "done, what is open, the next command), commit it, and tell the user to run /clear: a "
-        "fresh session reads STATE.md back in. Do not let it auto-compact."
+        "start a new phase. Finish the current step, commit it, put what is open and the next "
+        "step in a comment on the Jira ticket, and tell the user to run /clear: a fresh session "
+        "rebuilds from the two status commands in the phase brief."
     )
     event = payload.get("hook_event_name") or "UserPromptSubmit"
     print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": note}}))

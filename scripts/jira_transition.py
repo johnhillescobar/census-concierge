@@ -27,7 +27,7 @@ import urllib.request
 from pathlib import Path
 
 import closure
-from dotenv import load_dotenv
+import jira_fetch
 
 ROOT = Path(__file__).resolve().parent.parent
 NO_AC_TYPES = {"epic", "task", "sub-task", "subtask", "spike"}  # chores and containers
@@ -38,7 +38,7 @@ DEFAULT_SITE = "johnhillescobar.atlassian.net"
 
 
 def _load_env() -> None:
-    load_dotenv(ROOT / ".env")
+    jira_fetch.load_env(ROOT)  # this checkout's .env, or the main checkout's from a worktree
 
 
 def _site() -> str:
