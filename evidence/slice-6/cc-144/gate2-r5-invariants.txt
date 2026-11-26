@@ -1,0 +1,412 @@
+CC-144 Gate 2, project-invariants pass (docs/playbooks/review-pr.md). Raw command output.
+repo path: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+branch: cc-144/gate-line
+HEAD: 0b2088c65f7c5129bc891ea1571de23575fac85d
+review base: e323eaa97bb9d815b978b63dc4bf1217d5d7d1ba
+review head: 0b2088c65f7c5129bc891ea1571de23575fac85d
+origin/main: 0b6984256eeaf28cd93c08950794add3d378c709
+date: 2026-11-25T23:20:33-06:00
+uncommitted at start (git status --porcelain --untracked-files=all; none created by this pass):
+?? evidence/slice-6/cc-144/gate2-code-365adee.txt
+?? evidence/slice-6/cc-144/gate2-codex-599a57d.txt
+?? evidence/slice-6/cc-144/gate2-cursor-599a57d.txt
+?? evidence/slice-6/cc-144/gate2-owner-review.txt
+?? evidence/slice-6/cc-144/gate2-r5-invariants.txt
+tracked-file diff at start (git diff HEAD --stat): []
+make not used: the Makefile 'check' recipes run in order below (lint, types, test, invariants, web-test, client --check, budgets).
+
+$ uv run ruff check .
+All checks passed!
+exit 0
+
+$ uv run ruff format --check .
+327 files already formatted
+exit 0
+
+$ uv run mypy api/src
+Success: no issues found in 30 source files
+exit 0
+
+$ uv run pytest -q -m "not integration" -p no:warnings 2>&1 | tail -40; exit ${PIPESTATUS[0]}
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [ 10%]
+........................................................................ [ 13%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 24%]
+.................sssssssssssssssss..sss................................. [ 27%]
+...............................xxxxxxx...x.............................. [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 48%]
+........................................................................ [ 51%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 86%]
+...........................................................sssssssssss.. [ 89%]
+s.ss.................................................................... [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+2048 passed, 34 skipped, 8 xfailed in 232.13s (0:03:52)
+exit 0
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+exit 0
+
+$ uv run python scripts/check_budgets.py
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+
+All budgets met (3 excepted by the owner).
+
+exit 0
+
+$ npm --prefix web ci 2>&1 | tail -15
+
+added 258 packages, and audited 259 packages in 14s
+
+44 packages are looking for funding
+  run `npm fund` for details
+
+6 vulnerabilities (1 moderate, 3 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+exit 0
+
+$ npm --prefix web test 2>&1 | tail -15; exit ${PIPESTATUS[0]}
+   [33m[2m✓[22m[39m plan refinement[2m > [22mkeeps the prior result when the override is rejected and shows the field error [33m 354[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22muses the original question even if the chat input changed [33m 556[2mms[22m[39m
+   [33m[2m✓[22m[39m plan refinement[2m > [22mclears a chat error after a successful plan apply [33m 382[2mms[22m[39m
+ [32m✓[39m src/App.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 5759[2mms[22m[39m
+   [33m[2m✓[22m[39m App pane states[2m > [22mshows a loading state distinct from idle while the request is in flight [33m 351[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mrenders URL, estimate with MOE, GEOID, universe, and an alternative [33m 508[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mcopies the visible Census URL without a key parameter [33m 330[2mms[22m[39m
+   [33m[2m✓[22m[39m App result[2m > [22mreplaces every previous table row when a new result arrives [33m 543[2mms[22m[39m
+   [33m[2m✓[22m[39m App workspace[2m > [22mkeeps the prior result visible while a later question is loading [33m 357[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
+[2m      Tests [22m [1m[32m112 passed[39m[22m[90m (112)[39m
+[2m   Start at [22m 23:25:54
+[2m   Duration [22m 17.40s[2m (transform 7.12s, setup 16.02s, collect 12.49s, tests 13.79s, environment 42.54s, prepare 4.26s)[22m
+
+exit 0
+
+$ npm --prefix web run typecheck
+
+> typecheck
+> tsc --noEmit
+
+exit 0
+
+$ uv run python scripts/generate_client.py --check
+✨ openapi-typescript 7.9.1
+🚀 C:\Users\johnh\AppData\Local\Temp\tmplmocky_w\openapi.json → C:\Users\johnh\AppData\Local\Temp\tmplmocky_w\schema.d.ts [69ms]
+packages/client is up to date.
+exit 0
+
+$ uv run python scripts/closure.py check evidence/closure/CC-144.toml --pre-merge --head 0b2088c65f7c5129bc891ea1571de23575fac85d
+  BLOCKED  AC1: stale, 2 covered file(s) changed since 767f18b
+  BLOCKED  AC2: stale, 2 covered file(s) changed since 767f18b
+  BLOCKED  AC3: NOT RUN blocks closure
+  BLOCKED  TC1: stale, 2 covered file(s) changed since 767f18b
+  BLOCKED  TC2: stale, 2 covered file(s) changed since 767f18b
+  BLOCKED  TC3: NOT RUN blocks closure
+CLOSURE BLOCKED: 6 problem(s)
+exit 1
+
+$ uv run python scripts/closure.py check --help
+usage: closure.py check [-h] [--head HEAD] [--ref REF] [--require REQUIRE]
+                        [--pre-merge]
+                        manifest
+
+positional arguments:
+  manifest
+
+options:
+  -h, --help         show this help message and exit
+  --head HEAD
+  --ref REF
+  --require REQUIRE
+  --pre-merge        skip the post-merge E2E
+exit 0
+
+--- per-criterion commands on the review head (TC2's real --apply command is not run: this pass is barred from --apply) ---
+
+$ uv run pytest api/tests/test_jira_gate_line.py -q -p no:warnings 2>&1 | tail -6; exit ${PIPESTATUS[0]}
+........................................................................ [ 20%]
+........................................................................ [ 41%]
+........................................................................ [ 62%]
+........................................................................ [ 82%]
+............................................................             [100%]
+348 passed in 3.85s
+exit 0
+
+$ uv run pytest api/tests/test_jira_gate_line.py -q -p no:warnings -k 'drop_an_id or add_an_id or would_change_the_ids' 2>&1 | tail -6; exit ${PIPESTATUS[0]}
+....                                                                     [100%]
+4 passed, 344 deselected in 1.02s
+exit 0
+
+$ uv run pytest api/tests/test_jira_gate_line.py -q -p no:warnings -k 'without_an_approved or apply_needs or unapproved or approv' 2>&1 | tail -6; exit ${PIPESTATUS[0]}
+........................                                                 [100%]
+24 passed, 324 deselected in 1.63s
+exit 0
+
+$ uv run pytest api/tests/test_closure_gate.py -q -p no:warnings -k 'names_no_command or needs_no_command' 2>&1 | tail -6; exit ${PIPESTATUS[0]}
+.........                                                                [100%]
+9 passed, 146 deselected in 2.22s
+exit 0
+
+$ uv run --env-file ../../.env python scripts/jira_gate_line.py --dry-run --out /c/Users/johnh/AppData/Local/Temp/claude/5b8db11426f64676/9dd6a55b-0416-43c9-966e-398420f17192/scratchpad/inv-dry
+change   CC-3  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-39  replaces: metric contract, AC/TC clearance
+change   CC-42  replaces: metric contract, AC/TC clearance
+change   CC-43  replaces: metric contract, AC/TC clearance
+change   CC-77  replaces: AC/TC clearance
+change   CC-82  replaces: metric contract, AC/TC clearance
+change   CC-104  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-105  replaces: metric contract, AC/TC clearance
+change   CC-106  replaces: metric contract, AC/TC clearance
+change   CC-107  replaces: metric contract, AC/TC clearance
+change   CC-108  replaces: metric contract, AC/TC clearance
+change   CC-115  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-118  replaces: metric contract, AC/TC clearance
+change   CC-119  replaces: metric contract, AC/TC clearance
+change   CC-122  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-129  replaces: metric contract, AC/TC clearance
+change   CC-130  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-131  replaces: metric contract, AC/TC clearance, audit gates
+change   CC-132  replaces: metric contract, audit gates
+change   CC-136  replaces: audit gates
+54 open ticket(s) read: 20 ticket(s) left to change, 0 refused
+snapshots in C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\inv-dry
+to approve, write this into C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\inv-dry\APPROVED: b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05
+exit 0
+
+$ diff -r /c/Users/johnh/AppData/Local/Temp/claude/5b8db11426f64676/9dd6a55b-0416-43c9-966e-398420f17192/scratchpad/inv-dry evidence/slice-6/cc-144/snapshots && echo 'fresh dry-run set is byte-identical to the committed snapshots'; ls /c/Users/johnh/AppData/Local/Temp/claude/5b8db11426f64676/9dd6a55b-0416-43c9-966e-398420f17192/scratchpad/inv-dry | wc -l; ls evidence/slice-6/cc-144/snapshots | wc -l
+fresh dry-run set is byte-identical to the committed snapshots
+81
+81
+exit 0
+
+--- commands behind the findings ---
+
+$ git log --oneline 767f18b..0b2088c -- scripts api
+df3ad85 test(CC-144): history entries that are not a list must not read as an empty history
+8728fa7 test(CC-144): a missing field's refusal says what kind of reply fault it is
+9485c97 fix(CC-144): a reply of the wrong shape never reads as open, empty or written
+b1bb7e0 test(CC-144): Gate 1 on the fix round: cover what surviving mutations showed untested
+22c6ab8 fix(CC-144): count a write only on replies about that ticket, with real text, read last
+f0606e2 Merge branch 'harness/gate2-cold-agent' into cc-144/gate-line
+e323eaa harness: Gate 2's cold bug pass goes to a named agent on another model
+exit 0
+
+$ git diff --stat 7f34a67..0b2088c -- . ':!evidence'
+exit 0
+
+$ uv run python -c "import json;print(list(json.load(open('evidence/slice-6/cc-144/snapshots/manifest.json'))['tickets']))"
+['CC-104', 'CC-105', 'CC-106', 'CC-107', 'CC-108', 'CC-115', 'CC-118', 'CC-119', 'CC-122', 'CC-129', 'CC-130', 'CC-131', 'CC-132', 'CC-136', 'CC-3', 'CC-39', 'CC-42', 'CC-43', 'CC-77', 'CC-82']
+exit 0
+
+$ grep -n 'stop after CC-3' evidence/slice-6/cc-144/approval.md; grep -n -E 'CC-104, the first|CC-3 corrected' evidence/slice-6/cc-144/preflight-599a57d.md; git log --format='%h %ad %s' --date=iso -2 -- evidence/slice-6/cc-144/approval.md
+23:**The first apply may stop after CC-3 although nothing is wrong.** No description has been written, so it is not known
+116:  If the first apply fails for one of the first two reasons it stops after CC-104, the first ticket.
+124:Change `scripts/jira_gate_line.py`, its tests, and CC-144 evidence (`approval.md`: these limits, and CC-3 corrected to
+85ed3e9 2026-11-25 20:37:17 -0600 evidence(CC-144): the analysis of the 599a57d findings, the owner's two decisions' record so far
+767f18b 2026-11-25 17:18:36 -0600 evidence(CC-144): the four findings on 365adee, before and after, and their mutation checks
+exit 0
+
+$ git grep -n -E 'gate2-(code-365adee|codex-599a57d|cursor-599a57d)' 0b2088c -- evidence/slice-6/cc-144/approval.md evidence/slice-6/cc-144/preflight-599a57d.md evidence/slice-6/cc-144/review4-probes.txt | cut -c1-200; git ls-files evidence/slice-6/cc-144 | grep -c -E 'gate2-(code-365adee|codex-599a57d|cursor-599a57d|owner-review)'
+0b2088c:evidence/slice-6/cc-144/approval.md:76:reviews of 365adee, run by the owner (`gate2-code-365adee.txt`; the second pasted into the session), then found four more
+0b2088c:evidence/slice-6/cc-144/preflight-599a57d.md:3:Code at 599a57d. Nothing here is fixed yet. Reviews: `gate2-codex-599a57d.txt`, `gate2-cursor-599a57d.txt`, and a second
+0b2088c:evidence/slice-6/cc-144/review4-probes.txt:1:The four findings of the owner's two outside reviews of 365adee (Codex: gate2-code-365adee.txt;
+0
+exit 1
+
+$ echo 'local branches:'; git branch --contains e323eaa; echo 'remote branches:'; git branch -r --contains e323eaa; git show --stat --format='%h %s' e323eaa -- .claude api | tail -6
+local branches:
+* cc-144/gate-line
++ main
+remote branches:
+
+ .claude/agents/gate2-cold.md   | 29 ++++++++++++++
+ .claude/hooks/ctx.py           | 32 +++++++++++++++
+ .claude/settings.json          | 12 ++++++
+ api/tests/test_context_hook.py | 88 ++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 161 insertions(+)
+exit 0
+
+$ gh pr list --state all --head cc-144/gate-line --json number,state,url; gh repo view --json visibility
+[]
+{"visibility":"PUBLIC"}
+exit 0
+
+$ git diff --shortstat e323eaa..0b2088c; git diff --shortstat origin/main..0b2088c; git diff --name-only origin/main..0b2088c -- . ':!evidence' | wc -l; git diff --name-only e323eaa..0b2088c -- . ':!evidence' | wc -l; git diff --stat e323eaa..0b2088c -- budgets.toml api/src evals web Makefile pyproject.toml uv.lock
+ 135 files changed, 24719 insertions(+), 6 deletions(-)
+ 139 files changed, 24880 insertions(+), 6 deletions(-)
+13
+9
+exit 0
+
+$ git grep -n -I -E '"accountId"|"mention"|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|ATATT|[?&]key=[A-Za-z0-9]{10,}|sk-[A-Za-z0-9]{20,}' 0b2088c -- evidence/slice-6/cc-144 evidence/closure/CC-144.toml api/tests/fixtures/gate_wording api/tests/test_jira_gate_line.py scripts/jira_gate_line.py | cut -c1-200
+0b2088c:api/tests/test_jira_gate_line.py:173:                "author": {"accountId": "someone"},
+0b2088c:api/tests/test_jira_gate_line.py:304:        {"type": "mention", "attrs": {"id": "someone"}},
+0b2088c:api/tests/test_jira_gate_line.py:1741:                entry["author"] = {"accountId": "someone else"}
+0b2088c:evidence/slice-6/cc-144/gate1-r5-fixes.py.txt:98:        '                "author": {"accountId": "someone"},\n'
+exit 0
+
+================================================================================================
+REVIEW (docs/playbooks/review-pr.md), written after the command output above
+================================================================================================
+Notes on the capture: pytest, the per-criterion pytest runs, npm ci and npm test were piped through
+tail (the full non-integration run printed 31 lines, so nothing of it was cut). The TC2 -k expression is
+this pass's own selection. TC2's real --apply command was not run (this pass is barred from --apply).
+Other reads: CC-144 by Jira GET (status In Progress, 0 comments); gh pr list and gh repo view.
+
+VERDICT: Not yet. closure.py check exits 1 on the review head (6 problems): AC1 AC2 TC1 TC2 are
+stale and AC3 TC3 are NOT RUN.
+
+The machines pass: ruff, format, mypy, 2048 passed / 34 skipped / 8 xfailed, invariants (all held,
+regex delta 0), budgets (met, 3 owner exceptions that predate this diff; no budget file changed),
+112 web tests, typecheck, client drift.
+
+Claim: no end user can do anything new. This is process tooling: one script that can replace pasted
+gate wording in 20 open tickets (nothing written yet), and closure.py now rejects a row with no
+command. No PR exists, so there is no PR claim or body to check. No E2E is owed: the diff touches no
+path in closure.E2E_PATHS.
+
+Criteria as observed on 0b2088c
+  AC1  behaviour PASS: live dry run, 54 read, 20 to change, 0 refused; 81 files byte-identical to the
+       committed snapshots. Jira's own open-ticket count was not compared. Record stale.
+  AC2  behaviour PASS: 348 passed (the record says 139). Record stale.
+  AC3  NOT RUN (owner approval pending).
+  AC4  PASS: 9 selected cases pass; playbook sentence present; the invariants' manifest form check
+       passes. closure.py reports no staleness for this row.
+  TC1  behaviour PASS: 4 passed. Record stale.
+  TC2  tests pass (24 selected); the named real command was NOT RUN by this pass. Record stale.
+  TC3  NOT RUN (follows AC3).
+
+FINDINGS
+1. Blocking. The closure record does not describe the head. evidence/closure/CC-144.toml pins
+   tested_head 767f18b; scripts/jira_gate_line.py and its tests changed afterwards (22c6ab8, b1bb7e0,
+   9485c97, 8728fa7, df3ad85). Its AC2 count, closure-run-four/ and make-check-four.txt are of the old
+   code, its mutation fields cite only gate1.txt (not gate1-r5.txt or gate1-r5-fixes.txt), and its
+   reviewer fields still say no review has read 56fae43. Same as code-review's fourth nit.
+2. Blocking. AC3 and TC3 are NOT RUN. No [[amendment]] removes them. Both need the owner's approval
+   and the apply before the ticket is ready or Done.
+3. Medium, fix before the owner approves. approval.md is the owner's approval sheet and is not current.
+   Line 23 says the first apply may stop after CC-3. apply walks the manifest's order, which is sorted:
+   CC-104 is first and CC-3 is fifteenth (output above, under "commands behind the findings").
+   preflight-599a57d.md lines 116 and 124 found this and said approval.md would be corrected and given
+   the known limits; approval.md was last changed in 85ed3e9, before the fix 22c6ab8. Its gate results
+   stop at 56fae43 ("No review has read 56fae43"). Of the three uncaught cases in the script's
+   docstring it states the text-form one, not the look-alike history entry or a change after a
+   ticket's last read (its "do not edit while the apply runs" covers the operation, not the report).
+   It gives no command for writing APPROVED, and code-review nit 3 reports that a UTF-16 file from
+   Windows PowerShell 5.1 is refused (not re-run here).
+4. Medium. Review records are not in git. approval.md:76, preflight-599a57d.md:3 and
+   review4-probes.txt:1 cite gate2-code-365adee.txt, gate2-codex-599a57d.txt and
+   gate2-cursor-599a57d.txt, which are untracked (as is gate2-owner-review.txt). These reviews drove
+   fix commits. One further review is cited as pasted into the session. A fresh checkout cannot
+   rebuild that history (the handoff rule). Not read by this pass.
+5. Medium. A PR from this branch to origin/main would also carry e323eaa (.claude/agents/gate2-cold.md,
+   .claude/hooks/ctx.py, .claude/settings.json, api/tests/test_context_hook.py; 161 lines). It is on
+   local main and this branch and on no remote. It is outside this review base and CC-144's scope, and
+   neither pass of this round reviewed it. Land it separately, or name and review it in the PR.
+6. Open. This round's 5 Low (gate2-r5.txt) and 4 nits (gate2-r5-code-review.txt) have no fix or
+   recorded disposition. run-slice.md section 5 says to fix what the re-run finds. No code changed after
+   7f34a67, the head both reviews read. Not re-reproduced by this pass.
+
+For the owner and the PR body (not new defects)
+  - The apply removes "unresolved review findings block shipping and Done" from the tickets, and no
+    repo file states it in full (approval.md L1; review-pr.md allows ship with follow-ups). This is the
+    one harness weakening in the change; approving the snapshots accepts it. CC-3 AC4 and the other
+    lines in approval.md's table will point at removed text.
+  - Defaults the owner has not been shown on the approval sheet itself: AMENDED rows need no command
+    (AC4's text has no exemption). It is listed in plan.md.
+  - The AC1 search limit is recorded as an owner decision made in chat (approval.md, preflight); it is
+    not on Jira (0 comments) and not a manifest amendment.
+  - The repository is PUBLIC. A push publishes 20 ticket descriptions as snapshots. A pattern scan of
+    the CC-144 evidence, fixtures, script and tests found no email, API key or token; the accountId and
+    mention hits are test stand-ins.
+  - Size: 135 changed files in the review range, 9 outside evidence/ (139 and 13 against
+    origin/main). The playbook asks for a line on why when over about 15.
+  - Silent-wrong-answer and shape checks: no response path, api/src, tool, route, model, graph node,
+    dependency or regex change; no Census URL is built. Tests assert behaviour against a stand-in Jira
+    that answers per ticket; no prompt assertion or ticket-named test.
+
+State at end of this pass
+HEAD: 0b2088c65f7c5129bc891ea1571de23575fac85d (unchanged)
+tracked-file diff (git diff HEAD --stat): []
+git status --porcelain --untracked-files=all (this pass added only gate2-r5-invariants.txt):
+?? evidence/slice-6/cc-144/gate2-code-365adee.txt
+?? evidence/slice-6/cc-144/gate2-codex-599a57d.txt
+?? evidence/slice-6/cc-144/gate2-cursor-599a57d.txt
+?? evidence/slice-6/cc-144/gate2-owner-review.txt
+?? evidence/slice-6/cc-144/gate2-r5-invariants.txt
+No Jira write, no --apply of the script, no APPROVED file, no commit or push. No E2E transcript read.
