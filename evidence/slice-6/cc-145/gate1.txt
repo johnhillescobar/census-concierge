@@ -1,0 +1,1965 @@
+CC-145 Gate 1: tests for the adversarial matrix, every new test mutation-checked
+repo: C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145
+branch: cc-145/one-source
+review base: origin/main ab4c27d
+HEAD at start of this run: 03054612b66d3f75d8ecc30d18533ee819ce54b6
+HEAD the gate was handed: 4719c58 (Gate 1 added test commits accb4e3, 5a0c1c1, 0305461 on top before mutating)
+date: 2026-11-26T21:40:12Z
+
+Matrix note: the adversarial matrix in docs/process-evidence.md has four retrieval rows
+(slice-0: float-noise twins, family by one member, ranking on the tuning set, 'largest jump').
+None applies: this change touches no api/src, retrieval or index file (git diff below).
+Gate 1 therefore covers the CC-145 criteria code can prove: AC1-AC5, AC7-AC9, AC13-AC16,
+TC1-TC4, TC6-TC8. AC6, AC10, AC11, AC12 and TC5 are proven by commands, run at the end.
+
+===================== status: the brief's two commands =====================
+
+$ uv run python scripts/jira_fetch.py issue CC-145 --md
+## CC-145 â€” One source of truth: Jira is the contract, status comes from two commands
+
+- Type: Story
+- Status: In Progress
+- Epic: CC-142
+
+### Description
+
+Why. Status lives in Jira, `STATE.md`, plan files, `.claude/PLAN.md`, the PR body, the README and Claude Code's memory, and they disagree. `STATE.md` is cut to its first 2 KB when it is delivered to a new session.
+
+`.claude/PLAN.md` has drifted from a plan into a ledger. Since 2026-09-12 (`88a0341`), `CLAUDE.md`, the playbook and `docs/slices.md` have told agents to write a "close pointer (floors met, evidence path, epic URL)" into it at every close. It now carries closure paragraphs with metrics for CC-103, CC-114, CC-125 and CC-126, baseline numbers, and lists of tickets that are Done. PLAN.md exists to manage context: it gives an agent the context it needs to start, keeps what is done to one line, and points at the Jira ticket, where the details are explained and expanded.
+
+Scope. `scripts/jira_fetch.py`, `scripts/jira_transition.py`, `scripts/closure.py`, `scripts/check_invariants.py`, one new brief script replacing `scripts/gate.sh` and `scripts/gate.ps1`, `Makefile`, `.claude/hooks/ctx.py`, `.claude/settings.json`, `.github/workflows/check.yml`, the host pointer files, the playbook and the rule files that restate status. No `api/src` change. Every criterion names the command that proves it; "(new)" marks a command this ticket creates.
+
+Acceptance criteria
+
+- AC1. `jira_fetch.py issue CC-N --md` prints the last comments, and exits non-zero with no partial ticket when Jira is unreachable. Both Jira scripts work in a fresh worktree by falling back to the main checkout's `.env`. Command: `uv run pytest api/tests/test_jira_fetch.py -q` (new).
+
+- AC2. The closure file records the criterion IDs approved at pre-flight. At the start of a phase the comparison with the Jira description fails when the IDs differ and there is no owner amendment row. Command: `uv run python scripts/brief.py preflight CC-N` (new).
+
+- AC3. One Python script prints the brief for pre-flight, implement, Gate 1, Gate 2 and the final run, keyed by ticket, and each brief opens with the two status commands. `gate.sh` and `gate.ps1` are deleted and `Makefile`, the playbook and the three host pointer files are updated. Command: `uv run python scripts/brief.py gate2 CC-N` (new).
+
+- AC4. The three host pointer files say only: read `AGENTS.md`, print the brief, follow it. Command: `uv run pytest api/tests/test_process.py -q`.
+
+- AC5. Auto-compaction is off in the project settings. The hook no longer prints `STATE.md`, and its warning no longer tells the agent to write one. Command: `uv run pytest api/tests/test_context_hook.py -q`.
+
+- AC6. Handoff proof, before anything is deleted: in a fresh worktree, a fresh agent given only a ticket key states the approved criteria and decisions, the commit tested, which evidence is stale or missing, and the next permitted step, once for an in-progress ticket and once for a closed one. Command: the two status commands; the agent's two replies are saved as evidence.
+
+- AC7. After AC6: the two `STATE.md` files and the plan files under `evidence/` are deleted on `main` (`evidence/slice-6/cc-138/plan.md` is renamed and its two closure paths updated). Status and plan wording is removed from the playbook, `AGENTS.md`, `.claude/PLAN.md`, `docs/slices.md`, `docs/ARCHITECTURE.md`, `README.md`, `.cursor/rules/00-guardrails.mdc`, `docs/playbooks/review-pr.md`, `CLAUDE.md` and the two `.github` files. "When unsure: stop and ask" stays. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+- AC8. Two offline checks: a `STATE.md` or plan file under `evidence/` fails; status words or metric numbers in `.claude/PLAN.md` or `docs/slices.md` fail. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+- AC9. CI runs the offline closure check for the ticket named in the branch. Command: the `check` workflow on the PR.
+
+- AC10. Each auto-memory rule is moved into a repo rule file or deleted, and auto-memory is off in the project settings. Command: `uv run python scripts/check_budgets.py --structural-only`.
+
+- AC11. Prescriptive docs end at or under 1820 lines; no budget is raised. Command: `uv run python scripts/check_budgets.py --structural-only`.
+
+- AC12. The owner receives a list of worktrees that still serve the old host files; none is removed without the owner naming it. Command: `git worktree list`.
+
+- AC13. The closure file also records a fingerprint (sha256) of the approved criteria text. The phase-start comparison fails when the criteria text in Jira no longer matches it and there is no owner amendment row, even if the IDs are unchanged. Command: `uv run python scripts/brief.py preflight CC-N` (new).
+
+- AC14. When the change under review touches a prescriptive rule file (the files counted by the documentation budget), the Gate 2 brief adds an instruction to read all of those files and list any contradictions between them. The script decides this from the change itself. Command: `uv run python scripts/brief.py gate2 CC-N` (new).
+
+- AC15. One rule file, and no other, states the relationship: `.claude/PLAN.md` holds the plan (slice order, scope, what is not in each slice, and why) and the context an agent needs to start; it mentions finished work only as one line that links the Jira ticket, with no numbers, dates of closure or evidence paths; Jira alone says whether a ticket is open or done and holds its details. `CLAUDE.md`, `AGENTS.md`, `docs/slices.md` and the playbook point to that rule instead of restating it. Command: `uv run pytest api/tests/test_process.py -q`.
+
+- AC16. No rule file asks for a close pointer, floors or numbers in `.claude/PLAN.md`. At close, numbers and evidence links go to the Jira ticket only, and `.claude/PLAN.md` changes at most to the one-line link of AC15. On `main`, the existing closure paragraphs, baseline numbers and Done lists in `.claude/PLAN.md` are reduced to one-line Jira links. An `evidence/` path in `.claude/PLAN.md` fails the offline check. Command: `uv run python scripts/check_invariants.py --base origin/main`.
+
+
+Test cases
+
+- TC1. A new `evidence/slice-9/cc-999/STATE.md` fails the invariant check.
+
+- TC2. A metric number added to `.claude/PLAN.md` fails the invariant check.
+
+- TC3. With Jira unreachable, `jira_fetch.py` exits non-zero and prints no ticket text.
+
+- TC4. A criterion ID added in Jira without an amendment row fails the phase-start comparison.
+
+- TC5. `make check` passes after the deletions, including the CC-138 closure file.
+
+- TC6. A criterion reworded in Jira with its ID unchanged fails the phase-start comparison.
+
+- TC7. The Gate 2 brief contains the contradiction instruction for a change that touches `CLAUDE.md` and omits it for a change that touches only `api/src`.
+
+- TC8. A closure line for a ticket that carries an `evidence/` path, added to `.claude/PLAN.md`, fails the invariant check; the same line reduced to the ticket key and its Jira link passes.
+
+
+Final run. Not required: no `api/src`, `evals/` or run-harness change (acceptance-gate ticket CC-143, AC11).
+
+Decisions (owner, 2026-11-24)
+
+- Old `STATE.md` and plan files are deleted after the handoff proof; git keeps them.
+
+- Auto-memory is switched off once its rules are in the repo.
+
+- Only the owner edits a ticket description; agents comment.
+
+- AC13, AC14, TC6 and TC7 were added on the owner's instruction before pre-flight: the comparison covers criteria text as well as IDs, and a rule-file change triggers a contradiction read.
+
+
+Decisions (owner, 2026-11-26)
+
+- `.claude/PLAN.md` is the plan; Jira is the only source of status. PLAN.md links to Jira for status and holds no status of its own. Earlier closes polluted it; the intent is to manage context by giving an agent the context it needs, keeping what is done to one line, and pointing at the ticket where the details are explained and expanded.
+
+- AC15, AC16 and TC8 were added on the owner's instruction before pre-flight. The edit was made by an agent at the owner's request in the session.
+
+### Last 1 comment(s), oldest first
+
+#### 2026-11-26T14:24:26.277-0600 â€” John Hill Escobar
+
+Pre-flight done (2026-11-26), branch cc-145/one-source at b6559fd, not pushed. Record: evidence/slice-6/cc-145/preflight.txt; approved criteria: evidence/closure/CC-145.toml (24 IDs AC1-AC16, TC1-TC8; criteria fingerprint c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f).
+
+Owner decisions (chat, 2026-11-26):
+- AC8 rule: a file under evidence/ named STATE.md, plan.md or *-plan.md fails (cc-138/plan.md renamed to cc-138/scope-record.md). In .claude/PLAN.md and docs/slices.md a Jira status name (Done, To Do, In Progress) or "closed" as a whole word fails, and so does a decimal number; integer targets stay as plan scope. The slices.md board loses its status column.
+- The budgets.toml exception/waiver route stays unchanged, so a ticket can close with an owner-excepted red metric (e.g. p95).
+- AC9: CI runs closure.py check --pre-merge for the ticket in the branch name.
+- AC10 is open for discussion with the owner; no memory file is moved or deleted yet.
+
+Defaults (revertible): the two status commands are jira_fetch.py issue CC-N --md and closure.py check evidence/closure/CC-N.toml --pre-merge; AC6 uses CC-145 (in progress) and CC-144 (closed).
+
+Correction to the description: SessionStart hook output is capped at 10,000 characters (code.claude.com docs/en/hooks.md), not 2 KB; past the cap, the hook output is replaced by a file path and a 2,000-character preview.
+[exit 0]
+
+$ uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge
+  BLOCKED  AC1: NOT RUN blocks closure
+  BLOCKED  AC2: NOT RUN blocks closure
+  BLOCKED  AC3: NOT RUN blocks closure
+  BLOCKED  AC4: NOT RUN blocks closure
+  BLOCKED  AC5: NOT RUN blocks closure
+  BLOCKED  AC6: NOT RUN blocks closure
+  BLOCKED  AC7: NOT RUN blocks closure
+  BLOCKED  AC8: NOT RUN blocks closure
+  BLOCKED  AC9: NOT RUN blocks closure
+  BLOCKED  AC10: NOT RUN blocks closure
+  BLOCKED  AC11: NOT RUN blocks closure
+  BLOCKED  AC12: NOT RUN blocks closure
+  BLOCKED  AC13: NOT RUN blocks closure
+  BLOCKED  AC14: NOT RUN blocks closure
+  BLOCKED  AC15: NOT RUN blocks closure
+  BLOCKED  AC16: NOT RUN blocks closure
+  BLOCKED  TC1: NOT RUN blocks closure
+  BLOCKED  TC2: NOT RUN blocks closure
+  BLOCKED  TC3: NOT RUN blocks closure
+  BLOCKED  TC4: NOT RUN blocks closure
+  BLOCKED  TC5: NOT RUN blocks closure
+  BLOCKED  TC6: NOT RUN blocks closure
+  BLOCKED  TC7: NOT RUN blocks closure
+  BLOCKED  TC8: NOT RUN blocks closure
+CLOSURE BLOCKED: 24 problem(s)
+[exit 1]
+
+===================== the change under test =====================
+
+$ git log --oneline origin/main..HEAD
+0305461 evidence(CC-145): gate 1 fix the comment-order test, which matched "first" in the header
+5a0c1c1 evidence(CC-145): gate 1 tests for whole-word status words and the board checked on its own
+accb4e3 evidence(CC-145): gate 1 tests for the criteria order, the fingerprint spacing, an unknown base and the rule-file trigger
+4719c58 evidence(CC-145): make check recipe at 9bdd13f, all steps exit 0
+9bdd13f chore(evidence): delete the STATE and plan files after the handoff proof (CC-145)
+1794e8d fix(scripts): brief a closed or a pre-approval ticket correctly (CC-145)
+6d415de docs(CC-145): PLAN.md holds the plan, Jira holds status
+3361d2a feat(scripts): phase brief, Jira comments and the status checks (CC-145)
+1664ae4 evidence(CC-145): record the owner's AC10 split and the .env copy
+b6559fd evidence(CC-145): pre-flight facts, decisions and the approved criteria
+[exit 0]
+
+$ git diff --stat origin/main...HEAD -- api/tests scripts .claude .github
+ .claude/PLAN.md                   |  53 ++++-----
+ .claude/hooks/ctx.py              |  29 +++--
+ .claude/settings.json             |   2 +
+ .claude/skills/run-slice/SKILL.md |  11 +-
+ .github/workflows/check.yml       |  16 +++
+ api/tests/test_brief.py           | 241 ++++++++++++++++++++++++++++++++++++++
+ api/tests/test_context_hook.py    |  74 ++++--------
+ api/tests/test_invariants.py      |  89 ++++++++++++++
+ api/tests/test_jira_fetch.py      | 164 ++++++++++++++++++++++++++
+ api/tests/test_process.py         | 114 ++++++++++++++++++
+ scripts/brief.py                  | 226 +++++++++++++++++++++++++++++++++++
+ scripts/check_budgets.py          |  52 ++++----
+ scripts/check_invariants.py       |  61 ++++++++++
+ scripts/closure.py                |   7 ++
+ scripts/gate.ps1                  |  84 -------------
+ scripts/gate.sh                   |  77 ------------
+ scripts/jira_fetch.py             |  90 +++++++++-----
+ scripts/jira_transition.py        |   4 +-
+ 18 files changed, 1069 insertions(+), 325 deletions(-)
+[exit 0]
+
+$ git diff --name-only origin/main...HEAD -- api/src evals
+[exit 0]
+
+===================== tests Gate 1 added (committed before mutating) =====================
+
+$ git show --stat --format=%h %s accb4e3 5a0c1c1 0305461
+accb4e3 evidence(CC-145): gate 1 tests for the criteria order, the fingerprint spacing, an unknown base and the rule-file trigger
+
+ api/tests/test_brief.py | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+5a0c1c1 evidence(CC-145): gate 1 tests for whole-word status words and the board checked on its own
+
+ api/tests/test_invariants.py | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+0305461 evidence(CC-145): gate 1 fix the comment-order test, which matched "first" in the header
+
+ api/tests/test_jira_fetch.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+[exit 0]
+
+Why each was added:
+- test_the_same_criteria_in_a_different_order_fail_and_say_so: compare()'s reorder branch (AC2) had no test.
+- test_the_fingerprint_ignores_how_a_criterion_is_spaced_and_nothing_else: the whitespace collapse in
+  closure.criteria_fingerprint (AC13) had no test.
+- test_the_change_is_read_from_git_and_an_unknown_base_is_not_an_empty_change: changed_files() returning
+  None (so the Gate 2 brief asks for the contradiction read) on a git failure had no test (AC14).
+- test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts: TC7 used only the literal
+  CLAUDE.md; a glob pattern (.cursor/rules/*.mdc, skills/*/SKILL.md) breaking in is_prescriptive passed (AC14).
+- test_a_status_word_counts_only_as_a_whole_word: the owner's 'whole word' rule (AC8) had no passing case.
+- test_a_status_column_in_the_board_alone_fails: dropping docs/slices.md from PLAN_DOCS passed every test (AC8).
+- test_md_prints_the_description_then_the_last_comments_oldest_first (fixed, 0305461): its order assertion
+  used out.index("first"), which matches the header 'oldest first', so comments printed newest first
+  passed (first harness run: M02 NOT CAUGHT). Bodies renamed body-one/body-two (AC1).
+
+===================== GOOD baseline: the five changed test files, unmutated =====================
+
+$ uv run pytest api/tests/test_brief.py api/tests/test_jira_fetch.py api/tests/test_invariants.py api/tests/test_process.py api/tests/test_context_hook.py -q -rs -p no:cacheprovider
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+........................................................................ [ 94%]
+............                                                             [100%]
+============================== warnings summary ===============================
+api/tests/test_brief.py::test_the_approved_criteria_pass
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+228 passed, 1 warning in 30.08s
+[exit 0]
+
+===================== mutation check: one behaviour reverted at a time =====================
+Harness: /c/Users/johnh/AppData/Local/Temp/claude/5b8db11426f64676/4c863039-d3ef-417e-84a7-485e1aa62c90/scratchpad/mutate.py (scratchpad). For each mutation it runs only the covering tests
+unmutated (GOOD), applies one exact text replacement, runs them again (BAD), writes the
+original bytes back and confirms 'git diff --quiet HEAD -- <file>'. CAUGHT = GOOD exit 0, BAD
+exit non-zero, file restored. A first run (before 0305461) found M02 not caught and 12
+mutations unapplied because scripts/brief.py and scripts/check_invariants.py are CRLF in this
+worktree (git ls-files --eol: i/lf w/crlf); the harness now matches CRLF. This is the full re-run.
+
+$ git ls-files --eol scripts/brief.py scripts/check_invariants.py scripts/jira_fetch.py
+i/lf    w/crlf  attr/text=auto eol=lf 	scripts/brief.py
+i/lf    w/crlf  attr/text=auto eol=lf 	scripts/check_invariants.py
+i/lf    w/lf    attr/text=auto eol=lf 	scripts/jira_fetch.py
+[exit 0]
+
+$ uv run python /c/Users/johnh/AppData/Local/Temp/claude/5b8db11426f64676/4c863039-d3ef-417e-84a7-485e1aa62c90/scratchpad/mutate.py /c/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145
+
+=== M01 mutation: md drops the comments
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_md_prints_the_description_then_the_last_comments_oldest_first
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.04s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   ValueError: substring not found
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:67: ValueError: substring not found
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_md_prints_the_description_then_the_last_comments_oldest_first
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M01: CAUGHT
+
+=== M02 mutation: comments printed newest first
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_md_prints_the_description_then_the_last_comments_oldest_first
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 196 < 161
+     +  where 196 = <built-in method index of str object at 0x000002374747CFB0>('body-one')
+     +    where <built-in method index of str object at 0x000002374747CFB0> = '## CC-9 — A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: —\n\n### Description\n\nAC1. it works\n\n### Last 2 comment(s), oldest first\n\n#### 2026-11-26 — Owner\n\nbody-two\n\n#### 2026-11-25 — Owner\n\nbody-one\n'.index
+     +  and   161 = <built-in method index of str object at 0x000002374747CFB0>('body-two')
+     +    where <built-in method index of str object at 0x000002374747CFB0> = '## CC-9 — A ticket\n\n- Type: Story\n- Status: In Progress\n- Epic: —\n\n### Description\n\nAC1. it works\n\n### Last 2 comment(s), oldest first\n\n#### 2026-11-26 — Owner\n\nbody-two\n\n#### 2026-11-25 — Owner\n\nbody-one\n'.index
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:67: AssertionError: assert 196 < 161
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_md_prints_the_description_then_the_last_comments_oldest_first
+1 failed in 0.09s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M02: CAUGHT
+
+=== M03 mutation: comment query not ordered newest first
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_md_prints_the_description_then_the_last_comments_oldest_first
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = any(<generator object test_md_prints_the_description_then_the_last_comments_oldest_first.<locals>.<genexpr> at 0x0000022EC7520520>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:68: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_md_prints_the_description_then_the_last_comments_oldest_first
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M03: CAUGHT
+
+=== M04 mutation: ticket printed before its comments are fetched
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.06s
+BAD (mutated) exit=1
+..FF                                                                     [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert '## CC-9 — A ...1. it works\n' == ''
+      + ## CC-9 — A ticket
+      + 
+      + - Type: Story
+      + - Status: In Progress
+      + - Epic: —
+      + ...
+      ...Full output truncated (3 lines hidden), use '-vv' to show
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:106: AssertionError: assert '## CC-9 — A ...1. it works\n' == ''
+E   AssertionError: assert '## CC-9 — A ...1. it works\n' == ''
+      + ## CC-9 — A ticket
+      + 
+      + - Type: Story
+      + - Status: In Progress
+      + - Epic: —
+      + ...
+      ...Full output truncated (3 lines hidden), use '-vv' to show
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:106: AssertionError: assert '## CC-9 — A ...1. it works\n' == ''
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[2-error0]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[2-error1]
+2 failed, 2 passed in 0.08s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M04: CAUGHT
+
+=== M05 mutation: a network error is not caught
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.05s
+BAD (mutated) exit=1
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+E   urllib.error.URLError: <urlopen error no route>
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:85: urllib.error.URLError: <urlopen error no route>
+E   TimeoutError: timed out
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:85: TimeoutError: timed out
+E   urllib.error.URLError: <urlopen error no route>
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:85: urllib.error.URLError: <urlopen error no route>
+E   TimeoutError: timed out
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:85: TimeoutError: timed out
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[1-error0]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[1-error1]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[2-error0]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[2-error1]
+4 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M05: CAUGHT
+
+=== M06 mutation: an unreachable Jira exits zero
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.05s
+BAD (mutated) exit=1
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+E   assert 0 != 0
+     +  where 0 = SystemExit(0).code
+     +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=6>.value
+---------------------------- Captured stderr call -----------------------------
+Jira unreachable GET /issue/CC-9?fields=%2Aall&expand=names%2Cschema: <urlopen error no route>
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:105: assert 0 != 0
+E   assert 0 != 0
+     +  where 0 = SystemExit(0).code
+     +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=6>.value
+---------------------------- Captured stderr call -----------------------------
+Jira unreachable GET /issue/CC-9?fields=%2Aall&expand=names%2Cschema: timed out
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:105: assert 0 != 0
+E   assert 0 != 0
+     +  where 0 = SystemExit(0).code
+     +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=6>.value
+---------------------------- Captured stderr call -----------------------------
+Jira unreachable GET /issue/CC-9/comment?orderBy=-created&maxResults=5: <urlopen error no route>
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:105: assert 0 != 0
+E   assert 0 != 0
+     +  where 0 = SystemExit(0).code
+     +    where SystemExit(0) = <ExceptionInfo SystemExit(0) tblen=6>.value
+---------------------------- Captured stderr call -----------------------------
+Jira unreachable GET /issue/CC-9/comment?orderBy=-created&maxResults=5: timed out
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:105: assert 0 != 0
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[1-error0]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[1-error1]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[2-error0]
+FAILED api/tests/test_jira_fetch.py::test_an_unreachable_jira_exits_non_zero_and_prints_no_ticket_text[2-error1]
+4 failed in 0.07swarning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M06: CAUGHT
+
+=== M07 mutation: no fallback to the main checkout's .env
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_a_worktree_with_no_env_reads_the_main_checkouts api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree
+GOOD (unmutated) exit=0
+..                                                                       [100%]
+2 passed in 3.71s
+BAD (mutated) exit=1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   AttributeError: 'NoneType' object has no attribute 'resolve'
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:142: AttributeError: 'NoneType' object has no attribute 'resolve'
+E   AssertionError: assert None == 'from-main'
+     +  where None = get('JIRA_FETCH_TEST_VALUE')
+     +    where get = environ({'AI_AGENT': 'claude-code_2-1-332_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\johnh\\...TEST': 'api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree (call)'}).get
+     +      where environ({'AI_AGENT': 'claude-code_2-1-332_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\johnh\\...TEST': 'api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree (call)'}) = os.environ
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:164: AssertionError: assert None == 'from-main'
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_a_worktree_with_no_env_reads_the_main_checkouts
+FAILED api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree
+2 failed in 4.93s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M07: CAUGHT
+
+=== M08 mutation: the checkout's own .env is not preferred
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_a_checkouts_own_env_comes_first
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 1.86s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4369/test_a_checkouts_own_env_comes0/main/.env') == (WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4369/test_a_checkouts_own_env_comes0/wt') / '.env')
+     +  where WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4369/test_a_checkouts_own_env_comes0/main/.env') = <function env_file at 0x000001BAD412F9C0>(WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4369/test_a_checkouts_own_env_comes0/wt'))
+     +    where <function env_file at 0x000001BAD412F9C0> = jf.env_file
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:148: AssertionError: assert WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4369/test_a_checkouts_own_env_comes0/main/.env') == (WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4369/test_a_checkouts_own_env_comes0/wt') / '.env')
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_a_checkouts_own_env_comes_first - A...
+1 failed in 2.00s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M08: CAUGHT
+
+=== M09 mutation: a missing main .env is returned anyway
+file: scripts/jira_fetch.py
+tests: api/tests/test_jira_fetch.py::test_no_env_anywhere_is_none
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.70s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4371/test_no_env_anywhere_is_none0/.env') is None
+     +  where WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4371/test_no_env_anywhere_is_none0/.env') = <function env_file at 0x000001B11D7FF7E0>(WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4371/test_no_env_anywhere_is_none0'))
+     +    where <function env_file at 0x000001B11D7FF7E0> = jf.env_file
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:153: AssertionError: assert WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4371/test_no_env_anywhere_is_none0/.env') is None
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_no_env_anywhere_is_none - Assertion...
+1 failed in 0.64s
+restored: yes (git diff --quiet HEAD -- scripts/jira_fetch.py)
+VERDICT M09: CAUGHT
+
+=== M10 mutation: transition script reads only its own checkout's .env
+file: scripts/jira_transition.py
+tests: api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 2.31s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert None == 'from-main'
+     +  where None = get('JIRA_FETCH_TEST_VALUE')
+     +    where get = environ({'AI_AGENT': 'claude-code_2-1-332_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\johnh\\...TEST': 'api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree (call)'}).get
+     +      where environ({'AI_AGENT': 'claude-code_2-1-332_agent', 'ALLUSERSPROFILE': 'C:\\ProgramData', 'APPDATA': 'C:\\Users\\johnh\\...TEST': 'api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree (call)'}) = os.environ
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_jira_fetch.py:164: AssertionError: assert None == 'from-main'
+=========================== short test summary info ===========================
+FAILED api/tests/test_jira_fetch.py::test_the_transition_script_loads_the_main_checkouts_env_from_a_worktree
+1 failed in 1.86s
+restored: yes (git diff --quiet HEAD -- scripts/jira_transition.py)
+VERDICT M10: CAUGHT
+
+=== M11 mutation: an added criterion is not reported
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_a_criterion_added_in_jira_without_an_amendment_fails
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.04s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = any(<generator object test_a_criterion_added_in_jira_without_an_amendment_fails.<locals>.<genexpr> at 0x00000216725C18A0>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:51: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_criterion_added_in_jira_without_an_amendment_fails
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M11: CAUGHT
+
+=== M12 mutation: a removed criterion is not reported
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_a_criterion_removed_in_jira_without_an_amendment_fails
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.04swarning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = any(<generator object test_a_criterion_removed_in_jira_without_an_amendment_fails.<locals>.<genexpr> at 0x00000221302018A0>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:56: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_criterion_removed_in_jira_without_an_amendment_fails
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M12: CAUGHT
+
+=== M13 mutation: only the ids are compared, not the text
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_a_criterion_reworded_with_its_id_unchanged_fails
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = any(<generator object test_a_criterion_reworded_with_its_id_unchanged_fails.<locals>.<genexpr> at 0x00000186039718A0>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:63: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_criterion_reworded_with_its_id_unchanged_fails
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M13: CAUGHT
+
+=== M14 mutation: a reorder is not named
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_same_criteria_in_a_different_order_fail_and_say_so
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = any(<generator object test_the_same_criteria_in_a_different_order_fail_and_say_so.<locals>.<genexpr> at 0x000001CDF19018A0>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:215: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_same_criteria_in_a_different_order_fail_and_say_so
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M14: CAUGHT
+
+=== M15 mutation: amendments are ignored
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_an_amendment_naming_the_new_fingerprint_lets_the_change_through
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['criterion A...nds a ticket'] == []
+      Left contains 2 more items, first extra item: 'criterion AC3 is in Jira but was not approved'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:68: AssertionError: assert ['criterion A...nds a ticket'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_an_amendment_naming_the_new_fingerprint_lets_the_change_through
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M15: CAUGHT
+
+=== M16 mutation: any amendment lets any change through
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_an_amendment_for_other_text_does_not
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert [] != []
+     +  where [] = <function compare at 0x000001DD622B6160>({'approved_ids': ['AC1', 'AC2', 'TC1'], 'approved_sha256': '9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011...amendment': [{'id': 'AC3', 'date': '2026-11-26', 'owner': 'owner', 'reason': "added on the owner's instruction", ...}]}, 'Why. Context.\nAC1. The thing works.\nAC2. It fails closed.\nTC1. A test.\nDecisions\nAC3. A new one.', 'gate2')
+     +    where <function compare at 0x000001DD622B6160> = brief.compare
+     +    and   {'approved_ids': ['AC1', 'AC2', 'TC1'], 'approved_sha256': '9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011...amendment': [{'id': 'AC3', 'date': '2026-11-26', 'owner': 'owner', 'reason': "added on the owner's instruction", ...}]} = approved(amendment=[{'id': 'AC3', 'date': '2026-11-26', 'owner': 'owner', 'reason': "added on the owner's instruction", ...}])
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:74: assert [] != []
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_an_amendment_for_other_text_does_not - a...
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M16: CAUGHT
+
+=== M17 mutation: a later phase may start with nothing approved
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_preflight_may_start_with_nothing_approved_and_no_later_phase_may
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: implement
+    assert [] != []
+     +  where [] = <function compare at 0x00000176F9A9A160>(None, 'Why. Context.\nAC1. The thing works.\nAC2. It fails closed.\nTC1. A test.\nDecisions', 'implement')
+     +    where <function compare at 0x00000176F9A9A160> = brief.compare
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:80: AssertionError: implement
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_preflight_may_start_with_nothing_approved_and_no_later_phase_may
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M17: CAUGHT
+
+=== M18 mutation: pre-flight refused with nothing approved
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_preflight_may_start_with_nothing_approved_and_no_later_phase_may
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['no criteria... brief first'] == []
+      Left contains one more item: 'no criteria were approved at pre-flight: run the preflight brief first'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:78: AssertionError: assert ['no criteria... brief first'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_preflight_may_start_with_nothing_approved_and_no_later_phase_may
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M18: CAUGHT
+
+=== M19 mutation: the fingerprint is sensitive to spacing
+file: scripts/closure.py
+tests: api/tests/test_brief.py::test_the_fingerprint_ignores_how_a_criterion_is_spaced_and_nothing_elsewarning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'c6df2440bc9c...276e02c72d664' == '9cab89b55174...a93d011d74b70'
+      - 9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011d74b70
+      + c6df2440bc9cb9c1956d3f401ad0f855ebdd4024bc99945328e276e02c72d664
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:220: AssertionError: assert 'c6df2440bc9c...276e02c72d664' == '9cab89b55174...a93d011d74b70'
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_fingerprint_ignores_how_a_criterion_is_spaced_and_nothing_else
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/closure.py)
+VERDICT M19: CAUGHT
+
+=== M20 mutation: the fingerprint reads every line, not only criteria
+file: scripts/closure.py
+tests: api/tests/test_brief.py::test_editing_a_paragraph_that_is_not_a_criterion_passes
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.08s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['the criteri...nds a ticket'] == []
+      Left contains 2 more items, first extra item: 'the criteria text changed with the same ids (4f3359aac6f9, approved c195c5713d13)'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:45: AssertionError: assert ['the criteri...nds a ticket'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_editing_a_paragraph_that_is_not_a_criterion_passes
+1 failed in 0.07s
+restored: yes (git diff --quiet HEAD -- scripts/closure.py)
+VERDICT M20: CAUGHT
+
+=== M21 mutation: the fingerprint reads only the ids
+file: scripts/closure.py
+tests: api/tests/test_brief.py::test_a_criterion_reworded_with_its_id_unchanged_fails
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = any(<generator object test_a_criterion_reworded_with_its_id_unchanged_fails.<locals>.<genexpr> at 0x000002704D851B10>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:63: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_criterion_reworded_with_its_id_unchanged_fails
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/closure.py)
+VERDICT M21: CAUGHT
+
+=== M22 mutation: the brief does not open with the status commands
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_every_brief_opens_with_the_two_status_commands
+GOOD (unmutated) exit=0
+.....                                                                    [100%]
+5 passed in 0.06s
+BAD (mutated) exit=1
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+      At index 0 diff: 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge' != 'uv run python scripts/jira_fetch.py issue CC-9 --md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:87: AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+E   AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+      At index 0 diff: 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge' != 'uv run python scripts/jira_fetch.py issue CC-9 --md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:87: AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+E   AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+      At index 0 diff: 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge' != 'uv run python scripts/jira_fetch.py issue CC-9 --md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:87: AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+E   AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+      At index 0 diff: 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge' != 'uv run python scripts/jira_fetch.py issue CC-9 --md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:87: AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+E   AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+      At index 0 diff: 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge' != 'uv run python scripts/jira_fetch.py issue CC-9 --md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:87: AssertionError: assert ['uv run pyth...ue CC-9 --md'] == ['uv run pyth... --pre-merge']
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_every_brief_opens_with_the_two_status_commands[preflight]
+FAILED api/tests/test_brief.py::test_every_brief_opens_with_the_two_status_commands[implement]
+FAILED api/tests/test_brief.py::test_every_brief_opens_with_the_two_status_commands[gate1]
+FAILED api/tests/test_brief.py::test_every_brief_opens_with_the_two_status_commands[gate2]
+FAILED api/tests/test_brief.py::test_every_brief_opens_with_the_two_status_commands[final]
+5 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M22: CAUGHT
+
+=== M23 mutation: an open ticket is judged after the merge
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_status_commands_name_the_ticket_and_its_closure_file api/tests/test_brief.py::test_an_open_ticket_is_judged_before_the_merge
+GOOD (unmutated) exit=0
+..                                                                       [100%]
+2 passed in 0.08s
+BAD (mutated) exit=1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('evidence/closure/CC-9.toml' in 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --head origin/main' and False)
+     +  where False = <built-in method endswith of str object at 0x000001A386EE26B0>('--pre-merge')
+     +    where <built-in method endswith of str object at 0x000001A386EE26B0> = 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --head origin/main'.endswith
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:93: AssertionError: assert ('evidence/closure/CC-9.toml' in 'uv run python scripts/closure.py check evidence/closure/CC-9.toml --head origin/main' and False)
+E   AssertionError: assert ('CC-9 gate1 brief.' in 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...al failure counts.\nCapture raw output to evidence/cc-9/gate1.txt. Report back only the path and a one-line verdict.\n' and 'CC-9.toml --pre-merge' in 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...al failure counts.\nCapture raw output to evidence/cc-9/gate1.txt. Report back only the path and a one-line verdict.\n')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:198: AssertionError: assert ('CC-9 gate1 brief.' in 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...al failure counts.\nCapture raw output to evidence/cc-9/gate1.txt. Report back only the path and a one-line verdict.\n' and 'CC-9.toml --pre-merge' in 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...al failure counts.\nCapture raw output to evidence/cc-9/gate1.txt. Report back only the path and a one-line verdict.\n')
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_status_commands_name_the_ticket_and_its_closure_file
+FAILED api/tests/test_brief.py::test_an_open_ticket_is_judged_before_the_merge
+2 failed in 0.09swarning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M23: CAUGHT
+
+=== M24 mutation: a closed ticket is judged before the merge
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_a_closed_ticket_gets_its_status_judged_on_main_and_no_brief
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.13s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('evidence/closure/CC-9.toml --head origin/main' in 'CC-9 is Done in Jira: no phase may start on it. Its status comes from these two\ncommands, never from chat or memory:...and decisions, the commit tested, which\nevidence is stale or missing, and what, if anything, is left for the owner.\n')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:187: AssertionError: assert ('evidence/closure/CC-9.toml --head origin/main' in 'CC-9 is Done in Jira: no phase may start on it. Its status comes from these two\ncommands, never from chat or memory:...and decisions, the commit tested, which\nevidence is stale or missing, and what, if anything, is left for the owner.\n')
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_closed_ticket_gets_its_status_judged_on_main_and_no_brief
+1 failed in 0.08s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M24: CAUGHT
+
+=== M25 mutation: a closed ticket is not recognised
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_a_closed_ticket_gets_its_status_judged_on_main_and_no_brief
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.08s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert ('brief.' not in 'CC-9: the c...011d74b70"\n'
+      'brief.' is contained here:
+        011d74b70" and 'no phase may start' in 'CC-9: the criteria do not match the approved ones; this phase may not start.\nOnce the owner approves the live criter..._ids = ["AC1", "AC2", "TC1"]\n  approved_sha256 = "9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011d74b70"\n')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:186: assert ('brief.' not in 'CC-9: the c...011d74b70"\n'
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_closed_ticket_gets_its_status_judged_on_main_and_no_brief
+1 failed in 0.08s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M25: CAUGHT
+
+=== M26 mutation: contradiction read only when git cannot list the change
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_gate_2_brief_asks_for_a_contradiction_read_when_a_rule_file_changes
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert (False)
+     +  where False = contradiction('CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...: a fresh session, code only first.\nCapture raw output to e/gate2.txt. Report the path, a verdict and the findings.\n')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:102: AssertionError: assert (False)
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_gate_2_brief_asks_for_a_contradiction_read_when_a_rule_file_changes
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M26: CAUGHT
+
+=== M27 mutation: contradiction read for every change
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_gate_2_brief_omits_it_for_a_change_to_api_src_only
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert not True
+     +  where True = contradiction("CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...ve rule file (). Read every file in\ncheck_budgets.DOC_PATTERNS and list each contradiction between them, or 'none'.\n")
+     +    where "CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...ve rule file (). Read every file in\ncheck_budgets.DOC_PATTERNS and list each contradiction between them, or 'none'.\n" = <function brief at 0x0000011AF8AEA340>('gate2', 'CC-9', ['api/src/ask.py'], 'e')
+     +      where <function brief at 0x0000011AF8AEA340> = brief.brief
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:106: assert not True
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_gate_2_brief_omits_it_for_a_change_to_api_src_only
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M27: CAUGHT
+
+=== M28 mutation: an unknown change skips the contradiction read
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_gate_2_brief_asks_for_it_when_git_cannot_list_the_change
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.08s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert False
+     +  where False = contradiction('CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...: a fresh session, code only first.\nCapture raw output to e/gate2.txt. Report the path, a verdict and the findings.\n')
+     +    where 'CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...: a fresh session, code only first.\nCapture raw output to e/gate2.txt. Report the path, a verdict and the findings.\n' = <function brief at 0x0000023348D76340>('gate2', 'CC-9', None, 'e')
+     +      where <function brief at 0x0000023348D76340> = brief.brief
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:110: AssertionError: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_gate_2_brief_asks_for_it_when_git_cannot_list_the_change
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M28: CAUGHT
+
+=== M29 mutation: the gate 1 brief asks for the contradiction read
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_no_other_phase_asks_for_the_contradiction_read
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.07s
+BAD (mutated) exit=1
+..F.                                                                     [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert not True
+     +  where True = contradiction('CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...unts.\nCapture raw output to e/gate1.txt. Report back only the path and a one-line verdict.\nlist each contradiction\n')
+     +    where 'CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...unts.\nCapture raw output to e/gate1.txt. Report back only the path and a one-line verdict.\nlist each contradiction\n' = <function brief at 0x000001EFBA8AA340>('gate1', 'CC-9', ['CLAUDE.md'], 'e')
+     +      where <function brief at 0x000001EFBA8AA340> = brief.brief
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:115: AssertionError: assert not True
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_no_other_phase_asks_for_the_contradiction_read[gate1]
+1 failed, 3 passed in 0.06swarning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M29: CAUGHT
+
+=== M30 mutation: the gate 1 brief names the cold agent
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_only_the_gate_2_brief_sends_the_bug_pass_to_the_cold_agent api/tests/test_context_hook.py::test_the_gate_2_brief_sends_the_bug_pass_to_the_cold_agent_and_no_other_phase_does
+GOOD (unmutated) exit=0
+..                                                                       [100%]
+2 passed in 0.09s
+BAD (mutated) exit=1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: gate1
+    assert 'gate2-cold' not in 'CC-9 gate1 ...e verdict.\n'
+      'gate2-cold' is contained here:
+        Hand to gate2-cold, a fresh general-purpose subagent, not fork (Cursor: a fresh Task; Codex:
+      ?         ++++++++++
+        fork_context false). Tests for the adversarial matrix; mutation-check every new test
+        one behaviour at a time, GOOD/BAD labels above the real failure counts.
+        Capture raw output to e/gate1.txt. Report back only the path and a one-line verdict.
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:121: AssertionError: gate1
+E   AssertionError: assert ('gate2-cold' not in 'CC-9 gate1 ...ine verdict.'
+      'gate2-cold' is contained here:
+        . Hand to gate2-cold, a fresh general-purpose subagent, not fork (Cursor: a fresh Task; Codex: fork_context false). Tests for the adversarial matrix; mutation-check every new test one behaviour at a time, GOOD/BAD labels above the real failure counts. Capture raw output to evidence/slice-9/cc-9/gate1.txt. Report back only the path and a one-line verdict.
+      ?           ++++++++++)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:386: AssertionError: assert ('gate2-cold' not in 'CC-9 gate1 ...ine verdict.'
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_only_the_gate_2_brief_sends_the_bug_pass_to_the_cold_agent
+FAILED api/tests/test_context_hook.py::test_the_gate_2_brief_sends_the_bug_pass_to_the_cold_agent_and_no_other_phase_does
+2 failed in 0.08s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M30: CAUGHT
+
+=== M31 mutation: the brief prints although the criteria moved
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_main_command_stops_with_no_brief_when_the_criteria_moved api/tests/test_brief.py::test_a_record_from_before_approval_stops_and_prints_what_to_record
+GOOD (unmutated) exit=0
+..                                                                       [100%]
+2 passed in 0.09s
+BAD (mutated) exit=1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   assert 0 == 1
+     +  where 0 = <function main at 0x000001CEA93E23E0>()
+     +    where <function main at 0x000001CEA93E23E0> = brief.main
+---------------------------- Captured stdout call -----------------------------
+CC-9: the criteria do not match the approved ones; this phase may not start.
+CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:
+  uv run python scripts/jira_fetch.py issue CC-9 --md
+  uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge
+From them state: the approved criteria and decisions, the commit tested, which evidence
+is stale or missing, and the next permitted step. Then read AGENTS.md and
+docs/playbooks/run-slice.md, and the catalogs matching the touched paths.
+Hand to a fresh general-purpose subagent, not fork (Cursor: a fresh Task; Codex:
+fork_context false). Tests for the adversarial matrix; mutation-check every new test
+one behaviour at a time, GOOD/BAD labels above the real failure counts.
+Capture raw output to evidence/cc-9/gate1.txt. Report back only the path and a one-line verdict.
+---------------------------- Captured stderr call -----------------------------
+  STOP  criterion AC3 is in Jira but was not approved
+  STOP  no [[amendment]] row has criteria_sha256 = d5507bdf4a3048ee19d903416a06b9a34f03f1e18ffa44d84f38503a3810f831; only the owner amends a ticket
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:145: assert 0 == 1
+E   assert 0 == 1
+     +  where 0 = run_main(WindowsPath('C:/Users/johnh/AppData/Local/Temp/pytest-of-johnh/pytest-4383/test_a_record_from_before_appr0'), <_pytest.monkeypatch.MonkeyPatch object at 0x000001CEA93DEC90>, {'status': {'name': 'In Progress', 'statusCategory': {'key': 'indeterminate'}}, 'description': {'type': 'doc', 'conten...'type': 'text', 'text': 'TC1. A test.'}]}, {'type': 'paragraph', 'content': [{'type': 'text', 'text': 'Decisions'}]}]}}, 'ticket = "CC-9"\n', 'gate1', 'CC-9')
+---------------------------- Captured stdout call -----------------------------
+CC-9: the criteria do not match the approved ones; this phase may not start.
+Once the owner approves the live criteria, record in evidence/closure/CC-9.toml:
+  approved_ids = ["AC1", "AC2", "TC1"]
+  approved_sha256 = "9cab89b55174ce51da6fcdcd9bac2a08ff9f02768b1c18439a4a93d011d74b70"
+CC-9 gate1 brief. Status comes from these two commands, never from chat or memory:
+  uv run python scripts/jira_fetch.py issue CC-9 --md
+  uv run python scripts/closure.py check evidence/closure/CC-9.toml --pre-merge
+From them state: the approved criteria and decisions, the commit tested, which evidence
+is stale or missing, and the next permitted step. Then read AGENTS.md and
+docs/playbooks/run-slice.md, and the catalogs matching the touched paths.
+Hand to a fresh general-purpose subagent, not fork (Cursor: a fresh Task; Codex:
+fork_context false). Tests for the adversarial matrix; mutation-check every new test
+one behaviour at a time, GOOD/BAD labels above the real failure counts.
+Capture raw output to evidence/cc-9/gate1.txt. Report back only the path and a one-line verdict.
+---------------------------- Captured stderr call -----------------------------
+  STOP  no criteria were approved at pre-flight: run the preflight brief first
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:205: assert 0 == 1
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_main_command_stops_with_no_brief_when_the_criteria_moved
+FAILED api/tests/test_brief.py::test_a_record_from_before_approval_stops_and_prints_what_to_record
+2 failed in 0.07s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M31: CAUGHT
+
+=== M32 mutation: a pre-approval record is not told what to record
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_a_record_from_before_approval_stops_and_prints_what_to_record
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.06s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert 'approved_ids = ["AC1", "AC2", "TC1"]' in 'CC-9: the criteria do not match the approved ones; this phase may not start.\n'
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:208: assert 'approved_ids = ["AC1", "AC2", "TC1"]' in 'CC-9: the criteria do not match the approved ones; this phase may not start.\n'
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_a_record_from_before_approval_stops_and_prints_what_to_record
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M32: CAUGHT
+
+=== M33 mutation: a git failure reads as an empty change
+file: scripts/brief.py (working tree CRLF)
+tests: api/tests/test_brief.py::test_the_change_is_read_from_git_and_an_unknown_base_is_not_an_empty_changewarning: in the working copy of 'scripts/brief.py', CRLF will be replaced by LF the next time Git touches it
+
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.54s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] is None
+     +  where [] = <function changed_files at 0x000001FE97756200>('no-such-ref-for-the-brief-test')
+     +    where <function changed_files at 0x000001FE97756200> = brief.changed_files
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:226: AssertionError: assert [] is None
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_change_is_read_from_git_and_an_unknown_base_is_not_an_empty_change
+1 failed in 0.57s
+restored: yes (git diff --quiet HEAD -- scripts/brief.py)
+VERDICT M33: CAUGHT
+
+=== M34 mutation: is_prescriptive matches literal paths only
+file: scripts/check_budgets.py
+tests: api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.06s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert False
+     +  where False = all(<generator object test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts.<locals>.<genexpr> at 0x0000025DDA837300>)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:239: assert False
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/check_budgets.py)
+VERDICT M34: CAUGHT
+
+=== M35 mutation: is_prescriptive accepts every path
+file: scripts/check_budgets.py
+tests: api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts api/tests/test_brief.py::test_the_gate_2_brief_omits_it_for_a_change_to_api_src_only
+GOOD (unmutated) exit=0
+..                                                                       [100%]
+2 passed in 0.06s
+BAD (mutated) exit=1
+FF                                                                       [100%]
+================================== FAILURES ===================================
+E   AssertionError: api/src/ask.py
+    assert not True
+     +  where True = <function is_prescriptive at 0x0000019A21490D60>('api/src/ask.py')
+     +    where <function is_prescriptive at 0x0000019A21490D60> = <module 'check_budgets' from 'C:\\Users\\johnh\\Dropbox\\Python\\census-concierge\\.worktrees\\cc-145\\scripts\\check_budgets.py'>.is_prescriptive
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:241: AssertionError: api/src/ask.py
+E   assert not True
+     +  where True = contradiction("CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...api/src/ask.py). Read every file in\ncheck_budgets.DOC_PATTERNS and list each contradiction between them, or 'none'.\n")
+     +    where "CC-9 gate2 brief. Status comes from these two commands, never from chat or memory:\n  uv run python scripts/jira_fetc...api/src/ask.py). Read every file in\ncheck_budgets.DOC_PATTERNS and list each contradiction between them, or 'none'.\n" = <function brief at 0x0000019A214AA480>('gate2', 'CC-9', ['api/src/ask.py'], 'e')
+     +      where <function brief at 0x0000019A214AA480> = brief.brief
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_brief.py:106: assert not True
+=========================== short test summary info ===========================
+FAILED api/tests/test_brief.py::test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts
+FAILED api/tests/test_brief.py::test_the_gate_2_brief_omits_it_for_a_change_to_api_src_only
+2 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- scripts/check_budgets.py)
+VERDICT M35: CAUGHT
+
+=== M36 mutation: session start prints the STATE.md files again
+file: .claude/hooks/ctx.py
+tests: api/tests/test_context_hook.py::test_session_start_prints_the_reminder_and_no_state_file
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('OLD STATE' not in 'Before acti...nOLD STATE\n'
+      'OLD STATE' is contained here:
+        vidence/.
+        OLD STATE)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:127: AssertionError: assert ('OLD STATE' not in 'Before acti...nOLD STATE\n'
+=========================== short test summary info ===========================
+FAILED api/tests/test_context_hook.py::test_session_start_prints_the_reminder_and_no_state_file
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- .claude/hooks/ctx.py)
+VERDICT M36: CAUGHT
+
+=== M37 mutation: the reminder does not name the brief
+file: .claude/hooks/ctx.py
+tests: api/tests/test_context_hook.py::test_session_start_prints_the_reminder_and_no_state_file
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('AGENTS.md' in 'Before acting: read AGENTS.md. For ticket work, print the brief with `bash scripts/gate.sh <phase> N` and follow it. Status comes from the two commands it opens with (Jira and the closure file), never from a file in evidence/.\n' and 'scripts/brief.py' in 'Before acting: read AGENTS.md. For ticket work, print the brief with `bash scripts/gate.sh <phase> N` and follow it. Status comes from the two commands it opens with (Jira and the closure file), never from a file in evidence/.\n')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:128: AssertionError: assert ('AGENTS.md' in 'Before acting: read AGENTS.md. For ticket work, print the brief with `bash scripts/gate.sh <phase> N` and follow it. Status comes from the two commands it opens with (Jira and the closure file), never from a file in evidence/.\n' and 'scripts/brief.py' in 'Before acting: read AGENTS.md. For ticket work, print the brief with `bash scripts/gate.sh <phase> N` and follow it. Status comes from the two commands it opens with (Jira and the closure file), never from a file in evidence/.\n')
+=========================== short test summary info ===========================
+FAILED api/tests/test_context_hook.py::test_session_start_prints_the_reminder_and_no_state_file
+1 failed in 0.06s
+restored: yes (git diff --quiet HEAD -- .claude/hooks/ctx.py)
+VERDICT M37: CAUGHT
+
+=== M38 mutation: the warning tells the agent to update STATE.md
+file: .claude/hooks/ctx.py
+tests: api/tests/test_context_hook.py::test_the_warning_names_the_percent_the_steps_and_that_only_the_user_can_clear
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('STATE.md' not in 'Context is ...phase brief.'
+      'STATE.md' is contained here:
+      ?           ^^^^^^^^^^^^^^^^
+        p, update STATE.md, commit it, put what is open and the next step in a comment on the Jira ticket, and tell the user to run /clear: a fresh session rebuilds from the two status commands in the phase brief.
+      ?           ^^^^^^^^^^^^^^^^^^^^^^^^)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:72: AssertionError: assert ('STATE.md' not in 'Context is ...phase brief.'
+=========================== short test summary info ===========================
+FAILED api/tests/test_context_hook.py::test_the_warning_names_the_percent_the_steps_and_that_only_the_user_can_clear
+1 failed in 0.06swarning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- .claude/hooks/ctx.py)
+VERDICT M38: CAUGHT
+
+=== M39 mutation: the warning does not send what is open to Jira
+file: .claude/hooks/ctx.py
+tests: api/tests/test_context_hook.py::test_the_warning_names_the_percent_the_steps_and_that_only_the_user_can_clear
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('81%' in 'Context is about 81% full (810,002 of 1,000,000 tokens). Do not start a new phase. Finish the current step, commit it...the ticket, and tell the user to run /clear: a fresh session rebuilds from the two status commands in the phase brief.' and 'Jira' in 'Context is about 81% full (810,002 of 1,000,000 tokens). Do not start a new phase. Finish the current step, commit it...the ticket, and tell the user to run /clear: a fresh session rebuilds from the two status commands in the phase brief.')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:71: AssertionError: assert ('81%' in 'Context is about 81% full (810,002 of 1,000,000 tokens). Do not start a new phase. Finish the current step, commit it...the ticket, and tell the user to run /clear: a fresh session rebuilds from the two status commands in the phase brief.' and 'Jira' in 'Context is about 81% full (810,002 of 1,000,000 tokens). Do not start a new phase. Finish the current step, commit it...the ticket, and tell the user to run /clear: a fresh session rebuilds from the two status commands in the phase brief.')
+=========================== short test summary info ===========================
+FAILED api/tests/test_context_hook.py::test_the_warning_names_the_percent_the_steps_and_that_only_the_user_can_clear
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- .claude/hooks/ctx.py)
+VERDICT M39: CAUGHT
+
+=== M40 mutation: auto-compaction on
+file: .claude/settings.json
+tests: api/tests/test_context_hook.py::test_the_committed_settings_turn_auto_compaction_and_auto_memory_off
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.05s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert (True is False)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:133: assert (True is False)
+=========================== short test summary info ===========================
+FAILED api/tests/test_context_hook.py::test_the_committed_settings_turn_auto_compaction_and_auto_memory_off
+1 failed in 0.05s
+restored: yes (git diff --quiet HEAD -- .claude/settings.json)
+VERDICT M40: CAUGHT
+
+=== M41 mutation: auto-memory on
+file: .claude/settings.json
+tests: api/tests/test_context_hook.py::test_the_committed_settings_turn_auto_compaction_and_auto_memory_off
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.04s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert (False is False and True is False)
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_context_hook.py:133: assert (False is False and True is False)
+=========================== short test summary info ===========================
+FAILED api/tests/test_context_hook.py::test_the_committed_settings_turn_auto_compaction_and_auto_memory_off
+1 failed in 0.09s
+restored: yes (git diff --quiet HEAD -- .claude/settings.json)
+VERDICT M41: CAUGHT
+
+=== M42 mutation: STATE.md under evidence passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 1.02s
+BAD (mutated) exit=1
+F..                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['evidence/sl...999/STATE.md']
+      Right contains one more item: 'evidence/slice-9/cc-999/STATE.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:793: AssertionError: assert [] == ['evidence/sl...999/STATE.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails[STATE.md]
+1 failed, 2 passed in 1.05s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M42: CAUGHT
+
+=== M43 mutation: plan.md under evidence passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 1.00s
+BAD (mutated) exit=1
+.F.                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['evidence/sl...-999/plan.md']
+      Right contains one more item: 'evidence/slice-9/cc-999/plan.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:793: AssertionError: assert [] == ['evidence/sl...-999/plan.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails[plan.md]
+1 failed, 2 passed in 1.09s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M43: CAUGHT
+
+=== M44 mutation: *-plan.md under evidence passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 0.96s
+BAD (mutated) exit=1
+..F                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['evidence/sl...-102-plan.md']
+      Right contains one more item: 'evidence/slice-9/cc-999/cc-102-plan.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:793: AssertionError: assert [] == ['evidence/sl...-102-plan.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails[cc-102-plan.md]
+1 failed, 2 passed in 1.00s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M44: CAUGHT
+
+=== M45 mutation: any file naming a plan fails
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_other_evidence_files_pass_the_status_file_check
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 0.99s
+BAD (mutated) exit=1
+F..                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [Violation(wh... is in Jira')] == []
+      Left contains one more item: Violation(where='evidence/F3_reference_and_plan_docs.md', message='a status or plan file; status is in Jira')
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:804: AssertionError: assert [Violation(wh... is in Jira')] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_other_evidence_files_pass_the_status_file_check[F3_reference_and_plan_docs.md]
+1 failed, 2 passed in 1.08swarning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M45: CAUGHT
+
+=== M46 mutation: only the top of evidence/ is searched
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 0.97s
+BAD (mutated) exit=1
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['evidence/sl...999/STATE.md']
+      Right contains one more item: 'evidence/slice-9/cc-999/STATE.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:793: AssertionError: assert [] == ['evidence/sl...999/STATE.md']
+E   AssertionError: assert [] == ['evidence/sl...-999/plan.md']
+      Right contains one more item: 'evidence/slice-9/cc-999/plan.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:793: AssertionError: assert [] == ['evidence/sl...-999/plan.md']
+E   AssertionError: assert [] == ['evidence/sl...-102-plan.md']
+      Right contains one more item: 'evidence/slice-9/cc-999/cc-102-plan.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:793: AssertionError: assert [] == ['evidence/sl...-102-plan.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails[STATE.md]
+FAILED api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails[plan.md]
+FAILED api/tests/test_invariants.py::test_a_status_or_plan_file_under_evidence_fails[cc-102-plan.md]
+3 failed in 1.09s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M46: CAUGHT
+
+=== M47 mutation: a decimal number passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails
+GOOD (unmutated) exit=0
+..........                                                               [100%]
+10 passed in 0.99s
+BAD (mutated) exit=1
+FF........                                                               [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000001BF878AD620>('.claude/PLAN.md', '# Plan\n\nBaseline: long_tail answered_rate 0.742, p95 21.701s.\n')
+     +    where <function plan_doc_problems at 0x000001BF878AD620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000001BF878AD620>('docs/slices.md', '# Plan\n\nBaseline: long_tail answered_rate 0.742, p95 21.701s.\n')
+     +    where <function plan_doc_problems at 0x000001BF878AD620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[Baseline: long_tail answered_rate 0.742, p95 21.701s.-.claude/PLAN.md]
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[Baseline: long_tail answered_rate 0.742, p95 21.701s.-docs/slices.md]
+2 failed, 8 passed in 1.11s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M47: CAUGHT
+
+=== M48 mutation: any digit counts as a measured number
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_plan_scope_with_integer_targets_passes
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.96s
+BAD (mutated) exit=1
+F..F                                                                     [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['line 1: a decimal number'] == []
+      Left contains one more item: 'line 1: a decimal number'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:832: AssertionError: assert ['line 1: a decimal number'] == []
+E   AssertionError: assert ['line 1: a decimal number'] == []
+      Left contains one more item: 'line 1: a decimal number'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:832: AssertionError: assert ['line 1: a decimal number'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_plan_scope_with_integer_targets_passes[| CC-104 | 100% isolation; >=95% currently-supported geography intent | CC-133 |]
+FAILED api/tests/test_invariants.py::test_plan_scope_with_integer_targets_passes[Nothing to do here until slice 7 ships.]
+2 failed, 2 passed in 1.16s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M48: CAUGHT
+
+=== M49 mutation: 'closed' passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails
+GOOD (unmutated) exit=0
+..........                                                               [100%]
+10 passed in 1.01s
+BAD (mutated) exit=1
+..FF......                                                               [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x00000212DB47D620>('.claude/PLAN.md', '# Plan\n\nCC-125 and CC-126 are closed.\n')
+     +    where <function plan_doc_problems at 0x00000212DB47D620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x00000212DB47D620>('docs/slices.md', '# Plan\n\nCC-125 and CC-126 are closed.\n')
+     +    where <function plan_doc_problems at 0x00000212DB47D620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[CC-125 and CC-126 are closed.-.claude/PLAN.md]
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[CC-125 and CC-126 are closed.-docs/slices.md]
+2 failed, 8 passed in 1.08s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M49: CAUGHT
+
+=== M50 mutation: 'Done' passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails
+GOOD (unmutated) exit=0
+..........                                                               [100%]
+10 passed in 1.11s
+BAD (mutated) exit=1
+........FF                                                               [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000002005F3FD620>('.claude/PLAN.md', '# Plan\n\n**Done when:** you download a document.\n')
+     +    where <function plan_doc_problems at 0x000002005F3FD620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000002005F3FD620>('docs/slices.md', '# Plan\n\n**Done when:** you download a document.\n')
+     +    where <function plan_doc_problems at 0x000002005F3FD620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[**Done when:** you download a document.-.claude/PLAN.md]
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[**Done when:** you download a document.-docs/slices.md]
+2 failed, 8 passed in 0.98swarning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M50: CAUGHT
+
+=== M51 mutation: 'In Progress' passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails
+GOOD (unmutated) exit=0
+..........                                                               [100%]
+10 passed in 1.06s
+BAD (mutated) exit=1
+....FF....                                                               [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000002231895D620>('.claude/PLAN.md', '# Plan\n\n| CC-3 | 6 grounded understanding | In Progress |\n')
+     +    where <function plan_doc_problems at 0x000002231895D620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000002231895D620>('docs/slices.md', '# Plan\n\n| CC-3 | 6 grounded understanding | In Progress |\n')
+     +    where <function plan_doc_problems at 0x000002231895D620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[| CC-3 | 6 grounded understanding | In Progress |-.claude/PLAN.md]
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[| CC-3 | 6 grounded understanding | In Progress |-docs/slices.md]
+2 failed, 8 passed in 1.17s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M51: CAUGHT
+
+=== M52 mutation: 'To Do' passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails
+GOOD (unmutated) exit=0
+..........                                                               [100%]
+10 passed in 1.74s
+BAD (mutated) exit=1
+......FF..                                                               [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000001E5CFCCD620>('.claude/PLAN.md', '# Plan\n\n| CC-10 | 7 PDF export | To Do |\n')
+     +    where <function plan_doc_problems at 0x000001E5CFCCD620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+E   AssertionError: assert []
+     +  where [] = <function plan_doc_problems at 0x000001E5CFCCD620>('docs/slices.md', '# Plan\n\n| CC-10 | 7 PDF export | To Do |\n')
+     +    where <function plan_doc_problems at 0x000001E5CFCCD620> = inv.plan_doc_problems
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:819: AssertionError: assert []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[| CC-10 | 7 PDF export | To Do |-.claude/PLAN.md]
+FAILED api/tests/test_invariants.py::test_a_status_word_or_a_measured_number_in_a_plan_doc_fails[| CC-10 | 7 PDF export | To Do |-docs/slices.md]
+2 failed, 8 passed in 0.94s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M52: CAUGHT
+
+=== M53 mutation: 'to do' in plain English fails
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_plan_scope_with_integer_targets_passes
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.98s
+BAD (mutated) exit=1
+...F                                                                     [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['line 1: To Do'] == []
+      Left contains one more item: 'line 1: To Do'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:832: AssertionError: assert ['line 1: To Do'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_plan_scope_with_integer_targets_passes[Nothing to do here until slice 7 ships.]
+1 failed, 3 passed in 0.98s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M53: CAUGHT
+
+=== M54 mutation: status words matched as substrings
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_word_counts_only_as_a_whole_word
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.94s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['line 1: done, closed'] == []
+      Left contains one more item: 'line 1: done, closed'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:862: AssertionError: assert ['line 1: done, closed'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_word_counts_only_as_a_whole_word
+1 failed in 0.97s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M54: CAUGHT
+
+=== M55 mutation: an evidence path in PLAN.md passes
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_plan_line_with_an_evidence_path_fails_and_the_key_with_its_link_passes
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.89s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['line 1: an evidence/ path']
+      Right contains one more item: 'line 1: an evidence/ path'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:840: AssertionError: assert [] == ['line 1: an evidence/ path']
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_plan_line_with_an_evidence_path_fails_and_the_key_with_its_link_passes
+1 failed in 1.00s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M55: CAUGHT
+
+=== M56 mutation: the evidence-path rule applies to every plan doc
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_the_evidence_path_rule_is_for_plan_md_only
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.95s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['line 1: an evidence/ path'] == []
+      Left contains one more item: 'line 1: an evidence/ path'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:845: AssertionError: assert ['line 1: an evidence/ path'] == []
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_the_evidence_path_rule_is_for_plan_md_only
+1 failed in 0.97s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M56: CAUGHT
+
+=== M57 mutation: the board is not checkedwarning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'scripts/check_invariants.py', CRLF will be replaced by LF the next time Git touches it
+
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_a_status_column_in_the_board_alone_fails
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.96s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['docs/slices.md']
+      Right contains one more item: 'docs/slices.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:869: AssertionError: assert [] == ['docs/slices.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_a_status_column_in_the_board_alone_fails
+1 failed in 1.07s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M57: CAUGHT
+
+=== M58 mutation: the status-file check is not registered
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_the_plan_doc_check_reads_both_files_and_is_registered
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.99s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert {<function ch...01E84399D6C0>} <= {<function ch...399CCC0>, ...}
+      Extra items in the left set:
+      <function check_no_status_files at 0x000001E84399D3A0>
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:857: assert {<function ch...01E84399D6C0>} <= {<function ch...399CCC0>, ...}
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_the_plan_doc_check_reads_both_files_and_is_registered
+1 failed in 1.02s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M58: CAUGHT
+
+=== M59 mutation: the plan-doc check is not registered
+file: scripts/check_invariants.py (working tree CRLF)
+tests: api/tests/test_invariants.py::test_the_plan_doc_check_reads_both_files_and_is_registered
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 1.30s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert {<function ch...02748246D6C0>} <= {<function ch...246CCC0>, ...}
+      Extra items in the left set:
+      <function check_plan_docs_hold_no_status at 0x000002748246D6C0>
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_invariants.py:857: assert {<function ch...02748246D6C0>} <= {<function ch...246CCC0>, ...}
+=========================== short test summary info ===========================
+FAILED api/tests/test_invariants.py::test_the_plan_doc_check_reads_both_files_and_is_registered
+1 failed in 0.93s
+restored: yes (git diff --quiet HEAD -- scripts/check_invariants.py)
+VERDICT M59: CAUGHT
+
+=== M60 mutation: CI closure check drops --pre-merge
+file: .github/workflows/check.yml
+tests: api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 1.08s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'run python s...-head abc1234' == 'run python s...-head abc1234'
+      Skipping 57 identical leading characters in diff, use -v to show
+      - 45.toml --pre-merge --head abc1234
+      ?         ------------
+      + 45.toml --head abc1234
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:472: AssertionError: assert 'run python s...-head abc1234' == 'run python s...-head abc1234'
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+1 failed in 1.23s
+restored: yes (git diff --quiet HEAD -- .github/workflows/check.yml)
+VERDICT M60: CAUGHT
+
+=== M61 mutation: CI ticket key not upper-cased
+file: .github/workflows/check.yml
+tests: api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 1.21s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'run python s...-head abc1234' == 'run python s...-head abc1234'
+      Skipping 43 identical leading characters in diff, use -v to show
+      - e/closure/CC-145.toml --pre-merge --head abc1234
+      ?           ^^
+      + e/closure/cc-145.toml --pre-merge --head abc1234
+      ?           ^^
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:472: AssertionError: assert 'run python s...-head abc1234' == 'run python s...-head abc1234'
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+1 failed in 0.68s
+restored: yes (git diff --quiet HEAD -- .github/workflows/check.yml)
+VERDICT M61: CAUGHT
+
+=== M62 mutation: CI ignores a failed closure check
+file: .github/workflows/check.yml
+tests: api/tests/test_process.py::test_ci_fails_when_the_closure_check_does
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 1.06s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert 0 != 0
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:476: assert 0 != 0
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_ci_fails_when_the_closure_check_does
+1 failed in 1.24s
+restored: yes (git diff --quiet HEAD -- .github/workflows/check.yml)
+VERDICT M62: CAUGHT
+
+=== M63 mutation: CI checks a branch that names no ticket
+file: .github/workflows/check.yml
+tests: api/tests/test_process.py::test_ci_skips_the_closure_check_for_a_branch_that_names_no_ticket
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.48s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert (1, 'run pyth...head abc1234') == (0, '')
+      At index 0 diff: 1 != 0
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:480: AssertionError: assert (1, 'run pyth...head abc1234') == (0, '')
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_ci_skips_the_closure_check_for_a_branch_that_names_no_ticket
+1 failed in 0.64s
+restored: yes (git diff --quiet HEAD -- .github/workflows/check.yml)
+VERDICT M63: CAUGHT
+
+=== M64 mutation: CI runs the closure step on every event
+file: .github/workflows/check.yml
+tests: api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 1.13s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   assert 'always()' == "github.event...pull_request'"
+      - github.event_name == 'pull_request'
+      + always()
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:468: assert 'always()' == "github.event...pull_request'"
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names
+1 failed in 0.08swarning: in the working copy of '.claude/PLAN.md', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- .github/workflows/check.yml)
+VERDICT M64: CAUGHT
+
+=== M65 mutation: the Claude pointer restates the playbook
+file: .claude/skills/run-slice/SKILL.md
+tests: api/tests/test_process.py::test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 0.07s
+BAD (mutated) exit=1
+F..                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'Read `AGENTS...te each gate.' == 'Read `AGENTS...nd follow it.'
+      Skipping 85 identical leading characters in diff, use -v to show
+      -  follow it.
+      +  follow it. Then read docs/playbooks/run-slice.md and delegate each gate.
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:304: AssertionError: assert 'Read `AGENTS...te each gate.' == 'Read `AGENTS...nd follow it.'
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it[.claude/skills/run-slice/SKILL.md]
+1 failed, 2 passed in 0.07s
+restored: yes (git diff --quiet HEAD -- .claude/skills/run-slice/SKILL.md)
+VERDICT M65: CAUGHT
+
+=== M66 mutation: the Cursor pointer names the old gate script
+file: .cursor/commands/run-slice.md
+tests: api/tests/test_process.py::test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 0.08s
+BAD (mutated) exit=1
+.F.                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'Read `AGENTS...nd follow it.' == 'Read `AGENTS...nd follow it.'
+      - Read `AGENTS.md`. Print the brief, `uv run python scripts/brief.py <phase> CC-N`, and follow it.
+      ?                                     ^^^^^^^^^^ --         ^^^ - ^^         ---
+      + Read `AGENTS.md`. Print the brief, `bash scripts/gate.sh <phase> N`, and follow it.
+      ?                                     ^^^          ^^^  ^^
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:304: AssertionError: assert 'Read `AGENTS...nd follow it.' == 'Read `AGENTS...nd follow it.'
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it[.cursor/commands/run-slice.md]
+1 failed, 2 passed in 0.07s
+restored: yes (git diff --quiet HEAD -- .cursor/commands/run-slice.md)
+VERDICT M66: CAUGHT
+
+=== M67 mutation: the Codex pointer drops AGENTS.md
+file: .agents/skills/run-slice/SKILL.md
+tests: api/tests/test_process.py::test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it
+GOOD (unmutated) exit=0
+...                                                                      [100%]
+3 passed in 0.10s
+BAD (mutated) exit=1
+..F                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'Read `CLAUDE...nd follow it.' == 'Read `AGENTS...nd follow it.'
+      Skipping 75 identical trailing characters in diff, use -v to show
+      - Read `AGENTS.md`. Pri
+      ?        ^ ---
+      + Read `CLAUDE.md`. Pri
+      ?       ++ ^^
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:304: AssertionError: assert 'Read `CLAUDE...nd follow it.' == 'Read `AGENTS...nd follow it.'
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_a_run_slice_pointer_says_only_read_agents_print_the_brief_follow_it[.agents/skills/run-slice/SKILL.md]
+1 failed, 2 passed in 0.07s
+restored: yes (git diff --quiet HEAD -- .agents/skills/run-slice/SKILL.md)
+VERDICT M67: CAUGHT
+
+=== M68 mutation: CLAUDE.md restates the PLAN.md rule
+file: CLAUDE.md
+tests: api/tests/test_process.py::test_one_rule_file_and_no_other_states_what_plan_md_holds
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.09s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ['CLAUDE.md',...aude/PLAN.md'] == ['.claude/PLAN.md']
+      At index 0 diff: 'CLAUDE.md' != '.claude/PLAN.md'
+      Left contains one more item: '.claude/PLAN.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:421: AssertionError: assert ['CLAUDE.md',...aude/PLAN.md'] == ['.claude/PLAN.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_one_rule_file_and_no_other_states_what_plan_md_holds
+1 failed in 0.07s
+restored: yes (git diff --quiet HEAD -- CLAUDE.md)
+VERDICT M68: CAUGHT
+
+=== M69 mutation: PLAN.md no longer states the rule
+file: .claude/PLAN.md (working tree CRLF)
+tests: api/tests/test_process.py::test_one_rule_file_and_no_other_states_what_plan_md_holds
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.07s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert [] == ['.claude/PLAN.md']
+      Right contains one more item: '.claude/PLAN.md'
+      Use -v to get more diff
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:421: AssertionError: assert [] == ['.claude/PLAN.md']
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_one_rule_file_and_no_other_states_what_plan_md_holds
+1 failed in 0.09s
+restored: yes (git diff --quiet HEAD -- .claude/PLAN.md)
+VERDICT M69: CAUGHT
+
+=== M70 mutation: CLAUDE.md no longer points at the rule
+file: CLAUDE.md
+tests: api/tests/test_process.py::test_the_other_rule_files_point_at_that_rule
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.07s
+BAD (mutated) exit=1
+F...                                                                     [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('the rule at its top' in '# census-concierge Shared project rules for every coding-agent host, including Claude Code, Cursor and Codex. The fil.... That is the check this repo exists for. Reviewing a change: `docs/playbooks/review-pr.md`, or the `review-pr` skill.')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:427: AssertionError: assert ('the rule at its top' in '# census-concierge Shared project rules for every coding-agent host, including Claude Code, Cursor and Codex. The fil.... That is the check this repo exists for. Reviewing a change: `docs/playbooks/review-pr.md`, or the `review-pr` skill.')
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_the_other_rule_files_point_at_that_rule[CLAUDE.md]
+1 failed, 3 passed in 0.07s
+restored: yes (git diff --quiet HEAD -- CLAUDE.md)
+VERDICT M70: CAUGHT
+
+=== M71 mutation: the board no longer points at the rule
+file: docs/slices.md (working tree CRLF)
+tests: api/tests/test_process.py::test_the_other_rule_files_point_at_that_rule
+GOOD (unmutated) exit=0
+....                                                                     [100%]
+4 passed in 0.06s
+BAD (mutated) exit=1
+..F.                                                                     [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert ('the rule at its top' in '# Slices and Jira epics Which epic carries which slice. Status, numbers and evidence are on each Jira ticket (project...s a separate until-clause ([CC-55](https://johnhillescobar.atlassian.net/browse/CC-55)), not a ban on alias questions.')
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:427: AssertionError: assert ('the rule at its top' in '# Slices and Jira epics Which epic carries which slice. Status, numbers and evidence are on each Jira ticket (project...s a separate until-clause ([CC-55](https://johnhillescobar.atlassian.net/browse/CC-55)), not a ban on alias questions.')
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_the_other_rule_files_point_at_that_rule[docs/slices.md]
+1 failed, 3 passed in 0.07swarning: in the working copy of 'docs/slices.md', CRLF will be replaced by LF the next time Git touches it
+
+restored: yes (git diff --quiet HEAD -- docs/slices.md)
+VERDICT M71: CAUGHT
+
+=== M72 mutation: a rule file asks for a close pointer
+file: docs/playbooks/review-pr.md
+tests: api/tests/test_process.py::test_no_rule_file_asks_for_a_close_pointer_or_numbers_in_plan_md
+GOOD (unmutated) exit=0
+.                                                                        [100%]
+1 passed in 0.14s
+BAD (mutated) exit=1
+F                                                                        [100%]
+================================== FAILURES ===================================
+E   AssertionError: docs/playbooks/review-pr.md
+    assert 'close pointer' not in 'write a clo...t of twelve.'
+      'close pointer' is contained here:
+      ?         ^^^^^
+        write a close pointer into `.claude/plan.md` at every close. # playbook: reviewing a pr canonical for every host. `.claude/skills/review-pr/`, `.cursor/commands/review-pr.md` and `.agents/skills/review-pr/` are thin pointers to this file — edit shared procedure here. a host without slash commands runs the same checks and review directly. gate 2's separate cold bug pass is defined in `docs/playbooks/run-slice.md`. ## first: run the machines do not review by reading. run these, and paste what they say. ``` uv run python scripts/check_...
+      ...Full output truncated (2 lines hidden), use '-vv' to show
+C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\api\tests\test_process.py:432: AssertionError: docs/playbooks/review-pr.md
+=========================== short test summary info ===========================
+FAILED api/tests/test_process.py::test_no_rule_file_asks_for_a_close_pointer_or_numbers_in_plan_md
+1 failed in 0.08s
+restored: yes (git diff --quiet HEAD -- docs/playbooks/review-pr.md)
+VERDICT M72: CAUGHT
+
+MUTATIONS: 72 caught, 0 not caught, 0 not applied, of 72
+[exit 0]
+
+===================== commands that prove the remaining criteria =====================
+
+$ uv run python scripts/check_invariants.py --base origin/main
+
+INVARIANTS
+
+  ok    banned agent frameworks        
+  ok    sqlite                         
+  ok    contextvars                    
+  ok    ticket-named tests             
+  ok    prompt assertions              
+  ok    forbidden module names         
+  ok    blocking clarification         
+  ok    census key in artifacts        
+  ok    empty secret defaults          
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs             
+  ok    budget log matches values      
+  ok    eval phrasing in api/src       
+  ok    closure manifests              
+  ok    status or plan files           
+  ok    status in PLAN.md and slices.md
+  ok    budget increases               
+  ok    new regex                      
+  ok    new exemptions                 
+  ok    protocol weakened              
+  ok    metric records rewritten       
+
+  info  api/src regex call sites: 55 (base 55, delta +0)
+
+All invariants held.
+
+[exit 0]
+
+$ uv run python scripts/check_budgets.py --structural-only
+
+BUDGETS
+
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1786 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+
+All budgets met.
+
+[exit 0]
+
+$ git worktree list
+C:/Users/johnh/Dropbox/Python/census-concierge                          ab4c27d [main]
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-104        178c158 [cc-104/structured-geography]
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-127        e96f3a8 [cc-127/memory-attribution]
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145        0305461 [cc-145/one-source]
+C:/Users/johnh/Dropbox/Python/census-concierge/.worktrees/cc-145-proof  1794e8d (detached HEAD)
+[exit 0]
+
+$ uv run ruff check api/tests scripts
+All checks passed!
+[exit 0]
+
+$ uv run ruff format --check api/tests scripts
+87 files already formatted
+[exit 0]
+
+$ uv run pytest api/tests -q -p no:cacheprovider
+........................................................................ [  3%]
+........................................................................ [  6%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+......sssssssssssssssss..sss............................................ [ 28%]
+....................xxxxxxx...x......................................... [ 31%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 44%]
+........................................................................ [ 47%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 60%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 85%]
+........................................................................ [ 88%]
+..............................sssssssssss..s.ss......................... [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 98%]
+.............................................                            [100%]
+============================== warnings summary ===============================
+api/tests/test_ask_loop.py::test_scripted_loop_fills_url_rows_geoid_and_universe
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2235 passed, 34 skipped, 8 xfailed, 1 warning in 353.38s (0:05:53)
+[exit 0]
+
+===================== end state =====================
+
+$ git status --short
+?? evidence/slice-6/cc-145/gate1.txt
+[exit 0]
+
+$ git diff HEAD -- scripts .claude .github   (must be empty)
+[exit 0, 0 lines]
+HEAD at end of this run: 03054612b66d3f75d8ecc30d18533ee819ce54b6
+
+===================== verdict =====================
+GOOD baseline: 228 passed in the five changed test files (no skips; bash present, so the CI-step
+tests ran). Full suite: 2235 passed, 34 skipped, 8 xfailed.
+Mutation check: 72 of 72 mutations caught, each reverting one behaviour of scripts/jira_fetch.py,
+scripts/jira_transition.py, scripts/brief.py, scripts/closure.py, scripts/check_budgets.py,
+scripts/check_invariants.py, .claude/hooks/ctx.py, .claude/settings.json, .github/workflows/check.yml
+or a rule file, and every file was restored (git diff HEAD -- scripts .claude .github is empty).
+Found by Gate 1 and fixed in tests only: the comment-order assertion in test_jira_fetch.py could not fail
+(0305461); six coverage gaps closed by new tests (accb4e3, 5a0c1c1). No product or rule file changed.
+Observed, not changed: scripts/brief.py and scripts/check_invariants.py are CRLF in this worktree's
+working copy (index LF; .gitattributes eol=lf), so git warns "CRLF will be replaced by LF".
+is_prescriptive uses fnmatch, whose * also matches "/", so it is broader than the glob for nested
+paths (e.g. docs/playbooks/a/b.md); that direction only adds a contradiction read.
+Not proven by Gate 1 (they are command or owner rows): AC6, AC9 on a real PR, AC10, AC12, TC5.
+VERDICT: PASS
