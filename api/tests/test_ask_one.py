@@ -25,7 +25,7 @@ def _queue() -> list[dict[str, Any]]:
 
     return [
         call("1", "search_tables", {"question": QUESTION}),
-        call("2", "resolve_geography", {"level": None, "query": "Harris County, Texas"}),
+        call("2", "resolve_geography", {"level": "county", "places": ["Harris County, Texas"]}),
         call("3", "build_url", {"table_id": "B01003"}),
         call("4", "fetch_data", {}),
         {"content": "Harris County has data.", "tool_calls": []},

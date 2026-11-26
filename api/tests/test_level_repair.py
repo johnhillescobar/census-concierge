@@ -7,6 +7,7 @@ rather than invent others. These tests drive `finish_tools` and check the calls 
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -14,13 +15,14 @@ from ask_fixtures import _geo_tool
 from src.ask import ExecutionRecord, dispatch
 from src.contract import GeoSpec
 from src.finish import finish_tools, plan_split
+from src.geo_level import GeoIntent
 
 
 async def test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair() -> None:
     record = ExecutionRecord(question="Austin and Texas")
-    record.geo_queries = ["Austin, Texas", "Texas"]
+    record.intent.legs = ["Austin, Texas", "Texas"]
     record.geo_status = {"legal": True, "compare": False}
-    record.asked_levels = ["place", "state"]
+    record.intent.levels = ["place", "state"]
     calls: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
@@ -35,15 +37,26 @@ async def test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_
 
 async def test_a_repair_resolution_never_replaces_the_level_the_model_stated() -> None:
     record = ExecutionRecord(question="population of Harris County, Texas")
-    record.asked_levels = ["county"]
+    record.intent.levels = ["county"]
+    record.intent.legs = ["Harris County, Texas"]
     await finish_tools(dispatch, {"resolve_geography": _geo_tool()}, record)
     assert record.geographies  # the repair did resolve something
-    assert record.asked_levels == ["county"]
+    assert record.intent.levels == ["county"]
 
 
-async def test_the_nationwide_fallback_is_a_repair_call_that_states_no_level() -> None:
+async def test_a_repair_resolution_never_records_a_level_the_model_did_not_state() -> None:
+    record = ExecutionRecord(question="population of Harris County, Texas")
+    record.intent.legs = ["Harris County, Texas"]  # the model stated no level for it
+    split: asyncio.Future[GeoIntent | None] = asyncio.get_running_loop().create_future()
+    split.set_result(GeoIntent(reported=True, level="county"))
+    await finish_tools(dispatch, {"resolve_geography": _geo_tool()}, record, split)
+    assert record.geographies  # the repair resolved it at the level the split call reported
+    assert record.intent.levels == []
+
+
+async def test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one() -> None:
     record = ExecutionRecord(question="households and families in Texas")
-    record.asked_levels = ["tract"]
+    record.intent.levels = ["tract"]
     calls: list[dict[str, Any]] = []
 
     async def fake_dispatch(tool: Any, call: dict[str, Any], rec: Any) -> str:
@@ -51,9 +64,7 @@ async def test_the_nationwide_fallback_is_a_repair_call_that_states_no_level() -
         return ""
 
     await finish_tools(fake_dispatch, {"resolve_geography": object()}, record)
-    fallback = calls[-1]
-    assert fallback["args"]["query"] == "nationwide"
-    assert fallback["origin"] == "repair" and fallback["args"]["level"] is None
+    assert calls == []
 
 
 async def test_a_repair_of_a_multi_parent_listing_is_marked_as_repair() -> None:

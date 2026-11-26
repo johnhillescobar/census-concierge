@@ -1,0 +1,384 @@
+{
+ "updated": "2026-11-22T21:20:18.663-0600",
+ "description": {
+  "type": "doc",
+  "version": 1,
+  "content": [
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Owned outcome\nMigrate existing geography interpretation/recovery while retaining CC-114 protections."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Expected progression / shipping target\n100% fixed-intent isolation/mutation tests; >=95% correct level/single-listing-comparison intent on the frozen currently-supported geography cohort. Preserve all legacy outcome rates; removing parser lines alone is not a result."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Dependency handoff\nCC-114 and CC-133 before shipping; feeds CC-106, CC-129 and CC-130."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Metric progression and non-regression contract (2026-11-08 refinement)\nTargets are release criteria, not predictions of unmeasured gains. Freeze each story's owned cohort, its denominator/independent family IDs, supported capability scope, scorer and thresholds before implementation. Separate interpretation, faithful execution, and end-to-end answers. An explicitly unsupported result may satisfy a negative-control case but cannot pass a supported positive case. No silent change to denominator, availability exclusions or metric definition.\nFor each story report B (same-window pre-change main), P (candidate), A (fixed post-CC-114 migration anchor) and L (latest accepted post-merge reference) on identical frozen cohorts/configuration at --repeat 3. L is the accepted reference, not the best cherry-picked run. Preserve achieved capability floors permanently. Instrument changes require old/new scorer runs on unchanged code and a versioned bridge; never reset away a loss. CC-42's required re-anchor adds a reference; it does not erase A or achieved floors.\nCommon protected outcomes: long_tail answered rate, retriever@10, selector@1, response-contract compliance, supported-request coverage, previously earned category success and all hard AC/TC tests. P must have no observed decrease against B, A and L on comparable outcomes, and meet existing absolute floors. For stochastic rates, require a paired 95% confidence lower bound for P-reference >= -0.02 (2 percentage points) as well as nonnegative point differences. This uncertainty bound is not permission to ship an observed decline; it tightens the former 3-point tolerance. Pair/resample independent question families, cluster paraphrases/repeats, report cases and trials separately. Insufficient precision means inconclusive, not PASS. Do not compare a new capability's initially unavailable score to unrelated legacy categories.\nFreeze a sampling/replication and stopping protocol in CC-133 before results. Baseline controls and candidate run in the same window/order-balanced blocks under the same concurrency, hashes and API settings. Retain every planned block, never rerun until green or exclude slow failures. Only one permitted sealed close look per story; aggregates only. No sealed exploration to repair a failure. No invented statistical certainty from small samples.\nFor owned stochastic cohorts require >=30 independent families, >=95% case AND trial success unless the story specifies the stronger 98% target. All deterministic behavior/AC/TC fixtures must pass 100%. If B is below the target, meet it and demonstrate positive paired improvement (95% lower bound >0); if B already meets it, preserve it and make no unsupported improvement claim. Improvements in one category cannot compensate for a decline in another.\nLatency remains an independent gate: real full-run demo.p95 <=20s and no observed p95 worsening against same-window B and comparable accepted references, plus latency-specific caps. Report confidence/uncertainty, provider outages, total request/model work and failures without hiding them. Uncertainty cannot be called a proven improvement. Faster failures or fewer rows do not count as speed gains. If baseline already exceeds 20s, the story is not ship-ready merely because it matches baseline; only an explicit existing run-specific owner waiver applies. Runtime repair cannot sacrifice quality to meet latency.\nAC/TC matrix includes expected target, B/P/A/L values, uncertainty, hashes, tested head, evidence, inherited floors and dependency evidence. Missing, failed or unrun pre-merge checks block merge readiness. All required pre-merge and post-merge checks must pass with evidence before Jira Done. Owner-only scope amendments must be explicit. Post-merge main must satisfy the same gates before becoming L. Do not rewrite budgets.toml. Existing leakage, sealed-gap <=10 points, response and mutation requirements remain. CC-114 retains its already agreed scoped closeout; the new protocol applies prospectively after its closeout, not as a retroactive implementation rewrite."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Existing scope (the stricter metric contract above controls prospective migration; CC-114 keeps its scoped closeout)\nMake structured intent authoritative in geography execution and recovery"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Scope and ownership\nBuild on CC-114 asked_levels, refused_specs, substitution warning and scorer contract after its current closeout. Consolidate that work into one shared intent boundary; do not redo its classification, goldens or reviewed behavior. This replaces the old permission to retain _LISTING/_BY_COUNTY or detect_level as semantic fallbacks."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Acceptance criteria\nAC1. Structured scope, output level, entities and parent references determine execution; original prose is absent from deterministic execution inputs.\nAC2. Remove wildcard/within phrase gates, prose detect_level/split_comparison, sentence-based find_state/place_token, finish rescans and English reconstruction. Exact structured entity/code lookups remain.\nAC3. Main-loop and auxiliary geography reports feed one authoritative intent representation with requested/executed/default/inferred fields distinguished. Preserve CC-114 substitution checks and response contract.\nAC4. Recovery consumes complete validated intent or returns missing fields to bounded model repair; no national/latest/total fallback. Missing/late reports never activate legacy parsers.\nAC5. Completeness checks cannot mistake inferred/hallucinated parents for explicitly supplied identifiers. All geography boundary tests under CC-133 pass.\nAC6. Keep the loop's successful geography fetch when a split report names the same single state and proposes a county listing, provided the fetch satisfies the user's validated structured geography request and no repair condition applies. Repair runs if the report names two or more parents, a county parent, or a different state. Repair also runs if a user-requested geography level remains unmet or the loop established no geography. These repair conditions take precedence. If the user requested counties and the loop fetched only state-level data, the requested level remains unmet even when the report names that same single state.\nAC7. When an invalid or nonsensical execution-level call is refused and the model then makes a successful corrected call for the same request, the corrected call supersedes that refused execution attempt in completion accounting. A geography level actually requested by the user does not disappear: if it remains unserved, the response retains the mismatch or unsupported warning and candidates.\nAC8. Split-report years and dataset fields cannot silently change a fetch already constructed by the loop. A disagreement is surfaced as a warning while requested meaning, assumptions and executed year/product remain distinct. The year and dataset in the rendered Census URL must be the year and dataset used by the HTTP fetch, and applicable overlapping-vintage warnings remain visible.\nAC9. A state supplied from model knowledge is recorded as inferred rather than question-given and cannot suppress ambiguity for a place name that the user did not qualify with a state. The response returns the existing non-blocking ambiguity warning and candidates; it does not silently select the inferred state.\nAC10. The approved no-national-fallback behavior remains: a comparison that supplies no required geography returns no Census URL and is not silently executed for the United States.\nAC11. After these changes, refresh all affected closure rows against frozen code. Before requesting merge, record Gate 1, mutation evidence, cold Gate 2 and the same-repeat real E2E comparison of the frozen candidate against B, A and L from the repository's pre-PR E2E step. Identify the tested commit and hashes. Before Jira Done, refresh the closure evidence with the results of the repository's post-merge E2E step on merged main, as specified in TC14. A local real-model spot check provides diagnostic evidence only."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Test cases\nTC1. Listing with no historical keyword executes correctly.\nTC2. Fixed intent yields identical execution under different/absent outer wording.\nTC3. Changed structured level changes execution even with unchanged wording.\nTC4. Comparison, wildcard parents, ambiguous names and incomplete numeric chains retain behavior.\nTC5. Missing model report, invalid level and finish recovery cannot fall back to prose.\nTC6. State-fetch precedence. The user's validated structured geography request is for state-level data for one state, and the loop successfully fetches that data. A split report names the same single state and proposes a county listing. With no AC6 repair condition present, the final answer and Census URL stay at state level. The original fetch is retained without a replacement fetch or unnecessary repair.\nTC7. Repair boundaries: independently mutation-check the same-state single-parent exception and each repair condition: two or more parents, county parent, different state, unmet user-requested level and no geography established by the loop.\nTC8. Corrected refusal: an initial listing-shaped call with an invalid execution level is refused, then a valid county or state call succeeds; the stale refused level does not produce geography_level_mismatch or trigger another repair.\nTC9. Requested level remains unmet: a refused call for a level genuinely requested by the user followed by an unrelated successful level does not clear the unmet request; warning and candidates remain and the wrong-level fetch is not scored answered.\nTC10. Invented year: the report supplies a year different from the already-built fetch; execution and the full URL retain the built year, and the mismatch is warned rather than silently served at the report year.\nTC11. Invented product: the report supplies a dataset different from the already-built fetch; execution and URL retain the built dataset, and a multi-vintage request still emits the applicable overlapping_vintage warning.\nTC12. Inferred-state ambiguity: an unqualified place name shared by multiple states remains ambiguous when the model supplies a state from its own knowledge; candidates and the ambiguity warning appear and no inferred-state fetch is silently accepted.\nTC13. No national fallback: a comparison with no named geography returns no URL, no rows and no implicit United States fetch.\nTC14. Record verification evidence from the existing slice workflow in docs/playbooks/run-slice.md. Include Gate 1 mutation checks for every new behavior test and run the focused real-model sample for diagnostics only. Use the full same-repeat E2E results from the workflow's pre-PR step on frozen candidate code in the pre-merge AC/TC matrix. Use the full same-repeat E2E results from the workflow's post-merge step on merged main to refresh the exhaustive matrix before Jira Done. Report both sets of scores using approved aggregates only. The restrictions on reading sealed questions and E2E transcripts apply to both runs."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Dependencies\nCC-114 closeout first; CC-133 test contract early. CC-106/119 and CC-129/CC-130 extend this boundary."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Model-owned intent (owner alignment 2026-11-08)\nOnce the model supplies structured intent, deterministic resolution, validation, URL construction, fetch, computation and recovery use that intent, authoritative Census metadata and execution artifacts. They must not reinterpret original question wording, paraphrases or reconstructed English commands. This prohibits regexes, keyword/substring matching and equivalent semantic heuristics, including legacy fallbacks. Missing or invalid intent returns structured feedback for bounded model repair. No missing, late or uncertain report activates a prose parser.\nOriginal text belongs only in model interpretation, semantic retrieval/reranking, storage, display and audit; deterministic execution inputs must not expose it indirectly through a broad record. Exact identifier parsing, metadata lookup, matching an already-identified entity to NAME candidates, URL encoding and arithmetic remain legitimate. Name lookup must not infer scope, parents or level from a sentence.\nKeep requested intent separate from executed plans and explicit defaults/assumptions/deviations. Preserve grounded candidates, the editable plan strip and the level-incomplete no-URL refusal; no blocking question, fabricated data or unrelated national/total-cell fallback. Unsupported availability is distinct from misunderstanding. One existing loop, no second planner or validator stack, no budget raise."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Mandatory AC/TC clearance before shipping\nAssign stable AC and TC IDs. Before requesting merge, attach an exhaustive AC/TC evidence matrix to the PR and Jira: exact criterion/case, expected behavior, test or reproducible command, observed result, evidence path/link, tested commit, scorer/fixture hashes and repeat count where relevant, mutation result for every new test, and reviewer verification. Every in-scope pre-merge AC/TC requirement must be PASS with evidence. The repository's post-merge E2E step supplies the merged-main evidence for TC14. Every in-scope AC/TC requirement, including the merged-main results, must be PASS with evidence before Jira Done. A checkmark, passing pytest suite or aggregate score alone is insufficient.\nFAIL, NOT RUN, UNKNOWN, missing evidence or unresolved review findings block the gate at which the requirement is due. Once due, any such issue blocks shipping and Jira Done until resolved. Only a dated, explicit owner scope amendment can remove a requirement; record the reason and destination story, never relabel it PASS or silently mark it N/A. Authorize any actual waiver separately under existing rules; the agent cannot waive or lower a gate.\nGate 2 checks completeness of the matrix. Refresh affected evidence after code/scorer changes and identify the tested head. Owner-only merge remains. After merge, run the required E2E on merged main and refresh the closure matrix before Jira Done. A merged PR alone does not close the story. Existing valid evidence can be reused when its tested behavior/inputs remain applicable and this is explained. Never read sealed questions or E2E transcripts; use approved aggregate evidence.\nRetain the existing Gate 1 mutation checks, cold Gate 2, response contract, same-repeat regression floors, sealed-gap <=10 points, leakage invariant, and real demo.p95_latency_seconds <=20s gate unless an existing explicit owner waiver applies. No budgets are changed by this alignment."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 2
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Owner-approved audit tightening — 2026-11-13"
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Why this is important"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Scope clarification: the existing owner direction in PLAN to remove/rebuild the prior CC-114 workaround supersedes older text here instructing preservation of that implementation. Preserve the intended product protections and original acceptance behavior, not the superseded workaround fields or fallback mechanism. CC-136/137/138 enable model selection/integration; CC-104 then completes its own AC/TC independently before remaining CC-3 work. This amendment does not erase any current acceptance case or authorize restoring semantic regex."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Existing AC/TC, earned floors, family-based uncertainty, repeat-3 comparisons, mutation checks, cold review, post-merge evidence and sealed/E2E transcript protections remain binding. These additions do not lower a threshold, authorize a budget increase, reopen a Done story or claim implementation is complete. Refresh affected closure matrices before shipping."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 2
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Owner amendments (dated; these control over any earlier wording)"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "2026-11-22, owner: the requirement to freeze a dedicated geography cohort before implementation is deprecated. Reason: it dates from 2026-11-08, before the CC-138 experiments, which adopted the frozen long_tail, trap and core cohorts (hashes unchanged since CC-133) as the instrument, and implementation is complete. CC-104 is measured on those three frozen cohorts plus deterministic fixtures for the 100% fixed-intent items. The “>=95% ... on the frozen currently-supported geography cohort” wording is replaced by that measurement. Destination: none; no new cohort is created."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "2026-11-22, owner (option A): ambiguous or incomplete questions fail loudly (no selection, URL or fetch; candidates and a message naming what is missing), and the demo scorer gives no credit to a correct refusal for a golden that expects a table or a URL. Four visible goldens are therefore expected to score as unanswered, by design: q42 (Fayetteville) and q43 (Suffolk County), whose names are shared by several states with no dominant match, and t01 and t14, which name no place; q13 (Providence) joins them only if live populations show its name has no dominant match. This decrease against B, A and L is accepted and explained, and does not by itself block CC-104. The goldens, the scorer and the cohort hashes are NOT changed (no bridge). The comparison must report these ids by name, and any other decrease is not covered by this amendment. Reason: the owner defines an ambiguous or incomplete question as never correct."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "2026-11-23, owner: (1) t06 is added to the expected, explained misses of the option-A amendment (it names no place, the same rule as t01 and t14). (2) The deferral of the API-only plan-dataset binding (T8, the plan with geographies and no dataset) is accepted; it is a follow-up, not a CC-104 requirement."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "2026-11-23, owner: the app never guesses on ambiguous geographic information. The rule is UNIQUENESS, not population dominance: a place name that matches more than one place and carries no state the user wrote is refused (no selection, URL or fetch) with a message that the question needs more geographic detail, and the candidates are listed. The 4-times-the-people exception of 2026-11-11 is withdrawn. A name that matches exactly one place (DuPage County, Chicago) still resolves. Goldens that name a shared place without its state are therefore expected refusals; how they are scored is a separate owner decision."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "2026-11-23, owner (wider amendment, option b): under the uniqueness rule, every visible golden that names a shared place without a state the user wrote is an expected, explained miss against B, A and L, in addition to q42, q43, t01, t06 and t14. The goldens, the scorer and the cohort hashes are NOT changed (no bridge). The comparison must name each such golden by id and say why it is refused; the initial list from the golden-impact check is core q03 and q04; long_tail q05, q13, q16, q18, q20, q23, q31, q36, q38, q39, q40; trap t07, t09, t13, t16, t18 (to be confirmed against the run, since populations were not available offline). Any other decrease is not covered. The long_tail answered_rate floor of 0.700 is therefore expected to be missed by design on this ticket; the miss is reported with its explained ids, not hidden. Reason: the owner defines an ambiguous question as never correct, so a golden that expects an answer to one is a wrong question."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 2
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Historical — superseded facts (NOT current)"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "The facts in this section were true when written and are NO LONGER TRUE. They are kept only as an audit trail and do not describe the current state: fix statuses, trial counts, branch heads, the same-day main figure and the CC-125/126 statement below have all changed (CC-125 was promoted to main on 2026-11-22). The failure causes remain the reason AC6–AC10 and TC6–TC13 exist; the requirement text above controls. Current status lives in evidence/slice-6/cc-104/STATE.md and the PR. Moved here on 2026-11-22."
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "No longer true (moved from the latency paragraph of the metric contract): “CC-125/126 remain Phase 2 backlog and are NOT promised current-slice prerequisites or an implied waiver.” CC-125 is on main. The rule it sat beside still holds in that paragraph: only an explicit, run-specific owner waiver applies; no other ticket implies one."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 2
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Regression analysis — 2026-11-13"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "The decrease against same-window main is approximately 25 trials. Table-choice drift was also present on main (58 branch misses versus 50 candidate misses on long_tail) and is treated as day-level model noise, not as the explanation for the code-caused decrease below."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Cause 1 — split report overrides a correct answer"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Status: fixed locally. Affected: q28 and q32. For plain state questions, the beside-call reported listing=true and level=county. Recovery replaced the loop's correct state fetch with a county list after the prior two-parent gate was relaxed for single-parent listings. The local fix gives precedence to a successful state fetch over a same-state single-parent report while retaining all five repair conditions in AC6/TC7. Evidence: evidence/slice-6/cc-104/gate1-e2e-single-parent.txt. The fix was committed locally but had not been pushed when this analysis was recorded."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Cause 2 — refused first call remains unmet"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Status: not fixed. Affected: q19, q32 repeats 2 and 3, and q03. A single-place request may first produce a listing-shaped call with an invalid level such as us or place, be refused, and then be corrected successfully. The stale refused level currently remains unmet and can produce geography_level_mismatch or unnecessary repair. AC7 and TC8-TC9 distinguish a superseded invalid execution attempt from a genuinely requested level that remains unserved."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Cause 3 — report invents years or products"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Status: not fixed; highest severity. Affected: t05, t10 and q32. A report-supplied year can cause data to be fetched for one vintage while the rendered URL names another; a report-supplied dataset can also hide an overlapping_vintage warning. This is a silent wrong-answer risk that the demo scorer does not currently detect. AC8 and TC10-TC11 require the already-built fetch to remain authoritative and report disagreement to become a warning."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Cause 4 — model supplies an unstated state"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Status: not fixed. Affected: t05. Existing places guidance can cause the model to choose a state for an unqualified place, suppressing the expected ambiguity warning. AC9 and TC12 use the structured given/inferred distinction so model knowledge cannot masquerade as user-supplied geography."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Cause 5 — no national fallback"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "Status: by design. Affected: t01. A comparison that names no place now returns no URL instead of defaulting to a national fetch. AC10 and TC13 preserve this approved behavior and prevent it from being treated as a regression fix."
+     }
+    ]
+   },
+   {
+    "type": "heading",
+    "attrs": {
+     "level": 3
+    },
+    "content": [
+     {
+      "type": "text",
+      "text": "Evidence state at time of analysis"
+     }
+    ]
+   },
+   {
+    "type": "paragraph",
+    "content": [
+     {
+      "type": "text",
+      "text": "The cause-1 real-model spot check returned state level for q28 in 3/3 runs; q32 was clean in 1/3 because cause 2 remained. The full suite passed 1509 tests with 34 skipped; ruff, mypy and invariants were clean. E2E was not rerun after the local fix. The PR and origin still pointed to b9eec53 and the prior RED E2E, closure rows were stale, and same-day main long_tail answered_rate was 0.433. These diagnostics are not acceptance evidence; AC11/TC14 require refreshed frozen-code and post-merge evidence."
+     }
+    ]
+   }
+  ]
+ }
+}

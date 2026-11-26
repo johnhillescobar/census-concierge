@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from ask_fixtures import _harris, _tools
 from src.ask import ExecutionRecord, assemble, run_ask
-from src.contract import ResultPlan, apply_override
+from src.contract import ResultPlan, apply_override, pin_tool_args
 
 
 def _complete(queue: list[dict[str, Any]]):
@@ -231,10 +231,12 @@ async def test_acs1_dataset_override_builds_a_county_url() -> None:
     assert response.plan.geographies[0].dataset == "acs1"
 
 
-async def test_geo_only_override_keeps_acs1_from_the_question() -> None:
+async def test_geo_only_override_keeps_the_acs1_the_plan_states() -> None:
     record = ExecutionRecord()
-    plan = ResultPlan.model_validate({"geographies": [{"geoid": "0500000US48201"}]})
-    question = "1-year ACS population of Harris County"
+    plan = ResultPlan.model_validate(
+        {"geographies": [{"geoid": "0500000US48201"}], "dataset": "acs1"}
+    )
+    question = "population of Harris County"
     record.question = question
     apply_override(record, plan)
     response = await run_ask(
@@ -250,6 +252,14 @@ async def test_geo_only_override_keeps_acs1_from_the_question() -> None:
     assert response.plan.dataset == "acs1"
 
 
+async def test_a_plan_with_no_dataset_stays_acs5_whatever_the_question_says() -> None:
+    record = ExecutionRecord()
+    plan = ResultPlan.model_validate({"geographies": [{"geoid": "0500000US48201"}]})
+    record.question = "1-year ACS population of Harris County"
+    apply_override(record, plan)
+    assert plan.dataset == "acs5" and record.override.dataset == "acs5"
+
+
 async def test_race_iteration_override_is_a_deliberate_selection() -> None:
     record = ExecutionRecord()
     plan = ResultPlan(table_id="B19013B", geographies=[_harris()])
@@ -263,3 +273,20 @@ async def test_race_iteration_override_is_a_deliberate_selection() -> None:
     )
     assert response.table_id == "B19013B"
     assert response.plan.table_id == "B19013B"
+
+
+def test_a_plan_that_states_no_dataset_leaves_the_models_own_dataset() -> None:
+    record = ExecutionRecord()
+    apply_override(
+        record, ResultPlan.model_validate({"geographies": [{"geoid": "0500000US48201"}]})
+    )
+    for tool in ("search_tables", "build_url"):
+        assert pin_tool_args(tool, {"dataset": "acs1"}, record.override)["dataset"] == "acs1"
+
+
+def test_a_plan_that_states_its_dataset_pins_it_over_the_models() -> None:
+    record = ExecutionRecord()
+    plan = {"dataset": "acs1", "geographies": [{"geoid": "0500000US48201"}]}
+    apply_override(record, ResultPlan.model_validate(plan))
+    for tool in ("search_tables", "build_url"):
+        assert pin_tool_args(tool, {"dataset": "acs5"}, record.override)["dataset"] == "acs1"

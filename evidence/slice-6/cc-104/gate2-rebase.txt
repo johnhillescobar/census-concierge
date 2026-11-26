@@ -1,0 +1,175 @@
+GATE 2 (rebase review) - CC-104
+branch: cc-104 (worktree .worktrees/cc-104)   HEAD: e8c8fac3a3abaa8632848961396d7a7f9613c446
+review base: origin/main 7239f325e77b6d2df6837b72721aeb559337a715
+diff reviewed: git diff 7239f32 e8c8fac -- api web scripts evals budgets.toml docs  (+ evidence/closure/CC-104.toml)
+uncommitted scoped changes at start: none (only the untracked evidence/slice-6/cc-104/ output)
+code is unchanged between 69ad347 (closure head) and e8c8fac: `git diff 69ad347 e8c8fac -- api web scripts evals budgets.toml docs` is empty.
+
+================================================================
+PASS 1 - generic bugs (code-review skill, medium; code only)
+================================================================
+Read cold, before the plan / STATE / earlier gate2 files / PR body. Each skill finding was re-checked
+against the code by hand; some were downgraded and one dropped (noted below).
+
+R1 [SHOULD] api/src/ask.py:101 (+ api/src/geo.py _list "dominant" branch, api/src/geo_within.py:46)
+  An ambiguous unqualified listing parent now yields NO URL, no fetch, no rows, only candidates.
+  _absorb sets record.geography = None when geo_status["ambiguous"]; build_url then fails
+  ("resolve_geography before build_url") and finish_tools skips build because the candidates are
+  not all wildcards. The base picked geographies[0] and built a URL.
+  Failing input: "Poverty by tract in Washington County" (no state). The resolver returns 2+
+  counties, none 4x the next -> ambiguous=True -> response.urls == [] (asserted by
+  test_an_unqualified_parent_no_match_dominates_ships_candidates_and_no_url).
+  Why it matters: CLAUDE.md "The URL is the product ... including when the fetch fails or the agent
+  is unsure"; the only stated no-URL exception is a question too incomplete to search, and this one is
+  searchable. Memory rule: all expected URLs shown, guards refuse the fetch, not the list. The change
+  is documented (docs/ask-path.md: "nothing is selected, built or fetched") but the closure row TC4
+  says ambiguous names "retain their behavior" while its observed text admits a new ambiguity rule,
+  so the row understates the behaviour change. Owner decision: show a URL per candidate (they already
+  carry executable for/in) with ambiguous_place kept, or record in requirements.md / CLAUDE.md that an
+  unresolved ambiguous parent is a second no-URL exception. The user is told (warning + candidates),
+  so this is not a silent wrong answer: SHOULD.
+
+R2 [SHOULD] api/src/contract.py:256-261 (apply_override) with api/src/contract.py:293 (pin_tool_args)
+  Removing the wants_acs1 default means a ResultPlan override that does not state `dataset` keeps the
+  model default "acs5", and pin_tool_args then FORCES out["dataset"] = plan.dataset onto search_tables
+  and build_url, overwriting the dataset the model itself passed (and that the split report states).
+  This is a combination of "the model states the product" (this branch) and "an override pins fields
+  the plan never set" (base side).
+  Failing input: POST /ask {question: "1-year ACS population of Harris County",
+  plan: {"geographies":[{"geoid":"0500000US48201"}]}} -> build_url is pinned to acs5 although the loop
+  asked for acs1; the answer is an acs5 URL with no warning. The new test
+  test_a_plan_with_no_dataset_stays_acs5_whatever_the_question_says asserts the plan default only,
+  not the pin, and treats the outcome as intended. Fix: pin dataset only when "dataset" is in
+  plan.model_fields_set; otherwise leave the model's own argument. The web client re-sends the prior
+  answer's plan (which states its dataset), so this bites API callers and first-time geography-only
+  overrides.
+
+R3 [SHOULD, raised from NOTE after pass 2 read the E2E record: see R9] api/src/guards.py:127 overlapping_vintage
+  The guard now reads only record.vintages (post-fetch attempted years). For a consecutive series
+  with ACS1 unavailable, plan_years drops overlapping end years (REASON_OVERLAP), so record.vintages is
+  e.g. [2015, 2020] and no overlapping_vintage warning fires (the old code also read ranges and
+  "every year" from the question). The two-vintage comparison (2019 and 2022, asked as 2015-2019 vs
+  2018-2022) still warns (test_overlapping_income_finishes_when_the_model_stops). In the series case the
+  overlap is not compared, and it is reported through omitted_years/omission_reasons only. Consider also
+  firing when fetch.omission_reasons contains overlapping_vintage.
+
+R4 [NOTE] api/src/ask.py:377 question_years -> record.intent.years
+  intent.years exists only after the split report is adopted (incomplete() at turn 0 waits up to 3 s
+  after the first model turn; finish_tools waits up to 6 s). A loop fetch_data with no years issued
+  before then fetches only the built year. The first model turn normally outlasts the split call and the
+  prompt tells the model to pass every end year, so it takes both a slow split and a model that omits
+  years. It fails toward the latest year, which the fetch summary shows. No change required.
+
+R5 [NOTE] api/src/finish.py:336 acs1 = intent.dataset == "acs1"
+  The ACS1 redo path depends only on the split report. If the split call returns nothing and the loop
+  built acs5 for a "1-year" question, nothing corrects it (the old wants_acs1 did). This is the stated
+  design (a missing report activates no parser); the model's own build_url dataset is the other source.
+
+R6 [NOTE] api/src/guards.py:168 zcta_not_zip
+  Fires for any ZCTA result (level resolved or 860 rows), including a user who asked for ZCTAs by
+  name. Documented in docs/requirements.md; informational noise, not an error.
+
+R7 [NOTE] api/src/geo_level.py:143 note_intent reads record.intent directly
+  Every other reader uses intent_of(record). A record double with no intent attribute raises
+  AttributeError here (contained by dispatch as a tool failure). Production ExecutionRecord always has
+  intent, so there is no live failure; consistency only.
+
+Dropped: skill finding "_split_parents can overwrite a correct loop result". The early return
+  `_all_wild(geos) and len(parents) <= len(geos) and all(right) and inside` keeps a loop result that is
+  already one wildcard per parent at the unit, and a repair that is ambiguous or not all-wildcard
+  restores the snapshot. I could not construct an input where a correct single-parent listing is
+  replaced.
+
+Combination checks against the base side (Responses API / recovery / retained bookkeeping), no finding:
+  - model_failed path (ask.py): the recovery fetch only runs for an unattempted built URL, after
+    incomplete() at turn 0, with FetchDataTool(recovery=True), which ignores question_years, so a
+    late or absent report cannot change it.
+  - dispatch() with args=None (Responses API invalid JSON): note_intent returns early because {} has no
+    "level"; the failure path is unchanged.
+  - retained_legs / retained_urls (base bookkeeping) vs intent.legs (new, single-place query names):
+    different fields, no aliasing. _split_parents' snapshot restores retained_urls as in the base; a
+    repair never fetches, so retained_legs cannot change inside it. A successful redo clears
+    url/rows/fetch and keeps retained legs/urls on purpose (all expected URLs shown).
+  - ambiguous result + clear_series: record.geography becomes None, differs from previous, clear_series
+    runs and moves the old URL into retained_urls, so it is not lost (feeds R1).
+  - Tools run with strict False on the Responses API, so the new optional fields (parents,
+    parent_level) and the required nullable `level` need no schema change; a stray `query` argument is
+    ignored by pydantic, not an error.
+
+Machines run during pass 1 (all on e8c8fac): ruff check PASS, ruff format --check PASS (269 files),
+mypy api/src PASS (29 files), pytest -q -m "not integration" PASS (no failures; integration skipped).
+
+================================================================
+PASS 2 - project invariants (docs/playbooks/review-pr.md)
+================================================================
+Pass 1 was recorded above before the plan, STATE.md or the E2E record were read. Pass 2 read them.
+
+Machines (head e8c8fac):
+  check_invariants.py --base origin/main : exit 0, all 19 checks ok (budget increases ok, new regex ok,
+                                           new exemptions ok; api/src regex call sites 18, base 55, delta -37)
+  check_budgets.py                       : only "p95 latency (s) 32.215 <= 20" fails; it is read from the committed
+                                           evidence/latest.json run of 2026-11-20 (not from this diff). api LOC 4800/5100,
+                                           files 29/40, largest file 406/410, doc lines 1811/1820, prompt tokens 1050/1200,
+                                           tools 4/6, floors ok (answered_rate 0.775, retrieval@10 0.9, selector@1 0.825).
+  ruff check / ruff format --check / mypy api/src / pytest -m "not integration" : all green.
+  scripts/closure.py check evidence/closure/CC-104.toml : only "post_merge: the post-merge E2E (e2e, main_head) is not
+                                           recorded" (expected before merge; ten rows PASS, tested at 69ad347 which has the
+                                           same code as e8c8fac).
+  budgets.toml is not in the diff: no budget was raised or weakened.
+
+The claim (one sentence): the model now states places, parents, level, years and product as structured fields, and code
+executes them with exact lookups, so the question's words no longer pick geography or time; an unqualified listing parent
+is resolved only if it dominates, and a question short of its level's needs is refused.
+
+Silent-wrong-answer review
+
+R8 [BLOCKER] api/src/prompts.py:25 + api/src/tools.py:50-56 (places description) vs docs/ask-path.md "A direct single place keeps the
+  largest match with the others as alternatives"
+  The prompt and the tool schema tell the model to supply a state from its own knowledge when the question names none
+  ("Chicago" -> "Chicago, IL"), now for a single place too (the base told it so for lists only; a single place went to the
+  resolver as written). _place then filters to the guessed state (in_parts["state"]), so the other same-named places
+  are never fetched, `ambiguous`/`dominant` never fire and no candidates are returned. Failing input: "Population of
+  Springfield". The model sends places ["Springfield, IL"], level "place": one geography, one URL, no ambiguous_place warning,
+  no alternatives, and nothing marks the state as the model's guess (geography_level_unverified tracks the level, not the
+  state). This is the "corrected geography / invisible fix" the playbook says must be a warning, and it loses the
+  documented ambiguity behaviour the doc still claims. The visible trap golden t05 ("Population of Springfield",
+  expect_warning ambiguous_place) is recorded as missed 3/3 in the E2E r2 summary in STATE.md (the miss is recorded there,
+  its cause is my reading of the code, not re-diagnosed on a run). Fix direction without prose reading: have the model say which
+  state it supplied (a field, or send the name without a state and let the lookup rank), flag a model-supplied state as
+  inferred, and keep ambiguous_place reachable for a direct single place. Needs an owner decision on the shape.
+
+R9 [BLOCKER] closure / metric gates (PLAN: MET, INH; run-slice evidence matrix)
+  MET (>=95% correct intent on the frozen geography cohort, case and trial, P vs B/A/L at --repeat 3) is not measured:
+  evals/metric_protocol.toml has no [cohorts.geography] (the owner's commit has not landed; STATE.md "Open"), and
+  evidence/closure/CC-104.toml lists required = AC1-5, TC1-5 only, so the manifest check passes without MET or INH.
+  The one E2E on the rebased code (e2e-r2/compare.txt, frozen 69ad347) ends VERDICT FAIL: trap trial rate -0.074 over 18
+  families, rows per family (3 families fewer rows), long_tail empty answers +0.025, A0 scorer/cohort hashes changed with no
+  bridge. Positives: all floors pass, p95 19.949 s under 20 s, long_tail trial rate +0.092. There is no same-day control of
+  origin/main 7239f32 (STATE.md names it as the next step), so the model change (CC-138) and CC-104 cannot be told apart.
+  run-slice/review-pr: unrun or failed MET/INH rows mean NOT YET; only a dated owner amendment removes scope.
+  Link to code findings: STATE.md lists trap misses t05 (ambiguous_place; R8) and t10 (overlapping_vintage; R3) at 3/3 each.
+  t10 ("every year from 2017 to 2023", expect_warning overlapping_vintage) fired before only because the guard read "every year"
+  and the range from the question; the guard now reads fetched vintages, and an ACS1 series (the golden's own valid answer) or
+  an ACS5 series thinned to 2017 and 2022 has no acs5 overlap left to warn about. STATE.md calls this "known and kept" (G3);
+  a trap-tier case now misses, so keeping it needs an owner amendment, or a model-stated "series requested" signal.
+
+Existing items from pass 1 that bear on the invariants:
+  R1 [SHOULD] URL-is-the-product: ambiguous unqualified listing parent returns no URL. STATE.md records it as an owner decision
+     ("an unqualified listing parent ... else ambiguous_place candidates and no selection", 2026-11-11), so it is accepted
+     scope, but CLAUDE.md still names only the incomplete-question exception, and TC4 says behaviour is "retained". Reconcile
+     CLAUDE.md / requirements.md with the decision, or show a URL per candidate.
+  R2 [SHOULD] plan override pins acs5 over the model's own dataset (STATE.md G6, "known and kept").
+  R3 [SHOULD] see above.
+
+R10 [NOTE] scope and leftovers
+  38 files in the diff (more than 15): explained, it is the migration ticket with its test rewrites; no unrelated feature seen.
+  Question-wording readers remain: api/src/compare.py:107 (_COMPARE on the question) and api/src/guards.py (universe, combine,
+  derived, median) and the table-id regex; STATE.md lists them as follow-ups (CC-122/129), not touched by this diff.
+  AC2 closure text claims the removed names are gone: verified by `git grep` of the base-side names not being present
+  in api/src, consistent with regex delta -37.
+  Docs: ARCHITECTURE.md, ask-path.md and requirements.md were updated with the shape change. Tests assert behaviour, not
+  prompt wording; ticket-free test names; no sealed-set or eval phrasing found in api/src additions (leakage baseline only shrank).
+
+Findings by severity: BLOCKER 2 (R8, R9); SHOULD 3 (R1, R2, R3); NOTE 5 (R4, R5, R6, R7, R10).
+
+VERDICT: NOT YET - two blockers: a model-supplied state silently removes the ambiguity warning for a direct single place (R8), and the MET/INH metric gates are unrun or FAIL with no same-day control (R9).

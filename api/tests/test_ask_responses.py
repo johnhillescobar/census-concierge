@@ -82,7 +82,9 @@ def test_ask_replays_parallel_calls_with_exact_model_settings(
         "encrypted_content": "opaque-encrypted-reasoning-fixture",
     }
     search = function_call("search_tables", json.dumps({"question": question}))
-    geography = function_call("resolve_geography", json.dumps({"query": place, "level": "county"}))
+    geography = function_call(
+        "resolve_geography", json.dumps({"places": [place], "level": "county"})
+    )
     replies = iter(
         [
             [reasoning, search, geography],
@@ -232,7 +234,9 @@ def test_ask_returns_collected_artifacts_after_model_failure(
         return tools
 
     search = function_call("search_tables", json.dumps({"question": question}))
-    geography = function_call("resolve_geography", json.dumps({"query": place, "level": "county"}))
+    geography = function_call(
+        "resolve_geography", json.dumps({"places": [place], "level": "county"})
+    )
     build = function_call("build_url", '{"table_id":"B01003","vintage":2024}')
     failure_reply = (
         httpx.Response(503, json={"error": {"message": "Provider unavailable"}})
@@ -350,7 +354,7 @@ async def test_provider_failure_preserves_a_prior_fetch_without_retry(
                 "output": [
                     function_call("search_tables", json.dumps({"question": question})),
                     function_call(
-                        "resolve_geography", json.dumps({"query": place, "level": "county"})
+                        "resolve_geography", json.dumps({"places": [place], "level": "county"})
                     ),
                 ],
             },
@@ -423,7 +427,7 @@ def test_provider_failure_fetches_only_the_current_accepted_plan(
             function_call("search_tables", json.dumps({"question": question, "dataset": dataset})),
             function_call(
                 "resolve_geography",
-                json.dumps({"query": place, "level": "county", "dataset": dataset}),
+                json.dumps({"places": [place], "level": "county", "dataset": dataset}),
             ),
         ],
     ]
@@ -506,7 +510,7 @@ def test_ask_keeps_published_alternatives_for_the_validated_table(
     turns = [
         [
             function_call("search_tables", json.dumps(search_args)),
-            function_call("resolve_geography", json.dumps({"query": place, "level": "county"})),
+            function_call("resolve_geography", json.dumps({"places": [place], "level": "county"})),
         ],
         [function_call("build_url", '{"table_id":"B01003"}')],
         [function_call("fetch_data")],

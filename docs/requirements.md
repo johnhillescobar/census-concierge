@@ -29,11 +29,11 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 
 | code | condition |
 |---|---|
-| `overlapping_vintage` | ACS5 periods sharing sample years are not comparable. |
+| `overlapping_vintage` | ACS5 periods sharing sample years are not comparable; also set when a series left years out because their samples overlap. |
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
 | `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
-| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
+| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Nothing is selected, built or fetched; the candidates are the result, never a blocking question. Scope ("which counties?") is not ambiguity. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 | `answer_figures_unverified` | The model's text or chart title stated a number the response does not carry; the rendered figures (or the table ID, for a title) replace it. |
 
@@ -46,14 +46,18 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `vintage_gap_2020` | No standard 2020 ACS1 release. Show a gap; never interpolate. |
 | `boundary_change_2020` | Tract / block-group geometry was redrawn across 2020. |
 | `variable_not_in_vintage` | Absent or redefined in part of the requested range. |
+| `unpublished_vintage` | A requested year has no release for this dataset; it was not fetched. |
+| `year_mismatch` | The report named other years than the fetch used; the fetch stands as built. |
 
 ## Slice 3 warning codes — geographies
 
 | code | condition |
 |---|---|
-| `zcta_not_zip` | ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
+| `zcta_not_zip` | Any ZCTA answer (level resolved or `860` rows), however it was worded. ZIPs are USPS routes; ZCTAs are block-built. ~10% of ZIPs have no ZCTA. No ACS1. |
 | `geography_not_nested` | Containment is not expressible in Census `for`/`in`. Tracts asked for inside one named place are the exception that still fetches: the tracts of the counties Census says it lies in (ACS5), county-wide, the counties named. |
 | `geography_level_mismatch` | A fetched URL's `for=` level is not the level the model stated, or a level it stated (or that could not be served) has no URL. The URL is shown; its rows answer another geography. |
+| `state_inferred` | A state the model attached was not written in the question; the place was settled by its name alone. |
+| `dataset_mismatch` | The model's report asked for ACS1 and its own build was ACS5. The build stands; check the URL's dataset. |
 | `geography_level_unverified` | No level was stated for the geography, or code inferred one. Check the URL's `for=`. |
 | `median_not_aggregatable` | Medians cannot be combined across areas. Decline the computation. |
 | `moe_aggregation_degraded` | `sqrt(Σ MOEᵢ²)` degrades past a handful of areas. |

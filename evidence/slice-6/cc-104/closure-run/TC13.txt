@@ -1,0 +1,12 @@
+$ uv run pytest -q api/tests/test_geography_completeness.py -k "no_place or nation or missing_one_place or either_attempt or which_table"
+head d72434afed86cc8e038e1a9d0535bb8effff48fa
+exit 0
+
+.............                                                            [100%]
+============================== warnings summary ===============================
+api/tests/test_geography_completeness.py::test_a_question_with_no_place_and_no_level_is_refused_before_any_tool_runs
+  C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-104\.venv\Lib\site-packages\pytest_asyncio\plugin.py:916: PytestDeprecationWarning: Overriding the "event_loop_policy" fixture is deprecated and will be removed in a future version of pytest-asyncio. Use the "pytest_asyncio_loop_factories" hook to customize event loop creation.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+13 passed, 114 deselected, 1 warning in 7.05s

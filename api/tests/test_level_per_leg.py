@@ -17,5 +17,5 @@ async def test_a_leg_is_not_resolved_at_a_level_other_than_the_one_stated() -> N
         {"type": "tool_call", "name": "resolve_geography", "args": args, "id": "c1"}
     )
     artifact = result.artifact
-    assert {spec.level for spec in artifact.specs} == {"place"}
-    assert artifact.compare is False
+    assert artifact.specs == [] and artifact.compare is False  # a comparison is every place or none
+    assert "Harris County, Texas" in artifact.detail

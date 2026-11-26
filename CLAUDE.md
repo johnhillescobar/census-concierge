@@ -40,7 +40,8 @@ City" in under 75 seconds.
 Every answer renders the full Census API URL — variables, geography, vintage —
 including when the fetch fails or the agent is unsure. A user handed a URL that
 returns the wrong table fixes it in ten seconds. A user handed prose cannot. The one
-exception is a question too incomplete to search (next section).
+exception is a question too incomplete or ambiguous to search (incompleteness: next
+section).
 
 Also non-negotiable in every answer that returns data:
 

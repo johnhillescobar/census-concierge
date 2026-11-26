@@ -1,0 +1,153 @@
+CC-104 Gate 2 (cold review), final round 2
+Branch cc-104/structured-geography, HEAD f48f334841a8ea148c52ff746e6b728087818644
+Review base requested: 700d80082c6bdb371dab2c551c9b6f3736c8986f (origin/main now reads 72fcb81189eedd082908ab35ef2a18e689e9b904;
+the diff reviewed is 700d800..HEAD over api web scripts evals budgets.toml docs CLAUDE.md)
+Worktree was read-only; probe scripts live under AppData\Local\Temp\cc104-gate2r2 (scripted models, repo fixtures, no live API).
+Pass 1 was recorded from the code only; no plan, STATE, gate*/gate2* evidence, PR or ticket was read before it.
+
+==================================================================================
+PASS 1: generic bugs (code-review skill, medium, plus my own cold read and probes)
+==================================================================================
+
+U1  SHOULD (leans BLOCKER)  api/src/geo.py:142-145 (_written), :343, :251-253
+    A state the user wrote is dropped whenever the report is unknown, and the wrong place is then
+    selected. _written() treats states_named() == None ("no report yet / report failed / key omitted")
+    the same as "the user wrote no state": `wrote` is empty, so every state attached to an entry fails
+    the check and is discarded (docs/ask-path.md says this on purpose: "unknown is not written").
+    Failing inputs (probe p1.py through run_ask, real tools, scripted model):
+      question "Population of Portland, Maine", model sends places=["Portland, ME"], level place.
+        report states_named=["ME"]      -> place:60545 in state:23 (Portland ME), no warning. Correct.
+        report omits states_named       -> URL for place:59000 in state:41 (Portland, OREGON); only warning
+                                           ambiguous_place. The user wrote Maine and got Oregon.
+        split call fails / times out    -> same: Oregon.
+      "Springfield, IL" with a missing report: all Springfields tie, so a refusal with no URL for a
+      question whose state was written (false refusal; a late report, the 3 s FRAME_WAIT, a JSON error,
+      or a model that leaves the optional key out is enough).
+    Comparison (probe p3.py): places ["Portland, ME","Portland, OR"], states_named None or []:
+      specs = [Portland OR, Portland OR, Portland ME, Portland ME] (compare_count 2) -> the comparison
+      is Oregon against Oregon; state_supplied is False because _compare_result never carries it.
+    Why it matters: the product renders a URL, and the rule here is that a state the user typed is the
+    strongest evidence of the place. An absent report is a missing instrument, not a reading, so
+    dropping the user's state turns a degraded report into a wrong-place URL. Fix direction: when
+    states_named is None keep the entry's state (the old behaviour), and drop it only when a report is
+    present and does not list it; or when unknown, return the candidates rather than a dominant pick.
+    Also carry state_supplied through comparison and listing results.
+
+U2  SHOULD  api/src/ask.py:361-363 with api/src/tools.py:312-325
+    "Nothing is selected, built or fetched" (docs/ask-path.md, docs/requirements.md, ambiguous_place)
+    is not enforced. _absorb clears record.geography for an ambiguous result, but build_url's
+    allowed_geographies is built from record.geographies, which holds every candidate, and build_url
+    accepts any for_spec/in_spec in that set. Probe p2.py "amb-pick": question "Population of Springfield",
+    resolve_geography -> 3 Springfield candidates, geography None; the model then calls
+    build_url(table_id=B01003, for_spec="place:72000", in_spec="state:17") -> URL built, fetch_data
+    runs, a URL and rows for Springfield IL come back with only an ambiguous_place warning.
+    Without a for_spec build_url refuses (amb-nopick, correct). The prompt tells the model not to pick,
+    but the code is the control (and the owner edit to CLAUDE.md says an ambiguous question is as
+    unsearchable as an incomplete one). Fix: allowed_geographies returns the empty set while
+    geo_status.ambiguous (or build_url refuses on it); add a real-chain test.
+
+U3  SHOULD  api/src/finish.py:252-257 (incomplete: trend and no years)
+    A new no-URL refusal outside the rule that permits one. CLAUDE.md allows a no-URL answer only for
+    a geography-level-incomplete question (and, per the owner's edit, an ambiguous one). "Names no
+    years" is neither. It also hangs on a model-set boolean (trend). Probe p2.py "trend": "How has
+    population of Harris County, TX changed", report trend=true years=[] -> 0 URLs, "This question is
+    incomplete and cannot be searched: it asks about several years and names none." A complete,
+    searchable question (county named, table obvious) gets no URL, no candidates, no table. Fix: let it
+    through (the loop picks years; year_mismatch/unpublished_vintage already warn), or get an owner
+    amendment adding the case to the rule and the AC list. Same family: docs/ask-path.md now documents
+    "no place and no level" as a refusal (finish.py:285-288); that one is a plain geography case and
+    reads fine, but it also depends on answered_places and an empty level together.
+
+U4  NOTE  api/src/finish.py:199-214 (unanswered)
+    Fails closed on a missing report. tables_only is true only after a report was adopted. If the split
+    call is late or failed and the model, on a which-table question, tried build_url without a
+    geography (tool failure, timings has it), unanswered() replaces the model's own answer with
+    "Nothing was fetched because no place was resolved. Name the place, with its state". Narrow
+    (needs a failed report plus a build attempt on a which-table question). Consider requiring a
+    reported intent before overwriting prose.
+
+U5  NOTE  docs/ask-path.md:96 vs :99
+    Line 96 says an unqualified name with no dominant match selects nothing "(direct place, comparison
+    leg and listing parent alike)"; line 99 still says "A direct single place keeps the largest match
+    with the others as alternatives". The code (geo.py:400) implements line 96 for the cross-state
+    search and the largest-match rule only when dominant. Reword line 99.
+
+U6  NOTE  api/src/geo_list.py state_of / geo.py _place
+    "Washington DC" (no comma) is not a state (state_of None), so a bare "Washington DC" single place
+    with level place or null ranks name "washington dc" across states and finds nothing, then falls
+    back to the county list. The prompt tells the model to write "Place, ST", so this is only a
+    robustness note; "Washington, DC" and "District of Columbia" resolve.
+
+U7  NOTE  api/src/guards.py:195-206 (zcta_not_zip) and :286 (median), :248 (universes)
+    zcta_not_zip now fires for any ZCTA answer, including a user who wrote "ZCTA 90210" and never
+    said ZIP (documented in requirements.md, so not a defect). guards.py still scans record.question
+    with regex/keyword for universes (_named_universes), "median", combine and derived words. These
+    are not new in this diff (check_invariants regex call sites: 18, base 55, delta -37); CLAUDE.md
+    names CC-104/129-133 as the migration, so they are outstanding scope, not a finding on this diff.
+
+U8  NOTE  api/src/finish.py:386
+    `redo = redo or bool(acs1 and url is None)` is redundant: `if not url or redo` already covers
+    url None. Harmless.
+
+Checks that held (probes p2.py through run_ask, real resolver, scripted model and report):
+    nation ("us", no place): URL for=us:1, no refusal.
+    nationwide listing of one level ("all counties", parent_level us): URL for=county:*&in=state:*.
+    place with its state written and a report that lists it: resolved, no warning (Harris County TX).
+    which-table question with report asks_for=tables: not refused, no URL, model answer kept.
+    ambiguous single place with no build: no URL, "Nothing was fetched because a place name matches
+    several places" plus ambiguous_place candidates.
+    A comparison resolves every place or none: an ambiguous leg returns that leg's candidates and
+    nothing is compared (geo.py:209-210). A listing with one ambiguous parent returns the candidates
+    (geo.py:186-187). tracts_in_place returns candidates when ambiguous (geo_within.py:42-52).
+    Fetched year/dataset vs rendered URL: fetch tool unchanged; year_mismatch and dataset_mismatch only
+    warn; no path found where the report overrides a URL the loop built.
+
+==================================================================================
+PASS 2: project invariants (review-pr playbook)
+==================================================================================
+Machines, run at HEAD f48f334:
+    scripts/check_invariants.py --base origin/main : exit 0, "All invariants held" (regex call sites 18, base 55).
+    scripts/check_budgets.py                      : exit 1, ONLY the p95 row: 20.714 > 20, from committed
+        evidence/latest.json (run 2026-11-22T18:58:29, a run of main, not of this diff). Reported, not a
+        finding against this diff. All other rows ok (largest file 410/410, web 3350/3350, doc lines
+        1818/1820, prompt tokens 1099/1200: at or near their ceilings, none exceeded; budgets.toml unchanged).
+    ruff check . and ruff format --check . : clean. mypy api/src : no issues in 29 files.
+    pytest: full run with -x stopped at api/tests/test_rerank.py::test_a_stalled_call_is_abandoned_at_3_seconds_
+        without_a_server_deadline (1 failed, 1492 passed, 20 skipped). A second targeted run of test_rerank
+        plus the files after it alphabetically (tracts_in_place, vintages, store, text, url_grid) failed a
+        different rerank test (test_a_retriable_status_does_not_wait_out_a_backoff) and passed 119. Both are
+        wall-clock timing tests in an untouched module (rerank is outside the diff); treated as machine-load
+        flakes, not findings. Everything else passed. (Two pytest invocations, the second narrowed to cover
+        what -x skipped.)
+
+P2-1  BLOCKER (process)  evidence/closure/CC-104.toml
+    `scripts/closure.py check evidence/closure/CC-104.toml --pre-merge` exits non-zero: AC1-AC5 and
+    TC1-TC5 all "stale, 21 covered file(s) changed since 7e2f47a"; and without --pre-merge the
+    post_merge E2E is also unrecorded. run-slice.md / review-pr verdict: every in-scope AC/TC must be PASS
+    with commit-specific evidence; a stale row is unverified, so the answer is Not yet until the rows are
+    re-verified at the final head (this is expected to be refreshed after fixes, but it is a hard gate).
+
+P2-2  SHOULD  Silent-wrong-answer review (U1)
+    "Did anything start silently repairing input - a corrected geography?" Dropping the user's own state
+    (U1) is exactly that, and state_supplied (geo.py, geo_level.py geo_status) has no reader: grep shows
+    it written to geo_status and read nowhere, so no warning ever carries it. Either surface it as a
+    warning on the answer or stop dropping the state when the report is unknown.
+
+P2-3  NOTE  Scope: 39 files, +3319/-1848 (about 21 under api/src and docs, the rest tests). Far over "under
+    ~15 files"; it is one migration (CC-104 removes the word-reading paths), the diff is net negative in
+    src regex and leakage-baseline lines. No unrelated additions found. No new module with a forbidden
+    suffix, no add_node, no new tool (tool schemas 8/12), ARCHITECTURE.md and requirements.md updated
+    with the shape change. No ticket-named test files; no assertions on prompt wording found.
+
+P2-4  NOTE  Tests: the shipped-resolver test (test_geography_intent.py ~L740) asserts states_named() is None
+    before a report and "unknown, never none written" is pinned by test_geography_completeness.py:278 and
+    test_geography_intent.py:603 (parametrised [], None, ["Missouri"] all ambiguous). Those tests lock in
+    U1: they encode the dropped-state behaviour for None as correct. Changing U1 means changing them.
+    No test exercises build_url with a candidate for_spec after an ambiguous result (U2).
+
+Not flagged by instruction: the CLAUDE.md "URL is the product" edit (ambiguous = unsearchable).
+
+==================================================================================
+Counts: BLOCKER 1 (P2-1, process/closure), SHOULD 4 (U1, U2, U3, P2-2), NOTE 7 (U4-U8, P2-3, P2-4)
+==================================================================================
+VERDICT: NOT YET - stale closure manifest (P2-1), and a user-written state is dropped when the report is unknown, yielding a wrong-place URL (U1/P2-2); ambiguous candidates can still be built (U2).

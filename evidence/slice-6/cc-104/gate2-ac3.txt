@@ -1,0 +1,207 @@
+CC-104 Gate 2 (cold review), AC3 range 71c9daa..ecf2a6a
+Branch (worktree): worktree-agent-a5c77b5f53ae69dd8, reset to ecf2a6a (cc-104/structured-geography head)
+HEAD at start: ecf2a6a2fc851e6a3fe847176fe9cd55d78105f4
+Diff reviewed: git diff 71c9daa ecf2a6a -- api docs scripts evals budgets.toml
+  15 files, +315/-156 (src: ask.py, finish.py, geo_level.py, guards.py; docs/ask-path.md; 10 test files)
+Pytest at head (api/tests): 1462 passed, 34 skipped, 5 xfailed.
+
+======================================================================
+PASS 1 - generic bugs, cold (recorded before reading evidence/, PLAN, STATE, Jira)
+======================================================================
+
+Scope read: the whole src diff plus the code it touches (ask.py run_ask/dispatch/_absorb,
+geo_level.py note_intent and both level guards, finish.py plan_split/incomplete/_split_parents/
+finish_tools, guards.py, geo.track_geo_query, scripts/ask_one.py, main.py callers). Searched the
+repo for every removed name (geo_queries, asked_levels, unmet_levels, tables_only attribute,
+report["frame"]/["parents"]/["places"] dict access): no reader of the old shape remains in
+api/src, scripts/, evals/ or docs/.
+
+What I tried to break, and the result:
+
+- Dataclass mutable defaults (GeoIntent, ExecutionRecord.intent): every list/set uses
+  default_factory. No shared default. OK.
+- Throwaway object mutated and lost: intent_of(record) returns a fresh GeoIntent() for a record
+  with no `intent` attribute, so incomplete()/finish_tools adopt into a throwaway there.
+  ExecutionRecord always has one, and both callers in src pass an ExecutionRecord, so this is
+  unreachable in production (see E3).
+- Adopted once but read before it is adopted: tables_only / pointing / level are read in
+  incomplete() and finish_tools() only after adopt(); the level guards and geography_unsupported
+  run in assemble() after finish_tools. A report that arrives after FRAME_WAIT_SECONDS (3s) is
+  adopted by finish_tools (6s wait) before assemble. A report later than both is dropped, which
+  is the documented fail-open. OK. Behaviour change worth knowing: tables_only used to be set
+  only by incomplete() (turn-0, 3s window); now a report that arrives in the finish window also
+  sets it (CONFIRMED by probe: late tables report -> tables_only True). It only suppresses
+  warnings for a table question; direction is benign (E4, NOTE).
+- adopt-once: a second adopt() with a different report is a no-op and never touches
+  levels/legs/unmet (test_the_report_is_taken_once... passes and the code matches).
+- _split_parents: the old snapshot key "geo_queries" became a local `legs` copy restored after
+  the loop on the same condition (after the `not before["geographies"]` early return, inside the
+  non-success path). Same path as before. OK.
+- plan_split output equivalence with the old dict: traced all four old branches
+  (no names / places / unit not splittable / parents). New fields places/parents/unit/
+  parent_level match each branch. OK.
+- Race between background task and loop: the split task only returns a value; it touches no
+  shared record state, adoption is on the loop's own coroutine. wait_for/shield behaviour is
+  unchanged. OK.
+- Exceptions escaping where fail-open is promised: adopt() cannot raise on a GeoIntent; incomplete()
+  wraps only the wait, as before. A non-GeoIntent report cannot occur (plan_split is the only
+  producer). OK.
+- Type confusion on model JSON: level/named/numbered/given/asks_for/pointing/county_named/
+  parent_level are type-checked or consumed through level_name/_unit/isinstance filters as
+  before. `level` is stored unchecked (typed `str | None`, may be list/int) and is passed to the
+  repair resolve call by finish_tools; unchanged from base and covered by an existing test
+  (a level that is a container never fails the request).
+- Tests that could not fail: read all test diffs. test_a_table_question_has_no_level_to_verify
+  first assertion duplicates test_a_geography_resolved_without_a_stated_level_is_unverified (the
+  second assertion is the real one). The `!= {"state"}` assertion in
+  test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran is weak but the
+  other assertions in that test pin the behaviour. No test found that passes regardless.
+
+Findings from Pass 1:
+
+E1 (NOTE, CONFIRMED, pre-existing, not introduced by this diff) finish.py plan_split:
+   `listing = bool(names) and bool(found.get("listing")) ...` and `places = names if names and
+   not found.get("listing")`. A model reply with "listing": "false" (a string) is truthy, so a
+   comparison is treated as a listing. Probe: plan_split with parents=["Ohio"], unit="county",
+   listing="false" -> parents=['Ohio'], places=[], unit='county'. Same expression existed at
+   base. Not a regression; every other flag in the same function is checked with `is True`.
+
+E2 (NOTE, CONFIRMED) geo_level.py:86-92 GeoIntent docstring says "The loop's own resolve_geography
+   calls fill the first group (a repair call never does)". That is true of `levels` and `unmet`
+   (note_intent skips origin=repair) but false of `legs`: _absorb runs for repair calls too.
+   Probe: legs=['Harris County, Texas'], repair call with two places -> legs becomes [];
+   repair call with a different single place -> legs gains it. Behaviour is the same as the old
+   geo_queries (intended: finish replays what resolved), so the code is fine; the comment and the
+   matching sentence in docs/ask-path.md ("the loop's calls fill levels, legs and unmet") overclaim.
+
+E3 (NOTE, CONFIRMED, unreachable in production) geo_level.py:125 intent_of() returns a throwaway
+   GeoIntent() for a record without `intent`. Probe: SimpleNamespace record passed to incomplete()
+   with a tables report -> returns None but intent_of(rec).tables_only is False afterwards and the
+   record gained no attribute. ExecutionRecord is the only record src passes, so no live effect;
+   tests that use bare records get silent no-ops. note_intent() takes the opposite stance
+   (`record.intent`, AttributeError for a bare record), so the two helpers disagree.
+
+E4 (NOTE) see "Behaviour change" above: tables_only now also set by a report that lands in the
+   finish window. Benign, undocumented.
+
+No Pass 1 finding rises to BLOCK or SHOULD.
+
+======================================================================
+PASS 2 - project invariants (docs/playbooks/review-pr.md, same range)
+======================================================================
+
+The machines, run at ecf2a6a (origin/main = 261c18f):
+
+  uv run python scripts/check_invariants.py --base origin/main
+      exit 0. "All invariants held." All 19 rows ok, including: forbidden module names,
+      blocking clarification, key attached only via CensusURL, mandatory catalogs, budget
+      increases, new regex, new exemptions, eval phrasing in api/src, closure manifests.
+      info: api/src regex call sites 28 (base 55, delta -27).
+  uv run python scripts/check_budgets.py
+      exit 1 for answered_rate 0.683 < 0.7 only; p95 row is "waive" (owner waiver, CC-114 run).
+      Both inherited from main, not findings, per the brief. Every code-size row is ok:
+      api src LOC 4834 <= 4890, files 29 <= 40, largest file 406 <= 410, doc lines 1809 <= 1820,
+      graph nodes 0, tools 4, tool schemas 8, domain models 11. budgets.toml is not in the diff.
+  uv run ruff check .            exit 0 (All checks passed)
+  uv run ruff format --check .   exit 0 (259 files already formatted)
+  uv run mypy api/src            exit 0 (no issues in 29 source files)
+  uv run pytest api/tests        1462 passed, 34 skipped, 5 xfailed
+  (info) uv run python scripts/closure.py check evidence/closure/CC-104.toml --pre-merge
+      --head ecf2a6a: BLOCKED, AC1-AC5 and TC1-TC5 all "NOT RUN". That is the manifest of the
+      whole ticket and this range is one AC of it; not a finding against this range, but it is
+      the reason the ticket cannot be closed on this gate alone.
+
+No machine failed on the diff, so the review continues.
+
+The claim. What can a user do now that they could not before? Nothing: this range is a
+consolidation. Four loose ExecutionRecord fields (asked_levels, unmet_levels, geo_queries,
+tables_only) and the split call's untyped {"frame", "parents", "places", ...} dict become one
+typed GeoIntent. It should be described as refactoring, not a feature. The safe reading of the
+range is "behaviour preserved"; the only behavioural delta I found is E4 (late tables report).
+
+Scope. 15 files (4 src, 1 doc, 10 test), no budgets.toml / scripts / evals change, no new module,
+no new tool, route, model or graph node. At the ~15-file line, explained by the rename fan-out in
+tests. No "while we were in there" additions found; the extra tests are on the new type.
+
+Question-wording readers in geography execution:
+  - The diff adds none (grep of added lines for re./casefold-on-question/startswith/in question:
+    only hit is GeoIntent.tables_only, which casefolds the MODEL's `asks_for` value, not the
+    question). Added lines compare structured fields only.
+  - Kept, not touched by this diff, and outside what AC3 changes:
+      guards.py:186-189 zcta_not_zip reads record.question with _ZIP/_ZCTA_CODE regexes (a
+        warning that quotes the 5-digit code; it does not choose or alter a geography).
+      finish.py:304,364 wants_acs1(question) and requested_years(question, year) read time and
+        product from words (the code comment says "the next story"); guards.py:143-145 vintage
+        regexes. These are time/product, not geography scope, and are already marked as deferred.
+    Recorded as E5 so the owner can confirm they stay tracked under CC-129..133.
+  - incomplete() and finish_tools still obey "model supplies structured intent, code validates":
+    level/named/numbered/given/county_named/pointing/asks_for come from the split report;
+    _NEEDS comparison, state_of/fips_state grounding and clauses_from_geoid are exact identifier
+    parsing; nothing reads the question text.
+
+Requested vs executed vs inferred.
+  - GeoIntent's own docstring states the split and docs/ask-path.md repeats it: requested in
+    `intent`, executed in `record.geographies`, inferred in `geo_status["inferred"]`. Code
+    check: nothing writes a code-supplied or inferred value into `intent`. The only writes are
+    note_intent (model's call args), _absorb (legs: the model's own places), adopt (split report),
+    and _split_parents restoring a saved copy of legs. finish_tools passes the model-reported
+    `intent.level` to the repair call but does not write it back (test
+    test_a_repair_resolution_never_records_a_level_the_model_did_not_state pins that).
+  - Caveat (E6, NOTE): `unmet` and `legs` are requested values filtered by what resolved, so the
+    "requested side only" docstring is a little stronger than the data. The docs describe the
+    behaviour accurately ("stays unmet until a legal call serves it").
+  - geography_level_mismatch / geography_level_unverified still compare stated vs executed vs
+    inferred through intent.levels / intent.unmet / geo_status["inferred"]; unchanged logic.
+
+URL / redaction / MOE / GEOID / universe: diff does not touch URL construction, CensusURL,
+fetch, rows or response assembly. No raw URL string built. An incomplete-geography refusal
+still returns through assemble(stop, record) with no URL, as before; the refusal path reads
+adopted intent (pointing, named, numbered, level, given, county_named) exactly as it read the
+old frame.
+
+Blocking clarification / guards: none added. geography_unsupported now reads
+intent_of(record).tables_only, still a warning guard.
+
+Shape: no tool, route, Pydantic model or graph node added; GeoIntent is a plain dataclass on
+the existing boundary, with five callers (ask, finish, geo_level, guards, tests), so the "second
+caller" rule is met. docs/ARCHITECTURE.md does not mention the removed fields or the split
+return shape, so no stale text there; docs/ask-path.md was updated in the same range for
+ExecutionRecord.intent, legs and intent.levels. The catalog `mandatory catalogs` check passes.
+No remaining reference to geo_queries / asked_levels / unmet_levels / record.tables_only
+anywhere in api, scripts, evals, docs, web.
+
+Tests: all behavioural (record state, response warnings, dispatch results); none assert prompt
+wording or LLM prose; no same-answer-for-any-input fakes added; no ticket-named files
+(invariant ok). New tests cover adopt-once, fields by branch of plan_split, tables_only
+suppression, repair not recording levels, unsupported candidate keeping legs/levels/unmet.
+Minor: a duplicated assertion (see Pass 1).
+
+======================================================================
+FINDINGS
+======================================================================
+
+E1  NOTE   finish.py plan_split (listing = bool(...found.get("listing")), places = ... not
+           found.get("listing")): a string "false" is truthy. CONFIRMED by probe. Pre-existing at
+           base, not a regression of this range; every sibling flag is checked `is True`.
+E2  NOTE   geo_level.py GeoIntent docstring: "a repair call never does" fill the loop group is
+           false for `legs` (CONFIRMED by probe: a repair resolve changes intent.legs, e.g. to []
+           for a two-place repair). Behaviour matches the old geo_queries; fix the sentence only.
+E3  NOTE   geo_level.py intent_of(): a record with no `intent` gets a throwaway GeoIntent, so
+           incomplete()/finish_tools adoption is silently lost (CONFIRMED with a bare record),
+           while note_intent uses record.intent and would raise. Unreachable in production
+           (ExecutionRecord always has intent); two helpers disagree on bare records.
+E4  NOTE   tables_only is now also set by a split report that arrives in the finish window
+           (previously only the 3s turn-0 window). CONFIRMED by probe. Benign (suppresses
+           level/unsupported warnings for a table question), undocumented.
+E5  NOTE   Pre-existing question-wording readers kept outside this diff: guards.zcta_not_zip
+           (regex on record.question), finish_tools wants_acs1/requested_years. Not geography
+           scope or execution; confirm they are covered by the CC-129..133 migration list.
+E6  NOTE   "requested side only" docstring vs `unmet`/`legs` being outcome-filtered (see Pass 2).
+E7  NOTE   Closure manifest evidence/closure/CC-104.toml is NOT RUN for AC1-5 / TC1-5 at this head;
+           expected mid-ticket, but the ticket is not closable on this gate. Evidence for the
+           "behaviour preserved" claim (same --repeat scoreboard before/after) was not read here.
+
+No BLOCK. No SHOULD.
+
+VERDICT: READY - the AC3 range preserves behaviour (all machines green except the two inherited budget rows, 1462 tests pass, no wording reader added, requested/executed/inferred kept apart, docs updated); only NOTE-level doc/helper nits remain (E1-E7).
+

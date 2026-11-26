@@ -11,14 +11,13 @@ from typing import Any, Protocol
 
 from src.compare import comparison_rows, comparison_too_large, shared_sample, significance_warning
 from src.contract import Alternative, AskWarning, Comparison, GeoSpec
-from src.geo_level import geography_level_mismatch, geography_level_unverified
+from src.geo_level import ZCTA, geography_level_mismatch, geography_level_unverified, intent_of
 from src.vintages import (
     CENSUS_MISSING as _MISSING,
 )
-from src.vintages import period_for, variable_not_in_vintage, year_span
+from src.vintages import period_for, unpublished_vintage, variable_not_in_vintage, year_mismatch
 
 _ACS5_SPAN = 5
-_RANGE = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
 _UNIVERSES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("households", ("households", "household")),
     ("families", ("families", "family")),
@@ -40,8 +39,6 @@ _DERIVED = re.compile(
     r"index(?:es)?|densit(?:y|ies)|per[\s-]?capita)\b",
     re.IGNORECASE,
 )
-_ZIP = re.compile(r"\bzip codes?\b(?!\s+tabulation)|\bzip\b(?!\s+code)", re.IGNORECASE)
-_ZCTA_CODE = re.compile(r"\b(\d{5})\b")
 
 
 class GuardRecord(Protocol):
@@ -51,15 +48,6 @@ class GuardRecord(Protocol):
     geographies: list[GeoSpec]
     rows: list[dict[str, str | None]]
     table_id: str
-
-
-def _acs5_end_years(question: str) -> list[int]:
-    years: list[int] = []
-    for start_text, end_text in _RANGE.findall(question):
-        start, end = int(start_text), int(end_text)
-        if end - start == _ACS5_SPAN - 1:
-            years.append(end)
-    return years
 
 
 def _overlaps(years: list[int]) -> bool:
@@ -137,16 +125,40 @@ def boundary_change_2020(record: GuardRecord) -> AskWarning | None:
 
 
 def overlapping_vintage(record: GuardRecord) -> AskWarning | None:
-    years = _acs5_end_years(record.question)
-    if re.search(r"\bevery year\b", record.question, re.IGNORECASE):
-        years.extend(year_span(record.question))
-    years.extend(year for dataset, year in record.vintages if dataset == "acs5")
-    if not _overlaps(years):
+    years = [year for dataset, year in record.vintages if dataset == "acs5"]
+    if _overlaps(years):
+        labeled = ", ".join(str(year) for year in sorted(set(years)))
+        return AskWarning(
+            code="overlapping_vintage",
+            detail=f"ACS5 vintages {labeled} share sample years and are not comparable",
+        )
+    artifact = getattr(record, "fetch", None)
+    dropped = zip(
+        getattr(artifact, "omitted_years", None) or [],
+        getattr(artifact, "omission_reasons", None) or [],
+        strict=False,
+    )
+    left_out = [str(year) for year, reason in dropped if reason == "overlapping_vintage"]
+    if not left_out:
         return None
-    labeled = ", ".join(str(year) for year in sorted(set(years)))
     return AskWarning(
         code="overlapping_vintage",
-        detail=f"ACS5 vintages {labeled} share sample years and are not comparable",
+        detail=f"ACS5 years {', '.join(left_out)} were not fetched: their samples overlap",
+    )
+
+
+def dataset_mismatch(record: GuardRecord) -> AskWarning | None:
+    """The report named another product than the model's own build; the build stands."""
+    said = intent_of(record).dataset
+    artifact = getattr(record, "fetch", None)
+    built = str(
+        getattr(artifact, "dataset", "") or (record.vintages[-1][0] if record.vintages else "")
+    )
+    if said != "acs1" or built != "acs5" or getattr(artifact, "acs1_ineligible", False):
+        return None  # ACS5 is the default, so only ACS1 is a request; a fallback is not a clash
+    return AskWarning(
+        code="dataset_mismatch",
+        detail="the report asked for ACS1; the request was built as ACS5",
     )
 
 
@@ -169,7 +181,7 @@ def moe_not_significant(record: GuardRecord) -> AskWarning | None:
 
 def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     status = record.geo_status
-    if getattr(record, "tables_only", False):
+    if intent_of(record).tables_only:
         return None  # a table question wants no geography, so none can be unsupported
     if not status or status.get("legal") is not False or status.get("nested") is False:
         return None
@@ -180,11 +192,24 @@ def geography_unsupported(record: GuardRecord) -> AskWarning | None:
     )
 
 
-def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
-    if not _ZIP.search(record.question):
+def state_inferred(record: GuardRecord) -> AskWarning | None:
+    """The model attached a state the question did not write; the name alone settled the place."""
+    status = record.geo_status or {}
+    if not status.get("state_supplied") or status.get("ambiguous"):
         return None
-    match = _ZCTA_CODE.search(record.question)
-    code = match.group(1) if match else ""
+    return AskWarning(
+        code="state_inferred",
+        detail="the question writes no state for this place; the name alone settled it",
+    )
+
+
+def zcta_not_zip(record: GuardRecord) -> AskWarning | None:
+    """A ZCTA answer: the level resolved or the rows fetched, whatever the user called it."""
+    ids = {str(row.get("GEO_ID") or "") for row in record.rows}
+    zctas = {geoid[-5:] for geoid in ids if geoid.startswith("860")}  # the 860 summary level
+    if not zctas and not any(spec.level == ZCTA for spec in record.geographies):
+        return None
+    code = next(iter(zctas)) if len(zctas) == 1 else ""
     named = f"ZIP {code} / ZCTA {code}" if code else "ZIP / ZCTA"
     return AskWarning(
         code="zcta_not_zip",
@@ -422,6 +447,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
     for guard in (
         overlapping_vintage,
         variable_not_in_vintage,
+        unpublished_vintage,
+        year_mismatch,
         acs1_geography_ineligible,
         vintage_gap_2020,
         boundary_change_2020,
@@ -435,6 +462,8 @@ def evaluate(record: GuardRecord) -> list[AskWarning]:
         zcta_not_zip,
         geography_not_nested,
         geography_level_mismatch,
+        dataset_mismatch,
+        state_inferred,
         geography_level_unverified,
     ):
         warning = guard(record)

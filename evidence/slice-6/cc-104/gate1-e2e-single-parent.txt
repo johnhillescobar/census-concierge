@@ -1,0 +1,26 @@
+CC-104 mutation check (run by the implementing session, not a fresh Gate 1 subagent) for the guard added after
+the E2E at b9eec53 (api/src/finish.py `_split_parents`: a state the loop stated and got stands over a
+one-parent split report). Committed before mutating; each mutant applied to the committed file, then restored.
+
+Tests: test_finish.py
+  test_a_level_the_loop_stated_and_got_stands_over_a_one_parent_report
+  test_a_one_parent_report_still_repairs_what_the_loop_never_stated_or_never_got
+  test_a_county_parent_or_another_state_is_not_covered_by_the_loops_stated_state
+  test_a_two_parent_report_still_overrides_the_loops_stated_level
+  (and test_ask_loop.py::test_the_loops_call_and_the_split_report_are_one_intent_apart_from_what_ran,
+   which the first, too-broad version of the guard broke: the report there names another place)
+
+Mutants (all KILLED):
+  guard removed                          -> 1 failed
+  two parents covered (< 2 -> < 9)       -> 1 failed
+  unmet ignored                          -> 1 failed
+  `inside` (same state) dropped          -> 1 failed
+  parent_level condition dropped         -> 1 failed
+  stated-level condition dropped         -> 4 failed
+First draft of the two-parent test did not kill `< 9` (its parents were not inside the loop's states);
+the test was rewritten and the mutant then failed it.
+
+Machines after the change: pytest 1509 passed, 34 skipped; ruff, format, mypy clean; invariants held;
+api LOC 4804/4890, largest file 404/410.
+Real-model recheck (probe, not the E2E): q28 3/3 at state level (was county list 3/3 in the E2E);
+q32 1/3 clean. q32 r2/r3 still show the refused-first-call cause below.

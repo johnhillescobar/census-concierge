@@ -1,0 +1,192 @@
+CC-104 Gate 1 (tests + mutation check)
+HEAD: dd65138dbc9dd087fa73954e1332529557778eea
+Branch: cc-104/structured-geography
+Review base: origin/main
+Tree at start: clean (git status --short empty). Each mutation was one edit in api/src, only the named test(s)
+run (uv run pytest <node ids> -q -p no:warnings), then `git checkout -- <src file>`. git status after every
+restore showed only the test files edited by this gate.
+
+Matrix: docs/process-evidence.md has 4 rows, all slice-0 retrieval (twin ranking, family return, tuning-set
+measurement, "largest jump"). None concerns geography execution. The CC-104 AC/TC matrix
+(evidence/slice-6/cc-104-plan.md) was used instead: AC1/TC2/TC3 isolation + intent tests, AC3 report and level
+tests, AC4/TC5 repair + finish tests, AC5 completeness tests, TC1 fixed-intent listing, TC4 existing suites.
+AC2 (deleted readers, regex delta) is a machine check (check_invariants), not a pytest.
+Holes found and closed: 4 tests the branch deleted for behavior still in api/src were restored (see the
+"matrix holes" block), 1 added for the nationwide listing, 1 for a county parent without a state, 1 for a
+repair the loop never had, 1 for a question that is only a place name, 2 assertions tightened.
+
+=== geo_list.py ===
+GOOD state_of scans words instead of exact lookup  [test_a_sentence_or_an_unnamed_state_names_no_state]
+2 failed, 3 passed in 0.34s
+GOOD state_of ignores a labelled code  [test_a_code_with_its_own_label_grounds_the_state]
+1 failed in 0.36s
+GOOD state_of reads only the whole entry, not the part after the last comma  [test_the_state_of_an_entry_is_an_exact_lookup]
+3 failed, 3 passed in 0.36s
+GOOD name_token keeps the whole entry instead of the part before the first comma  [test_the_name_of_an_entry_is_the_part_before_its_first_comma]
+1 failed in 0.26s
+GOOD state_of reads only the whole entry (county chain naming a state)  [test_a_place_reported_with_its_own_county_chain_still_counts_as_named]
+1 failed in 0.36s
+
+=== geo.py (resolver) ===
+GOOD _list does not refuse a non-state parent without parent_level  [test_a_changed_parent_level_changes_the_listing_it_resolves]
+1 failed in 0.35s
+GOOD _list accepts a listing with no level  [test_intent_missing_a_field_is_sent_back_for_repair_not_guessed]
+1 failed, 2 passed in 0.31s
+GOOD a call naming no place and no level is not refused for repair  [test_intent_missing_a_field_is_sent_back_for_repair_not_guessed]
+2 failed, 1 passed in 0.43s
+GOOD level us no longer resolves the nation  [test_the_nation_is_resolved_only_when_the_model_states_it]
+1 failed in 0.32s
+GOOD a nation is resolved without being stated (no-place refusal removed)  [test_a_call_that_names_no_place_and_no_level_resolves_nothing]
+1 failed in 0.37s
+GOOD _list drops the parent code it matched (listing in_spec lacks the county)  [test_a_listing_is_executed_from_its_fields_with_no_listing_words_anywhere]
+1 failed in 0.33s
+BAD _list does not search a state-less county/place parent across states  [test_a_place_parent_named_without_its_state_is_found_by_name_across_states]
+1 passed in 0.22s
+  (the test resolves Detroit, which geo_within.tracts_in_place rescues through _place; strengthened below)
+GOOD [strengthened] _list does not search a state-less county parent across states  [new test_a_county_parent_named_without_its_state_is_found_by_name_across_states]
+1 failed in 0.34s
+GOOD _list does not search a state-less county parent across states (existing wayne test)  [test_tracts_in_wayne_without_a_state_pick_michigan]
+1 failed in 0.32s
+GOOD levels beside one place are accepted  [test_levels_beside_a_single_place_are_refused_for_repair]
+1 failed in 0.38s
+GOOD levels of the wrong length beside two places are accepted  [test_a_levels_list_that_does_not_match_the_places_is_refused_for_repair]
+1 failed in 0.37s
+GOOD a blank parent is dropped instead of failing the call  [test_wildcard_blank_parent_fails_explicitly_not_via_old_collapse]
+1 failed in 0.39s
+GOOD a multi-parent listing is always marked inferred  [test_a_wildcard_listing_for_several_parents_is_a_comparison_at_the_stated_level]
+1 failed in 0.34s
+BAD parent_level us no longer reaches the listing branch  [test_a_table_question_gets_no_geography_warning_but_a_data_question_does]
+1 passed in 0.43s
+  (the same warning arises when the nation listing is refused; strengthened below)
+GOOD [strengthened] parent_level us no longer reaches the listing branch  [new test_a_nationwide_listing_is_run_only_when_parent_level_is_us]
+1 failed in 0.30s
+GOOD [strengthened] a nationwide listing loses the state wildcard  [new test_a_nationwide_listing_is_run_only_when_parent_level_is_us]
+1 failed in 0.37s
+GOOD comparison alternatives are dropped from a multi-place resolution  [test_springfield_versus_texas_keeps_place_alternatives, test_versus_with_several_places_warns_and_keeps_both_legs]
+2 failed, 1 passed in 0.43s
+GOOD _list lets a level be listed inside a parent it does not nest in  [zcta parent tests in test_guards, test_ask_tools]
+5 failed in 0.56s
+GOOD _place lets a named ZCTA carry a state it does not nest in  [named zcta with a state tests in test_guards, test_ask_tools]
+2 failed in 0.41s
+GOOD the place fallback no longer flags an inferred level  [test_a_level_the_code_chose_is_marked_inferred_in_every_result_shape, test_a_null_level_the_code_had_to_infer_is_warned_as_unverified]
+2 failed, 1 passed in 0.39s
+GOOD _place ignores a stated state level  [test_a_stated_level_is_run_for_the_place_named_and_is_not_inferred, test_a_stated_state_level_builds_a_state_for_clause_for_a_county_named_place, test_a_different_stated_intent_changes_execution_under_the_same_wording]
+3 failed in 0.82s
+GOOD a listing ignores the level the model stated  [test_changing_the_listing_level_changes_execution_under_the_same_wording]
+1 failed in 0.57s
+
+=== finish.py ===
+GOOD incomplete() does not count a reported name without a digit as giving the state  [test_a_famous_place_named_without_its_state_is_not_refused]
+1 failed in 0.41s
+GOOD incomplete() lets a digit entry stand as a name without grounding itself  [test_a_number_filed_under_named_is_a_code_that_must_ground_itself]
+2 failed, 1 passed in 0.64s
+GOOD incomplete() lets a digit entry stand as a name  [test_a_number_the_model_files_under_named_is_still_not_a_name]
+1 failed, 1 passed in 0.49s
+BAD incomplete() lets a made-up digit entry stand as a name  [test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_named]
+1 failed, 1 passed in 0.49s
+  (this is the passing one of the pair above: it still refused for the missing county; strengthened below)
+GOOD [strengthened] incomplete() lets a made-up digit entry stand as a name  [test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_named]
+1 failed in 0.36s
+GOOD incomplete() does not take a labelled code as giving the state (FIPS 39049, state 21)  [test_a_code_with_its_own_label_grounds_the_state, CASES "Tract 5871 in county 201, state 21"]
+2 failed, 20 passed in 3.51s
+GOOD finish sends levels beside a single place too  [test_a_repair_resolution_never_replaces_the_level_the_model_stated]
+1 failed, 55 passed in 3.33s
+GOOD finish does not send the stated levels beside 2+ places  [test_a_repair_of_sequential_places_passes_each_stated_level_marked_as_repair]
+1 failed in 0.40s
+GOOD finish does not resolve a comparison the loop resolved apart (short ignored)  [test_comparison_resolved_apart_is_resolved_together_with_the_models_places]
+1 failed in 0.41s
+GOOD finish resolves again a comparison already resolved together (compare_count ignored)  [test_model_naming_no_listing_level_leaves_the_resolution_alone]
+1 failed in 0.34s
+GOOD finish resolves again a comparison that was already resolved together  [test_resolved_comparison_with_two_queries_is_not_resolved_again]
+1 failed in 0.40s
+GOOD finish does not resolve a pair of single-place calls together  [test_unresolved_pair_of_single_place_queries_is_resolved_together]
+1 failed in 0.34s
+GOOD finish resolves the question itself when the model reported nothing  [test_finish_never_resolves_the_question_itself, test_a_question_the_model_reported_no_place_for_is_given_no_guessed_one, test_finish_resolves_no_geography_from_the_question_when_the_model_reported_none]
+3 failed, 1 passed in 0.85s
+BAD finish resolves the question itself when the model reported nothing  [test_a_model_that_reports_no_place_gets_no_guessed_geography]
+3 failed, 1 passed in 0.85s
+  (the one passing test in that run; its question matches no place name, so the guess found nothing; strengthened below)
+GOOD [strengthened] finish resolves the question itself when the model reported nothing  [new test_a_question_that_is_only_a_place_name_is_not_resolved_unreported]
+1 failed in 0.75s
+GOOD plan_split drops a single-parent listing  [test_listing_of_one_parent_at_the_wrong_level_is_resolved_again, test_a_county_parent_is_re_resolved_with_the_level_the_model_gave, test_one_parent_is_a_listing_and_still_a_frame]
+3 failed in 0.48s
+GOOD _split_parents drops the parent_level the model gave  [test_a_county_parent_is_re_resolved_with_the_level_the_model_gave]
+1 failed in 0.38s
+GOOD plan_split drops the parent_level the model gave  [test_a_county_parent_is_re_resolved_with_the_level_the_model_gave]
+1 failed in 0.33s
+GOOD split report pointing is truthy-coerced instead of exactly true  [test_the_split_report_carries_pointing_as_a_flag_and_nothing_else]
+1 failed in 0.38s
+GOOD a place the question points at is not refused  [test_a_phrase_that_points_at_a_place_without_naming_it_is_refused_at_once]
+3 failed in 0.76s
+GOOD numbered levels are ignored by incomplete()  [test_a_question_is_answerable_exactly_when_it_carries_what_its_level_needs]
+7 failed, 14 passed in 4.97s
+GOOD numbered entries past the cap are read  [test_entries_past_the_cap_are_not_read[numbered]]
+1 failed, 1 passed in 0.45s
+GOOD named entries past the cap are read  [test_entries_past_the_cap_are_not_read[named]]
+1 failed, 1 passed in 0.67s
+GOOD named entries lose their name test (nothing counts as giving the state)  [test_geography_report.py, incl. the Los Angeles County case]
+13 failed, 51 passed in 12.85s
+GOOD finish ignores the model's split report (no re-resolve of its parents)  [7 split-driven tests in test_ask_loop.py]
+7 failed, 63 passed in 13.52s
+BAD _split_parents drops a repair that resolved nothing before (unsupported-but-nested candidate not kept)  [no test: finish, ask_loop, tracts, guards, level_fidelity, geography_report]
+316 passed in 40.75s
+GOOD [strengthened] _split_parents drops an unsupported repair when the loop resolved nothing  [new test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing]
+1 failed in 0.34s
+GOOD _split_parents restores the loop's geo_status over the not-nested explanation  [test_tract_within_place_keeps_the_built_city_url]
+1 failed, 315 passed in 42.02s
+GOOD a listing leaves its places to be replayed as comparison legs (ask.py)  [test_an_unsupported_candidate_is_not_a_comparison_leg, assertion tightened to == []]
+1 failed in 0.33s
+GOOD a split report that is late fails the answer (timeout not handled)  [test_a_report_that_is_late_means_the_loop_runs_as_usual]
+1 failed, 245 passed in 42.10s
+
+=== wording isolation (AC1, TC2, TC3, TC5) ===
+GOOD execution reads a level word out of the question (listing)  [test_a_fixed_listing_executes_identically_under_any_wording]
+1 failed in 1.10s
+GOOD execution reads a level word out of the question (place)  [test_words_that_look_like_other_intents_do_not_change_a_stated_one[a level word], test_a_repaired_intent_executes_identically_under_any_wording[a level word]]
+2 failed, 4 passed, 5 xfailed in 6.17s
+GOOD execution reads a comparison word out of the question  [test_words_that_look_like_other_intents_do_not_change_a_stated_one[a comparison]]
+1 failed, 3 passed, 5 xfailed in 4.75s
+GOOD a level missing from the call is defaulted instead of sent back  [test_invalid_intent_is_sent_back_for_repair_and_never_parsed_from_the_wording]
+1 failed, 2 passed in 0.87s
+
+=== matrix holes (tests the branch deleted for behavior still in api/src), restored ===
+BAD cancelling the request while waiting for the split is swallowed  [no test after the branch deleted the old one]
+246 passed in 20.13s
+GOOD [restored] cancelling the request while waiting for the split is swallowed  [test_cancelling_the_request_while_waiting_for_the_split_is_not_swallowed]
+1 failed in 0.92s
+BAD an accepted repair leaves the old parent's url and rows  [no test]
+160 passed in 10.58s
+GOOD [restored] an accepted repair leaves the old parent's url and rows  [test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows]
+1 failed in 0.79s
+BAD ambiguity candidates after the chosen parents block the repair  [no test]
+160 passed in 11.27s
+GOOD [restored] ambiguity candidates after the chosen parents block the repair  [test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_the_repair]
+1 failed in 0.72s
+BAD a rejected repair does not restore the retained urls  [no test]
+107 passed in 11.79s
+GOOD [restored] a rejected repair does not restore the retained urls  [test_a_rejected_repair_restores_the_retained_urls]
+1 failed in 0.86s
+GOOD a rejected repair does not restore the loop's resolution  [5 tests in test_finish.py]
+5 failed, 155 passed in 10.41s
+GOOD a non-wildcard among the chosen parents is accepted  [test_re_resolution_to_non_wildcards_is_rejected_and_state_restored]
+1 failed, 159 passed in 14.16s
+GOOD a fewer-than-parents repair is accepted  [test_failed_re_resolution_restores_the_earlier_geography]
+1 failed, 159 passed in 14.54s
+
+=== tests added or strengthened (working tree, not committed) ===
+api/tests/test_geography_intent.py: + test_a_county_parent_named_without_its_state_is_found_by_name_across_states
+api/tests/test_geography_intent.py: + test_a_nationwide_listing_is_run_only_when_parent_level_is_us
+api/tests/test_ask_loop.py: + test_a_question_that_is_only_a_place_name_is_not_resolved_unreported
+api/tests/test_finish.py: + test_an_unsupported_repair_is_kept_when_the_loop_resolved_nothing
+api/tests/test_finish.py: + test_an_accepted_repair_never_leaves_the_old_parents_url_and_rows (restored)
+api/tests/test_finish.py: + test_extra_ambiguity_candidates_after_the_chosen_parents_do_not_block_the_repair (restored)
+api/tests/test_finish.py: + test_cancelling_the_request_while_waiting_for_the_split_is_not_swallowed (restored)
+api/tests/test_finish.py: + test_a_rejected_repair_restores_the_retained_urls (restored)
+api/tests/test_geography_completeness.py: strengthened test_a_number_the_user_never_wrote_is_not_a_place_when_filed_under_named
+api/tests/test_level_fidelity.py: strengthened test_an_unsupported_candidate_is_not_a_comparison_leg (== [])
+
+=== final runs ===
+uv run pytest api/tests -q -p no:warnings: 1387 passed, 34 skipped, 5 xfailed in 217.71s (the 5 strict xfails: 4 time/product, 1 ZIP)
+uv run ruff check api: All checks passed!
+uv run ruff format --check api: 80 files already formatted
+git status --short at end: only the 5 test files above, plus this file (no api/src change).

@@ -1,0 +1,73 @@
+CC-104 Gate 1 for the Gate 2 re-run fixes; scope: git diff 57d435b d40061d -- api docs
+Branch: cc-104/structured-geography
+HEAD: d40061d8d3d22dd1f289aee87915cd3c103fb388
+git status at start: clean (git status --porcelain empty)
+Rules: one mutation at a time, only the covering tests run, restored with git checkout -- <file> after each
+and the tree confirmed to hold no api/src change before the next. GOOD = the covering tests fail against
+the mutation. BAD = they still pass.
+
+Behaviour map and covering tests:
+ (1) finish._split_parents `shallow`: a loop resolution whose in= stops at the state is not kept when the report's parent is a county or place
+     test_finish.py::test_a_county_parent_is_resolved_again_when_the_loop_stopped_at_the_state
+     test_finish.py::test_a_county_parent_the_loop_already_carries_stands
+     test_finish.py::test_every_county_parent_must_be_carried_or_the_listing_is_resolved_again   (added here)
+ (2) guards.dataset_mismatch: only an ACS1 report over an ACS5 build warns
+     test_guards.py::test_a_report_for_the_default_product_over_an_acs1_build_does_not_warn   (strengthened here)
+     test_guards.py::test_a_report_that_names_the_other_product_warns_and_the_build_stands
+
+--- Round 1: tests as committed at HEAD d40061d ---
+
+mutation: _split_parents: the early return no longer checks the loop's in= depth (drop `not shallow`)
+GOOD
+1 failed, 1 passed, 1 warning in 1.36s
+
+mutation: _split_parents: shallow is always False (a county or place parent never counts as too shallow)
+GOOD
+1 failed, 1 passed, 1 warning in 1.52s
+
+mutation: _split_parents: shallow is always True for a county or place parent (a carried county never stands)
+GOOD
+1 failed, 1 passed, 1 warning in 1.53s
+
+mutation: _split_parents: shallow tests only the first geography instead of every parent's geography (geos[:1] for geos[: len(parents)])
+BAD
+2 passed, 1 warning in 0.81s
+  (both tests carry one parent, so the first geography is all of them)
+
+mutation: dataset_mismatch: warns whenever the report and the build differ, in either direction
+GOOD
+1 failed, 1 passed, 1 warning in 1.02s
+
+mutation: dataset_mismatch: never warns
+GOOD
+1 failed, 1 passed, 1 warning in 1.15s
+
+mutation: dataset_mismatch: warns for any acs1 report, whatever the build (`if said != "acs1":`)
+BAD
+2 passed, 1 warning in 1.96s
+  (no test had an ACS1 report over an ACS1 build in these two tests)
+  Note: my first attempt at this mutation (`built == "acs1"` added as a bail-out) was wrongly specified and
+  is equivalent to the real code for these tests; it is discarded, only the rerun above counts.
+
+--- Round 2: strengthened tests ---
+
+Added test_finish.py::test_every_county_parent_must_be_carried_or_the_listing_is_resolved_again
+  (two county parents; the loop carries the first with a county, the second only to the state; must resolve again)
+Strengthened test_guards.py::test_a_report_for_the_default_product_over_an_acs1_build_does_not_warn
+  (adds an ACS1 report over an ACS1 build, which must not warn)
+ruff format and ruff check pass on both files. Both new/strengthened tests pass on the real code (2 passed).
+
+mutation: _split_parents: shallow tests only the first geography instead of every parent's geography (new test)
+GOOD
+1 failed, 1 warning in 2.05s
+
+mutation: dataset_mismatch: warns for any acs1 report, whatever the build (strengthened test + the warns test)
+GOOD
+1 failed, 1 passed, 1 warning in 1.15s
+
+mutation: dataset_mismatch: warns for any acs1 report, whatever the build (strengthened test alone)
+GOOD
+1 failed, 1 warning in 1.71s
+
+Totals round 1: 5 GOOD, 2 BAD. Both BAD strengthened; both now GOOD (round 2). Test files changed: api/tests/test_finish.py, api/tests/test_guards.py.
+Restored tree (no api/src change), full suite run once (uv run pytest -q -m "not integration"): 1560 passed, 34 skipped

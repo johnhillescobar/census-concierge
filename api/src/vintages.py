@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -14,16 +13,6 @@ REASON_OVERLAP = "overlapping_vintage"
 REASON_MAX = "max_years"
 REASON_NO_URL = "no_url"
 REASON_UNPUBLISHED = "unpublished_vintage"
-_ACS1 = re.compile(r"\b(?:1-year|acs1)\b", re.IGNORECASE)
-_SINCE_WORD = re.compile(r"\bsince\s+(?:19|20)\d{2}\b", re.IGNORECASE)
-_SINCE = re.compile(r"\b(?:since|from|through)\s+((?:19|20)\d{2})\b", re.IGNORECASE)
-_IN_YEAR = re.compile(r"\b(?:in|for)(?:\s+the\s+year)?\s+((?:19|20)\d{2})\b", re.IGNORECASE)
-_SPAN = re.compile(r"\b((?:19|20)\d{2})\s*[-–]\s*((?:19|20)\d{2})\b")
-_YEAR_SPAN = re.compile(
-    r"\b(?:from|between)\s+((?:19|20)\d{2})\s+(?:to|and|through)\s+((?:19|20)\d{2})\b|"
-    r"\b((?:19|20)\d{2})\s+(?:to|through)\s+((?:19|20)\d{2})\b",
-    re.IGNORECASE,
-)
 CENSUS_MISSING = {
     None,
     "",
@@ -45,35 +34,6 @@ class VintagePlan:
     acs1_ineligible: bool = False
 
 
-def year_span(question: str) -> list[int]:
-    years: list[int] = []
-    for first, second, third, fourth in _YEAR_SPAN.findall(question):
-        start_text, end_text = (first, second) if first else (third, fourth)
-        start, end = int(start_text), int(end_text)
-        if end >= start:
-            years.extend(range(start, end + 1))
-    return years
-
-
-def question_years(question: str) -> list[int]:
-    years = [int(part) for pair in _SPAN.findall(question) for part in pair]
-    years.extend(year_span(question))
-    years.extend(int(match.group(1)) for match in _SINCE.finditer(question))
-    years.extend(int(match.group(1)) for match in _IN_YEAR.finditer(question))
-    return list(dict.fromkeys(years))
-
-
-def requested_years(question: str, latest: int) -> list[int]:
-    years = question_years(question)
-    if _SINCE_WORD.search(question) and years:
-        return list(range(min(years), latest + 1))
-    return years
-
-
-def wants_acs1(question: str) -> bool:
-    return _ACS1.search(question) is not None
-
-
 def variable_not_in_vintage(record: Any) -> AskWarning | None:
     from src.retrieval.availability import REASON_VARIABLE
 
@@ -93,6 +53,32 @@ def variable_not_in_vintage(record: Any) -> AskWarning | None:
     return AskWarning(
         code="variable_not_in_vintage",
         detail=f"variable absent or redefined in {labeled}; those years are not joined",
+    )
+
+
+def unpublished_vintage(record: Any) -> AskWarning | None:
+    """Years the dataset has no release for are left out of the fetch; say which."""
+    artifact = getattr(record, "fetch", None)
+    omitted = getattr(artifact, "omitted_years", None) or []
+    reasons = getattr(artifact, "omission_reasons", None) or []
+    left = [str(y) for y, why in zip(omitted, reasons, strict=False) if why == REASON_UNPUBLISHED]
+    if not left:
+        return None
+    return AskWarning(
+        code="unpublished_vintage",
+        detail=f"no release is published for {', '.join(dict.fromkeys(left))}; not fetched",
+    )
+
+
+def year_mismatch(record: Any) -> AskWarning | None:
+    """The report named other years than the fetch used. The fetch stands as the loop built it."""
+    said = set(getattr(getattr(record, "intent", None), "years", None) or [])
+    asked = set(getattr(getattr(record, "fetch", None), "requested_years", None) or [])
+    if not said or not asked or said == asked:
+        return None
+    return AskWarning(
+        code="year_mismatch",
+        detail=f"the report asked for {sorted(said)}; the fetch used {sorted(asked)}",
     )
 
 

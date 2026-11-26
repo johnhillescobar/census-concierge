@@ -1,0 +1,46 @@
+  FAIL         floor   answered_rate                 0.633 vs floor 0.7
+  PASS         floor   retrieval_at_10               0.9 vs floor 0.9
+  FAIL         floor   selector_at_1                 0.425 vs floor 0.7
+  PASS         floor   answered_rate matches trials  0.633 from trials vs reported 0.633
+  PASS         floor   p95 matches trials            29.491 vs reported 29.491
+  FAIL         floor   p95 ceiling                   29.491s vs 20s
+  PASS         floor   response contract             0 of 164 trials that returned rows lack a contract field
+  FAIL         A       long_tail trial rate          observed decrease (-0.050 over 40 families)
+  FAIL         A       long_tail case rate           observed decrease (-0.100 over 40 families)
+  FAIL         A       trap trial rate               observed decrease (-0.259 over 18 families)
+  FAIL         A       trap case rate                observed decrease (-0.278 over 18 families)
+  FAIL         A       core trial rate               observed decrease (-0.250 over 4 families)
+  FAIL         A       core case rate                observed decrease (-0.250 over 4 families)
+  FAIL         A       rows per family               6 families returned fewer rows
+  FAIL         A       empty answers (long_tail)     +0.100 per family
+  PASS         A       retrieval_at_10               0.9 vs 0.9
+  FAIL         A       selector_at_1                 0.425 vs 0.825
+  FAIL         A       p95 vs reference              29.491s vs 25.472s
+  PASS         A       reference label               legacy-unfrozen-protocol: post-CC-114 main 69d7364, existing harness; bridged: CC-141: question text only (26 goldens gain a state, t01/t06/t14 gain a county). The scorer is unchanged, so re-scoring A's trials by it returns A's trials. They answered the OLD wording: comparing a candidate with them mixes the curation with any code change. Per-id expectations are unchanged (verify_golden_places.py --base).
+  FAIL         A0      scorer / cohort hashes        changed since the reference, no bridge; any gain is the instrument's
+  FAIL         B1      long_tail trial rate          observed decrease (-0.058 over 40 families)
+  FAIL         B1      long_tail case rate           observed decrease (-0.050 over 40 families)
+  FAIL         B1      trap trial rate               observed decrease (-0.093 over 18 families)
+  FAIL         B1      trap case rate                observed decrease (-0.167 over 18 families)
+  INCONCLUSIVE B1      core trial rate               4 families, need 30
+  INCONCLUSIVE B1      core case rate                4 families, need 30
+  FAIL         B1      rows per family               4 families returned fewer rows
+  FAIL         B1      empty answers (long_tail)     +0.058 per family
+  PASS         B1      retrieval_at_10               0.9 vs 0.9
+  FAIL         B1      selector_at_1                 0.425 vs 0.75
+  PASS         B1      p95 vs reference              29.491s vs 30.204s; gain not credited, answers fell
+  PASS         B1      reference label               CC-104 final E2E block b1: unchanged origin/main 29c051860b8430d4319ad918669e18351dc9e779, same window as P, repeat 3
+  FAIL         B2      long_tail trial rate          observed decrease (-0.042 over 40 families)
+  FAIL         B2      long_tail case rate           observed decrease (-0.075 over 40 families)
+  FAIL         B2      trap trial rate               observed decrease (-0.074 over 18 families)
+  FAIL         B2      trap case rate                observed decrease (-0.111 over 18 families)
+  INCONCLUSIVE B2      core trial rate               4 families, need 30
+  INCONCLUSIVE B2      core case rate                4 families, need 30
+  FAIL         B2      rows per family               5 families returned fewer rows
+  FAIL         B2      empty answers (long_tail)     +0.075 per family
+  PASS         B2      retrieval_at_10               0.9 vs 0.9
+  PASS         B2      selector_at_1                 0.425 vs 0.425
+  FAIL         B2      p95 vs reference              29.491s vs 28.275s
+  PASS         B2      reference label               CC-104 final E2E block b2: unchanged origin/main 29c051860b8430d4319ad918669e18351dc9e779, same window as P, repeat 3
+
+VERDICT FAIL

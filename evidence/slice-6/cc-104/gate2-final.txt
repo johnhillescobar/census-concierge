@@ -1,0 +1,247 @@
+CC-104 Gate 2 (cold review) -- FINAL
+branch: cc-104/structured-geography
+review base: origin/main 700d80082c6bdb371dab2c551c9b6f3736c8986f
+review head: bf62d2dde86f314e2e27429ca14cb4c5d0f8b483 (worktree clean at start)
+scope: git diff 700d800 bf62d2d -- api web scripts evals budgets.toml docs CLAUDE.md (+ evidence/closure/CC-104.toml)
+probes: scratch scripts under C:\Users\johnh\AppData\Local\Temp\cc104-gate2 (scripted models, repo fixtures, no live API)
+machines: uv run pytest api/tests -> 1609 passed, 34 skipped; ruff check clean; ruff format clean (109 files)
+
+======================================================================
+PASS 1 -- generic bugs (code only; plan/STATE/gate files NOT read before this section was written)
+Method: /code-review (medium) skill on the diff, plus my own cold read of geo.py, geo_level.py,
+finish.py, geo_list.py, guards.py, vintages.py, ask.py, tools.py, contract.py, geo_within.py,
+and probe scripts that drive run_ask / resolve_geography with scripted models.
+Every finding below was reproduced by a probe unless marked (read-only).
+======================================================================
+
+T1 [BLOCKER] api/src/geo.py:183-195 -- a multi-parent listing treats an AMBIGUOUS parent as resolved:
+   its first candidate is fetched.
+   In _arun, the multi-owner branch checks only `hit.legal and hit.specs`. An ambiguous _list result is
+   legal=True with candidate specs (county-level rows), so `specs = [hit.specs[0] ...]` puts the
+   candidate in the wildcard list. (The comparison branch checks `hit.ambiguous`; this one does not.)
+   Failing input (probe5.py): parents=["Orange County, FL","Wayne County, MI"], parent_level="county",
+   level="tract", states_named=[] (user wrote no state; the model supplied them, as the prompt tells it to).
+   Result: legal=True, ambiguous=False, specs = [Orange County, California (a county row),
+   every tract in Wayne County, MI, ...]; run_ask fetched
+     .../acs5?...&for=county:059&in=state:06      (Orange County, CALIFORNIA, a county row, not tracts)
+     .../acs5?...&for=tract:*&in=state:26+county:163
+   Only geography_level_mismatch + ambiguous_place warnings ride along. The docs say an ambiguous listing
+   parent selects, builds and fetches nothing. Fix: in the multi-owner branch return the first
+   `hit.ambiguous` as _arun does for comparisons (`stuck`), before the `bad` check.
+
+T2 [BLOCKER] api/src/geo_within.py:42-48 -- tracts in ONE named place: a model-supplied state the user
+   never wrote still settles a shared place name.
+   The guard is `not hit.dominant and "," not in names[0]`. When the model sends "Springfield, MO" and
+   the report lists no state, _place drops the state (state_supplied) and returns an ambiguous hit with
+   dominant=False, but the name contains a comma, so the guard is skipped and `hit.specs[0]` (the
+   largest candidate) is used. probe4.py: parents=["Springfield, MO"], parent_level="place",
+   level="tract", states_named=[] -> legal=True, ambiguous=False, specs[0] = the tracts of the county
+   Springfield city, Missouri lies in; the other Springfields are only trailing candidates. With
+   states_named=["Missouri"] the same call is correctly resolved; with bare "Springfield" it is correctly
+   ambiguous. This is the rule the slice states for a direct place (a state the user did not write
+   cannot settle a shared place name), left open for the tracts-in-a-place listing. The prompt tells
+   the model to supply a state for every listing parent, so this is the common shape.
+   Fix: test `hit.ambiguous` (not the comma) and return the ambiguous result.
+
+T3 [SHOULD] api/src/geo.py:142-145 (+ api/src/ask.py:357, api/src/finish.py:239-240) -- a missing, late
+   or incomplete split report is treated as "the user wrote no state", so a state the user DID write is
+   dropped and the question is refused as ambiguous (false refusal).
+   StatesNamed is documented "None = unknown", but _written does `self.states_named() or []`, so
+   unknown == "wrote nothing". intent.states_named is only filled by adopt(), which runs in incomplete()
+   after at most FRAME_WAIT_SECONDS=3.0 (or in finish_tools, after the loop's own calls already ran).
+   probe2.py, question "population of Springfield, Illinois", model sends places=["Springfield, Illinois"],
+   level="place":
+     report ok (states_named=["Illinois"])       -> Springfield city, Illinois, URL built
+     report omits the states_named key           -> ambiguous refusal, no URL
+     split call raises                           -> ambiguous refusal, no URL
+     split call slower than 3s                   -> ambiguous refusal, no URL
+   incomplete()'s own docstring says "It fails open on anything: no verdict, no model, or a late report
+   means the loop runs as usual"; the state drop fails closed instead. Fix: when states_named() is None,
+   keep the state (old behaviour) or wait for the report before the first resolve; drop only when the
+   report positively says the state was not written.
+
+T4 [SHOULD] api/src/geo.py:144 + api/src/geo_list.py:72 -- "states_named ... as written" is matched with
+   the exact lookup state_of, so common informal spellings of a state the user wrote do not count.
+   state_of("Ill.") / ("Calif.") / ("Penn") / ("Mass.") / ("Tex.") -> None (only full names, USPS codes
+   and "state NN" match). probe2.py: question "population of Springfield, Ill.", report
+   states_named=["Ill."], model sends "Springfield, IL" -> ambiguous refusal, no URL. incomplete()'s
+   docstring records that exactly these spellings ("Calif.", "Penn", "tx") refused 38 of 60 valid
+   questions when matched against the question; the same loss is reintroduced one step later.
+   Fix: have the report give the state's published name or USPS code (the split prompt says "as
+   written": ask it to normalise).
+
+T5 [SHOULD] api/src/prompts.py:27-33, api/src/tools.py:67-70, api/src/geo.py:239-243 -- a nationwide
+   listing of one level ("every county in the United States") cannot be requested by the model.
+   The only working call is level="county", parent_level="us" (geo.py:169; test_geography_intent.py:191),
+   but parent_level's description says "such as county; null means state", the prompt says "(county or
+   place; null for states)", and the refusal text says only "name the place in places (parents for a
+   listing); level 'us' is the nation". probe2.py (population of every county in the US):
+     level="county", no places/parents -> refused for repair; no URL and the answer reads "Nothing was
+                                          fetched because no place was resolved. Name the place, with its
+                                          state" (wrong advice for this question)
+     level="us"                        -> for=us:1, the NATION row, no warning (the model stated "us", so
+                                          geography_level_mismatch cannot fire): a wrong answer
+     level="county", parent_level="us" -> for=county:*&in=state:* (correct, but undiscoverable)
+   The old path read "all counties in the US" from the query text. Fix: say in the tool description and
+   the prompt that a listing across the country takes parent_level "us" and no parents; mention it in
+   the refusal.
+
+T6 [SHOULD] api/src/finish.py:198-212 + api/src/ask.py:447-448 -- unanswered() overwrites a legitimate
+   answer when the split report is absent, and the report can omit what makes it legitimate.
+   probe2.py, question "which table has median rent", loop answers "B25064 holds median gross rent." and
+   never resolves a geography:
+     split call fails       -> answer replaced by "Nothing was fetched because no place was resolved.
+                               Name the place, with its state, and ask again."
+     report lacks asks_for  -> incomplete() refuses: "it names no place" (level null, nothing named)
+   tables_only is the report's `asks_for == "tables"`; without it a which-table question is treated as
+   a failed geography search. Same fail-open contract as T3. Fix: replace the answer only when the loop
+   actually attempted a geography/URL (a resolve or build call) and ended without one.
+
+T7 [SHOULD] api/src/finish.py:250-255, 281-286, 217 -- two new no-URL refusals sit outside the rule that
+   authorises them (CLAUDE.md allows a no-URL stop for an incomplete geography level or an ambiguous
+   place; "Do not ask a blocking clarification question").
+   (a) report.trend true and no years -> "it asks about several years and names none. Name the years..."
+   (b) report names no place and no level -> "it names no place. Name a state, county, city..."
+   probe2.py: "how has population of Texas changed" (trend, years []) and "median household income"
+   (nothing named; the loop's own prompt, prompts.py:29, says "If no geography is named, resolve the
+   United States") are both refused with no URL and no candidates. (b) makes prompts.py:29 unreachable.
+   Both stops write geo_status legal=False, so the response carries a geography_unsupported warning for
+   what is a years / no-place problem (wrong code). A user who does not know the ecosystem cannot
+   answer a demand for "a start year and an end year". Fix, or an explicit owner amendment recorded in
+   CLAUDE.md / the slice (check in pass 2).
+
+T8 [SHOULD] api/src/contract.py:268-298 + api/src/ask.py (override path) -- a plan with geographies and
+   no dataset breaks a model-chosen ACS1 build and silently becomes ACS5.
+   pin_tool_args now leaves the model's dataset when the plan states none, but the override geographies
+   are bound with dataset=plan.dataset ("acs5" default), and BuildUrlTool.allowed_geographies is keyed on
+   (for, in, dataset). probe_override.py: plan {table_id, geographies:[Harris]} with no dataset, question
+   "1-year ACS population of Harris County", model calls build_url(dataset="acs1") -> build_url ok=False,
+   fetch_data ok=False; finish_tools rebuilds at acs5. Final: acs5 URL, no warning (the split is not run
+   for an override with geographies, so dataset_mismatch cannot fire). test_plan_override
+   test_a_plan_that_states_no_dataset_leaves_the_models_own_dataset asserts only pin_tool_args. API-only
+   path (a UI plan round-trips `dataset`), hence SHOULD, not BLOCKER.
+
+T9 [NOTE] api/src/ask.py:361-363 -- allowed_geographies still contains the candidates of an ambiguous
+   result. A model that guesses a candidate's for_spec/in_spec can still build and fetch it
+   (probe2.py "ambiguous then build_url for_spec": built place:72000 state:17 with only an ambiguous_place
+   warning). The tool content shows candidate names only, so the model must invent codes; cheap to close
+   (return an empty set while geo_status.ambiguous).
+
+T10 [NOTE] api/src/geo.py:142-145 -- _written tests membership in the SET of states the question wrote,
+   not that this entry's state is the one written for this place; a model-supplied state equal to a
+   state written for a different place survives.
+
+T11 [NOTE] api/src/finish.py:387-397 -- the repair resolve for 2+ legs with no per-leg levels sends
+   level=None even when the report stated one shared level (intent.level), so "compare Cook and Harris
+   counties" repairs as null-level places and shows geography_level_unverified. Not silent.
+
+T12 [NOTE] api/src/finish.py:182-191 (_unit) -- for a `numbered` entry written "Census Tract 9501, Dane
+   County" the level word that ends last is "county", so a tract number is judged as a county. The split
+   schema asks for the bare level ("tract", "tract 12"), so only a deviating report hits it.
+
+T13 [NOTE] api/src/guards.py (dataset_mismatch) -- also fires when the fetch legitimately fell back from
+   ACS1 to ACS5 (acs1_geography_ineligible already warns), so the user gets "request was built as ACS5"
+   for a build that was ACS1.
+
+T14 [NOTE] api/src/vintages.py year_mismatch -- warn-only: if the report lists years and the loop's fetch
+   used other years, the loop's years are returned with a warning; the repair only refetches when the
+   loop fetched nothing. Disclosed (warning + per-leg URLs), so not silent.
+
+T15 [NOTE] docs/ask-path.md (Geography section) -- "A direct single place keeps the largest match with the
+   others as alternatives" sits beside "otherwise nothing is selected" for the same case; the code
+   selects the largest only when it dominates (4x). Reword to "a dominant match".
+
+False-refusal checks that PASSED (probes with a report that lists the states): a place with its state
+written ("Springfield, Illinois"), a unique famous city without a state ("Chicago"), an explicit nation
+(level="us", no place), a nationwide level listing with parent_level="us", a comparison of two dominant
+names ("Chicago vs Portland": Portland OR chosen, ambiguous_place warning shown).
+
+======================================================================
+END OF PASS 1
+======================================================================
+
+======================================================================
+PASS 2 -- project invariants (docs/playbooks/review-pr.md); written after pass 1 was recorded
+======================================================================
+Machines (run at head bf62d2d, worktree clean):
+  scripts/check_invariants.py --base origin/main  -> exit 0, "All invariants held" (regex call sites 18, delta -37;
+                                                     budget increases ok; new regex ok; new exemptions ok;
+                                                     protocol weakened ok; metric records rewritten ok)
+  scripts/check_budgets.py                         -> exit 1, ONE red row: p95 latency 20.714 > 20, "run
+                                                     2026-11-22T18:58:29+00:00" = the committed evidence/latest.json
+                                                     (a run of main, CC-125 post-merge), not this diff. Reported, not a
+                                                     finding. Every other row ok; headroom is thin and no limit moved
+                                                     (budgets.toml is not in the diff): api LOC 4969/5100, largest file
+                                                     410/410, doc lines 1818/1820, web LOC 3350/3350, prompt 1102/1200.
+  uv run ruff check . / ruff format --check       -> clean
+  uv run mypy api/src                              -> no issues (29 files)
+  uv run pytest api/tests                          -> 1609 passed, 34 skipped, 0 failed
+  scripts/closure.py check evidence/closure/CC-104.toml --pre-merge -> BLOCKED (see P1)
+
+Context read after pass 1: evidence/slice-6/cc-104-plan.md, STATE.md (owner decisions of 2026-11-22), CC-104.toml.
+Owner decisions that bear on pass 1 (STATE.md "OWNER DECISIONS ... MADE"):
+  (2) ambiguity fails loudly EVERYWHERE: direct places, comparisons AND listings; nothing selected, built or fetched.
+  (5) a multi-year question that names no years is refused.   (6) AC9: a state not in the report's states_named is dropped
+  and the bare name checked for dominance; "unknown provenance is untrusted (fail loud)".
+  AC10 no-place refusal; AC8 report years never steer a fetch; override-without-dataset is "the user's plan" (G6, known).
+Re-classification of pass 1 against those decisions:
+  T1, T2   stay BLOCKER: they are exactly decision (2)/(6) failing on the multi-parent listing and tracts-in-a-place paths.
+  T3       a late/absent report dropping a written state is decision (6) ("unknown ... fail loud"): NOTE, not a defect of
+           the diff. Latent cost to record for the E2E: the report must land inside FRAME_WAIT_SECONDS=3.0 or every
+           qualified non-dominant place ("Springfield, Illinois") is refused; watch q-misses for "ambiguous_place" on a
+           question that wrote its state.
+  T4       stays SHOULD: the owner decision says "a state not in the report's states_named", and the report is told to write
+           states "as written"; informal spellings are not decided anywhere and the exact lookup cannot read them.
+  T5       stays SHOULD (the caller named a nationwide listing as a false-refusal case; the call is correct but
+           undiscoverable, and a model that follows the prompt's "for the nation, send level us" fetches the nation row).
+  T6       stays SHOULD: decision (3) is about a silent "done"; replacing a model's correct which-table answer with "no place
+           was resolved" when the report is absent is not that.
+  T7       (a) and the no-place refusal are owner decisions (5)/(AC10): NOTE. Remaining defects: the refusal records
+           geo_status legal=False so the response carries a geography_unsupported warning for a years/no-place problem
+           (wrong code, CLAUDE.md says the four data fields do not apply, nothing else), and prompts.py:29 ("If no geography is
+           named, resolve the United States") is dead text now that a null-level, no-place question is refused first: NOTE.
+  T8       stays SHOULD (override path only).
+
+P1 [SHOULD, blocks merge until done; known to the owner] evidence/closure/CC-104.toml -- the manifest is stale and incomplete.
+   `required` lists AC1-AC5 / TC1-TC5 only; the ticket now has AC1-AC11 / TC1-TC14 (STATE.md says the AC6-AC11 / TC6-TC14
+   rows are "to write"); head is 7e2f47a while api/src and api/tests changed through bf62d2d, so every row reports
+   "stale, 18 covered file(s) changed" and closure.py exits non-zero. review-pr: missing/unrun rows mean Not yet. Also the
+   header comment of the manifest still describes the 2026-11-21 state. Rows must be re-run and written on the FROZEN code
+   AFTER the T1/T2 fixes (any later api/src change makes them stale again).
+
+P2 [SHOULD] the fixtures hide T1/T2 and the fail-loud contract: ask_fixtures._geo_tool defaults `states_named` to "every state
+   written", so a listing/tracts test with a model-supplied state passes the way production (states_named=[] or None) does
+   not. The owner decision (6) path is covered by test_geography_intent.py:603-761, but there is no test that a MULTI-parent
+   listing or tracts_in_place refuses on a non-dominant, model-supplied state (the two cases above). Add both with the real
+   resolver and `states_named=[]` (the mutation check will then be non-vacuous).
+
+P3 [NOTE] the "Do not" list: no *_manager/_orchestrator/_factory/_policy/_strategy/_service module; no new graph node; no new
+   tool (4 <= 6); no validator of a validator (finish.incomplete reads the report once; `unserved()` is a property of the
+   intent, not a second validation layer); `geo_level.GeoIntent` is the one place two callers (loop calls, split report) meet,
+   so the abstraction rule holds. No chart code from the LLM; no raw URL string built (CensusURL used in geo_list/geo_level).
+   Keys: invariant "key attached only via CensusURL" ok.
+
+P4 [NOTE] rules: no new regex over the question (regex sites 18, delta -37; the remaining ones are geo_list._CLASS / _name_hit
+   NAME matching after the model names an entity, and unrelated parsing). guards.py:~28 `_DERIVED`/universe patterns still read
+   the question (documented G9, CC-122, out of scope). `finish._unit` splits a model-written `numbered` string into words
+   (exact level words, not the question's) -- acceptable under "grounded matching after the model identifies an entity".
+   LEVELS alias table is spellings of a level the model writes, not a reading of the question (documented in the module).
+
+P5 [NOTE] docs/ARCHITECTURE.md / docs/ask-path.md / docs/requirements.md were updated with the change (resolve_geography
+   description, ambiguous_place "nothing is selected, built or fetched", year_mismatch, unpublished_vintage, dataset_mismatch,
+   zcta_not_zip, the refusals, `unanswered`). Two statements are wrong against the code until T1/T2 are fixed ("a comparison
+   resolves every place or none"/"listing parent alike" holds for single-parent and comparisons only). CLAUDE.md edit
+   ("incomplete or ambiguous") not flagged, as instructed.
+
+P6 [NOTE] budgets.toml is untouched; api LOC 4969/5100, largest file at its 410 cap (ask.py / contract.py per STATE), doc lines 1818/1820:
+   any fix for T1/T2/T5 must be net-zero in api LOC/doc lines or the build breaks; do not raise a budget.
+
+The claim (restated): a user who names or implies a place gets a URL built only from what the model structured (never from the question's
+words), and a name that several places share, or a question missing what its level needs, is refused up front with candidates and no
+fetch instead of a silent pick. Two paths still break that claim today (T1 multi-parent listing fetches a candidate; T2 tracts in
+one named place settles a shared name on a state the user did not write), plus the nationwide listing is not reachable by the model (T5).
+
+Counts: BLOCKER 2 (T1, T2); SHOULD 6 (T4, T5, T6, T8, P1, P2); NOTE 13 (T3, T7, T9, T10, T11, T12, T13, T14, T15,
+P3, P4, P5, P6; P3-P6 are informational).
+
+VERDICT: NOT YET
