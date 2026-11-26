@@ -107,7 +107,8 @@ Every new check is mutation-checked: removing it fails a test.
 - **L2** A change after a ticket's last read is not seen, including while later tickets are written. No end-of-run pass.
 - **L3** With this write's row not listed, another row with the same two texts is accepted. Requiring the script's account
   would help only against another account: on the 20 tickets 101 of 120 past changes are the token's account, 19 another.
-  `default`: leave as a limit.
+  `owner` (2026-11-25, in chat): "Keep the matching-history case as a documented limit, and make the changes in the
+  plan." (The status line above and the table's "default" wording describe this file as shown before that answer.)
 - **L4** A change the v2 text does not show. None of 258 real changes has identical ends, which does not prove there is no
   such change. The 20 tickets hold only link (11) and code (5) marks and headings, paragraphs, lists and line breaks.
 - **L5** Not observed, because it needs a write or a moved ticket (no Key or project change in any CC history): the PUT
