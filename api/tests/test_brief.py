@@ -207,3 +207,35 @@ def test_a_record_from_before_approval_stops_and_prints_what_to_record(
     assert "brief." not in out
     assert 'approved_ids = ["AC1", "AC2", "TC1"]' in out
     assert f'approved_sha256 = "{closure.criteria_fingerprint(DESCRIPTION)}"' in out
+
+
+def test_the_same_criteria_in_a_different_order_fail_and_say_so() -> None:
+    live = "Why. Context.\nAC2. It fails closed.\nAC1. The thing works.\nTC1. A test.\nDecisions"
+    problems = brief.compare(approved(), live, "gate1")
+    assert any("different order" in p for p in problems)
+
+
+def test_the_fingerprint_ignores_how_a_criterion_is_spaced_and_nothing_else() -> None:
+    respaced = DESCRIPTION.replace("AC1. The thing works.", "AC1.  The thing\tworks.  ")
+    assert closure.criteria_fingerprint(respaced) == closure.criteria_fingerprint(DESCRIPTION)
+    assert brief.compare(approved(), respaced, "gate1") == []
+
+
+def test_the_change_is_read_from_git_and_an_unknown_base_is_not_an_empty_change() -> None:
+    assert brief.changed_files("HEAD") == []
+    assert brief.changed_files("no-such-ref-for-the-brief-test") is None
+
+
+def test_the_contradiction_trigger_covers_exactly_the_files_the_doc_budget_counts() -> None:
+    import check_budgets
+
+    counted = {
+        p.relative_to(ROOT).as_posix()
+        for pattern in check_budgets.DOC_PATTERNS
+        for p in ROOT.glob(pattern)
+        if p.is_file()
+    }
+    assert {".cursor/rules/00-guardrails.mdc", ".claude/skills/run-slice/SKILL.md"} <= counted
+    assert all(check_budgets.is_prescriptive(rel) for rel in counted)
+    for rel in ("api/src/ask.py", "docs/ARCHITECTURE.md", ".claude/agents/gate2-cold.md"):
+        assert not check_budgets.is_prescriptive(rel), rel
