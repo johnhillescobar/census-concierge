@@ -1931,6 +1931,14 @@ DEEP = {
     "content that is not a list, below the top": {"type": "paragraph", "content": "x"},
     "a node kind that is a list": {"type": "paragraph", "content": [{"type": ["text"]}]},
     "half of an emoji": para("cut \ud83d"),
+    # these two would be read as holding nothing, with no error anywhere
+    "content that is an empty object": {"type": "paragraph", "content": {}},
+    "content that is null": {"type": "paragraph", "content": None},
+    # nothing but the snapshot's own encoding reads this text
+    "half of an emoji in formatted text": {
+        "type": "paragraph",
+        "content": [{"type": "text", "text": "cut \ud83d", "marks": [{"type": "strong"}]}],
+    },
 }
 
 
