@@ -1,5 +1,9 @@
 # CC-144: what the owner approves (AC3)
 
+**Applied 2026-11-26.** The owner approved in chat ("re-writes approved"); the agent wrote `snapshots/APPROVED`, not the
+owner as described below. 20 written, 0 refused (`apply.txt`); TC3 `tc3.txt`; read-back `apply-readback.txt`. No separate
+reviewer has read these three. The text below is what was put to the owner, kept as it was.
+
 20 descriptions. Read `snapshots/<KEY>.before.md` against `snapshots/<KEY>.after.md`. In each, the pasted blocks listed in
 `plan.md` become this one line, and the "Existing scope (...)" pointer becomes "Existing scope":
 

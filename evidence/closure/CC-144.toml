@@ -1,5 +1,5 @@
 ticket = "CC-144"
-head = "1957a77c06f7c2fb285eac3581a8637357c96527"
+head = "1d5af21f606a06c13f58952c6dc6a483072c4e96"
 required = ["AC1", "AC2", "AC3", "AC4", "TC1", "TC2", "TC3"]
 # No post-merge run is expected: no api/src, evals/ or run-harness file changed
 # (CC-143 AC11, computed by closure.py from the merged diff).
@@ -32,10 +32,15 @@ reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice
 
 [[row]]
 id = "AC3"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/jira_gate_line.py --apply --approved <snapshot dir>"
 expected = "the owner approves the snapshots; only then does the script write; each edited ticket has the same criterion IDs before and after"
-observed = "Waiting for the owner's approval of the 20 snapshots. No description has been written."
+observed = "The owner approved in chat on 2026-11-26; the agent wrote APPROVED on that instruction. Before the write a fresh dry run was identical to the approved snapshots. The apply gave 20 written, 0 refused, exit 0, no FAILED file, IDs unchanged on each. A separate read-back of the 20 live descriptions: each equals its approved after.json, has the same IDs as before, and holds the gate line once."
+evidence = [{ path = "evidence/slice-6/cc-144/apply.txt", sha256 = "4f449032d710f9881f3a0e3d69a557e329f4522d23fb1d2a9fa3ad80a59bbfe4" }, { path = "evidence/slice-6/cc-144/apply-readback.txt", sha256 = "79f8b02bf2d32eae83c0664899fac57f5473f32fa5238eb05f5d6b3158f6b144" }, { path = "evidence/slice-6/cc-144/apply-readback.py.txt", sha256 = "0f4adab8eb99def4932d13473c1438f1cd23684906be69da2e2ce973f539d578" }, { path = "evidence/slice-6/cc-144/snapshots/manifest.json", sha256 = "b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05" }, { path = "evidence/slice-6/cc-144/snapshots/APPROVED", sha256 = "978b91db3f5d0e0cd477bae2193115eaa2fa1093667cd3325534e04a6f548703" }]
+tested_head = "1d5af21f606a06c13f58952c6dc6a483072c4e96"
+affects = ["scripts/jira_gate_line.py"]
+new_tests = false
+reviewer = "No separate reviewer has read this run. The owner approved the writes in chat on 2026-11-26; the session that ran it also ran the read-back check"
 
 [[row]]
 id = "AC4"
@@ -78,7 +83,12 @@ reviewer = "evidence/slice-6/cc-144/gate2-r5.txt (cold, 7f34a67); evidence/slice
 
 [[row]]
 id = "TC3"
-status = "NOT RUN"
+status = "PASS"
 command = "uv run python scripts/jira_gate_line.py --dry-run"
 expected = "a second --dry-run after --apply finds no ticket left to change"
-observed = "The same behaviour passes against a fake Jira, with a search still returning the old text; against Jira it can only run after AC3."
+observed = "54 open ticket(s) read: 0 ticket(s) left to change, 0 refused, exit 0. A separate Jira search for open tickets listed 54 on one page, counted by the session and not saved to a file."
+evidence = [{ path = "evidence/slice-6/cc-144/tc3.txt", sha256 = "6e004d920c3243bed3290bcd57184802697b263fc0202c8c6e1e13bf1562707e" }]
+tested_head = "1d5af21f606a06c13f58952c6dc6a483072c4e96"
+affects = ["scripts/jira_gate_line.py"]
+new_tests = false
+reviewer = "No separate reviewer has read this run. The owner approved the writes in chat on 2026-11-26; the session that ran it also ran the read-back check"
