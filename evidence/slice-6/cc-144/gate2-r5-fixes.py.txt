@@ -1,0 +1,163 @@
+"""Revert each behaviour of the Gate 2 round fix, one at a time.
+
+Run from the worktree root. The script is restored from the bytes read before its mutation.
+"""
+
+import subprocess
+import sys
+from pathlib import Path
+
+SCRIPT = Path("scripts/jira_gate_line.py")
+TESTS = Path("api/tests/test_jira_gate_line.py")
+
+MUTATIONS = [
+    # one ticket that cannot be judged
+    ("only the top of a description is checked", [(
+        '    content = value.get("content", [])\n'
+        "    return isinstance(content, list) and all(_is_node(child) for child in content)\n",
+        "    return True\n",
+    )]),
+    ("a content that is not a list passes", [(
+        "    return isinstance(content, list) and all(_is_node(child) for child in content)\n",
+        "    return not isinstance(content, list) or all(_is_node(child) for child in content)\n",
+    )]),
+    ("text that cannot be stored is not tried while judging", [(
+        "            _dump(description)  # what cannot be stored", "            pass  #",
+    )]),
+    ("tickets are judged together, outside the per-ticket handler", [(
+        '            found += changes([{"key": key, "fields": {"description": description}}])\n',
+        "            held.append({\"key\": key, \"fields\": {\"description\": description}})\n",
+    ), (
+        "        judged += 1\n    return judged, found, unjudged\n",
+        "        judged += 1\n    return judged, changes(held), unjudged\n",
+    ), (
+        "    found: list[Change] = []\n    unjudged",
+        "    held: list[dict[str, Any]] = []\n    found: list[Change] = []\n    unjudged",
+    )]),
+    ("an unjudged ticket is counted as read", [(
+        "            unjudged[key] = _why(exc)\n            continue\n",
+        "            unjudged[key] = _why(exc)\n",
+    )]),
+    # no answer
+    *[
+        (f"NO_ANSWER without {name}", [(
+            "NO_ANSWER = (OSError, http.client.HTTPException, SystemExit)\n",
+            f"NO_ANSWER = ({kept},)\n",
+        )])
+        for name, kept in (
+            ("OSError", "http.client.HTTPException, SystemExit"),
+            ("HTTPException", "OSError, SystemExit"),
+            ("SystemExit", "OSError, http.client.HTTPException"),
+        )
+    ],
+    ("a dry run refuses a ticket with no answer and goes on", [(
+        "        except NO_ANSWER as exc:\n"
+        '            raise ConnectionError(f"{key}: {_why(exc)}") from exc\n',
+        "        except NO_ANSWER as exc:\n"
+        "            unjudged[key] = _why(exc)\n            continue\n",
+    )]),
+    ("the dry run's message does not name the ticket", [(
+        '            raise ConnectionError(f"{key}: {_why(exc)}") from exc\n',
+        "            raise ConnectionError(_why(exc)) from exc\n",
+    )]),
+    ("a search with no answer is not caught", [(
+        "    except (*UNUSABLE, *NO_ANSWER) as exc:  # the search itself\n",
+        "    except UNUSABLE as exc:  # the search itself\n",
+    )]),
+    ("the reads before a write do not catch no answer", [(
+        "        except (*UNUSABLE, *NO_ANSWER) as exc:  # not read",
+        "        except UNUSABLE as exc:  # not read",
+    )]),
+    ("after a write no answer is not caught", [(
+        "    except (*UNUSABLE, *NO_ANSWER) as exc:\n        return f\"the write",
+        "    except UNUSABLE as exc:\n        return f\"the write",
+    )]),
+    ("no answer is described as an unusable reply", [(
+        "    if isinstance(exc, NO_ANSWER):\n", "    if False:\n",
+    )]),
+    # the search's own list
+    ("a search entry without a key is not caught", [(
+        "    except (KeyError, TypeError) as exc:\n        raise ValueError",
+        "    except () as exc:\n        raise ValueError",
+    )]),
+    ("a key listed twice is read twice", [(
+        '        return list(dict.fromkeys(str(issue["key"]) for issue in listed))\n',
+        '        return [str(issue["key"]) for issue in listed]\n',
+    )]),
+    # the pointer
+    ("a pointer is refused only while the contract is still there", [(
+        "    if _mentions(after, POINTER_PHRASE):\n",
+        "    if _mentions(before, MARKERS[0]) and _mentions(after, POINTER_PHRASE):\n",
+    )]),
+    ("a pointer alone does not count as carrying the wording", [(
+        "for text in (*MARKERS, POINTER_PHRASE)) or bool(", "for text in MARKERS) or bool(",
+    )]),
+    # the approval
+    ("a UTF-16 approval is read as UTF-8", [(
+        '        return data.decode("utf-16" if wide else "utf-8-sig")\n',
+        '        return data.decode("utf-8-sig")\n',
+    )]),
+    ("only little-endian UTF-16 is recognised", [(
+        '    wide = data.startswith((b"\\xff\\xfe", b"\\xfe\\xff"))\n',
+        '    wide = data.startswith(b"\\xff\\xfe")\n',
+    )]),
+    ("an approval that is not text does not name its file", [(
+        '        raise ValueError(f"{path} is not text in UTF-8 or UTF-16 ({exc.reason})") from exc\n',
+        "        raise\n",
+    )]),
+    # the default folder
+    ("the default folder is a fixed name", [(
+        "    out = args.out or Path(tempfile.mkdtemp(prefix=OUT_PREFIX))\n",
+        '    out = args.out or Path(tempfile.gettempdir()) / "jira-gate-line"\n',
+    )]),
+    # attrs
+    ("attrs are taken to be an object", [(
+        '    if isinstance(out.get("attrs"), dict):  #', '    if "attrs" in out:  #',
+    )]),
+]
+
+
+def run() -> tuple[int, str]:
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(TESTS)],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
+    )
+    lines = done.stdout.strip().splitlines()
+    failed = sorted({
+        line.split("::", 1)[1].split("[")[0].split(" ")[0]
+        for line in lines if line.startswith("FAILED ")
+    })
+    return done.returncode, f"{lines[-1]}\n          " + "\n          ".join(failed[:5])
+
+
+def main() -> int:
+    code, summary = run()
+    print(f"BASELINE (nothing reverted) {summary.strip()}")
+    if code != 0:
+        return 2
+    good = bad = 0
+    for label, swaps in MUTATIONS:
+        original = SCRIPT.read_bytes()
+        text = original.decode("utf-8").replace("\r\n", "\n")
+        for old, new in swaps:
+            assert text.count(old) == 1, (label, old)
+            text = text.replace(old, new)
+        compile(text, str(SCRIPT), "exec")  # a mutation that does not compile proves nothing
+        try:
+            SCRIPT.write_bytes(text.encode("utf-8"))
+            code, summary = run()
+        finally:
+            SCRIPT.write_bytes(original)
+        # exit 1 is failing tests; any other non-zero exit is a broken mutation, not a caught one
+        verdict = "GOOD" if code == 1 else f"BAD (exit {code})"
+        good += code == 1
+        bad += code != 1
+        print(f"REVERTED: {label}\n  {verdict}\n        {summary}")
+    code, summary = run()
+    print(f"TOTAL: {len(MUTATIONS)} reverts, {good} GOOD, {bad} BAD")
+    print(f"RESTORED {summary.strip()}")
+    return 1 if bad or code else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
