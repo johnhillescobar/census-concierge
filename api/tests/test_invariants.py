@@ -855,3 +855,15 @@ def test_the_plan_doc_check_reads_both_files_and_is_registered(
     assert sorted(v.where for v in inv.check_plan_docs_hold_no_status()) == sorted(inv.PLAN_DOCS)
     checks = {fn for _, fn in inv.CHECKS}
     assert {inv.check_no_status_files, inv.check_plan_docs_hold_no_status} <= checks
+
+
+def test_a_status_word_counts_only_as_a_whole_word() -> None:
+    line = "An abandoned spike branch is deleted; the plan is enclosed in its ticket."
+    assert inv.plan_doc_problems(".claude/PLAN.md", line) == []
+
+
+def test_a_status_column_in_the_board_alone_fails(tmp_path: Path, monkeypatch: Any) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "slices.md").write_text("| CC-3 | 6 | Done |\n", encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    assert [v.where for v in inv.check_plan_docs_hold_no_status()] == ["docs/slices.md"]
