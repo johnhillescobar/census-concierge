@@ -2,8 +2,9 @@
 
 Read [CLAUDE.md](CLAUDE.md) before working. It is the shared project rulebook
 for Claude Code, Cursor, Codex and other hosts; its filename is historical.
-The shared execution plan remains [.claude/PLAN.md](.claude/PLAN.md). Do not
-create a separate host-specific plan or copy of the project rules.
+The plan is [.claude/PLAN.md](.claude/PLAN.md); what it may hold is the rule at its
+top. Do not create a host-specific plan or copy of the project rules. For ticket
+work print the phase brief, `uv run python scripts/brief.py <phase> CC-N`.
 
 Canonical workflows: [run-slice](docs/playbooks/run-slice.md),
 [review-pr](docs/playbooks/review-pr.md), and the

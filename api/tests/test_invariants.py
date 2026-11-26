@@ -778,3 +778,80 @@ def test_text_at_reads_a_file_as_committed_at_a_ref(tmp_path: Path, monkeypatch:
     assert inv._text_at("HEAD", "budgets.toml") == head
     assert inv._text_at("HEAD", "missing.txt") is None
     assert [v.where for v in inv.check_no_new_exemptions("HEAD")] == ["budgets.toml"]
+
+
+@pytest.mark.parametrize("name", ["STATE.md", "plan.md", "cc-102-plan.md"])
+def test_a_status_or_plan_file_under_evidence_fails(
+    tmp_path: Path, monkeypatch: Any, name: str
+) -> None:
+    folder = tmp_path / "evidence" / "slice-9" / "cc-999"
+    folder.mkdir(parents=True)
+    (folder / name).write_text("phase: gate 1\n", encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    monkeypatch.setattr(inv, "EVIDENCE", tmp_path / "evidence")
+    found = inv.check_no_status_files()
+    assert [v.where for v in found] == [f"evidence/slice-9/cc-999/{name}"]
+
+
+@pytest.mark.parametrize("name", ["F3_reference_and_plan_docs.md", "scope-record.md", "gate1.txt"])
+def test_other_evidence_files_pass_the_status_file_check(
+    tmp_path: Path, monkeypatch: Any, name: str
+) -> None:
+    (tmp_path / "evidence").mkdir()
+    (tmp_path / "evidence" / name).write_text("x\n", encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    monkeypatch.setattr(inv, "EVIDENCE", tmp_path / "evidence")
+    assert inv.check_no_status_files() == []
+
+
+@pytest.mark.parametrize("rel", [".claude/PLAN.md", "docs/slices.md"])
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Baseline: long_tail answered_rate 0.742, p95 21.701s.",
+        "CC-125 and CC-126 are closed.",
+        "| CC-3 | 6 grounded understanding | In Progress |",
+        "| CC-10 | 7 PDF export | To Do |",
+        "**Done when:** you download a document.",
+    ],
+)
+def test_a_status_word_or_a_measured_number_in_a_plan_doc_fails(rel: str, line: str) -> None:
+    assert inv.plan_doc_problems(rel, f"# Plan\n\n{line}\n")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "| CC-104 | 100% isolation; >=95% currently-supported geography intent | CC-133 |",
+        "Each open slice has a **Not in this slice** list. That list is the point.",
+        "**Ships when:** you download a document you would attach to a grant report.",
+        "Nothing to do here until slice 7 ships.",
+    ],
+)
+def test_plan_scope_with_integer_targets_passes(line: str) -> None:
+    assert inv.plan_doc_problems(".claude/PLAN.md", line) == []
+
+
+CLOSE_LINE = "CC-103: tract grid nesting (`evidence/slice-6/cc-103-e2e-post-demo-run2.txt`)."
+LINKED = "Finished: [CC-103](https://johnhillescobar.atlassian.net/browse/CC-103)."
+
+
+def test_a_plan_line_with_an_evidence_path_fails_and_the_key_with_its_link_passes() -> None:
+    assert inv.plan_doc_problems(".claude/PLAN.md", CLOSE_LINE) == ["line 1: an evidence/ path"]
+    assert inv.plan_doc_problems(".claude/PLAN.md", LINKED) == []
+
+
+def test_the_evidence_path_rule_is_for_plan_md_only() -> None:
+    assert inv.plan_doc_problems("docs/slices.md", CLOSE_LINE) == []
+
+
+def test_the_plan_doc_check_reads_both_files_and_is_registered(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    for rel in inv.PLAN_DOCS:
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("Slice 6 baseline 0.742\n", encoding="utf-8")
+    monkeypatch.setattr(inv, "ROOT", tmp_path)
+    assert sorted(v.where for v in inv.check_plan_docs_hold_no_status()) == sorted(inv.PLAN_DOCS)
+    checks = {fn for _, fn in inv.CHECKS}
+    assert {inv.check_no_status_files, inv.check_plan_docs_hold_no_status} <= checks

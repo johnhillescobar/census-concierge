@@ -18,9 +18,13 @@ say what to fix.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -394,3 +398,83 @@ def test_section_stops_at_the_next_heading() -> None:
     assert "persist" in section(text, "## First")
     assert "persist" not in section(text, "## Second")
     assert "something else" not in section(text, "## First")
+
+
+PLAN_RULE = "Jira alone says whether a ticket is open or finished"
+POINTS_AT_PLAN_RULE = ("CLAUDE.md", "AGENTS.md", "docs/slices.md", "docs/playbooks/run-slice.md")
+
+
+def prescriptive_docs() -> dict[str, str]:
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import check_budgets
+
+    found = {p for pattern in check_budgets.DOC_PATTERNS for p in ROOT.glob(pattern) if p.is_file()}
+    return {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in found}
+
+
+def flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def test_one_rule_file_and_no_other_states_what_plan_md_holds() -> None:
+    holders = [rel for rel, text in prescriptive_docs().items() if PLAN_RULE in flat(text)]
+    assert holders == [".claude/PLAN.md"]
+
+
+@pytest.mark.parametrize("rel", POINTS_AT_PLAN_RULE)
+def test_the_other_rule_files_point_at_that_rule(rel: str) -> None:
+    text = flat((ROOT / rel).read_text(encoding="utf-8"))
+    assert "the rule at its top" in text and ".claude/PLAN.md" in text
+
+
+def test_no_rule_file_asks_for_a_close_pointer_or_numbers_in_plan_md() -> None:
+    for rel, text in prescriptive_docs().items():
+        assert "close pointer" not in flat(text).lower(), rel
+
+
+def closure_step() -> dict[str, Any]:
+    workflow = yaml.safe_load(CHECK_YML.read_text(encoding="utf-8"))
+    steps = [s for s in workflow["jobs"]["check"]["steps"] if "closure.py" in str(s.get("run"))]
+    assert len(steps) == 1, "the check job must run the closure check once"
+    return steps[0]
+
+
+def run_closure_step(tmp_path: Path, branch: str, verdict: int) -> tuple[int, str]:
+    bash = shutil.which("bash")
+    if bash is None or subprocess.run([bash, "-c", "exit 0"], check=False).returncode != 0:
+        pytest.skip("no working bash on this machine")
+    stub = tmp_path / "uv"
+    stub.write_text(f'#!/bin/sh\necho "$@" > "{tmp_path.as_posix()}/called"\nexit {verdict}\n')
+    stub.chmod(0o755)
+    env = {
+        **os.environ,
+        "BRANCH": branch,
+        "TIP": "abc1234",
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+    }
+    done = subprocess.run(
+        [bash, "-e", "-c", closure_step()["run"]],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    called = tmp_path / "called"
+    return done.returncode, called.read_text().strip() if called.exists() else ""
+
+
+def test_ci_runs_the_readiness_check_for_the_ticket_the_branch_names(tmp_path: Path) -> None:
+    step = closure_step()
+    assert step["if"] == "github.event_name == 'pull_request'"
+    code, called = run_closure_step(tmp_path, "cc-145/one-source", verdict=0)
+    assert code == 0
+    manifest = "evidence/closure/CC-145.toml"
+    assert called == f"run python scripts/closure.py check {manifest} --pre-merge --head abc1234"
+
+
+def test_ci_fails_when_the_closure_check_does(tmp_path: Path) -> None:
+    assert run_closure_step(tmp_path, "cc-145/one-source", verdict=1)[0] != 0
+
+
+def test_ci_skips_the_closure_check_for_a_branch_that_names_no_ticket(tmp_path: Path) -> None:
+    assert run_closure_step(tmp_path, "chore/launch-inspect-ask", verdict=1) == (0, "")

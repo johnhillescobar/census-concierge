@@ -21,8 +21,8 @@ Done means a user got an answer. Quote the scoreboard in the PR; never Read the
 transcript. A passing pytest run, new test file, or closed ticket is not done.
 
 **This pipeline is nondeterministic.** One run tells you nothing — compare rates
-at the same `--repeat`. Current numbers live in `evidence/latest.json` and at
-the top of the README.
+at the same `--repeat`. The latest run is `evidence/latest.json`; a ticket's
+numbers are on the ticket.
 
 ## Budgets are enforced
 
@@ -84,6 +84,9 @@ with `_NEEDS` in `finish.py`. Never detect it by scanning the question's words.
 - Let the LLM emit chart code or SVG. It emits a `ChartSpec`; the frontend renders.
 - Compare overlapping ACS 5-year vintages (2015-2019 vs 2018-2022). Warn instead.
 - Never interpret question wording with regex, keyword, substring or equivalent semantic heuristics, including legacy fallbacks. Once the model supplies structured intent, deterministic downstream code validates and executes that intent without reinterpreting the question wording. Missing or invalid intent returns bounded model repair; it never activates a prose parser. Exact identifier parsing, authoritative metadata lookup, grounded NAME matching after the model identifies an entity, URL encoding and arithmetic remain valid. They must not infer scope, parents or time from question wording. Keep requested meaning distinct from execution. Migration and metric gates: PLAN, CC-104/129–133.
+  - Regex is a last resort everywhere, not only on the question: also on the model's own output (no word lists over answer prose) and in "validation" that text-matches the model's quotes against the question.
+  - "Exhausted" means up to 100 solve-and-measure rounds and up to 3 subagents, cheapest first; only then propose a regex, with those attempts in the PR. Latency is not a reason: measure p95.
+  - A new `re.*` call in `api/src` needs the PR to show why plain code (parsing, set lookups, `geography.json`) plus the model cannot do it; `check_invariants.py` prints the delta.
 
 ## Jira — status source of truth
 
@@ -92,9 +95,9 @@ chat. Close with `uv run python scripts/jira_transition.py CC-N --done --comment
 (needs `ATLASSIAN_EMAIL` + `ATLASSIAN_API_TOKEN` in `.env`). Use the script, not IDE
 MCP — same path in Claude Code and Cursor.
 
-Jira owns *open vs done* and the post-merge numbers. `.claude/PLAN.md` is a
-close pointer, not an eval ledger. Board: `docs/slices.md`. Name `CC-N` in
-commits/PRs; Jira comments link to the PR or `evidence/`.
+What `.claude/PLAN.md` may hold: the rule at its top. Board: `docs/slices.md`. Name `CC-N`
+in commits/PRs (housekeeping commits need none); Jira comments link to the PR or `evidence/`.
+Recommend an epic and ask before filing a ticket into one.
 
 ## Slice workflow
 
@@ -103,8 +106,8 @@ implement -> **Gate 1** (matrix tests, every new test mutation-checked) -> **Gat
 2** (cold review: `/code-review` then `docs/playbooks/review-pr.md`) -> fix ->
 **E2E** (`make eval` / `make demo`, scoreboard in the PR) -> merge -> **E2E again**
 against merged `main`. Every phase persists to git / the PR / `evidence/slice-<N>/`
-and **Jira** before the next; a fresh context rebuilds from those, never from chat
-history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;
+and **Jira** before the next; a fresh context rebuilds from the two status commands
+that each phase brief (`scripts/brief.py`) opens with, never from chat history. Full procedure: `docs/playbooks/run-slice.md` or the `run-slice` skill;
 matrix and worked examples: `docs/process-evidence.md`.
 
 **Before shipping, every in-scope AC/TC must be verified PASS with linked commit-specific evidence.** Missing/failed/unrun items block readiness/Done; only explicit dated owner amendments remove scope. Gate 2 checks the matrix; post-merge E2E precedes closure. Canonical detail: `docs/playbooks/run-slice.md`.
@@ -146,7 +149,8 @@ shape, update it in the same commit. Read the catalog that matches the work:
 **uv** manages the environment; **ruff** lints and formats. Python is pinned to
 **3.12** and CI runs the same version — on this machine, Windows Smart App
 Control blocks unsigned native extensions in the uv-managed 3.13 build, which
-breaks `_sqlite3` and `uuid_utils`. That cost real time once already.
+breaks `_sqlite3` and `uuid_utils`. That cost real time once already. In Git
+Bash heredocs here, `\\n` becomes a newline: write patch scripts with a file tool.
 
 ```
 make check     # lint + types + tests + invariants + web tests + client drift + budgets, under 60s

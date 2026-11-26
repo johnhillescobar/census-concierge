@@ -7,6 +7,8 @@ matrix are in `docs/process-evidence.md`, read at audit time, not every turn.
 
 A slice (`.claude/PLAN.md`) ships as one or more PRs, each through this pipeline. A
 PR that has not been demonstrated is not finished, however good the diff looks.
+Each phase starts from its brief, `uv run python scripts/brief.py <phase> CC-N`. Run the
+steps it prescribes (gates, E2E) without asking; ask only the owner's decisions.
 
 ## The pipeline
 
@@ -20,7 +22,8 @@ PR that has not been demonstrated is not finished, however good the diff looks.
 5  fix          each fix is new code: tests + mutation check. Re-run Gate 2 once
                 if the fixes were non-trivial, then stop.
 6  E2E pre-PR   run the real thing, scoreboard in the PR, transcript on disk
-7  PR           body states what each gate found, including "nothing"
+7  PR           body states what each gate found, including "nothing"; a draft until
+                every row is PASS. Title: `type(scope): what (CC-N)`, as merged PRs are
 8  merge        the repo owner merges
 9  E2E post     re-run step 6 against merged `main`
 ```
@@ -37,6 +40,7 @@ claim against the thing it names, before code depends on it. Every criterion nam
 | a git or PR citation | running the command, pinned to a commit range |
 | a file path | it exists |
 | a table ID, universe or geography | `scripts/verify_golden.py` against real metadata |
+| the work is not already a ticket | Jira search `parent = <epic>` and the topic; map findings to existing tickets |
 
 A claim that fails is corrected in the PR notes, with the command that settled it,
 before implementation starts. Fixing it silently in code leaves the notes wrong for
@@ -61,7 +65,7 @@ Tests covering the adversarial matrix in `docs/process-evidence.md`. **For every
 new test: revert the behaviour it covers, run only that test, confirm it fails,
 restore.** A test that passes against the broken implementation is not a check.
 Revert one behaviour at a time; name the mutation for what it reverts, never by a
-review index. Transcript to `evidence/slice-<N>/gate1.txt` with `GOOD` / `BAD`
+review index. Commit before mutating: a restore by `git checkout` drops uncommitted work. Transcript to `evidence/slice-<N>/gate1.txt` with `GOOD` / `BAD`
 labels above the real failure counts.
 
 ## 4. Gate 2 - cold-context review
@@ -85,15 +89,15 @@ included.
 
 ## 5. Fixes are new code
 
-Tests plus a mutation check for every fix. Gate 2 read the pre-fix diff, so re-run
+Tests plus a mutation check for every fix, for every finding. Gate 2 read the pre-fix diff, so re-run
 it once on the fix commit when the fixes were non-trivial - a new function, a
 changed error path, new prose making a factual claim, changed CI. A rename or a
 one-line correction does not. Stop after one re-run; still fix what it finds.
 
 ## 6. E2E, before the PR and after the merge
 
-`make eval` and `make demo` (`--repeat 3` is in the recipe). Real system, real
-keys. From slice 6, also one sealed-set run at story close, reporting the
+`make eval` and `make demo` (`--repeat 3` is in the recipe) in an isolated worktree,
+HEAD recorded at start and end. Real system, real keys. From slice 6, also one sealed-set run at story close, reporting the
 regression-minus-sealed gap (DESIGN §8.6); aggregates only. Redirect stdout to
 `evidence/slice-<N>/e2e-pre.txt` (no tee) and link it in the PR. Never Read the
 transcript. Quote gated keys plus `demo.misses` from `evidence/latest.json` —
@@ -103,7 +107,8 @@ reporting a red result is the correct outcome. After the merge, re-run against m
 a merge that touched no `api/src`, `evals/` or run-harness file owes none (`closure.py`).
 
 **A red post-merge row** (`metric_compare.py compare <run> --record`, judged against L):
-1. A row under the owner's `[[exception]]` or one-run `[waiver]` in `budgets.toml` does not count.
+1. A row under the owner's `[[exception]]` or one-run `[waiver]` in `budgets.toml` does not count;
+   either lands on `main` as the owner's own commit before the evidence PR.
 2. Any other red row gets one confirmation run, judged the same way.
 3. Red twice goes to the owner as a "blocked" comment; L does not move while a row is red.
 
@@ -116,27 +121,27 @@ Every close comment carries the **close card**, all at the same `--repeat`: long
 ## The handoff rule
 
 Every phase **persists its output before the next begins** - to git, the PR body,
-`evidence/slice-<N>/`, `.claude/PLAN.md`, **Jira** (project `CC`), or
-`docs/process-evidence.md`. A phase that has not persisted has not finished. A
-fresh context in any host **reconstructs state from those artifacts, never from conversation history**.
-The shared `.claude/PLAN.md` and `.claude/DESIGN.md` paths remain valid for all
-hosts; do not fork their state into host-specific copies.
+`evidence/`, **Jira** (project `CC`), or `docs/process-evidence.md`. A phase that has
+not persisted has not finished. A fresh context in any host **reconstructs state from
+the brief's two status commands, never from conversation history**. Status lives in
+Jira and the closure file only; what `.claude/PLAN.md` may hold is the rule at its top.
 
 ## Session rules for long reviews and multi-write sessions
 
 Added 2026-10-04 after a review session drifted (`evidence/checkpoint-2026-10-04/`).
 
 1. **Phase gate.** Open with the yardstick for the slice in hand. Through slice 8 the
-   product is a sound, flexible, robust URL with nothing from model memory; the
-   analytical agent is phase 2, direction only. Re-read `CLAUDE.md` and memory first.
-2. **One plan file** in `evidence/` is the only place the plan lives. List every outward
-   write (Jira, repo, memory) in it before it happens; batch them, one "yes" per batch.
+   product is a sound, flexible, robust URL with nothing from model memory (the model may
+   read fetched figures, never emit recalled values); the analytical agent is phase 2,
+   direction only. Re-read `CLAUDE.md` and this playbook whole first.
+2. **The ticket is the plan.** List every outward write (Jira, repo) in a ticket comment
+   or the question batch before it happens; batch them, one "yes" per batch.
 3. **Never write from a fragment.** A truncated or quoted-looking message is read-only
    input; Jira and repo writes wait for a full sentence.
 4. **Tag decisions** `owner` (the owner said it) or `default` (revertible). A default is
    never recorded in Jira as an owner decision.
 5. **One question batch per phase**, each question with a default. Otherwise proceed.
-6. **After a drift complaint**, nothing outward until the plan file is reconciled.
+6. **After a drift complaint**, nothing outward until the ticket comment is reconciled.
 
 ## Delegating the token-heavy phases
 
@@ -148,12 +153,13 @@ stay resident for the rest of the slice.
 | gate phase | fresh `general-purpose` subagent, **not** `fork`; Gate 2's bug pass: the `gate2-cold` agent | fresh Task subagent or New Chat | fresh subagent without caller history; Codex `fork_context: false` when supported, otherwise a fresh session |
 | isolated checkout | subagent `isolation: worktree` | worktree when needed | explicit worktree when needed; do not assume subagents isolate files |
 
-`scripts/gate.sh` / `scripts/gate.ps1` print the same host-neutral handoff;
-they do not launch agents or choose an engine. The parent uses its host's
+`scripts/brief.py` prints the same host-neutral brief for every host;
+it does not launch agents or choose an engine. The parent uses its host's
 delegation tool, or hands the prompt to a fresh session if none is available.
 Use native slash commands where available; the equivalent cold review is
 required even when the command is absent. Do not replace it with self-review.
 
+A subagent idle for 600s is killed: hours-long runs go in the main session, in the background.
 Pass only the repo path, phase, slice, exact review base/head and evidence path,
 not caller history or implementation intent. Record branch, HEAD and any scoped
 uncommitted changes in the evidence. Preserve unrelated user changes; mutations

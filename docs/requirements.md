@@ -7,7 +7,7 @@ None of these block except an incomplete geography (below): warn (or decline a c
 
 | field | rule |
 |---|---|
-| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except for an incomplete geography (below). `&key=` redacted. |
+| **URLs** | Full Census API URL per attempted request (`urls[]`): variables, geography, vintage. Present even when the fetch fails, except for an incomplete geography (below). Every planned leg is listed, including one a guard refused to fetch. `&key=` redacted. |
 | **Margins of error** | Fetch `M` beside every `E`. Census missing sentinels are null, never zero. |
 | **GEOID** | AFFGEOID `GEO_ID` on fetched `rows[]`. Calculated totals have no Census GEOID and travel in `combined_rows[]`. |
 | **Universe** | Display the published universe. Households ≠ families ≠ population ≠ housing units. |
@@ -24,6 +24,9 @@ group, state, county and tract. One that carries less, or points at a place with
 is not answered: `geography_unsupported`, an answer saying what is missing, and empty `urls[]`, `rows` and
 `alternatives`. No search, fetch or blocking question. A question asking which table holds something is
 answered. The model reports level, places, county, pointing phrases and ask; code compares, no word scan.
+Known limit (owner, 2026-10-25): a county named without its state still resolves, because the model adds
+the state and only the banned word scan would catch it. A follow-up is a question typed after an answer in
+the same chat; a question on its own is never one.
 
 ## Slice 1 warning codes
 
@@ -33,7 +36,7 @@ answered. The model reports level, places, county, pointing phrases and ask; cod
 | `moe_not_significant` | A difference inside the 90% MOE is indistinguishable, not a ranking. |
 | `geography_unsupported` | The table is not published at the requested level, or the question lacks what its level needs (a tract number with no county, say). Do not substitute. |
 | `comparison_too_large` | Row pairs x estimate columns is over `MAX_COMPARISON_WORK`; no pairwise comparison was computed. Rows, URL and MOE are unaffected. |
-| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Eval labels: `scripts/label_grid_ambiguity.py`. |
+| `ambiguous_place` | A named place can denote several geographies (same name, different states) and the question picks none. Scope ("which counties?") is not ambiguity. Candidates are the result, never a blocking question. Never guessed: no largest match, no population dominance, and a state the model adds is not the user's; no URL and no fetch until the user names one. Eval labels: `scripts/label_grid_ambiguity.py`. |
 | `universe_mismatch` | The question crosses households × families × population × housing units. |
 | `answer_figures_unverified` | The model's text or chart title stated a number the response does not carry; the rendered figures (or the table ID, for a title) replace it. |
 

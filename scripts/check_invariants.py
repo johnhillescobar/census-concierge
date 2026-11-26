@@ -891,7 +891,10 @@ def check_mandatory_catalogs() -> list[Violation]:
 
 STATUS_FILES = ("STATE.md", "plan.md")  # and any name ending in -plan.md
 PLAN_DOCS = (".claude/PLAN.md", "docs/slices.md")
-STATUS_WORDS = (("done",), ("closed",), ("to", "do"), ("in", "progress"))  # Jira's status names
+# Jira's status names and "closed", as whole words in any case; "To Do" only as Jira writes it,
+# since "nothing to do" is plain English.
+STATUS_WORDS = (("done",), ("closed",), ("in", "progress"))
+STATUS_EXACT = (("To", "Do"), ("TO", "DO"))
 
 
 def check_no_status_files() -> list[Violation]:
@@ -905,8 +908,12 @@ def check_no_status_files() -> list[Violation]:
 
 
 def _words(line: str) -> list[str]:
-    """The line's words, lower-cased: runs of letters and digits, everything else a separator."""
-    return "".join(ch.lower() if ch.isalnum() else " " for ch in line).split()
+    """The line's words: runs of letters and digits, everything else a separator."""
+    return "".join(ch if ch.isalnum() else " " for ch in line).split()
+
+
+def _has_phrase(words: list[str], phrase: tuple[str, ...]) -> bool:
+    return any(tuple(words[i : i + len(phrase)]) == phrase for i in range(len(words)))
 
 
 def _has_decimal(line: str) -> bool:
@@ -923,11 +930,9 @@ def plan_doc_problems(rel: str, text: str) -> list[str]:
     out: list[str] = []
     for number, line in enumerate(text.splitlines(), 1):
         words = _words(line)
-        found = [
-            " ".join(phrase)
-            for phrase in STATUS_WORDS
-            if any(tuple(words[i : i + len(phrase)]) == phrase for i in range(len(words)))
-        ]
+        lower = [w.lower() for w in words]
+        found = [" ".join(p) for p in STATUS_WORDS if _has_phrase(lower, p)]
+        found += ["To Do"] if any(_has_phrase(words, p) for p in STATUS_EXACT) else []
         found += ["a decimal number"] if _has_decimal(line) else []
         found += ["an evidence/ path"] if rel == ".claude/PLAN.md" and "evidence/" in line else []
         out += [f"line {number}: {', '.join(found)}"] if found else []
