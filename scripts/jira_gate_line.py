@@ -6,24 +6,28 @@
 
 --dry-run only reads Jira. For each open ticket that carries the pasted wording it writes
 DIR/<KEY>.before.md and .after.md (to read), .before.json and .after.json (the description as Jira
-stores it) and DIR/manifest.json. Without --out, DIR is a folder in the system's temporary
+stores it) and DIR/manifest.json. Without --out, DIR is a new folder in the system's temporary
 directory, so that a routine run leaves a committed set alone. Jira's search can lag behind an
 edit, so every ticket the search lists is read again from its own record; one that the search does
 not list is not read, and jira_fetch._search can return a short list without an error when a later
 page is malformed or a page token repeats. A listed ticket that cannot be judged is refused: a
 reply about it does not parse or is not the shape read from it, its record answers under another
-key, as a moved ticket's can, or its description is neither a document nor empty.
+key, as a moved ticket's can, or its description is neither empty nor a document that can be
+read all the way down and stored. When the search or a read gets no answer, the dry run stops and
+changes nothing in DIR.
 
 The owner approves a set of snapshots by writing the sha256 of its manifest.json, which --dry-run
-prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots void it.
+prints, into DIR/APPROVED, and nothing else, as UTF-8 or as UTF-16 with its byte order mark.
+--apply writes nothing without it, and new snapshots void it.
 
 A ticket is left unchanged when its AC/TC IDs would differ, when part of the pasted wording
 would remain (the opening words of a paragraph, or any sentence of SENTENCE_MIN characters or more,
 as in a reworded, formatted or linked copy; a copy rewritten in all of those is not recognised),
-when a line would still point at the removed contract, when
-it was closed or its description changed after the snapshot, when a reply to a read before the
-write cannot be used, answers under another key or has no text, or when its after snapshot is not
-what this script's rule produces. A write that Jira cannot be shown to hold, that finds the
+when a line would still point at the removed contract, even
+one removed earlier by hand, when it was closed or its description changed after the snapshot,
+when a read before the write gets no answer or a reply that cannot be used, that answers under
+another key or that has no text, or when its after snapshot is not what this script's rule
+produces. A write that Jira cannot be shown to hold, that finds the
 ticket closed afterwards, or that was interrupted, stops the run and leaves DIR/FAILED. Until a
 person deletes it, no --apply of DIR runs and no --dry-run touches DIR, whose before snapshot is
 what to restore from. One --apply of DIR runs at a time (DIR/APPLYING). Only CC tickets are
@@ -66,7 +70,7 @@ import jira_fetch
 import jira_transition
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = Path(tempfile.gettempdir()) / "jira-gate-line"
+OUT_PREFIX = "jira-gate-line-"  # of the folder a dry run makes when it is given none
 TEXT_API = "/rest/api/2"  # gives a description as the text its history holds; jira_transition is v3
 OPEN_JQL = "project = CC AND statusCategory != Done ORDER BY key ASC"
 GATE_LINE = (
@@ -119,6 +123,8 @@ NEW_POINTER = "Existing scope"
 POINTER_PHRASE = "the stricter metric contract above"
 # what a reply that does not parse, or lacks the shape read from it, raises
 UNUSABLE = (ValueError, KeyError, TypeError, AttributeError)
+# what a request with no answer raises; jira_transition._api exits on an HTTP error
+NO_ANSWER = (OSError, http.client.HTTPException, SystemExit)
 
 Doc = dict[str, Any]
 ApiFn = Callable[..., dict[str, Any]]
@@ -207,8 +213,11 @@ def refusal(before: Doc, after: Doc) -> str | None:
     for marker in MARKERS:
         if _mentions(after, marker):
             return f"a copy of the pasted wording is reworded, formatted or linked: {marker!r}"
-    if _mentions(before, MARKERS[0]) and _mentions(after, POINTER_PHRASE):
-        return "a line would still point at the removed contract (formatted, nested or moved)"
+    if _mentions(after, POINTER_PHRASE):
+        return (
+            "a line would still point at the removed contract (formatted, nested or moved, "
+            "or the contract was already gone)"
+        )
     left = _pasted_sentence(after)
     if left:
         return f"a sentence of the pasted wording would remain, in an inexact copy: {left[:60]!r}"
@@ -233,7 +242,7 @@ def changes(issues: list[dict[str, Any]]) -> list[Change]:
             continue
         after, replaced = edit(before)
         why = refusal(before, after)
-        carries = any(_mentions(before, marker) for marker in MARKERS) or bool(
+        carries = any(_mentions(before, text) for text in (*MARKERS, POINTER_PHRASE)) or bool(
             _pasted_sentence(before)
         )
         if replaced or carries:
@@ -288,52 +297,80 @@ def _discard(out: Path) -> None:
         manifest.unlink()
 
 
+def _is_node(value: Any) -> bool:
+    """An object, and so is everything in its content: what is not would be read as no text."""
+    if not isinstance(value, dict):
+        return False
+    content = value.get("content", [])
+    return isinstance(content, list) and all(_is_node(child) for child in content)
+
+
 def _is_document(value: Any) -> bool:
-    return (
-        isinstance(value, dict)
-        and value.get("type") == "doc"
-        and isinstance(value.get("content"), list)
-    )
+    return _is_node(value) and value.get("type") == "doc" and "content" in value
 
 
-def _why(exc: Exception) -> str:
-    """A KeyError's own text is only the name it did not find, so the kind of error goes too."""
+def _why(exc: BaseException) -> str:
+    """Why a ticket could not be read or judged. A KeyError's own text is only the name it did
+    not find, and an exit's only a number, so the kind of error goes too."""
+    if isinstance(exc, NO_ANSWER):
+        return f"no answer from Jira ({type(exc).__name__}: {exc})"
     if isinstance(exc, ValueError):
         return str(exc)
     return f"unusable reply ({type(exc).__name__}: {exc})"
 
 
-def _read_each(
-    listed: list[dict[str, Any]], api: ApiFn
-) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """The listed tickets that are open, each as its own record reads now (what the search
-    returns can be from before an edit made seconds or minutes ago), and why each ticket that
-    cannot be judged cannot be: it must never be counted as one without the wording."""
-    now: list[dict[str, Any]] = []
+def _read_each(keys: list[str], api: ApiFn) -> tuple[int, list[Change], dict[str, str]]:
+    """Judge each listed ticket as its own record reads now (what the search returns can be from
+    before an edit made seconds or minutes ago): how many open ones were judged, those of them
+    that carry the wording, and why each ticket that cannot be judged cannot be, so that it is
+    never counted as one without the wording. ConnectionError when a read gets no answer, which
+    says nothing about the ticket."""
+    judged = 0
+    found: list[Change] = []
     unjudged: dict[str, str] = {}
-    for issue in listed:
-        key = str(issue["key"])
+    for key in keys:
         try:
             if not _is_cc(key):
                 raise ValueError(f"{key!r} is not a CC issue key")
             description, closed = _issue(key, api)
-            if not closed and description is not None and not _is_document(description):
+            if closed:
+                continue
+            if description is not None and not _is_document(description):
                 raise ValueError("the description is neither a document nor empty")
+            _dump(description)  # what cannot be stored, such as half of an emoji, fails here
+            found += changes([{"key": key, "fields": {"description": description}}])
+        except NO_ANSWER as exc:
+            raise ConnectionError(f"{key}: {_why(exc)}") from exc
         except UNUSABLE as exc:
             unjudged[key] = _why(exc)
             continue
-        if not closed:
-            now.append({"key": key, "fields": {"description": description}})
-    return now, unjudged
+        judged += 1
+    return judged, found, unjudged
+
+
+def _listed_keys(search: SearchFn) -> list[str]:
+    """The keys of the open tickets the search lists, each once. ValueError for a list that
+    cannot be read."""
+    listed = search(OPEN_JQL, fields="status")
+    try:
+        return list(dict.fromkeys(str(issue["key"]) for issue in listed))
+    except (KeyError, TypeError) as exc:
+        raise ValueError(f"Jira's search returned an entry without a key ({exc!r})") from exc
 
 
 def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
-    listed = search(OPEN_JQL, fields="status")
-    if not listed:  # an empty answer is a fault to look at, not a project with nothing to change
+    try:
+        keys = _listed_keys(search)
+        judged, found, unjudged = _read_each(keys, api)
+    except ConnectionError as exc:  # already says what got no answer, when it is a ticket
+        print(f"nothing changed in {out}: {exc}", file=sys.stderr)
+        return 1
+    except (*UNUSABLE, *NO_ANSWER) as exc:  # the search itself
+        print(f"nothing changed in {out}: {_why(exc)}", file=sys.stderr)
+        return 1
+    if not keys:  # an empty answer is a fault to look at, not a project with nothing to change
         print("Jira returned no open ticket at all; nothing changed", file=sys.stderr)
         return 1
-    issues, unjudged = _read_each(listed, api)
-    found = changes(issues)
     ready = [c for c in found if not c.refused]
     skipped = {**{c.key: c.refused for c in found if c.refused}, **unjudged}
     for key, why in skipped.items():
@@ -341,7 +378,7 @@ def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
     for change in ready:
         print(f"change   {change.key}  replaces: {', '.join(change.replaced)}")
     print(
-        f"{len(issues)} open ticket(s) read: {len(ready)} ticket(s) left to change, "
+        f"{judged} open ticket(s) read: {len(ready)} ticket(s) left to change, "
         f"{len(skipped)} refused"
     )
     failed = 1 if skipped else 0
@@ -390,6 +427,16 @@ def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
     return failed
 
 
+def _approval_text(path: Path) -> str:
+    """Windows PowerShell 5.1 can write a file as UTF-16, or as UTF-8 with a byte order mark."""
+    data = path.read_bytes()
+    wide = data.startswith((b"\xff\xfe", b"\xfe\xff"))
+    try:
+        return data.decode("utf-16" if wide else "utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{path} is not text in UTF-8 or UTF-16 ({exc.reason})") from exc
+
+
 def approved_snapshots(folder: Path) -> tuple[dict[str, tuple[Doc, Doc]], dict[str, str]]:
     """From an approved directory: key -> (before, after), and the tickets the dry run refused.
     ValueError when it is not one."""
@@ -400,8 +447,7 @@ def approved_snapshots(folder: Path) -> tuple[dict[str, tuple[Doc, Doc]], dict[s
     if not approval.is_file():
         raise ValueError(f"{folder} is not approved: it has no APPROVED file")
     raw = manifest.read_bytes()
-    # utf-8-sig: Windows PowerShell writes a byte order mark
-    if approval.read_text(encoding="utf-8-sig").strip() != _sha(raw):  # the hash and no more
+    if _approval_text(approval).strip() != _sha(raw):  # the hash and no more
         raise ValueError(f"{approval} does not name these snapshots (manifest {_sha(raw)})")
     listed = _listed(raw)
     docs: dict[str, tuple[Doc, Doc]] = {}
@@ -425,7 +471,7 @@ def _stored_form(node: Any) -> Any:
     if not isinstance(node, dict):
         return node
     out = {key: _stored_form(value) for key, value in node.items()}
-    if "attrs" in out:
+    if isinstance(out.get("attrs"), dict):  # any other value stays, and so does not match
         out["attrs"] = {k: v for k, v in out["attrs"].items() if k != "localId"}
         if not out["attrs"]:
             del out["attrs"]
@@ -500,12 +546,7 @@ def _write(key: str, after: Doc, earlier: set[str], was: str, api: ApiFn) -> str
         new = [change for entry in history.keys() - earlier for change in history[entry]]
         # nothing may be read after this: "written" is about what the ticket held here
         stored, closed = _issue(key, api)
-    except (
-        *UNUSABLE,
-        OSError,
-        http.client.HTTPException,
-        SystemExit,  # jira_transition._api exits on an HTTP error
-    ) as exc:
+    except (*UNUSABLE, *NO_ANSWER) as exc:
         return f"the write could not be confirmed ({type(exc).__name__}: {exc})"
     check = "Read the ticket's History in Jira, which keeps each version, before restoring anything"
     if len(new) > 1:
@@ -573,7 +614,7 @@ def _apply_approved(
             earlier = set(_description_changes(key, api))
             was = _text(key, api)
             live, closed = _issue(key, api)
-        except UNUSABLE as exc:  # a reply that cannot be used: this ticket is not written
+        except (*UNUSABLE, *NO_ANSWER) as exc:  # not read, so this ticket is not written
             print(f"REFUSED  {key}  {_why(exc)}")
             refused += 1
             continue
@@ -634,7 +675,9 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--dry-run", action="store_true", help="snapshot; never changes Jira")
     mode.add_argument("--apply", action="store_true", help="write the approved snapshots")
     parser.add_argument(
-        "--out", type=Path, default=OUT, help="where --dry-run writes (default: %(default)s)"
+        "--out",
+        type=Path,
+        help="where --dry-run writes (default: a new folder in the system's temporary directory)",
     )
     parser.add_argument("--approved", type=Path, help="the approved snapshot directory")
     args = parser.parse_args(argv)
@@ -643,7 +686,9 @@ def main(argv: list[str] | None = None) -> int:
     jira_transition._load_env()
     if args.apply:
         return apply(args.approved, _jira)
-    return dry_run(args.out, jira_fetch._search, jira_transition._api)
+    # made by this run, so it cannot be another's folder, or a link, waiting under a known name
+    out = args.out or Path(tempfile.mkdtemp(prefix=OUT_PREFIX))
+    return dry_run(out, jira_fetch._search, jira_transition._api)
 
 
 if __name__ == "__main__":

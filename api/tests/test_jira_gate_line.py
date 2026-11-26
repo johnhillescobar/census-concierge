@@ -608,7 +608,7 @@ def test_the_dry_run_command_asks_for_open_tickets_and_only_reads(
     monkeypatch.setattr(jg.jira_fetch, "_api", reading)
     monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
     monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
-    monkeypatch.setattr(jg, "OUT", tmp_path / "default")
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     out = tmp_path / "snapshots"
     assert jg.main(["--dry-run", "--out", str(out)]) == 0
     assert jira.calls == ["GET"] and jira.writes == []
@@ -664,7 +664,7 @@ def test_a_dry_run_and_an_apply_asked_at_once_write_nothing(
     monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
     monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
     monkeypatch.setattr(jg.jira_fetch, "_search", jira.search)
-    monkeypatch.setattr(jg, "OUT", tmp_path / "default")
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     with pytest.raises(SystemExit) as stopped:
         jg.main(["--dry-run", "--apply", "--approved", str(tmp_path)])
     assert stopped.value.code != 0
@@ -1278,9 +1278,24 @@ def test_a_ticket_that_closed_during_its_write_stops_the_run(tmp_path: Path, whe
 # --- where a routine dry run puts its files ----------------------------------------------------
 
 
-def test_the_default_snapshot_folder_is_outside_the_repository() -> None:
-    assert jg.OUT.is_relative_to(Path(tempfile.gettempdir()))
-    assert not jg.OUT.is_relative_to(jg.ROOT)
+def test_the_default_snapshot_folder_is_new_each_run_and_outside_the_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A fixed name in a shared temporary directory could be there already, as another's folder
+    or a link to one."""
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    waiting = tmp_path / "jira-gate-line"
+    waiting.mkdir()
+    jira = Jira(CC_1=ticket())
+    monkeypatch.setattr(jg.jira_transition, "_load_env", lambda: None)
+    monkeypatch.setattr(jg.jira_transition, "_api", jira.api)
+    monkeypatch.setattr(jg.jira_fetch, "_search", jira.search)
+
+    assert jg.main(["--dry-run"]) == 0 and jg.main(["--dry-run"]) == 0
+    made = [p for p in tmp_path.iterdir() if p != waiting]
+    assert len(made) == 2 and all((p / "manifest.json").is_file() for p in made)
+    assert list(waiting.iterdir()) == []
+    assert not any(p.is_relative_to(jg.ROOT) for p in made)
 
 
 # --- the search may be behind: each ticket is read from its own record -------------------------
@@ -1336,8 +1351,7 @@ def test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was(tmp_path:
     def failing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
         raise SystemExit(1)  # what the real client does on an HTTP error
 
-    with pytest.raises(SystemExit):
-        jg.dry_run(tmp_path, jira.search, failing)
+    assert jg.dry_run(tmp_path, jira.search, failing) == 1
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
 
 
@@ -1902,3 +1916,239 @@ def test_the_stand_in_answers_in_the_shapes_read_from_jira() -> None:
     kept = copy.deepcopy(page)
     page["values"][0]["items"].clear()  # a reply is the reader's own copy, as over HTTP
     assert jira.api("GET", path) == kept
+
+
+# --- one ticket, or one request, that fails never takes the run down ---------------------------
+
+DEEP = {
+    "a block that is a string": "x",
+    "a block that is null": None,
+    "a paragraph holding null": {"type": "paragraph", "content": [None]},
+    "a list item holding a string": {
+        "type": "bulletList",
+        "content": [{"type": "listItem", "content": ["x"]}],
+    },
+    "content that is not a list, below the top": {"type": "paragraph", "content": "x"},
+    "a node kind that is a list": {"type": "paragraph", "content": [{"type": ["text"]}]},
+    "half of an emoji": para("cut \ud83d"),
+}
+
+
+@pytest.mark.parametrize("wording", [True, False], ids=["with the wording", "without it"])
+@pytest.mark.parametrize("fault", list(DEEP))
+def test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fault: str, wording: bool
+) -> None:
+    jira = Jira(CC_1=ticket() if wording else doc("clean"), CC_2=ticket())
+    jira.tickets["CC-1"]["content"].append(DEEP[fault])
+
+    def reading(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if path.startswith(jg.TEXT_API):
+            raise AssertionError("a dry run reads no text form")
+        return jira.api(method, path, body)
+
+    assert jg.dry_run(tmp_path, jira.search, reading) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1" in out
+    assert "1 open ticket(s) read: 1 ticket(s) left to change, 1 refused" in out
+    manifest = json.loads((tmp_path / "manifest.json").read_bytes())
+    assert list(manifest["tickets"]) == ["CC-2"] and list(manifest["refused"]) == ["CC-1"]
+    assert not list(tmp_path.glob("CC-1.*"))
+
+
+def no_answer(kind: str) -> BaseException:
+    if kind == "an HTTP error":
+        return SystemExit(1)  # what jira_transition._api does with one
+    if kind == "an HTTP error on the text read":
+        return urllib.error.HTTPError("https://x.invalid", 503, "unavailable", {}, None)  # type: ignore[arg-type]
+    if kind == "no connection":
+        return urllib.error.URLError("timed out")
+    if kind == "a time-out":
+        return TimeoutError("timed out")
+    assert kind == "a cut-off reply"
+    return http.client.IncompleteRead(b"")
+
+
+NO_ANSWERS = (
+    "an HTTP error",
+    "an HTTP error on the text read",
+    "no connection",
+    "a time-out",
+    "a cut-off reply",
+)
+
+
+@pytest.mark.parametrize("kind", NO_ANSWERS)
+@pytest.mark.parametrize("position", range(JUST_BEFORE_THE_WRITE))
+def test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], position: int, kind: str
+) -> None:
+    jira = two_tickets(tmp_path)
+    count = [0]
+
+    def failing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if about_cc1(path):
+            count[0] += 1
+            if count[0] == position + 1:
+                raise no_answer(kind)
+        return jira.api(method, path, body)
+
+    capsys.readouterr()
+    assert jg.apply(tmp_path, failing) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1  no answer from Jira" in out
+    assert jira.writes == ["CC-2"] and "1 written, 1 refused" in out
+    assert not (tmp_path / "FAILED").exists() and not (tmp_path / "APPLYING").exists()
+
+
+@pytest.mark.parametrize("kind", NO_ANSWERS)
+def test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, tmp_path)
+    kept = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    capsys.readouterr()
+
+    def failing(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if about_cc1(path):
+            raise no_answer(kind)
+        return jira.api(method, path, body)
+
+    assert jg.dry_run(tmp_path, jira.search, failing) == 1
+    out, err = capsys.readouterr()
+    assert "CC-1: no answer from Jira" in err and "nothing changed" in err
+    assert "open ticket(s) read" not in out
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
+
+
+@pytest.mark.parametrize("kind", NO_ANSWERS)
+def test_a_search_with_no_answer_leaves_the_set_as_it_was(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    kept = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+
+    def search(*args: Any, **kwargs: Any) -> Any:
+        raise no_answer(kind)
+
+    assert jg.dry_run(tmp_path, search, never) == 1
+    assert "nothing changed" in capsys.readouterr().err
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
+
+
+@pytest.mark.parametrize("entry", [{}, "CC-1", None], ids=["no key", "a string", "null"])
+def test_a_search_entry_without_a_key_stops_the_dry_run_before_it_changes_anything(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], entry: Any
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    kept = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+
+    assert jg.dry_run(tmp_path, lambda *a, **k: [{"key": "CC-1"}, entry], never) == 1
+    assert "without a key" in capsys.readouterr().err
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
+
+
+def test_a_ticket_the_search_lists_twice_is_read_and_counted_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+
+    def twice(jql: str, *, fields: str) -> list[dict[str, Any]]:
+        found = jira.search(jql, fields=fields)
+        return [*found, found[0]]
+
+    assert jg.dry_run(tmp_path, twice, jira.api) == 0
+    out = capsys.readouterr().out
+    assert "2 open ticket(s) read: 2 ticket(s) left to change, 0 refused" in out
+    assert out.count("change   CC-1") == 1
+
+
+# --- a line pointing at the removed contract is seen even when the contract is gone ------------
+
+
+@pytest.mark.parametrize(
+    "blocks",
+    [
+        (jg.OLD_POINTER, "AC1. a"),
+        (jg.OLD_POINTER, CLEARANCE, "AC1. a"),
+        ("See THE STRICTER metric contract ABOVE for this.", "AC1. a"),
+    ],
+    ids=["the pointer alone", "beside other wording", "reworded, other capitals"],
+)
+def test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], blocks: tuple[str, ...]
+) -> None:
+    assert snapshot(Jira(CC_1=doc(*blocks)), tmp_path) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1" in out and "point at the removed contract" in out
+    assert not (tmp_path / "manifest.json").exists()
+
+
+# --- an approval is the hash, however an ordinary Windows command encodes it ------------------
+
+
+@pytest.mark.parametrize(
+    "encoded",
+    [
+        lambda text: text.encode("utf-8"),
+        lambda text: text.encode("utf-8-sig"),
+        lambda text: b"\xff\xfe" + text.encode("utf-16-le"),
+        lambda text: b"\xfe\xff" + text.encode("utf-16-be"),
+    ],
+    ids=["UTF-8", "UTF-8 with its mark", "UTF-16 little-endian", "UTF-16 big-endian"],
+)
+@pytest.mark.parametrize("extra", ["", " rejected"], ids=["the hash alone", "and a word"])
+def test_the_hash_approves_in_any_of_these_encodings_and_only_alone(
+    tmp_path: Path, encoded: Any, extra: str
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    digest = jg._sha((tmp_path / "manifest.json").read_bytes())
+    (tmp_path / "APPROVED").write_bytes(encoded(f"{digest}{extra}\r\n"))
+
+    assert jg.apply(tmp_path, jira.api) == (2 if extra else 0)
+    assert jira.writes == ([] if extra else ["CC-1"])
+
+
+def test_an_approval_that_is_not_text_writes_nothing_and_says_which_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    (tmp_path / "APPROVED").write_bytes(b"\x81\x82\x83")
+
+    assert jg.apply(tmp_path, jira.api) == 2
+    said = capsys.readouterr().err
+    assert "APPROVED is not text in UTF-8 or UTF-16" in said
+    assert jira.writes == []
+
+
+@pytest.mark.parametrize("attrs", [None, ["x"], "x", 3], ids=["null", "a list", "text", "a number"])
+@pytest.mark.parametrize("position", [2, 6], ids=["before the write", "after the write"])
+def test_attributes_that_are_not_an_object_never_crash_an_apply(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], position: int, attrs: Any
+) -> None:
+    jira = two_tickets(tmp_path)
+    count = [0]
+
+    def faulty(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if about_cc1(path):
+            if count[0] == position:
+                answer["fields"]["description"]["content"][0]["attrs"] = attrs
+            count[0] += 1
+        return answer
+
+    capsys.readouterr()
+    assert jg.apply(tmp_path, faulty) == 1
+    out = capsys.readouterr().out
+    if position < JUST_BEFORE_THE_WRITE:
+        assert "REFUSED  CC-1" in out and jira.writes == ["CC-2"]
+        assert not (tmp_path / "FAILED").exists()
+    else:
+        assert "written  CC-1" not in out and jira.writes == ["CC-1"]
+        stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
+        assert "does not hold the approved description" in stopped
