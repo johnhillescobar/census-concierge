@@ -1,0 +1,148 @@
+Gate 2, pass 1 (generic bugs), cold re-run on the fix commits
+=============================================================
+
+Reviewer: cold subagent (gate2-cold), no implementation intent. Procedure:
+docs/playbooks/run-slice.md section 4; adversarial matrix in docs/process-evidence.md.
+
+Repo:      C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+Branch:    cc-144/gate-line
+HEAD:      16d510d6b5ea01f80f1292d51d918d26c6292ef1  (same at start and at end of the review)
+Base:      7f34a673d124557e27514b9ac0365f58a64b1a86
+Head:      16d510d6b5ea01f80f1292d51d918d26c6292ef1  (REVIEWED HEAD)
+git status --short at start (untracked, not written by this review):
+  ?? evidence/slice-6/cc-144/gate2-code-365adee.txt
+  ?? evidence/slice-6/cc-144/gate2-codex-599a57d.txt
+  ?? evidence/slice-6/cc-144/gate2-cursor-599a57d.txt
+  ?? evidence/slice-6/cc-144/gate2-owner-review.txt
+This review adds one untracked file: this one. No product or test file changed, nothing
+committed or pushed, nothing written to Jira.
+
+Commits in range: 7c6dbdb 0b2088c 3ad7c9f (evidence only), b8f66f0 (fix), 12c00ca (tests),
+16d510d (evidence only).
+
+Scope read: the code diff only.
+  scripts/jira_gate_line.py         +141 -55 (read whole at head)
+  api/tests/test_jira_gate_line.py  +272 (diff, plus the stand-in Jira and helpers it uses)
+  scripts/closure.py adf_text, scripts/jira_fetch.py _api/_search,
+  scripts/jira_transition.py _api/_auth_header: read for behaviour; unchanged in range.
+Not read before these findings were written: the slice plan, the ticket, the caller's
+explanation, and every evidence/ file for this ticket (the six in the range included).
+
+Baseline at head
+----------------
+  uv run pytest api/tests/test_jira_gate_line.py -q   -> 417 passed
+  uv run ruff check / ruff format --check (both files) -> clean
+  (mypy in `make types` covers api/src only, so not this script.)
+
+Adversarial matrix (docs/process-evidence.md)
+---------------------------------------------
+Four rows, all retrieval probes (float-noise twins, family returned by one member, ranking
+change measured on the tuning set alone, "largest jump" checked against the number). None
+applies to a Jira bulk-edit script, so none was run. The probes below are this diff's own
+adversarial cases.
+
+Probes (fakes only; scratch scripts in the session scratchpad, urlopen blocked)
+-------------------------------------------------------------------------------
+P1 deep description            -> RecursionError escapes dry_run           FINDING 1
+P2 one ticket answers HTTP 404 -> the whole dry run stops, "no answer"     FINDING 2
+P3 search raises ConnectionResetError -> exit 1, no "no answer" framing    FINDING 3
+P4 main --dry-run with no --out, nothing to write, twice -> 2 empty dirs   FINDING 4
+P5 APPROVED as UTF-16LE without a mark, UTF-32 with one, upper-case hash,
+   odd-length UTF-16 -> each refused, exit 2, writes == []                 nothing (fails closed)
+P6 the heading only in an expand title / unknown node kind -> counted clean FINDING 5
+P7 attrs that is not an object, before and after the write -> no crash;
+   refused before, FAILED after                                            nothing
+P8 a search entry that is {}, a string or null; a key listed twice         nothing
+P9 can a Change with nothing replaced be ready? Every `carries` condition
+   (markers, the pointer phrase, a pasted sentence) is re-checked by
+   refusal() on `after`, which equals `before` when nothing is replaced, so
+   such a change is always refused                                          nothing
+
+Findings, most severe first
+---------------------------
+
+1. LOW (reproduced; pre-existing at base, but contradicts the fix's stated property)
+   scripts/jira_gate_line.py:341 -> :243 -> :169 (copy.deepcopy in edit); also :300-305
+   (_is_node), recursive.
+   A description nested 124 list levels deep (250 ADF levels) raises RecursionError in
+   edit()'s deepcopy, reached from _read_each's changes() call. RecursionError is a
+   RuntimeError, outside UNUSABLE (:125) and NO_ANSWER (:127), so it escapes _read_each and
+   dry_run. Result: one ticket ends the whole dry run with a traceback, against the commit
+   title "one bad ticket ... never takes the run down" and the docstring (:15-16) "a
+   document that can be read all the way down". DIR is untouched: the crash comes before
+   _discard. The reply still parses at that depth (json.loads succeeds under 3.12), so the
+   real client returns it. Measured first failures: changes() at 124 list levels,
+   _is_document at 249, _dump at 248. The same RecursionError escapes the base version's
+   dry_run. Unverified: whether Jira stores ADF that deep (no live system was used).
+   Possible fix: treat RecursionError per ticket as unusable in _read_each, or bound the
+   depth in _is_node before edit() runs.
+
+2. LOW (reproduced; documented behaviour, wrong label)
+   scripts/jira_gate_line.py:127 (NO_ANSWER includes SystemExit), :342-343, :365-367; compare :617.
+   jira_transition._api turns every HTTP error status (404, 403, 429 ...) into SystemExit(1),
+   and NO_ANSWER treats that as "no answer". A ticket the search still lists but that was
+   deleted or hidden since then gets a 404 on its own read. That stops the whole dry run with
+   "nothing changed in DIR: CC-2: no answer from Jira (SystemExit: 1)", although Jira did
+   answer. The docstring says the search can lag behind an edit, so the stale entry can block
+   every dry run until the index catches up. The apply path handles the same 404 by refusing
+   that ticket and going on. Fail-safe, nothing is written, and the docstring says "When the
+   search or a read gets no answer, the dry run stops", hence LOW. The HTTP code is printed
+   on stderr just above by jira_transition._api, so it can be recovered. Base also stopped
+   here, as an uncaught SystemExit.
+
+3. NIT (reproduced)
+   scripts/jira_gate_line.py:365-366.
+   `except ConnectionError` is meant for _read_each's wrapped errors, but it also catches a
+   raw ConnectionError subclass raised by the search. jira_fetch._api converts only HTTPError
+   and URLError, so a ConnectionResetError during resp.read() reaches here unconverted. The
+   operator then sees "nothing changed in DIR: [Errno 10054] An existing connection was
+   forcibly closed", without the "no answer from Jira" framing the other paths give. The exit
+   code (1) and DIR are correct.
+
+4. NIT (reproduced)
+   scripts/jira_gate_line.py:690.
+   main() creates the default folder before the dry run. A run with nothing to write, or one
+   that stops, leaves an empty jira-gate-line-* folder in the temporary directory every time.
+   On the nothing-to-write path the folder's name is never printed. Two runs left two empty
+   folders.
+
+5. NIT (reproduced with the stand-in wording)
+   scripts/jira_gate_line.py:301 (_is_node docstring); behaviour in closure.adf_text,
+   outside the diff.
+   The docstring says what _is_node rejects "would be read as no text", which suggests that
+   what it accepts is read in full. adf_text still reads no text from a node of a kind it
+   does not know, or from text held in attrs, such as an `expand` node's title. A ticket
+   whose only remnant is the contract heading in an expand title is counted clean (exit 0,
+   nothing refused). An unknown node kind would not pass Jira's ADF validation; an expand
+   with attrs.title is valid ADF. A paragraph body moved alongside it is still caught by
+   the marker and sentence checks, so only heading-only remnants slip through. That falls
+   inside the documented limit "a copy rewritten in all of those is not recognised".
+
+Nothing found in: the UTF-16/UTF-8 approval decoding (fails closed on every other encoding
+tried); _stored_form's attrs guard; _listed_keys de-duplication and malformed-entry handling;
+the widened pointer refusal and `carries` (consistent with each other, see P9); the per-ticket
+refusal of reads with no answer in --apply (nothing written, no FAILED, no APPLYING left);
+the mkdtemp default replacing the fixed shared-temp name; _why's labelling of KeyError and
+ValueError; the docstring's other claims against the code.
+
+Test spot-check (independent mutations; scratch copy, worktree untouched)
+-------------------------------------------------------------------------
+GOOD (unmutated copy): 417 passed
+BAD  approval read as UTF-8 only:                               2 failed
+BAD  no storable-text check on the description:                 2 failed
+BAD  attrs assumed to be an object:                             8 failed
+BAD  document checked at the top only:                          6 failed
+BAD  search keys not de-duplicated:                             1 failed
+BAD  apply reads with no answer not caught:                    15 failed
+BAD  pointer not counted as carrying the wording:               2 failed
+BAD  pointer refused only beside the contract heading:          3 failed
+BAD  default folder is a fixed name:                            1 failed
+BAD  dry-run read with no answer refuses instead of stopping:   6 failed
+BAD  search entry without a key not caught:                     3 failed
+Every behaviour the fix adds that was mutated here is caught by at least one new test. No
+test covers findings 1-5.
+
+Blockers: none. Runtime (uv, Python 3.12.12) was available. No credential was needed; no live
+system was touched.
+
+Verdict at 16d510d: no blocking finding. Two LOW and three NIT, all reproduced against fakes.
