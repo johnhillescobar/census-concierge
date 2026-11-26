@@ -1860,6 +1860,8 @@ def test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read(
     assert "1 open ticket(s) read: 1 ticket(s) left to change, 1 refused" in out
     manifest = json.loads((tmp_path / "manifest.json").read_bytes())
     assert list(manifest["tickets"]) == ["CC-2"] and list(manifest["refused"]) == ["CC-1"]
+    if fault == "no description":  # the name that was missing alone would say nothing
+        assert "unusable reply (KeyError: 'description')" in manifest["refused"]["CC-1"]
 
 
 # --- the stand-in answers in the shapes read from Jira -----------------------------------------
