@@ -29,11 +29,33 @@ PHASES = ("preflight", "implement", "gate1", "gate2", "final")
 COLD = "gate2-cold"  # .claude/agents/gate2-cold.md; .claude/hooks/ctx.py holds the name too
 
 
-def status_commands(key: str) -> list[str]:
+def status_commands(key: str, *, closed: bool = False) -> list[str]:
+    """The ticket, then its closure record: an open ticket's judged on this checkout, before
+    the merge; a closed one's on main, post-merge rule included, whatever branch is checked out."""
+    check = f"uv run python scripts/closure.py check evidence/closure/{key}.toml"
     return [
         f"uv run python scripts/jira_fetch.py issue {key} --md",
-        f"uv run python scripts/closure.py check evidence/closure/{key}.toml --pre-merge",
+        f"{check} --head origin/main" if closed else f"{check} --pre-merge",
     ]
+
+
+def is_closed(fields: dict[str, Any]) -> bool:
+    """Jira files the status under Done (Done, Won't Do, ...): no phase starts on it."""
+    category = ((fields.get("status") or {}).get("statusCategory") or {}).get("key")
+    return category == "done"
+
+
+def closed_status(key: str, status: str) -> str:
+    first, second = status_commands(key, closed=True)
+    lines = [
+        f"{key} is {status} in Jira: no phase may start on it. Its status comes from these two",
+        "commands, never from chat or memory:",
+        f"  {first}",
+        f"  {second}",
+        "From them state: the approved criteria and decisions, the commit tested, which",
+        "evidence is stale or missing, and what, if anything, is left for the owner.",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def compare(manifest: dict[str, Any] | None, description: str, phase: str) -> list[str]:
@@ -177,14 +199,21 @@ def main() -> int:
     jira_fetch.load_env()
     fields = jira_fetch._issue(key).get("fields") or {}
     description = closure.adf_text(fields.get("description"))
+    if is_closed(fields):
+        print(closed_status(key, str((fields.get("status") or {}).get("name") or "closed")), end="")
+        return 1
+    ids, sha = closure.required_ids(description), closure.criteria_fingerprint(description)
     if problems := compare(manifest, description, args.phase):
         for line in problems:
             print(f"  STOP  {line}", file=sys.stderr)
         print(f"{key}: the criteria do not match the approved ones; this phase may not start.")
+        if not (manifest or {}).get("approved_sha256"):  # a record from before CC-145
+            record = f"evidence/closure/{key}.toml"
+            print(f"Once the owner approves the live criteria, record in {record}:")
+            print("  approved_ids = [" + ", ".join(f'"{i}"' for i in ids) + "]")
+            print(f'  approved_sha256 = "{sha}"')
         return 1
-    approve = None
-    if args.phase == "preflight":
-        approve = (closure.required_ids(description), closure.criteria_fingerprint(description))
+    approve = (ids, sha) if args.phase == "preflight" else None
     changed = changed_files(args.base) if args.phase == "gate2" else []
     text = brief(
         args.phase, key, changed, evidence_dir(key), after_merge=args.after_merge, approve=approve

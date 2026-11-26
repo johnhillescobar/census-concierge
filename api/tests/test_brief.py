@@ -145,3 +145,65 @@ def test_the_main_command_stops_with_no_brief_when_the_criteria_moved(
     assert brief.main() == 1
     captured = capsys.readouterr()
     assert "CC-9 gate1 brief" not in captured.out and "AC3" in captured.err
+
+
+def doc(text: str) -> dict[str, Any]:
+    paragraphs = [
+        {"type": "paragraph", "content": [{"type": "text", "text": line}]}
+        for line in text.splitlines()
+    ]
+    return {"type": "doc", "content": paragraphs}
+
+
+def run_main(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fields: dict[str, Any],
+    manifest: str | None,
+    *argv: str,
+) -> int:
+    (tmp_path / "evidence" / "closure").mkdir(parents=True, exist_ok=True)
+    if manifest is not None:
+        (tmp_path / "evidence" / "closure" / "CC-9.toml").write_text(manifest, encoding="utf-8")
+    monkeypatch.setattr(brief, "ROOT", tmp_path)
+    monkeypatch.setattr(brief.jira_fetch, "load_env", lambda root=None: None)
+    monkeypatch.setattr(brief.jira_fetch, "_issue", lambda key: {"fields": fields})
+    monkeypatch.setattr(brief, "changed_files", lambda base: [])
+    monkeypatch.setattr(sys, "argv", ["brief.py", *argv])
+    return brief.main()
+
+
+DONE = {"name": "Done", "statusCategory": {"key": "done"}}
+OPEN = {"name": "In Progress", "statusCategory": {"key": "indeterminate"}}
+
+
+def test_a_closed_ticket_gets_its_status_judged_on_main_and_no_brief(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fields = {"status": DONE, "description": doc(DESCRIPTION)}
+    assert run_main(tmp_path, monkeypatch, fields, None, "final", "CC-9", "--after-merge") == 1
+    out = capsys.readouterr().out
+    assert "brief." not in out and "no phase may start" in out
+    assert "evidence/closure/CC-9.toml --head origin/main" in out and "--pre-merge" not in out
+
+
+def test_an_open_ticket_is_judged_before_the_merge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sha = closure.criteria_fingerprint(DESCRIPTION)
+    manifest = f'approved_ids = ["AC1", "AC2", "TC1"]\napproved_sha256 = "{sha}"\n'
+    fields = {"status": OPEN, "description": doc(DESCRIPTION)}
+    assert run_main(tmp_path, monkeypatch, fields, manifest, "gate1", "CC-9") == 0
+    out = capsys.readouterr().out
+    assert "CC-9 gate1 brief." in out and "CC-9.toml --pre-merge" in out
+
+
+def test_a_record_from_before_approval_stops_and_prints_what_to_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fields = {"status": OPEN, "description": doc(DESCRIPTION)}
+    assert run_main(tmp_path, monkeypatch, fields, 'ticket = "CC-9"\n', "gate1", "CC-9") == 1
+    out = capsys.readouterr().out
+    assert "brief." not in out
+    assert 'approved_ids = ["AC1", "AC2", "TC1"]' in out
+    assert f'approved_sha256 = "{closure.criteria_fingerprint(DESCRIPTION)}"' in out

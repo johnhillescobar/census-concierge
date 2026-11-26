@@ -1,0 +1,57 @@
+CC-145 AC6 handoff proof, in-progress ticket. 2026-11-26.
+Fresh general-purpose agent, no caller history, in a fresh detached worktree
+.worktrees/cc-145-proof at 6d415de (no .env: Jira was read through the main checkout's).
+Prompt given (verbatim):
+  Repository: C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof (work only
+  inside this folder; run every command from it).
+  Ticket: CC-145
+  Read AGENTS.md and follow what it says to establish this ticket's current status. Then report it.
+  You may only read files and run read-only commands. Do not edit or create any file, do not change
+  git state, and do not write to Jira. Use `uv run python ...` for Python scripts. In your final
+  reply, include the exact commands you ran and what you concluded.
+
+Agent reply (verbatim):
+
+CC-145 status, worked out from the repo and Jira only (worktree `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof`, detached HEAD at 6d415de, which is the same commit as `cc-145/one-source`).
+
+**Conclusion:** CC-145 is In Progress. Pre-flight is done and the implementation is committed locally. Gate 1 has not run, and neither has anything after it. The next permitted step is Gate 1, run by a fresh general-purpose subagent.
+
+## Commands I ran (all from the proof worktree)
+1. `git rev-parse --abbrev-ref HEAD; git rev-parse HEAD; git status --short` gave HEAD 6d415de13b88… (detached) with a clean tree.
+2. `uv run python scripts/jira_fetch.py issue CC-145 --md` (status command 1 from `scripts/brief.py`).
+3. `uv run python scripts/closure.py check evidence/closure/CC-145.toml --pre-merge` (status command 2) exited 1 with "CLOSURE BLOCKED: 24 problem(s)".
+4. `git log --oneline -6`, `git log origin/main --oneline -1`, `git log --oneline origin/main..HEAD`, `git ls-remote --heads origin cc-145/one-source` (the last returned nothing, so the branch is not pushed), and `Get-ChildItem evidence/slice-6/cc-145`.
+5. `git show --stat ... 1664ae4 3361d2a 6d415de`, then `uv run python scripts/brief.py implement CC-145`, which exited 0. That means the live Jira criteria still match the approved ones.
+6. `git ls-files "evidence/**/STATE.md" "evidence/**/*plan.md"; git worktree list; git status --short --ignored .venv`
+
+I also read AGENTS.md, CLAUDE.md, the top of `.claude/PLAN.md`, `scripts/brief.py`, `evidence/closure/CC-145.toml`, `evidence/slice-6/cc-145/preflight.txt`, and searched `docs/playbooks/run-slice.md`.
+
+## The five things the brief asks for
+- **Approved criteria:** 24 IDs, AC1–AC16 and TC1–TC8. Their fingerprint is `c38c9650af35ab7bf576084efd7e3fb8c4e8324096675d20288da493069b403f` (`approved_ids` / `approved_sha256` in `evidence/closure/CC-145.toml`). There are no amendment rows. The live Jira text still matches.
+- **Decisions:**
+  - From the Jira description (2026-11-24 and 2026-11-26):
+    - Old STATE.md and plan files are deleted only after the AC6 handoff proof.
+    - Auto-memory is switched off once its rules are in the repo.
+    - Only the owner edits the ticket description.
+    - AC13, AC14, AC15, AC16, TC6, TC7 and TC8 were added by the owner.
+    - `.claude/PLAN.md` holds the plan and Jira is the only source of status.
+  - From the Jira pre-flight comment, the owner set these rules:
+    - **AC8:** any `STATE.md`, `plan.md` or `*-plan.md` under `evidence/` fails, and `cc-138/plan.md` is renamed to `scope-record.md`. In PLAN.md and slices.md, a status word or a decimal number fails.
+    - **Waivers:** the budgets.toml waiver route stays unchanged.
+    - **AC9:** CI runs `closure.py --pre-merge` for the ticket named in the branch.
+  - The defaults are the two status commands, plus CC-145 and CC-144 as the AC6 proof tickets.
+  - **AC10:** `preflight.txt` (commit 1664ae4) records a later owner decision that is not in Jira. The regex rule becomes three lines in CLAUDE.md, 15 memory rules move into the repo, 7 are deleted, and memory files are deleted only after merge. The Jira comment still says AC10 is "open for discussion", so Jira is behind the repo on this decision.
+- **Commit tested:** none. The pre-flight comment records b6559fd. Two implementation commits came after it, 3361d2a (scripts, hook, settings, tests) and 6d415de (rule files, PLAN.md, slices.md, CI). No gate or test evidence exists for either one, and nothing is pushed.
+- **Evidence stale or missing:**
+  - Every one of the 24 closure rows is NOT RUN.
+  - `evidence/slice-6/cc-145/` holds only `preflight.txt`. There is no `gate1.txt`, `gate2-cold.txt` or `gate2.txt`.
+  - The two AC6 handoff replies are not saved.
+  - The AC7 deletions have not happened: both STATE.md files and the plan files under `evidence/` are still tracked. That is correct, because AC6 has to come first.
+  - The 3361d2a commit message says `check_invariants` stays red until the follow-up deletion commits land.
+  - AC12 worktrees still on old host files: `.worktrees/cc-104` (178c158) and `.worktrees/cc-127` (e96f3a8).
+  - Per `preflight.txt` no final or post-merge run is required, since no `api/src`, `evals/` or harness file changed.
+- **Next permitted step:** Gate 1. Print it with `uv run python scripts/brief.py gate1 CC-145` and hand it to a fresh general-purpose subagent, not a fork. It runs tests for the adversarial matrix, mutation-checks each new test, and writes raw output to `evidence/slice-6/cc-145/gate1.txt`. After that come Gate 2, then the AC6 proof, then the AC7 deletions.
+  - The playbook says implementation "ends at one commit", but there are two (3361d2a and 6d415de). Gate 1 would test 6d415de.
+
+## Side effect
+The first `uv run` created `.venv/` in this proof worktree. It is git-ignored and I created no other file. I changed nothing in git and wrote nothing to Jira.
