@@ -66,28 +66,62 @@ def offline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(urllib.request, "urlopen", blocked)
 
 
-def as_text(body: Any) -> str:
-    """The description as the history and API v2 write it: text, without the structure."""
-    return jg.closure.adf_text(body)
+# the inline formatting real Jira's text was seen to show, as its wiki markup writes it
+MARKUP = {"code": ("{{", "}}"), "strong": ("*", "*"), "em": ("_", "_")}
+
+
+def wiki(node: Any) -> str:
+    """Links and the marks above show in the text. How other nodes and marks look there was not
+    observed, so they add nothing here."""
+    if isinstance(node, str):
+        return node
+    if not isinstance(node, dict):
+        return ""
+    if node.get("type") == "text":
+        text = str(node.get("text") or "")
+        for mark in node.get("marks") or []:
+            if mark["type"] == "link":
+                text = f"[{text}|{mark['attrs']['href']}]"
+            elif mark["type"] in MARKUP:
+                text = MARKUP[mark["type"]][0] + text + MARKUP[mark["type"]][1]
+        return text
+    if node.get("type") == "hardBreak":
+        return "\n"
+    inner = "".join(wiki(child) for child in node.get("content") or [])
+    return inner + "\n" if node.get("type") in jg.closure.LINE_NODES else inner
+
+
+def as_text(body: Any) -> str | None:
+    """The description as the history and API v2 write it. An empty one is null."""
+    return None if body is None else wiki(body)
 
 
 class Jira:
-    """Descriptions by key, answering as the REST API does, and a record of every write."""
+    """Descriptions by key, in the reply shapes Jira was seen to use, and a record of every
+    write. Assumed, because only a write or a moved ticket would show it: a write adds its
+    history entry at once and in the same text; a read right after it is current; a moved ticket
+    still answers to its old key, for writes too (the worst case)."""
 
     def __init__(self, **tickets: dict[str, Any]) -> None:
         self.tickets = {key.replace("_", "-"): body for key, body in tickets.items()}
         self.writes: list[str] = []
         self.calls: list[str] = []
         self.closed: set[str] = set()
+        self.moved: dict[str, str] = {}  # old key -> the key the ticket answers with now
         self.history: dict[str, list[dict[str, Any]]] = {key: [] for key in self.tickets}
         self.page = 100  # how many history entries one request returns
+        self.entries = 10000  # history ids are numbers, never reused
+
+    def _status(self, key: str) -> dict[str, Any]:
+        return {"statusCategory": {"key": "done" if key in self.closed else "indeterminate"}}
+
+    def _reply(self, key: str, fields: dict[str, Any]) -> dict[str, Any]:
+        return {"id": "1", "key": self.moved.get(key, key), "fields": fields}
 
     def search(self, jql: str, *, fields: str) -> list[dict[str, Any]]:
         self.calls.append("search")
-        return [
-            {"key": key, "fields": {"description": copy.deepcopy(body)}}
-            for key, body in self.tickets.items()
-        ]
+        assert fields == "status"
+        return [{"id": "1", "key": key, "fields": {}} for key in self.tickets]
 
     def api(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
         self.calls.append(method)
@@ -95,31 +129,52 @@ class Jira:
         if method == "GET" and "/changelog?" in path:
             start = int(path.split("startAt=")[1].split("&")[0])
             entries = self.history.get(key, [])
-            return {"values": entries[start : start + self.page], "total": len(entries)}
+            values = copy.deepcopy(entries[start : start + self.page])
+            return {
+                "startAt": start,
+                "maxResults": self.page,
+                "total": len(entries),
+                "isLast": start + len(values) >= len(entries),
+                "values": values,
+            }
         if method == "GET" and path.startswith("/rest/api/2/"):
             key = path.split("/")[5].split("?")[0]
-            return {"fields": {"description": as_text(self.tickets[key])}}
+            return self._reply(key, {"description": as_text(self.tickets[key])})
         if method == "GET":
             asked = path.split("fields=")[1].split(",")
-            category = "done" if key in self.closed else "indeterminate"
             held = {
                 "description": copy.deepcopy(self.tickets[key]),
-                "status": {"statusCategory": {"key": category}},
+                "status": self._status(key),
             }
-            return {"fields": {name: held[name] for name in asked}}
+            return self._reply(key, {name: held[name] for name in asked})
         assert method == "PUT" and body is not None
         self.writes.append(key)
         was = as_text(self.tickets[key])
         self.tickets[key] = copy.deepcopy(body["fields"]["description"])
         self.changed(key, was=was)
-        return {}
+        return {}  # what jira_transition._api makes of an empty reply (its code; no write sent)
 
     def changed(self, key: str, field: str = "description", was: str | None = None) -> None:
         """One history entry, as Jira adds for every change to a field."""
-        entries = self.history.setdefault(key, [])
         now = as_text(self.tickets[key]) if key in self.tickets else ""
-        item = {"fieldId": field, "fromString": now if was is None else was, "toString": now}
-        entries.append({"id": f"{key}-{len(entries)}", "items": [item]})
+        item = {
+            "field": field,
+            "fieldtype": "jira",
+            "fieldId": field,
+            "from": None,
+            "fromString": now if was is None else was,
+            "to": None,
+            "toString": now,
+        }
+        self.entries += 1
+        self.history.setdefault(key, []).append(
+            {
+                "id": str(self.entries),
+                "author": {"accountId": "someone"},
+                "created": "2026-01-01T00:00:00.000+0000",
+                "items": [item],
+            }
+        )
 
     def owner_adds_a_note(self, key: str) -> None:
         was = as_text(self.tickets[key])
@@ -1054,6 +1109,7 @@ def _names(key: str) -> dict[str, str]:
         "a key that is a path",
         "another ticket's files",
         "one bad entry after a good one",
+        "a key from another project",
         "not JSON",
     ],
 )
@@ -1078,6 +1134,8 @@ def test_a_manifest_that_names_other_files_removes_nothing(tmp_path: Path, bad: 
         manifest["tickets"]["CC-2"] = {"files": _names("CC-1")}
     elif bad == "one bad entry after a good one":
         manifest["tickets"]["CC-2"] = {"files": {"../unrelated.txt": "0"}}
+    elif bad == "a key from another project":
+        manifest["tickets"]["EXT-2"] = {"files": _names("EXT-2")}
     raw = "{ not json" if bad == "not JSON" else json.dumps(manifest)
     (out / "manifest.json").write_text(raw, encoding="utf-8")
     kept = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
@@ -1103,16 +1161,21 @@ def test_an_approved_manifest_that_names_other_files_writes_nothing(
 # --- another person's change must not pass for this write -------------------------------------
 
 
+NOT_THIS_WRITE = "not shown to be this write"
+
+
 @pytest.mark.parametrize(
-    ("when", "unlisted"),
+    ("when", "unlisted", "said"),
     [
-        ("before the write", "this write's entry"),  # the one entry listed is the owner's
-        ("before the write", "the owner's entry"),  # the one listed is this write's
-        ("after the read-back", "this write's entry"),
+        # the one entry listed is the owner's, then this write's
+        ("before the write", "this write's entry", NOT_THIS_WRITE),
+        ("before the write", "the owner's entry", NOT_THIS_WRITE),
+        # the owner's note is still on the ticket when it is read last
+        ("after the text read-back", "this write's entry", "does not hold the approved"),
     ],
 )
 def test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run(
-    tmp_path: Path, when: str, unlisted: str
+    tmp_path: Path, when: str, unlisted: str, said: str
 ) -> None:
     jira = Jira(CC_1=ticket(), CC_2=ticket())
     snapshot(jira, tmp_path)
@@ -1127,7 +1190,7 @@ def test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run(
                 done.append(True)
                 jira.owner_adds_a_note("CC-1")
             put.append(True)
-        if when == "after the read-back" and put and history and not done:
+        if when == "after the text read-back" and put and history and not done:
             done.append(True)
             jira.owner_adds_a_note("CC-1")
         answer = jira.api(method, path, body)
@@ -1141,7 +1204,7 @@ def test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run(
     assert jg.apply(tmp_path, racing) == 1
     assert done and jira.writes == ["CC-1"]
     stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
-    assert "not shown to be this write" in stopped and "History" in stopped
+    assert said in stopped and "History" in stopped
     assert "put back only what this write took out" in stopped
 
 
@@ -1269,3 +1332,350 @@ def test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was(tmp_path:
     with pytest.raises(SystemExit):
         jg.dry_run(tmp_path, jira.search, failing)
     assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == kept
+
+
+# --- one change by another person, before each request of a write -------------------------------
+
+# the requests one write makes about its ticket, in order
+REQUESTS = ["history", "text", "ticket", "write", "text", "history", "ticket"]
+JUST_BEFORE_THE_WRITE = REQUESTS.index("write")  # earlier positions come before a read that does
+AFTER_THE_LAST_READ = len(REQUESTS)
+
+
+def request_kind(method: str, path: str) -> str:
+    if method == "PUT":
+        return "write"
+    if "/changelog?" in path:
+        return "history"
+    return "text" if path.startswith("/rest/api/2/") else "ticket"
+
+
+def about_cc1(path: str) -> bool:
+    return path.endswith("/issue/CC-1") or "/issue/CC-1?" in path or "/issue/CC-1/" in path
+
+
+def two_tickets(folder: Path) -> Jira:
+    """CC-1 and CC-2, snapshotted and approved."""
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    snapshot(jira, folder)
+    approve(folder)
+    return jira
+
+
+def test_a_write_reads_the_ticket_itself_last(tmp_path: Path) -> None:
+    jira = two_tickets(tmp_path)
+    seen: list[str] = []
+
+    def watching(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        if about_cc1(path):
+            seen.append(request_kind(method, path))
+        return jira.api(method, path, body)
+
+    assert jg.apply(tmp_path, watching) == 0
+    assert seen == REQUESTS
+
+
+class Race:
+    """One change by another person before request number `when` about CC-1 (or after the last),
+    and the history entries of one side, or both, not listed for the rest of the run."""
+
+    def __init__(self, jira: Jira, change: str, when: int, unlisted: str) -> None:
+        self.jira, self.change, self.when, self.unlisted = jira, change, when, unlisted
+        self.seen = 0
+        self.happened = False
+        self.hidden: set[str] = set()
+
+    def hide(self, side: str, since: int) -> None:
+        if self.unlisted in (side, "both"):
+            self.hidden |= {entry["id"] for entry in self.jira.history["CC-1"][since:]}
+
+    def happen(self) -> None:
+        self.happened = True
+        since = len(self.jira.history["CC-1"])
+        if self.change == "an edit":
+            self.jira.owner_adds_a_note("CC-1")
+        elif self.change == "a link":
+            was = as_text(self.jira.tickets["CC-1"])
+            self.jira.tickets["CC-1"]["content"][0]["content"][0]["marks"] = [copy.deepcopy(LINK)]
+            self.jira.changed("CC-1", was=was)
+        elif self.change == "a close":
+            self.jira.closed.add("CC-1")
+        else:
+            self.jira.moved["CC-1"] = "EXT-2"
+        self.hide("the other change's", since)
+
+    def api(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        mine = about_cc1(path)
+        if mine and not self.happened and self.seen == self.when:
+            self.happen()
+        since = len(self.jira.history["CC-1"])
+        answer = self.jira.api(method, path, body)
+        if mine and method == "PUT":
+            self.hide("this write's", since)
+        if "/changelog?" in path:
+            listed = [entry for entry in answer["values"] if entry["id"] not in self.hidden]
+            answer = {**answer, "values": listed, "total": len(listed)}
+        if mine:
+            self.seen += 1
+            if self.seen == self.when == AFTER_THE_LAST_READ:
+                self.happen()
+        return answer
+
+
+RACES = [
+    (change, when, unlisted)
+    for change in ("an edit", "a link", "a close", "a move")
+    for when in range(AFTER_THE_LAST_READ + 1)
+    for unlisted in (
+        ("nothing", "the other change's", "this write's", "both")
+        if change in ("an edit", "a link")
+        else ("nothing", "this write's")
+    )
+]
+TRACES = {"an edit": "the owner's note", "a link": LINK["attrs"]["href"]}
+
+
+@pytest.mark.parametrize(("change", "when", "unlisted"), RACES)
+def test_another_change_at_any_point_of_a_write_is_never_hidden_by_it(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    change: str,
+    when: int,
+    unlisted: str,
+) -> None:
+    jira = two_tickets(tmp_path)
+    race = Race(jira, change, when, unlisted)
+    capsys.readouterr()
+    code = jg.apply(tmp_path, race.api)
+    out = capsys.readouterr().out
+    assert race.happened
+    if when < JUST_BEFORE_THE_WRITE:  # a read ahead of the write sees it: nothing is written
+        assert code == 1 and jira.writes == ["CC-2"]
+        assert "REFUSED  CC-1" in out and not (tmp_path / "FAILED").exists()
+    elif when < AFTER_THE_LAST_READ or unlisted in ("this write's", "both"):
+        # the write may remove the change; and a write the history does not list never counts
+        assert code == 1 and jira.writes == ["CC-1"]
+        assert "written  CC-1" not in out
+        assert (tmp_path / "FAILED").read_text(encoding="utf-8").startswith("CC-1:")
+    else:  # a limit: a change after the last read is not seen
+        assert code == 0 and jira.writes == ["CC-1", "CC-2"] and "written  CC-1" in out
+    outside_the_write = when < JUST_BEFORE_THE_WRITE or when == AFTER_THE_LAST_READ
+    if change in TRACES and outside_the_write:  # the other person's change is still there
+        assert TRACES[change] in json.dumps(jira.tickets["CC-1"])
+
+
+# --- a reply that cannot be used is not evidence -----------------------------------------------
+
+
+def spoiled(answer: dict[str, Any], fault: str) -> dict[str, Any]:
+    if fault == "another key":
+        answer["key"] = "EXT-2"
+    elif fault == "no text":
+        answer["fields"]["description"] = None
+    elif fault == "empty text":
+        answer["fields"]["description"] = " \n"
+    elif fault == "text that is an object":
+        answer["fields"]["description"] = {"type": "doc", "content": []}
+    else:
+        answer["fields"]["description"] = "a string where the document belongs"
+    return answer
+
+
+BAD_REPLIES = [
+    *[
+        (position, fault)
+        for position in (1, 4)  # the two text reads
+        for fault in ("another key", "no text", "empty text", "text that is an object")
+    ],
+    *[
+        (position, fault)
+        for position in (2, 6)  # the two ticket reads
+        for fault in ("another key", "not a document")
+    ],
+]
+
+
+@pytest.mark.parametrize(("position", "fault"), BAD_REPLIES)
+def test_a_reply_that_cannot_be_used_never_leads_to_written(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], position: int, fault: str
+) -> None:
+    jira = two_tickets(tmp_path)
+    count = [0]
+
+    def faulty(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if about_cc1(path):
+            if count[0] == position:
+                answer = spoiled(answer, fault)
+            count[0] += 1
+        return answer
+
+    capsys.readouterr()
+    assert jg.apply(tmp_path, faulty) == 1
+    out, err = capsys.readouterr()
+    assert "written  CC-1" not in out
+    if position < JUST_BEFORE_THE_WRITE:
+        assert jira.writes == ["CC-2"] and "REFUSED  CC-1" in out
+        assert not (tmp_path / "FAILED").exists()
+    else:
+        assert jira.writes == ["CC-1"] and (tmp_path / "FAILED").exists()
+    if fault == "another key":
+        assert "EXT-2" in out + err
+
+
+def test_no_text_before_and_after_with_an_empty_history_entry_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """Nothing on both sides must not read as a match."""
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def hollow(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if path.startswith("/rest/api/2/"):
+            answer["fields"]["description"] = None
+        if "/changelog?" in path:
+            for entry in answer["values"]:
+                entry["items"] = [{"fieldId": "description"}]
+        return answer
+
+    assert jg.apply(tmp_path, hollow) == 1
+    assert jira.writes == []
+
+
+@pytest.mark.parametrize("where", [0, 1], ids=["listed first", "listed last"])
+def test_a_second_description_change_in_the_same_history_entry_stops_the_run(
+    tmp_path: Path, where: int
+) -> None:
+    jira = two_tickets(tmp_path)
+
+    def doubled(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if "/CC-1/changelog?" in path:
+            for entry in answer["values"]:
+                other = {"fieldId": "description", "fromString": "x", "toString": "y"}
+                entry["items"].insert(where, other)
+        return answer
+
+    assert jg.apply(tmp_path, doubled) == 1
+    assert jira.writes == ["CC-1"]
+    assert "2 description changes" in (tmp_path / "FAILED").read_text(encoding="utf-8")
+
+
+def test_a_history_entry_met_on_two_pages_counts_once(tmp_path: Path) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def overlapping(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if "/changelog?" in path and jira.writes:
+            return {"values": jira.history["CC-1"][-1:], "total": 2}
+        return answer
+
+    assert jg.apply(tmp_path, overlapping) == 0
+
+
+def test_a_ticket_that_moved_after_its_write_is_not_reported_done(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+    assert jg.apply(tmp_path, jira.api) == 0
+    jira.moved["CC-1"] = "EXT-2"
+    jira.writes.clear()
+    capsys.readouterr()
+    assert jg.apply(tmp_path, jira.api) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1" in out and "done     CC-1" not in out
+    assert jira.writes == []
+
+
+# --- a ticket the dry run cannot judge is not one without the wording --------------------------
+
+
+def test_a_ticket_that_answers_under_another_key_is_not_snapshotted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    jira = Jira(CC_1=ticket(), CC_2=ticket())
+    jira.moved["CC-1"] = "EXT-2"
+    assert snapshot(jira, tmp_path) == 1
+    assert "1 open ticket(s) read: 1 ticket(s) left to change, 1 refused" in capsys.readouterr().out
+    manifest = json.loads((tmp_path / "manifest.json").read_bytes())
+    assert list(manifest["tickets"]) == ["CC-2"]
+    assert "EXT-2" in manifest["refused"]["CC-1"]
+
+
+@pytest.mark.parametrize(
+    "description",
+    ["a carrier as a string", {"errorMessages": ["x"]}, [], {"type": "doc"}],
+    ids=["a string", "an object that is no document", "a list", "a document with no content"],
+)
+def test_a_description_that_is_not_a_document_is_never_counted_as_clean(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], description: Any
+) -> None:
+    jira = Jira(CC_1=ticket())
+    if description == "a carrier as a string":
+        description = as_text(ticket())
+
+    def odd(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        answer["fields"]["description"] = description
+        return answer
+
+    assert jg.dry_run(tmp_path, jira.search, odd) == 1
+    out = capsys.readouterr().out
+    assert "REFUSED  CC-1" in out and "0 ticket(s) left to change, 1 refused" in out
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_an_empty_description_is_a_ticket_without_the_wording(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert snapshot(Jira(CC_1=None), tmp_path) == 0
+    assert "1 open ticket(s) read: 0 ticket(s) left to change, 0 refused" in capsys.readouterr().out
+
+
+def test_a_ticket_from_another_project_is_not_snapshotted(tmp_path: Path) -> None:
+    assert snapshot(Jira(EXT_2=ticket()), tmp_path) == 1
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_an_approved_set_that_lists_another_project_writes_nothing(tmp_path: Path) -> None:
+    snapshot(Jira(CC_1=ticket()), tmp_path)
+    manifest = json.loads((tmp_path / "manifest.json").read_bytes())
+    entry = manifest["tickets"].pop("CC-1")
+    files = {}
+    for name, digest in entry["files"].items():
+        other = name.replace("CC-1", "EXT-2")
+        (tmp_path / name).rename(tmp_path / other)
+        files[other] = digest
+    manifest["tickets"]["EXT-2"] = {**entry, "files": files}
+    (tmp_path / "manifest.json").write_bytes(jg._dump(manifest))
+    approve(tmp_path)
+    assert jg.apply(tmp_path, never) == 2
+
+
+# --- a limit that is kept, pinned so that a change in it is seen --------------------------------
+
+
+def test_limit_another_history_entry_with_the_same_two_texts_passes_for_this_write(
+    tmp_path: Path,
+) -> None:
+    """An entry says nothing about which request made it. While this write's own is not listed,
+    another that goes between the same two texts is taken for it."""
+    jira = Jira(CC_1=ticket())
+    snapshot(jira, tmp_path)
+    approve(tmp_path)
+
+    def look_alike(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        answer = jira.api(method, path, body)
+        if "/changelog?" in path:
+            for entry in answer["values"]:
+                entry["id"] = "9" + entry["id"]
+                entry["author"] = {"accountId": "someone else"}
+        return answer
+
+    assert jg.apply(tmp_path, look_alike) == 0

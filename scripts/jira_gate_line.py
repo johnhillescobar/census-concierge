@@ -9,7 +9,10 @@ DIR/<KEY>.before.md and .after.md (to read), .before.json and .after.json (the d
 stores it) and DIR/manifest.json. Without --out, DIR is a folder in the system's temporary
 directory, so that a routine run leaves a committed set alone. Jira's search can lag behind an
 edit, so every ticket the search lists is read again from its own record; one that the search does
-not list yet is not read.
+not list is not read, and jira_fetch._search can return a short list without an error when a later
+page is malformed or a page token repeats. A listed ticket that cannot be judged is refused: its
+record answers under another key, as a moved ticket's can, or its description is neither a
+document nor empty.
 
 The owner approves a set of snapshots by writing the sha256 of its manifest.json, which --dry-run
 prints, into DIR/APPROVED. --apply writes nothing without it, and new snapshots void it.
@@ -18,20 +21,27 @@ A ticket is left unchanged when its AC/TC IDs would differ, when part of the pas
 would remain (the opening words of a paragraph, or any sentence of SENTENCE_MIN characters or more,
 as in a reworded, formatted or linked copy; a copy rewritten in all of those is not recognised),
 when a line would still point at the removed contract, when
-it was closed or its description changed after the snapshot, or when its after snapshot is not what
-this script's rule produces. A write that Jira cannot be shown to hold, that finds the ticket closed
-afterwards, or that was interrupted, stops the run and leaves DIR/FAILED. Until a person deletes
-it, no --apply of DIR runs and no --dry-run touches DIR, whose before snapshot is what to restore
-from. One --apply of DIR runs at a time (DIR/APPLYING).
+it was closed or its description changed after the snapshot, when a read before the write answers
+under another key or has no text, or when its after snapshot is not what this script's rule
+produces. A write that Jira cannot be shown to hold, that finds the ticket closed afterwards, or
+that was interrupted, stops the run and leaves DIR/FAILED. Until a person deletes it, no --apply
+of DIR runs and no --dry-run touches DIR, whose before snapshot is what to restore from. One
+--apply of DIR runs at a time (DIR/APPLYING). Only CC tickets are listed or written.
 
 No way was found to make a Jira write conditional on what was read, so an edit made between the
-last read and the write is overwritten. It cannot be prevented here, only caught. The history holds
-each description change as the text before and after it, in the form API v2 returns. A write counts
-only when the history shows exactly one new description change, and that change goes from the text
-read before the write to the text read after it. A count alone would take another person's edit for
-this write while this write's own entry is not listed yet. What that text form leaves out cannot be
-compared. Do not edit the listed tickets while --apply runs. Auth as in jira_transition.py:
-ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN in .env.
+last read and the write is overwritten. It cannot be prevented here, only caught; the same holds
+for a ticket that closes or moves in that moment. The history holds each description change as
+the text before and after it, in the form API v2 returns. A write counts only when the new history
+entries hold exactly one description change, going from the text read before the write to the text
+read after it, and the ticket, read last of all, still holds the approved description under the
+same key and is open. A count alone would take another person's edit for this write while this
+write's own entry is not listed yet.
+
+Three things are not caught. While this write's entry is not listed, another entry with the same
+two texts is taken for it. A change that the text form leaves out cannot be compared. A change
+made after a ticket's last read is not seen, even while later tickets are still being written. Do
+not edit the listed tickets while --apply runs. Auth as in jira_transition.py: ATLASSIAN_EMAIL and
+ATLASSIAN_API_TOKEN in .env.
 """
 
 from __future__ import annotations
@@ -247,14 +257,18 @@ def _snapshot_names(key: str) -> set[str]:
     return {f"{key}.{side}" for side in ("before.json", "after.json", "before.md", "after.md")}
 
 
+def _is_cc(key: str) -> bool:
+    project, _, number = key.partition("-")
+    return project == "CC" and number.isdigit()
+
+
 def _listed(raw: bytes) -> dict[str, Any]:
-    """A manifest in which every ticket is an issue key and names its own four snapshot files and
-    nothing else, so that no name in it can reach another file. ValueError otherwise."""
+    """A manifest in which every ticket is a CC issue key and names its own four snapshot files
+    and nothing else, so that no name in it can reach another file. ValueError otherwise."""
     listed = json.loads(raw)
     for key, entry in listed["tickets"].items():
-        project, _, number = key.partition("-")
-        if not (project.isalpha() and number.isdigit()):
-            raise ValueError(f"the manifest lists {key!r}, which is not an issue key")
+        if not _is_cc(key):
+            raise ValueError(f"the manifest lists {key!r}, which is not a CC issue key")
         if set(entry["files"]) != _snapshot_names(key):
             raise ValueError(f"the manifest names files for {key} that are not its four snapshots")
     return listed
@@ -271,15 +285,36 @@ def _discard(out: Path) -> None:
         manifest.unlink()
 
 
-def _read_each(listed: list[dict[str, Any]], api: ApiFn) -> list[dict[str, Any]]:
-    """The listed tickets that are open, each as its own record reads now: what the search
-    returns can be from before an edit made seconds or minutes ago."""
+def _is_document(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and value.get("type") == "doc"
+        and isinstance(value.get("content"), list)
+    )
+
+
+def _read_each(
+    listed: list[dict[str, Any]], api: ApiFn
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """The listed tickets that are open, each as its own record reads now (what the search
+    returns can be from before an edit made seconds or minutes ago), and why each ticket that
+    cannot be judged cannot be: it must never be counted as one without the wording."""
     now: list[dict[str, Any]] = []
+    unjudged: dict[str, str] = {}
     for issue in listed:
-        description, closed = _issue(str(issue["key"]), api)
+        key = str(issue["key"])
+        try:
+            if not _is_cc(key):
+                raise ValueError(f"{key!r} is not a CC issue key")
+            description, closed = _issue(key, api)
+            if not closed and description is not None and not _is_document(description):
+                raise ValueError("the description is neither a document nor empty")
+        except ValueError as exc:
+            unjudged[key] = str(exc)
+            continue
         if not closed:
-            now.append({"key": issue["key"], "fields": {"description": description}})
-    return now
+            now.append({"key": key, "fields": {"description": description}})
+    return now, unjudged
 
 
 def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
@@ -287,19 +322,19 @@ def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
     if not listed:  # an empty answer is a fault to look at, not a project with nothing to change
         print("Jira returned no open ticket at all; nothing changed", file=sys.stderr)
         return 1
-    issues = _read_each(listed, api)
+    issues, unjudged = _read_each(listed, api)
     found = changes(issues)
     ready = [c for c in found if not c.refused]
-    for change in found:
-        if change.refused:
-            print(f"REFUSED  {change.key}  {change.refused}")
-        else:
-            print(f"change   {change.key}  replaces: {', '.join(change.replaced)}")
+    skipped = {**{c.key: c.refused for c in found if c.refused}, **unjudged}
+    for key, why in skipped.items():
+        print(f"REFUSED  {key}  {why}")
+    for change in ready:
+        print(f"change   {change.key}  replaces: {', '.join(change.replaced)}")
     print(
         f"{len(issues)} open ticket(s) read: {len(ready)} ticket(s) left to change, "
-        f"{len(found) - len(ready)} refused"
+        f"{len(skipped)} refused"
     )
-    failed = 1 if len(found) > len(ready) else 0
+    failed = 1 if skipped else 0
     if (out / "FAILED").exists():
         print(
             f"{out} holds the snapshots to restore a failed write from and is not touched; "
@@ -338,7 +373,6 @@ def dry_run(out: Path, search: SearchFn, api: ApiFn) -> int:
             "replaced": change.replaced,
             "files": {name: _sha(data) for name, data in files.items()},
         }
-    skipped = {c.key: c.refused for c in found if c.refused}
     manifest = _dump({"gate_line": GATE_LINE, "refused": skipped, "tickets": tickets})
     (out / "manifest.json").write_bytes(manifest)
     print(f"snapshots in {out}")
@@ -388,43 +422,62 @@ def _stored_form(node: Any) -> Any:
     return out
 
 
+def _fields(key: str, path: str, api: ApiFn) -> Doc:
+    """The fields of one issue read. ValueError when the reply is not about the ticket asked
+    for: Jira answers with the ticket's own key, which a move changes."""
+    reply = api("GET", path)
+    if reply.get("key") != key:
+        raise ValueError(f"asked for {key}, Jira answered as {reply.get('key')!r}")
+    return reply["fields"]
+
+
 def _issue(key: str, api: ApiFn) -> tuple[Doc, bool]:
     """The description as Jira stores it now, and whether the ticket is closed."""
-    fields = api("GET", f"/issue/{key}?fields=description,status")["fields"]
+    fields = _fields(key, f"/issue/{key}?fields=description,status", api)
     return fields["description"], fields["status"]["statusCategory"]["key"] == "done"
 
 
-def _text(key: str, api: ApiFn) -> Any:
-    """The description as the history writes it."""
-    return api("GET", f"{TEXT_API}/issue/{key}?fields=description")["fields"]["description"]
+def _text(key: str, api: ApiFn) -> str:
+    """The description as the history writes it. ValueError when there is no text: nothing
+    could be compared with it."""
+    text = _fields(key, f"{TEXT_API}/issue/{key}?fields=description", api)["description"]
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError(f"the description's text is empty or not text: {type(text).__name__}")
+    return text
 
 
-def _description_changes(key: str, api: ApiFn) -> dict[str, tuple[Any, Any]]:
-    """The entries in the ticket's history that changed its description, by id: the text each one
-    went from and to."""
-    found: dict[str, tuple[Any, Any]] = {}
+def _description_changes(key: str, api: ApiFn) -> dict[str, list[tuple[Any, Any]]]:
+    """The entries in the ticket's history that changed its description, by id: the text each of
+    an entry's description changes went from and to. An entry met on two pages is kept once."""
+    found: dict[str, list[tuple[Any, Any]]] = {}
     start = 0
     while True:
         page = api("GET", f"/issue/{key}/changelog?startAt={start}&maxResults=100")
         for history in page["values"]:
-            for item in history["items"]:
-                if item.get("fieldId") == "description":
-                    found[str(history["id"])] = (item.get("fromString"), item.get("toString"))
+            changed = [
+                (item.get("fromString"), item.get("toString"))
+                for item in history["items"]
+                if item.get("fieldId") == "description"
+            ]
+            if changed:
+                found[str(history["id"])] = changed
         start += len(page["values"])
         if not page["values"] or start >= page["total"]:
             return found
 
 
-def _write(key: str, after: Doc, earlier: set[str], was: Any, api: ApiFn) -> str | None:
-    """Write one description, read it back, and read the history: the only description change
-    since `earlier` must go from the text `was` to the text the ticket reads as now. Why the write
-    cannot be shown to hold, or None."""
+def _write(key: str, after: Doc, earlier: set[str], was: str, api: ApiFn) -> str | None:
+    """Write one description, then read its text, the history and last the ticket itself: the
+    only description change since `earlier` must go from the text `was` to the text read back,
+    and the last read must show the approved description, open. Why the write cannot be shown to
+    hold, or None."""
     try:
         api("PUT", f"/issue/{key}", {"fields": {"description": after}})
         now = _text(key, api)
-        stored, closed = _issue(key, api)
         history = _description_changes(key, api)
-        new = [history[entry] for entry in history.keys() - earlier]
+        new = [change for entry in history.keys() - earlier for change in history[entry]]
+        # nothing may be read after this: "written" is about what the ticket held here
+        stored, closed = _issue(key, api)
     except (
         OSError,
         ValueError,
@@ -441,7 +494,7 @@ def _write(key: str, after: Doc, earlier: set[str], was: Any, api: ApiFn) -> str
             f"edit arrived during the write and may be overwritten. {check}"
         )
     if _stored_form(stored) != _stored_form(after):
-        return "Jira does not hold the approved description"
+        return f"Jira does not hold the approved description. {check}"
     if not new:
         return "the history does not show this write, so an overlapping edit cannot be ruled out"
     if new[0] != (was, now):
@@ -496,9 +549,14 @@ def _apply_approved(
     for key, (before, after) in snapshots.items():
         # history, then text, then the description: an edit before the last of these is refused
         # below, and one after it cannot be part of what the history entry is compared with
-        earlier = set(_description_changes(key, api))
-        was = _text(key, api)
-        live, closed = _issue(key, api)
+        try:
+            earlier = set(_description_changes(key, api))
+            was = _text(key, api)
+            live, closed = _issue(key, api)
+        except ValueError as exc:  # a reply that cannot be used: this ticket is not written
+            print(f"REFUSED  {key}  {exc}")
+            refused += 1
+            continue
         if _stored_form(live) == _stored_form(after):
             print(f"done     {key}  already reads as approved")
             continue
