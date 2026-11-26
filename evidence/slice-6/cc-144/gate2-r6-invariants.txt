@@ -1,0 +1,487 @@
+Gate 2, pass 2 (project invariants), CC-144: final code and the results of the live apply
+==========================================================================================
+
+Procedure: docs/playbooks/review-pr.md, with docs/playbooks/run-slice.md and CLAUDE.md read in full.
+Contract:  the Jira description of CC-144, read live by this review (GET).
+
+Repo:    C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-144
+Branch:  cc-144/gate-line
+Base:    e323eaa97bb9d815b978b63dc4bf1217d5d7d1ba (origin/main, also the merge base)
+Head:    3dfc74b7fbaf90a8b1ff3bafb39a301ed3c70543 (same at start and end)
+Date:    2026-11-26, -0600
+Tree at start: four untracked owner files (gate2-code-365adee.txt, gate2-codex-599a57d.txt,
+gate2-cursor-599a57d.txt, gate2-owner-review.txt), not opened and not changed.
+This review adds this one file. No tracked file changed, no commit, push or PR, no Jira write.
+--apply was not run against any real folder or live Jira. No E2E transcript or sealed set was read.
+problem-statement.md was not read until sections 1-8 below had been written to this file.
+
+
+1. Machine checks (real output)
+-------------------------------
+
+$ uv run python scripts/check_budgets.py                                            exit 0
+BUDGETS
+  ok    api src LOC               5045 <= 5200
+  ok    api src files               30 <= 40
+  ok    largest file LOC           410 <= 410
+  ok    web src LOC               3350 <= 3350
+  ok    system prompt tokens      1095 <= 1200
+  ok    doc lines                 1820 <= 1820
+  ok    graph nodes                  0 <= 8
+  ok    agent tools                  4 <= 6
+  ok    api routes                   4 <= 10
+  ok    tool schemas                 8 <= 12
+  ok    domain models               11 <= 15
+  ok    direct dependencies          8 <= 25
+  excpt p95 latency (s)         26.335 <= 20
+        run 2026-11-25T17:26:12+00:00; slowest trial 40.236s (p95 leaves out the top 5%)
+        exception: baseline 28.844, CC-140 restores it, approved 2026-11-22 John Hill
+  ok    retrieval_at_10            0.9 >= 0.9
+  excpt selector_at_1            0.425 >= 0.7
+        exception: baseline 0.5875, CC-149 restores it, approved 2026-11-25 John Hill
+  excpt answered_rate            0.675 >= 0.7
+        exception: baseline 0.683, CC-148 restores it, approved 2026-11-25 John Hill
+  ok    synthetic_alignment      0.544 >= 0.5
+All budgets met (3 excepted by the owner).
+
+$ uv run python scripts/check_invariants.py --base origin/main                      exit 0
+INVARIANTS
+  ok    banned agent frameworks
+  ok    sqlite
+  ok    contextvars
+  ok    ticket-named tests
+  ok    prompt assertions
+  ok    forbidden module names
+  ok    blocking clarification
+  ok    census key in artifacts
+  ok    empty secret defaults
+  ok    key attached only via CensusURL
+  ok    mandatory catalogs
+  ok    budget log matches values
+  ok    eval phrasing in api/src
+  ok    closure manifests
+  ok    budget increases
+  ok    new regex
+  ok    new exemptions
+  ok    protocol weakened
+  ok    metric records rewritten
+  info  api/src regex call sites: 55 (base 55, delta +0)
+All invariants held.
+
+$ uv run ruff check .                                                                exit 0
+All checks passed!
+$ uv run ruff format --check .                                                       exit 0
+328 files already formatted
+$ uv run mypy api/src                                                                exit 0
+Success: no issues found in 30 source files
+$ uv run pytest -q -m "not integration"   (run with -p no:cacheprovider)             exit 0
+2128 passed, 34 skipped, 8 xfailed, 1 warning in 234.98s (0:03:54)
+
+All five pass. The three "excpt" rows are the owner's standing exceptions on the base, not this
+change. The web tests and client drift of `make check` are not in the playbook's list and were not
+rerun; `git diff 6f054c5 HEAD -- scripts api docs` is empty, and make-check-five.txt (f356193)
+records them passing.
+
+
+2. How the apply was verified (independently)
+---------------------------------------------
+
+Own client (scratchpad ro.py): GET, plus POST to search/jql and search/approximate-count only.
+It imports nothing from the repo. Neither saved read-back script nor its output was used.
+Read: all 149 CC tickets (numbers 1-149, no gap; 150-152 answer 404), each v3 description, v2
+description and whole changelog, at 2026-11-26 06:42.
+
+V1  Description changes on any CC ticket since 00:00: exactly 20, on exactly the 20 tickets in the
+    manifest, one each, history ids 12228-12247, 06:15:24.537 to 06:16:02.011 (inside apply.txt's
+    window). No other history item on any CC ticket since 00:00 (comments do not make history).
+V2  For all 20: the previous description change's new text equals the apply entry's old text
+    (no unlisted edit between them in the text form); today's v2 text equals the apply entry's new
+    text (nothing changed since).
+V3  For all 20: the live v3 description equals the committed after.json, plain equality.
+V4  Line diff of Jira's OWN history text (not the snapshots): removed lines are only the pasted
+    blocks (heading, paragraphs, the two CC-104 variants) and the old "Existing scope (...)" line;
+    added lines are only the gate line (20 times) and "Existing scope" (17 times). Nothing else.
+    Block counts: metric contract 18, AC/TC clearance 18, audit gates 8, pointer 17.
+V5  before.json -> after.json (structure): only top-level paragraph deletions and replacements;
+    non-content keys equal.
+V6  AC/TC ids by my own extractor, in order with repeats, from the history's old text, its new text
+    and today's text: equal on all 20; 154 ids on 12 tickets, 26 repeats; 8 tickets have none.
+    Their checklist criteria are covered by V4: no other line changed.
+V7  The gate line is in exactly those 20 tickets, once each. All 20 are still open.
+V8  Open tickets: 54 by search (one page) and 54 by Jira's count (149 in all).
+V9  Leftovers: every removed sentence or clause of 25+ characters (77 distinct) and every 7-word
+    run of the removed text, searched in all descriptions. Open tickets: only CC-104's history line
+    (a quotation labelled "No longer true"), shared 7-word runs in two of CC-3's own lines (one is
+    AC7) and in CC-104 AC11, and the phrase "use approved aggregate evidence" in CC-140. No copy of
+    a pasted block remains. Done tickets CC-114, CC-121 and CC-133 still hold wording (out of
+    scope: "open tickets"). Descriptions only; comments were not searched.
+V10 AC1 replay: the final script, network blocked, over a fake Jira holding the pre-apply state
+    (the 20 before.json, the other 34 open tickets as live; none of them changed since 00:00):
+    exit 0, 54 read, 20 to change, 0 refused, 81 files, all 81 byte-identical to the committed set,
+    manifest b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05. 1 search, 54 GETs.
+V11 TC3 rerun live (the script's --dry-run, reads only, --out in the scratchpad):
+    "54 open ticket(s) read: 0 ticket(s) left to change, 0 refused", exit 0, no file written.
+
+Result: what the apply did to Jira is what was snapshotted, and no more. No defect found in it.
+
+The saved read-back scripts as claims: their `live == approved` check is sound. Their ID check is
+not independent: both import closure.adf_text and closure.required_ids, the extractor the script's
+own refusal uses, and compare with before.json, which the script wrote. apply-readback.txt dropped
+repeats (its successor says so). Neither looks at history or at tickets outside the 20. Their
+results agree with V3 and V6.
+
+
+3. AC/TC reconciliation (Jira description against evidence/closure/CC-144.toml and the apply)
+--------------------------------------------------------------------------------------------
+
+The seven ids in Jira are the seven in `required`. Criterion text in the manifest matches Jira.
+
+id   manifest  this review
+AC1  PASS      PASS. V9, V10. "Carries the pasted wording" means the three blocks and the pointer
+               (a `default` in plan.md); pasted CHECKLIST gate wording is outside it (F4).
+AC2  PASS      PASS. 428 passed. Own mutations: ids compared as a set -> fails; check removed ->
+               fails.
+AC3  PASS      SPLIT. "only then does the script write" and "same criterion IDs before and after":
+               PASS (V1-V7). Own mutations: stale-ticket check removed -> 33 fail; after-vs-rule
+               check removed -> 1 fails. "The owner approves the snapshots": NOT VERIFIED (F1).
+AC4  PASS      PASS. Playbook sentence at run-slice.md:31; scripts/closure.py:163-167. 9 cases
+               pass; own mutation (command asked of PASS rows only) -> 6 fail. CC-144.toml passes
+               --pre-merge; all 7 manifests are well formed. The AMENDED exemption is a default
+               (F10).
+TC1  PASS      PASS. 4 passed; both mutations above are caught by this -k selection.
+TC2  PASS      PASS, with fakes only: main(["--apply"]) exits 2 at argparse; apply() on an
+               unapproved and on a wrongly approved scratch folder returns 2 with 0 Jira calls;
+               own mutation (approval hash not compared) -> 12 fail. The real command was not run.
+TC3  PASS      PASS. V11, and independently V9.
+
+$ closure.py check evidence/closure/CC-144.toml --pre-merge     CLOSURE OK, exit 0
+$ closure.py check evidence/closure/CC-144.toml                 exit 1, two lines:
+    post_merge: the work tested at 1957a77 / 1d5af21 is not on origin/main
+  Expected before a merge. It clears only if those commits reach main (a squash merge would not).
+
+New tests, own spot check of the one commit no cold review had read (6f054c5), in a scratch copy:
+RecursionError dropped from UNUSABLE -> 6 fail; the after-write comparison moved outside the
+handler -> 1 fails; empty default folder kept -> 2 fail; old "no answer" wording -> 21 fail.
+Restored copy: 428 passed. I read that commit's diff and found no new defect.
+
+
+4. The playbook's other questions
+---------------------------------
+
+Claim.   No product user can do anything new. A reader of the 20 tickets now sees one pointer to
+         the gate instead of pasted rules that contradict it, and closure.py rejects an unamended
+         row without a command. This is harness and Jira hygiene; the PR should say so.
+Evidence No eval or demo scoreboard is owed: no changed path is in closure.E2E_PATHS.
+Scope.   158 files, +27,957. Nine are not evidence: jira_gate_line.py (710 lines), its tests
+         (2,288), four fixtures, closure.py, test_closure_gate.py, one playbook line. The rest are
+         snapshots and gate records. The PR must give this explanation (over ~15 files).
+         There is no PR yet.
+Silent wrong answer / URL / MOE / GEOID / universe: no response path touched.
+Keys and personal data: pattern scan of every file in base..head (email, Atlassian, OpenAI and
+         Gemini tokens, Census key, Basic header, accountId, 40-hex): only test stand-ins and git
+         object ids. Snapshots hold no mention node; their only links are CC browse links.
+Shape.   No tool, route, model, graph node or api/src change. No forbidden module name.
+Tests.   Behaviour tests against a stand-in Jira that returns per-ticket data. No prompt asserts.
+
+
+5. Findings, most severe first
+------------------------------
+
+Blocking (the verdict rests on these). None is a defect in the code or in what was written to Jira.
+
+F1  AC3: the owner's approval has no record that this review can verify. [needs the owner]
+    evidence/closure/CC-144.toml:35-43; evidence/slice-6/cc-144/apply.txt:3; approval.md:3-4.
+    Every record of it was written by the implementing session: apply.txt, approval.md, the
+    closure row, and snapshots/APPROVED itself (added in 4e0d640). The script's design, its
+    docstring (scripts/jira_gate_line.py:21-22) and plan.md say the OWNER writes APPROVED; the
+    agent wrote it, on a chat message this review cannot read (disclosed in three places).
+    CC-144 on Jira has no comment, and its history shows only an assignee and a status change.
+    Jira's history cannot tell the agent from the owner (one account; CC-147 is to change that).
+    The only owner decision on the ticket, dated 2026-11-24, approves the edit "after the owner
+    approves the snapshots": it is not that approval. The playbook: an unverified item is Not yet.
+    To clear: an owner-authored record (own comment or commit) that approves manifest
+    b586fe37...0e05 and says whether F2 is accepted. No code change or second apply is needed.
+
+F2  The apply removed a gate requirement that no repo file states. [needs the owner]
+    "FAIL, NOT RUN, UNKNOWN, missing evidence or unresolved review findings block shipping and
+    Done", removed from 17 tickets, and CC-104's staged form of it from an 18th (V4).
+    "Unresolved review findings block" is in no playbook, rule file, PLAN or DESIGN (searched).
+    docs/playbooks/review-pr.md:94-105 allows "Ship it with follow-ups" for every finding that is
+    not a silent wrong answer; its AC/TC sentence does not cover review findings. run-slice.md
+    says only a dated explicit owner amendment removes scope. approval.md:16 and :74-79 put this to the
+    owner as accepted by approving. To clear: record that acceptance with F1, with date and
+    destination, or restate the sentence in a rule file (doc lines are at 1820 of 1820).
+
+F3  The records a merge relies on are not complete. [no owner decision]
+    All seven reviewer fields (CC-144.toml:18,31,43,56,69,82,94) predate this review: five say no
+    review has read the final code, and AC3 and TC3 say no separate reviewer has read the run.
+    run-slice.md wants reviewer verification per row, and the matrix on the PR and on Jira:
+    there is no PR, and CC-144 has no comment (plan.md's outward write 4).
+
+Follow-ups (none is a silent wrong answer in the product).
+
+F4  Open tickets still hold criteria that point at removed text or contradict the tool.
+    [needs the owner: only the owner edits descriptions]
+    - CC-3 AC4: "apply the stricter B/P/A/L ... gates above". The gates are gone, so this open
+      criterion cannot be judged as written, and it treats A as blocking.
+    - CC-132: "clearance already applied to CC-3", and AC1 "B/P/A/L non-regression".
+    - CC-39, CC-43, CC-107, CC-108: a pasted checklist criterion, "no more than 3 points below
+      ... 0.742 ... and ... this ticket's own pre-run". It is pasted gate wording that
+      contradicts [rule] in evals/metric_protocol.toml (0.07, pooled runs, same-window main), and
+      it now sits in the same ticket as the new gate line.
+    - CC-104 AC11 and amendments compare with A, which is report_only; its history line's "that
+      paragraph" no longer exists.
+    - Not edited, never a carrier: CC-128 "within 3 points of the same-window main".
+    approval.md:99-109 lists all but CC-128; I found no further dangling reference among the
+    open tickets. Settle CC-3, CC-104 and CC-132 before any of them is closed.
+
+F5  Two repo statements are wrong or in conflict, and their stated home does not exist.
+    [needs the owner to give them one]
+    .claude/DESIGN.md:123 says Jira holds "the full protocol"; after this apply it does not, so
+    this change made the sentence false. .claude/PLAN.md:70 requires "no observed worsening" of
+    p95 where p95_rise_max_seconds is 2.5. approval.md:111-112 says both "belong with CC-145".
+    CC-145's live description has no criterion for either: AC7 does not list DESIGN.md and
+    removes status and plan wording only; AC14 adds a read to a review brief.
+
+F6  A write-capable one-time tool stays on main. [owner decision]
+    scripts/jira_gate_line.py (710 lines) and 2,288 lines of tests. The owner's decision calls
+    this the only time an agent-run script edits a description. The APPROVED file is a procedural
+    control only: any process that can run the dry run can write it, as happened here. (It cannot
+    make the script write anything but the rule's own edit: lines 638-639.) Removing it is a
+    reasonable follow-up AFTER CC-144 is Done: closure.py rejects a row whose `affects` path is
+    missing while readiness is checked.
+
+F7  approval.md:118-119 is stale: it says e323eaa is on local main and no remote. git ls-remote
+    shows origin's main at e323eaa. A PR from this branch does not include it. Its limit L5
+    (history behaviour never observed) is now observed: 20 writes each matched their entry. The
+    header says the text below is kept as approved; `git diff 1d5af21 HEAD` confirms only the
+    header was added.
+
+F8  CC-144.toml:38, AC3 observed: "Before the write a fresh dry run was identical to the approved
+    snapshots". No file in the evidence folder records that run and none is pinned. Safety does
+    not rest on it (apply refuses a changed ticket; V2). Pin an output or drop the sentence.
+
+F9  docs/playbooks/run-slice.md:31: the new sentence was appended to an existing line, so the
+    line-counted budget stays at 1820 of 1820 although the prose grew. plan.md discloses it.
+    CLAUDE.md says that when a change does not fit, say so and ask. For the owner to accept.
+
+F10 scripts/closure.py:161-164 and run-slice.md:31 exempt AMENDED rows from naming a command;
+    AC4's text has no exemption. A recorded `default`, for the owner to confirm. [owner]
+
+
+6. Requirements the removed text stated: approval.md's list checked
+------------------------------------------------------------------
+
+I mapped each sentence of the removed blocks against run-slice.md, review-pr.md, CLAUDE.md,
+.claude/PLAN.md, .claude/DESIGN.md, metric_protocol.toml and metric_compare.py. L1 holds (F2).
+I found no further requirement that changes what blocks a merge today and is missing from L1-L11
+or from the rules the owner replaced on purpose. This is a reading, not a mechanical proof.
+Several of L2-L11 survive in part (for example PLAN.md:68 and :71, DESIGN.md:121-122).
+
+
+7. Not verified
+---------------
+
+- The owner's chat approval, and what was on screen when it was given (F1).
+- That the run recorded in apply.txt printed that output: only its effects in Jira are checked.
+- The v3 form of each description before the write. History keeps the v2 text; V2 and V4 compare
+  that form. Equality of the v3 "before" with live rests on the script's own pre-write refusal.
+  A change that the text form leaves out could not be seen (the script's limit L4).
+- Comments and other Jira fields were not searched for pasted wording.
+- The earlier mutation sets in the evidence folder were not rerun; I ran ten mutations of my own.
+- Web tests and client drift (section 1). E2E: not owed, not run.
+- Whether CC-142's other host rules hold; outside this ticket.
+
+
+8. Findings recorded before problem-statement.md was opened
+-----------------------------------------------------------
+
+Sections 1-7 are the playbook review. The verdict is at the end of the file.
+
+
+9. Step 3: problem-statement.md, treated as claims to falsify
+============================================================
+
+Opened only after sections 1-8 were written (their sha256 then: 7b3572e2...c587, 299 lines).
+Sections 1-8 are unchanged. Fake probes: scratchpad probes.py, network blocked, scratch folders.
+Probe names below are its labels.
+
+9.1 The broader problem: is it the right one?
+---------------------------------------------
+
+The claim: "Something is reported as done, clean, preserved or verified on evidence that does not
+show it."
+
+Right for the script and its records; too narrow as the broader problem of CC-144.
+The instances I spot-checked are real (gate2.txt P1-1, P1-4, P1-7, P1-8; apply-readback.py.txt
+using required_ids on whole text, which drops repeats). It explains what the rounds kept finding.
+It leaves out two things that are still true at this head:
+
+  (a) Authority. None of its six forms, and none of H1-H9, asks WHO approved. H1 is satisfied by
+      an approval that the program which made the snapshots wrote itself (probe H1a: written,
+      exit 0). That is what happened live, on the strength of a chat message (F1). An approval
+      recorded by the party it is meant to check is the same failure, on the one record AC3 is
+      about.
+  (b) The ticket's own problem: gate rules copied into many places, which then contradict the
+      tool. No invariant says that after the change no open ticket states a rule that contradicts
+      the gate, and that does not hold (F4: four pasted checklist copies of the 3-point rule). H7
+      covers dangling references and lost requirements, not a surviving contradiction.
+
+9.2 "Every affected place": missed or wrong
+-------------------------------------------
+
+The line numbers and the statements I checked are correct, including "done" printing before the
+closed check and being in neither total (probe H3b/H4a), closure.py:38 and :167, run-slice.md:47,
+DESIGN.md:123 and PLAN.md:70. Missing:
+
+A (statements the script makes)
+  - edit 169-189 with _plain 160, fingerprint 142 and _drop_pointer 152: they decide what is
+    removed. criterion_ids 146-149 decides "IDs unchanged". H6 rests on all of these.
+  - The stop path 653-658: it returns with no totals and does not name the tickets not reached
+    (probe H4b). An interrupt prints nothing (H5d).
+  - main 679-706 (picks the client; removes a folder); _jira 666-676 (the v2 request);
+    _approval_text 437-444 and _listed 280-289 (what counts as an approval and a listed file).
+  - The docstring 1-53, which states what the script does and does not catch.
+B (records that say something was checked)
+  - snapshots/APPROVED: the one record that says "approved", and the most consequential.
+  - plan.md:56, stale: it says a dry run without --out writes to a folder named jira-gate-line.
+    The code makes a new jira-gate-line-* folder each time and removes an empty one
+    (jira_gate_line.py:700-706); approval.md:71 says so.
+  - manifest.json (ids, replaced, refused) and the mutation files the closure rows pin (F11).
+  - approval.md's "Applied" header cites only apply-readback.txt, the one that dropped repeats.
+C (ticket text and rules after the apply)
+  - CC-128, open, never a carrier, has its own "within 3 points of the same-window main".
+  - Done tickets CC-114, CC-121 and CC-133 still hold the wording. Correct under "open", but a
+    reopened one carries it back.
+  - PLAN.md:70 also treats A as a latency comparator; the protocol makes A report-only.
+  - Comments were searched by neither the script nor this review.
+
+Adjacent claim (ctx.py against the playbook): holds. .claude/hooks/ctx.py:92-111 denies a
+Gate 2 label that is not gate2-cold or the invariants pass; run-slice.md:148,
+.claude/skills/run-slice/SKILL.md:10, scripts/gate.sh:59 and scripts/gate.ps1:63 say
+general-purpose.
+
+9.3 H1-H9
+---------
+
+H1  HOLDS WITH NAMED LIMITS.
+    Code 457-465 (hashes), 622-639 (history, text, then the description; closed; live != before;
+    after == edit(before)). H1b: one byte added to any of the four snapshot files: exit 2, no
+    write. Own mutations: stale check removed -> 33 fail; rule check removed -> 1 fails.
+    Limits: it says nothing about who wrote APPROVED (H1a); each .json is read once to hash it
+    (:464) and again to load it (:467), so "exact bytes" is not literally what is loaded (H1c
+    swapped after.json between the reads: the rule check refused it, no write); the L1 window.
+
+H2  HOLDS WITH NAMED LIMITS.
+    _write 544-577. Live: all 20 confirmed independently (V1-V3). Limits: L1-L4, and a wrong
+    value in a reply of the right shape (named in approval.md and in 6f054c5's message):
+    H2a, a history "total" that understates the entries (line 538 trusts it): "written" while a
+    second description change sits past the total. H2b, a status category "Done": reads as open
+    (line 503 checks only the type) and the ticket is "written". Neither was seen from Jira.
+
+H3  HOLDS WITH NAMED LIMITS.
+    _read_each 326-352; apply 626-629. Limits: L6; text held only in a node attribute is never
+    read, so a ticket whose only remnant is the contract heading in an expand title is counted
+    clean (H3a: "0 left, 0 refused", exit 0; closure.adf_text; docstring 29); a rewording that
+    keeps no opening and no long sentence; "done" is decided on the description alone (H3b).
+
+H4  DOES NOT HOLD.
+    "every ticket in the approved set is accounted for": H4b, three approved, the first write
+    does not hold: one FAILED line, exit 1, no totals, CC-2 and CC-3 never named (:653-658).
+    H3b/H4a, two approved, one already as approved and closed: "done", then "1 written, 0
+    refused", exit 0; the totals leave it out and the closed state is not said (:630-632, :662).
+    An interrupt prints nothing. The statement names only the "done" case. None of this
+    happened live (20 written, 0 refused, every ticket on its own line).
+
+H5  HOLDS WITH NAMED LIMITS.
+    :392-398, :606-614, :649-659. H5a apply refused with FAILED present; H5b and H5c a dry run
+    leaves the folder byte-identical, also with APPROVED removed by hand; H5d an interrupt
+    during the write leaves FAILED. Limits: the marker is not flushed to disk (write_text);
+    it guards one folder only; a person or git can delete it or the snapshots.
+
+H6  HOLDS WITH NAMED LIMITS.
+    :146-149, :210-215, :638. H6b: a reorder is refused. Own mutations: set comparison and no
+    check are both caught. Live V3-V6: only the rule's edit, 154 ids equal in order.
+    Limits: an "ID" is one at the start of a line as closure.required_ids reads it; H6a: "Cases:
+    AC1 and TC1." counts none and its removal is not refused by the ID check. Lines without
+    IDs are protected only by the exact-paragraph rule. The live check is of Jira's text form.
+
+H7  DOES NOT HOLD.
+    First half: open tickets still depend on removed text (F4: CC-3 AC4, CC-132, CC-104's
+    history line). The statement says so. That these were on the approval sheet before the apply
+    is supported by git: the sheet's body is unchanged since 1d5af21 (00:36), the apply ran at
+    06:15. Second half, "unless the owner saw it and decided": not verifiable (F1, F2).
+
+H8  DOES NOT HOLD, in more places than the statement gives.
+    - closure.py cannot tell a review from "no review": a PASS row whose reviewer reads
+      "nobody has read this" produces no problem (probe H8); CC-144.toml:43 and :94 are so, and
+      --pre-merge says CLOSURE OK.
+    - The unrecorded "fresh dry run" (F8).
+    - TC1's and TC2's pinned mutation record is for older code (F11, below).
+    - Stale statements: approval.md on e323eaa (F7); plan.md:56 (9.2).
+
+H9  HOLDS WITH NAMED LIMITS.
+    The stand-in (test file lines 100-215; shape test at 1884) against live GETs today: history
+    page, entry and item keys equal; ids are strings; oldest first; issue, v2 and search
+    replies equal apart from expand and self, which the test names. All 278 description items
+    in all 149 histories carry fieldId "description". _jira is driven through main() with a
+    served urlopen. Assumptions are labelled in the class docstring; two (the write's history
+    entry holds the same text and is listed; a read after it is current) have now been met 20
+    times by the live apply. Limits: moved-ticket behaviour stays assumed; search paging, where
+    L6 lives, and HTTP error statuses are not modelled by the stand-in (tests inject
+    exceptions); "every field the script relies on" cannot be proved by a stand-in.
+
+"Where these cannot or do not fully hold" is incomplete: it omits H3's attribute and rewording
+limits, H4's stop path, and H8's other instances. Its L1-L4 and L6 are accurate. L5 is now
+observed (F7).
+
+9.4 One finding added by this step (it was missed in section 5)
+---------------------------------------------------------------
+
+F11 CC-144.toml TC1 and TC2 pin evidence/slice-6/cc-144/gate1-r5.txt as their mutation check.
+    That ran at 85ed3e9. scripts/jira_gate_line.py changed after it (git diff --stat 85ed3e9
+    HEAD: 218 lines, in 9485c97, b8f66f0 and 6f054c5), while the rows say tested_head 1957a77.
+    approval.md discloses that older sets were not rerun on the final code; closure.py cannot
+    see it. AC4's use of the same file is sound: closure.py did not change after 85ed3e9.
+    Substance is covered: my mutations of the ID check and the approval check at 3dfc74b were
+    all caught (section 3). Repoint the two rows when F3 is done. [no owner decision]
+
+
+10. Verdict
+===========
+
+NOT YET.
+
+Most important reason: AC3 requires that the owner approved the snapshots, and nothing this
+review can verify shows it. Every record, APPROVED included, was written by the session that
+made and applied them; CC-144 on Jira holds nothing about it (F1). The playbook makes an
+unverified item "Not yet", and a follow-up ticket cannot excuse it.
+
+This is not a finding against the code or the Jira result. All machine checks pass. I verified
+independently that exactly the 20 snapshotted descriptions changed, once each, by exactly the
+rule's edit, with all AC/TC ids kept, and that a live second dry run finds nothing left. I found
+no defect that calls for a code change, a second apply or a restore.
+
+Blocks the merge
+  F1  owner-authored record approving manifest
+      b586fe375a9c511c7e37d8f88e97eec55f9b22a12f95e4fa21c5b39662410e05.       OWNER
+  F2  in that record, a dated decision on "unresolved review findings block":
+      accept its removal, or have it restated in a rule file.                 OWNER
+  F3  bring the closure rows up to date (reviewers; F11's two pins; F8's
+      sentence), then put the AC/TC matrix on the PR and on CC-144. Re-run
+      closure.py check --pre-merge. These are record edits, no product change.
+
+Follow-ups
+  F4  stale and contradicting criteria in open tickets; CC-3 AC4, CC-104 and CC-132 before
+      any of them closes.                                                     OWNER
+  F5  DESIGN.md:123 and PLAN.md:70 have no ticket that covers them.           OWNER
+  F6  keep or remove the one-time script and its tests (after CC-144 is Done). OWNER
+  F9  accept or redo the playbook sentence packed onto an existing line.       OWNER
+  F10 confirm that AMENDED rows need no command.                              OWNER
+  F7  correct approval.md (e323eaa; L5 now observed) and plan.md:56.
+  H4  only if the script is kept: name unreached tickets after a stop, count "done" in the
+      totals and say when such a ticket is closed.
+
+After the merge: no E2E is owed (computed from the paths). The full closure check, without
+--pre-merge, must exit 0 on main before CC-144 moves to Done; keep the tested commits on main
+(a squash merge would drop them).
