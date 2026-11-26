@@ -26,10 +26,11 @@ esac
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out="$root/evidence/slice-$slice/$phase.txt"
+cold="$root/evidence/slice-$slice/gate2-cold.txt"
 
 case "$phase" in
   gate1) task="run Gate 1 for the current slice per docs/playbooks/run-slice.md: tests for the adversarial matrix, and mutation-check every new test. Paste the mutation transcript with GOOD/BAD labels." ;;
-  gate2) task="review the current branch diff for bugs, code only, no knowledge of intent; then run docs/playbooks/review-pr.md. State what each pass found, including nothing." ;;
+  gate2) task="review the current branch diff for bugs, code only, no knowledge of intent; then run docs/playbooks/review-pr.md. If $cold exists, another agent recorded the bug review there: do not repeat it, name that file in your transcript and go on to review-pr.md. State what each pass found, including nothing." ;;
   e2e-pre)  task="run make eval and make demo against the real system, before the PR. Repeat 3 is already in the make demo recipe." ;;
   e2e-post) task="run make eval and make demo against merged main, after the merge. Repeat 3 is already in the make demo recipe. Then run scripts/metric_compare.py compare evidence/latest.json --record and scripts/closure.py check evidence/closure/<KEY>.toml; a non-zero exit blocks Done." ;;
 esac
@@ -55,7 +56,7 @@ case "$phase" in
 esac
 
 claude="general-purpose, not fork."
-if [ "$phase" = gate2 ]; then claude="bug pass to the gate2-cold agent first, its transcript beside the file below; then this to general-purpose for the invariants pass."; fi
+if [ "$phase" = gate2 ]; then claude="first the gate2-cold agent for the bug pass (give it the repo path, review base and head, and $cold); then this to general-purpose, described as 'Gate 2 invariants pass'."; fi
 
 cat <<EOF
 Hand this to a fresh subagent without caller history, or a fresh session.

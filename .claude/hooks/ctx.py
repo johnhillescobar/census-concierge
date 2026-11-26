@@ -30,9 +30,31 @@ WARN = float(os.environ.get("CLAUDE_CONTEXT_WARN", "0.8"))
 TAIL = 400_000  # bytes of the transcript to scan: the newest assistant message is at the end
 GATE2_AGENT = "gate2-cold"  # .claude/agents/gate2-cold.md
 # Whole words only: with the spaces removed, "investigate 2 tests" read as "gate2".
-GATE2_LABEL = re.compile(r"\bgate[\s-]*(?:2|ii|two)\b")
-INVARIANTS_LABEL = re.compile(r"\binvariants?\b|\breview-pr\b")
-BUG_PASS_LABEL = re.compile(r"\b(?:bugs?|cold|generic)\b")
+GATE2_LABEL = re.compile(r"\bgate[\s-]*2\b")
+# The one other Gate 2 call let through is the invariants pass, and only under a label made of
+# these words, numbers and a ticket key. Any other word sends the call to the cold agent: a list
+# of the words to refuse ("bug", "cold") let "code review, then invariants" through.
+INVARIANTS_WORDS = frozenset(
+    [
+        "gate",
+        "gate2",
+        "invariants",
+        "pass",
+        "project",
+        "review-pr",
+        "re-run",
+        "rerun",
+        "on",
+        "the",
+        "fix",
+        "fixes",
+        "commit",
+        "for",
+        "slice",
+    ]
+)
+LABEL_WORD = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+TICKET_OR_NUMBER = re.compile(r"(?:[a-z]+-)?\d+")
 
 
 def session_start() -> None:
@@ -98,7 +120,7 @@ def agent_gate(payload: dict) -> None:
     invariants pass, and a call to that agent that sets its own model or effort.
 
     It is a tripwire on the label the caller wrote, not a guarantee: a review under another
-    label, or one done without a subagent, is not seen, and it cannot see which model the
+    label, or one done without a subagent, is not seen. It does not check which model the
     calling session runs on, so a session on the agent's own model gets a same-model review."""
     call = payload.get("tool_input")
     if not isinstance(call, dict):
@@ -114,15 +136,18 @@ def agent_gate(payload: dict) -> None:
         label = str(call.get("description") or "").lower().replace("_", " ")
         if not GATE2_LABEL.search(label):
             return
-        if INVARIANTS_LABEL.search(label) and not BUG_PASS_LABEL.search(label):
+        words = LABEL_WORD.findall(label)
+        if "invariants" in words and all(
+            w in INVARIANTS_WORDS or TICKET_OR_NUMBER.fullmatch(w) for w in words
+        ):
             return
         reason = (
             f"Gate 2's cold bug pass goes to the `{GATE2_AGENT}` agent "
-            f"(.claude/agents/{GATE2_AGENT}.md), which runs on the model its file names, not "
-            f"the caller's. Call the Agent tool again with subagent_type `{GATE2_AGENT}` and "
-            "pass only the repo path, the review base and head, and the evidence path. A call "
-            "that is only the invariants pass (docs/playbooks/review-pr.md) goes through when "
-            "its description says `invariants pass` and names no bug or cold review."
+            f"(.claude/agents/{GATE2_AGENT}.md), which runs on the model its file names. Call "
+            f"the Agent tool again with subagent_type `{GATE2_AGENT}` and pass only the repo "
+            "path, the review base and head, and the evidence path. A call that is only the "
+            "invariants pass (docs/playbooks/review-pr.md) goes through when its description is "
+            "`Gate 2 invariants pass`, with a ticket key if you want one and nothing else."
         )
     decision = {
         "hookEventName": "PreToolUse",

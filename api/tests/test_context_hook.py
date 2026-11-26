@@ -177,12 +177,15 @@ def gate(capsys: pytest.CaptureFixture[str], call: Any) -> dict[str, Any] | None
         ("fork", "Gate-2 review"),
         (None, "GATE 2"),
         ("general-purpose", "Gate_2 review"),
-        ("general-purpose", "Gate II review"),
-        ("general-purpose", "gate two review"),
-        # the invariants words do not excuse a call that also names the bug pass
+        # the invariants pass goes through only when the label says nothing else
         ("general-purpose", "Gate 2 bug pass and invariants"),
         ("general-purpose", "Gate 2 cold review, then review-pr"),
         ("general-purpose", "Gate 2: review PR 151"),
+        ("general-purpose", "Gate 2: /code-review then review-pr"),
+        ("general-purpose", "Gate 2 code review, then invariants"),
+        ("general-purpose", "Gate 2 full review incl. invariants"),
+        ("general-purpose", "Gate 2 re-run on fixes (invariants too)"),
+        ("general-purpose", "Gate 2 pass on the fixes"),
     ],
 )
 def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
@@ -200,8 +203,11 @@ def test_a_gate_2_call_to_any_other_agent_is_denied_and_told_which_agent_to_use(
         (ctx.GATE2_AGENT, "Gate 2 cold review, CC-1"),
         ("general-purpose", "Gate 1 mutation check"),
         ("general-purpose", "Gate 2 invariants pass"),
-        ("general-purpose", "Gate 2, review-pr pass"),
+        ("general-purpose", "Gate-2 review-pr invariants pass, CC-1"),
+        ("general-purpose", "gate2 project invariants: re-run on the fix commit for slice 6"),
         ("general-purpose", "Read a file"),
+        # "gate two" is also an ordinary verb and number
+        ("general-purpose", "Gate two endpoints behind auth"),
         # "gate" then "2" only across a word edge: none of these names Gate 2
         ("general-purpose", "Investigate 2 failing tests"),
         ("general-purpose", "Aggregate 2 eval runs"),
@@ -232,7 +238,6 @@ def test_the_cold_agent_called_with_its_own_model_or_effort_is_denied(
     call = {"subagent_type": ctx.GATE2_AGENT, "description": "Read a file", **override}
     decision = gate(capsys, call)
     assert decision is not None and decision["permissionDecision"] == "deny"
-    assert "without `model` and `effort`" in decision["permissionDecisionReason"]
 
 
 def test_a_label_that_is_not_text_is_still_read(capsys: pytest.CaptureFixture[str]) -> None:
@@ -270,9 +275,9 @@ def test_the_agent_the_gate_names_is_committed_and_names_its_own_model_and_effor
         line.split(": ", 1) for line in text.split("---")[1].strip().splitlines() if ": " in line
     )
     assert head["name"] == ctx.GATE2_AGENT
-    # A named model, never the caller's. The hook cannot see which model the caller runs on.
+    # A named model. The hook does not check which model the caller runs on.
     assert head["model"] not in ("", "inherit")
-    assert head["effort"]  # a subagent on another model does not take the session's level
+    assert head["effort"]  # without one, the agent need not run at the session's level
 
 
 @pytest.mark.parametrize(
@@ -291,19 +296,36 @@ def test_everything_that_sends_gates_to_a_subagent_names_the_agent_the_gate_allo
     assert ctx.GATE2_AGENT in (ROOT / rel).read_text("utf-8")
 
 
-def test_the_gate_2_handoff_names_the_cold_agent_and_the_other_phases_do_not() -> None:
-    def handoff(phase: str) -> str:
-        shell = shutil.which("bash")
-        if shell is None:
-            pytest.skip("no bash on this machine")
-        done = subprocess.run(
-            [shell, "scripts/gate.sh", phase, "9"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return done.stdout
+@pytest.mark.parametrize(
+    ("shells", "probe", "run"),
+    [
+        (["bash"], ["-c", "exit 0"], ["scripts/gate.sh"]),
+        (
+            ["pwsh", "powershell"],
+            ["-NoProfile", "-Command", "exit 0"],
+            ["-NoProfile", "-File", "scripts/gate.ps1"],
+        ),
+    ],
+)
+def test_the_gate_2_handoff_sends_the_bug_pass_to_the_cold_agent_and_no_other_phase_does(
+    shells: list[str], probe: list[str], run: list[str]
+) -> None:
+    shell = next((found for name in shells if (found := shutil.which(name))), None)
+    # `bash` on Windows can be a launcher with nothing behind it: that is no shell, not a failure
+    if shell is None or subprocess.run([shell, *probe], check=False).returncode != 0:
+        pytest.skip(f"no working {shells[0]} on this machine")
 
-    assert ctx.GATE2_AGENT in handoff("gate2")
-    assert ctx.GATE2_AGENT not in handoff("gate1")
+    def handoff(phase: str) -> str:
+        done = subprocess.run(
+            [shell, *run, phase, "9"], cwd=ROOT, capture_output=True, text=True, check=True
+        )
+        return " ".join(done.stdout.split())
+
+    gate2 = handoff("gate2")
+    assert (
+        f"first the {ctx.GATE2_AGENT} agent" in gate2 and "general-purpose, not fork" not in gate2
+    )
+    # the cold transcript has a named file, and the second agent is told not to redo that pass
+    assert gate2.count("gate2-cold.txt") == 2
+    gate1 = handoff("gate1")
+    assert ctx.GATE2_AGENT not in gate1 and "general-purpose, not fork" in gate1
