@@ -1,0 +1,48 @@
+CC-145 AC6 handoff proof, closed ticket, run 2 (after the fix in 1794e8d). 2026-11-26.
+Fresh general-purpose agent, no caller history, in the fresh detached worktree
+.worktrees/cc-145-proof moved to 1794e8d (no .env: Jira was read through the main checkout's).
+Prompt given (verbatim): the same as ac6-handoff-cc-145.txt with "Ticket: CC-144".
+Run 1 and the two defects it found: ac6-handoff-cc-144.txt.
+
+Agent reply (verbatim):
+
+**CC-144 is Done in Jira.** It is closed and the closure check passes on main. No phase can start on it, and nothing in its criteria is left for the owner.
+
+**Commands I ran**, all read-only, from `C:\Users\johnh\Dropbox\Python\census-concierge\.worktrees\cc-145-proof`. This worktree is on a detached HEAD at 1794e8d.
+1. `uv run python scripts/brief.py --help`
+2. `uv run python scripts/brief.py preflight CC-144`. It exited 1 with "CC-144 is Done in Jira: no phase may start on it" and named the two status commands below. AGENTS.md says to print the phase brief for ticket work, and that brief starts with these two commands.
+3. `uv run python scripts/jira_fetch.py issue CC-144 --md`
+4. `uv run python scripts/closure.py check evidence/closure/CC-144.toml --head origin/main`. It printed `CLOSURE OK`, exit 0.
+5. `git rev-parse HEAD; git rev-parse origin/main; git merge-base --is-ancestor a315b55 origin/main; git status --short`. The local `origin/main` ref is ab4c27d (I did not fetch), the merge commit a315b55 is part of it, and the working tree is clean.
+
+I also read `AGENTS.md`, the start of `.claude/PLAN.md` and parts of `scripts/brief.py`, and confirmed that `evidence/closure/CC-144.toml` exists.
+
+**What the two commands show:**
+- **Ticket:** "One line names the gate in every open ticket", a Story under epic CC-142. Its criteria are AC1–AC4 and TC1–TC3.
+- **Owner decisions:** on 2026-11-24 the owner approved the bulk edit, to run only after they approved the snapshots. On 2026-11-26 the owner approved snapshot manifest b586fe37… for 20 ticket-description edits, and accepted removing the rule "unresolved review findings block shipping and Done".
+- **Results:** all seven rows are PASS.
+  - The dry run read 54 open tickets and found 20 to change. The ticket had estimated about 23.
+  - The apply wrote 20 tickets, refused 0, and left the criterion IDs unchanged on each.
+  - The second dry run found 0 left to change.
+  - The tests passed: 428 passed in `test_jira_gate_line.py`.
+- **Commits tested:** AC1, AC2, AC4, TC1 and TC2 at 1957a77; AC3 and TC3 at 1d5af21. AC4 was rerun at 5931fb4 after main was merged into the branch.
+- **Merge:** PR #151 merged as a315b55. The close comment ran its checks on main at ab4c27d: closure OK, 583 tests passed, budgets and invariants exit 0, and CI green.
+- **E2E:** none is owed, because the merge changed no `api/src`, `evals/`, `web/` or run-harness file.
+- **Stale evidence:** six evidence hashes were first recorded with Windows line endings and were wrong. Jira comment 10996 records the correct values. The closure check now passes on main, so the record is consistent.
+
+**Review gaps recorded on the ticket.** They do not reopen it, because no criterion depends on them:
+- No cold bug review read 6f054c5, the fix of the re-run's findings. The invariants review of 3dfc74b read that diff and found no new defect.
+- No separate reviewer read the changes after 3dfc74b, including the AC4 rerun.
+- The Jira-writing commands (AC1, AC3, TC3) were not rerun after the merge. Their rows rest on the recorded runs.
+
+**Follow-ups from the final review, none of them filed as tickets:**
+- **F4:** other open tickets still have stale or conflicting gate text, including CC-3 AC4, CC-104 and CC-132.
+- **F5:** `.claude/DESIGN.md` section 8 and the PLAN latency paragraph.
+- **F6:** the one-time script and its tests stay on main.
+- **F7:** stale notes in `approval.md` and `plan.md`.
+- **F9:** the playbook sentence was added to an existing line.
+- **F10:** amended rows need no command; this is a default.
+
+The owner can choose to file tickets for these; nothing in CC-144 requires it.
+
+I edited no files, changed no git state and wrote nothing to Jira.
