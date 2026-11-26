@@ -278,6 +278,8 @@ def test_an_approved_edit_that_would_change_the_ids_is_still_not_written(
         "Note: " + CLEARANCE,
         "Retained from before.\n" + AUDIT,
         "Existing AC/TC, earned\nfloors, in two lines.",
+        # no sentence of the pasted wording is left whole, so only the opening words show it
+        "Metric progression and non-regression contract, rewritten since.",
     ],
 )
 def test_a_reworded_copy_refuses_the_whole_ticket(tmp_path: Path, reworded: str) -> None:
@@ -495,6 +497,8 @@ def test_a_write_jira_did_not_keep_stops_the_run(tmp_path: Path, stored: dict[st
 
     assert jg.apply(tmp_path, mangling) == 1
     assert jira.writes == ["CC-1"]
+    # the history proof stops this run too; the comparison of what Jira holds is what must say it
+    assert "does not hold the approved description" in (tmp_path / "FAILED").read_text("utf-8")
 
 
 def test_after_apply_a_dry_run_finds_nothing_left_and_a_second_apply_writes_nothing(
@@ -1110,6 +1114,7 @@ def _names(key: str) -> dict[str, str]:
         "another ticket's files",
         "one bad entry after a good one",
         "a key from another project",
+        "a CC key that is a path",
         "not JSON",
     ],
 )
@@ -1136,6 +1141,8 @@ def test_a_manifest_that_names_other_files_removes_nothing(tmp_path: Path, bad: 
         manifest["tickets"]["CC-2"] = {"files": {"../unrelated.txt": "0"}}
     elif bad == "a key from another project":
         manifest["tickets"]["EXT-2"] = {"files": _names("EXT-2")}
+    elif bad == "a CC key that is a path":
+        manifest["tickets"]["CC-/../../x"] = {"files": _names("CC-/../../x")}
     raw = "{ not json" if bad == "not JSON" else json.dumps(manifest)
     (out / "manifest.json").write_text(raw, encoding="utf-8")
     kept = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
@@ -1204,7 +1211,7 @@ def test_one_listed_change_that_is_not_shown_to_be_this_write_stops_the_run(
     assert jg.apply(tmp_path, racing) == 1
     assert done and jira.writes == ["CC-1"]
     stopped = (tmp_path / "FAILED").read_text(encoding="utf-8")
-    assert said in stopped and "History" in stopped
+    assert said in stopped and "before restoring anything" in stopped
     assert "put back only what this write took out" in stopped
 
 
@@ -1394,9 +1401,10 @@ class Race:
         since = len(self.jira.history["CC-1"])
         if self.change == "an edit":
             self.jira.owner_adds_a_note("CC-1")
-        elif self.change == "a link":
+        elif self.change in ("a link", "code", "strong", "em"):
             was = as_text(self.jira.tickets["CC-1"])
-            self.jira.tickets["CC-1"]["content"][0]["content"][0]["marks"] = [copy.deepcopy(LINK)]
+            mark = copy.deepcopy(LINK) if self.change == "a link" else {"type": self.change}
+            self.jira.tickets["CC-1"]["content"][0]["content"][0]["marks"] = [mark]
             self.jira.changed("CC-1", was=was)
         elif self.change == "a close":
             self.jira.closed.add("CC-1")
@@ -1464,11 +1472,28 @@ def test_another_change_at_any_point_of_a_write_is_never_hidden_by_it(
         assert TRACES[change] in json.dumps(jira.tickets["CC-1"])
 
 
+@pytest.mark.parametrize("mark", ["code", "strong", "em"])  # listed here, not read from MARKUP
+def test_formatting_added_just_before_a_write_does_not_pass_for_part_of_it(
+    tmp_path: Path, mark: str
+) -> None:
+    """The write removes it, and its own history entry is not listed yet. This write's entry then
+    goes from a text that shows the formatting, which is not the text read before the write."""
+    jira = two_tickets(tmp_path)
+    race = Race(jira, mark, JUST_BEFORE_THE_WRITE, "the other change's")
+    assert jg.apply(tmp_path, race.api) == 1
+    assert race.happened and jira.writes == ["CC-1"]
+    assert NOT_THIS_WRITE in (tmp_path / "FAILED").read_text(encoding="utf-8")
+
+
 # --- a reply that cannot be used is not evidence -----------------------------------------------
 
 
 def spoiled(answer: dict[str, Any], fault: str) -> dict[str, Any]:
-    if fault == "another key":
+    if fault == "unreadable":
+        raise ValueError("not JSON")
+    if fault == "no key":
+        del answer["key"]
+    elif fault == "another key":
         answer["key"] = "EXT-2"
     elif fault == "no text":
         answer["fields"]["description"] = None
@@ -1485,13 +1510,15 @@ BAD_REPLIES = [
     *[
         (position, fault)
         for position in (1, 4)  # the two text reads
-        for fault in ("another key", "no text", "empty text", "text that is an object")
+        for fault in ("another key", "no key", "no text", "empty text", "text that is an object")
     ],
     *[
         (position, fault)
         for position in (2, 6)  # the two ticket reads
-        for fault in ("another key", "not a document")
+        for fault in ("another key", "no key", "not a document")
     ],
+    # before the write, a reply of any of the three reads may not parse
+    *[(position, "unreadable") for position in range(JUST_BEFORE_THE_WRITE)],
 ]
 
 
@@ -1610,8 +1637,22 @@ def test_a_ticket_that_answers_under_another_key_is_not_snapshotted(
 
 @pytest.mark.parametrize(
     "description",
-    ["a carrier as a string", {"errorMessages": ["x"]}, [], {"type": "doc"}],
-    ids=["a string", "an object that is no document", "a list", "a document with no content"],
+    [
+        "a carrier as a string",
+        {"errorMessages": ["x"]},
+        [],
+        {"type": "doc"},
+        {"type": "paragraph", "content": []},
+        {"type": "doc", "content": "text where the blocks belong"},
+    ],
+    ids=[
+        "a string",
+        "an object that is no document",
+        "a list",
+        "a document with no content",
+        "a node that is not a document",
+        "content that is not a list",
+    ],
 )
 def test_a_description_that_is_not_a_document_is_never_counted_as_clean(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], description: Any
@@ -1627,7 +1668,8 @@ def test_a_description_that_is_not_a_document_is_never_counted_as_clean(
 
     assert jg.dry_run(tmp_path, jira.search, odd) == 1
     out = capsys.readouterr().out
-    assert "REFUSED  CC-1" in out and "0 ticket(s) left to change, 1 refused" in out
+    assert "REFUSED  CC-1" in out
+    assert "0 open ticket(s) read: 0 ticket(s) left to change, 1 refused" in out
     assert not (tmp_path / "manifest.json").exists()
 
 
@@ -1638,9 +1680,30 @@ def test_an_empty_description_is_a_ticket_without_the_wording(
     assert "1 open ticket(s) read: 0 ticket(s) left to change, 0 refused" in capsys.readouterr().out
 
 
+def test_a_closed_ticket_is_dropped_whatever_its_description_holds(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Only open tickets are judged: a closed one is not refused for a description nobody edits."""
+    jira = Jira(CC_1="not a document", CC_2=ticket())
+    jira.closed.add("CC-1")
+    assert snapshot(jira, tmp_path) == 0
+    assert "1 open ticket(s) read: 1 ticket(s) left to change, 0 refused" in capsys.readouterr().out
+
+
 def test_a_ticket_from_another_project_is_not_snapshotted(tmp_path: Path) -> None:
     assert snapshot(Jira(EXT_2=ticket()), tmp_path) == 1
     assert not (tmp_path / "manifest.json").exists()
+
+
+@pytest.mark.parametrize("key", ["EXT-2", "CC-", "CC-two", "CC-1/../EXT-2"])
+def test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], key: str
+) -> None:
+    """The key goes into the request path, so it is judged before anything is asked with it."""
+    out = tmp_path / "snapshots"
+    assert jg.dry_run(out, lambda *args, **kwargs: [{"key": key}], never) == 1
+    assert f"REFUSED  {key}  " in capsys.readouterr().out
+    assert not out.exists()
 
 
 def test_an_approved_set_that_lists_another_project_writes_nothing(tmp_path: Path) -> None:
