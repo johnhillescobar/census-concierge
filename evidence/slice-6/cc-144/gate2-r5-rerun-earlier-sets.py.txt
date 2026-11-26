@@ -1,0 +1,69 @@
+"""Rerun this round's two earlier mutation sets on the final code, re-anchored where later fixes
+moved the text. The original scripts are imported unchanged. Run from the worktree root."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import mutate_review  # noqa: E402
+import mutate_shapes  # noqa: E402
+
+RENAMES = (("NO_ANSWER", "FAILED_REQUEST"),)
+OLD_UNUSABLE = "UNUSABLE = (ValueError, KeyError, TypeError, AttributeError)\n"
+NEW_UNUSABLE = "UNUSABLE = (ValueError, KeyError, TypeError, AttributeError, RecursionError)\n"
+
+# label -> swaps that revert the same behaviour in the final code
+REANCHORED = {
+    "a search with no answer is not caught": [(
+        "        keys = _listed_keys(search)\n    except (*UNUSABLE, *FAILED_REQUEST) as exc:\n",
+        "        keys = _listed_keys(search)\n    except UNUSABLE as exc:\n",
+    )],
+    "the default folder is a fixed name": [(
+        "    out = Path(tempfile.mkdtemp(prefix=OUT_PREFIX))\n",
+        '    out = Path(tempfile.gettempdir()) / "jira-gate-line"\n    out.mkdir(exist_ok=True)\n',
+    )],
+    "no answer is described as an unusable reply": [(
+        "    if isinstance(exc, FAILED_REQUEST):\n", "    if False:\n",
+    )],
+}
+READS = "except (*UNUSABLE, *FAILED_REQUEST) as exc:  # not read"
+AFTER = '    except (*UNUSABLE, *FAILED_REQUEST) as exc:\n        return f"the write'
+REANCHORED["the reads before a write catch ValueError only"] = [
+    (READS, READS.replace("*UNUSABLE", "ValueError"))
+]
+REANCHORED["after the write AttributeError is not caught"] = [
+    (AFTER, AFTER.replace("*UNUSABLE", "ValueError, KeyError, TypeError, RecursionError"))
+]
+REANCHORED["after the write only ValueError is caught of the unusable"] = [
+    (AFTER, AFTER.replace("*UNUSABLE", "ValueError"))
+]
+for name in ("ValueError", "KeyError", "TypeError", "AttributeError"):
+    kept = NEW_UNUSABLE.replace(f"({name}, ", "(").replace(f" {name},", "")
+    assert kept != NEW_UNUSABLE
+    REANCHORED[f"UNUSABLE without {name}"] = [(NEW_UNUSABLE, kept)]
+
+
+def renamed(text: str) -> str:
+    for old, new in RENAMES:
+        text = text.replace(old, new)
+    return text
+
+
+def adapt(mutations, label_prefix=""):
+    out = []
+    for label, swaps in mutations:
+        if label in REANCHORED:
+            out.append((label, REANCHORED[label]))
+            print(f"re-anchored: {label}")
+            continue
+        out.append((label, [(renamed(old), renamed(new)) for old, new in swaps]))
+    return out
+
+
+print("== set 1: gate2-r5-fixes (the review round's fix)")
+mutate_review.MUTATIONS = adapt(mutate_review.MUTATIONS)
+first = mutate_review.main()
+print("\n== set 2: gate1-r5-fixes (wrong-shape replies and the stand-in pin)")
+mutate_shapes.PRODUCT = adapt(mutate_shapes.PRODUCT)
+second = mutate_shapes.main()
+sys.exit(first or second)

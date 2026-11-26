@@ -1,0 +1,420 @@
+Earlier sets of this round rerun at 6f054c5fb94c368219dd9d7cc3276928079a1029
+
+== set 1: gate2-r5-fixes (the review round's fix)
+re-anchored: a search with no answer is not caught
+re-anchored: no answer is described as an unusable reply
+re-anchored: the default folder is a fixed name
+BASELINE (nothing reverted) 428 passed, 1 warning in 6.44s
+REVERTED: only the top of a description is checked
+  GOOD
+        6 failed, 422 passed, 1 warning in 6.49s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: a content that is not a list passes
+  GOOD
+        4 failed, 424 passed, 1 warning in 6.75s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: text that cannot be stored is not tried while judging
+  GOOD
+        2 failed, 426 passed, 1 warning in 6.90s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: tickets are judged together, outside the per-ticket handler
+  GOOD
+        3 failed, 425 passed, 1 warning in 10.32s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+REVERTED: an unjudged ticket is counted as read
+  GOOD
+        38 failed, 390 passed, 1 warning in 8.62s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+REVERTED: NO_ANSWER without OSError
+  GOOD
+        21 failed, 407 passed, 1 warning in 8.47s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without HTTPException
+  GOOD
+        7 failed, 421 passed, 1 warning in 7.70s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without SystemExit
+  GOOD
+        8 failed, 420 passed, 1 warning in 7.99s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: a dry run refuses a ticket with no answer and goes on
+  GOOD
+        6 failed, 422 passed, 1 warning in 7.58s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+REVERTED: the dry run's message does not name the ticket
+  GOOD
+        5 failed, 423 passed, 1 warning in 7.35s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+REVERTED: a search with no answer is not caught
+  GOOD
+        6 failed, 422 passed, 1 warning in 7.59s
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+REVERTED: the reads before a write do not catch no answer
+  GOOD
+        15 failed, 413 passed, 1 warning in 8.13s
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+REVERTED: after a write no answer is not caught
+  GOOD
+        8 failed, 420 passed, 1 warning in 8.18s
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: no answer is described as an unusable reply
+  GOOD
+        21 failed, 407 passed, 1 warning in 8.01s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+REVERTED: a search entry without a key is not caught
+  GOOD
+        3 failed, 425 passed, 1 warning in 7.32s
+          test_a_search_entry_without_a_key_stops_the_dry_run_before_it_changes_anything
+REVERTED: a key listed twice is read twice
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.65s
+          test_a_ticket_the_search_lists_twice_is_read_and_counted_once
+REVERTED: a pointer is refused only while the contract is still there
+  GOOD
+        3 failed, 425 passed, 1 warning in 8.01s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a pointer alone does not count as carrying the wording
+  GOOD
+        2 failed, 426 passed, 1 warning in 9.23s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a UTF-16 approval is read as UTF-8
+  GOOD
+        2 failed, 426 passed, 1 warning in 7.75s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: only little-endian UTF-16 is recognised
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.44s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: an approval that is not text does not name its file
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.14s
+          test_an_approval_that_is_not_text_writes_nothing_and_says_which_file
+REVERTED: the default folder is a fixed name
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.96s
+          test_the_default_snapshot_folder_is_new_each_run_and_outside_the_repository
+REVERTED: attrs are taken to be an object
+  GOOD
+        4 failed, 424 passed, 1 warning in 7.43s
+          test_attributes_that_are_not_an_object_never_crash_an_apply
+TOTAL: 23 reverts, 23 GOOD, 0 BAD
+RESTORED 428 passed, 1 warning in 7.24s
+
+== set 2: gate1-r5-fixes (wrong-shape replies and the stand-in pin)
+re-anchored: UNUSABLE without ValueError
+re-anchored: UNUSABLE without KeyError
+re-anchored: UNUSABLE without TypeError
+re-anchored: UNUSABLE without AttributeError
+BASELINE (nothing reverted) 428 passed, 1 warning in 5.75s
+
+== product, 9485c97
+REVERTED: UNUSABLE without ValueError
+  GOOD
+        113 failed, 315 passed, 1 warning in 15.44s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_file_that_says_more_than_the_hash_is_not_an_approval
+          test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about
+          test_a_manifest_that_names_other_files_removes_nothing
+REVERTED: UNUSABLE without KeyError
+  GOOD
+        16 failed, 412 passed, 1 warning in 7.87s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without TypeError
+  GOOD
+        20 failed, 408 passed, 1 warning in 8.49s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without AttributeError
+  GOOD
+        17 failed, 411 passed, 1 warning in 7.63s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: the dry run catches ValueError only
+  GOOD
+        11 failed, 417 passed, 1 warning in 11.50s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+Traceback (most recent call last):
+  File "C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\rerun_round_sets.py", line 57, in <module>
+    second = mutate_shapes.main()
+             ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johnh\AppData\Local\Temp\claude\5b8db11426f64676\9dd6a55b-0416-43c9-966e-398420f17192\scratchpad\mutate_shapes.py", line 142, in main
+    assert old in text, (label, old)
+           ^^^^^^^^^^^
+AssertionError: ('the reads before a write catch ValueError only', 'except UNUSABLE as exc:  # a reply')
+exit 1
+
+================ second run: set 2 stopped above on an anchor that later fixes moved ================
+Rerun at 6f054c5fb94c368219dd9d7cc3276928079a1029
+
+== set 1: gate2-r5-fixes (the review round's fix)
+re-anchored: a search with no answer is not caught
+re-anchored: no answer is described as an unusable reply
+re-anchored: the default folder is a fixed name
+BASELINE (nothing reverted) 428 passed, 1 warning in 6.28s
+REVERTED: only the top of a description is checked
+  GOOD
+        6 failed, 422 passed, 1 warning in 7.36s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: a content that is not a list passes
+  GOOD
+        4 failed, 424 passed, 1 warning in 6.83s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: text that cannot be stored is not tried while judging
+  GOOD
+        2 failed, 426 passed, 1 warning in 8.36s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+REVERTED: tickets are judged together, outside the per-ticket handler
+  GOOD
+        3 failed, 425 passed, 1 warning in 11.45s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+REVERTED: an unjudged ticket is counted as read
+  GOOD
+        38 failed, 390 passed, 1 warning in 8.46s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+          test_a_ticket_that_answers_under_another_key_is_not_snapshotted
+REVERTED: NO_ANSWER without OSError
+  GOOD
+        21 failed, 407 passed, 1 warning in 9.47s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without HTTPException
+  GOOD
+        7 failed, 421 passed, 1 warning in 7.89s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: NO_ANSWER without SystemExit
+  GOOD
+        8 failed, 420 passed, 1 warning in 7.73s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: a dry run refuses a ticket with no answer and goes on
+  GOOD
+        6 failed, 422 passed, 1 warning in 7.10s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_ticket_that_cannot_be_read_leaves_the_earlier_set_as_it_was
+REVERTED: the dry run's message does not name the ticket
+  GOOD
+        5 failed, 423 passed, 1 warning in 7.17s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+REVERTED: a search with no answer is not caught
+  GOOD
+        6 failed, 422 passed, 1 warning in 7.15s
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+          test_a_search_with_no_answer_leaves_the_set_as_it_was
+REVERTED: the reads before a write do not catch no answer
+  GOOD
+        15 failed, 413 passed, 1 warning in 8.49s
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+REVERTED: after a write no answer is not caught
+  GOOD
+        8 failed, 420 passed, 1 warning in 8.28s
+          test_a_write_that_cannot_be_confirmed_fails_loudly_and_stays_stopped
+REVERTED: no answer is described as an unusable reply
+  GOOD
+        21 failed, 407 passed, 1 warning in 7.85s
+          test_a_dry_run_with_no_answer_names_the_ticket_and_leaves_the_set_as_it_was
+          test_a_read_before_a_write_with_no_answer_refuses_that_ticket_and_goes_on
+          test_a_search_cut_off_by_the_network_is_named_as_the_search
+REVERTED: a search entry without a key is not caught
+  GOOD
+        3 failed, 425 passed, 1 warning in 7.69s
+          test_a_search_entry_without_a_key_stops_the_dry_run_before_it_changes_anything
+REVERTED: a key listed twice is read twice
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.13s
+          test_a_ticket_the_search_lists_twice_is_read_and_counted_once
+REVERTED: a pointer is refused only while the contract is still there
+  GOOD
+        3 failed, 425 passed, 1 warning in 7.33s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a pointer alone does not count as carrying the wording
+  GOOD
+        2 failed, 426 passed, 1 warning in 7.31s
+          test_a_pointer_left_after_the_contract_was_removed_by_hand_refuses_the_ticket
+REVERTED: a UTF-16 approval is read as UTF-8
+  GOOD
+        2 failed, 426 passed, 1 warning in 7.32s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: only little-endian UTF-16 is recognised
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.82s
+          test_the_hash_approves_in_any_of_these_encodings_and_only_alone
+REVERTED: an approval that is not text does not name its file
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.18s
+          test_an_approval_that_is_not_text_writes_nothing_and_says_which_file
+REVERTED: the default folder is a fixed name
+  GOOD
+        1 failed, 427 passed, 1 warning in 8.61s
+          test_the_default_snapshot_folder_is_new_each_run_and_outside_the_repository
+REVERTED: attrs are taken to be an object
+  GOOD
+        4 failed, 424 passed, 1 warning in 7.88s
+          test_attributes_that_are_not_an_object_never_crash_an_apply
+TOTAL: 23 reverts, 23 GOOD, 0 BAD
+RESTORED 428 passed, 1 warning in 7.03s
+
+== set 2: gate1-r5-fixes (wrong-shape replies and the stand-in pin)
+re-anchored: UNUSABLE without ValueError
+re-anchored: UNUSABLE without KeyError
+re-anchored: UNUSABLE without TypeError
+re-anchored: UNUSABLE without AttributeError
+re-anchored: the reads before a write catch ValueError only
+re-anchored: after the write AttributeError is not caught
+re-anchored: after the write only ValueError is caught of the unusable
+BASELINE (nothing reverted) 428 passed, 1 warning in 6.44s
+
+== product, 9485c97
+REVERTED: UNUSABLE without ValueError
+  GOOD
+        113 failed, 315 passed, 1 warning in 14.75s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_description_that_is_not_a_document_is_never_counted_as_clean
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_file_that_says_more_than_the_hash_is_not_an_approval
+          test_a_listed_key_that_is_not_a_cc_number_is_never_asked_about
+          test_a_manifest_that_names_other_files_removes_nothing
+REVERTED: UNUSABLE without KeyError
+  GOOD
+        16 failed, 412 passed, 1 warning in 8.17s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without TypeError
+  GOOD
+        20 failed, 408 passed, 1 warning in 8.29s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: UNUSABLE without AttributeError
+  GOOD
+        17 failed, 411 passed, 1 warning in 8.82s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: the dry run catches ValueError only
+  GOOD
+        11 failed, 417 passed, 1 warning in 12.57s
+          test_a_description_that_cannot_be_judged_is_refused_and_the_others_go_on
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+REVERTED: the reads before a write catch ValueError only
+  GOOD
+        23 failed, 405 passed, 1 warning in 8.36s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: after the write AttributeError is not caught
+  GOOD
+        7 failed, 421 passed, 1 warning in 7.06s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: after the write only ValueError is caught of the unusable
+  GOOD
+        23 failed, 405 passed, 1 warning in 8.92s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: a KeyError is shown as the bare name
+  GOOD
+        4 failed, 424 passed, 1 warning in 6.97s
+          test_a_description_nested_too_deeply_never_crashes_an_apply
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_dry_run_refuses_a_description_nested_too_deeply_and_goes_on
+REVERTED: a status category that is not text reads as open
+  GOOD
+        3 failed, 425 passed, 1 warning in 7.29s
+          test_a_dry_run_never_counts_a_reply_of_the_wrong_shape_as_read
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: history entries need not be a list
+  GOOD
+        2 failed, 426 passed, 1 warning in 7.13s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: history items need not be a list
+  GOOD
+        2 failed, 426 passed, 1 warning in 6.92s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+REVERTED: a history that ends early is taken as complete
+  GOOD
+        2 failed, 426 passed, 1 warning in 6.68s
+          test_a_reply_of_the_wrong_shape_refuses_the_ticket_or_stops_the_run
+SUBTOTAL: 13 reverts, 13 GOOD, 0 BAD
+
+== stand-in survivors of gate1-r5
+REVERTED: an empty description reads as empty text, not null
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.39s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the search returns descriptions
+  GOOD
+        1 failed, 427 passed, 1 warning in 8.78s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the search accepts whatever fields are asked for
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.32s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: history ids are made from the key and the count
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.97s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: the history hands out its own entries
+  GOOD
+        1 failed, 427 passed, 1 warning in 8.34s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: an issue reply has no id
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.80s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a search result has no id and no fields
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.03s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history page has only values and total
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.07s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history entry has no author and no created
+  GOOD
+        1 failed, 427 passed, 1 warning in 7.47s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+REVERTED: a history item has only fieldId and the two texts
+  GOOD
+        1 failed, 427 passed, 1 warning in 6.96s
+          test_the_stand_in_answers_in_the_shapes_read_from_jira
+SUBTOTAL: 10 reverts, 10 GOOD, 0 BAD
+
+RESTORED 428 passed, 1 warning in 7.70s
+exit 0
