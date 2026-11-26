@@ -24,6 +24,12 @@ that form does not show would not be caught.
 that Jira's history entry for this script's write holds exactly that text, or lists it at once. If not, the run leaves
 FAILED after one ticket: check that ticket and its History before deleting the file.
 
+**An open ticket can be missed.** A ticket that Jira's search does not list is not read. The shared search helper
+(`jira_fetch._search`) also returns a short list without an error when a later page has no `issues` or a page token
+repeats. The 54 open tickets were under the 100 per page it asks for. Owner decision, 2026-11-25: the shared code stays
+unchanged and the limit is documented, keeping CC-144 to one script. When checking TC3, compare the dry run's
+"open ticket(s) read" count with Jira's own.
+
 The hash is the same as before the later fixes because the proposed text did not change. The script did.
 
 ## Text that stays and will read wrong (found by Gate 2; the script edits no criterion)

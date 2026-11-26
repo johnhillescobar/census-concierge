@@ -1,0 +1,32 @@
+Fake Jira, current code at 599a57d2f7eb5d725bac01a51827ce1a8fbe49bb. No network.
+
+requests about CC-1 in a clean apply: 7; positions 0..7 (7 = after the last one)
+combinations run: 96
+
+close: STALE: called written though at the last request it was not approved + CC-1 + open
+   before request 6: history late = ['none']
+
+edit: STALE: called written though at the last request it was not approved + CC-1 + open
+   before request 6: history late = ['theirs']
+
+link: STALE: called written though at the last request it was not approved + CC-1 + open
+   before request 6: history late = ['theirs']
+
+move: STALE: called written though at the last request it was not approved + CC-1 + open
+   before request 0: history late = ['none']
+   before request 1: history late = ['none']
+   before request 2: history late = ['none']
+   before request 3: history late = ['none']
+   before request 4: history late = ['none']
+   before request 5: history late = ['none']
+   before request 6: history late = ['none']
+
+move: WROTE: the change came before the pre-write read, yet the script wrote
+   before request 0: history late = ['none', 'ours']
+   before request 1: history late = ['none', 'ours']
+   before request 2: history late = ['none', 'ours']
+
+== found while tracing the script (not in either review)
+1. a ticket that carries the wording, its description arriving as a string: dry run exit 0; '1 open ticket(s) read: 0 ticket(s) left to change, 0 refused'
+2. search helper, second page has no 'issues' list: returns ['CC-1'] with no error; 0 page(s) never asked for
+2. search helper, a page token repeats: returns ['CC-1', 'CC-2'] with no error; 1 page(s) never asked for
