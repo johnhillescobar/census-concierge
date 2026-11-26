@@ -52,7 +52,8 @@ def run(monkeypatch: pytest.MonkeyPatch, *argv: str) -> int:
 def test_md_prints_the_description_then_the_last_comments_oldest_first(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    newest_first = [comment("2026-11-26", "second"), comment("2026-11-25", "first")]
+    # bodies the header cannot contain: it says "oldest first", so "first" would match it
+    newest_first = [comment("2026-11-26", "body-two"), comment("2026-11-25", "body-one")]
     asked: list[str] = []
 
     def api(method: str, path: str, body: Any = None) -> dict[str, Any]:
@@ -63,7 +64,7 @@ def test_md_prints_the_description_then_the_last_comments_oldest_first(
     assert run(monkeypatch, "issue", "cc-9", "--md", "--comments", "2") == 0
     out = capsys.readouterr().out
     assert "AC1. it works" in out
-    assert out.index("AC1. it works") < out.index("first") < out.index("second")
+    assert out.index("AC1. it works") < out.index("body-one") < out.index("body-two")
     assert any("orderBy=-created" in p and "maxResults=2" in p for p in asked)
 
 
